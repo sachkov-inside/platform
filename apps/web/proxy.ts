@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { consumeLogoutReturn } from "./src/_app/logout-return";
 import { isLegalPagePath } from "./src/_pages/legal.address";
 import {
   createEntryRateLimiter,
@@ -20,6 +21,8 @@ const UNROUTED_PATH = "/_unrouted";
  */
 export function proxy(request: NextRequest): Response {
   const { pathname } = request.nextUrl;
+  const logoutReturn = consumeLogoutReturn(request);
+  if (logoutReturn !== null) return logoutReturn;
   if (pathname.startsWith("/legal/") && !isLegalPagePath(pathname)) {
     return NextResponse.rewrite(new URL(UNROUTED_PATH, request.url));
   }
@@ -31,13 +34,16 @@ export function proxy(request: NextRequest): Response {
 
 /**
  * Входные маршруты совпадают с `entryRoutePaths`, и `entry-rate-limit.test.ts` сверяет оба перечня.
- * Последний элемент — раздел документов, его адреса известны web целиком.
+ * Главная также принимает сохранённый путь после выхода. Последний элемент проверяет адреса документов.
  */
 export const config = {
   matcher: [
+    "/",
     "/auth/sign-in",
     "/callback",
     "/communications/visit",
+    "/payment/links/:path*",
+    "/telegram/continue",
     "/api/account/billing/purchase",
     "/api/account/billing/payment-method/change",
     "/api/account/billing/subscription/change",

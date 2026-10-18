@@ -22,7 +22,7 @@ export function paymentAdmission(input: {
   readonly context: PaymentContext;
   readonly snapshot: Pick<
     PriceSnapshot,
-    "offer" | "paymentOption" | "renewalPriceKopecks"
+    "offer" | "paymentOption" | "renewalPriceKopecks" | "individualPayment"
   > & { readonly firstPriceKopecks?: number };
   readonly sale: SaleCapability;
   readonly grounds: PurchaseGrounds;
@@ -42,6 +42,7 @@ export function paymentAdmission(input: {
   // Оплаченный договор продолжает жить по принятому снимку, независимо от новой витрины и приглашения.
   if (
     !continuation &&
+    (recurring || input.snapshot.individualPayment === undefined) &&
     (!offerAdmits(input.snapshot.offer, input.grounds) ||
       (recurring &&
         !input.grounds.invitedOfferIds.includes(input.snapshot.offer.id)))

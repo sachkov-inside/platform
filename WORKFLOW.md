@@ -1,7 +1,9 @@
 # Developer process
 
+Session mode: worktree
+
 Pipeline skills in `.agents/skills` supply workflows; this contract owns project completion requirements and owner overrides.
-Keep synchronized skills unchanged. Put project exceptions here and verification commands in `AGENTS.md`.
+Keep skills identical to their recorded workspace source. Put project exceptions here and checks in `AGENTS.md`.
 
 ## Completion requirements
 
@@ -38,18 +40,34 @@ or temporary semantic UI with a linked integration ticket. After publishing chil
 `ready-for-agent` from the parent; this overrides `to-tickets`' restriction on modifying parents.
 An explicit implementation assignment runs through a ready PR without renewed approval.
 The owner can invoke [implement](.agents/skills/implement/SKILL.md) for a ticket or
-[implement-spec](.agents/skills/implement-spec/SKILL.md) for an assigned specification.
+[implement-spec](.agents/skills/implement-spec/SKILL.md) for an assigned specification, including
+an explicit natural-language request to implement the whole specification.
 Acceptance criteria identify agreed seams for `tdd`;
 write their failing tests first. A criterion with no behaviour needs no test.
 
 ## Sessions and coordinated execution
 
-Keep single-session work in its current writing worktree. Native workers inherit the current agent and model
-unless the owner selects otherwise. Codex work stays in Codex, including native review subagents.
-Herdr manages independent owner or project sessions; a native subagent is not a new owner session.
-Name another runtime or session only from verified runtime information.
+Keep work in its assigned writing worktree. Native workers inherit the current agent and model unless the owner selects otherwise.
+Use the current runtime for native workers; Herdr manages separately assigned owner or project sessions.
 
-When the owner invokes `implement-spec`, follow its original body with these project overrides.
+An ordinary session launch hands off an independent owner/project session: deliver the assignment,
+verify receipt, and report its location. That completes launch, including any startup recovery.
+Ongoing prompts, answering questions, accepting results, and session closure require assigned coordination.
+Record the assigned tasks/sessions, lead, and responsibilities in the issue and handoff; monitor-only
+assignments authorize observation and reporting. Preserve foreign sessions, results, and resources.
+
+An explicit request to implement a whole specification invokes the installed
+[implement-spec](.agents/skills/implement-spec/SKILL.md), including natural-language assignments.
+Launching that work elsewhere assigns execution to the destination session only. Discussing or preparing
+a specification retains the requested scope. Native pipeline workers remain internal to their task;
+independent Herdr sessions cannot substitute for required native workers.
+
+Ordinary writing, editing, research, and material review follow the requested result and the
+[domain/editorial contracts](docs/agents/domain.md), including author acceptance and publication gates.
+Engineering task graphs, integration branches, and TDD belong to software/tooling or an explicitly
+assigned implementation workflow. Documentation-only changes retain their checks and review above.
+
+For assigned whole-specification execution, follow the installed body with these project overrides.
 A specification uses one integration branch and final PR; independent assigned tasks use separate PRs.
 Coordinate only the assigned specification or tickets and the coordinator's own workers and resources.
 Use native implementer and merger workers for the assigned specification.
@@ -64,7 +82,6 @@ checks, and next actions. On resumption reconcile actual state and assign only r
 Preserve active workers and recovered results. Resume owner-paused work only on the owner's request.
 Every implementation ticket requires independent review before acceptance into the integration branch or durable integration.
 The final integrated specification requires a separate independent review and mandatory checks before delivery.
-A completion message or green CI alone does not establish acceptance.
 
 ## Blockers and acceptance
 
@@ -81,7 +98,9 @@ Before writing an issue assignment, check remote branches and linked open PRs; W
 Branch `<type>/<issue>-<slug>` from `origin/main`; untracked tasks use `<type>/<slug>`.
 Types: `feat`, `fix`, `docs`, `chore`, `research`, `prototype`.
 Keep each writing context in its assigned worktree. Reuse that worktree for local iteration.
-New worktrees live at `<parent>/<repo>.worktrees/<task>`; `REPOSITORIES.md` owns the Inside layout.
+Use the assigned environment-provided isolated worktree, with one owner per writing worktree.
+For CLI sessions without one, create `<parent>/<repo>.worktrees/<task>` as a fallback.
+`REPOSITORIES.md` owns the canonical layout; existing worktrees keep their locations.
 
 The primary checkout belongs to the owner. Leave its tracked files unchanged; read it through `git -C`
 or absolute paths. Update it only when the owner assigns that action.
@@ -96,19 +115,24 @@ PR bodies use the owner's language and these sections: `Что сделано`, 
 
 ## Review before integration
 
-Load coding standards during review. Implementation uses its assignment, scoped context and verification;
-consult a specific standard only when a concrete implementation question needs it.
-The coordinator supplies root standards and every applicable surface standard to the Standards reviewer.
-The independent Spec reviewer receives the assignment and acceptance criteria. Keep their reports separate.
-Reviewers inspect their assigned diff directly; they do not invoke `code-review` or delegate further reviews.
-Validate each finding against its cited source before accepting or rejecting it.
+Record the base before changes. Commit, then run [code-review](.agents/skills/code-review/SKILL.md) on the immutable task commit.
+The coordinator supplies root and applicable surface standards to Standards, and the assignment and acceptance criteria to Spec.
+Keep reports separate. Reviewers inspect the diff through native read-only subagents; they do not delegate further reviews.
+When native review is unavailable, keep it pending. The shared skill owns evidence, behavioral coverage, specialist triggers and convergence.
+Record finding outcomes and review affected findings after fixes. Documentation receives review before integration;
+prototype preview and discussion retain scoped completion. Implementation loads a standard only for a concrete question.
 
-Record the base before changing files. Commit, then run `code-review` against the immutable task commit
-from that base. Supply the assignment and applicable standards. Reviewers use native read-only subagents;
-when unavailable, use a separate review process with the same inputs.
-Each finding is fixed, moved to a linked issue, or rejected with evidence.
-After fixes, review the changed findings again and record outcomes.
-Documentation changes receive this review before integration. Prototype preview and discussion use the scoped completion requirements.
+## Change classification
+
+Classification: enabled; policy: docs/agents/change-risk.md
+
+For implementation and durable integration, invoke [classify-change](.agents/skills/classify-change/SKILL.md)
+under the [project policy](docs/agents/change-risk.md). Apply the same policy to ordinary assignments,
+implementation tickets and the final integrated specification. Preparation and prototype previews retain scoped completion.
+Use trusted target rules; a proposed policy cannot authorize its own merge. Keep deployment under its existing gates.
+Complete required checks and review before delivery. Request the owner's acceptance only when trusted policy or
+classification requires it; low/medium-risk authorized work may merge automatically. Preserve unresolved decisions
+and evidence revisions in the existing issue/PR. The shared skill owns classifier procedure and reassessment.
 
 ## Completion and handoff
 
@@ -134,12 +158,11 @@ Preserve an owner review server while it is needed. Record its port, PID, cwd, s
 instructions before pane closure. A resource with changed ownership belongs to its new owner.
 If no disposable resources remain, record that fact; avoid unrelated machine-wide inventories.
 A preview link does not trigger server shutdown or final task cleanup.
-The shared `report` skill and its HTML report are not completion requirements here.
 
 ## Owner corrections
 
-Turn mechanical failures into checks and judgement rules into their owning contract.
-Apply `writing-for-agents` to agent instructions; use `retro` when the owner requests a retrospective.
+Follow [owner corrections](docs/agents/owner-corrections.md) after explicit corrective feedback.
+This project extension preserves upstream `retro` as an owner-invoked retrospective.
 
 ## Owner gates
 

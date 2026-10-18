@@ -1,0 +1,25 @@
+{
+  "name": "learner-platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test:unit": "node --test apps/backend/health.test.mjs",
+    "test:integration": "node scripts/integration.mjs",
+    "test:e2e": "node scripts/browser.mjs",
+    "build": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "fastify": "5.12.5",
+    "pg": "8.23.1",
+    "vue": "3.5.44"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "prettier": "3.9.9",
+    "@types/node": "26.6.4",
+    "@types/pg": "8.23.1",
+    "playwright": "1.63.0",
+    "oxlint": "1.86.0"
+  }
+}

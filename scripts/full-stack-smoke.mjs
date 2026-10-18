@@ -13,6 +13,10 @@ import {
 } from "./full-stack-practice.mjs";
 import { seedFullStackTaskC } from "./full-stack-task-c.mjs";
 import { seedFullStackTask } from "./full-stack-task.mjs";
+import {
+  fullStackBrowserCommand,
+  fullStackTestArguments,
+} from "./full-stack-options.mjs";
 
 import { z } from "zod";
 
@@ -23,7 +27,7 @@ if (pnpmExecutable === undefined) {
   throw new Error("Run the full-stack smoke through the pinned pnpm CLI");
 }
 const pnpmPath = pnpmExecutable;
-const fullStackBrowserCommand = "test:fullstack";
+const smokeStartedAt = performance.now();
 
 // Only an explicitly exported DATABASE_URL may point the smoke at another database; a personal `.env`
 // usually names the stand database, which this smoke must never migrate, seed or rewrite.
@@ -32,6 +36,8 @@ const environmentPath = resolve(repositoryRoot, ".env");
 if (existsSync(environmentPath)) {
   process.loadEnvFile(environmentPath);
 }
+// Validate requested coverage before acquiring or mutating any fixture resources.
+const browserArguments = fullStackTestArguments(process.env);
 if (explicitDatabaseUrl === undefined) {
   resetCheckDatabase({ cwd: repositoryRoot });
   process.env["DATABASE_URL"] = checkDatabaseUrl(
@@ -185,6 +191,7 @@ try {
   });
   await runPnpm(["--filter", "@inside/web", "build"], webEnvironment);
 
+  const startupStartedAt = performance.now();
   processes.push(
     startPnpm("API", ["dev:api"], childEnvironment),
     startPnpm("MCP", ["dev:mcp"], {
@@ -215,6 +222,7 @@ try {
     processes,
   );
   await waitForHttp(webBaseUrl, processes);
+  recordTiming("application-startup", startupStartedAt, "success");
   await runPnpm(["--filter", "@inside/web", "smoke:backend"], {
     ...childEnvironment,
     BACKEND_BASE_URL: apiBaseUrl,
@@ -233,6 +241,7 @@ try {
     MCP_SMOKE_MATERIALS_ONLY_ACCESS_TOKEN: mcpMaterialsOnlyAccessToken.token,
     MCP_SMOKE_SERVER_URL: mcpServerUrl,
   });
+  const fixturesStartedAt = performance.now();
   const memberAccessToken = await fullStackIdentity.createAccessToken(
     fullStackIdentity.memberSubject,
   );
@@ -293,7 +302,7 @@ try {
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
     await fullStackIdentity.createSession(memberAccessToken);
-  await runPnpm(fullStackTestArguments(), {
+  const browserEnvironment = {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
@@ -343,12 +352,16 @@ try {
     FULLSTACK_LOGTO_SESSION_WITHOUT_RENEWAL:
       await fullStackIdentity.createSessionWithoutRenewal(),
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
-  });
+  };
+  recordTiming("browser-fixtures", fixturesStartedAt, "success");
+  await runPnpm(browserArguments, browserEnvironment);
 
+  recordTiming("smoke", smokeStartedAt, "success");
   process.stdout.write(
     `Full-stack smoke passed: Home ${webBaseUrl}/; Reader ${webBaseUrl}/materials/kak-ustroen-inside-platform; live API ${apiBaseUrl}; delegated MCP ${mcpServerUrl}; PostgreSQL reachable\n`,
   );
 } catch (error) {
+  recordTiming("smoke", smokeStartedAt, "failure");
   if (interruptedSignal === undefined) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`${message}\n${formatProcessOutput(processes)}`, {
@@ -356,23 +369,16 @@ try {
     });
   }
 } finally {
+  const cleanupStartedAt = performance.now();
   await cleanup();
   await fullStackIdentity.close();
   await practiceReadProxy?.close();
   rmSync(webReleaseIdentityPath, { force: true });
+  recordTiming("cleanup", cleanupStartedAt, "success");
 }
 
 if (interruptedSignal !== undefined) {
   process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
-}
-
-function fullStackTestArguments() {
-  const arguments_ = ["--filter", "@inside/web", fullStackBrowserCommand];
-  const grep = process.env["FULLSTACK_TEST_GREP"]?.trim();
-  if (grep !== undefined && grep.length > 0) {
-    arguments_.push("--grep", grep);
-  }
-  return arguments_;
 }
 
 /**
@@ -408,23 +414,50 @@ function startPnpm(name, arguments_, environment) {
  * @param {NodeJS.ProcessEnv} [environment]
  */
 async function runPnpm(arguments_, environment = childEnvironment) {
+  const startedAt = performance.now();
   const entry = startPnpm("pnpm", arguments_, environment);
+  /** @type {number | null} */
+  let exitCode = null;
   if (arguments_.includes(fullStackBrowserCommand)) {
     // Stream browser measurements before the bounded failure log can evict their chunks.
     entry.child.stdout?.pipe(process.stdout, { end: false });
     entry.child.stderr?.pipe(process.stderr, { end: false });
   }
   try {
-    const exitCode = await commandExit(entry.child);
+    exitCode = await commandExit(entry.child);
     if (exitCode !== 0) {
       throw new Error(
         `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
       );
     }
   } finally {
+    recordTiming(
+      arguments_[0] === "--filter"
+        ? (arguments_[2] ?? "pnpm")
+        : (arguments_[0] ?? "pnpm"),
+      startedAt,
+      exitCode === 0 ? "success" : "failure",
+    );
     await stopOwned(entry.child);
     activeProcesses.delete(entry);
   }
+}
+
+/**
+ * @param {string} stage
+ * @param {number} startedAt
+ * @param {"success" | "failure"} outcome
+ */
+function recordTiming(stage, startedAt, outcome) {
+  process.stdout.write(
+    `${JSON.stringify({
+      kind: "fullstack-timing",
+      project: process.env["FULLSTACK_TEST_PROJECT"] ?? "all",
+      stage,
+      durationMs: Math.round(performance.now() - startedAt),
+      outcome,
+    })}\n`,
+  );
 }
 
 /**

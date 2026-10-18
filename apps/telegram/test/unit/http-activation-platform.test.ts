@@ -13,6 +13,39 @@ const validEvidence = activationValidator<ActivationEvidence>("evidence");
 
 describe("activation HTTP consumer", () => {
   for (const fixture of fixtures.filter(
+    (f) => f.definition === "announcementResponse",
+  )) {
+    it(`resolves trusted announcement metadata: ${fixture.name}`, async () => {
+      const adapter = new HttpActivationPlatform(
+        "https://platform.example/activation",
+        "synthetic-secret",
+        (url, init) => {
+          expect(url).toBe("https://platform.example/activation/announcement");
+          expect(init).toMatchObject({
+            method: "POST",
+            redirect: "error",
+            headers: { authorization: "Bearer synthetic-secret" },
+          });
+          expect(JSON.parse(requestBody(init))).toEqual({
+            contractVersion: ACTIVATION_VERSION,
+            code: "course64",
+          });
+          return Promise.resolve(Response.json(fixture.value));
+        },
+      );
+      expect(await adapter.resolve("course64")).toEqual(
+        fixture.name === "announcement-exact-product"
+          ? {
+              id: "11111111-1111-4111-8111-111111111111",
+              revision: 1,
+              sourceRef: "course",
+              productId: "22222222-2222-4222-8222-222222222222",
+            }
+          : undefined,
+      );
+    });
+  }
+  for (const fixture of fixtures.filter(
     (f) => f.definition === "bindingResponse",
   )) {
     it(`decodes provider binding corpus: ${fixture.name}`, async () => {

@@ -51,6 +51,42 @@ export class SubscriptionActivationIntegrationService {
     });
   }
   /**
+   * Resolve the published Product and source of an owner announcement
+   * @returns any
+   * @throws ApiError
+   */
+  public readActivationAnnouncement({
+    requestBody,
+  }: {
+    requestBody: {
+      code: string;
+      contractVersion: 'inside.subscription-activation.v1';
+    },
+  }): CancelablePromise<({
+    ok: boolean;
+    value: {
+      contractVersion: 'inside.subscription-activation.v1';
+      rule: {
+        id: string;
+        productId: string;
+        revision: number;
+        sourceRef: string;
+      };
+    };
+  } | {
+    error: {
+      code: 'invalid_input' | 'policy_paused' | 'unavailable';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/subscription-activation/announcement',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Persist an activation attempt for a verified private bot identity
    * @returns any
    * @throws ApiError
@@ -116,6 +152,11 @@ export class SubscriptionActivationIntegrationService {
       } | null;
       rule?: {
         id: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';
@@ -170,6 +211,11 @@ export class SubscriptionActivationIntegrationService {
         };
       } | null;
       rule?: {
+        guide?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         id: string;
         revision: number;
         sourceRef: string;
@@ -306,6 +352,11 @@ export class SubscriptionActivationIntegrationService {
       } | null;
       rule?: {
         id: string;
+        product?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         revision: number;
         sourceRef: string;
         verificationMode?: 'course_membership';
@@ -360,6 +411,11 @@ export class SubscriptionActivationIntegrationService {
         };
       } | null;
       rule?: {
+        guide?: {
+          id: string;
+          name: string;
+          slug: string;
+        };
         id: string;
         revision: number;
         sourceRef: string;
@@ -392,8 +448,10 @@ export class SubscriptionActivationIntegrationService {
       accountRef: string;
       contractVersion: 'inside.subscription-activation.v1';
       identityRef: string;
+      includeProducts?: boolean;
       linkRef: string;
       linkRevision: number;
+      prepareCommunity?: boolean;
     },
   }): CancelablePromise<({
     ok: boolean;
@@ -505,6 +563,18 @@ export class SubscriptionActivationIntegrationService {
         source: 'paid' | 'manual' | 'legacy';
         startsAt: string;
         validUntil: string | null;
+      }>;
+      products?: Array<{
+        community: {
+          state: 'available' | 'expired' | 'revoked' | 'unavailable';
+        };
+        id: string;
+        materials: {
+          state: 'available' | 'expired' | 'revoked' | 'unavailable';
+        };
+        name: string;
+        programmeUrl?: string;
+        slug: string | null;
       }>;
     };
   } | {

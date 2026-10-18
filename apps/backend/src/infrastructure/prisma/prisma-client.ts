@@ -178,6 +178,7 @@ export type BillingPrisma = Pick<
   | "billingPaymentOption"
   | "billingPromotion"
   | "billingPricingCommand"
+  | "billingPaymentLink"
   | "billingPriceQuote"
   | "billingPromoReservation"
   | "billingPurchase"

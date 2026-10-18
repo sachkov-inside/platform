@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  telemetryRoute,
   MAX_WEB_VITALS_PER_REPORT,
   RENDER_ERROR_BOUNDARIES,
   RENDER_ERROR_MESSAGE_LENGTH,
@@ -18,7 +19,8 @@ const pagePathSchema = z
   .string()
   .startsWith("/")
   .max(REPORT_PATH_LENGTH)
-  .regex(/^[^?#]*$/u);
+  .regex(/^[^?#]*$/u)
+  .transform(telemetryRoute);
 
 export const webVitalSchema = z
   .object({

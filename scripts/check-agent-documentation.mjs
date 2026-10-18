@@ -44,10 +44,11 @@ export function extractLocalMarkdownTargets(markdown) {
 
 /** @param {string} repositoryRoot */
 function collectAgentDocumentation(repositoryRoot) {
-  const files = new Set(["AGENTS.md", "CLAUDE.md", "CODING_STANDARDS.md"]);
+  const files = new Set(["AGENTS.md", "CODING_STANDARDS.md"]);
   const roots = [
     resolve(repositoryRoot, "apps"),
     resolve(repositoryRoot, "docs/agents"),
+    resolve(repositoryRoot, "scripts"),
   ];
 
   for (const root of roots) {
@@ -172,12 +173,89 @@ function lineCount(content) {
 }
 
 /** @param {string} repositoryRoot */
+export function checkHarnessConfiguration(
+  repositoryRoot = defaultRepositoryRoot,
+) {
+  /** @type {string[]} */
+  const failures = [];
+  const workflowPath = resolve(repositoryRoot, "WORKFLOW.md");
+  const workflow = existsSync(workflowPath)
+    ? read(repositoryRoot, "WORKFLOW.md")
+    : "";
+  const modes = workflow.match(/^Session mode:.*$/gmu) ?? [];
+  if (
+    modes.length !== 1 ||
+    !/^Session mode: (?:main|worktree)$/u.test(modes[0] ?? "")
+  ) {
+    failures.push(
+      "WORKFLOW.md: require exactly one Session mode: main or worktree",
+    );
+  }
+  const classifications = workflow.match(/^Classification:.*$/gmu) ?? [];
+  const classification = classifications[0] ?? "";
+  if (
+    classifications.length !== 1 ||
+    !/^Classification: (?:enabled; policy: [^\s;]+|disabled|deferred)$/u.test(
+      classification,
+    )
+  ) {
+    failures.push(
+      "WORKFLOW.md: require exactly one Classification: enabled with policy, disabled or deferred",
+    );
+  } else if (classification.startsWith("Classification: enabled; policy: ")) {
+    const policy = classification.slice(
+      "Classification: enabled; policy: ".length,
+    );
+    if (
+      policy.startsWith("/") ||
+      policy.split(/[\\/]/u).includes("..") ||
+      !existsSync(resolve(repositoryRoot, policy))
+    ) {
+      failures.push(
+        "WORKFLOW.md: enabled classification policy must resolve within the repository",
+      );
+    }
+  }
+  const documents = collectAgentDocumentation(repositoryRoot);
+  if (existsSync(resolve(repositoryRoot, "CLAUDE.md")))
+    documents.push("CLAUDE.md");
+  for (const path of documents) {
+    // Historical and imported fixtures retain their original filenames and contents.
+    if (
+      path
+        .split("/")
+        .some((part) =>
+          ["history", "fixtures", "upstream", "vendor"].includes(part),
+        )
+    )
+      continue;
+    if (path.endsWith("CLAUDE.md")) {
+      failures.push(
+        `${path}: owner-maintained instructions belong in AGENTS.md`,
+      );
+    }
+    if (
+      path.endsWith("AGENTS.md") &&
+      existsSync(resolve(repositoryRoot, path)) &&
+      /^(?:Session mode:|Classification:|Режим агентов:)/mu.test(
+        read(repositoryRoot, path),
+      )
+    ) {
+      failures.push(
+        `${path}: WORKFLOW.md owns session mode and classification declarations`,
+      );
+    }
+  }
+  return failures;
+}
+
+/** @param {string} repositoryRoot */
 export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
   const entryPoint = ".agents/skills/implement-spec/SKILL.md";
   if (!existsSync(resolve(repositoryRoot, entryPoint))) {
-    failures.push(`${entryPoint}: original specification skill is missing`);
+    failures.push(`${entryPoint}: specification skill is missing`);
   }
   if (existsSync(resolve(repositoryRoot, ".agents/skills/orchestrate"))) {
     failures.push(
@@ -185,7 +263,15 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
     );
   }
   const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
-  for (const skill of ["implement-spec", "ask-matt", "tdd"]) {
+  for (const skill of [
+    "implement-spec",
+    "ask-matt",
+    "tdd",
+    "classify-change",
+    "code-review",
+    "implement",
+    "setup-matt-pocock-skills",
+  ]) {
     walk(resolve(repositoryRoot, ".agents/skills", skill), (path, name) => {
       if (name.endsWith(".md")) files.push(relative(repositoryRoot, path));
     });
@@ -196,6 +282,15 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
       continue;
     }
     const content = read(repositoryRoot, path);
+    if (path === "AGENTS.md" || path === "WORKFLOW.md") {
+      requireText(
+        failures,
+        path,
+        content,
+        "docs/agents/owner-corrections.md",
+        "keep explicit owner corrections reachable",
+      );
+    }
     rejectText(
       failures,
       path,
@@ -239,7 +334,7 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         path,
         content,
         entryPoint,
-        "point to the owner-invoked original specification skill",
+        "point to the owner-invoked specification skill",
       );
     }
   }
@@ -304,6 +399,7 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
   failures.push(...checkHarnessRouting(repositoryRoot));
+  failures.push(...checkHarnessConfiguration(repositoryRoot));
   failures.push(...checkStandardsReviewRouting(repositoryRoot));
   const agentFiles = collectAgentDocumentation(repositoryRoot);
 

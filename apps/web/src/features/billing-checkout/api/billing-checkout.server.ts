@@ -28,6 +28,9 @@ export function handleBillingQuote(request: Request): Promise<Response> {
           operationId: input.operationId,
           paymentOptionId: input.paymentOptionId,
           optionRevision: input.optionRevision,
+          ...(input.paymentLinkId === undefined
+            ? {}
+            : { paymentLinkId: input.paymentLinkId }),
           ...(input.promoCode === undefined
             ? {}
             : { promoCode: input.promoCode }),

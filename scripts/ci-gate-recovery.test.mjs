@@ -5,13 +5,13 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { ciJobNames, selectCoverage } from "./ci-coverage-plan.mjs";
 
-const ci = readFileSync(
-  new URL("../.github/workflows/ci.yml", import.meta.url),
-  "utf8",
+const requiredNames = Object.entries(ciJobNames)
+  .filter(([id]) => id !== "ci-gate")
+  .map(([, name]) => name);
+requiredNames.push(
+  "Full-stack browser (desktop-chromium)",
+  "Full-stack browser (mobile-chromium)",
 );
-const requiredNames = [...ci.matchAll(/^ {4}name: (.+)$/gmu)]
-  .map(([, name]) => name)
-  .filter((name) => name !== "CI Gate");
 // Metadata from run 37642003271, attempt 1 (#1085); job names follow current CI.
 const run = {
   id: 37642003271,
@@ -115,6 +115,12 @@ describe("missing CI Gate recovery", () => {
       }
     }
     replay({ jobs: jobs.slice(1) });
+    for (const name of [
+      "Full-stack browser (desktop-chromium)",
+      "Full-stack browser (mobile-chromium)",
+    ]) {
+      replay({ jobs: jobs.filter((job) => job.name !== name) });
+    }
     replay({
       jobs: jobs.map((job, i) =>
         i === 0 ? { ...job, status: "in_progress" } : job,
@@ -158,7 +164,9 @@ describe("missing CI Gate recovery", () => {
     const providerJobs = jobs.map((job) => ({
       ...job,
       conclusion:
-        job.name === ciJobNames["plan"] || selectedNames.includes(job.name)
+        job.name === ciJobNames["plan"] ||
+        selectedNames.includes(job.name) ||
+        job.name.startsWith("Full-stack browser (")
           ? "success"
           : "skipped",
     }));

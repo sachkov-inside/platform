@@ -9,6 +9,7 @@ import { describe, it } from "node:test";
 
 import { ciJobNames, coverageSupersets } from "./ci-coverage-plan.mjs";
 import { readPackageManifest } from "./package-manifest.mjs";
+import { fullStackProjects } from "./full-stack-options.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = readFileSync(
@@ -59,6 +60,46 @@ const requiredJobs = [
 ];
 
 describe("application CI workflow contract", () => {
+  it("isolates both full-stack profiles and rejects failed or absent profile coverage", () => {
+    const profiles = jobBlock("fullstack-browser");
+    const matrix = profiles.match(/project: \[([^\]]+)\]/u)?.[1];
+    assert.ok(matrix);
+    assert.deepEqual(
+      matrix.split(",").map((value) => value.trim()),
+      fullStackProjects,
+    );
+    assert.match(profiles, /fail-fast: false/u);
+    assert.match(
+      profiles,
+      /FULLSTACK_TEST_PROJECT: \$\{\{ matrix\.project \}\}/u,
+    );
+    assert.match(
+      profiles,
+      /COMPOSE_PROJECT_NAME: .*\$\{\{ matrix\.project \}\}/u,
+    );
+    assert.match(
+      profiles,
+      /ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/u,
+    );
+    const aggregate = jobBlock("fullstack");
+    assert.match(aggregate, /needs: \[plan, fullstack-browser\]/u);
+    assert.match(aggregate, /if: \$\{\{ always\(\) && contains/u);
+    assert.match(
+      aggregate,
+      /PROFILE_RESULT: \$\{\{ needs\.fullstack-browser\.result \}\}/u,
+    );
+    const command = aggregate.match(/run: (test .+)$/mu)?.[1];
+    assert.ok(command);
+    for (const result of ["success", "failure", "cancelled", "skipped", ""]) {
+      /** @type {import("node:child_process").SpawnSyncReturns<string>} */
+      const execution = spawnSync("bash", ["-euc", command], {
+        env: { ...process.env, PROFILE_RESULT: result },
+        encoding: "utf8",
+        timeout: 5_000,
+      });
+      assert.equal(execution.status, result === "success" ? 0 : 1, result);
+    }
+  });
   it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
     assert.deepEqual(coverageSupersets, { docs: "static", contracts: "unit" });
     assertFocusedSupersets(rootScripts);
@@ -356,7 +397,7 @@ describe("application CI workflow contract", () => {
       assert.doesNotMatch(jobBlock(job), /services:/u);
     }
 
-    assert.match(jobBlock("fullstack"), /pnpm smoke:fullstack/u);
+    assert.match(jobBlock("fullstack-browser"), /pnpm smoke:fullstack/u);
 
     assert.match(
       jobBlock("compose-development"),
@@ -450,7 +491,7 @@ describe("application CI workflow contract", () => {
       /run: pnpm test:tooling && pnpm test:contracts$/mu,
     );
     assert.match(
-      jobBlock("fullstack"),
+      jobBlock("fullstack-browser"),
       /if: \$\{\{ always\(\) \}\}\n {8}run: docker compose down --volumes --remove-orphans/u,
     );
   });
@@ -484,7 +525,7 @@ describe("application CI workflow contract", () => {
     );
     assert.equal(
       [...workflow.matchAll(/^ {4}name: /gmu)].length,
-      Object.keys(ciJobNames).length,
+      Object.keys(ciJobNames).length + 1,
     );
   });
 
@@ -512,7 +553,7 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(upload, /overwrite: true/u);
   });
 
-  it("uploads WebKit browser-engine diagnostics separately for each CI attempt", () => {
+  it("uploads browser-engine and Storybook import diagnostics for each CI attempt", () => {
     const job = jobBlock("ui");
     assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
     assert.match(job, /if: \$\{\{ failure\(\) \}\}/u);
@@ -520,7 +561,8 @@ describe("application CI workflow contract", () => {
       job,
       /name: browser-engines-playwright-\$\{\{ github.run_attempt \}\}/u,
     );
-    assert.match(job, /path: apps\/web\/test-results\/browser-engines/u);
+    assert.match(job, /^ {12}apps\/web\/test-results\/browser-engines$/mu);
+    assert.match(job, /^ {12}apps\/web\/test-results\/storybook-imports$/mu);
     assert.match(job, /if-no-files-found: ignore/u);
     assert.match(job, /retention-days: 7/u);
   });

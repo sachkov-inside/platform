@@ -3,12 +3,14 @@ import type {
   accessSummaryQueryKey,
   invitationsQueryKey,
   peopleQueryKey,
+  paymentLinksQueryKey,
 } from "./access-query-keys";
 
 type AccessQueryKey =
   | typeof accessSummaryQueryKey
   | typeof invitationsQueryKey
-  | typeof peopleQueryKey;
+  | typeof peopleQueryKey
+  | typeof paymentLinksQueryKey;
 interface AccessRefresh {
   readonly announcementId: string;
   readonly pending: Promise<void>;

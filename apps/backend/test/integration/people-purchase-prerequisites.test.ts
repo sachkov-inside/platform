@@ -139,7 +139,12 @@ describe.each([0, 1000, 10000])(
         prisma: observer.prisma,
         accounts,
         grants,
-        pricing: { manage: unused, ownerCatalog: unused },
+        pricing: {
+          manage: unused,
+          ownerCatalog: unused,
+          managePaymentLink: unused,
+          paymentLinks: unused,
+        },
         payments: { reconcile: unused },
         subscriptions: { cancel: unused },
         bank: undefined,

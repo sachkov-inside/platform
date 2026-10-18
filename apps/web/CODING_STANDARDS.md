@@ -1,7 +1,7 @@
 # Web coding standards
 
 The nearest `AGENTS.md` owns routing and verification. ADRs 0011, 0012 and 0027 own transport,
-mutations and navigation. This file keeps judgement rules for Web changes and reviews.
+mutations and navigation. Reviewers apply this file to Web changes.
 `pnpm --filter @inside/web guardrails` runs `scripts/check-web-architecture.mjs` and its negative
 fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforced rules.
 
@@ -151,24 +151,15 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   A filter-choice continuation stays independent from the row cursor and preserves the selection.
 - Server-render-only data calls its server adapter directly. Query `staleTime` is browser-cache
   policy; HTTP cache policy belongs to the BFF/backend boundary.
-- A browser-owned fact shown by several surfaces is reset on every open surface at the moment a
-  write changes it, not only on the surface that performed the write. A successful read has no
-  refresh interval and two visible windows raise no focus event, so an unannounced change leaves
-  the remaining surfaces on a remembered answer until they are opened again. The feature that owns
-  the fact owns its query key, its named announcement from `src/shared/api/fact-announcement`, one
-  announcement per write command, and the one read hook every surface calls. Worked examples: the
-  verified billing contact (`useBillingContact`), the buyer's billing state (`useCurrentBilling`)
-  and notification channel preferences (`useNotificationPreferences`). A write that lives in a
-  slice which may not import the owner receives the owner's announce function from the page that
-  composes both: the confirmed purchase in `_pages/subscription` announces the buyer's billing
-  state. The announcement reaches tabs of one browser only; another device needs a server push. The closest executable check is a
-  Playwright case per fact where a second already-open surface shows the written value without a
-  reload, plus a negative one where the announcement is unavailable
-  (`test/e2e/account-cabinet.spec.ts`). The rule itself stays prose: deciding that several surfaces
-  read a fact means reading its query owner, which is not an import boundary a guardrail can match.
-  Without the browser's inter-tab channel, the common mechanism announces writes to surfaces in
-  the same tab through a window event. Other tabs see the write on their next read: opening or
-  returning focus re-reads only when the cached answer is stale.
+- A browser-owned fact has one query key, read hook and announcement owned by its feature.
+  Every successful write invalidates that fact on every open surface through `src/shared/api/fact-announcement`.
+  If a writing slice cannot import the owner, its composing page supplies the owner's announce function.
+  Examples: `useBillingContact`, `useCurrentBilling`, `useNotificationPreferences`; confirmed purchase
+  announces billing state through the subscription page. Review every reader and write command.
+  `test/e2e/account-cabinet.spec.ts` checks a second open surface and unavailable announcements;
+  it does not prove every fact is wired. The channel reaches tabs of one browser, not other devices.
+  Without the inter-tab channel, window events update same-tab surfaces; other tabs see writes on
+  their next read. Opening or focus re-reads only stale queries, so neither replaces announcements.
 - Bookmark state and lists use Account-scoped query keys and announcement channels; guests make no
   personal read. People and Summary subscribe to enrollment writes; Invitations and Summary to
   invitation writes. `test/browser-engines/browser-facts.test.ts` checks two documents, Account
@@ -195,6 +186,12 @@ These rules require review. An effect count or a passing dependency linter canno
 
 ## Interaction and enforcement
 
+- Navigation tests wait for the completed RuntimeShell prefetch response of a compatible route shell.
+  Route-tree responses, headers and the private Next.js queue cannot prove that shell arrived (#1182).
+  Optimistic routing may skip requests for other links sharing the shell. Root quiet-window checks
+  reject `networkidle`; wait on the required response or applied state instead.
+- Where `strict-boolean-expressions` rejects text, use `hasText` and `presentText` from
+  `src/shared/lib/text.ts`; `null`, `undefined` and `""` remain absent.
 - Apply root [waiting rules](../../CODING_STANDARDS.md#waiting-in-tests) and
   [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
 - Hover, focus, loading, and hydration preserve surrounding layout. Reserve a definite footprint or
@@ -218,19 +215,14 @@ These rules require review. An effect count or a passing dependency linter canno
   sign-in on `focus`. A bare `focus` only re-checks sign-in and re-reads no query. Worked examples:
   `returnToStaleTab` in `test/fullstack/personal-home.spec.ts` for a return to the tab and
   `signInAndRecheckOnFocus` in `test/fullstack/reading-progress.spec.ts` for a sign-in re-check.
-- Build site animation as a CSS component next to its page, with a `prefers-reduced-motion` guard
-  and platform tokens. The static cover is the same component with its loop stopped. An embedded
-  video is not a site asset (owner decision of 2026-09-11). Design animation for its real slot, use
-  `lucide-react` and change scenes without morphing objects into each other; the owner's decisions
-  of 2026-09-13 and their reasons are in
-  `docs/evidence/issue-614/ai-first-animation/README.md`. The AI Engineering course film (#808) is
-  the owner-approved exception of 2026-09-30, confirmed by the owner in the #808 session before
-  merge: a canvas drawn by a pure function of time, whose dark card moves between the states of one
-  episode, with no pause button and the final frame under reduced motion; its brief and critique
-  are in `docs/evidence/issue-808/animation/README.md`. Its course page and Home card draw list
-  icons with duotone Phosphor geometry (`features/ai-engineering-course/ui/course-icons.tsx`)
-  instead of `lucide-react`, by the owner's decision of 2026-09-30 to avoid the standard icon set
-  there.
+- Build site animation as a page-local CSS component using platform tokens and `lucide-react`.
+  The static cover stops the same component's loop. Support `prefers-reduced-motion`; change scenes
+  without morphing objects. Embedded video is not a site asset. Owner decisions and rationale:
+  [#614](../../docs/evidence/issue-614/ai-first-animation/README.md).
+  The owner-approved [#808 exception](../../docs/evidence/issue-808/animation/README.md) uses a
+  pure time-driven canvas, a dark card moving between episode states, no pause button and the final
+  frame under reduced motion. Its course page and Home card use duotone Phosphor geometry from
+  `features/ai-engineering-course/ui/course-icons.tsx` instead of `lucide-react`.
 - Keep Web guardrails and negative fixtures aligned. Use mapping/query tests, Storybook for
   meaningful UI states, and Playwright for route behaviour and accessibility.
 

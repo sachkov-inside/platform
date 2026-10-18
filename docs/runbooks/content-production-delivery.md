@@ -1,6 +1,6 @@
 # Перенос Content в production
 
-Инструкция для автора и агента (#805). Выбранная версия оригиналов из Inside Content попадает на
+Инструкция для автора и агента (#805). Выбранная версия оригиналов из Engineering Content попадает на
 `https://sachkov.dev` тем же путём, что и на локальный стенд: предпросмотр, отпечаток, точное
 применение и журнал. Агент выполняет те же команды, поэтому их можно запустить и вручную.
 
@@ -54,12 +54,12 @@ Keychain, и следующие переносы входа не требуют.
 В нём лежат журнал, экспортированные пакеты и предпросмотры. Его нельзя смешивать с каталогом
 стенда: инструмент откажется работать с журналом другой цели.
 
-1. Закоммитьте изменения в Inside Content: переносится только закоммиченная версия.
+1. Закоммитьте изменения в Engineering Content: переносится только закоммиченная версия.
 2. Предпросмотр. Команда ничего не пишет на сайт:
 
    ```bash
    pnpm authoring:release preview --target production \
-     --content ../inside-content --product inside-ai-engineering [--ref COMMIT] \
+     --content ~/Work/Materials/engineering-content --product inside-ai-engineering [--ref COMMIT] \
      --state ~/.inside-authoring/production [--publish SOURCE_ID]... \
      [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...
    ```
@@ -90,7 +90,7 @@ Keychain, и следующие переносы входа не требуют.
 
 Для очередного текста новый выпуск приложения не нужен (#806).
 
-1. **Коммит в Content.** Закоммитьте урок в Inside Content.
+1. **Коммит в Content.** Закоммитьте урок в Engineering Content.
 2. **Перенос черновиком.** Выполните `preview` и `apply` из раздела выше без `--publish`: урок
    попадёт на сайт закрытым черновиком.
 3. **Просмотр точной версии.** Откройте `https://sachkov.dev/authoring/materials`, найдите
@@ -109,7 +109,7 @@ Keychain, и следующие переносы входа не требуют.
 
 Замените поля в угловых скобках и передайте агенту этот текст:
 
-> Из Platform подготовь перенос курса `<PRODUCT_ID>` из Inside Content. Используй только
+> Из Platform подготовь перенос курса `<PRODUCT_ID>` из Engineering Content. Используй только
 > commit `<CONTENT_SHA>` и штатный `authoring:release`. Проверь исходники и экспорт: главы,
 > порядок, уроки, квизы, задания, медиа и постоянные source ID. Оригиналы меняет сессия Content.
 > Публиковать можно только `<SOURCE_ID_LIST>`; пустой список означает перенос черновиками.

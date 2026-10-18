@@ -160,7 +160,7 @@ test("production acquisition preserves external throttling after admission even 
   assert.equal(result.status, 29, result.output);
   assert.match(
     result.output,
-    /toomanyrequests: Rate exceeded: public\.ecr\.aws\/docker\/library\/caddy:.* at 1001 ms/u,
+    /toomanyrequests: Rate exceeded: docker\.io\/library\/caddy:.* at 1001 ms/u,
   );
   assert.match(
     result.output,

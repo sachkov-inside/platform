@@ -1,3 +1,5 @@
+import { IndividualPurchaseView } from "./individual-purchase-view";
+import type { PaymentLinkDetail } from "@/entities/subscription";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -38,6 +40,7 @@ export interface ProductPurchaseViewProps {
   readonly children?: ReactNode;
   readonly progress?: ReactNode;
   readonly hasPurchase?: boolean;
+  readonly individualLink?: PaymentLinkDetail;
 }
 
 /**
@@ -58,7 +61,20 @@ export function ProductPurchaseView({
   children,
   progress,
   hasPurchase = false,
+  individualLink,
 }: ProductPurchaseViewProps) {
+  if (individualLink !== undefined)
+    return (
+      <IndividualPurchaseView
+        link={individualLink}
+        viewer={viewer}
+        hasPurchase={hasPurchase}
+        progress={progress}
+        notice={notice}
+      >
+        {children}
+      </IndividualPurchaseView>
+    );
   const programmeHref = productProgrammeHref(slug);
 
   return (

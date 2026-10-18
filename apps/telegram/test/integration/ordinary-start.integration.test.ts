@@ -1,3 +1,4 @@
+import { closeIfStarted } from "../support/close-if-started.js";
 import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { contactEffects } from "../../src/application/contact-effects.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
@@ -23,11 +24,7 @@ import { AppModule } from "../../src/app.module.js";
 import type { ApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
 import type { Database } from "../../src/database/database.js";
-import {
-  migrateDown,
-  migrateTo,
-  migrateToLatest,
-} from "../../src/database/migrator.js";
+import { migrateToLatest } from "../../src/database/migrator.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import {
   TELEGRAM_CALLBACK_ANSWERS,
@@ -92,13 +89,10 @@ const config: ApplicationConfig = {
 };
 
 let application: NestFastifyApplication;
-let database: Database;
+const database: Database = createDatabase(databaseUrl);
 let fastify: FastifyInstance;
 
 beforeAll(async () => {
-  database = createDatabase(databaseUrl);
-  await migrateToLatest(database);
-  await migrateDown(database);
   await migrateToLatest(database);
   application = await NestFactory.create<NestFastifyApplication>(
     AppModule.register(config),
@@ -128,45 +122,11 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await application.close();
-  await database.destroy();
-});
-
-describe("database foundation", () => {
-  it("rebuilds the identity-linking migration down and forward", async () => {
-    try {
-      await migrateTo(database, "002-identity-linking");
-      const membershipRemoved = await sql<{ exists: boolean }>`
-        select exists (
-          select 1
-          from information_schema.tables
-          where table_schema = 'public'
-            and table_name = 'membership_evidence_outbox'
-        ) as exists
-      `.execute(database);
-      expect(membershipRemoved.rows[0]?.exists).toBe(false);
-
-      await migrateTo(database, "001-ordinary-start");
-      const removed = await sql<{ exists: boolean }>`
-        select exists (
-          select 1
-          from information_schema.tables
-          where table_schema = 'public' and table_name = 'link_transactions'
-        ) as exists
-      `.execute(database);
-      expect(removed.rows[0]?.exists).toBe(false);
-    } finally {
-      await migrateToLatest(database);
-    }
-    const restored = await sql<{ exists: boolean }>`
-      select exists (
-        select 1
-        from information_schema.tables
-        where table_schema = 'public' and table_name = 'link_transactions'
-      ) as exists
-    `.execute(database);
-    expect(restored.rows[0]?.exists).toBe(true);
-  });
+  try {
+    await closeIfStarted(application);
+  } finally {
+    await database.destroy();
+  }
 });
 
 describe("BotContacts", () => {

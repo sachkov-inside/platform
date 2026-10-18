@@ -16,6 +16,7 @@ import { describe, it } from "node:test";
 
 import {
   checkDocumentation,
+  checkHarnessConfiguration,
   checkHarnessRouting,
   checkStandardsReviewRouting,
   codingStandardsLineLimit,
@@ -106,6 +107,37 @@ describe("agent documentation contract", () => {
 });
 
 describe("harness routing contract", () => {
+  it("requires the correction contract from both session and workflow routing", () => {
+    const root = mkdtempSync(join(tmpdir(), "correction-routing-"));
+    try {
+      for (const name of readdirSync(repositoryRoot)) {
+        if (name !== "AGENTS.md" && name !== "WORKFLOW.md") {
+          symlinkSync(join(repositoryRoot, name), join(root, name));
+        }
+      }
+      for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+        writeFileSync(
+          join(root, path),
+          readFileSync(join(repositoryRoot, path)),
+        );
+      }
+      assert.deepEqual(checkHarnessRouting(root), []);
+      for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+        const content = readFileSync(join(root, path), "utf8");
+        writeFileSync(
+          join(root, path),
+          content.replaceAll("docs/agents/owner-corrections.md", "#removed"),
+        );
+        assert.deepEqual(checkHarnessRouting(root), [
+          `${path}: keep explicit owner corrections reachable`,
+        ]);
+        writeFileSync(join(root, path), content);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("requires review-stage standards routing and rejects the former implementation gate", () => {
     const root = mkdtempSync(join(tmpdir(), "standards-routing-"));
     try {
@@ -167,11 +199,49 @@ describe("harness routing contract", () => {
     }
   });
 
-  it("accepts original specification discovery and native manual-skill policy", () => {
+  it("accepts specification discovery and native manual-skill policy", () => {
     assert.deepEqual(checkHarnessRouting(repositoryRoot), []);
   });
 
-  it("rejects a missing original skill and broken workflow pointers", () => {
+  it("rejects a missing classifier worker reference without rejecting a valid reference", () => {
+    const root = mkdtempSync(join(tmpdir(), "classification-routing-"));
+    try {
+      for (const name of readdirSync(repositoryRoot)) {
+        if (name !== ".agents") {
+          symlinkSync(join(repositoryRoot, name), join(root, name));
+        }
+      }
+      const skills = join(root, ".agents/skills");
+      mkdirSync(skills, { recursive: true });
+      for (const name of readdirSync(join(repositoryRoot, ".agents/skills"))) {
+        if (name !== "classify-change") {
+          symlinkSync(
+            join(repositoryRoot, ".agents/skills", name),
+            join(skills, name),
+          );
+        }
+      }
+      const classifier = join(skills, "classify-change");
+      mkdirSync(join(classifier, "references"), { recursive: true });
+      writeFileSync(
+        join(classifier, "SKILL.md"),
+        "[Risk worker](references/risk.md)\n",
+      );
+      const failure =
+        ".agents/skills/classify-change/SKILL.md: local pointer does not resolve: references/risk.md";
+      assert.ok(checkHarnessRouting(root).includes(failure));
+
+      writeFileSync(
+        join(classifier, "references/risk.md"),
+        "Risk assessment\n",
+      );
+      assert.deepEqual(checkHarnessRouting(root), []);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a missing specification skill and broken workflow pointers", () => {
     const root = mkdtempSync(join(tmpdir(), "harness-routing-"));
     try {
       writeFileSync(
@@ -185,7 +255,7 @@ describe("harness routing contract", () => {
       const failures = checkHarnessRouting(root);
       assert.ok(
         failures.some((failure) =>
-          failure.includes("original specification skill is missing"),
+          failure.includes("specification skill is missing"),
         ),
       );
       assert.ok(
@@ -265,7 +335,129 @@ describe("harness routing contract", () => {
         join(root, "WORKFLOW.md"),
         "A specification uses one integration branch and final PR\n",
       );
+      mkdirSync(join(root, "docs/agents"), { recursive: true });
+      writeFileSync(
+        join(root, "docs/agents/owner-corrections.md"),
+        "Corrections\n",
+      );
+      for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+        writeFileSync(
+          join(root, path),
+          readFileSync(join(root, path), "utf8") +
+            "[Corrections](docs/agents/owner-corrections.md)\n",
+        );
+      }
       assert.deepEqual(checkHarnessRouting(root), []);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("workflow-owned harness configuration", () => {
+  it("rejects ambiguous session modes, duplicate classification and legacy instruction authority", () => {
+    const root = mkdtempSync(join(tmpdir(), "harness-config-"));
+    try {
+      writeFileSync(join(root, "AGENTS.md"), "Read WORKFLOW.md.\n");
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        "Session mode: worktree\nClassification: enabled; policy: docs/agents/change-risk.md\n",
+      );
+      mkdirSync(join(root, "docs/agents"), { recursive: true });
+      writeFileSync(join(root, "docs/agents/change-risk.md"), "Policy\n");
+      assert.deepEqual(checkHarnessConfiguration(root), []);
+      const workflow = readFileSync(join(root, "WORKFLOW.md"), "utf8");
+      for (const state of ["disabled", "deferred"]) {
+        writeFileSync(
+          join(root, "WORKFLOW.md"),
+          `Session mode: main\nClassification: ${state}\n`,
+        );
+        assert.deepEqual(checkHarnessConfiguration(root), []);
+      }
+      for (const state of [
+        "",
+        "Classification: automatic\n",
+        "Classification: enabled\n",
+      ]) {
+        writeFileSync(
+          join(root, "WORKFLOW.md"),
+          "Session mode: worktree\n" + state,
+        );
+        assert.ok(
+          checkHarnessConfiguration(root).some((failure) =>
+            failure.includes("exactly one Classification"),
+          ),
+        );
+      }
+
+      for (const mode of [
+        "",
+        "Session mode: automatic\n",
+        "Session mode: main\nSession mode: worktree\n",
+      ]) {
+        writeFileSync(
+          join(root, "WORKFLOW.md"),
+          mode +
+            "Classification: enabled; policy: docs/agents/change-risk.md\n",
+        );
+        assert.ok(
+          checkHarnessConfiguration(root).some((failure) =>
+            failure.includes("exactly one Session mode"),
+          ),
+        );
+      }
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        workflow + "Classification: disabled\n",
+      );
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("exactly one Classification"),
+        ),
+      );
+      writeFileSync(join(root, "WORKFLOW.md"), workflow);
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "Session mode: worktree\nClassification: enabled\n",
+      );
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("WORKFLOW.md owns"),
+        ),
+      );
+      writeFileSync(join(root, "AGENTS.md"), "Read WORKFLOW.md.\n");
+      writeFileSync(join(root, "CLAUDE.md"), "@AGENTS.md\n");
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("CLAUDE.md"),
+        ),
+      );
+      rmSync(join(root, "CLAUDE.md"));
+      mkdirSync(join(root, "apps/web"), { recursive: true });
+      writeFileSync(join(root, "apps/web/CLAUDE.md"), "@AGENTS.md\n");
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("apps/web/CLAUDE.md"),
+        ),
+      );
+      rmSync(join(root, "apps/web/CLAUDE.md"));
+      mkdirSync(join(root, "apps/web/test/fixtures"), { recursive: true });
+      writeFileSync(
+        join(root, "apps/web/test/fixtures/CLAUDE.md"),
+        "Imported fixture\n",
+      );
+      mkdirSync(join(root, "docs/history"), { recursive: true });
+      writeFileSync(
+        join(root, "docs/history/CLAUDE.md"),
+        "Historical instructions\n",
+      );
+      assert.deepEqual(checkHarnessConfiguration(root), []);
+      rmSync(join(root, "docs/agents/change-risk.md"));
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("classification policy"),
+        ),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

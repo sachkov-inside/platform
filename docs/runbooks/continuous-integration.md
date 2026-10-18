@@ -66,7 +66,7 @@ names its seam and the stages run in parallel:
 |---|---|
 | `docs` | `pnpm docs:check` |
 | `contracts` | `pnpm test:tooling && pnpm test:contracts`: repository-owned tooling/workflow and root release/deploy process contracts |
-| `fullstack` | `pnpm smoke:fullstack` after isolated infrastructure startup, with unconditional Compose cleanup |
+| `fullstack` | Stable aggregate over desktop/mobile `fullstack-browser` matrix jobs; each runs `pnpm smoke:fullstack` with isolated infrastructure and unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests, then the separate `pnpm check:contracts` commands |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
@@ -109,6 +109,42 @@ The already-acquired pinned broker and edge must be present. Separate Actions lo
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
 removes its own tags and override and preserves the primary failure if cleanup also fails.
 
+The backend image compiles from a release-independent source stage. Development identity and
+production identity belong to separate descendant stages. Changing release/source identity therefore
+reuses compilation while still producing distinct immutable final images with their own identity files.
+Both cold and admitted-cache runtime proofs remain complete; their output includes
+`production-smoke-timing` records for preparation, startup, route checks, health transitions and worker handoff.
+Production health intervals and failure thresholds remain unchanged, including their observation cost.
+
+Root process-ownership contracts run at most four isolated command trees concurrently within their file.
+Each case retains its own temporary workspace, supervisor and dynamic listening port.
+The readiness-publication tests remain sequential because they patch shared filesystem methods.
+The outer root contract runner still admits two files; production TERM/KILL grace periods and all signal cases remain intact.
+
+### Full-stack browser execution
+
+The desktop and mobile profiles run concurrently on separate disposable GitHub runners.
+Each runner owns its PostgreSQL, object storage, identities and application processes.
+Each profile retains one Playwright worker because scenarios mutate shared account and catalogue fixtures.
+The stable `Full-stack smoke` job succeeds only after both profiles succeed; CI Gate and release evidence retain that identity.
+A failed, cancelled or skipped selected profile fails the aggregate. Both profiles finish independently to retain failure diagnostics.
+Path-based coverage selection remains unchanged; this matrix does not add full-stack checks to ordinary Web-only PRs.
+
+`FULLSTACK_TEST_PROJECT` selects exactly `desktop-chromium` or `mobile-chromium` before fixture preparation.
+An absent selector retains both profiles locally and in the manual smoke workflow.
+`FULLSTACK_TEST_GREP` remains an investigation filter; Application CI sets no scenario filter.
+Full-stack output includes `fullstack-timing` JSON records for commands, startup, fixtures, browser execution and cleanup.
+Compare successful attempts by profile and source; startup duplication increases runner minutes while concurrent profiles shorten elapsed time.
+Runner availability and the Production Compose job can still determine total CI duration.
+
+The material-authoring suite retains upload, replacement, authorization, accessibility and publication assertions.
+It no longer waits for the removed profile-onboarding dialog.
+Historical whole-page captures in authoring, enrollment and the buyer journey require `CAPTURE_EVIDENCE=1`;
+failure screenshots and traces remain automatic.
+The existing buyer journey also checks URL-based payment return after clearing browser storage and after reload,
+replayed bank notifications without additional purchase or changed access terms, and another account's denied access.
+These checks use the synthetic sign-in provider and local bank double; they do not prove real bank charges or email delivery.
+
 ### Local contract tests
 
 `pnpm check:contracts` owns local process and adapter contracts, separately from unit/module
@@ -137,7 +173,8 @@ CI service containers, application Dockerfile bases, Compose dependencies and ex
 Testcontainers/SQL inputs select immutable Docker Official Images. The authorized RabbitMQ,
 PostgreSQL `18.4-alpine`/`18.4-alpine3.23` and Node `26.10.0-alpine3.24` indexes use public
 `ghcr.io/sachkov-inside/` mirrors. Telegram Node `26.10.0-bookworm-slim` uses the official
-`docker.io/library/node` upstream with its unchanged index digest; Caddy retains ECR Public inputs.
+`docker.io/library/node` upstream; production-smoke Caddy uses the official `docker.io/library/caddy`
+upstream. Both retain their unchanged index digests.
 References keep the existing version tags and select immutable SHA-256 digests. Release builds
 use the same Dockerfiles; the production PostgreSQL foundation and RabbitMQ also use that source.
 Consumers do not need registry credentials for these inputs.
@@ -204,23 +241,29 @@ No new public mirror is published, no credentials are added, and no acquisition 
 exception is introduced. The existing Telegram CI job still builds without layer cache and
 checks Node version, the unprivileged user and compiled application imports.
 
-### Remaining ECR inputs
+### Caddy acquisition
 
-ECR Public [permits one anonymous image pull per second](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html).
-The production smoke prints the resolved RabbitMQ/Caddy references and pulls each service in a
-separate Compose command before application startup. It waits one second after RabbitMQ finishes
-before admitting Caddy, including when layers are cached. One combined `--parallel 1 pull` limits
-concurrency but leaves admission timing and graph order to Compose. The interval bounds this
-pair's own admission; RabbitMQ now comes from GHCR and only Caddy uses ECR in this pair. The
-interval cannot reserve a quota shared with other clients or prove the historical
-origin of throttling. A Compose call start does not timestamp its individual registry requests.
-Pull completion bounds the end of that opaque request window; the next admission follows that
-completion plus the provider interval. This conservatively separates the two request windows.
-The virtual-time adapter proves this contract, not successful acquisition from AWS; the exact-ref
-runtime smoke and current-head CI must provide that proof.
-Acquisition failures keep their original error and stop startup without a
-retry. The local process adapter in `scripts/ecr-public-acquisition.test.mjs` exercises this shell
-boundary with virtual time, a quota rejection, an image-input rejection and failed cleanup.
+[#1390](https://github.com/sachkov-inside/platform/issues/1390) records two ECR Public failures
+for the same Caddy index on run38703582081: `Data limit exceeded`, then `Rate exceeded`.
+Both failures occurred before runtime assertions, after the preceding RabbitMQ pull and its existing
+one-second interval. The quota consumer and owner remain unknown. Increasing this interval would
+not establish or repair the documented anonymous monthly data limit.
+
+The production smoke now selects the official Docker Hub Caddy index directly. The
+[identity and failure receipt](../evidence/issue-1390/caddy-acquisition.json) records equal upstream/ECR
+index bytes, the unchanged digest and hash-verified `linux/amd64` and `linux/arm64` child manifests.
+A local anonymous upstream pull succeeded with existing exact-content layers retained; this is not
+a cold hosted-download or runtime proof. Docker Hub remains subject to its own availability and
+[anonymous limits](https://docs.docker.com/docker-hub/usage/pulls/). The change removes the failing
+ECR acquisition boundary without adding credentials, retries, fallback, preload or mirror publication.
+
+The smoke still prints resolved RabbitMQ/Caddy references and admits each service through a separate
+Compose command. Its existing one-second interval remains; it does not reserve a provider quota or
+prove the historical origin of throttling. Acquisition failures keep their original error and stop
+startup. The process adapter in `scripts/ecr-public-acquisition.test.mjs` preserves the historical
+throttle replay, image-input refusal and failed-cleanup checks. Exact-source Production Compose CI
+must still verify real acquisition, all runtime assertions and cleanup.
+
 Development CI retains serial acquisition for PostgreSQL, RustFS and Mailpit before its clean-stack
 smoke; this explicit group now contains no ECR Public image, so it has no ECR pair to space.
 Integration serial enables
@@ -385,16 +428,23 @@ own their own containers.
 The root config caps file workers using `test/integration/setup/worker-budget.ts`: one worker per
 two available CPU slots and per 2 GiB of available host memory, rounded down, with a minimum of one.
 The smaller limit wins. Local runs additionally cap this budget at two file workers (#1151);
-CI retains the resource-based budget. Each integration project names its worker limit; the serial
+GitHub-hosted runners reserve one CPU slot and 2 GiB of available memory, allow 1 GiB per active
+file, and cap the result at three workers, with a minimum of one (#1510). This policy requires both
+`GITHUB_ACTIONS=true` and `RUNNER_ENVIRONMENT=github-hosted`; self-hosted runners retain the shared
+resource budget. CI logs its CPU, available-memory snapshot and chosen worker limit.
+Each integration project names its worker limit; the serial
 project sets one. The memory input is Node's `process.availableMemory()`: it accounts for Linux
 cgroup memory limits; on macOS, it includes free, inactive and purgeable pages without applying a
-process memory limit. The budget allows
+process memory limit. The shared-runner budget allows
 1 GiB per active file and retains half the available memory and CPU slots for the runner, Docker
 and another session. The #569 local baseline samples on 06.10.2026 reached 402 MiB per fork; 1 GiB also
 allows room for PostgreSQL work. The topology bounds the number of containers; PostgreSQL CPU and
 memory usage still depend on the number of active files.
 This is a startup snapshot, not a reservation against later external load.
-A machine with four available CPU slots and at least 4 GiB of available memory runs two files at once.
+A shared machine with four available CPU slots and at least 4 GiB of available memory runs two files at once.
+A dedicated GitHub-hosted runner with four CPU slots and at least 5 GiB available runs three.
+Full-stack Playwright disables Git diff capture to avoid fetching a missing PR base; commit metadata
+and source-bound CI evidence remain available. Failure screenshots and traces remain enabled.
 Explicit Vitest `--maxWorkers` overrides the automatic budget; `--no-file-parallelism` runs one file
 at a time for comparison. The separate serial project retains its one-file limit.
 
@@ -617,7 +667,11 @@ a fix; #1110 remains open until a captured failure establishes the cause.
 
 The full-stack scenario `Billing-only opens billing tools and is denied a Materials mutation
 without a durable effect` (#1136) retains video of the Billing-only context, including the
-first-sign-in helper's page that closes before the scenario continues. The full-stack configuration
+first-sign-in helper's page that closes before the scenario continues. The helper observes the
+open dialog's terms-unavailable alert as a terminal failure and reports it directly, rather than
+waiting for an acceptance button or redirect that this state cannot produce. This does not retry
+the request or prove the cause of backend unavailability; all 15-second wait budgets remain.
+The full-stack configuration
 also writes an HTML report with the error's call log. The manual full-stack job uploads it and `test-results`
 as `nightly-fullstack-diagnostics-<run_attempt>` for seven days. Copy local `test-results` and
 `playwright-report` before another invocation replaces them. At a first-sign-in timeout, inspect

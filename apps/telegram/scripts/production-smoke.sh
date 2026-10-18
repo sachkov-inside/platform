@@ -53,8 +53,17 @@ jq --exit-status '
   (.image | test("^ghcr\\.io/sachkov-inside/inside-telegram@sha256:[0-9a-f]{64}$"))
 ' "$fixture/release-manifest.json" >/dev/null
 legacy_image="$(jq --raw-output .image "$fixture/release-manifest.json")"
-identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity | jq --raw-output .identity)"
-[[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]] || refuse 'Migration identity mismatch'
+# Preserve the immutable v5 prefix while allowing explicitly checked additive migrations.
+mkdir "$fixture/legacy-migrations"
+expected_ledger="$(
+  for file in "$repository_root/apps/telegram/src/database/migrations/"*.ts; do
+    name="${file##*/}"
+    printf '%s\n' "${name%.ts}"
+    if [[ "$name" < 031- ]]; then cp "$file" "$fixture/legacy-migrations/$name"; fi
+  done
+)"
+identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity "$fixture/legacy-migrations" | jq --raw-output .identity)"
+[[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]] || refuse 'Legacy migration identity mismatch'
 docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$source_sha" --tag "$candidate" .
 image_built=true
@@ -139,7 +148,7 @@ compose up --detach --no-build --wait app
 assert_ready
 [[ "$(query 'select count(*) from kysely_migration')" == 31 ]] || refuse 'Legacy migration count mismatch'
 query 'create table delivery_smoke_sentinel (value text primary key); insert into delivery_smoke_sentinel values ($$preserved$$)' >/dev/null
-ledger_before="$(query 'select name from kysely_migration order by name')"
+
 
 started="$(date +%s)"
 compose stop app
@@ -147,7 +156,8 @@ active_image="$candidate"
 compose --profile operations run --rm --interactive=false migrate
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]] || refuse 'Candidate migration ledger changed'
+ledger_candidate="$(query 'select name from kysely_migration order by name')"
+[[ "$ledger_candidate" == "$expected_ledger" ]] || refuse 'Candidate migration ledger changed'
 [[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Candidate sentinel changed'
 echo "Candidate restart/readiness: $(( $(date +%s) - started )) seconds"
 # Repeated start and rollback never execute the migration command.
@@ -158,7 +168,7 @@ compose stop app
 active_image="$legacy_image"
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]] || refuse 'Rollback migration ledger changed'
+[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_candidate" ]] || refuse 'Rollback migration ledger changed'
 [[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Rollback sentinel changed'
 echo "Legacy rollback/readiness: $(( $(date +%s) - started )) seconds"
-echo "Telegram runtime transition and rollback passed: 31 migrations, sentinel preserved, exact image IDs and loopback readiness/auth verified."
+echo "Telegram runtime transition and rollback passed: candidate migrations retained on rollback, sentinel preserved, exact image IDs and loopback readiness/auth verified."

@@ -648,7 +648,7 @@ Account без права получают «не найдено». `ContentAcce
 вводный блок `hero` не повторяется, а подстановками считаются только `{access_term}` и
 `{support_term}`. Описание, которое не проходит схему выпуска, читателю не показывается, отмечается
 в редакторском списке как `pageRejected` и заменяется следующим переносом. Оба поля и `slug` меняет только source-scoped
-импорт из Inside Content (`POST /authoring/import/products/update`); редактор и MCP их не пишут, а
+импорт из Engineering Content (`POST /authoring/import/products/update`); редактор и MCP их не пишут, а
 версия `Product` покрывает их вместе с названием и описанием. Публичное чтение отдаёт их в
 `reference.productPage`, Главная — в `pinnedSeries.presentation` и `pinnedSeries.card`. Неизвестное
 оформление сайт показывает общим шаблоном и пишет предупреждение в журнал сервера; перенос такой
@@ -662,7 +662,7 @@ Account без права получают «не найдено». `ContentAcce
 спецификация, фичи, CI и мониторинг) без кнопки паузы; при reduced motion — неподвижный итоговый кадр.
 Известные блоки (`mentoring`, `topics`, `value`, `format`, `practice`, `agents`, `audience`, `faq`,
 `status`) получают свои значки и иллюстрации, остальные рисуются по виду. Разделы проявляются при
-прокрутке средствами CSS. Весь текст — ключ `page` в `guides/02. Inside AI Engineering/guide.yaml`;
+прокрутке средствами CSS. Весь текст — ключ `page` в манифесте `guide.yaml` продукта `inside-ai-engineering` в Engineering Content;
 обложка продукта оттуда же показывается в программе и каталоге. Прохождение остаётся на
 странице программы: туда ведут кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
 над ней стоит плашка потока, а сама она ведёт по этапу продаж
@@ -691,13 +691,15 @@ Tasks. Embedded Tasks are already represented by their Material entry and are no
 скрывают действие участника. Доступ и продолжение читаются личной частью вне общего кеша и
 предзагрузки; общий первый экран и гостевой путь сохраняются (#1336).
 
-Для `working-with-agents` («AI-first разработка») решением владельца 13.09.2026 используется
-авторская страница: AI-first процесс, аудитория, обещаемый результат с тремя визуальными карточками,
+Исторический продукт `working-with-agents` («AI-first разработка») удалён из авторского каталога 27.09.2026.
+Его прежний манифест доступен через [редакционную карту Engineering Content](https://github.com/sachkov-inside/engineering-content/blob/main/docs/guides/working-with-agents.md).
+Ниже сохранено описание страницы по решению владельца 13.09.2026.
+Страница описывает AI-first процесс, аудиторию, обещаемый результат с тремя визуальными карточками,
 единый обзор программы с выбором агента и модели, компактная схема языков и проекта,
 авторское сопровождение и бонусы. Стек выбирает участник, в том числе для учебного проекта; фиксированного стека
 учебного примера лендинг не задаёт. Отдельного блока расходов на лендинге нет. Большие блоки,
 повторяющие темы программы, убраны. Основы программирования нужны до старта. Её текст живёт в
-оригинале Inside Content (`products/01. AI-first разработка/product.yaml`, ключ `page`); диаграммы,
+историческом оригинале Engineering Content (`guide.yaml`, ключ `page`); диаграммы,
 значки и кнопки навигации принадлежат оформлению `ai-first-process` в web. Это не новая универсальная
 схема введения и не отдельный путь чтения. Наличие руководства, опубликованные материалы, главы,
 количества и доступ по-прежнему определяет Materials. Главное действие ведёт в `/products/:slug/programme`.
@@ -717,7 +719,7 @@ Tasks. Embedded Tasks are already represented by their Material entry and are no
 `Product` хранит введение для читателя: `outcome` — что читатель сможет, `audience` — для кого,
 `prerequisites` — что нужно знать заранее, `scope` — что разбираем и что остаётся за границами.
 Каждое поле — точная строка после `trim()`, до 4000 UTF-16 code units; пустая строка означает
-ненаписанное поле. Имена полей совпадают с `product.yaml` авторской базы Inside Content, поэтому
+ненаписанное поле. Имена полей совпадают с `guide.yaml` авторской базы Engineering Content, поэтому
 импорт переносит авторский текст без перевода. У импортированного Product введение меняет
 только источник через `POST /authoring/import/products/update`; редактор/API/MCP его не пишут.
 Content v1/v2 допускает необязательное `products[].introduction` с этими четырьмя полями.
@@ -1699,6 +1701,18 @@ Learning-start persistence is independent of the current lesson composition.
 owns entitlement combination, preservation and operator revocation. [ADR 0034](../adr/0034-product-community-and-product-revocation.md)
 owns the module boundary and historical-policy trade-offs. This implementation does not authorize
 new sales, group changes or legal-edition publication; the prospective legal decision is #1464.
+
+## Individual one-time payment links — #1450
+
+The owner can issue a transferable link for one existing Product's one-time payment option. The owner chooses a final RUB amount or an integer percentage discount. The link fixes its amount and composition; it does not publish or reprice the public Offer. It can sell while that Offer is unpublished. Free access uses the existing manual grant path. Optional expiry uses Europe/Moscow in the owner form; no expiry means until successful purchase or revocation.
+
+The first successful buyer receives the normal Product benefits. The buyer signs in, sees actual terms and applicable legal editions, accepts by pressing the payment button, and uses the existing quote, payment, receipt and grant path. The link survives sign-in and bank return. Opening a return URL proves no payment. Private entry uses no shared cache, no indexing and no referrer.
+
+Quote creation and payment initiation recheck the link. Concurrent purchases reserve only once. A begun or uncertain payment retains its reservation until an authentic bank result. A definitive failure permits retry; a confirmed purchase consumes the link permanently, including after refund. Revocation is available before payment begins and does not revoke an existing purchase. Composition changes invalidate unused links; public publication or base-price changes do not change their saved amount.
+
+The owner can recover issued links through a paginated list, copy their URL and revoke unused links. Issuing or copying sends no message. The accepted layout A comes from #1500 at `48f2fc49320c77b3fe632868aa847ff99df3a761`; the production implementation requires its own visual acceptance. Edition 6 is prepared separately under #1464; runtime publication remains coordinated by #854.
+
+The former survey-specific issuing form is replaced by this common workflow. Survey eligibility is checked manually. Historical survey counts and issued-code facts remain readable in a read-only archive; existing codes and compatibility endpoints are preserved.
 
 
 ## Embedded practical lessons

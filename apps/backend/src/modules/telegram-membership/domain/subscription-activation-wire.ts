@@ -8,6 +8,7 @@ import {
   bindingSnapshotSchema,
   ACTIVATION_CONTRACT_VERSION,
   invitationRedemptionOutcomeSchema,
+  ownProductSchema,
 } from "../../account-rights/index.js";
 import { ownAdmissionSchema } from "./community-entitlement.js";
 export const activationFailureSchema = z.strictObject({
@@ -60,6 +61,9 @@ export const ownSubscriptionAccessResponseSchema = z.union([
       enrollments: z.array(botEnrollmentSchema),
       grounds: z.array(botOwnAccessGroundSchema),
       admission: ownAdmissionSchema,
+      products: z
+        .array(ownProductSchema.extend({ programmeUrl: z.url().optional() }))
+        .optional(),
     }),
   }),
   activationFailureSchema,
@@ -73,6 +77,28 @@ export const invitationRedeemResponseSchema = z.union([
     ok: z.literal(false),
     error: z.strictObject({
       code: z.enum(["invalid_input", "identity_conflict", "unavailable"]),
+    }),
+  }),
+]);
+
+/** Current trusted target of one published activation link, with no learner side effects. */
+export const announcementResponseSchema = z.union([
+  z.strictObject({
+    ok: z.literal(true),
+    value: z.strictObject({
+      contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION),
+      rule: z.strictObject({
+        id: z.uuid(),
+        revision: z.int().positive(),
+        sourceRef: z.string().min(1).max(256),
+        productId: z.uuid(),
+      }),
+    }),
+  }),
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(["invalid_input", "policy_paused", "unavailable"]),
     }),
   }),
 ]);

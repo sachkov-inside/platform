@@ -8392,6 +8392,27 @@
                                 "minimum": 0,
                                 "type": "integer"
                               },
+                              "individualPayment": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "basePriceKopecks": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 9007199254740991,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "linkId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "linkId",
+                                  "basePriceKopecks"
+                                ],
+                                "type": "object"
+                              },
                               "offer": {
                                 "additionalProperties": false,
                                 "properties": {
@@ -8772,6 +8793,27 @@
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
                                   "type": "integer"
+                                },
+                                "individualPayment": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "basePriceKopecks": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "linkId": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "linkId",
+                                    "basePriceKopecks"
+                                  ],
+                                  "type": "object"
                                 },
                                 "offer": {
                                   "additionalProperties": false,
@@ -13325,6 +13367,27 @@
                               "minimum": 0,
                               "type": "integer"
                             },
+                            "individualPayment": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "basePriceKopecks": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "linkId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "linkId",
+                                "basePriceKopecks"
+                              ],
+                              "type": "object"
+                            },
                             "offer": {
                               "additionalProperties": false,
                               "properties": {
@@ -14473,6 +14536,27 @@
                           "minimum": 0,
                           "type": "integer"
                         },
+                        "individualPayment": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "basePriceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "linkId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "linkId",
+                            "basePriceKopecks"
+                          ],
+                          "type": "object"
+                        },
                         "offer": {
                           "additionalProperties": false,
                           "properties": {
@@ -15392,6 +15476,27 @@
                           "minimum": 0,
                           "type": "integer"
                         },
+                        "individualPayment": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "basePriceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "linkId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "linkId",
+                            "basePriceKopecks"
+                          ],
+                          "type": "object"
+                        },
                         "offer": {
                           "additionalProperties": false,
                           "properties": {
@@ -16267,6 +16372,27 @@
                           "minimum": 0,
                           "type": "integer"
                         },
+                        "individualPayment": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "basePriceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "linkId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "linkId",
+                            "basePriceKopecks"
+                          ],
+                          "type": "object"
+                        },
                         "offer": {
                           "additionalProperties": false,
                           "properties": {
@@ -17076,6 +17202,11 @@
                     "minimum": 0,
                     "type": "integer"
                   },
+                  "paymentLinkId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "type": "string"
+                  },
                   "paymentOptionId": {
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -17140,6 +17271,27 @@
                           "maximum": 9007199254740991,
                           "minimum": 0,
                           "type": "integer"
+                        },
+                        "individualPayment": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "basePriceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "linkId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "linkId",
+                            "basePriceKopecks"
+                          ],
+                          "type": "object"
                         },
                         "offer": {
                           "additionalProperties": false,
@@ -17654,7 +17806,8 @@
                         "code": {
                           "enum": [
                             "operation_conflict",
-                            "quote_changed"
+                            "quote_changed",
+                            "reservation_conflict"
                           ],
                           "type": "string"
                         },
@@ -17670,7 +17823,8 @@
                         "type": {
                           "enum": [
                             "urn:inside:problem:operation_conflict",
-                            "urn:inside:problem:quote_changed"
+                            "urn:inside:problem:quote_changed",
+                            "urn:inside:problem:reservation_conflict"
                           ],
                           "type": "string"
                         }
@@ -18032,6 +18186,27 @@
                               "maximum": 9007199254740991,
                               "minimum": 0,
                               "type": "integer"
+                            },
+                            "individualPayment": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "basePriceKopecks": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "linkId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "linkId",
+                                "basePriceKopecks"
+                              ],
+                              "type": "object"
                             },
                             "offer": {
                               "additionalProperties": false,
@@ -19213,6 +19388,27 @@
                               "minimum": 0,
                               "type": "integer"
                             },
+                            "individualPayment": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "basePriceKopecks": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "linkId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "linkId",
+                                "basePriceKopecks"
+                              ],
+                              "type": "object"
+                            },
                             "offer": {
                               "additionalProperties": false,
                               "properties": {
@@ -19586,6 +19782,27 @@
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
                                   "type": "integer"
+                                },
+                                "individualPayment": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "basePriceKopecks": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "linkId": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "linkId",
+                                    "basePriceKopecks"
+                                  ],
+                                  "type": "object"
                                 },
                                 "offer": {
                                   "additionalProperties": false,
@@ -20795,6 +21012,27 @@
                               "minimum": 0,
                               "type": "integer"
                             },
+                            "individualPayment": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "basePriceKopecks": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "linkId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "linkId",
+                                "basePriceKopecks"
+                              ],
+                              "type": "object"
+                            },
                             "offer": {
                               "additionalProperties": false,
                               "properties": {
@@ -21958,6 +22196,27 @@
                                   "minimum": 0,
                                   "type": "integer"
                                 },
+                                "individualPayment": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "basePriceKopecks": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "linkId": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "linkId",
+                                    "basePriceKopecks"
+                                  ],
+                                  "type": "object"
+                                },
                                 "offer": {
                                   "additionalProperties": false,
                                   "properties": {
@@ -22262,6 +22521,27 @@
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
                                   "type": "integer"
+                                },
+                                "individualPayment": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "basePriceKopecks": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "linkId": {
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "linkId",
+                                    "basePriceKopecks"
+                                  ],
+                                  "type": "object"
                                 },
                                 "offer": {
                                   "additionalProperties": false,
@@ -23188,6 +23468,27 @@
                               "maximum": 9007199254740991,
                               "minimum": 0,
                               "type": "integer"
+                            },
+                            "individualPayment": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "basePriceKopecks": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "linkId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "linkId",
+                                "basePriceKopecks"
+                              ],
+                              "type": "object"
                             },
                             "offer": {
                               "additionalProperties": false,
@@ -28069,6 +28370,189 @@
         "summary": "Read whether the current Account's grounds open a Product",
         "tags": [
           "Content library"
+        ]
+      }
+    },
+    "/accounts/current/telegram-activation/{attemptId}": {
+      "get": {
+        "operationId": "readTelegramActivationContinuation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attemptId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "expired",
+                            "identity_conflict",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "product": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        "state": {
+                          "enum": [
+                            "link_required",
+                            "pending",
+                            "active"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "product"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "terms_acceptance_required"
+                      ],
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        403
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:terms_acceptance_required"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The terms of use in force are not accepted yet"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "internal_error"
+                      ],
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        500
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:internal_error"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Terms acceptance could not be checked"
+          }
+        },
+        "security": [
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Continue a selected activation for the current Account binding",
+        "tags": [
+          "Telegram Membership"
         ]
       }
     },
@@ -78938,6 +79422,161 @@
                   {
                     "additionalProperties": false,
                     "properties": {
+                      "expiresAt": {
+                        "format": "date-time",
+                        "nullable": true,
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "paymentLinks.create"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "optionRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "paymentOptionId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "price": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "amountKopecks": {
+                                "maximum": 100000000,
+                                "minimum": 100,
+                                "type": "integer"
+                              },
+                              "kind": {
+                                "enum": [
+                                  "amount"
+                                ],
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "amountKopecks"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "kind": {
+                                "enum": [
+                                  "discount"
+                                ],
+                                "type": "string"
+                              },
+                              "percent": {
+                                "maximum": 99,
+                                "minimum": 0,
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "percent"
+                            ],
+                            "type": "object"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "operation",
+                      "operationId",
+                      "paymentOptionId",
+                      "optionRevision",
+                      "price",
+                      "expiresAt"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "expectedRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "id": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "paymentLinks.revoke"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operation",
+                      "operationId",
+                      "id",
+                      "expectedRevision"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cursor": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "limit": {
+                        "default": 50,
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "paymentLinks.list"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "operation",
+                      "limit"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
                       "operation": {
                         "enum": [
                           "tribute.status"
@@ -81539,6 +82178,726 @@
                     },
                     "result": {
                       "anyOf": [
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "paymentLink"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "createdAt": {
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                  "type": "string"
+                                },
+                                "expiresAt": {
+                                  "format": "date-time",
+                                  "nullable": true,
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                  "type": "string"
+                                },
+                                "id": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 2147483647,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "snapshot": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "communityPolicy": {
+                                      "enum": [
+                                        "explicit"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "enum": [
+                                        "RUB"
+                                      ],
+                                      "type": "string"
+                                    },
+                                    "firstPriceKopecks": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "individualPayment": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "basePriceKopecks": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "linkId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "linkId",
+                                        "basePriceKopecks"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "offer": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "archived": {
+                                          "type": "boolean"
+                                        },
+                                        "availableForAssignment": {
+                                          "type": "boolean"
+                                        },
+                                        "benefitPeriods": {
+                                          "items": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "capability": {
+                                                "anyOf": [
+                                                  {
+                                                    "enum": [
+                                                      "materials",
+                                                      "community",
+                                                      "reviews",
+                                                      "support"
+                                                    ],
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "pattern": "^product:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                    "type": "string"
+                                                  }
+                                                ]
+                                              },
+                                              "months": {
+                                                "exclusiveMinimum": true,
+                                                "maximum": 1200,
+                                                "minimum": 0,
+                                                "nullable": true,
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "capability",
+                                              "months"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "maxItems": 100,
+                                          "type": "array"
+                                        },
+                                        "benefits": {
+                                          "items": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^product:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "maxItems": 100,
+                                          "minItems": 1,
+                                          "type": "array"
+                                        },
+                                        "coverage": {
+                                          "additionalProperties": false,
+                                          "nullable": true,
+                                          "properties": {
+                                            "materialIds": {
+                                              "items": {
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              },
+                                              "maxItems": 1000,
+                                              "type": "array"
+                                            },
+                                            "productIds": {
+                                              "items": {
+                                                "format": "uuid",
+                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              },
+                                              "maxItems": 1000,
+                                              "type": "array"
+                                            },
+                                            "wholePlatform": {
+                                              "enum": [
+                                                true
+                                              ],
+                                              "type": "boolean"
+                                            }
+                                          },
+                                          "required": [
+                                            "productIds",
+                                            "materialIds"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "eligibility": {
+                                          "enum": [
+                                            "everyone",
+                                            "former_tribute_subscribers",
+                                            "invitation_only"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "maxLength": 200,
+                                          "minLength": 1,
+                                          "type": "string"
+                                        },
+                                        "published": {
+                                          "type": "boolean"
+                                        },
+                                        "revision": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "revision",
+                                        "name",
+                                        "benefits",
+                                        "archived"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "paymentOption": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "archived": {
+                                          "type": "boolean"
+                                        },
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "mode": {
+                                          "enum": [
+                                            "subscription",
+                                            "one_time"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "months": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 1200,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "offerId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "priceKopecks": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "revision": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "revision",
+                                        "offerId",
+                                        "months",
+                                        "priceKopecks",
+                                        "archived"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "promotion": {
+                                      "additionalProperties": false,
+                                      "nullable": true,
+                                      "properties": {
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "percent": {
+                                          "maximum": 100,
+                                          "minimum": 1,
+                                          "type": "integer"
+                                        },
+                                        "revision": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 2147483647,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "revision",
+                                        "name",
+                                        "percent"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "renewalPriceKopecks": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "timezone": {
+                                      "enum": [
+                                        "Europe/Moscow"
+                                      ],
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "offer",
+                                    "paymentOption",
+                                    "promotion",
+                                    "currency",
+                                    "timezone",
+                                    "firstPriceKopecks",
+                                    "renewalPriceKopecks"
+                                  ],
+                                  "type": "object"
+                                },
+                                "state": {
+                                  "enum": [
+                                    "active",
+                                    "pending",
+                                    "unknown",
+                                    "paid",
+                                    "revoked",
+                                    "expired",
+                                    "changed"
+                                  ],
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "revision",
+                                "state",
+                                "createdAt",
+                                "expiresAt",
+                                "snapshot"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "items": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "createdAt": {
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                    "type": "string"
+                                  },
+                                  "expiresAt": {
+                                    "format": "date-time",
+                                    "nullable": true,
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                    "type": "string"
+                                  },
+                                  "id": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  },
+                                  "revision": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 2147483647,
+                                    "minimum": 0,
+                                    "type": "integer"
+                                  },
+                                  "snapshot": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "communityPolicy": {
+                                        "enum": [
+                                          "explicit"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "enum": [
+                                          "RUB"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "firstPriceKopecks": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "individualPayment": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "basePriceKopecks": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "linkId": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "linkId",
+                                          "basePriceKopecks"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "offer": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "archived": {
+                                            "type": "boolean"
+                                          },
+                                          "availableForAssignment": {
+                                            "type": "boolean"
+                                          },
+                                          "benefitPeriods": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "capability": {
+                                                  "anyOf": [
+                                                    {
+                                                      "enum": [
+                                                        "materials",
+                                                        "community",
+                                                        "reviews",
+                                                        "support"
+                                                      ],
+                                                      "type": "string"
+                                                    },
+                                                    {
+                                                      "pattern": "^product:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    }
+                                                  ]
+                                                },
+                                                "months": {
+                                                  "exclusiveMinimum": true,
+                                                  "maximum": 1200,
+                                                  "minimum": 0,
+                                                  "nullable": true,
+                                                  "type": "integer"
+                                                }
+                                              },
+                                              "required": [
+                                                "capability",
+                                                "months"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "type": "array"
+                                          },
+                                          "benefits": {
+                                            "items": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^product:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "maxItems": 100,
+                                            "minItems": 1,
+                                            "type": "array"
+                                          },
+                                          "coverage": {
+                                            "additionalProperties": false,
+                                            "nullable": true,
+                                            "properties": {
+                                              "materialIds": {
+                                                "items": {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                },
+                                                "maxItems": 1000,
+                                                "type": "array"
+                                              },
+                                              "productIds": {
+                                                "items": {
+                                                  "format": "uuid",
+                                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                },
+                                                "maxItems": 1000,
+                                                "type": "array"
+                                              },
+                                              "wholePlatform": {
+                                                "enum": [
+                                                  true
+                                                ],
+                                                "type": "boolean"
+                                              }
+                                            },
+                                            "required": [
+                                              "productIds",
+                                              "materialIds"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "eligibility": {
+                                            "enum": [
+                                              "everyone",
+                                              "former_tribute_subscribers",
+                                              "invitation_only"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "id": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "name": {
+                                            "maxLength": 200,
+                                            "minLength": 1,
+                                            "type": "string"
+                                          },
+                                          "published": {
+                                            "type": "boolean"
+                                          },
+                                          "revision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 2147483647,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "revision",
+                                          "name",
+                                          "benefits",
+                                          "archived"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "paymentOption": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "archived": {
+                                            "type": "boolean"
+                                          },
+                                          "id": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "mode": {
+                                            "enum": [
+                                              "subscription",
+                                              "one_time"
+                                            ],
+                                            "type": "string"
+                                          },
+                                          "months": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 1200,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "offerId": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "priceKopecks": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "revision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 2147483647,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "revision",
+                                          "offerId",
+                                          "months",
+                                          "priceKopecks",
+                                          "archived"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "promotion": {
+                                        "additionalProperties": false,
+                                        "nullable": true,
+                                        "properties": {
+                                          "id": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          },
+                                          "percent": {
+                                            "maximum": 100,
+                                            "minimum": 1,
+                                            "type": "integer"
+                                          },
+                                          "revision": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 2147483647,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "id",
+                                          "revision",
+                                          "name",
+                                          "percent"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "renewalPriceKopecks": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "timezone": {
+                                        "enum": [
+                                          "Europe/Moscow"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "offer",
+                                      "paymentOption",
+                                      "promotion",
+                                      "currency",
+                                      "timezone",
+                                      "firstPriceKopecks",
+                                      "renewalPriceKopecks"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "state": {
+                                    "enum": [
+                                      "active",
+                                      "pending",
+                                      "unknown",
+                                      "paid",
+                                      "revoked",
+                                      "expired",
+                                      "changed"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "revision",
+                                  "state",
+                                  "createdAt",
+                                  "expiresAt",
+                                  "snapshot"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "nextCursor": {
+                              "format": "uuid",
+                              "nullable": true,
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "enum": [
+                                "paymentLinks"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "items",
+                            "nextCursor"
+                          ],
+                          "type": "object"
+                        },
                         {
                           "additionalProperties": false,
                           "properties": {
@@ -84927,6 +86286,27 @@
                                     "minimum": 0,
                                     "type": "integer"
                                   },
+                                  "individualPayment": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "basePriceKopecks": {
+                                        "exclusiveMinimum": true,
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "linkId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "linkId",
+                                      "basePriceKopecks"
+                                    ],
+                                    "type": "object"
+                                  },
                                   "offer": {
                                     "additionalProperties": false,
                                     "properties": {
@@ -85313,6 +86693,27 @@
                                         "maximum": 9007199254740991,
                                         "minimum": 0,
                                         "type": "integer"
+                                      },
+                                      "individualPayment": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "basePriceKopecks": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 9007199254740991,
+                                            "minimum": 0,
+                                            "type": "integer"
+                                          },
+                                          "linkId": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "linkId",
+                                          "basePriceKopecks"
+                                        ],
+                                        "type": "object"
                                       },
                                       "offer": {
                                         "additionalProperties": false,
@@ -85992,6 +87393,27 @@
                                       "minimum": 0,
                                       "type": "integer"
                                     },
+                                    "individualPayment": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "basePriceKopecks": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "linkId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "linkId",
+                                        "basePriceKopecks"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "offer": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -86423,6 +87845,27 @@
                                       "minimum": 0,
                                       "type": "integer"
                                     },
+                                    "individualPayment": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "basePriceKopecks": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "linkId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "linkId",
+                                        "basePriceKopecks"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "offer": {
                                       "additionalProperties": false,
                                       "properties": {
@@ -86837,6 +88280,27 @@
                                           "maximum": 9007199254740991,
                                           "minimum": 0,
                                           "type": "integer"
+                                        },
+                                        "individualPayment": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "basePriceKopecks": {
+                                              "exclusiveMinimum": true,
+                                              "maximum": 9007199254740991,
+                                              "minimum": 0,
+                                              "type": "integer"
+                                            },
+                                            "linkId": {
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "linkId",
+                                            "basePriceKopecks"
+                                          ],
+                                          "type": "object"
                                         },
                                         "offer": {
                                           "additionalProperties": false,
@@ -89852,6 +91316,27 @@
                             "minimum": 0,
                             "type": "integer"
                           },
+                          "individualPayment": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "basePriceKopecks": {
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "linkId": {
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "linkId",
+                              "basePriceKopecks"
+                            ],
+                            "type": "object"
+                          },
                           "offer": {
                             "additionalProperties": false,
                             "properties": {
@@ -90325,6 +91810,578 @@
           }
         ],
         "summary": "Read active options and public first-payment prices, filtered by sale mode, access capability and the reader's eligibility",
+        "tags": [
+          "Billing"
+        ]
+      }
+    },
+    "/billing/payment-links/{id}": {
+      "get": {
+        "operationId": "readBillingPaymentLink",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "createdAt": {
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "format": "date-time",
+                      "nullable": true,
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                      "type": "string"
+                    },
+                    "id": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                      "type": "string"
+                    },
+                    "product": {
+                      "additionalProperties": false,
+                      "nullable": true,
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "kind": {
+                          "enum": [
+                            "product",
+                            "material"
+                          ],
+                          "type": "string"
+                        },
+                        "slug": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "id",
+                        "title",
+                        "slug",
+                        "available"
+                      ],
+                      "type": "object"
+                    },
+                    "revision": {
+                      "exclusiveMinimum": true,
+                      "maximum": 2147483647,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "snapshot": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "communityPolicy": {
+                          "enum": [
+                            "explicit"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "enum": [
+                            "RUB"
+                          ],
+                          "type": "string"
+                        },
+                        "firstPriceKopecks": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "individualPayment": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "basePriceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "linkId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "linkId",
+                            "basePriceKopecks"
+                          ],
+                          "type": "object"
+                        },
+                        "offer": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
+                            "availableForAssignment": {
+                              "type": "boolean"
+                            },
+                            "benefitPeriods": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "capability": {
+                                    "anyOf": [
+                                      {
+                                        "enum": [
+                                          "materials",
+                                          "community",
+                                          "reviews",
+                                          "support"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      {
+                                        "pattern": "^product:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      }
+                                    ]
+                                  },
+                                  "months": {
+                                    "exclusiveMinimum": true,
+                                    "maximum": 1200,
+                                    "minimum": 0,
+                                    "nullable": true,
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "capability",
+                                  "months"
+                                ],
+                                "type": "object"
+                              },
+                              "maxItems": 100,
+                              "type": "array"
+                            },
+                            "benefits": {
+                              "items": {
+                                "anyOf": [
+                                  {
+                                    "enum": [
+                                      "materials",
+                                      "community",
+                                      "reviews",
+                                      "support"
+                                    ],
+                                    "type": "string"
+                                  },
+                                  {
+                                    "pattern": "^product:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  }
+                                ]
+                              },
+                              "maxItems": 100,
+                              "minItems": 1,
+                              "type": "array"
+                            },
+                            "coverage": {
+                              "additionalProperties": false,
+                              "nullable": true,
+                              "properties": {
+                                "materialIds": {
+                                  "items": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  },
+                                  "maxItems": 1000,
+                                  "type": "array"
+                                },
+                                "productIds": {
+                                  "items": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  },
+                                  "maxItems": 1000,
+                                  "type": "array"
+                                },
+                                "wholePlatform": {
+                                  "enum": [
+                                    true
+                                  ],
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "productIds",
+                                "materialIds"
+                              ],
+                              "type": "object"
+                            },
+                            "eligibility": {
+                              "enum": [
+                                "everyone",
+                                "former_tribute_subscribers",
+                                "invitation_only"
+                              ],
+                              "type": "string"
+                            },
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "maxLength": 200,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "published": {
+                              "type": "boolean"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "name",
+                            "benefits",
+                            "archived"
+                          ],
+                          "type": "object"
+                        },
+                        "paymentOption": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "archived": {
+                              "type": "boolean"
+                            },
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "mode": {
+                              "enum": [
+                                "subscription",
+                                "one_time"
+                              ],
+                              "type": "string"
+                            },
+                            "months": {
+                              "exclusiveMinimum": true,
+                              "maximum": 1200,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "offerId": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "priceKopecks": {
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991,
+                              "minimum": 0,
+                              "type": "integer"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "offerId",
+                            "months",
+                            "priceKopecks",
+                            "archived"
+                          ],
+                          "type": "object"
+                        },
+                        "promotion": {
+                          "additionalProperties": false,
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "percent": {
+                              "maximum": 100,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "revision": {
+                              "exclusiveMinimum": true,
+                              "maximum": 2147483647,
+                              "minimum": 0,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "name",
+                            "percent"
+                          ],
+                          "type": "object"
+                        },
+                        "renewalPriceKopecks": {
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "timezone": {
+                          "enum": [
+                            "Europe/Moscow"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "offer",
+                        "paymentOption",
+                        "promotion",
+                        "currency",
+                        "timezone",
+                        "firstPriceKopecks",
+                        "renewalPriceKopecks"
+                      ],
+                      "type": "object"
+                    },
+                    "state": {
+                      "enum": [
+                        "active",
+                        "pending",
+                        "unknown",
+                        "paid",
+                        "revoked",
+                        "expired",
+                        "changed"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "state",
+                    "createdAt",
+                    "expiresAt",
+                    "snapshot",
+                    "product"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Optional Account proof is invalid"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "not_found"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        404
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:not_found"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "detail",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Account resolution failed"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "dependency_unavailable"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        503
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:dependency_unavailable"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {},
+          {
+            "logto": []
+          }
+        ],
+        "summary": "Read one private payment link without revealing buyer identity or changing public sales",
         "tags": [
           "Billing"
         ]
@@ -120420,6 +122477,201 @@
         ]
       }
     },
+    "/integrations/telegram/v1/subscription-activation/announcement": {
+      "post": {
+        "operationId": "readActivationAnnouncement",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "maxLength": 40,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "type": "string"
+                  },
+                  "contractVersion": {
+                    "enum": [
+                      "inside.subscription-activation.v1"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "contractVersion",
+                  "code"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "ok": {
+                          "enum": [
+                            true
+                          ],
+                          "type": "boolean"
+                        },
+                        "value": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside.subscription-activation.v1"
+                              ],
+                              "type": "string"
+                            },
+                            "rule": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "id": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "productId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "exclusiveMinimum": true,
+                                  "maximum": 9007199254740991,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "sourceRef": {
+                                  "maxLength": 256,
+                                  "minLength": 1,
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "revision",
+                                "sourceRef",
+                                "productId"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "rule"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "value"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "error": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "code": {
+                              "enum": [
+                                "invalid_input",
+                                "policy_paused",
+                                "unavailable"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "code"
+                          ],
+                          "type": "object"
+                        },
+                        "ok": {
+                          "enum": [
+                            false
+                          ],
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "ok",
+                        "error"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": {},
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unauthorized"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        401
+                      ],
+                      "type": "number"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "enum": [
+                        "urn:inside:problem:unauthorized"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "status",
+                    "title",
+                    "type"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "subscription-activation": []
+          }
+        ],
+        "summary": "Resolve the published Product and source of an owner announcement",
+        "tags": [
+          "Subscription activation integration"
+        ]
+      }
+    },
     "/integrations/telegram/v1/subscription-activation/attempts": {
       "post": {
         "operationId": "beginSubscriptionActivation",
@@ -120810,6 +123062,28 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                       "type": "string"
                                     },
+                                    "product": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "slug": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "slug",
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "revision": {
                                       "exclusiveMinimum": true,
                                       "maximum": 9007199254740991,
@@ -121175,6 +123449,28 @@
                                 "rule": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "guide": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "slug": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "slug",
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "id": {
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -122006,6 +124302,28 @@
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
                                       "type": "string"
                                     },
+                                    "product": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "slug": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "slug",
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "revision": {
                                       "exclusiveMinimum": true,
                                       "maximum": 9007199254740991,
@@ -122371,6 +124689,28 @@
                                 "rule": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "guide": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "slug": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "slug",
+                                        "name"
+                                      ],
+                                      "type": "object"
+                                    },
                                     "id": {
                                       "format": "uuid",
                                       "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -122554,6 +124894,9 @@
                     "minLength": 1,
                     "type": "string"
                   },
+                  "includeProducts": {
+                    "type": "boolean"
+                  },
                   "linkRef": {
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -122564,6 +124907,9 @@
                     "maximum": 9007199254740991,
                     "minimum": 0,
                     "type": "integer"
+                  },
+                  "prepareCommunity": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -123434,6 +125780,74 @@
                                     "type": "object"
                                   }
                                 ]
+                              },
+                              "type": "array"
+                            },
+                            "products": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "community": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "state": {
+                                        "enum": [
+                                          "available",
+                                          "expired",
+                                          "revoked",
+                                          "unavailable"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "state"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "id": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  },
+                                  "materials": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "state": {
+                                        "enum": [
+                                          "available",
+                                          "expired",
+                                          "revoked",
+                                          "unavailable"
+                                        ],
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "state"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "programmeUrl": {
+                                    "format": "uri",
+                                    "type": "string"
+                                  },
+                                  "slug": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "slug",
+                                  "name",
+                                  "materials",
+                                  "community"
+                                ],
+                                "type": "object"
                               },
                               "type": "array"
                             }
@@ -146654,6 +149068,93 @@
         "summary": "Read the aggregated sales funnel of one Product by bot source for the owner",
         "tags": [
           "Sales funnel"
+        ]
+      }
+    },
+    "/telegram-activation-intents/{attemptId}": {
+      "get": {
+        "operationId": "readTelegramActivationIntent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attemptId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "product": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "slug": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "slug",
+                            "name"
+                          ],
+                          "type": "object"
+                        },
+                        "state": {
+                          "enum": [
+                            "ready",
+                            "expired"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "product"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Read public Product navigation metadata without identity or access details",
+        "tags": [
+          "Telegram Membership"
         ]
       }
     }

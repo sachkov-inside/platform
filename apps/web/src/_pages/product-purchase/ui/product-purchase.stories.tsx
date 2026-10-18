@@ -1,8 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { expect, mocked, waitFor, within } from "storybook/test";
+import { getStoryRouter } from "../../../../.storybook/mocks/next-navigation";
+import { expect, fn, mocked, waitFor, within } from "storybook/test";
 
+import {
+  individualLink,
+  individualSnapshot,
+} from "@/storybook/payment-links.fixtures";
 import { buyerProductId } from "@/storybook/buyer-journey.fixtures";
 import {
   billingErrorMessage,
@@ -19,6 +24,7 @@ import {
   legalDocuments,
   verifiedContact,
   pendingPurchase,
+  failedPurchase,
   confirmedProductPurchase,
 } from "@/storybook/billing.fixtures";
 import {
@@ -73,9 +79,12 @@ function purchaseRoute(
   restored: PurchaseStatus | null = null,
   needsEmail = false,
   purchaseRef?: string,
+  individual = false,
 ): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
   const { beforeEach, decorators, parameters } = publicPageEnvironment(
-    "/products/platform-inside/buy",
+    individual
+      ? `/payment/links/${individualLink.id}`
+      : "/products/platform-inside/buy",
     { account: viewer === "guest" ? "guest" : "authenticated" },
   );
   return {
@@ -127,7 +136,12 @@ function purchaseRoute(
           );
         if (path === "/api/account/billing/quote")
           return Promise.resolve(
-            Response.json({ ok: true, value: productQuote }),
+            Response.json({
+              ok: true,
+              value: individual
+                ? { ...productQuote, snapshot: individualSnapshot }
+                : productQuote,
+            }),
           );
         return Promise.resolve(billingFailureResponse("unavailable"));
       })();
@@ -443,4 +457,130 @@ export const BankReturnKeepsPurchaseReference: Story = {
     false,
     pendingPurchase.purchaseRef,
   ),
+};
+
+/** Production private route: real client checkout with fixture-owned transport only. */
+export const IndividualGuest: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    individualLink,
+    offers: [individualSnapshot],
+    product: {
+      id: individualLink.product?.id ?? buyerProductId,
+      name: "AI Engineering",
+    },
+    slug: "ai-engineering",
+    signedIn: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Покупка по ссылке" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Войти для покупки" }),
+    ).toBeVisible();
+  },
+};
+export const IndividualMember: Story = {
+  ...purchaseRoute("member", null, false, undefined, true),
+  args: { ...IndividualGuest.args, signedIn: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      await within(canvasElement).findByRole("button", {
+        name: /Оплатить/,
+      }),
+    ).toBeVisible();
+  },
+};
+export const IndividualUnknown: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "unknown" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Уточняем результат в банке"),
+    ).toBeVisible();
+  },
+};
+export const IndividualExpired: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "expired" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Срок ссылки истёк"),
+    ).toBeVisible();
+  },
+};
+export const IndividualPaid: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "paid" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Покупка завершена"),
+    ).toBeVisible();
+  },
+};
+export const IndividualRevoked: Story = {
+  ...purchaseRoute("guest", null, false, undefined, true),
+  args: {
+    ...IndividualGuest.args,
+    individualLink: { ...individualLink, state: "revoked" },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Ссылка отозвана"),
+    ).toBeVisible();
+  },
+};
+
+const failedLinkRefresh = fn();
+const failedLinkRoute = purchaseRoute(
+  "member",
+  failedPurchase,
+  false,
+  undefined,
+  true,
+);
+export const IndividualFailedBankRefresh: Story = {
+  ...failedLinkRoute,
+  args: {
+    ...IndividualGuest.args,
+    signedIn: true,
+    individualLink: { ...individualLink, state: "unknown" },
+  },
+  beforeEach: async (context) => {
+    const setup = failedLinkRoute.beforeEach;
+    if (typeof setup !== "function")
+      throw new Error("Missing failed-link fixture setup");
+    const cleanup = await setup(context);
+    failedLinkRefresh.mockClear();
+    const router = getStoryRouter();
+    const original = router.refresh;
+    router.refresh = failedLinkRefresh;
+    return () => {
+      if (typeof cleanup === "function") cleanup();
+      router.refresh = original;
+    };
+  },
+  play: async () => {
+    await waitFor(() => expect(failedLinkRefresh).toHaveBeenCalledTimes(1));
+  },
+};
+
+export const IndividualGuestMobile: Story = {
+  ...IndividualGuest,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const IndividualMemberMobile: Story = {
+  ...IndividualMember,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

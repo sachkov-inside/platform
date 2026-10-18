@@ -1,6 +1,6 @@
 # Выпуск оболочки Product: контракт пакета v1
 
-Platform #803 владеет этим контрактом; exporter Inside Content реализует его в
+Platform #803 владеет этим контрактом; exporter Engineering Content реализует его в
 [inside-content#12](https://github.com/sachkov-inside/inside-content/issues/12). Исходная
 постановка — [выпуск оболочки курса](https://github.com/sachkov-inside/ai-engineering/blob/main/docs/course-shell-release-plan.md).
 Исполняемая authority — `tools/authoring/package.mjs`, `local-sync.mjs`, `release.mjs` и

@@ -1,6 +1,6 @@
 # Backend coding standards
 
-This file is normative for backend changes and reviews. ADR 0004 owns the feature-first rationale;
+Reviewers apply this file to backend changes. ADR 0004 owns the feature-first rationale;
 ADR 0005 owns direct Prisma use in application use cases.
 
 ## Capability layout
@@ -41,6 +41,8 @@ not dependency wiring.
   token solely to substitute a test double.
 - Register providers that add behaviour or own lifecycle; remove pass-through providers. Use the
   default singleton scope unless request-owned state proves a narrower scope.
+- Where `strict-boolean-expressions` rejects text, use `hasText` and `presentText` from
+  `src/infrastructure/contracts/text.ts`; `null`, `undefined` and `""` remain absent.
 - Controllers parse transport input, call one operation or facet, and map its result. Application
   results stay transport-neutral and use the operation's actual discriminated error union; adapter
   mapping is exhaustive.
@@ -147,9 +149,7 @@ not dependency wiring.
 - Every public endpoint declares a stable `operationId`, concrete input/success/error schemas, and
   its security scheme. A prose response description is not an OpenAPI contract.
 - Name the fields of a response body one by one. A spread publishes whatever its source gains next;
-  the declared schema and the DTO stay silent, because the excess property check does not apply to
-  a spread, and every strict reader then drops the whole body instead of the one key it did not
-  expect. That emptied the learning continuation and the buyer-state response on 2026-09-12.
+  the excess property check does not apply to spreads, and strict readers reject the whole body.
   `test/support/declared-api.ts` reads live responses against the generated OpenAPI document, so
   the leak fails in the test that calls the address.
 - Derive actor identity from the trusted authentication adapter. Never accept actor/account IDs,
@@ -190,13 +190,8 @@ not dependency wiring.
 
 ## Tests against real infrastructure
 
-- Fix the domain clock per case and share it across producers and consumers. Derive expiry and
-  "today" from that instant. Use monotonic time for latency and polling budgets, not calendar dates.
-- Apply [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
-  Each case owns its rows and double state; put compilation, migrations and large seeds in bounded
-  setup hooks. Unit tests supply git/network/process doubles; process and loopback contracts name
-  their real boundary and own its cleanup. Poll committed rows with the helper below.
-
+- Apply root [waiting rules](../../CODING_STANDARDS.md#waiting-in-tests) and
+  [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
 - Inherit configured integration test and hook budgets. An explicit override names its real boundary
   and cannot be below the suite default; retries or a larger budget do not repair a failed test.
   [`scripts/integration-test-budgets.test.mjs`](../../scripts/integration-test-budgets.test.mjs)
@@ -206,8 +201,7 @@ not dependency wiring.
   on two clock readings landing in one millisecond takes `setup/distinct-clock.ts`.
 - Run `rabbitmqctl` and read queue depth through `setup/broker.ts`; a one-off column of its own may
   still be parsed at the call site.
-- Each test owns its isolated database and containers. Its barriers therefore read its own rows,
-  never a global count another file can move.
+- Backend integration tests own isolated databases and containers; barriers read their owned rows.
 
 ## Enforcement
 

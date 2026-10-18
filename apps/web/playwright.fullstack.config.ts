@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { fullStackProjects } from "../../scripts/full-stack-options.mjs";
 
 const baseURL =
   process.env["FULLSTACK_WEB_BASE_URL"] ?? "http://127.0.0.1:3000";
@@ -8,6 +9,8 @@ export default defineConfig({
   testIgnore: ["**/enrollment.spec.ts", "**/buyer-journey.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
+  // CI already binds evidence to its source SHA; avoid Playwright fetching a missing PR base.
+  captureGitInfo: { diff: false },
   reporter: [["list"], ["html", { open: "never" }]],
   timeout: 60_000,
   workers: 1,
@@ -18,14 +21,14 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "desktop-chromium",
+      name: fullStackProjects[0],
       use: {
         browserName: "chromium",
         viewport: { width: 1_440, height: 1_024 },
       },
     },
     {
-      name: "mobile-chromium",
+      name: fullStackProjects[1],
       use: {
         browserName: "chromium",
         hasTouch: true,

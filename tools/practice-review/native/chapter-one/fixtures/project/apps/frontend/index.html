@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+  <meta charset="utf-8" />
+  <title>Учебная платформа</title>
+  <main id="app">
+    <h1>Рабочее окружение</h1>
+    <p role="status">{{ status }}</p>
+  </main>
+  <script src="/vue.js"></script>
+  <script>
+    Vue.createApp({
+      data: () => ({ status: "Проверяем соединение" }),
+      async mounted() {
+        try {
+          const response = await fetch("/api/health");
+          if (!response.ok) throw new Error("Backend unavailable");
+          const result = await response.json();
+          this.status =
+            result.database === "connected"
+              ? "База подключена"
+              : "Соединение не подтверждено";
+        } catch {
+          this.status = "Сервис недоступен";
+        }
+      },
+    }).mount("#app");
+  </script>
+</html>

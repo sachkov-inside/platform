@@ -1,5 +1,6 @@
 // Page templates derived from apps/web/app; scripts/web-telemetry-routes.test.mjs checks drift.
 export const telemetryRouteTemplates = [
+  "/telegram/continue",
   "/",
   "/account",
   "/account/access",
@@ -22,6 +23,7 @@ export const telemetryRouteTemplates = [
   "/legal",
   "/map",
   "/payment/checkout",
+  "/payment/links/[id]",
   "/payment/return",
   "/welcome",
   "/authoring/materials/[materialId]",

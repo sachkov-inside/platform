@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import fs from "node:fs";
-import { connect } from "node:net";
+import { connect, createServer } from "node:net";
 import {
   mkdtemp,
   mkdir,
@@ -16,7 +16,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { test } from "node:test";
+import { describe, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   publishDescendantReadiness,
@@ -85,8 +85,13 @@ function descendantReady(child) {
  * its launcher reports a listening descendant that ignores TERM, then waits or exits as requested.
  * @param {string} script
  * @param {"wait" | "finish" | "fail" | "cleanup" | "unavailable" | "timeout"} [mode]
+ * @param {string} [webBaseUrl]
  */
-async function fixture(script, mode = "wait") {
+async function fixture(
+  script,
+  mode = "wait",
+  webBaseUrl = "http://127.0.0.1:20621",
+) {
   const directory = await mkdtemp(join(tmpdir(), "inside-diagnostic-owner-"));
   // Evidence helpers find the workspace from cwd, so their output stays in this disposable root.
   await writeFile(join(directory, "pnpm-workspace.yaml"), "packages: []\n");
@@ -163,6 +168,12 @@ async function fixture(script, mode = "wait") {
   await rm(join(fixtureScripts, "authoring-stand-gateway.mjs"));
   await writeFile(join(fixtureScripts, "authoring-stand-gateway.mjs"), command);
   const stubs = {
+    // Telegram probes application slots directly; process cleanup owns only the descendant listener.
+    ...(script === "telegram-sign-in-local"
+      ? {
+          "node:net": `export function createServer() { return { once() {}, listen(_port, _host, ready) { queueMicrotask(ready); }, close(done) { queueMicrotask(done); } }; }`,
+        }
+      : {}),
     // Port availability has its own loopback adapter contract. Cleanup tests must not probe shared listeners.
     "editor-local-config.mjs": `export { editorLocalPorts, editorLocalEndpoints } from ${JSON.stringify(new URL("../editor-local-config.mjs?real-config", import.meta.url).href)}; export async function assertEditorPortsAvailable() {}`,
     "local-setup-lock.mjs":
@@ -235,7 +246,7 @@ async function fixture(script, mode = "wait") {
             : `${directory}:${process.env["PATH"] ?? ""}`,
         npm_execpath: pnpm,
         NODE_ENV: "development",
-        WEB_BASE_URL: "http://127.0.0.1:20621",
+        WEB_BASE_URL: webBaseUrl,
         BACKEND_BASE_URL: "http://127.0.0.1:20622",
         DATABASE_URL: "postgresql://fake:fake@127.0.0.1:9/check",
       },
@@ -429,120 +440,158 @@ test("descendant readiness stays complete when publishers overlap", async (conte
   assert.deepEqual(report, { pid: 789, port: 654 });
 });
 
-for (const script of diagnostics) {
-  for (const signal of /** @type {const} */ ([
-    "SIGINT",
-    "SIGTERM",
-    "SIGKILL",
-  ])) {
+test(
+  "Telegram cleanup fixture does not probe an occupied application port",
+  { timeout: 25_000 },
+  async (context) => {
+    const listener = createServer();
+    context.after(
+      () =>
+        new Promise((resolve, reject) =>
+          listener.close((error) =>
+            error === undefined ? resolve(undefined) : reject(error),
+          ),
+        ),
+    );
+    listener.listen(0, "127.0.0.1");
+    await once(listener, "listening");
+    const address = listener.address();
+    if (address === null || typeof address === "string")
+      throw new Error("Expected loopback port");
+    const running = await fixture(
+      "telegram-sign-in-local",
+      "wait",
+      `http://127.0.0.1:${address.port}`,
+    );
+    try {
+      assert(running.owner.kill("SIGTERM"));
+      const { code } = await treeClosed(running);
+      assert.equal(code, 143, running.output.join(""));
+      assert(listener.listening);
+    } finally {
+      await dispose(running);
+    }
+  },
+);
+
+// Every process case owns its temporary workspace, supervisor and dynamic loopback port.
+// Bound only these independent trees; readiness tests above patch shared fs methods.
+describe("isolated diagnostic process trees", { concurrency: 4 }, () => {
+  for (const script of diagnostics) {
+    for (const signal of /** @type {const} */ ([
+      "SIGINT",
+      "SIGTERM",
+      "SIGKILL",
+    ])) {
+      test(
+        `${script} clears its TERM-resistant descendant after owner ${signal}`,
+        { timeout: 25_000 },
+        async () => {
+          const running = await fixture(script);
+          try {
+            process.kill(running.descendantPid, 0);
+            assert(running.owner.kill(signal));
+            const { code, signal: actualSignal } = await treeClosed(running);
+            if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
+            else
+              assert.equal(
+                code,
+                signal === "SIGINT" ? 130 : 143,
+                running.output.join(""),
+              );
+          } finally {
+            await dispose(running);
+          }
+        },
+      );
+    }
+  }
+
+  test(
+    "stand gateway finishes only after its TERM-resistant descendant stops",
+    { timeout: 25_000 },
+    async () => {
+      const running = await fixture("stand-gateway-session", "finish");
+      try {
+        const { code } = await treeClosed(running);
+        assert.equal(code, 0);
+      } finally {
+        await dispose(running);
+      }
+    },
+  );
+
+  for (const script of [
+    "identity-proof-dev",
+    "identity-proof-start",
+    "setup-local",
+    "local-stand",
+    "editor-local-review",
+    "full-stack-smoke",
+    "billing-contact-proof",
+    "identity-hardening-proof",
+  ]) {
     test(
-      `${script} clears its TERM-resistant descendant after owner ${signal}`,
+      `${script} clears descendants when a short launcher fails`,
       { timeout: 25_000 },
       async () => {
-        const running = await fixture(script);
+        const running = await fixture(script, "fail");
         try {
-          process.kill(running.descendantPid, 0);
-          assert(running.owner.kill(signal));
-          const { code, signal: actualSignal } = await treeClosed(running);
-          if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
-          else
-            assert.equal(
-              code,
-              signal === "SIGINT" ? 130 : 143,
-              running.output.join(""),
-            );
+          const { code } = await treeClosed(running);
+          assert(typeof code === "number" && code !== 0);
         } finally {
           await dispose(running);
         }
       },
     );
   }
-}
 
-test(
-  "stand gateway finishes only after its TERM-resistant descendant stops",
-  { timeout: 25_000 },
-  async () => {
-    const running = await fixture("stand-gateway-session", "finish");
-    try {
-      const { code } = await treeClosed(running);
-      assert.equal(code, 0);
-    } finally {
-      await dispose(running);
-    }
-  },
-);
+  for (const signal of /** @type {const} */ (["SIGTERM", "SIGKILL"])) {
+    test(
+      `setup-local interrupts the cleanup command tree after ${signal}`,
+      { timeout: 25_000 },
+      async () => {
+        const running = await fixture("setup-local", "cleanup");
+        try {
+          assert(running.owner.kill(signal));
+          const { code, signal: actualSignal } = await treeClosed(running);
+          if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
+          else assert.equal(code, 143, running.output.join(""));
+        } finally {
+          await dispose(running);
+        }
+      },
+    );
+  }
 
-for (const script of [
-  "identity-proof-dev",
-  "identity-proof-start",
-  "setup-local",
-  "local-stand",
-  "editor-local-review",
-  "full-stack-smoke",
-  "billing-contact-proof",
-  "identity-hardening-proof",
-]) {
+  for (const script of diagnostics) {
+    test(
+      `${script} rejects a supervisor startup failure without hanging`,
+      { timeout: 15_000 },
+      async () => {
+        await assert.rejects(
+          fixture(script, "unavailable"),
+          /Script failed before command readiness/u,
+        );
+      },
+    );
+  }
+
   test(
-    `${script} clears descendants when a short launcher fails`,
+    "stand gateway startup timeout clears its TERM-resistant descendant",
     { timeout: 25_000 },
     async () => {
-      const running = await fixture(script, "fail");
+      const running = await fixture("stand-gateway-session", "timeout");
       try {
         const { code } = await treeClosed(running);
-        assert(typeof code === "number" && code !== 0);
+        assert.equal(code, 1);
+        assert.match(
+          running.output.join(""),
+          /The authoring gateway did not start in time/u,
+        );
       } finally {
         await dispose(running);
       }
     },
   );
-}
-
-for (const signal of /** @type {const} */ (["SIGTERM", "SIGKILL"])) {
-  test(
-    `setup-local interrupts the cleanup command tree after ${signal}`,
-    { timeout: 25_000 },
-    async () => {
-      const running = await fixture("setup-local", "cleanup");
-      try {
-        assert(running.owner.kill(signal));
-        const { code, signal: actualSignal } = await treeClosed(running);
-        if (signal === "SIGKILL") assert.equal(actualSignal, "SIGKILL");
-        else assert.equal(code, 143, running.output.join(""));
-      } finally {
-        await dispose(running);
-      }
-    },
-  );
-}
-
-for (const script of diagnostics) {
-  test(
-    `${script} rejects a supervisor startup failure without hanging`,
-    { timeout: 15_000 },
-    async () => {
-      await assert.rejects(
-        fixture(script, "unavailable"),
-        /Script failed before command readiness/u,
-      );
-    },
-  );
-}
-
-test(
-  "stand gateway startup timeout clears its TERM-resistant descendant",
-  { timeout: 25_000 },
-  async () => {
-    const running = await fixture("stand-gateway-session", "timeout");
-    try {
-      const { code } = await treeClosed(running);
-      assert.equal(code, 1);
-      assert.match(
-        running.output.join(""),
-        /The authoring gateway did not start in time/u,
-      );
-    } finally {
-      await dispose(running);
-    }
-  },
-);
+});

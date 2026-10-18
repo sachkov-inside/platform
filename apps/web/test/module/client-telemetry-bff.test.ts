@@ -312,3 +312,22 @@ describe("общий потолок журнала для отчётов бра�
     expect(last).toBe(204);
   });
 });
+
+it("does not log the bearer id of a private payment link", async () => {
+  const response = await handleWebVitalsReport(
+    report(
+      "/api/web-vitals",
+      JSON.stringify({
+        route: "/payment/links/69000000-0000-4000-8000-000000001450",
+        metrics: [lcp],
+      }),
+    ),
+  );
+  expect(response.status).toBe(204);
+  expect(loggedLines(vi.mocked(console.info))).toContainEqual(
+    expect.objectContaining({ route: "/payment/links/[id]" }),
+  );
+  expect(JSON.stringify(loggedLines(vi.mocked(console.info)))).not.toContain(
+    "69000000-0000-4000-8000-000000001450",
+  );
+});

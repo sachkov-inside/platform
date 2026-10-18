@@ -257,6 +257,7 @@ edge описано в
 | POST | `/integrations/telegram/v1/subscription-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/subscription-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/invitations/redeem` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | GET | `/billing/cohorts` | бот Telegram: дата старта потока | нет: публичный факт | `200` |
 | POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
@@ -402,6 +403,32 @@ SQL работает с `default_transaction_read_only=on` и `statement_timeout
 показывает текущее значение. Его ноль не доказывает отсутствие прежних неизвестных исходов.
 Ненулевой исторический счётчик требует разбора,
 а не рестарта ради зелёной проверки.
+
+Для отдельного наблюдения после восстановления добавьте ограниченный интервал:
+
+```bash
+pnpm production:verify --host inside-production --application telegram --version v19 --telegram-observe-seconds 30
+```
+
+Допустимы 1–60 секунд. Поле `telegramObservation` содержит границы UTC, фактическую длительность,
+два снимка и отдельные проверки. Инструмент собирает его перед штатными проверками.
+Поэтому отказ накопительного счётчика сохраняет наблюдение в JSON и по-прежнему возвращает exit `1`.
+Успешный интервал никогда не заменяет штатный результат. Отказ или недоступность наблюдения также исключает exit `0`.
+
+Наблюдение сравнивает пять счётчиков, контейнер, время старта и число рестартов.
+Прирост, уменьшение, пропуск или неконечное значение счётчика означают отказ.
+Readiness и здоровье контейнера должны быть исправны в обоих снимках.
+Показатели очередей сверки и сообщества, возраста ожидающих работ, доставки evidence
+и неизвестных исходов должны быть нулевыми в обоих снимках.
+Журнал проверяется только между указанными границами тем же фильтром ошибок, что штатная проверка.
+JSON не содержит строки журнала. Ошибка чтения даёт `not_checked` и неуспешное наблюдение.
+
+Два снимка не доказывают непрерывную готовность или отсутствие промежуточного роста очередей.
+Показатели отражают последние измерения приложения, а не прямой запрос очередей в базе.
+Наблюдение не проверяет `membership_provider_state` и не восстанавливает прежние приросты счётчиков.
+Для разбора истории отдельно сопоставьте журнал и `membership_provider_observations` через read-only SQL.
+Нулевой прирост без рабочих запросов не доказывает доступность Telegram Bot API.
+Выбор полноценного мониторинга остаётся в #1411; этот интервал не меняет его архитектуру.
 
 Инструмент дополняет Production access pass и ручные шаги runbook. Он не подтверждает живой
 `/start`, привязку, положительное own-access тестового Account, платежи, восстановление backup

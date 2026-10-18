@@ -1161,9 +1161,15 @@ export class BillingPayments {
         name: snapshot.offer.name,
         email,
         initiator: paymentInitiators[kind],
-        ...(returnSlug == null
-          ? {}
-          : { returnPath: `/products/${encodeURIComponent(returnSlug)}/buy` }),
+        ...(snapshot.individualPayment !== undefined
+          ? {
+              returnPath: `/payment/links/${snapshot.individualPayment.linkId}`,
+            }
+          : returnSlug == null
+            ? {}
+            : {
+                returnPath: `/products/${encodeURIComponent(returnSlug)}/buy`,
+              }),
       });
       const accepted = await this.accept(
         payment,

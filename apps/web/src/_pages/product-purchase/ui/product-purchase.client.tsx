@@ -15,6 +15,7 @@ import {
   offerCompositionLabel,
   type PreorderTerms,
   type PriceSnapshot,
+  type PaymentLinkDetail,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
 import {
@@ -47,6 +48,7 @@ export interface ProductPurchaseProps {
    */
   readonly signedIn?: boolean;
   readonly accountId?: string | null;
+  readonly individualLink?: PaymentLinkDetail;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -60,6 +62,7 @@ export function ProductPurchase({
   preorder = null,
   signedIn = true,
   accountId = null,
+  individualLink,
 }: ProductPurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     initialPaymentOptionId(offers, offerId),
@@ -99,6 +102,18 @@ export function ProductPurchase({
     announceCurrentBillingChange();
     router.refresh();
   }, [ready, purchase, router]);
+  const refreshedFailure = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      purchase?.state !== "failed" ||
+      individualLink === undefined ||
+      !["pending", "unknown"].includes(individualLink.state) ||
+      refreshedFailure.current === purchase.purchaseRef
+    )
+      return;
+    refreshedFailure.current = purchase.purchaseRef;
+    router.refresh();
+  }, [purchase, individualLink, router]);
   const productId = product?.id;
   const alreadyOpen =
     productId !== undefined &&
@@ -117,6 +132,7 @@ export function ProductPurchase({
 
   return (
     <ProductPurchaseView
+      {...(individualLink === undefined ? {} : { individualLink })}
       hasPurchase={
         (!buyAgain && purchase !== null && purchase.state !== "failed") ||
         alreadyOpen ||

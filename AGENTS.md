@@ -1,7 +1,5 @@
 # platform
 
-Режим агентов: worktree
-
 ## Repository role
 
 Platform owns the Membership application, the Telegram application under `apps/telegram`,
@@ -18,6 +16,10 @@ historical sources.
 - For frontend delivery or Storybook review, read `docs/agents/frontend-delivery.md`.
 - Before review, read `CODING_STANDARDS.md` and the standards for each changed surface.
   Nested `AGENTS.md` files supply implementation context and verification.
+- For implementation or durable integration, apply [change classification](docs/agents/change-risk.md)
+  through the installed `classify-change` skill, including ordinary assignments outside manual skills.
+- After an explicit owner correction, follow [owner corrections](docs/agents/owner-corrections.md)
+  to fix the work and preserve the applicable requirement.
 - When a change alters durable product behaviour, domain language, architecture, public contracts,
   developer commands, delivery workflows, or agent routing, follow the
   [documentation maintenance contract](docs/agents/documentation-maintenance.md) and run
@@ -48,11 +50,12 @@ Before an agent runs repository Compose commands from any worktree, it must read
 
 ## Process
 
-- The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
-  symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
+- `WORKFLOW.md` owns session mode, classification and the developer process. Skills live in
+  `.agents/skills`; `.claude/skills` is a symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
   review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
-- When the owner invokes [implement-spec](.agents/skills/implement-spec/SKILL.md), apply the
-  project execution rules in [WORKFLOW.md](WORKFLOW.md#sessions-and-coordinated-execution).
+- For session handoff, assigned coordination, or an explicit whole-specification implementation
+  request via [implement-spec](.agents/skills/implement-spec/SKILL.md) (including natural language),
+  read [session execution](WORKFLOW.md#sessions-and-coordinated-execution).
   `WORKFLOW.md` owns stage selection and ordinary task completion.
 - Keep build, test, run, deploy, and agent work dependent only on files in this repository.
 

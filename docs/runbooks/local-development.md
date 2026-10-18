@@ -724,6 +724,19 @@ The shared cache saved no time: on 07.10.2026 two runs of `pnpm test:storybook` 
 took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cache took 17.1 and
 18.8 s.
 
+Storybook import failures retain primary evidence in
+`apps/web/test-results/storybook-imports/run-<pid>-<process-start>/imports.jsonl`. The Node-side provider observes
+failed script HTTP responses and transport failures before any setup import. Vite records the
+original error response body and server error, even when Chromium discards the failed body.
+Premature response closure retains the partial body with `complete: false`; browser transport
+errors retain an already observed HTTP status. Server messages and stacks identify truncation too.
+No request is replayed. Successful script responses are not recorded. Each process retains up to
+1 MiB of events, with at most 64 KiB per response body; truncation is explicit. Logs retain the
+request path and Vite cache/import query values, but omit arbitrary URL query values and authentication headers.
+Error bodies and server messages can contain local source, so inspect them before sharing.
+The UI CI job uploads this directory with browser-engine diagnostics on failure for seven days.
+A later successful run does not establish the cause of an earlier import failure (#1429).
+
 Vitest opens every story file in a new iframe and loads its modules again from the Vite server of
 the run. Storybook loads two large modules lazily: the React renderer imports
 `@storybook/react-dom-shim` with `react-dom/client` (3.1 MB) on the first render, and `addon-a11y`
@@ -1209,8 +1222,8 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 
 - `pnpm local:stand` links a worktree's `.identity-proof` to the primary checkout, so the stand keeps
   one set of sign-in keys whatever branch starts it.
-- `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
-  sibling `inside-content` checkout and features that product on Home. It starts the authoring
+- `pnpm local:product [--owner-email EMAIL]` transfers the committed AI Engineering originals from the
+  `~/Work/Materials/engineering-content` checkout (override with `--content PATH`) and features that product on Home. It starts the authoring
   gateway for the run when none is running and repeats safely at any time. This local reader view
   approves the publication of every transferred original, as `--publish-all` does; see the publication
   policy below.
@@ -1242,8 +1255,7 @@ Compose project.
 `pnpm local:stand --production-web` starts the full local environment. Use the production web build
 for manual reading and navigation checks; the development server compiles routes on demand.
 Then run `pnpm local:course` (optionally `--owner-email EMAIL` on first use). It uses the same
-owner sign-in/bootstrap and persistent journal as `local:product`, but selects `inside-ai-engineering`
-and an explicit **local preview**. The Platform command retains `--product`; its Content subprocess calls `export-platform --guide`.
+owner sign-in/bootstrap and persistent journal as `local:product`, and selects an explicit **local preview** for `inside-ai-engineering`. The Platform command retains `--product`; its Content subprocess calls `export-platform --guide`.
 The source repository can be selected with `--content PATH`;
 `--ref COMMIT` pins the chosen content revision.
 
@@ -1315,7 +1327,7 @@ The former volume stays until the owner decides to delete it; the transfer does 
 For content-only updates that must preserve existing stand access/publication and prove affected images,
 use [the preservation and image-evidence procedure](authoring-preservation.md).
 
-Originals from Inside Content reach a local Platform through a one-shot import of one Git commit.
+Originals from Engineering Content reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:
 
 | Target | Runtime | Gateway |
@@ -1357,7 +1369,7 @@ What the transfer applies:
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
-  cover (`product.yaml` keys `cover` and `cover_alt`) through
+  cover (`guide.yaml` keys `cover` and `cover_alt`) through
   `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
   as the `cover_removal_pending` notice and taken down in Platform by hand. Material
   artifacts as authoring-owned Product artifacts linked to every declaring Material that is published.
@@ -1372,12 +1384,12 @@ What the transfer applies:
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
 - The Product name, first-paragraph teaser, page address (`slug`), page presentation and the typed
-  product page description (`product.yaml`, key `page`; see
+  product page description (`guide.yaml`, key `page`; see
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
   page description before the transfer's first write, and its refusal names the product.
   The optional `products[].introduction` imports all four introduction fields; omitting it preserves
   the stored introduction. The source owns this text for imported Products (#845).
-  Editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
+  Editing the page text is a commit in Engineering Content plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
 private draft: its author previews it through the authoring preview, while guests, other accounts,

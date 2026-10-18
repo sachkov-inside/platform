@@ -5,3 +5,5 @@
 export const invitationsQueryKey = ["access-invitations"] as const;
 export const peopleQueryKey = ["access-people"] as const;
 export const accessSummaryQueryKey = ["access-summary"] as const;
+
+export const paymentLinksQueryKey = ["owner-payment-links"] as const;

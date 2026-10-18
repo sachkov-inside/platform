@@ -8,7 +8,7 @@ import {
   RENDER_ERRORS_ROUTE,
   RENDER_ERROR_MESSAGE_LENGTH,
   REPORT_LABEL_LENGTH,
-  REPORT_PATH_LENGTH,
+  telemetryRoute,
   REPORTED_WEB_VITALS,
   WEB_VITALS_ROUTE,
   WEB_VITAL_RATINGS,
@@ -52,7 +52,7 @@ export function queueWebVital(metric: ReportedWebVital): void {
     pendingVitals.length >= MAX_WEB_VITALS_PER_REPORT
   )
     return;
-  documentRoute ??= window.location.pathname.slice(0, REPORT_PATH_LENGTH);
+  documentRoute ??= telemetryRoute(window.location.pathname);
   pendingVitals.push({
     id: metric.id.slice(0, REPORT_LABEL_LENGTH),
     name,
@@ -94,7 +94,7 @@ export function reportRenderError(
       : { digest: error.digest.slice(0, REPORT_LABEL_LENGTH) }),
     message: error.message.slice(0, RENDER_ERROR_MESSAGE_LENGTH),
     name: error.name.slice(0, REPORT_LABEL_LENGTH),
-    route: window.location.pathname.slice(0, REPORT_PATH_LENGTH),
+    route: telemetryRoute(window.location.pathname),
   };
   sendReport(RENDER_ERRORS_ROUTE, report);
 }

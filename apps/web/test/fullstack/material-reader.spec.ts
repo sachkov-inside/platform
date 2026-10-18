@@ -712,6 +712,9 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     ]),
   });
 
+  await page.addLocatorHandler(onboardingDismiss, async () => {
+    await onboardingDismiss.click();
+  });
   await page.goto("/account");
   await expect(
     page.getByRole("heading", { name: "Редактор Базы знаний" }),

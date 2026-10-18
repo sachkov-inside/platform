@@ -1,19 +1,26 @@
 import {
+  name as historicalCommunityCoverageName,
+  statement as historicalCommunityCoverageStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0095-historical-community-coverage.js";
+import {
+  name as individualPaymentLinksName,
+  statement as individualPaymentLinksStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0094-individual-payment-links.js";
   name as chapterSupplementaryName,
   statement as chapterSupplementaryStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0097-chapter-supplementary-materials.js";
+} from "../modules/materials/infrastructure/postgres/migrations/0099-chapter-supplementary-materials.js";
 import {
   name as materialTaskName,
   statement as materialTaskStatement,
-} from "../modules/product-tasks/infrastructure/postgres/migrations/0096-material-task.js";
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0098-material-task.js";
 import {
   name as submissionReviewRunName,
   statement as submissionReviewRunStatement,
-} from "../modules/product-tasks/infrastructure/postgres/migrations/0095-task-submission-review-run.js";
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0097-task-submission-review-run.js";
 import {
   name as taskReviewProgressName,
   statement as taskReviewProgressStatement,
-} from "../modules/product-tasks/infrastructure/postgres/migrations/0094-task-review-progress.js";
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0096-task-review-progress.js";
 import {
   name as productExclusionsName,
   statement as productExclusionsStatement,
@@ -623,6 +630,14 @@ export const platformMigrations = [
   { name: productCommunitiesName, statement: productCommunitiesStatement },
   { name: productExclusionsName, statement: productExclusionsStatement },
   { name: learningStartedName, statement: learningStartedStatement },
+  {
+    name: individualPaymentLinksName,
+    statement: individualPaymentLinksStatement,
+  },
+  {
+    name: historicalCommunityCoverageName,
+    statement: historicalCommunityCoverageStatement,
+  },
   { name: taskReviewProgressName, statement: taskReviewProgressStatement },
   { name: submissionReviewRunName, statement: submissionReviewRunStatement },
   { name: materialTaskName, statement: materialTaskStatement },

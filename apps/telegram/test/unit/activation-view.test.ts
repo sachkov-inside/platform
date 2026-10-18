@@ -17,6 +17,16 @@ const active: ActivationResult<ActivationResponse> = {
     contractVersion: "inside.subscription-activation.v1",
     attemptId: "example-attempt",
     state: "active",
+    rule: {
+      id: "rule",
+      revision: 1,
+      sourceRef: "course",
+      product: {
+        id: "625a0cca-c8ff-4a65-9125-17194dd3b769",
+        slug: "ai-engineering",
+        name: "AI Engineering",
+      },
+    },
     enrollment: {
       id: "example-enrollment",
       tier: {
@@ -38,10 +48,6 @@ const active: ActivationResult<ActivationResponse> = {
 
 describe("learner activation messages", () => {
   it("preserves the course on recheck while accepting legacy buttons", () => {
-    expect(accountPrompt(accountUrl, "course").buttons[1]).toEqual({
-      text: "Проверить доступ",
-      callbackData: "access:retry:course",
-    });
     const adapter = new GrammyUpdateAdapter();
     const translate = (data: string) =>
       adapter.translate(
@@ -75,11 +81,22 @@ describe("learner activation messages", () => {
 
   it("confirms the course with only the platform and entitled chat actions", () => {
     expect(activationMessage(active)).toBe(
-      "Доступ к курсу открыт\n\nAI Engineering\nМатериалы доступны на платформе.",
+      "AI Engineering\n\nКурс доступен. Открывайте материалы и присоединяйтесь к группе курса.",
     );
     expect(activationMenu(accountUrl, active)).toEqual([
-      { text: "Открыть платформу", url: accountUrl },
-      { text: "Чат курса", callbackData: "access:community" },
+      {
+        text: "Открыть курс",
+        url: "https://sachkov.dev/products/ai-engineering/programme",
+      },
+      {
+        text: "Вступить в группу",
+        callbackData: "access:community:625a0cca-c8ff-4a65-9125-17194dd3b769",
+      },
+      {
+        text: "Помощь",
+        callbackData: "access:help:625a0cca-c8ff-4a65-9125-17194dd3b769",
+      },
+      { text: "Мои продукты", callbackData: "access:own" },
     ]);
   });
 
@@ -100,16 +117,27 @@ describe("learner activation messages", () => {
       },
     };
     expect(activationMenu(accountUrl, productOnly)).toEqual([
-      { text: "Открыть платформу", url: accountUrl },
+      {
+        text: "Открыть курс",
+        url: "https://sachkov.dev/products/ai-engineering/programme",
+      },
+      {
+        text: "Помощь",
+        callbackData: "access:help:625a0cca-c8ff-4a65-9125-17194dd3b769",
+      },
+      { text: "Мои продукты", callbackData: "access:own" },
     ]);
   });
 
-  it("offers one sign-in path and an explicit recheck for an unlinked learner", () => {
+  it("offers Platform continuation without a manual linking prerequisite", () => {
     expect(accountPrompt(accountUrl)).toEqual({
-      text: "Чтобы открыть курс, войдите на платформу и привяжите Telegram в аккаунте.",
+      text: "Войдите на платформу и подключите Telegram, чтобы видеть свои продукты.",
       buttons: [
-        { text: "Войти на платформу", url: accountUrl },
-        { text: "Проверить доступ", callbackData: "access:retry" },
+        {
+          text: "Продолжить на платформе",
+          url: "https://sachkov.dev/account/access",
+        },
+        { text: "Помощь", callbackData: "access:help" },
       ],
     });
   });

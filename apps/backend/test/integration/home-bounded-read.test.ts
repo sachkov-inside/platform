@@ -139,22 +139,26 @@ for (const size of [90, 9000, 90]) {
     });
   });
 }
-// Each real legacy catalog read gets its own preparation hook. The old Home composition consumes
-// those exact results, so four expensive catalog reads cannot exhaust one hook's budget together.
-for (const index of [0, 1]) {
-  for (const format of [undefined, "video", "guide", "note"] as const) {
-    beforeAll(async () => {
-      const corpus = corpora[index];
-      if (corpus === undefined) throw new Error("Missing comparison corpus");
-      await corpus.prepareLegacyCatalog(format);
-    });
-  }
+// The 90-material legacy reference has the same visible Home windows as the 9000-material corpus.
+// Tail rows start new groups after all displayed Topics/Playlists and older feed items; the growing
+// Z-main count is not displayed and the pin is null. Keep the real large Home read measured (#1516).
+for (const formats of [
+  [undefined, "video"],
+  ["guide", "note"],
+] as const) {
   beforeAll(async () => {
-    const corpus = corpora[index];
-    if (corpus === undefined) throw new Error("Missing comparison corpus");
-    await corpus.prepareLegacy();
+    const reference = corpora[0];
+    if (reference === undefined) throw new Error("Missing reference corpus");
+    await Promise.all(
+      formats.map((format) => reference.prepareLegacyCatalog(format)),
+    );
   });
 }
+beforeAll(async () => {
+  const reference = corpora[0];
+  if (reference === undefined) throw new Error("Missing reference corpus");
+  await reference.prepareLegacy();
+});
 afterAll(async () => {
   await Promise.all(corpora.map((corpus) => corpus.dispose()));
 });
@@ -274,7 +278,7 @@ function catalogVideos(prisma: PrismaClient) {
 }
 
 // One case owns both corpora; each legacy read occurs outside the query measurement.
-test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL budget and at most 39 unique enrichments", () => {
+test("Home matches the 90-material legacy DTO on 90 and 9000 materials with a constant SQL budget and at most 39 unique enrichments", () => {
   const first = corpora[0];
   const second = corpora[1];
   if (first === undefined || second === undefined)
@@ -284,6 +288,9 @@ test("Home keeps the legacy DTO on 90 and 9000 materials with a constant SQL bud
 });
 
 async function compareHomeCorpora() {
+  const reference = corpora[0];
+  if (reference === undefined) throw new Error("Missing reference corpus");
+  const expected = reference.legacy();
   const counts: number[] = [];
   const results: unknown[] = [];
   for (const corpus of corpora.slice(0, 2)) {
@@ -304,7 +311,6 @@ async function compareHomeCorpora() {
       resolveForAccess: () => Promise.resolve({ kind: "required" as const }),
     };
     const subject = { kind: "anonymous" as const };
-    const expected = corpus.legacy();
     corpus.start();
     let result;
     let count;

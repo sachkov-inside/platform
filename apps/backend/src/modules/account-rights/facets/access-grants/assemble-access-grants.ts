@@ -1,4 +1,8 @@
 import {
+  readActivationContinuation,
+  readActivationIntent,
+} from "../../features/activate-subscription/read-activation-continuation.js";
+import {
   previewProductRevocation,
   revokeProductAccess,
 } from "../../features/revoke-product-access/revoke-product-access.js";
@@ -85,6 +89,7 @@ import {
   type ListAccessGrantsCommand,
 } from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
+import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
 import {
   issueInvitation,
   listInvitations,
@@ -424,6 +429,26 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           ),
         };
       }),
+    /** Read-only metadata for an owner sample; never creates an activation attempt. */
+    async readAnnouncementRule(code: string) {
+      const now = clock();
+      const rule = await prisma.activationRule.findUnique({ where: { code } });
+      if (
+        rule === null ||
+        !rule.published ||
+        rule.verificationMode !== "course_membership" ||
+        rule.startsAt > now ||
+        (rule.endsAt !== null && rule.endsAt <= now)
+      )
+        return null;
+      return {
+        id: rule.id,
+        revision: rule.revision,
+        sourceRef: rule.sourceRef,
+        tierId: rule.tierId,
+        tierRevision: rule.tierRevision,
+      };
+    },
     async readActivationRule(ruleId: string) {
       if (!z.uuid().safeParse(ruleId).success) return null;
       const row = await prisma.activationRule.findUnique({
@@ -445,6 +470,20 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             endsAt: row.endsAt?.toISOString() ?? null,
           });
     },
+    readActivationIntent: (attemptId: string) =>
+      readActivationIntent(prisma, attemptId, clock()),
+    readActivationContinuation: (
+      attemptId: string,
+      accountId: string,
+      identityRef: string | null,
+    ) =>
+      readActivationContinuation(
+        prisma,
+        attemptId,
+        accountId,
+        identityRef,
+        clock(),
+      ),
     beginActivation: (input: unknown) =>
       beginActivation(prisma, input, clock()),
     /** Billing проверил Offer и режим; выдача пишет приглашение с ревизией этого Offer. */
@@ -681,6 +720,22 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           return [id, holders.size];
         }),
       );
+    },
+    async readOwnProducts(targetAccountId: string) {
+      try {
+        return await readOwnProducts(
+          prisma,
+          targetAccountId,
+          clock(),
+          dependencies.contentCatalog,
+        );
+      } catch (error) {
+        return dependencyFailure(
+          { module: "account-rights", operation: "readOwnProducts" },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
     },
     /** Собственные основания Account: без полномочия владельца и без операторских полей. */
     async readOwnAccess(targetAccountId: string) {
