@@ -2,6 +2,7 @@ import {
   authoringSourceSchema,
   type AuthoringSource,
 } from "../../domain/authoring-source.js";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type {
@@ -202,6 +203,17 @@ export async function replaceCurrentRelations(
       { chapterId, stepGroup },
     ]),
   );
+  const retainedProducts = metadata.seriesMemberships.map(
+    (entry) => entry.seriesId,
+  );
+  const retainedProgramme =
+    await transaction.productProgrammePlacement.findMany({
+      where: { materialId, productId: { in: retainedProducts } },
+    });
+  const retainedSupplements =
+    await transaction.productChapterSupplementaryMaterial.findMany({
+      where: { materialId, productId: { in: retainedProducts } },
+    });
   await transaction.productMembership.deleteMany({ where: { materialId } });
   if (metadata.seriesMemberships.length > 0) {
     await transaction.productMembership.createMany({
@@ -212,6 +224,47 @@ export async function replaceCurrentRelations(
         chapterId: placements.get(seriesId)?.chapterId ?? null,
         stepGroup: placements.get(seriesId)?.stepGroup ?? null,
       })),
+    });
+  }
+  if (retainedProgramme.length > 0)
+    await transaction.productProgrammePlacement.createMany({
+      data: retainedProgramme,
+    });
+  if (retainedSupplements.length > 0)
+    await transaction.productChapterSupplementaryMaterial.createMany({
+      data: retainedSupplements,
+    });
+  const previousProducts = new Set(
+    previousMemberships.map((entry) => entry.seriesId),
+  );
+  for (const productId of retainedProducts.filter(
+    (id) => !previousProducts.has(id),
+  )) {
+    const product = await transaction.product.findUnique({
+      where: { id: productId },
+      select: { programmeExplicit: true },
+    });
+    if (product?.programmeExplicit === true) continue;
+    if (
+      (await transaction.productChapter.findFirst({
+        where: { productId },
+        select: { id: true },
+      })) !== null
+    )
+      continue;
+    const maximum = await transaction.productProgrammePlacement.aggregate({
+      where: { productId },
+      _max: { ordinal: true },
+    });
+    await transaction.productProgrammePlacement.create({
+      data: {
+        id: randomUUID(),
+        productId,
+        materialId,
+        chapterId: null,
+        ordinal: (maximum._max.ordinal ?? 0) + 1,
+        stepGroup: null,
+      },
     });
   }
 }

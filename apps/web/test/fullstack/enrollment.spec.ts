@@ -110,9 +110,9 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     }
     await navigation.getByRole("link", { name: /^Подписка/u }).click();
   }
-  await expect(cabinet.getByRole("dialog")).toBeVisible();
-  await cabinet.keyboard.press("Escape");
-  await expect(cabinet.getByRole("dialog")).not.toBeVisible();
+  await expect(
+    cabinet.getByRole("textbox", { name: "Имя", exact: true }),
+  ).toBeVisible();
   await page
     .getByLabel("Подтверждённая Telegram identity получателя")
     .fill("absent-synthetic-624");

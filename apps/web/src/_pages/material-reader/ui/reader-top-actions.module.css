@@ -113,3 +113,10 @@
   height: auto;
   transform: none;
 }
+
+.forward {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
+  padding-inline: 0.125rem;
+}

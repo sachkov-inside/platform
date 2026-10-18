@@ -49,14 +49,14 @@ describe("first screen call of a product cohort", () => {
       });
   });
 
-  it("resumes a participant's lesson and returns to the programme", () => {
+  it("opens the programme for a continuing participant", () => {
     expect(
       call({ productAccess: "open", continuationMaterialSlug: "course-intro" }),
     ).toEqual({
       banner: null,
       action: {
         kind: "programme",
-        href: "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+        href: "/products/ai-engineering/programme",
         label: "Продолжить обучение",
       },
     });

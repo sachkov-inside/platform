@@ -5,7 +5,7 @@ export async function expectImmediateMobileNavigation(page: Page) {
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(/\/account\?_rsc=/u, async (route) => {
+  await page.route(/\/bookmarks\?_rsc=/u, async (route) => {
     await held;
     await route.continue().catch(() => undefined);
   });
@@ -16,15 +16,15 @@ export async function expectImmediateMobileNavigation(page: Page) {
   try {
     await page
       .getByRole("navigation", { name: "Мобильная навигация" })
-      .getByRole("link", { name: "Профиль" })
+      .getByRole("link", { name: "Закладки" })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Профиль", exact: true }),
+      page.getByRole("heading", { name: "Закладки", exact: true }),
     ).toBeVisible({ timeout: 500 });
     await expect(
       page
         .getByRole("navigation", { name: "Мобильная навигация" })
-        .getByRole("link", { name: "Профиль" }),
+        .getByRole("link", { name: "Закладки" }),
     ).toHaveAttribute("aria-current", "page");
     await expect(formats).not.toBeVisible();
   } finally {

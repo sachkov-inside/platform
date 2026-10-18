@@ -12,6 +12,12 @@ export const courseSource = {
   },
   items: [
     {
+      materialId: "project-id",
+      slug: "aie-project",
+      title: "Описание проекта",
+      availability: "available" as const,
+    },
+    {
       materialId: "first-id",
       slug: "first",
       title: "Первый урок",
@@ -29,9 +35,16 @@ export const courseSource = {
       title: "Следующий урок",
       availability: "locked" as const,
     },
+    {
+      materialId: "brief-id",
+      slug: "aie-product-brief",
+      title: "Бриф заказчика",
+      availability: "available" as const,
+    },
   ],
   chapters: [
     {
+      supplementaryMaterialIds: ["project-id", "brief-id"],
       id: "start",
       name: "Подготовь проект к разработке с агентом и проверь настройку",
       materialIds: ["first-id", "course-intro-id"],

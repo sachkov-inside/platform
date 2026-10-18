@@ -80,6 +80,8 @@ import { previewTasks, resolveTaskAccess } from "./task-import.mjs";
  * @property {"none" | "new"} [page]
  * @property {boolean} [detailsChange]
  * @property {number} [chapterTextChanges]
+ * @property {number} [chapterSupplementaryChanges]
+ * @property {boolean} [programmeChange]
  * @property {boolean} [pageChange]
  * @property {{ from: string; to: string }} [slugChange]
  * @property {{ from: string; to: string }} [presentationChange]
@@ -429,8 +431,42 @@ export async function previewRelease(
       removed: currentChapterIds.filter((id) => !desiredChapterIds.includes(id))
         .length,
     };
+    const desiredProgramme =
+      product.chapters.length === 0
+        ? product.materialIds.map((id) => [null, ids.get(id) ?? `new:${id}`])
+        : product.chapters.flatMap((chapter, index) =>
+            chapter.materialIds.map((id) => [
+              desiredChapters[index]?.id ?? null,
+              ids.get(id) ?? `new:${id}`,
+            ]),
+          );
+    const programmeChange =
+      shellComposition === undefined &&
+      order.programmePlacements !== undefined &&
+      canonical(desiredProgramme) !==
+        canonical(
+          order.programmePlacements.map((entry) => [
+            entry.chapterId,
+            entry.materialId,
+          ]),
+        );
     const chaptersChanged =
       canonical(desiredChapterIds) !== canonical(currentChapterIds);
+    const chapterSupplementaryChanges = product.chapters.filter(
+      (chapter, index) => {
+        if (chapter.supplementaryMaterialIds === undefined) return false;
+        const stored = order.chapters.find(
+          (entry) => entry.id === desiredChapters[index]?.id,
+        );
+        const wanted = chapter.supplementaryMaterialIds.map(
+          (id) => ids.get(id) ?? `new:${id}`,
+        );
+        return (
+          canonical(wanted) !==
+          canonical(stored?.supplementaryMaterialIds ?? [])
+        );
+      },
+    ).length;
     const chapterTextChanges = desiredChapters.filter(
       (chapter) =>
         currentChapterText.has(chapter.id) &&
@@ -472,13 +508,19 @@ export async function previewRelease(
         canonical(desiredOrder) === canonical(currentOrder) &&
         moved === 0 &&
         !chaptersChanged &&
-        chapterTextChanges === 0
+        chapterTextChanges === 0 &&
+        chapterSupplementaryChanges === 0 &&
+        !programmeChange
           ? detailsChange
             ? "details"
             : "unchanged"
           : "composition",
       detailsChange,
+      ...(programmeChange ? { programmeChange } : {}),
       chapterTextChanges,
+      ...(chapterSupplementaryChanges === 0
+        ? {}
+        : { chapterSupplementaryChanges }),
       pageChange,
       ...(slugChange ? { slugChange } : {}),
       ...(presentationChange ? { presentationChange } : {}),

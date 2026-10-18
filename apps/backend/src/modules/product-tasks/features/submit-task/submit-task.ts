@@ -48,6 +48,7 @@ export const taskSubmissionSchema = z
     reviewReport: reviewReportSchema,
     note: z.string().trim().max(SUBMISSION_NOTE_MAX_CHARACTERS),
     serviceMark: serviceMarkSchema.optional(),
+    reviewRunKey: z.uuid().optional(),
   })
   .strict();
 
@@ -78,6 +79,7 @@ export const formSubmissionSchema = z
 
 /** One submission whichever way it came: an agent over MCP or the learner through the form. */
 interface SubmissionCommand {
+  readonly reviewRunKey?: string;
   readonly code: string;
   readonly taskVersion: number;
   readonly submissionKey: string;
@@ -97,6 +99,9 @@ function parseSubmission(
     const parsed = taskSubmissionSchema.safeParse(submission);
     return parsed.success
       ? {
+          ...(parsed.data.reviewRunKey === undefined
+            ? {}
+            : { reviewRunKey: parsed.data.reviewRunKey }),
           code: parsed.data.code,
           taskVersion: parsed.data.taskVersion,
           submissionKey: parsed.data.submissionKey,
@@ -260,6 +265,7 @@ export async function submitTask(
             taskId: task.id,
             taskVersion: task.version,
             submissionKey: command.submissionKey,
+            reviewRunKey: command.reviewRunKey ?? null,
             requestFingerprint: fingerprint,
             source: input.source,
             ...(command.reviewReport === null
@@ -274,6 +280,22 @@ export async function submitTask(
             submittedAt: now,
           },
         });
+        if (command.reviewRunKey !== undefined) {
+          await transaction.productTaskReviewProgress.updateMany({
+            where: {
+              accountId,
+              taskId: task.id,
+              taskVersion: task.version,
+              runKey: command.reviewRunKey,
+              phase: { not: "submitted" },
+            },
+            data: {
+              phase: "submitted",
+              revision: { increment: 1 },
+              updatedAt: now,
+            },
+          });
+        }
         return {
           submissionId: id,
           code: task.code,

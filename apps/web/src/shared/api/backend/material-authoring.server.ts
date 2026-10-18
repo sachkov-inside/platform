@@ -306,6 +306,12 @@ export function requestSeriesOrder(
 
 export function requestSeriesReorder(
   input: {
+    readonly programmePlacements?: readonly {
+      readonly id: string;
+      readonly materialId: string;
+      readonly chapterId: string | null;
+      readonly stepGroup: string | null;
+    }[];
     readonly chapters?: readonly {
       readonly id: string;
       readonly name: string;
@@ -325,6 +331,9 @@ export function requestSeriesReorder(
       new MaterialAuthoringService(request).reorderAuthoringProduct({
         productId: input.seriesId,
         requestBody: {
+          ...(input.programmePlacements === undefined
+            ? {}
+            : { programmePlacements: [...input.programmePlacements] }),
           expectedOrderVersion: input.expectedOrderVersion,
           orderedMaterialIds: [...input.orderedMaterialIds],
           ...(input.stepGroups === undefined
@@ -395,6 +404,30 @@ export function requestHomePinUpdate(
     (request) =>
       new MaterialAuthoringService(request).setAuthoringHomePin({
         requestBody: input,
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestChapterAttachments(
+  input: {
+    readonly productId: string;
+    readonly chapterId: string;
+    readonly expectedOrderVersion: string;
+    readonly materialIds: readonly string[];
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new MaterialAuthoringService(request).updateAuthoringChapterAttachments({
+        productId: input.productId,
+        chapterId: input.chapterId,
+        requestBody: {
+          expectedOrderVersion: input.expectedOrderVersion,
+          materialIds: [...input.materialIds],
+        },
       }),
     200,
     { accessToken },

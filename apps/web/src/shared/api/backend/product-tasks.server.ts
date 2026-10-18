@@ -27,6 +27,19 @@ export function requestProductTaskPage(
   );
 }
 
+/** Optional, independently authorized practice attached to one Material. */
+export function requestMaterialTaskPage(
+  materialId: string,
+  options: { readonly accessToken?: string } = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new ProductTasksService(request).readMaterialTaskPage({ materialId }),
+    200,
+    options,
+  );
+}
+
 /** The current Account's submissions of one task with their version criteria and author feedback. */
 export function requestOwnTaskSubmissions(
   code: string,

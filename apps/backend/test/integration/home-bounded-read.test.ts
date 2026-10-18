@@ -399,7 +399,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       where: { id: id(200000) },
       data: { archivedAt: new Date("2026-01-02") },
     });
-    // Closed and hidden free Materials remain in counts and previews, but never in the Home feed.
+    // Closed Materials stay outside the feed; the legacy visibility flag cannot hide free Materials.
     await prisma.material.update({
       where: { id: id(2) },
       data: { access: "closed" },
@@ -447,7 +447,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       where: { materialId: id(52) },
       data: { publishedAt: new Date("2026-01-03") },
     });
-    // Hidden earlier placements make a later note a feed preview, while the full preview stays unchanged.
+    // Legacy visibility flags do not change feed previews or the complete catalogue.
     await prisma.material.updateMany({
       where: { id: { in: Array.from({ length: 6 }, (_, n) => id(28 + n)) } },
       data: { showInFeed: false },
@@ -545,7 +545,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
       expect(result.value.videos.map((item) => item.materialId)).not.toContain(
         id(2),
       );
-      expect(result.value.guides.map((item) => item.materialId)).not.toContain(
+      expect(result.value.guides.map((item) => item.materialId)).toContain(
         id(4),
       );
     }

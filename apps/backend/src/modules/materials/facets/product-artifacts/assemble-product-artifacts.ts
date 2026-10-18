@@ -1,3 +1,4 @@
+import { attachImportedProductArtifactMaterials } from "./attach-imported-artifact-materials.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
@@ -43,6 +44,8 @@ export function assembleProductArtifacts(dependencies: {
   };
   return Object.freeze({
     applyAuthoringImport: (command) => applyAuthoringImport(context, command),
+    attachImportedMaterials: (command) =>
+      attachImportedProductArtifactMaterials(context, command),
     create: (command) => createProductArtifact(context, command),
     listForProduct: (query) => listProductArtifacts(context, query),
     listReusable: (query) => listReusableProductArtifacts(context, query),

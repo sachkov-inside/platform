@@ -1,21 +1,25 @@
-import { ChevronLeft, ChevronRight, List } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { type ReactNode } from "react";
 
 import type {
   MaterialReaderMetadata,
   ReaderBlock,
-  ReaderText,
   PrimaryVideoPresentation,
 } from "@/_pages/material-reader/model/material-reader-view";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import {
+  type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
-  materialSourceAnchors,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
+import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
+import {
+  ReaderHistoryTracker,
+  ReaderOriginLink,
+} from "@/shared/ui/reader-history.client";
 import {
   MaterialAssetFile,
   MaterialAssetImage,
@@ -25,7 +29,7 @@ import {
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
-import { topicPath } from "@/shared/routing/public-page-path";
+import { materialPath, topicPath } from "@/shared/routing/public-page-path";
 
 import { agentChoiceComparison } from "../model/agent-choice-comparison";
 import { projectHarnessIllustrations } from "@/features/project-harness";
@@ -41,6 +45,7 @@ import { ReaderTopActions } from "./reader-top-actions.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 export interface MaterialReaderViewProps {
+  readonly renderLink?: MaterialBodyRendering["link"];
   readonly body: readonly ReaderBlock[];
   readonly material: MaterialReaderMetadata;
   readonly primaryVideo: PrimaryVideoPresentation | null;
@@ -51,7 +56,8 @@ export interface MaterialReaderViewProps {
   readonly topReadingAction?: ReactNode;
   readonly topBookmarkAction?: ReactNode;
   readonly practiceActions?: ReactNode;
-  /** Streaming public-lesson practice shares the action row; an empty result has no extra row. */
+  readonly submissionWorkspace?: ReactNode;
+  /** Streaming practice precedes completion actions and course navigation. */
   readonly deferredPracticeActions?: ReactNode;
   /**
    * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
@@ -62,14 +68,9 @@ export interface MaterialReaderViewProps {
   readonly modeSwitch?: ReactNode;
 }
 
-interface OutlineItem {
-  readonly id: string;
-  readonly label: string;
-  readonly level: 2 | 3 | 4;
-}
-
 /** Client-safe presentation shared by the production RSC route and Storybook. */
 export function MaterialReaderView({
+  renderLink,
   body,
   material,
   primaryVideo,
@@ -80,12 +81,43 @@ export function MaterialReaderView({
   topReadingAction,
   topBookmarkAction,
   practiceActions,
+  submissionWorkspace,
   deferredPracticeActions,
   modeHint,
   modeSwitch,
 }: MaterialReaderViewProps) {
-  const anchors = materialSourceAnchors(body);
-  const outline = collectOutline(body, [], anchors);
+  const endReadingAction = readingAction ?? topReadingAction;
+  const endBookmarkAction = bookmarkAction ?? topBookmarkAction;
+  const origin =
+    seriesContext?.supplementary === true &&
+    (seriesContext.programme?.currentPosition ?? 0) > 0
+      ? seriesContext.programme?.current
+      : undefined;
+  const returnAction =
+    origin === undefined ? (
+      <CatalogBackLink href={returnTarget.href} label="Назад" />
+    ) : (
+      <ReaderOriginLink
+        href={origin.href}
+        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
+        {origin.kind === "task" ? "К заданию" : "К уроку"}
+      </ReaderOriginLink>
+    );
+  const nextStep =
+    seriesContext?.supplementary === true
+      ? null
+      : seriesContext?.programme?.next;
+  const topActions = (
+    <ReaderTopActions
+      context={seriesContext?.programme == null ? seriesContext : null}
+      returnAction={returnAction}
+      nextStep={nextStep}
+      readingAction={topReadingAction ?? readingAction}
+      bookmarkAction={topBookmarkAction ?? bookmarkAction}
+    />
+  );
 
   return (
     <div
@@ -93,35 +125,38 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
+      <ReaderHistoryTracker
+        path={materialPath(material.slug)}
+        originHref={
+          seriesContext?.supplementary === true &&
+          (seriesContext.programme?.currentPosition ?? 0) > 0
+            ? seriesContext.programme?.current.href
+            : undefined
+        }
+      />
       <ReaderFrame
         context={seriesContext}
-        repeatAtBottom={seriesContext === null}
+        repeatAtBottom={false}
         hideReturn={seriesContext !== null}
         target={returnTarget}
         topNavigation={
-          <ReaderTopActions
-            context={seriesContext}
-            readingAction={topReadingAction}
-            bookmarkAction={topBookmarkAction}
-            returnAction={
-              <CatalogBackLink
-                href={returnTarget.href}
-                label={returnTarget.label}
-              />
-            }
-          />
+          <>
+            <MaterialReaderBreadcrumbs
+              material={material}
+              target={returnTarget}
+            />
+            {topActions}
+          </>
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
+          {seriesContext?.programme == null ? null : (
+            <div className="mb-4">{topActions}</div>
+          )}
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
-            actions={
-              <>
-                {topBookmarkAction ?? bookmarkAction}
-                {topReadingAction ?? readingAction}
-              </>
-            }
+            supplementary={seriesContext?.supplementary ?? false}
           />
           {modeSwitch}
           {primaryVideo === null ? null : (
@@ -133,12 +168,12 @@ export function MaterialReaderView({
               showWatchedAction={readingAction === undefined}
             />
           )}
-          <ReaderOutline items={outline} />
           <article
-            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base md:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base md:[&_h2:not([data-quiz-heading])]:text-2xl md:[&_h3:not([data-comparison-heading])]:text-xl md:[&_h4]:text-lg"
+            className="mt-8 min-w-0 break-words text-pretty text-[0.9375rem] leading-[1.65] text-foreground sm:text-base xl:text-lg [&_h2:not([data-quiz-heading])]:text-lg [&_h3:not([data-comparison-heading])]:text-base [&_h4]:text-[0.9375rem] sm:[&_h2:not([data-quiz-heading])]:text-xl sm:[&_h3:not([data-comparison-heading])]:text-lg sm:[&_h4]:text-base xl:[&_h2:not([data-quiz-heading])]:text-2xl xl:[&_h3:not([data-comparison-heading])]:text-xl xl:[&_h4]:text-lg"
             data-reader-body
           >
             <ReaderBlocks
+              renderLink={renderLink}
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
@@ -150,31 +185,27 @@ export function MaterialReaderView({
             />
           </article>
           {practiceActions}
-          {bookmarkAction === undefined &&
-          readingAction === undefined &&
-          deferredPracticeActions === undefined &&
-          seriesContext === null ? null : (
-            <div className="mt-5" data-material-actions data-reader-footer>
-              {seriesContext?.programme == null ? (
-                <ReaderTopActions
-                  position="bottom"
-                  context={seriesContext}
-                  bookmarkAction={topBookmarkAction ?? bookmarkAction}
-                  readingAction={topReadingAction ?? readingAction}
-                />
-              ) : (
-                <CourseReadingFooter context={seriesContext.programme} />
-              )}
-              {deferredPracticeActions === undefined ? null : (
-                <div
-                  className="mt-2 flex flex-wrap items-start"
-                  data-reader-practice-actions
-                >
-                  {deferredPracticeActions}
-                </div>
-              )}
+          {submissionWorkspace}
+          {deferredPracticeActions === undefined ? null : (
+            <div
+              className="mt-2 flex flex-wrap items-start"
+              data-reader-practice-actions
+            >
+              {deferredPracticeActions}
             </div>
           )}
+          <div className="mt-5" data-material-actions data-reader-footer>
+            <ReaderTopActions
+              position="bottom"
+              context={seriesContext?.programme == null ? seriesContext : null}
+              returnAction={returnAction}
+              bookmarkAction={endBookmarkAction}
+              readingAction={endReadingAction}
+            />
+            {seriesContext?.programme == null ? null : (
+              <MaterialReaderFooter seriesContext={seriesContext} />
+            )}
+          </div>
         </div>
       </ReaderFrame>
       <SeriesReaderBar context={seriesContext} />
@@ -255,7 +286,9 @@ export function MaterialReaderHeader({
   material,
   programme,
   actions,
+  supplementary = false,
 }: {
+  readonly supplementary?: boolean;
   readonly material: MaterialReaderMetadata;
   readonly programme?: CourseReadingContext | null | undefined;
   readonly actions?: ReactNode;
@@ -271,18 +304,10 @@ export function MaterialReaderHeader({
     return (
       <CourseReadingHeader
         context={programme}
+        supplementary={supplementary}
         title={material.title}
         actions={actions}
-        metadata={
-          <>
-            <span>{materialTaxonomyLabel(material.format.name)}</span>
-            <span>{programme.name}</span>
-            <IntentPrefetchLink href={topicPath(material.topic.slug)}>
-              {material.topic.name}
-            </IntentPrefetchLink>
-            <time dateTime={material.publishedAt}>{publicationDate}</time>
-          </>
-        }
+        metadata={null}
       />
     );
   return (
@@ -316,6 +341,35 @@ export function MaterialReaderFooter({
   readonly format?: string;
 }) {
   if (seriesContext === null) return null;
+  if (seriesContext.supplementary === true && seriesContext.programme != null)
+    return seriesContext.programme.currentPosition === 0 ? (
+      <nav
+        aria-label="Возврат к программе"
+        className="mt-8 border-t border-border pt-4"
+      >
+        <CatalogBackLink
+          href={seriesContext.programme.href}
+          label="К программе"
+        />
+      </nav>
+    ) : (
+      <nav
+        aria-label="Возврат к месту в курсе"
+        className="mt-8 border-t border-border pt-4"
+        data-reader-footer
+      >
+        <ReaderOriginLink
+          className="inline-flex min-h-11 items-center gap-2 text-action underline underline-offset-4"
+          href={seriesContext.programme.current.href}
+        >
+          Вернуться{" "}
+          {seriesContext.programme.current.kind === "task"
+            ? "к заданию"
+            : "к уроку"}
+          : {seriesContext.programme.current.title}
+        </ReaderOriginLink>
+      </nav>
+    );
   if (seriesContext.programme != null)
     return <CourseReadingFooter context={seriesContext.programme} />;
 
@@ -330,60 +384,8 @@ export function MaterialReaderFooter({
   );
 }
 
-function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
-  if (items.length === 0) {
-    return null;
-  }
-
-  const links = items.map((item) => (
-    <li key={item.id}>
-      <a
-        className="flex min-h-11 items-center rounded-lg px-3 text-sm text-muted-foreground no-underline hover:bg-muted hover:text-foreground focus-visible:outline-ring"
-        href={`#${item.id}`}
-      >
-        {item.label}
-      </a>
-    </li>
-  ));
-
-  return (
-    <div className="mt-6 border-y border-black/8 py-1 sm:mt-8 sm:py-2">
-      <details className="group">
-        <summary
-          aria-label={`Содержание: ${String(items.length)}`}
-          className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-3 rounded-lg px-1 text-sm font-semibold focus-visible:outline-ring [&::-webkit-details-marker]:hidden"
-        >
-          <span className="inline-flex items-center gap-2">
-            <List aria-hidden="true" className="size-4 text-action" />
-            Содержание · {items.length}
-          </span>
-          <span
-            aria-hidden="true"
-            className="text-xs text-muted-foreground group-open:hidden"
-          >
-            Открыть
-          </span>
-          <span
-            aria-hidden="true"
-            className="hidden text-xs text-muted-foreground group-open:inline"
-          >
-            Скрыть
-          </span>
-        </summary>
-        <nav
-          aria-label="В этом материале"
-          className="border-t border-black/8 pb-2 pt-3"
-        >
-          <ul className="grid gap-2" role="list">
-            {links}
-          </ul>
-        </nav>
-      </details>
-    </div>
-  );
-}
-
 function ReaderBlocks({
+  renderLink,
   blocks,
   contentVersion,
   hint,
@@ -392,6 +394,7 @@ function ReaderBlocks({
   materialSlug,
   path,
 }: {
+  readonly renderLink?: MaterialBodyRendering["link"];
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly hint?: ReactNode;
@@ -414,6 +417,7 @@ function ReaderBlocks({
       hintAt={hintAt}
       path={path}
       rendering={{
+        ...(renderLink === undefined ? {} : { link: renderLink }),
         headingId,
         image: (block) =>
           harness?.replacesOverview === true ? null : (
@@ -435,40 +439,8 @@ function ReaderBlocks({
   );
 }
 
-function collectOutline(
-  blocks: readonly ReaderBlock[],
-  path: readonly number[] = [],
-  anchors: ReadonlyMap<string, string> = materialSourceAnchors(blocks),
-): OutlineItem[] {
-  return blocks.flatMap((block, index): OutlineItem[] => {
-    const blockPath = [...path, index];
-    if (block.kind === "heading") {
-      return [
-        {
-          id: anchors.get(blockPath.join("-")) ?? headingId(blockPath),
-          label: textContent(block.content),
-          level: block.level,
-        },
-      ];
-    }
-    if (block.kind === "blockquote" || block.kind === "callout") {
-      return collectOutline(block.content, blockPath, anchors);
-    }
-    if (block.kind === "bullet_list" || block.kind === "ordered_list") {
-      return block.items.flatMap((item, itemIndex) =>
-        collectOutline(item, [...blockPath, itemIndex], anchors),
-      );
-    }
-    return [];
-  });
-}
-
 function headingId(path: readonly number[]): string {
   return `material-section-${path.join("-")}`;
-}
-
-function textContent(content: readonly ReaderText[]): string {
-  return content.map(({ text }) => text).join("");
 }
 
 /** Course pages share the accepted frame; independent Materials keep their original return controls. */
@@ -480,10 +452,48 @@ export function ReaderFrame({
   readonly context: SeriesReaderContext | null;
 }) {
   return context?.programme == null ? (
-    <ReaderReturnNavigation {...props}>{children}</ReaderReturnNavigation>
+    <CourseReadingLayout context={null}>
+      <ReaderReturnNavigation {...props}>{children}</ReaderReturnNavigation>
+    </CourseReadingLayout>
   ) : (
-    <CourseReadingLayout context={context.programme}>
+    <CourseReadingLayout
+      context={context.programme}
+      supplementaryTitle={
+        context.supplementary === true ? context.displayedTitle : undefined
+      }
+    >
       {children}
     </CourseReadingLayout>
+  );
+}
+
+/** Standalone documents retain their logical collection without inventing a primary chapter. */
+export function MaterialReaderBreadcrumbs({
+  material,
+  target,
+}: {
+  readonly material: MaterialReaderMetadata;
+  readonly target: MaterialReaderReturnTarget;
+}) {
+  const course = material.seriesMemberships.find(
+    (item) => item.series.slug === target.seriesSlug,
+  )?.series;
+  return (
+    <Breadcrumbs
+      items={[
+        { label: "Главная", href: target.kind === "home" ? target.href : "/" },
+        ...(target.kind === "series" && target.seriesSlug !== undefined
+          ? [
+              {
+                label: course?.name ?? "Курс",
+                href: target.href,
+              },
+            ]
+          : target.kind === "topic"
+            ? [{ label: material.topic.name, href: target.href }]
+            : []),
+        { label: material.title },
+      ]}
+    />
   );
 }

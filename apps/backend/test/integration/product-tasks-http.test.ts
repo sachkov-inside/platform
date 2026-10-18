@@ -35,6 +35,8 @@ const definition = {
   situation: "Новичок неделю ждёт доступов.",
   result: ["Новичок входит и получает доступ к репозиториям."],
   freedom: "Стек выбирает участник.",
+  reviewGuidance:
+    "AGENT_ONLY_REVIEW_GUIDANCE: inspect issuer and owner checks.",
   criteria: [
     {
       id: "access",
@@ -160,6 +162,15 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
       },
       data: { chapterId },
     });
+    await database.prisma.productProgrammePlacement.create({
+      data: {
+        id: randomUUID(),
+        productId,
+        materialId: anchorId,
+        chapterId,
+        ordinal: 1,
+      },
+    });
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
       directory: new ProductDirectory(database.prisma),
@@ -240,12 +251,28 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
       url: `/library/products/${productSlug}/tasks/${freeCode}`,
     });
     expect(open.statusCode).toBe(200);
+    expect(JSON.stringify(open.json())).not.toContain(
+      "AGENT_ONLY_REVIEW_GUIDANCE",
+    );
+    expect(
+      z
+        .object({
+          task: z.object({ definition: z.record(z.string(), z.unknown()) }),
+        })
+        .parse(open.json()).task.definition,
+    ).not.toHaveProperty("reviewGuidance");
     expect(open.headers["cache-control"]).toContain("no-store");
     expect(open.json()).toMatchObject({
       access: "open",
       task: { code: freeCode, version: 1, definition: { criteria: [{}, {}] } },
-      reviewProtocol: { version: "4" },
-      relatedMaterials: [{ title: "Что строим", availability: "available" }],
+      reviewProtocol: { version: "5" },
+      relatedMaterials: [
+        {
+          materialId: anchorId,
+          title: "Что строим",
+          availability: "available",
+        },
+      ],
       submission: { accepting: true },
     });
     const closed = await server.inject({

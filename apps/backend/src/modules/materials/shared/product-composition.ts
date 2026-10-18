@@ -7,6 +7,7 @@ import type { ContentAccess, Subject } from "../../content-access/index.js";
 
 export const MAX_PRODUCT_MATERIALS = 10_000;
 const chapterSchema = z.object({
+  supplementaryMaterialIds: z.array(z.uuid()).default([]),
   id: z.uuid(),
   name: z.string(),
   summary: z.string(),
@@ -21,7 +22,16 @@ const placementSchema = z.object({
   topicId: z.uuid().nullable(),
   hasModeVariants: z.boolean(),
 });
+const programmeSchema = z.object({
+  id: z.uuid(),
+  materialId: z.uuid(),
+  chapterId: z.uuid().nullable(),
+  ordinal: z.number().int(),
+  stepGroup: z.string().nullable(),
+  published: z.boolean(),
+});
 const compositionSchema = z.object({
+  programmePlacements: z.array(programmeSchema),
   id: z.uuid(),
   slug: z.string(),
   name: z.string(),
@@ -38,6 +48,7 @@ const compositionSchema = z.object({
   placements: z.array(placementSchema),
 });
 export type ProductComposition = z.infer<typeof compositionSchema> & {
+  readonly publishedProgramme: readonly z.infer<typeof programmeSchema>[];
   readonly materials: readonly z.infer<typeof placementSchema>[];
 };
 
@@ -62,8 +73,19 @@ export async function loadProductCompositions(
       series.archived_at is not null as archived,
       series.audience, series.outcome, series.prerequisites, series.scope,
       series.presentation, series.page, series.cover_id as "coverId",
+      coalesce((select json_agg(json_build_object('id', placement.id, 'materialId', placement.material_id, 'chapterId', placement.chapter_id, 'ordinal', placement.ordinal, 'stepGroup', placement.step_group, 'published', original.publication_state = 'published' and published.material_id is not null) order by placement.ordinal)
+        from materials.product_programme_placements as placement
+        join materials.materials as original on original.id = placement.material_id
+        left join materials.published_material_series_memberships as published on published.series_id = placement.product_id and published.material_id = placement.material_id
+        where placement.product_id = series.id), '[]'::json) as "programmePlacements",
       coalesce((select json_agg(json_build_object(
-        'id', chapter.id, 'name', chapter.name, 'summary', chapter.summary, 'ordinal', chapter.ordinal
+        'id', chapter.id, 'name', chapter.name, 'summary', chapter.summary, 'ordinal', chapter.ordinal,
+        'supplementaryMaterialIds', coalesce((select json_agg(extra.material_id order by extra.ordinal)
+          from materials.product_chapter_supplementary_materials as extra
+          join materials.published_material_series_memberships as membership
+            on membership.series_id = extra.product_id and membership.material_id = extra.material_id
+          join materials.materials as material on material.id = extra.material_id and material.publication_state = 'published'
+          where extra.chapter_id = chapter.id), '[]'::json)
       ) order by chapter.ordinal, chapter.id)
         from materials.product_chapters as chapter where chapter.product_id = series.id), '[]'::json) as chapters,
       coalesce((select json_agg(placement order by placement.ordinal, placement."materialId") from (
@@ -87,6 +109,9 @@ export async function loadProductCompositions(
   );
   return rows.map((row) => ({
     ...row,
+    publishedProgramme: row.programmePlacements.filter(
+      (placement) => placement.published,
+    ),
     materials: row.placements.filter((placement) => placement.published),
   }));
 }
@@ -114,7 +139,7 @@ export function productCompositionChapters(product: ProductComposition) {
     throw new RangeError("Product composition exceeds its bound");
   return product.chapters.map((chapter) => ({
     ...chapter,
-    materialIds: product.materials
+    materialIds: product.publishedProgramme
       .filter((material) => material.chapterId === chapter.id)
       .map((material) => material.materialId),
   }));

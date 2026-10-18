@@ -58,11 +58,11 @@ it("opens the programme before the participant visits a lesson", async () => {
   });
 });
 
-it("continues the participant's last lesson with programme return context", async () => {
+it("opens the programme to continue the participant's learning", async () => {
   fakes.continuation.mockResolvedValue(continuation("course-intro"));
   expect(await readHomeCourseAction(productId, slug)).toEqual({
     kind: "programme",
-    href: "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
+    href: "/products/ai-engineering/programme",
     label: "Продолжить обучение",
   });
   expect(fakes.access).toHaveBeenCalledWith(productId, "viewer-token");

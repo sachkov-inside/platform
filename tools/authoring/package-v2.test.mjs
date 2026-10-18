@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import { canonical, loadPackage } from "./package.mjs";
 import { taskPageBody } from "./task-page.mjs";
-import { syncLocal } from "./local-sync.mjs";
+import { productChapters, syncLocal } from "./local-sync.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
 
 /** Synthetic exporter envelope, never real course content. */
@@ -357,6 +357,15 @@ test("applyRelease sends rendered Task pages and both source link directions wit
       },
     ],
   });
+  const normalized = await loadPackage(f.path);
+  const normalizedProduct = normalized.manifest.products[0];
+  assert.ok(normalizedProduct);
+  const migratedChapter = productChapters(
+    normalized.manifest,
+    normalizedProduct,
+  )[0];
+  assert.ok(migratedChapter);
+  const migratedPlacementId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const productId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   /** @type {Record<string,unknown>[]} */
@@ -398,11 +407,36 @@ test("applyRelease sends rendered Task pages and both source link directions wit
         version: 1,
       };
     if (path === `/authoring/products/${productId}/order`)
-      return { orderVersion: "a".repeat(64), items: [], chapters: [] };
+      return {
+        orderVersion: "a".repeat(64),
+        items: [],
+        chapters: [],
+        programmePlacements: [
+          {
+            id: migratedPlacementId,
+            materialId,
+            chapterId: migratedChapter.id,
+            stepGroup: null,
+          },
+        ],
+      };
     if (path === `/authoring/products/${productId}/artifacts`)
       return { artifacts: [] };
-    if (path === "/authoring/import/products/composition")
+    if (path === "/authoring/import/products/composition") {
+      assert.deepEqual(
+        Reflect.get(object(body), "programmePlacements"),
+        [
+          {
+            id: migratedPlacementId,
+            materialId,
+            chapterId: migratedChapter.id,
+            stepGroup: null,
+          },
+        ],
+        "A Content import preserves the migrated placement address",
+      );
       return { orderVersion: "b".repeat(64) };
+    }
     if (path === "/authoring/import/materials/apply") {
       applied.push({ path, ...object(body) });
       return { materialId, contentVersion: 2 };
@@ -1024,3 +1058,97 @@ for (const scenario of [
     );
   });
 }
+
+test("material-task-v1 validates primary ownership and one-to-one bindings before transfer", async (t) => {
+  const f = await temporary(t);
+  const base = fixture();
+  const page = base.tasks[0]?.page;
+  assert.ok(page);
+  const lesson = { ...page, sourceId: "lesson", practiceTaskId: "task-one" };
+  const product = base.guides[0];
+  assert.ok(product);
+  const chapter = product.chapters[0];
+  assert.ok(chapter);
+  const manifest = {
+    ...base,
+    requiredFeatures: [...base.requiredFeatures, "material-task-v1"],
+    selection: { ...base.selection, materialIds: ["lesson"] },
+    materials: [lesson],
+    guides: [
+      {
+        ...product,
+        materialIds: ["lesson"],
+        chapters: [{ ...chapter, materialIds: ["lesson"] }],
+      },
+    ],
+    tasks: base.tasks.map((task) => ({
+      ...task,
+      programmeVisibility: "embedded",
+    })),
+  };
+  await f.write(manifest);
+  const loaded = await loadPackage(f.path);
+  assert.equal(loaded.manifest.materials[0]?.practiceTaskId, "task-one");
+  for (const invalid of [
+    { ...manifest, requiredFeatures: base.requiredFeatures },
+    { ...manifest, materials: [{ ...lesson, practiceTaskId: "missing" }] },
+    { ...manifest, materials: [lesson, { ...lesson, sourceId: "duplicate" }] },
+    {
+      ...manifest,
+      tasks: manifest.tasks.map((task) => ({
+        ...task,
+        programmeVisibility: "legacy",
+      })),
+    },
+    {
+      ...manifest,
+      guides: [{ ...product, supplementaryMaterialIds: ["lesson"] }],
+    },
+  ]) {
+    await f.write(invalid);
+    await assert.rejects(loadPackage(f.path));
+  }
+});
+
+test("multiple-answer quiz requires its feature marker and preserves the complete set", async (t) => {
+  const f = await temporary(t);
+  const manifest = fixture();
+  manifest.requiredFeatures.push("quiz-v1", "github-anchors-v1");
+  const task = manifest.tasks[0];
+  assert.ok(task);
+  assert.ok(task.page);
+  const quiz = {
+    kind: "quiz",
+    id: "features",
+    selectionMode: "multiple",
+    promptMarkdown: "Select the initial features.",
+    correctOptionIds: ["a", "b", "c", "d"],
+    options: ["a", "b", "c", "d", "e", "f"].map((id) => ({
+      id,
+      markdown: id,
+      explanationMarkdown: `Reason ${id}`,
+    })),
+    dontKnow: { explanationMarkdown: "Review scope.", reviewLinks: ["#scope"] },
+  };
+  const page = {
+    ...task.page,
+    readerBlocks: [{ kind: "markdown", markdown: "## Scope" }, quiz],
+  };
+  const envelope = { ...manifest, tasks: [{ ...task, page }] };
+  await f.write(envelope);
+  await assert.rejects(loadPackage(f.path), /quiz-multiple-v1/u);
+  manifest.requiredFeatures.push("quiz-multiple-v1");
+  await f.write(envelope);
+  const pkg = await loadPackage(f.path);
+  assert.deepEqual(pkg.manifest.tasks?.[0]?.page?.readerBlocks?.[1], quiz);
+  for (const patch of [
+    { correctOptionIds: [] },
+    { correctOptionIds: ["a", "a"] },
+    { correctOptionIds: ["missing"] },
+    { correctOptionId: "a" },
+  ]) {
+    page.readerBlocks[1] = { ...quiz, ...patch };
+    await f.write(envelope);
+    await assert.rejects(loadPackage(f.path));
+  }
+});

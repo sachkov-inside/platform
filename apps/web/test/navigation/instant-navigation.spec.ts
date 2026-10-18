@@ -450,7 +450,7 @@ async function boxesOf(
   );
 }
 
-/** Course B exposes the real programme link through its mobile tree. */
+/** Course B returns through its action panel on mobile and chapter rail on desktop. */
 async function readerProgrammeLink(page: Page) {
   const course = page.locator(
     "[data-application-content] [data-course-reading]:visible",
@@ -460,12 +460,15 @@ async function readerProgrammeLink(page: Page) {
     name: "Вся программа",
   });
   if (await button.isVisible()) {
-    await button.click();
     return course
-      .getByRole("dialog")
-      .getByRole("link", { name: "Страница программы" });
+      .getByRole("navigation", { name: "Хлебные крошки" })
+      .getByRole("link")
+      .first();
   } else
-    return course.getByRole("link", { exact: true, name: "Вся программа" });
+    return course
+      .getByRole("navigation", { name: "Хлебные крошки" })
+      .getByRole("link")
+      .first();
 }
 
 const lessonReady = (page: Page, slug: string) => async () => {
@@ -1019,7 +1022,7 @@ test("снимки перехода «программа → урок → про
   await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
-  const lessonAnchors = ["[data-course-actions]", "[data-reader-header]"];
+  const lessonAnchors = ["[data-reader-top-actions]", "[data-reader-header]"];
   await page
     .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
@@ -1152,7 +1155,12 @@ test("Главная ↔ продукт: свой скелет продукта,
   );
   const backHome = await transition(
     page,
-    () => page.getByRole("link", { name: "Назад на Главную" }).first().click(),
+    () =>
+      page
+        .getByRole("main")
+        .getByRole("link", { name: "Главная" })
+        .first()
+        .click(),
     homeReady,
   );
   const repeatProduct = await transition(
@@ -1166,7 +1174,12 @@ test("Главная ↔ продукт: свой скелет продукта,
   );
   const repeatHome = await transition(
     page,
-    () => page.getByRole("link", { name: "Назад на Главную" }).first().click(),
+    () =>
+      page
+        .getByRole("main")
+        .getByRole("link", { name: "Главная" })
+        .first()
+        .click(),
     homeReady,
   );
   record("home-product", testInfo.project.name, {
@@ -1229,8 +1242,9 @@ test("смена режима прохождения сбрасывает стр
   await expect(step("example")).toBeVisible();
 
   const next = page
-    .locator("[data-application-content] [data-reader-footer]:visible")
-    .getByRole("link", { name: /^Следующий шаг/u });
+    .locator("[data-application-content] [data-course-reading]:visible")
+    .getByRole("link", { name: /^Следующий шаг/u })
+    .filter({ visible: true });
   await next.click();
   await lessonReady(page, "navigation-lesson-6")();
   await page.getByRole("button", { exact: true, name: "Свой проект" }).click();
@@ -1238,8 +1252,9 @@ test("смена режима прохождения сбрасывает стр
 
   // Первый урок открыт меньше минуты назад и лежит в памяти браузера в прежнем режиме.
   const previous = page
-    .locator("[data-application-content] [data-reader-footer]:visible")
-    .getByRole("link", { name: /^Предыдущий шаг/u });
+    .locator("[data-application-content] [data-course-reading]:visible")
+    .getByRole("link", { name: /^Предыдущий шаг/u })
+    .filter({ visible: true });
   await previous.click();
   await lessonReady(page, "navigation-lesson-5")();
   await expect(step("own")).toBeVisible();
@@ -1576,11 +1591,15 @@ test("public course body renders while personal practice is held", async ({
       }),
       contentType: "application/json",
     });
+    // Private rail statuses may load independently; they must not hold the public body.
     expect(
-      requests.filter(
-        (item) => item.path.startsWith("/library/products/") && item.authorized,
-      ),
-    ).toEqual([]);
+      requests
+        .filter(
+          (item) =>
+            item.path.startsWith("/library/products/") && item.authorized,
+        )
+        .every((item) => item.path === "/library/products/navigation-proof"),
+    ).toBe(true);
     expect(
       requests.some(
         (item) => item.path.endsWith("/practices") && item.authorized,

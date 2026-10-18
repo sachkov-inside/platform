@@ -111,9 +111,17 @@ Product and does not sell it by itself; only a Product with a Cohort names the s
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
+**ProgrammePlacement**:
+One position of a Material in a Product's programme. Repeated positions share the same Material and studied mark.
+_Avoid_: Material copy, catalogue membership
+
+**ChapterAttachment**:
+An additional Material linked to a Product chapter outside its mandatory programme.
+_Avoid_: Mandatory step, additional chapter
+
 **ProductOnboarding**:
 The Product's initial learner path through Telegram linking, community joining and starting learning.
-It applies only when the Product's community is part of the learner's actual access.
+It applies only to a buyer with current paid access to that Product and its community.
 _Avoid_: Global community setup, payment confirmation
 
 **ProductAccessRevocation**:
@@ -150,11 +158,13 @@ placements; delivery goes through ContentAccess. In Russian product language: «
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
 **Product Task**:
-A large part of a Product Chapter's result that the learner builds and submits. Its requirements
+A checkable part of a Product Chapter's result that the learner builds and submits. Its requirements
 include an introduction or situation, required and additional criteria, and the freedom the learner keeps.
 It belongs to exactly one chapter of one Product, has its own order inside that chapter, its own
-access class and a short permanent code. The programme shows it right after the Material of its
-chapter the author names, or at the start of the chapter. It is not a Material and not a step of
+access class and a short permanent code. A standalone Task appears after its authored Material
+anchor or at the chapter's start. Embedded practice binds one Task to one main Material of its
+chapter and renders its submission workspace within that Material. Legacy Tasks keep direct access
+and history without a programme row. It is not a Material and not a step of
 the Product's main path, so it carries no lesson number and Product Progress does not count it. In
 Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task

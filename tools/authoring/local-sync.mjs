@@ -484,7 +484,12 @@ export const pendingOperations = (journal) =>
  */
 export function artifactFingerprint(asset, artifact, access) {
   return checksum(
-    canonical({ sha256: asset.sha256, title: artifact.title, access }),
+    canonical({
+      sha256: asset.sha256,
+      title: artifact.title,
+      access,
+      filename: artifact.filename ?? asset.path.split("/").at(-1),
+    }),
   );
 }
 
@@ -741,8 +746,9 @@ export async function syncLocal(
      * @param {Record<string, string>} fields
      * @param {Buffer<ArrayBuffer>} bytes
      * @param {ManifestAsset} asset
+     * @param {string | undefined} [filename]
      */
-    const fileForm = (fields, bytes, asset) => {
+    const fileForm = (fields, bytes, asset, filename) => {
       const form = new FormData();
       for (const [name, value] of Object.entries(fields)) form.set(name, value);
       form.set("declaredSize", String(bytes.length));
@@ -750,7 +756,7 @@ export async function syncLocal(
       form.set(
         "file",
         new Blob([bytes], { type: asset.mimeType }),
-        asset.path.split("/").at(-1),
+        filename ?? asset.path.split("/").at(-1),
       );
       return form;
     };
@@ -950,6 +956,30 @@ export async function syncLocal(
         sourceId: sourceId(row.sourceId),
         sourcePath: row.sourcePath,
         link: (href) => {
+          if (href.startsWith("artifact:")) {
+            const reference = /^artifact:([a-z0-9]+(?:-[a-z0-9]+)*)$/u.exec(
+              href,
+            )?.[1];
+            const candidates = pkg.manifest.products.filter(
+              (product) =>
+                (product.materialIds.includes(row.sourceId) ||
+                  product.supplementaryMaterialIds.includes(row.sourceId)) &&
+                reference !== undefined &&
+                artifactDeclarations(pkg.manifest, product, defaultAccess).has(
+                  reference,
+                ),
+            );
+            const product =
+              candidates.find(
+                (item) => item.sourceId === pkg.manifest.selection.productId,
+              ) ?? (candidates.length === 1 ? candidates[0] : undefined);
+            if (reference === undefined || product === undefined)
+              throw new Error(
+                `${row.sourcePath}: unresolved or ambiguous artifact reference: ${href}`,
+              );
+            const productId = valueAt(products, product.sourceId).id;
+            return `/api/products/${productId}/artifact-sources/${encodeURIComponent(sourceId(reference))}/file`;
+          }
           const linked = row.links[href] ?? row.links[decodeURI(href)];
           if (linked !== undefined) {
             if (!links.has(linked))
@@ -1452,7 +1482,20 @@ export async function syncLocal(
       try {
         const current = valueAt(products, product.sourceId);
         const order = await request(`/authoring/products/${current.id}/order`);
-        const chapters = productChapters(pkg.manifest, product);
+        const chapters = productChapters(pkg.manifest, product).map(
+          (chapter, index) => {
+            const supplementary =
+              product.chapters[index]?.supplementaryMaterialIds;
+            return supplementary === undefined
+              ? chapter
+              : {
+                  ...chapter,
+                  supplementaryMaterialIds: supplementary.map(
+                    (id) => valueAt(currentMaterials, id).materialId,
+                  ),
+                };
+          },
+        );
         const chapterAssignments = Object.fromEntries(
           product.chapters.flatMap((chapter, index) => {
             // productChapters keeps the order of product.chapters.
@@ -1469,7 +1512,49 @@ export async function syncLocal(
           ...product.materialIds,
           ...product.supplementaryMaterialIds,
         ].map((id) => valueAt(currentMaterials, id).materialId);
+        const programmePlacements =
+          product.chapters.length === 0
+            ? product.materialIds.map((id) => ({
+                id:
+                  order.programmePlacements?.find(
+                    (entry) =>
+                      entry.materialId ===
+                        valueAt(currentMaterials, id).materialId &&
+                      entry.chapterId === null,
+                  )?.id ??
+                  sourceUuid(
+                    `${sourceKey(pkg.manifest, product.sourceId)}:programme:${id}`,
+                  ),
+                materialId: valueAt(currentMaterials, id).materialId,
+                chapterId: null,
+                stepGroup: null,
+              }))
+            : product.chapters.flatMap((chapter, chapterIndex) => {
+                /** @type {Map<string, number>} */
+                const occurrence = new Map();
+                return chapter.materialIds.map((id) => {
+                  const count = (occurrence.get(id) ?? 0) + 1;
+                  occurrence.set(id, count);
+                  return {
+                    id:
+                      order.programmePlacements?.filter(
+                        (entry) =>
+                          entry.materialId ===
+                            valueAt(currentMaterials, id).materialId &&
+                          entry.chapterId ===
+                            (chapters[chapterIndex]?.id ?? null),
+                      )[count - 1]?.id ??
+                      sourceUuid(
+                        `${sourceKey(pkg.manifest, product.sourceId)}:chapter:${chapter.sourceId}:placement:${id}:${String(count)}`,
+                      ),
+                    materialId: valueAt(currentMaterials, id).materialId,
+                    chapterId: chapters[chapterIndex]?.id ?? null,
+                    stepGroup: null,
+                  };
+                });
+              });
         await applyComposition({
+          programmePlacements,
           sourceId: sourceId(product.sourceId),
           seriesId: current.id,
           ...(confirmedProductRemovals.includes(current.id)
@@ -1549,6 +1634,7 @@ export async function syncLocal(
               },
               bytes,
               asset,
+              artifact.filename,
             ),
           );
           if (outcome.outcome === "diverged") {
@@ -1574,10 +1660,12 @@ export async function syncLocal(
           .sort();
         if (canonical(receipt.materialIds) !== canonical(materialIds)) {
           await request(
-            `/authoring/product-artifacts/${receipt.artifactId}/materials`,
-            { materialIds },
-            undefined,
-            { method: "PUT" },
+            `/authoring/import/products/${current.id}/artifacts/${receipt.artifactId}/materials`,
+            {
+              materialIds,
+              productSourceId: productSource,
+              sourceId: sourceId(artifactSourceId),
+            },
           );
           resources[receiptKey] = { ...receipt, materialIds };
           await persist();

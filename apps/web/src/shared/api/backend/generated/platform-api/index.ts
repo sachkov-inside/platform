@@ -11,6 +11,7 @@ export type { OpenAPIConfig } from './core/OpenAPI';
 export type { RecursiveSchema0schema0 } from './models/RecursiveSchema0schema0';
 export type { RecursiveSchema1schema0 } from './models/RecursiveSchema1schema0';
 export type { RecursiveSchema2schema0 } from './models/RecursiveSchema2schema0';
+export type { RecursiveSchema3schema0 } from './models/RecursiveSchema3schema0';
 
 export { AccessService } from './services/AccessService';
 export { AccountsService } from './services/AccountsService';

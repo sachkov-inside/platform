@@ -1,3 +1,6 @@
+import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
+import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
+import { materialPath } from "@/shared/routing/public-page-path";
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,7 +16,6 @@ import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/mate
 import { materialReadingLabels } from "@/entities/material";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
-import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
 import {
@@ -23,6 +25,7 @@ import {
 import type { PurchaseInvitation } from "@/shared/routing/subscription-route";
 import {
   MaterialReaderHeader,
+  MaterialReaderBreadcrumbs,
   MaterialReaderFooter,
   ReaderFrame,
 } from "./material-reader-view";
@@ -82,6 +85,19 @@ export function MaterialReaderPending({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
+  const topActions = (
+    <ReaderTopActions
+      context={seriesContext?.programme == null ? seriesContext : null}
+      nextStep={
+        seriesContext?.supplementary === true
+          ? null
+          : seriesContext?.programme?.next
+      }
+      returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
+      bookmarkAction={<ReservedBookmarkAction />}
+      readingAction={<ReservedReadingAction format={material.format.slug} />}
+    />
+  );
   return (
     <div
       className="@container/material-reader min-h-svh"
@@ -94,23 +110,23 @@ export function MaterialReaderPending({
         hideReturn={seriesContext !== null}
         target={returnTarget}
         topNavigation={
-          <ReaderTopActions
-            context={seriesContext}
-            format={material.format.slug}
-            returnAction={
-              <CatalogBackLink
-                href={returnTarget.href}
-                label={returnTarget.label}
-              />
-            }
-          />
+          <>
+            <MaterialReaderBreadcrumbs
+              material={material}
+              target={returnTarget}
+            />
+            {topActions}
+          </>
         }
       >
         <div className="mx-auto min-w-0 max-w-[43rem]">
+          {seriesContext?.programme == null ? null : (
+            <div className="mb-4">{topActions}</div>
+          )}
           <MaterialReaderHeader
             material={material}
             programme={seriesContext?.programme}
-            actions={<ReservedReaderActions format={material.format.slug} />}
+            supplementary={seriesContext?.supplementary ?? false}
           />
           <div
             aria-busy="true"
@@ -226,37 +242,55 @@ export function MaterialReaderAccess({
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
   const copy = accessCopy[invitation?.kind ?? "none"];
+  const topActions = (
+    <ReaderTopActions
+      context={seriesContext?.programme == null ? seriesContext : null}
+      nextStep={
+        seriesContext?.supplementary === true
+          ? null
+          : seriesContext?.programme?.next
+      }
+      returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
+      bookmarkAction={<ReservedBookmarkAction />}
+      readingAction={
+        readingAction ?? <ReservedReadingAction format={material.format.slug} />
+      }
+    />
+  );
   return (
     <div className="@container/material-reader">
       <div data-material-reader-state="access-required">
+        <ReaderHistoryTracker
+          path={materialPath(material.slug)}
+          originHref={
+            seriesContext?.supplementary === true
+              ? seriesContext.programme?.current.href
+              : undefined
+          }
+        />
         <ReaderFrame
           context={seriesContext}
-          repeatAtBottom={seriesContext === null}
+          repeatAtBottom={false}
           hideReturn={seriesContext !== null}
           target={returnTarget}
           topNavigation={
-            <ReaderTopActions
-              context={seriesContext}
-              format={material.format.slug}
-              returnAction={
-                <CatalogBackLink
-                  href={returnTarget.href}
-                  label={returnTarget.label}
-                />
-              }
-            />
+            <>
+              <MaterialReaderBreadcrumbs
+                material={material}
+                target={returnTarget}
+              />
+              {topActions}
+            </>
           }
         >
           <div className="mx-auto max-w-[43rem]">
+            {seriesContext?.programme == null ? null : (
+              <div className="mb-4">{topActions}</div>
+            )}
             <MaterialReaderHeader
               material={material}
               programme={seriesContext?.programme}
-              actions={
-                <ReservedReaderActions
-                  format={material.format.slug}
-                  readingAction={readingAction}
-                />
-              }
+              supplementary={seriesContext?.supplementary ?? false}
             />
             <section
               className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
@@ -320,30 +354,25 @@ export function MaterialReaderAccess({
 }
 
 /** Pending/access states reserve the same truthful actions without starting a personal read. */
-function ReservedReaderActions({
-  format,
-  readingAction,
-}: {
-  readonly format: string;
-  readonly readingAction?: React.ReactNode;
-}) {
+function ReservedBookmarkAction() {
   return (
-    <>
-      <Button
-        disabled
-        variant="ghost"
-        className="size-9 shrink-0 p-0"
-        aria-label="Закладка недоступна"
-      >
-        <Bookmark aria-hidden="true" />
-      </Button>
-      {readingAction ?? (
-        <Button disabled variant="ghost" className="h-9 px-3">
-          <Circle aria-hidden="true" />
-          {materialReadingLabels(format).complete}
-        </Button>
-      )}
-    </>
+    <Button
+      disabled
+      variant="ghost"
+      className="size-11 shrink-0 rounded-lg p-0"
+      aria-label="Закладка недоступна"
+    >
+      <Bookmark aria-hidden="true" />
+    </Button>
+  );
+}
+
+function ReservedReadingAction({ format }: { readonly format: string }) {
+  return (
+    <Button disabled variant="ghost" className="h-11 shrink-0 rounded-lg px-3">
+      <Circle aria-hidden="true" />
+      {materialReadingLabels(format).complete}
+    </Button>
   );
 }
 

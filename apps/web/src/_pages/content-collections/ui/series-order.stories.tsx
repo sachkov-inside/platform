@@ -706,3 +706,56 @@ export const FailedAfterActivity: Story = {
     ).not.toBeInTheDocument();
   },
 };
+
+export const BoundedSupplementaryChoices: Story = {
+  decorators: [withMutationFetch(saveOrderSpy)],
+  args: {
+    presentation: {
+      ...chaptered,
+      chapters: [
+        {
+          id: "95000000-0000-4000-8000-000000000021",
+          name: "Проект и CI",
+          summary: "",
+        },
+      ],
+      items: Array.from({ length: 45 }, (_, index) => ({
+        materialId: `95000000-0000-4000-8000-${String(index + 100).padStart(12, "0")}`,
+        publicationState: "published" as const,
+        title: `Материал каталога ${String(index + 1).padStart(2, "0")}`,
+        chapterId: "95000000-0000-4000-8000-000000000021",
+      })),
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const summary = canvas.getByText("Дополнительные материалы", {
+      exact: true,
+    });
+    const details = summary.closest("details");
+    if (details === null) throw new Error("Missing supplementary choices");
+    const choices = within(details);
+    await expect(
+      choices.queryAllByRole("checkbox", { hidden: true }).length,
+    ).toBeLessThanOrEqual(20);
+    await userEvent.click(summary);
+    await expect(choices.getAllByRole("checkbox")).toHaveLength(20);
+    const search = choices.getByRole("textbox", {
+      name: "Поиск дополнительных материалов",
+    });
+    await userEvent.type(search, "Материал каталога 31");
+    const selected = choices.getByRole("checkbox", {
+      name: "Материал каталога 31",
+    });
+    await userEvent.click(selected);
+    await expect(selected).toBeChecked();
+    await userEvent.clear(search);
+    await userEvent.click(
+      choices.getByRole("button", { name: "Дальше по списку" }),
+    );
+    await expect(
+      choices.getByRole("checkbox", { name: "Материал каталога 31" }),
+    ).toBeChecked();
+    await expect(choices.getAllByRole("checkbox")).toHaveLength(20);
+  },
+};

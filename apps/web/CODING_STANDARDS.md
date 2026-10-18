@@ -244,6 +244,10 @@ At normal phone text size, keep this size contract. Enlarged text can reflow; ne
 Compact reading actions use the ghost button variant, with no visible border or filled pill.
 Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
 control and pager sizes; Reader and quiz stories enforce typography.
+For available Materials, place the return, bookmark and study actions in matching panels before
+the title and after the practice/workspace, before course navigation. Keep the article free of
+an automatic contents disclosure. Both panels share saved state, pending commands and failures.
+The known-course loading and access frames reserve the same top panel geometry.
 
 The reading button keeps its geometry and the reader's scroll position while saving. Use the
 shared fast motion token for press feedback and a crossfade between unread and saved icons;
@@ -256,26 +260,41 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
 - Keep touch targets at least 44 px high. Size ordinary action buttons to their labels with
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
-- In checked programme context, Course B supersedes the duplicate panels (#1414, owner 2026-10-13):
-  a 240 px left chapter rail, minimal position/title/metadata with one truthful action row, and
-  a previous/next footer with neighbor titles. Reserve this composition in shared pending and
-  access states. Mobile uses the full-programme dialog, not a permanent narrow rail or floating pager.
-  Rail rows and chapter selection use 14 px, 1.6 line height and constant weight 400; active color,
-  marker and `aria-current` identify the current step. Hover changes text only, including chapter
-  options; selected marker and keyboard focus stay clear. Chapter titles wrap without clipping the chevron.
-  The header shows the authored chapter ordinal and its mixed step position/count. Keep the normal
-  legal footer. Navigation rows make no personal access claim from guest-cached composition; target
+- In checked programme context, Course B supplies the course frame (#1414, owner 2026-10-13):
+  a 272 px left chapter rail, position/title, the matching Material action panels, and
+  a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
+  access states. Owner correction 2026-10-15: below 48rem, phones use a floating rounded, blurred lesson dock
+  with previous/next arrows, chapter/step position and a programme opener. Its bottom sheet leaves
+  a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide
+  and desktop resize. From 48rem to below 64rem, a top button opens a left modal drawer;
+  omit the bottom dock and retain the previous/next footer. At 64rem the rail stays visible.
+  Prose uses 16 px below 80rem and 18 px above; retain 15 px phone prose.
+  Keep the mobile course heading at 20 px; omit format, course and topic metadata.
+  Rail rows and chapter selection use 16 px and 1.6 line height. Keep step titles at weight 400
+  in every selection state so their wrapping stays stable. Distinguish the current step with
+  foreground text and a subtle action-coloured glow at its left marker; omit selected-row fill
+  and visible status badges.
+  Strike through a Task title only when its persisted submission timestamp is present, including
+  the currently open Task. Keep the submitted state accessible without a visible label or date;
+  an unsent review report does not count as a submission or imply acceptance by the author.
+  Chapter options use a subtle muted background for pointer and keyboard highlight, without
+  underlines or a surrounding focus ring. Retain the selection check and a forced-colors focus
+  outline. Allow the chapter menu up to 32rem within available viewport height.
+  Chapter titles wrap without clipping the chevron.
+  The header shows the authored chapter ordinal and its mixed step position/count. Keep the legal
+  footer only on course landing, purchase, payment and legal routes. Navigation rows make no personal access claim from guest-cached composition; target
   routes retain their access gates. Material ordinals/progress stay separate from mixed positions.
   Save, error, denial,
   unavailable, protected-body and standalone behavior remains unchanged.
-- Outside checked programme context, the upper lesson panel sits before metadata and the heading. On phones, both upper and lower
-  panels show lesson arrows, programme, bookmark and the written reading-state action in one row at normal
-  text size. Allow reflow when text is enlarged. Both panels keep previous/next arrows at the left/right edges and the written reading action centred, with the same surface and controls
+- Outside checked programme context, the upper lesson panel sits before metadata and the heading.
+  Both panels retain lesson arrows, programme, bookmark and the written study action.
+  Allow reflow when text is enlarged. Both panels keep previous/next
+  arrows at the left/right edges and the written reading action centred
   on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
   its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
   Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
-- On phones, use 22 px for the Reader title and 15 px with a 1.65 line height for its
+- Outside checked course context, use 22 px on phones for the Reader title and 15 px with a 1.65 line height for its
   prose. Keep the established desktop sizes from their breakpoints. Learning outcomes remain in
   metadata and the editor; the reader has no outcomes panel.
   Reader headers omit the Material summary, including loading and access states
@@ -298,3 +317,5 @@ the compact phone override for ordinary actions; small editor tool variants keep
 Multiline actions grow instead of clipping. Desktop sizing remains owned by each component.
 Keep input text at 16 px on phones; ordinary fields stay at least 44 px. Decorative artwork,
 avatars and illustrations do not follow action-icon dimensions.
+
+Course Material headers omit publication dates (owner decision 2026-10-14). Keep persisted dates unchanged. Course Task headers show chapter and step without task, product or requirement-version labels. Submission status belongs to the submission section, not the header. Keep requirement versions in submission validation and history.

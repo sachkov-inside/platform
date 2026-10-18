@@ -3,7 +3,6 @@
 import {
   LayoutGrid,
   ListOrdered,
-  Package,
   RefreshCw,
   Search,
   Flag,
@@ -11,13 +10,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   MaterialCard,
@@ -39,6 +32,7 @@ import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 /** Строка программы: её карточку нарисовал сервер, здесь только место в списке и возврат к ней. */
 export interface JourneyRow {
+  readonly id?: string;
   /** Задания, которые автор поставил сразу после этого урока (#947); номера уроков они не меняют. */
   readonly after?: ReactNode;
   readonly available: boolean;
@@ -50,6 +44,7 @@ export interface JourneyRow {
 
 /** Непрерывный отрезок части: глава или уроки вне глав. Заголовок главы тоже нарисовал сервер. */
 export interface JourneyRun {
+  readonly supplementary?: ReactNode;
   readonly chapter: {
     readonly header: ReactNode;
     readonly id: string;
@@ -90,13 +85,6 @@ export type JourneyPart =
       readonly id: "supplementary";
       readonly kind: "catalog";
       readonly label: string;
-    }
-  | {
-      readonly count: number;
-      readonly id: "artifacts";
-      readonly kind: "artifacts";
-      readonly label: string;
-      readonly panel: ReactNode;
     };
 
 export type ProductOnboardingPanel = Pick<
@@ -140,6 +128,11 @@ export function SeriesJourneyControls({
   const learning = useSeriesLearning();
   const requestedPage = readSeriesPage(search.get("page"));
   const requestedMaterial = search.get("at");
+  const requestedPlacement = search.get("atPlacement");
+  const requestedRow = (row: JourneyRow) =>
+    requestedPlacement === null
+      ? row.slug === requestedMaterial
+      : row.id === requestedPlacement;
   const routeRef = useRef<HTMLElement>(null);
   // Возврат из урока в каталог «Материалы» приходит с `part=materials`.
   const requestedCatalog = search.get("part") === "materials";
@@ -151,9 +144,8 @@ export function SeriesJourneyControls({
     id: requestedCatalog
       ? ("supplementary" as const)
       : ((
-          parts.find((entry) =>
-            partRows(entry).some((row) => row.slug === requestedMaterial),
-          ) ?? defaultPart
+          parts.find((entry) => partRows(entry).some(requestedRow)) ??
+          defaultPart
         )?.id ?? "programme"),
     // An explicit switch abandons the page in the address, which belongs to the previous part.
     explicit: false,
@@ -162,17 +154,14 @@ export function SeriesJourneyControls({
     ? (parts.find(({ id }) => id === selection.id) ?? defaultPart)
     : requestedCatalog
       ? (parts.find(({ id }) => id === "supplementary") ?? defaultPart)
-      : (parts.find((entry) =>
-          partRows(entry).some((row) => row.slug === requestedMaterial),
-        ) ?? defaultPart);
+      : (parts.find((entry) => partRows(entry).some(requestedRow)) ??
+        defaultPart);
   const visible = part === undefined ? [] : partRows(part);
   const continuation = learning.kind === "ready" ? learning.continuation : null;
   const resumeIndex = visible.findIndex(
     (row) => row.slug === continuation?.materialSlug && row.available,
   );
-  const restoredIndex = visible.findIndex(
-    (row) => row.slug === requestedMaterial,
-  );
+  const restoredIndex = visible.findIndex(requestedRow);
   const restoredCount = selection.explicit
     ? 0
     : restoredIndex >= 0
@@ -293,9 +282,7 @@ export function SeriesJourneyControls({
             ? part.incomplete
               ? "Не завершён"
               : "Завершён"
-            : part?.kind === "artifacts"
-              ? artifactsInWords(part.count)
-              : formatMaterialCount(visible.length)}
+            : formatMaterialCount(visible.length)}
         </p>
       ) : null}
       <div
@@ -305,11 +292,6 @@ export function SeriesJourneyControls({
       >
         {part?.kind === "onboarding" ? (
           part.panel
-        ) : part?.kind === "artifacts" ? (
-          <>
-            <PartHeading title={part.label} />
-            {part.panel}
-          </>
         ) : part?.kind === "catalog" ? (
           <MaterialCatalog
             accessPending={part.accessPending}
@@ -353,86 +335,90 @@ export function SeriesJourneyControls({
               }
             >
               <div className="mt-5 grid gap-6">
-                {visibleRuns(
-                  part?.kind === "materials" ? part.runs : [],
-                  visible.length,
-                  count,
-                ).map((run) => (
-                  <section
-                    aria-labelledby={
-                      run.chapter === null
-                        ? undefined
-                        : `chapter-${run.chapter.id}`
-                    }
-                    className={
-                      run.chapter === null ? undefined : "programme-chapter"
-                    }
-                    data-chapter-state={
-                      run.chapter === null
-                        ? undefined
-                        : run.rows.length === 0
-                          ? "preparing"
-                          : "open"
-                    }
-                    key={run.chapter?.id ?? `open-${String(run.offset)}`}
-                  >
-                    {run.chapter?.header ?? null}
-                    {run.leading ?? null}
-                    {run.rows.length === 0 ? null : (
-                      <ol
-                        aria-label={
-                          run.chapter === null
-                            ? "Материалы продукта"
-                            : `Материалы главы «${run.chapter.name}»`
-                        }
-                        className={cn(
-                          "grid gap-2",
-                          run.chapter === null ? "" : "mt-3",
-                        )}
-                        data-series-order
-                        start={run.offset + 1}
-                      >
-                        {run.rows.map((row) => (
-                          <li
-                            onClickCapture={(event) => {
-                              if (
-                                event.button !== 0 ||
-                                event.metaKey ||
-                                event.ctrlKey ||
-                                event.shiftKey ||
-                                event.altKey ||
-                                !(event.target instanceof Element) ||
-                                event.target.closest("a") === null
-                              )
-                                return;
-                              if (
-                                window.location.pathname ===
-                                new URL(currentHref, window.location.origin)
-                                  .pathname
-                              )
-                                window.history.replaceState(
-                                  window.history.state,
-                                  "",
-                                  row.returnHref,
-                                );
-                            }}
-                            aria-current={
-                              next?.slug === row.slug ? "step" : undefined
-                            }
-                            className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
-                            data-route-material={row.slug}
-                            data-series-ordinal={row.ordinal}
-                            key={row.slug}
-                            tabIndex={-1}
-                          >
-                            {row.card}
-                            {row.after ?? null}
-                          </li>
-                        ))}
-                      </ol>
-                    )}
-                  </section>
-                ))}
+                {(part?.kind === "materials" ? part.runs : []).map((run) => {
+                  const rows = run.rows.slice(
+                    0,
+                    Math.max(0, count - run.offset),
+                  );
+                  return (
+                    <section
+                      aria-labelledby={
+                        run.chapter === null
+                          ? undefined
+                          : `chapter-${run.chapter.id}`
+                      }
+                      className={
+                        run.chapter === null ? undefined : "programme-chapter"
+                      }
+                      data-chapter-state={
+                        run.chapter === null
+                          ? undefined
+                          : run.rows.length === 0
+                            ? "preparing"
+                            : "open"
+                      }
+                      key={run.chapter?.id ?? `open-${String(run.offset)}`}
+                    >
+                      {run.chapter?.header ?? null}
+                      {run.leading ?? null}
+                      {rows.length === 0 ? null : (
+                        <ol
+                          aria-label={
+                            run.chapter === null
+                              ? "Материалы продукта"
+                              : `Материалы главы «${run.chapter.name}»`
+                          }
+                          className={cn(
+                            "grid gap-2",
+                            run.chapter === null ? "" : "mt-3",
+                          )}
+                          data-series-order
+                          start={run.offset + 1}
+                        >
+                          {rows.map((row) => (
+                            <li
+                              onClickCapture={(event) => {
+                                if (
+                                  event.button !== 0 ||
+                                  event.metaKey ||
+                                  event.ctrlKey ||
+                                  event.shiftKey ||
+                                  event.altKey ||
+                                  !(event.target instanceof Element) ||
+                                  event.target.closest("a") === null
+                                )
+                                  return;
+                                if (
+                                  window.location.pathname ===
+                                  new URL(currentHref, window.location.origin)
+                                    .pathname
+                                )
+                                  window.history.replaceState(
+                                    window.history.state,
+                                    "",
+                                    row.returnHref,
+                                  );
+                              }}
+                              aria-current={
+                                next?.slug === row.slug ? "step" : undefined
+                              }
+                              className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
+                              data-route-material={row.slug}
+                              data-programme-placement={row.id}
+                              data-series-ordinal={row.ordinal}
+                              key={row.id ?? row.slug}
+                              tabIndex={-1}
+                            >
+                              {row.card}
+                              {row.after ?? null}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                      {run.supplementary ?? null}
+                    </section>
+                  );
+                })}
               </div>
             </SeriesContinuationProvider>
           </>
@@ -471,22 +457,7 @@ export function SeriesJourneyControls({
   );
 }
 
-/** Preserve complete chapter runs while progressively extending the visible prefix. */
-function visibleRuns(
-  runs: readonly JourneyRun[],
-  total: number,
-  count: number,
-): readonly JourneyRun[] {
-  return runs.flatMap((run) => {
-    if (run.rows.length === 0)
-      return run.offset < count || count === total ? [run] : [];
-    return run.offset < count
-      ? [{ ...run, rows: run.rows.slice(0, count - run.offset) }]
-      : [];
-  });
-}
-
-/** Only a material part is progressively revealed and numbered; artifacts have no route. */
+/** Only programme rows are progressively revealed and numbered. */
 function partRows(part: JourneyPart): readonly JourneyRow[] {
   return part.kind === "materials" ? part.runs.flatMap((run) => run.rows) : [];
 }
@@ -496,12 +467,10 @@ function partCount(part: JourneyPart): number {
     ? 0
     : part.kind === "materials"
       ? partRows(part).length
-      : part.kind === "catalog"
-        ? part.entries.length
-        : part.count;
+      : part.entries.length;
 }
 
-/** Заголовок раздела: на странице видно, что открыты «Материалы» или «Артефакты». */
+/** Заголовок раздела: на странице видно, что открыты «Материалы». */
 function PartHeading({ title }: { readonly title: string }) {
   return (
     <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
@@ -679,6 +648,7 @@ function MaterialCatalog({
                 accessPending={accessPending}
                 headingLevel="h3"
                 material={entry.material}
+                readerContext={{ referenceView: true }}
                 returnHref={catalogReaderReturnHref(
                   currentHref,
                   entry.material.slug,
@@ -704,42 +674,19 @@ function MaterialCatalog({
   );
 }
 
-/** «1 артефакт» / «2 артефакта» / «5 артефактов» for the live part announcement. */
-function artifactsInWords(count: number): string {
-  const lastTwo = count % 100;
-  const lastOne = count % 10;
-  const form =
-    lastTwo >= 11 && lastTwo <= 14
-      ? "артефактов"
-      : lastOne === 1
-        ? "артефакт"
-        : lastOne >= 2 && lastOne <= 4
-          ? "артефакта"
-          : "артефактов";
-  return `${String(count)} ${form}`;
-}
-
 const partIcons: Readonly<Record<JourneyPart["id"], LucideIcon>> = {
   onboarding: Flag,
   programme: ListOrdered,
   supplementary: LayoutGrid,
-  artifacts: Package,
 };
-/** Имена пунктов нижней панели для скринридера: на экране у пунктов только значки. */
+/** Labels identify both parts; only the selected mobile label is visible. */
 const partBarLabels: Readonly<Record<JourneyPart["id"], string>> = {
   onboarding: "Онбординг",
   programme: "Программа",
   supplementary: "Материалы",
-  artifacts: "Артефакты",
 };
 
-/**
- * Нижняя панель продукта на телефоне (решение владельца 09.10.2026), только значки, как
- * в общей навигации: подписи на узком экране не помещаются. Внутри программы она заменяет общую
- * панель: разделы продукта — те же, что вкладки на широком экране. Главной здесь нет: на неё
- * ведут логотип в шапке и ссылка вверху, и случайно уйти из курса нельзя; ряд вкладок там спрятан, чтобы разделы не уходили во второй ряд.
- * Шапка телефона с профилем и закладками остаётся сверху.
- */
+/** Programme and Materials share a floating mobile bar; the active item expands with its label. */
 function ProductBottomBar({
   activeId,
   onOpen,
@@ -757,16 +704,7 @@ function ProductBottomBar({
       <nav
         aria-label="Разделы продукта"
         className="product-bottom-bar md:hidden"
-        style={barVariables({
-          "--bar-count": parts.length,
-          "--bar-index": Math.max(
-            0,
-            parts.findIndex((entry) => entry.id === activeId),
-          ),
-        })}
       >
-        {/* Подложка выбранного раздела переезжает к новому пункту, как в приложении. */}
-        <span aria-hidden="true" className="product-bottom-bar-indicator" />
         <HidePublicFooter />
         {parts.map((entry) => {
           const Icon = partIcons[entry.id];
@@ -784,6 +722,9 @@ function ProductBottomBar({
               type="button"
             >
               <Icon aria-hidden="true" />
+              <span className="product-bottom-bar-label" aria-hidden="true">
+                {partBarLabels[entry.id]}
+              </span>
             </button>
           );
         })}
@@ -793,7 +734,7 @@ function ProductBottomBar({
 }
 
 /**
- * Колонка разделов (решение владельца 09.10.2026): программа, материалы, артефакты со счётчиками.
+ * Колонка разделов (решение владельца 09.10.2026): программа и материалы со счётчиками.
  * Сама программа остаётся в основной колонке справа; колонка прилипает к верху. На компьютере у
  * пунктов подписи, на планшете колонка сужается до значков и несёт профиль, на телефоне её роль
  * играет нижняя панель.
@@ -837,10 +778,4 @@ function ProgrammeSidebar({
       </nav>
     </aside>
   );
-}
-
-type BarVariables = CSSProperties & Record<`--${string}`, number>;
-/** CSS-переменные панели: число пунктов и выбранный — по ним стили ставят подложку. */
-function barVariables(values: Record<`--${string}`, number>): BarVariables {
-  return values;
 }

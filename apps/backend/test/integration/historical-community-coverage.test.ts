@@ -56,13 +56,14 @@ beforeEach(async () => {
       logtoSubject: account,
     },
   });
-  await db.prisma.product.createMany({
-    data: [product, foreignProduct].map((id) => ({
-      id,
-      slug: `historical-${id}`,
-      name: `Course ${id}`,
-    })),
-  });
+  // This fixture is deliberately older than the generated Product model.
+  // Seed only columns owned by its historical migration boundary.
+  for (const id of [product, foreignProduct]) {
+    await db.prisma.$executeRaw(Prisma.sql`
+      insert into materials.series (id, slug, name)
+      values (${id}::uuid, ${`historical-${id}`}, ${`Course ${id}`})
+    `);
+  }
   accounts = assembleAccounts({
     prisma: db.prisma,
     emailFingerprintKey: "historical-community-fixture-fingerprint-key",

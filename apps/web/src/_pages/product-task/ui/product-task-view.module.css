@@ -5,36 +5,16 @@
 .body {
   display: flow-root;
   margin-top: 2rem;
-  font-size: 1.125rem;
+  font-size: 1rem;
   line-height: 1.65;
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
 .body h2 {
-  font-size: 1.5rem;
-}
-.body h3 {
   font-size: 1.25rem;
 }
-.submission {
-  scroll-margin-top: 1.5rem;
-  padding: 1.25rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--muted);
-}
-.submitLink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding-inline: 0.75rem;
-  text-decoration: none;
-  color: var(--foreground);
-}
-.submitLink:hover {
-  background: var(--muted);
+.body h3 {
+  font-size: 1.125rem;
 }
 @media (max-width: 39.99rem) {
   .body {
@@ -45,9 +25,6 @@
   }
   .body h3 {
     font-size: 1rem;
-  }
-  .submission {
-    padding: 1rem;
   }
 }
 
@@ -68,4 +45,16 @@
 }
 .body > section > h2 {
   margin-bottom: 0.625rem;
+}
+
+@media (width >= 80rem) {
+  .body {
+    font-size: 1.125rem;
+  }
+  .body h2 {
+    font-size: 1.5rem;
+  }
+  .body h3 {
+    font-size: 1.25rem;
+  }
 }

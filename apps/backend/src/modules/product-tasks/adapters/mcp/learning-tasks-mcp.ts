@@ -1,3 +1,4 @@
+import { taskReviewUpdateSchema } from "../../features/update-task-review/update-task-review.js";
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
@@ -30,7 +31,7 @@ const taskSubmitAnnotations = {
 /** What the server `instructions` say about Product Tasks, beside the learning materials. */
 export const learningTaskInstructions =
   "Product Tasks: learning_tasks_list shows tasks open to the participant; learning_task_read returns a task with its criteria and the review procedure; learning_task_submit records the participant's submission with the agent's review report after the participant confirms it; learning_task_submissions returns their own submissions and the author's feedback. " +
-  "This endpoint reads materials and tasks and accepts submissions. It does not grade work, change projects or grant access. Follow the review procedure that learning_task_read and the review_task prompt return.";
+  "learning_task_review_update publishes consented review progress to the task page without submitting; pass its runKey as reviewRunKey when submitting. This endpoint reads materials and tasks and accepts submissions. It does not grade work, change projects or grant access. Follow the review procedure that learning_task_read and the review_task prompt return.";
 
 /** The `review_task` prompt: the same procedure `learning_task_read` returns, for one task code. */
 function reviewTaskPromptText(code: string): string {
@@ -65,11 +66,22 @@ export function registerLearningTaskTools(
     "learning_task_read",
     {
       description:
-        "Read one open Product Task by code: the current requirements version (situation, result, freedom, required and additional criteria), the review procedure and related materials, in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext. A version change between parts returns an error; read again from part 0. A task without access answers task_not_available.",
+        "Read one open Product Task by code: the current requirements version (situation, result, freedom, required and additional criteria), the review procedure, related materials and complete bound practical lesson when present, in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext. A version change between parts returns an error; read again from part 0. A task without access answers task_not_available.",
       inputSchema: learningTaskQuerySchema,
       annotations: readAnnotations,
     },
     async (query) => toolResult(await tasks.read({ subject, ...query })),
+  );
+  server.registerTool(
+    "learning_task_review_update",
+    {
+      description:
+        "Update the participant's current review on their task page after consent to share progress. Read learning_task_submissions for the current revision first (0 when absent). Start a new UUID runKey with phase reviewing; reuse it for later updates and pass the last returned revision as expectedRevision. Publish short learner-facing summaries, never private review guidance, secrets or full session transcripts. ready requires a complete report and means ready for discussion, not passed or submitted. A review_conflict requires rereading current progress and resolving the scope with the participant; never blindly overwrite another run. Reuse identical input only for a lost-response retry. This never creates a submission.",
+      inputSchema: taskReviewUpdateSchema,
+      annotations: taskSubmitAnnotations,
+    },
+    async (query) =>
+      toolResult(await tasks.updateReview({ subject, ...query })),
   );
   server.registerTool(
     "learning_task_submit",

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { productRemovalSchema } from "@/shared/lib/product-removal";
 
 export interface ProductChapterPresentation {
+  readonly supplementaryMaterialIds?: readonly string[] | undefined;
   readonly id: string;
   readonly name: string;
   readonly summary: string;
@@ -14,6 +15,7 @@ export const PRODUCT_CHAPTER_NAME_MAX = 120;
 export const PRODUCT_CHAPTER_SUMMARY_MAX = 4000;
 export const productChapterDraftSchema = z
   .object({
+    supplementaryMaterialIds: z.array(z.uuid()).max(200).optional(),
     id: z.uuid(),
     name: z.string().trim().min(1).max(PRODUCT_CHAPTER_NAME_MAX),
     summary: z.string().trim().max(PRODUCT_CHAPTER_SUMMARY_MAX),
@@ -38,6 +40,14 @@ export function publicationStateLabel(
 }
 
 export interface SeriesOrderPresentation {
+  readonly programmePlacements?:
+    | readonly {
+        readonly id: string;
+        readonly materialId: string;
+        readonly chapterId: string | null;
+        readonly stepGroup: string | null;
+      }[]
+    | undefined;
   readonly archived: boolean;
   readonly chapters: readonly ProductChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
@@ -81,7 +91,20 @@ export type CreateSeriesOrderMaterialSearchQueryOptions = (input: {
   SeriesOrderMaterialSearchQueryKey
 >;
 
+export const programmePlacementSchema = z
+  .object({
+    id: z.uuid(),
+    materialId: z.uuid(),
+    chapterId: z.uuid().nullable(),
+    stepGroup: z.string().trim().min(1).max(120).nullable(),
+  })
+  .strict();
+export type ProgrammePlacementPresentation = z.infer<
+  typeof programmePlacementSchema
+>;
+
 export interface ReorderSeriesInput {
+  readonly programmePlacements?: readonly ProgrammePlacementPresentation[];
   readonly chapters?: readonly ProductChapterPresentation[];
   readonly chapterAssignments?: Readonly<Record<string, string>>;
   /** Купленный продукт, снятие материалов из которого автор подтвердил. */

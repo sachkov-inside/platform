@@ -22,9 +22,15 @@ export {
   courseReadingContext,
   type CourseReadingContext,
   type CourseReadingStep,
+  type CourseReferenceMaterial,
 } from "./model/course-reading";
 export {
+  CourseTaskSubmissionStatuses,
   CourseReadingLayout,
   CourseReadingHeader,
   CourseReadingFooter,
 } from "./ui/course-reading.client";
+
+export { CourseReferenceNavigation } from "./ui/course-reference-navigation";
+
+export { CourseReadingHost } from "./ui/course-reading-host.client";

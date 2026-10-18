@@ -86,7 +86,15 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     window.scrollTo(0, 700);
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
-  await tap(page, navigation(page).getByRole("link", { name: "Профиль" }));
+  // Шапка скрывается вниз; пользователь показывает её прокруткой вверх перед нажатием.
+  await expect
+    .poll(async () => (await header(page).boundingBox())?.y)
+    .toBeLessThan(0);
+  await page.evaluate(() => {
+    window.scrollTo(0, 680);
+  });
+  await expect.poll(async () => (await header(page).boundingBox())?.y).toBe(0);
+  await tap(page, navigation(page).getByRole("link", { name: "Закладки" }));
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),
   ).toBeVisible();
@@ -98,16 +106,16 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     "aria-pressed",
     "true",
   );
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(680);
   // Лента не показывает второй экран загрузки: материалы приходят из памяти браузера.
   await expect(page.locator('section.home-feed[aria-busy="true"]')).toHaveCount(
     0,
   );
   expect(requests).toBe(loadedRequests);
   await page.goBack();
-  await expect(page).toHaveURL(/\/account$/u);
+  await expect(page).toHaveURL(/\/bookmarks$/u);
   await expect(
-    navigation(page).getByRole("link", { name: "Профиль" }),
+    navigation(page).getByRole("link", { name: "Закладки" }),
   ).toHaveAttribute("aria-current", "page");
   await page.goForward();
   await expect(formatChip(page, "Гайды")).toHaveAttribute(
@@ -142,8 +150,8 @@ test("fast repeated navigation remains clickable during the transition", async (
   await page.goto("/");
   await expect(formatChip(page, "Все")).toBeVisible();
   // Real pointer input bypasses Playwright's animation-stability wait, as a quick user tap does.
-  await tap(page, navigation(page).getByRole("link", { name: "Профиль" }));
-  await expect(page).toHaveURL(/\/account$/u);
+  await tap(page, navigation(page).getByRole("link", { name: "Закладки" }));
+  await expect(page).toHaveURL(/\/bookmarks$/u);
   await tap(page, homeLink(page));
   await expect(page).toHaveURL(/\/$/u);
   await expect(homeLink(page)).toHaveAttribute("aria-current", "page");
@@ -167,7 +175,7 @@ test("public canvas, navigation geometry and reduced motion are consistent", asy
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(width);
-    await navigation(page).getByRole("link", { name: "Профиль" }).click();
+    await navigation(page).getByRole("link", { name: "Закладки" }).click();
   }
   expect(
     await page.locator('meta[name="theme-color"]').getAttribute("content"),
@@ -293,20 +301,21 @@ test("a newer tab selection wins over an unfinished route request", async ({
   await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
-  await page.goto("/");
-  await expect(formatChip(page, "Все")).toBeVisible();
   let started = false;
   let release: () => void = () => undefined;
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
-  await page.route(/\/account\?_rsc=/u, async (route) => {
+  await page.route(/\/bookmarks\?_rsc=/u, async (route) => {
     started = true;
     await held;
     await route.continue().catch(() => undefined);
   });
   try {
-    await navigation(page).getByRole("link", { name: "Профиль" }).click();
+    // Register before entry: Next.js may prefetch both RSC segments immediately.
+    await page.goto("/");
+    await expect(formatChip(page, "Все")).toBeVisible();
+    await navigation(page).getByRole("link", { name: "Закладки" }).click();
     await expect.poll(() => started).toBe(true);
     await expect(page).toHaveURL(/\/$/u);
     await homeLink(page).click();
@@ -364,7 +373,8 @@ test("changing account identity clears remembered tabs and the old Profile form"
     "aria-pressed",
     "true",
   );
-  await navigation(page).getByRole("link", { name: "Профиль" }).click();
+  await navigation(page).getByRole("button", { name: "Аккаунт" }).click();
+  await page.getByRole("menuitem", { name: "Профиль" }).click();
   const name = page.getByRole("textbox", { name: "Имя", exact: true });
   await name.fill("Старый аккаунт");
   await expect(homeLink(page)).toHaveAttribute("href", /format=guide/u);

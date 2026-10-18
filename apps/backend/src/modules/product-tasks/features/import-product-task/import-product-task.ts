@@ -42,7 +42,7 @@ export interface TaskImportDependencies {
   readonly prisma: ProductTasksPrismaClient;
   readonly directory: Pick<
     ProductDirectory,
-    "products" | "materialsBySource" | "placements"
+    "products" | "materialsBySource" | "placements" | "lockPrimaryPlacement"
   >;
   readonly authorPolicy: AuthorPolicy;
   readonly clock?: () => Date;
@@ -202,6 +202,19 @@ export function assembleApplySourceTask(
             // A historical receipt; the caller reads again to learn the current state.
             return taskImportReceiptSchema.parse(previous.receipt);
           }
+          const lockedBinding =
+            command.embeddedMaterialSourceId === undefined
+              ? null
+              : await dependencies.directory.lockPrimaryPlacement(
+                  transaction,
+                  command.productId,
+                  command.embeddedMaterialSourceId,
+                );
+          if (
+            command.embeddedMaterialSourceId !== undefined &&
+            lockedBinding?.chapterId !== command.chapterId
+          )
+            throw new Rollback({ code: "source_mismatch" });
           await lockProductTaskImport(transaction, command.code);
           const current = await transaction.productTask.findUnique({
             where: { code: command.code },
@@ -214,7 +227,25 @@ export function assembleApplySourceTask(
               current.productId !== command.productId)
           )
             throw new Rollback({ code: "source_mismatch" });
-          const saved = await saveTask(transaction, current, command, clock());
+          const embeddedMaterialId = lockedBinding?.materialId ?? null;
+          if (embeddedMaterialId !== null) {
+            await lockProductTaskImport(
+              transaction,
+              `material:${embeddedMaterialId}`,
+            );
+            const other = await transaction.productTask.findUnique({
+              where: { embeddedMaterialId },
+            });
+            if (other !== null && other.code !== command.code)
+              throw new Rollback({ code: "source_mismatch" });
+          }
+          const saved = await saveTask(
+            transaction,
+            current,
+            command,
+            clock(),
+            embeddedMaterialId,
+          );
           await transaction.productTaskImportReceipt.update({
             where: { actorId_operation_idempotencyKey: receiptKey },
             data: { receipt: saved },
@@ -240,6 +271,7 @@ async function saveTask(
   current: TaskRow | null,
   command: SourceTask,
   now: Date,
+  embeddedMaterialId: string | null,
 ): Promise<TaskImportReceipt> {
   const digest = taskDefinitionDigest(command.definition);
   const page =
@@ -259,6 +291,8 @@ async function saveTask(
     access: command.access,
     relatedMaterialSourceIds: [...command.relatedMaterialSourceIds],
     afterMaterialSourceId: command.afterMaterialSourceId,
+    programmeVisibility: command.programmeVisibility ?? "standalone",
+    embeddedMaterialId,
     publicationState: command.publicationState,
   };
   const version = {
@@ -307,6 +341,8 @@ async function saveTask(
   const stateChanged =
     (page !== undefined &&
       commandDigest(current.page) !== commandDigest(page)) ||
+    current.programmeVisibility !== state.programmeVisibility ||
+    current.embeddedMaterialId !== state.embeddedMaterialId ||
     current.chapterId !== state.chapterId ||
     current.position !== state.position ||
     current.title !== state.title ||
@@ -352,7 +388,7 @@ async function saveTask(
 async function checkPlacement(
   directory: TaskImportDependencies["directory"],
   command: SourceTask,
-): Promise<Result<undefined, TaskImportError>> {
+): Promise<Result<string | null, TaskImportError>> {
   try {
     const [migration] = await directory.materialsBySource([command.sourceId]);
     if (migration !== undefined)
@@ -362,10 +398,23 @@ async function checkPlacement(
       return { ok: false, error: { code: "product_not_found" } };
     if (!product.chapters.some((chapter) => chapter.id === command.chapterId))
       return { ok: false, error: { code: "chapter_not_found" } };
+    let embeddedMaterialId: string | null = null;
+    if (command.embeddedMaterialSourceId !== undefined) {
+      const [binding] = await directory.placements(product.id, [
+        command.embeddedMaterialSourceId,
+      ]);
+      if (binding?.chapterId !== command.chapterId)
+        return { ok: false, error: { code: "source_mismatch" } };
+      embeddedMaterialId = binding.materialId;
+    }
     const after = command.afterMaterialSourceId;
     if (after !== null) {
-      const [placement] = await directory.placements(product.id, [after]);
-      if (placement?.chapterId !== command.chapterId)
+      const placements = await directory.placements(product.id, [after]);
+      if (
+        !placements.some(
+          (placement) => placement.chapterId === command.chapterId,
+        )
+      )
         return {
           ok: false,
           error: { code: "after_material_not_in_chapter", sourceId: after },
@@ -380,7 +429,7 @@ async function checkPlacement(
       (sourceId) => !known.has(sourceId),
     );
     return missing.length === 0
-      ? { ok: true, value: undefined }
+      ? { ok: true, value: embeddedMaterialId }
       : {
           ok: false,
           error: { code: "related_material_not_found", sourceIds: missing },

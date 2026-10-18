@@ -1,3 +1,7 @@
+import {
+  reviewProgressSchema,
+  type ReviewProgress,
+} from "../../domain/review-progress.js";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
@@ -89,6 +93,7 @@ export async function listTaskSubmissions(
     {
       readonly code: string;
       readonly currentVersion: number;
+      readonly reviewProgress: ReviewProgress | null;
       readonly versions: readonly SubmittedVersion[];
       readonly submissions: readonly OwnTaskSubmission[];
       readonly nextCursor: string | null;
@@ -154,7 +159,30 @@ export async function listTaskSubmissions(
             orderBy: [{ submittedAt: "desc" }, { id: "desc" }],
             select: { submittedAt: true },
           });
-    const versionNumbers = [...new Set(rows.map((row) => row.taskVersion))];
+    const progressRow =
+      await dependencies.prisma.productTaskReviewProgress.findUnique({
+        where: {
+          accountId_taskId: { accountId: subject.accountId, taskId: task.id },
+        },
+      });
+    const reviewProgress =
+      progressRow === null
+        ? null
+        : reviewProgressSchema.parse({
+            taskVersion: progressRow.taskVersion,
+            runKey: progressRow.runKey,
+            revision: progressRow.revision,
+            phase: progressRow.phase,
+            summary: progressRow.summary,
+            reviewReport: progressRow.reviewReport,
+            updatedAt: progressRow.updatedAt.toISOString(),
+          });
+    const versionNumbers = [
+      ...new Set([
+        ...rows.map((row) => row.taskVersion),
+        ...(reviewProgress === null ? [] : [reviewProgress.taskVersion]),
+      ]),
+    ];
     const versions =
       versionNumbers.length === 0
         ? []
@@ -167,6 +195,7 @@ export async function listTaskSubmissions(
       value: {
         code: task.code,
         currentVersion: task.version,
+        reviewProgress,
         latestSubmittedAt: latest?.submittedAt.toISOString() ?? null,
         nextCursor:
           window.length > SUBMISSIONS_PAGE_SIZE && last !== undefined

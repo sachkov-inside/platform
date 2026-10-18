@@ -113,7 +113,7 @@ describe("authoring source Material", () => {
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
-  test("feed scope includes only selected publications and restricts facet counts without changing direct reads", async () => {
+  test("feed includes every published free Material regardless of the legacy visibility flag", async () => {
     const { authoring, publishedMaterialReader } = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
@@ -168,9 +168,8 @@ describe("authoring source Material", () => {
     expect(feed).toMatchObject({
       ok: true,
       value: {
-        totalCount: 1,
-        items: [{ materialId: ids[1] }],
-        facets: { topics: [{ count: 1 }], formats: [{ count: 1 }] },
+        totalCount: 2,
+        facets: { topics: [{ count: 2 }], formats: [{ count: 2 }] },
       },
     });
     const hiddenSearch = await publishedMaterialReader.listProjections({
@@ -178,7 +177,10 @@ describe("authoring source Material", () => {
       feedOnly: true,
       q: "false",
     });
-    expect(hiddenSearch).toMatchObject({ ok: true, value: { totalCount: 0 } });
+    expect(hiddenSearch).toMatchObject({
+      ok: true,
+      value: { totalCount: 1, items: [{ materialId: ids[0] }] },
+    });
   });
 
   test("ordinary writes cannot change a source programme and removing the final paid feed placement fails", async () => {

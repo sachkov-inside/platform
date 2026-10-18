@@ -1,9 +1,9 @@
 .layout {
   display: grid;
-  grid-template-columns: 15rem minmax(0, 43rem);
+  grid-template-columns: 17rem minmax(0, 43rem);
   justify-content: center;
   align-items: start;
-  gap: 3rem;
+  gap: 2rem;
   min-width: 0;
 }
 .standalone {
@@ -17,12 +17,19 @@
 .rail {
   position: sticky;
   top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(
+    100dvh - 8rem - var(--storage-notice-space, 0px) -
+      var(--application-notice-space, 0px)
+  );
   min-width: 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.6;
 }
 .programmeLink {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.75rem;
@@ -30,6 +37,7 @@
   text-decoration: none;
 }
 .chapterTrigger {
+  flex-shrink: 0;
   width: 100%;
   min-width: 0;
   margin-block: 0.75rem;
@@ -39,7 +47,7 @@
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 400;
   line-height: 1.6;
 }
@@ -51,6 +59,12 @@
 }
 .chapterTrigger > svg {
   flex: 0 0 1rem;
+}
+.chapterTrigger .chapterName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .chapterTrigger:hover,
 .chapterTrigger[data-state="open"] {
@@ -64,13 +78,14 @@
   outline-offset: 3px;
 }
 .chapterMenu {
+  max-height: min(32rem, var(--radix-select-content-available-height));
   max-width: min(22rem, calc(100vw - 2rem));
   border-radius: var(--radius-md);
 }
 .chapterOption {
   min-height: 2.75rem;
   border-radius: var(--radius-sm);
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 400;
   line-height: 1.6;
   color: var(--muted-foreground);
@@ -81,12 +96,29 @@
   color: var(--foreground);
 }
 .chapterOption[data-highlighted] {
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+  background: var(--muted);
+  text-decoration: none;
+}
+.chapterOption:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+@media (forced-colors: active) {
+  .chapterOption[data-highlighted] {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
 }
 .railSteps {
-  max-height: calc(100dvh - 14rem);
+  /* Keep the halo inside the scroll viewport without moving the marker or text. */
+  padding-inline-start: 1rem;
+  margin-inline-start: -1rem;
+  min-height: 0;
+  padding-bottom: 2rem;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 1rem;
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
@@ -96,6 +128,41 @@
   padding: 0;
   margin: 0;
 }
+.railSteps li {
+  position: relative;
+}
+.railSteps li[data-course-position="before"]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(0.375rem - 0.5px);
+  top: 1.3rem;
+  bottom: -1.3rem;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--action) 65%, transparent) 0 3px,
+    transparent 3px 7px
+  );
+  pointer-events: none;
+}
+.railSteps .step {
+  align-items: start;
+}
+.stepTitle {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.stepTitle[data-task-submitted] {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--muted-foreground);
+}
+.railSteps .mark {
+  margin-top: calc(0.8rem - 0.1875rem);
+}
+.railSteps li[data-course-position] .mark {
+  background: var(--action);
+}
 .step {
   display: grid;
   grid-template-columns: 0.75rem minmax(0, 1fr);
@@ -103,7 +170,7 @@
   align-items: baseline;
   min-height: 2.75rem;
   padding: 0.5rem 0;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 400;
   line-height: 1.6;
   color: var(--muted-foreground);
@@ -120,6 +187,7 @@
   font-weight: 400;
 }
 .mark {
+  position: relative;
   display: block;
   width: 0.375rem;
   height: 0.375rem;
@@ -127,8 +195,41 @@
   border-radius: 50%;
   background: var(--border);
 }
+.step[aria-current="step"] .stepTitle {
+  /* Paint-only emphasis preserves glyph advances and the existing line breaks. */
+  -webkit-text-stroke: 0.22px currentColor;
+}
 .step[aria-current="step"] .mark {
-  background: var(--foreground);
+  background: var(--action);
+  box-shadow:
+    0 0 0 0.1875rem color-mix(in srgb, var(--action) 16%, transparent),
+    0 0.125rem 0.625rem 0.125rem
+      color-mix(in srgb, var(--action) 40%, transparent);
+}
+.step[aria-current="step"] .mark::after {
+  content: "";
+  position: absolute;
+  inset: -0.1875rem;
+  border: 1px solid color-mix(in srgb, var(--action) 60%, transparent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  animation: current-step-pulse 1.3s ease-out 3;
+}
+@keyframes current-step-pulse {
+  from {
+    opacity: 0.8;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step[aria-current="step"] .mark::after {
+    animation: none;
+  }
 }
 .step small {
   display: flex;
@@ -296,9 +397,14 @@
   font-weight: 600;
 }
 .layout a:focus-visible,
-.layout button:focus-visible {
+.layout button:focus-visible,
+.host a:focus-visible,
+.host button:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
+}
+.mobileProgramme > .tabletTrigger {
+  display: none;
 }
 @media (min-width: 40rem) {
   .actions,
@@ -324,7 +430,7 @@
   }
   .mobileProgramme {
     display: block;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
   }
 }
 @media (max-width: 39.99rem) {
@@ -338,5 +444,424 @@
 @media (prefers-reduced-motion: reduce) {
   .step {
     transition: none;
+  }
+}
+
+/* Compact course Reader actions and mobile lesson navigation. */
+.actions {
+  gap: 0.5rem;
+}
+.actions :is(button, a[data-slot="button"], a) {
+  min-height: 2.75rem;
+  height: auto;
+  min-width: 2.75rem;
+  padding: 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+}
+.actions [data-bookmark-action-state] :is(button, a) {
+  width: auto;
+}
+.actions :is(button, a)::after {
+  display: none;
+}
+.metadataRow {
+  align-items: start;
+  flex-direction: column;
+}
+.metadata {
+  margin-bottom: 0.25rem;
+}
+.dock {
+  display: none;
+}
+.dialog {
+  overscroll-behavior: contain;
+}
+.dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.dialog details {
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+  padding-top: 0.25rem;
+}
+.dialog summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
+  min-height: 2.75rem;
+  padding-block: 0.5rem;
+  list-style: none;
+}
+.dialog summary::-webkit-details-marker {
+  display: none;
+}
+.chapterLabel {
+  min-width: 0;
+}
+.chapterLabel > span {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--muted-foreground);
+}
+.chapterLabel > strong {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  margin-top: 0.125rem;
+}
+.dialog summary > svg {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
+}
+.dialog details[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.dialog .step {
+  padding: 0.5rem;
+  margin-block: 0.125rem;
+  border-radius: var(--radius-sm);
+}
+.dialog .step[aria-current="step"] {
+  background: transparent;
+}
+.dialog .step[aria-current="step"] .mark {
+  background: var(--primary);
+}
+@media (width < 48rem) {
+  .document {
+    padding-bottom: 6rem;
+  }
+  .header h1 {
+    font-size: 1.25rem;
+    text-wrap: initial;
+    line-height: 1.25;
+  }
+  .footer {
+    display: none;
+  }
+  .dock {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+    align-items: center;
+    position: fixed;
+    bottom: calc(
+      max(0.75rem, env(safe-area-inset-bottom)) +
+        var(--storage-notice-space, 0px)
+    );
+    left: 50%;
+    width: min(calc(100% - 2rem), 17rem);
+    transform: translateX(-50%);
+    z-index: 40;
+    padding: 0.125rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--background) 65%, transparent);
+    box-shadow: var(--shadow-floating-nav);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+  }
+  .dock > :is(a, button) {
+    min-height: 2.75rem;
+    display: grid;
+    place-items: center;
+    color: var(--foreground);
+    text-decoration: none;
+    border-radius: 999px;
+  }
+  .dock[data-supplementary] {
+    grid-template-columns: minmax(0, 1fr);
+    width: max-content;
+    max-width: calc(100% - 2rem);
+    padding-inline: 1rem;
+  }
+  .dock > :is(a, button):hover {
+    background: var(--muted);
+  }
+  .dock > button:disabled {
+    color: var(--muted-foreground);
+    opacity: 0.4;
+  }
+  .dockProgramme {
+    padding: 0;
+  }
+  .dockProgramme > span {
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+  }
+  .dockProgramme strong {
+    display: flex;
+    gap: 0.375rem;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .dialog {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: 43rem;
+    height: calc(100dvh - max(4rem, env(safe-area-inset-top)));
+    max-height: none;
+    margin: 0 auto;
+    padding: 0 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    overflow-y: auto;
+    animation: sheet-enter var(--motion-duration-fast) var(--motion-ease-out);
+  }
+  .grabber {
+    width: 2rem;
+    height: 0.25rem;
+    border-radius: 1rem;
+    background: var(--border);
+    margin: 0.75rem auto;
+  }
+  .dialogHead {
+    position: sticky;
+    top: 0;
+    align-items: center;
+    background: var(--background);
+    padding-block: 0.5rem;
+    z-index: 1;
+  }
+}
+@media (48rem <= width < 64rem) {
+  .mobileProgramme {
+    display: contents;
+  }
+  .mobileProgramme > .tabletTrigger {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 20;
+    display: inline-flex;
+    width: max-content;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--background);
+    color: var(--foreground);
+  }
+  .dialog {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(22rem, calc(100vw - 3rem));
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: max(1rem, env(safe-area-inset-top)) 1.25rem
+      max(1.25rem, env(safe-area-inset-bottom));
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    overflow-y: auto;
+  }
+  .dialogHead {
+    position: sticky;
+    top: -1rem;
+    z-index: 1;
+    align-items: center;
+    padding-block: 0.5rem;
+    background: var(--background);
+  }
+  .grabber {
+    display: none;
+  }
+}
+@keyframes sheet-enter {
+  from {
+    transform: translateY(2rem);
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog {
+    animation: none;
+  }
+}
+
+@media (width < 40rem) {
+  .actions {
+    gap: 0.25rem;
+  }
+  .actions :is(button, a[data-slot="button"], a) {
+    font-size: 0.75rem;
+  }
+  .actions svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.actionPanel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 40%, transparent);
+}
+.actionPanel .programmeLink {
+  font-size: 0.875rem;
+}
+.actionPanel .actions {
+  gap: 0.25rem;
+}
+
+.dialog .step:not([aria-current="step"]) .mark {
+  background: transparent;
+}
+.dialog .step[aria-current="step"] .mark {
+  background: var(--action);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog summary > svg {
+    transition: none;
+  }
+}
+
+.chapterChoice {
+  display: grid;
+  gap: 0.125rem;
+  text-align: left;
+}
+.chapterOrdinal {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.chapterName {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.chapterOption {
+  padding-block: 0.625rem;
+}
+
+.references {
+  flex-shrink: 0;
+  min-width: 0;
+  margin-block: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+.references h2 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.references ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.references a {
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding-block: 0.5rem;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.references svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+.references a:hover,
+.references a[aria-current="page"] {
+  color: var(--action);
+}
+.references a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.dock[data-supplementary] .dockProgramme > span {
+  color: var(--foreground);
+}
+
+/* Keep the page's full-width box stable while the persistent rail shares its grid row. */
+.host {
+  --course-host-gap: 2rem;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) 17rem var(--course-host-gap) minmax(0, 43rem)
+    minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+.host > .rail {
+  grid-column: 2;
+  grid-row: 1;
+  z-index: 1;
+}
+.hostDocument {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+}
+.host [data-course-local-frame] > .document {
+  grid-column: 2;
+}
+@media (min-width: 64rem) {
+  .host [data-material-reader-state="loading"],
+  .host [data-product-task-state="loading"] {
+    width: calc(100% - 17rem - var(--course-host-gap));
+    max-width: 43rem;
+    margin-inline-start: max(
+      calc(17rem + var(--course-host-gap)),
+      calc((100% + 17rem + var(--course-host-gap) - 43rem) / 2)
+    );
+    margin-inline-end: 0;
+  }
+}
+@media (max-width: 74rem) {
+  .host {
+    --course-host-gap: 1.75rem;
+  }
+}
+@media (max-width: 63.99rem) {
+  .host {
+    display: block;
+  }
+}
+@media (48rem <= width < 64rem) {
+  .hostDocument > .mobileProgramme > .tabletTrigger {
+    margin-inline-start: max(0px, calc((100% - 43rem) / 2));
+  }
+}
+.content {
+  min-width: 0;
+  animation: course-content-arrive var(--motion-duration-fast)
+    var(--motion-ease-out);
+}
+@keyframes course-content-arrive {
+  from {
+    opacity: 0.65;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content {
+    animation: none;
   }
 }

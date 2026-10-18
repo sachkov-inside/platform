@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { materialId as checkedMaterialId } from "../../../../infrastructure/contracts/material-id.js";
+import type { RenderedMaterialBody } from "@inside/material-blocks";
 import {
   taskPageView,
   type TaskPageView,
@@ -52,9 +55,26 @@ export type ReadLearningTaskError =
   | { readonly code: "invalid_context_part"; readonly partCount: number }
   | SystemError;
 
+interface PracticeContext {
+  readonly materialId: string;
+  readonly contentVersion: number;
+  readonly slug: string;
+  readonly title: string;
+  readonly body: RenderedMaterialBody;
+}
+
 /** The version pin of a read: the task, its requirements and the review procedure. */
-export function learningTaskContextVersion(task: CurrentTask): string {
+export function learningTaskContextVersion(
+  task: CurrentTask,
+  practice?: PracticeContext,
+): string {
   return contractDigest({
+    ...(practice === undefined
+      ? {}
+      : {
+          practiceMaterialId: practice.materialId,
+          practiceContentVersion: practice.contentVersion,
+        }),
     taskId: task.id,
     code: task.code,
     version: task.version,
@@ -64,7 +84,7 @@ export function learningTaskContextVersion(task: CurrentTask): string {
 }
 
 /**
- * The context one task read serializes: the task with its current Task Version, procedure v3,
+ * The context one task read serializes: the task with its current Task Version, current procedure,
  * related Materials and whether submission is open, closed by its end marker.
  */
 export function serializeLearningTaskContext(input: {
@@ -78,9 +98,10 @@ export function serializeLearningTaskContext(input: {
   }[];
   readonly submissionsEnabled: boolean;
   readonly page?: TaskPageView;
+  readonly practice?: PracticeContext;
 }): string {
   const { task } = input;
-  const contextVersion = learningTaskContextVersion(task);
+  const contextVersion = learningTaskContextVersion(task, input.practice);
   return canonicalJson({
     contextVersion,
     payload: {
@@ -94,8 +115,13 @@ export function serializeLearningTaskContext(input: {
         definition: task.definition,
         ...(input.page === undefined ? {} : { page: input.page }),
       },
+      ...(input.practice === undefined
+        ? {}
+        : { practice: { ...input.practice, complete: true } }),
       reviewProtocol: taskReviewProtocol,
-      relatedMaterials: input.relatedMaterials,
+      relatedMaterials: input.relatedMaterials.map(
+        ({ slug, title, availability }) => ({ slug, title, availability }),
+      ),
       submission: {
         tool: "learning_task_submit",
         taskVersion: task.version,
@@ -107,7 +133,7 @@ export function serializeLearningTaskContext(input: {
 }
 
 /**
- * The current requirements of one open task with the review procedure v3 and its related
+ * The current requirements of one open task with the review current procedure and its related
  * Materials, as canonical JSON in bounded parts. Part 0 pins `contextVersion` and `contentSha256`;
  * every later part must name both, and a task that changed between parts answers with an error,
  * never with a mix of two versions.
@@ -132,7 +158,41 @@ export async function readLearningTask(
     if (access === "unavailable")
       return failure({ code: "dependency_unavailable", retryable: true });
     if (access === "closed") return failure({ code: "task_not_available" });
-    const contextVersion = learningTaskContextVersion(task);
+    let practice: PracticeContext | undefined;
+    if (task.embeddedMaterialId !== null) {
+      if (dependencies.materialReader === undefined)
+        return failure({ code: "dependency_unavailable", retryable: true });
+      const [material] = await dependencies.directory.materialsByIds([
+        task.embeddedMaterialId,
+      ]);
+      if (material?.published == null)
+        return failure({ code: "task_not_available" });
+      const [placement] = await dependencies.directory.placements(
+        task.productId,
+        [material.sourceId],
+      );
+      if (placement?.chapterId !== task.chapterId)
+        return failure({ code: "task_not_available" });
+      const lesson = await dependencies.materialReader.read({
+        subject,
+        slug: material.published.slug,
+      });
+      if (!lesson.ok)
+        return lesson.error.code === "dependency_unavailable"
+          ? failure({ code: "dependency_unavailable", retryable: true })
+          : failure({ code: "task_not_available" });
+      if (lesson.value.kind !== "available")
+        return failure({ code: "task_not_available" });
+      const projection = lesson.value.projection;
+      practice = {
+        materialId: projection.materialId,
+        contentVersion: projection.contentVersion,
+        slug: projection.slug,
+        title: projection.title,
+        body: lesson.value.body,
+      };
+    }
+    const contextVersion = learningTaskContextVersion(task, practice);
     if (
       request.expectedContextVersion !== undefined &&
       request.expectedContextVersion !== contextVersion
@@ -164,6 +224,7 @@ export async function readLearningTask(
       chapter: { name: chapter.name },
       relatedMaterials,
       submissionsEnabled: dependencies.submissionsEnabled,
+      ...(practice === undefined ? {} : { practice }),
     });
     // Title, related Materials or their availability can change without a new Task Version.
     // Never splice two snapshots under one context version.
@@ -172,6 +233,42 @@ export async function readLearningTask(
       request.expectedContentSha256 !== contentSha256(serialized)
     )
       return failure({ code: "task_content_changed" });
+    if (practice !== undefined) {
+      const current = await dependencies.prisma.productTask.findUnique({
+        where: { code: task.code },
+      });
+      if (
+        current?.embeddedMaterialId !== practice.materialId ||
+        current.currentVersion !== task.version
+      )
+        return failure({ code: "task_content_changed" });
+      const taskAccess = await decideTaskAccess(
+        dependencies.contentAccess,
+        subject,
+        task.id,
+        "product_task_read",
+      );
+      if (taskAccess === "unavailable")
+        return failure({ code: "dependency_unavailable", retryable: true });
+      if (taskAccess !== "open") return failure({ code: "task_not_available" });
+      // All dependent reads precede this final lesson access/version guard.
+      const currentLesson = await dependencies.contentAccess.authorize({
+        subject,
+        resource: {
+          kind: "material",
+          materialId: checkedMaterialId(practice.materialId),
+        },
+        action: "read",
+        enforcementPoint: "mcp_material_read",
+        correlationId: randomUUID(),
+      });
+      if (currentLesson.effect !== "allow")
+        return currentLesson.reason === "dependency_unavailable"
+          ? failure({ code: "dependency_unavailable", retryable: true })
+          : failure({ code: "task_not_available" });
+      if (currentLesson.checkedContentVersion !== practice.contentVersion)
+        return failure({ code: "task_content_changed" });
+    }
     const parts = contextPart(serialized, request.part);
     if (!parts.ok)
       return failure({

@@ -385,7 +385,12 @@ export function convertMarkdown(
                     kind: "quiz",
                     id: block.id,
                     prompt: rich(block.promptMarkdown),
-                    correctOptionId: block.correctOptionId,
+                    ...("selectionMode" in block
+                      ? {
+                          selectionMode: block.selectionMode,
+                          correctOptionIds: block.correctOptionIds,
+                        }
+                      : { correctOptionId: block.correctOptionId }),
                     options: block.options.map((option) => ({
                       id: option.id,
                       content: rich(option.markdown),

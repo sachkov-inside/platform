@@ -111,11 +111,11 @@ async function rpcBody(response: APIResponse): Promise<unknown> {
   return JSON.parse(data) as unknown;
 }
 
-/** The member session greets with the Telegram and storage notices; they cover the page. */
+/** Only the storage notice covers the page; Telegram stays in the header. */
 async function dismissNotices(page: Page) {
-  await page
-    .getByRole("button", { name: "Закрыть подключение Telegram" })
-    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
 }
 
@@ -279,4 +279,170 @@ test("an Account without materials:manage sees no submissions (#948)", async ({
     page.locator('[data-task-submissions-state="forbidden"]'),
   ).toBeVisible();
   await expect(page.locator("[data-submission]")).toHaveCount(0);
+});
+
+test("agent progress reaches the open task page and becomes a saved report only after submission (#1504)", async ({
+  context,
+  page,
+  request,
+}) => {
+  const code = required("FULLSTACK_TASK_CODE");
+  const current = z
+    .object({
+      ok: z.literal(true),
+      value: z
+        .object({
+          reviewProgress: z.object({ revision: z.number() }).nullable(),
+        })
+        .loose(),
+    })
+    .parse(
+      await callLearningTool(request, "learning_task_submissions", { code }),
+    );
+  const runKey = randomUUID();
+  const summary = `Проверяю сценарий заявки ${runKey}.`;
+  const progress = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({ revision: z.number() }).loose(),
+    })
+    .parse(
+      await callLearningTool(request, "learning_task_review_update", {
+        code,
+        taskVersion: 1,
+        runKey,
+        expectedRevision: current.value.reviewProgress?.revision ?? 0,
+        phase: "reviewing",
+        summary,
+      }),
+    );
+  await signInFullStack(context, "NON_MEMBER");
+  await page.goto(
+    `/products/${required("FULLSTACK_TASK_PRODUCT_SLUG")}/tasks/${code}`,
+  );
+  await expect(
+    page.locator("[data-task-review-progress]").getByText(summary),
+  ).toBeVisible();
+  const report = {
+    summary: "Заявка создаётся. Повторный запрос ещё не проверен.",
+    criteria: [
+      {
+        criterionId: "request",
+        status: "confirmed",
+        evidence: "Проверен сохранённый отчёт.",
+        gap: "",
+        obtainedByRun: false,
+      },
+      {
+        criterionId: "deduplication",
+        status: "not_verified",
+        evidence: "",
+        gap: "Нужна проверка повтора.",
+        obtainedByRun: false,
+      },
+    ],
+  };
+  const ready = await callLearningTool(request, "learning_task_review_update", {
+    code,
+    taskVersion: 1,
+    runKey,
+    expectedRevision: progress.value.revision,
+    phase: "ready",
+    summary: "Отчёт готов к обсуждению.",
+    reviewReport: report,
+  });
+  expect(ready).toMatchObject({ ok: true });
+  const liveUpdateBudgetMs = 20_000;
+  await expect(
+    page
+      .locator("[data-task-review-progress]")
+      .getByText("Отчёт готов к обсуждению."),
+  ).toBeVisible({ timeout: liveUpdateBudgetMs });
+  const saved = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({ submissionId: z.uuid() }).loose(),
+    })
+    .parse(
+      await callLearningTool(request, "learning_task_submit", {
+        code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        reviewRunKey: runKey,
+        reviewReport: report,
+        note: "Подтверждаю точный отчёт синтетической проверки.",
+      }),
+    );
+  const card = page.locator(`[data-submission="${saved.value.submissionId}"]`);
+  await expect(card.getByText(report.summary)).toBeVisible({
+    timeout: liveUpdateBudgetMs,
+  });
+  await expect(page.locator("[data-task-review-progress]")).toHaveCount(0);
+});
+
+test("a bound practical lesson reaches the agent through complete version-pinned MCP context", async ({
+  request,
+}) => {
+  const code = required("FULLSTACK_EMBEDDED_TASK_CODE");
+  const slug = required("FULLSTACK_TASK_MATERIAL_SLUG");
+  const material = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({
+        complete: z.literal(true),
+        practiceTask: z.object({
+          code: z.string(),
+          readTool: z.literal("learning_task_read"),
+        }),
+      }),
+    })
+    .parse(await callLearningTool(request, "learning_material_read", { slug }));
+  expect(material.value.practiceTask.code).toBe(code);
+  const partSchema = z.object({
+    ok: z.literal(true),
+    value: z.object({
+      contextVersion: z.string(),
+      contentSha256: z.string(),
+      data: z.string(),
+      nextPart: z.number().nullable(),
+      endOfContext: z.boolean(),
+    }),
+  });
+  const first = partSchema.parse(
+    await callLearningTool(request, "learning_task_read", { code }),
+  );
+  let serialized = first.value.data;
+  let part = first.value.nextPart;
+  let end = first.value.endOfContext;
+  while (part !== null) {
+    const next = partSchema.parse(
+      await callLearningTool(request, "learning_task_read", {
+        code,
+        part,
+        expectedContextVersion: first.value.contextVersion,
+        expectedContentSha256: first.value.contentSha256,
+      }),
+    );
+    serialized += next.value.data;
+    part = next.value.nextPart;
+    end = next.value.endOfContext;
+  }
+  expect(end).toBe(true);
+  const context = z
+    .object({
+      payload: z.object({
+        task: z.object({ code: z.string() }),
+        practice: z.object({
+          slug: z.string(),
+          complete: z.literal(true),
+          body: z.object({ blocks: z.array(z.unknown()) }),
+        }),
+      }),
+    })
+    .parse(JSON.parse(serialized));
+  expect(context.payload.task.code).toBe(code);
+  expect(context.payload.practice.slug).toBe(slug);
+  expect(JSON.stringify(context.payload.practice.body)).toContain(
+    "Урок перед заданием.",
+  );
 });

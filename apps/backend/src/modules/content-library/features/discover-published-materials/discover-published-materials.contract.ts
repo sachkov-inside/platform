@@ -18,16 +18,25 @@ export interface ProductChapterTaskDto {
   readonly title: string;
   readonly access: "free" | "closed";
   readonly afterMaterialId: string | null;
+  readonly programmeVisibility?: "embedded";
+  readonly embeddedMaterialId?: string;
   readonly availability: "available" | "locked" | "unavailable";
   /** The viewer's own latest submission; `null` for a guest. */
   readonly lastSubmittedAt: string | null;
 }
 
 export interface PublishedMaterialDiscoveryDto {
+  readonly programmePlacements?: readonly {
+    readonly id: string;
+    readonly materialId: string;
+    readonly chapterId: string | null;
+    readonly stepGroup: string | null;
+  }[];
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
+    readonly supplementaryMaterialIds?: readonly string[];
     readonly name: string;
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;

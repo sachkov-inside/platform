@@ -7,6 +7,8 @@ import {
 } from "@/features/community-entry";
 import { TelegramLinkAction } from "@/features/account-access";
 import { useMaterialReading } from "@/entities/material";
+import { useCurrentBilling } from "@/features/billing-subscription";
+import { hasPaidProductAccess } from "../model/product-onboarding";
 import { useSeriesLearning } from "./series-learning.client";
 
 interface OnboardingPresentation {
@@ -36,10 +38,18 @@ export function ProductProgrammeOnboarding({
 }) {
   const reading = useMaterialReading();
   const currentAccountId = reading.resolved ? reading.accountId : accountId;
+  const billing = useCurrentBilling({
+    enabled: currentAccountId !== null && productId !== undefined,
+  });
+  const purchased =
+    currentAccountId !== null &&
+    productId !== undefined &&
+    billing.data?.ok === true &&
+    hasPaidProductAccess(billing.data.value.grounds, productId);
   const query = useProductCommunityEntry(
     productId ?? "",
     currentAccountId,
-    currentAccountId !== null && productId !== undefined,
+    purchased,
   );
   const learning = useSeriesLearning();
   const result = query.data;
@@ -50,10 +60,7 @@ export function ProductProgrammeOnboarding({
     learning.started === true;
   const error = query.isError || result?.ok === false;
   const presentation =
-    currentAccountId === null ||
-    entry?.kind === "none" ||
-    complete ||
-    entry === null
+    !purchased || complete || entry === null
       ? null
       : {
           incomplete: true,
@@ -81,7 +88,7 @@ export function ProductProgrammeOnboarding({
   return (
     <ProductOnboardingContext value={presentation}>
       {children}
-      {error && entry === null ? (
+      {purchased && error && entry === null ? (
         <p role="alert" className="mt-4 text-sm">
           Не удалось проверить онбординг продукта.
         </p>

@@ -14,6 +14,11 @@ import { z } from "zod";
 import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { performanceProductPage } from "./course-payload.fixtures.mjs";
 import { taskSubmissionsRoute } from "./task-submissions-backend.mjs";
+import {
+  holdNavigationTasks,
+  navigationTaskRoute,
+  waitNavigationTask,
+} from "./task-navigation.fixtures.mjs";
 import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
 import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.mjs";
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
@@ -201,13 +206,44 @@ const performanceLessons = Array.from({ length: 120 }, (_, index) => ({
     },
   ],
 }));
+const referenceProduct = {
+  ...performanceProduct,
+  id: "11111111-1111-4111-8111-111111111116",
+  name: "Курс со справочными документами",
+  slug: "reference-course",
+};
+const referenceLessons = [
+  ...Array.from({ length: 9 }, (_, index) => ({
+    slug: `reference-lesson-${String(index + 1)}`,
+    title: `Урок ${String(index + 1)}`,
+  })),
+  { slug: "aie-project", title: "Описание проекта" },
+  { slug: "aie-product-brief", title: "Бриф заказчика" },
+].map((item, index) => ({
+  ...performanceTemplate,
+  ...item,
+  materialId: `33333333-3333-4333-8333-${String(index + 801).padStart(12, "0")}`,
+  seriesMemberships: [
+    {
+      ordinal: index + 1,
+      series: {
+        id: referenceProduct.id,
+        name: referenceProduct.name,
+        slug: referenceProduct.slug,
+      },
+      stepGroup: null,
+    },
+  ],
+}));
 /** @param {Product} product */
 const lessonsOf = (product) =>
   product.slug === performanceProduct.slug
     ? performanceLessons
-    : lessons.filter(
-        (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
-      );
+    : product.slug === referenceProduct.slug
+      ? referenceLessons
+      : lessons.filter(
+          (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
+        );
 
 /**
  * @type {{
@@ -378,8 +414,50 @@ function collection(entitled) {
  * @returns {JsonResult | ImageResult | undefined}
  */
 function route(method, url, entitled) {
+  const taskNavigation = navigationTaskRoute(url, entitled);
+  if (taskNavigation !== undefined) return taskNavigation;
   const path = url.pathname;
   if (method !== "GET") return undefined;
+  if (
+    path === "/library/products/navigation-saved-tasks" ||
+    path === "/library/products/navigation-saved-tasks-failing"
+  ) {
+    if (entitled && path.endsWith("-failing"))
+      return { status: 500, value: { code: "test_private_programme_failure" } };
+    const lesson = lessons[0];
+    if (lesson === undefined) throw new Error("Missing free lesson fixture");
+    return json({
+      kind: "series",
+      hasNext: false,
+      relatedSeries: [],
+      topics: [],
+      reference: {
+        ...products[0],
+        slug: path.split("/").at(-1),
+        introduction: null,
+        summary: "Saved Task sidebar regression",
+      },
+      items: [projection(lesson, entitled)],
+      chapters: [
+        {
+          id: "44444444-4444-4444-8444-444444444417",
+          name: "Сохранённые сдачи",
+          summary: "",
+          materialIds: [lesson.materialId],
+          tasks: [
+            {
+              code: "saved-sidebar-task",
+              title: "Сохранённое задание",
+              access: "free",
+              availability: "available",
+              afterMaterialId: null,
+              lastSubmittedAt: entitled ? "2026-10-14T09:00:00.000Z" : null,
+            },
+          ],
+        },
+      ],
+    });
+  }
   if (path === "/library/home") {
     return json({
       guides: lessonsOf(products[0]).map((lesson) =>
@@ -498,7 +576,9 @@ function route(method, url, entitled) {
     const product =
       slug === performanceProduct.slug
         ? performanceProduct
-        : products.find((candidate) => candidate.slug === slug);
+        : slug === referenceProduct.slug
+          ? referenceProduct
+          : products.find((candidate) => candidate.slug === slug);
     if (
       product === undefined ||
       (product.slug === archivedProductSlug && !entitled)
@@ -506,12 +586,30 @@ function route(method, url, entitled) {
       return discoveryNotFound();
     const items = lessonsOf(product);
     const chapterItems =
-      product.slug === performanceProduct.slug ? items.slice(0, 108) : items;
-    const half = Math.ceil(chapterItems.length / 2);
+      product.slug === performanceProduct.slug
+        ? items.slice(0, 108)
+        : product.slug === referenceProduct.slug
+          ? items.slice(0, 9)
+          : items;
+    const half =
+      product.slug === referenceProduct.slug
+        ? chapterItems.length
+        : Math.ceil(chapterItems.length / 2);
     return json({
       chapters: [
         {
           id: `44444444-4444-4444-8444-44444444${product.id.slice(-4)}`,
+          supplementaryMaterialIds:
+            product.slug === referenceProduct.slug
+              ? items
+                  .filter(
+                    (item) =>
+                      !chapterItems.some(
+                        (step) => step.materialId === item.materialId,
+                      ),
+                  )
+                  .map((item) => item.materialId)
+              : [],
           materialIds: chapterItems
             .slice(0, half)
             .map((lesson) => lesson.materialId),
@@ -630,9 +728,11 @@ function route(method, url, entitled) {
     });
   }
   if (material !== null) {
-    const lesson = [...lessons, ...performanceLessons].find(
-      (candidate) => candidate.slug === material[1],
-    );
+    const lesson = [
+      ...lessons,
+      ...performanceLessons,
+      ...referenceLessons,
+    ].find((candidate) => candidate.slug === material[1]);
     if (
       lesson === undefined ||
       (lesson.seriesMemberships[0]?.series.slug === archivedProductSlug &&
@@ -875,6 +975,15 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  if (url.pathname === "/__task-navigation-hold" && request.method === "POST") {
+    const { hold } = z
+      .object({ hold: z.boolean() })
+      .strict()
+      .parse(JSON.parse(await readBody(request)));
+    holdNavigationTasks(hold);
+    send(200, { hold });
+    return;
+  }
   const metrics = await dataLoadingMetricsRoute(request, url, readBody, {
     baseRoute: route,
     reader: () => {
@@ -960,6 +1069,7 @@ const server = createServer(async (request, response) => {
     method: request.method,
     path: `${url.pathname}${url.search}`,
   });
+  await waitNavigationTask(url.pathname);
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
     const { expectedVersion, seriesId } = homePinSchema.parse(

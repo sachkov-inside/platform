@@ -107,6 +107,8 @@ const productChapterTaskHttpSchema = z
     title: z.string(),
     access: z.enum(["free", "closed"]),
     afterMaterialId: z.uuid().nullable(),
+    programmeVisibility: z.literal("embedded").optional(),
+    embeddedMaterialId: z.uuid().optional(),
     availability: z.enum(["available", "locked", "unavailable"]),
     lastSubmittedAt: z.iso.datetime().nullable(),
   })
@@ -116,6 +118,7 @@ const productChapterHttpSchema = z
   .object({
     id: z.uuid(),
     materialIds: z.array(z.uuid()),
+    supplementaryMaterialIds: z.array(z.uuid()).optional(),
     name: z.string(),
     summary: z.string(),
     tasks: z.array(productChapterTaskHttpSchema),
@@ -124,6 +127,18 @@ const productChapterHttpSchema = z
 
 export const publishedDiscoveryPageHttpSchema = z
   .object({
+    programmePlacements: z
+      .array(
+        z
+          .object({
+            id: z.uuid(),
+            materialId: z.uuid(),
+            chapterId: z.uuid().nullable(),
+            stepGroup: z.string().nullable(),
+          })
+          .strict(),
+      )
+      .optional(),
     chapters: z.array(productChapterHttpSchema),
     hasNext: z.boolean(),
     items: z.array(publishedCatalogItemHttpSchema),

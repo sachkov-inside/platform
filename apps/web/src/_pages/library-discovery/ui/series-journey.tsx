@@ -6,21 +6,20 @@ import {
   type ProductChapterTask,
 } from "@/entities/product-task";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
+import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
-  ReaderProductArtifacts,
-  type ReaderProductArtifactsResult,
-} from "@/features/product-artifacts.reader";
-import {
-  formatMaterialCount,
+  CourseReferenceNavigation,
   type ProductChapter,
   type PublishedSeriesResult,
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
+import { materialReaderHref } from "@/shared/routing/material-reader";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
+import { ChapterSummary } from "./course-programme-overview";
 
-import { formatTaskCount } from "./product-counts";
+import { formatStepCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -35,13 +34,12 @@ type SeriesResult = Extract<
 >;
 
 /**
- * Состав программы: главы, уроки и артефакты. Строки рисует сервер, поэтому браузер не
+ * Состав программы: главы и уроки. Строки рисует сервер, поэтому браузер не
  * пересобирает список при гидрации; выбор части, порционный показ и продолжение держит
  * `SeriesJourneyControls`.
  */
 export function SeriesJourney({
   accessPending = false,
-  artifacts = { kind: "ready", artifacts: [] },
   result,
   currentHref,
   onboarding,
@@ -55,15 +53,25 @@ export function SeriesJourney({
 }) {
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
+  const programmeItems =
+    result.programmePlacements === undefined
+      ? items
+      : result.programmePlacements.flatMap((placement) => {
+          const material = items.find(
+            (item) => item.materialId === placement.materialId,
+          );
+          return material === undefined
+            ? []
+            : [
+                {
+                  ...material,
+                  programmePlacementId: placement.id,
+                  programmeChapterId: placement.chapterId,
+                },
+              ];
+        });
   // A chapter split into several runs shows its opening tasks once, before its first run.
   const ledChapters = new Set<string>();
-  // An artifact part exists only for a Product the catalog resolved by id, so the
-  // download address it builds is never a guess.
-  const productId = result.reference.id;
-  const productArtifacts =
-    artifacts.kind === "ready" && productId !== undefined
-      ? artifacts.artifacts
-      : [];
   // Chapters are the Product programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly {
@@ -79,8 +87,8 @@ export function SeriesJourney({
       chapters: result.chapters,
       items:
         result.chapters.length === 0
-          ? items
-          : items.filter((item) => chapterOf(item) !== null),
+          ? programmeItems
+          : programmeItems.filter((item) => chapterOf(item) !== null),
     },
   ];
   const parts: readonly JourneyPart[] = [
@@ -114,44 +122,19 @@ export function SeriesJourney({
       entries: items.map((material) => ({
         material,
         inProgramme:
-          result.chapters.length === 0 || chapterOf(material) !== null,
+          result.programmePlacements === undefined
+            ? result.chapters.length === 0 || chapterOf(material) !== null
+            : result.programmePlacements.some(
+                (entry) => entry.materialId === material.materialId,
+              ),
       })),
       id: "supplementary",
       kind: "catalog",
       label: "Материалы",
     },
-    {
-      count: productArtifacts.length,
-      id: "artifacts",
-      kind: "artifacts",
-      label: "Артефакты",
-      panel: (
-        <div className="mt-5">
-          {artifacts.kind === "unavailable" ? (
-            <p
-              className="py-5 text-sm leading-6 text-muted-foreground"
-              role="status"
-            >
-              Артефакты сейчас не загрузились. Попробуй открыть этот раздел
-              позже.
-            </p>
-          ) : productArtifacts.length === 0 || productId === undefined ? (
-            <p className="py-5 text-sm leading-6 text-muted-foreground">
-              Здесь появятся файлы, шаблоны и инструменты для работы над
-              проектом.
-            </p>
-          ) : (
-            <ReaderProductArtifacts
-              artifacts={productArtifacts}
-              productId={productId}
-            />
-          )}
-        </div>
-      ),
-    },
   ];
 
-  // Часть артефактов есть всегда, поэтому разделы программы видны и у пустого продукта.
+  // Программа и каталог доступны также у пустого продукта.
   return (
     <SeriesJourneyControls
       currentHref={currentHref}
@@ -183,7 +166,13 @@ function journeyRun(
     readonly result: SeriesResult;
   },
 ): JourneyRun {
-  const tasks = run.chapter?.tasks ?? [];
+  const tasks = (run.chapter?.tasks ?? []).filter(
+    (task) => task.programmeVisibility !== "embedded",
+  );
+  const unified =
+    run.chapter?.tasks?.some(
+      (task) => task.programmeVisibility === "embedded",
+    ) === true;
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
   const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
@@ -210,6 +199,7 @@ function journeyRun(
       : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
   if (run.chapter !== null) ledChapters.add(run.chapter.id);
   const preparing = run.items.length === 0 && tasks.length === 0;
+  const visitedMaterials = new Set<string>();
   return {
     chapter:
       run.chapter === null
@@ -222,7 +212,7 @@ function journeyRun(
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
               >
-                {/* Счётчик и метка «Планируется» стоят сразу за названием главы, мелко (референс
+                {/* Счётчик и метка «Материалы готовятся» стоят сразу за названием главы, мелко (референс
                     владельца 09.10.2026). */}
                 <div className="min-w-0">
                   <h3
@@ -233,42 +223,63 @@ function journeyRun(
                   </h3>
                   {preparing ? (
                     <span className="programme-chapter-soon ml-2 align-[2px]">
-                      Планируется
+                      Материалы готовятся
                     </span>
                   ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
                     <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                      {[
-                        run.chapter.materialIds.length > 0
-                          ? formatMaterialCount(run.chapter.materialIds.length)
-                          : undefined,
-                        tasks.length > 0
-                          ? formatTaskCount(tasks.length)
-                          : undefined,
-                      ]
-                        .filter((part) => part !== undefined)
-                        .join(" · ")}
+                      {formatStepCount(
+                        run.chapter.materialIds.length + tasks.length,
+                      )}
                     </span>
                   ) : null}
                 </div>
-                {/* Глава без уроков остаётся частью программы, но коротко: метка «Планируется» и первая
-                    фраза описания (решение владельца 09.10.2026). С первым уроком глава
-                    становится обычной и её можно проходить. */}
-                {preparing && run.chapter.summary !== "" ? (
-                  <p className="mt-1 line-clamp-2 text-[0.8125rem] leading-5 text-muted-foreground [overflow-wrap:anywhere] sm:text-sm">
-                    {firstSentence(run.chapter.summary)}
-                  </p>
-                ) : null}
+                <ChapterSummary
+                  name={run.chapter.name}
+                  summary={run.chapter.summary}
+                  showOutcome={run.chapter.materialIds.length === 0}
+                />
               </header>
             ),
             id: run.chapter.id,
             name: run.chapter.name,
           },
     ...(leading === undefined ? {} : { leading }),
+    supplementary:
+      run.chapter == null ? null : (
+        <CourseReferenceNavigation
+          courseHref={currentHref}
+          references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
+            (id) => {
+              const material =
+                result.kind === "ready"
+                  ? result.items.find((item) => item.materialId === id)
+                  : undefined;
+              return material === undefined
+                ? []
+                : [
+                    {
+                      id: `material:${material.slug}`,
+                      slug: material.slug,
+                      title: material.title,
+                      href: materialReaderHref(material.slug, currentHref, {
+                        referenceView: true,
+                      }),
+                    },
+                  ];
+            },
+          )}
+        />
+      ),
     offset: run.offset,
     rows: run.items.map((material, index) => {
+      const placementId =
+        "programmePlacementId" in material &&
+        typeof material.programmePlacementId === "string"
+          ? material.programmePlacementId
+          : undefined;
       // Splitting the route into parts renumbers each part; a flat Product keeps its stored order.
       const ordinal =
-        result.chapters.length > 0
+        result.chapters.length > 0 || result.programmePlacements !== undefined
           ? run.offset + index + 1
           : (material.seriesMemberships.find(
               ({ slug }) => slug === result.reference.slug,
@@ -277,19 +288,26 @@ function journeyRun(
         currentHref,
         Math.floor((run.offset + index) / SERIES_BATCH_SIZE) + 1,
         material.slug,
+        placementId,
       );
       const after =
-        material.materialId === undefined
+        material.materialId === undefined ||
+        visitedMaterials.has(material.materialId)
           ? undefined
           : taskList(
               placed.after.get(material.materialId) ?? [],
               `Задания после урока «${material.title}»`,
             );
+      if (material.materialId !== undefined)
+        visitedMaterials.add(material.materialId);
       return {
+        ...(placementId === undefined ? {} : { id: placementId }),
         ...(after === undefined ? {} : { after }),
         available: material.availability === "available",
         card: (
           <MaterialCard
+            readerContext={{ placementId }}
+            showFormat={!unified}
             accessPending={accessPending}
             seriesOrdinal={ordinal}
             readingStatus={
@@ -326,13 +344,11 @@ function chapterLookup(
     ),
   );
   return (material) =>
-    material.materialId === undefined
-      ? null
-      : (byMaterial.get(material.materialId) ?? null);
-}
-
-/** Первая фраза описания главы: будущая глава в программе называется одной мыслью. */
-function firstSentence(text: string): string {
-  const match = /^.+?[.!?…](?=\s|$)/su.exec(text.trim());
-  return match === null ? text.trim() : match[0];
+    "programmeChapterId" in material
+      ? typeof material.programmeChapterId === "string"
+        ? material.programmeChapterId
+        : null
+      : material.materialId === undefined
+        ? null
+        : (byMaterial.get(material.materialId) ?? null);
 }

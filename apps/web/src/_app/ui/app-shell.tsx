@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 
+import { CourseReadingHost } from "@/features/library-discovery";
 import { ReadingProgressProvider } from "@/features/reading-progress";
 import { useAuthStatus } from "./auth-status-control.client";
 import { PublicApplicationFrame } from "./public-application-frame.client";
@@ -51,18 +52,22 @@ export function AppShell({ children }: AppShellProps) {
         accountId={authStatus.accountId}
         resolved={authStatus.resolved}
       >
-        <div
-          aria-hidden={mobileNavigation.pendingHref !== null || undefined}
-          inert={mobileNavigation.pendingHref !== null}
-          className={
-            mobileNavigation.pendingHref !== null ? "invisible" : undefined
-          }
+        <CourseReadingHost
+          pathname={mobileNavigation.pendingHref?.split("?")[0] ?? pathname}
         >
-          {children}
-        </div>
-        {mobileNavigation.pendingHref !== null ? (
-          <PublicNavigationPending href={mobileNavigation.pendingHref} />
-        ) : null}
+          <div
+            aria-hidden={mobileNavigation.pendingHref !== null || undefined}
+            inert={mobileNavigation.pendingHref !== null}
+            className={
+              mobileNavigation.pendingHref !== null ? "invisible" : undefined
+            }
+          >
+            {children}
+          </div>
+          {mobileNavigation.pendingHref !== null ? (
+            <PublicNavigationPending href={mobileNavigation.pendingHref} />
+          ) : null}
+        </CourseReadingHost>
       </ReadingProgressProvider>
     </PublicApplicationFrame>
   );

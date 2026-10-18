@@ -2,6 +2,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
+import {
+  readerBlocksSchema,
+  renderedBlockSchema,
+} from "@inside/material-blocks";
 import { convertMarkdown } from "./markdown.mjs";
 
 const options = {
@@ -225,4 +229,33 @@ test("readerBlocks preserve narrative and typed quiz instead of the raw answer k
     ["heading", "paragraph", "quiz", "heading", "paragraph"],
   );
   assert.doesNotMatch(JSON.stringify(body), /RAW ANSWER KEY/u);
+});
+
+test("multiple-answer conversion keeps the complete key without legacy key", () => {
+  const readerBlocks = readerBlocksSchema.parse([
+    { kind: "markdown", markdown: "## Scope" },
+    {
+      kind: "quiz",
+      id: "features",
+      selectionMode: "multiple",
+      correctOptionIds: ["a", "b"],
+      promptMarkdown: "Which features?",
+      options: ["a", "b", "c"].map((id) => ({
+        id,
+        markdown: id,
+        explanationMarkdown: `Reason ${id}`,
+      })),
+      dontKnow: {
+        explanationMarkdown: "Review scope.",
+        reviewLinks: ["#scope"],
+      },
+    },
+  ]);
+  const body = convertMarkdown("raw", { ...options, readerBlocks });
+  const quiz = renderedBlockSchema.parse(body.doc.content[1]?.attrs?.["quiz"]);
+  assert.equal(quiz.kind, "quiz");
+  if (quiz.kind !== "quiz") throw new Error("Missing quiz");
+  assert.deepEqual(quiz.correctOptionIds, ["a", "b"]);
+  assert.equal(quiz.selectionMode, "multiple");
+  assert.equal(Object.hasOwn(quiz, "correctOptionId"), false);
 });

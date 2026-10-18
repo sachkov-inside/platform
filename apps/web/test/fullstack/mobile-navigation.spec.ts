@@ -16,20 +16,17 @@ test("mobile navigation keeps real catalog context and public canvas", async ({
   const navigation = page.getByRole("navigation", {
     name: "Мобильная навигация",
   });
-  const response = page.waitForResponse(
-    (value) => new URL(value.url()).pathname === "/api/account",
-  );
   // Нажатие по центру ссылки, как палец: шапка прилипает к верху, а `click()` сперва прокрутил бы
   // страницу к её месту в документе и унёс позицию ленты.
-  const profile = await navigation
-    .getByRole("link", { name: "Профиль" })
+  const bookmarks = await navigation
+    .getByRole("link", { name: "Закладки" })
     .boundingBox();
-  if (profile === null) throw new Error("Profile link is missing");
+  if (bookmarks === null) throw new Error("Bookmarks link is missing");
   await page.mouse.click(
-    profile.x + profile.width / 2,
-    profile.y + profile.height / 2,
+    bookmarks.x + bookmarks.width / 2,
+    bookmarks.y + bookmarks.height / 2,
   );
-  expect((await response).status()).toBe(401);
+  expect((await page.request.get("/api/bookmarks")).status()).toBe(401);
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),
   ).toBeVisible();
@@ -103,7 +100,7 @@ test("mobile navigation stays mounted without fading the document during tab cha
   });
   await page
     .getByRole("navigation", { name: "Мобильная навигация" })
-    .getByRole("link", { name: "Профиль" })
+    .getByRole("link", { name: "Закладки" })
     .click();
   await expect(
     page.getByRole("heading", { name: "Войдите в аккаунт" }),

@@ -78,8 +78,11 @@ function fixture() {
             materialIds: ids.slice(2, 4),
           },
           ...[
+            "production-release",
             "team-agent-infrastructure",
             "business-agent",
+            "agent-rag",
+            "agent-security",
             "quality-and-production",
           ].map((sourceId) => ({
             sourceId,
@@ -146,6 +149,23 @@ test("unknown course programmes cannot inherit the local access profile", () => 
   const chapter = original.products[0]?.chapters[0];
   assert.ok(chapter);
   chapter.sourceId = "unknown-chapter";
+  assert.throws(
+    () => coursePreviewManifest(original),
+    /unknown course programme/u,
+  );
+  assert.equal(original.materials[0]?.access, null);
+});
+
+test("the superseded five-chapter outline cannot inherit the current local profile", () => {
+  const original = fixture();
+  const product = original.products[0];
+  assert.ok(product);
+  product.chapters = product.chapters.filter(
+    (chapter) =>
+      !["production-release", "agent-rag", "agent-security"].includes(
+        chapter.sourceId,
+      ),
+  );
   assert.throws(
     () => coursePreviewManifest(original),
     /unknown course programme/u,

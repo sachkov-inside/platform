@@ -301,7 +301,7 @@ test("a learner role with foreign permissions stops provisioning", async () => {
 test("Reader names the same loopback callback paths the public client registers", async () => {
   const source = await readFile(
     new URL(
-      "../apps/web/src/_pages/material-reader/model/practice-review-setup.ts",
+      "../apps/web/src/features/learner-mcp/model/practice-review-setup.ts",
       import.meta.url,
     ),
     "utf8",

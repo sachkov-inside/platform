@@ -61,6 +61,7 @@ const publicContentSchema = z.discriminatedUnion("kind", [
 const publicArtifactSchema = z
   .object({
     artifactId: z.uuid(),
+    sourceId: z.string().nullable(),
     availability: z.enum(["available", "locked"]),
     content: publicContentSchema,
     purpose: z.string(),

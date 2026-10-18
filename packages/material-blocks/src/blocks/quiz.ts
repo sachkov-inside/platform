@@ -19,35 +19,54 @@ function quizSchema(block: z.ZodType<RenderedBlock>) {
     .trim()
     .min(1)
     .refine((value) => value !== "dontKnow", "Reserved quiz option ID");
+  const common = {
+    kind: z.literal("quiz"),
+    id: z.string().trim().min(1),
+    prompt: rich,
+    dontKnow: z
+      .object({
+        explanation: rich,
+        reviewLinks: z.array(z.string().min(2).startsWith("#")).min(1),
+      })
+      .strict(),
+  };
+  const option = z.object({ id, content: rich, explanation: rich }).strict();
   return z
-    .object({
-      kind: z.literal("quiz"),
-      id: z.string().trim().min(1),
-      prompt: rich,
-      correctOptionId: id,
-      options: z
-        .array(z.object({ id, content: rich, explanation: rich }).strict())
-        .min(2)
-        .max(5),
-      dontKnow: z
+    .discriminatedUnion("selectionMode", [
+      z
         .object({
-          explanation: rich,
-          reviewLinks: z.array(z.string().min(2).startsWith("#")).min(1),
+          ...common,
+          // Literal undefined supports Zod dispatch; JSON cannot supply this legacy field.
+          selectionMode: z.literal(undefined).optional().meta({ not: {} }),
+          correctOptionId: id,
+          options: z.array(option).min(2).max(5),
         })
         .strict(),
-    })
-    .strict()
+      z
+        .object({
+          ...common,
+          selectionMode: z.literal("multiple"),
+          correctOptionIds: z.array(id).min(1).max(8),
+          options: z.array(option).min(2).max(8),
+        })
+        .strict(),
+    ])
     .refine(
       (quiz) =>
         new Set(quiz.options.map((option) => option.id)).size ===
         quiz.options.length,
       "Duplicate option IDs",
     )
-    .refine(
-      (quiz) =>
-        quiz.options.some((option) => option.id === quiz.correctOptionId),
-      "Invalid quiz key",
-    );
+    .refine((quiz) => {
+      const keys =
+        quiz.selectionMode === "multiple"
+          ? quiz.correctOptionIds
+          : [quiz.correctOptionId];
+      return (
+        new Set(keys).size === keys.length &&
+        keys.every((key) => quiz.options.some((option) => option.id === key))
+      );
+    }, "Invalid quiz keys");
 }
 
 // The lazy recursive schema is evaluated only when an accepted node is rendered or validated.

@@ -139,7 +139,16 @@ const meta = {
       difficulty: "basic",
       outcomes: [],
       publishedAt: at,
-      seriesMemberships: [],
+      seriesMemberships: [
+        {
+          ordinal: 2,
+          series: {
+            id: "72000000-0000-4000-8000-000000000005",
+            slug: "ai-engineering",
+            name: "AI Engineering",
+          },
+        },
+      ],
       slug: "course-intro",
       title: "Как устроен курс",
       summary: "Путь обучения и задания курса.",
@@ -176,9 +185,9 @@ const meta = {
       },
     },
     readingAction: (
-      <SavedReadingAction format="guide" materialId={materialId} />
+      <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
-    bookmarkAction: <SavedBookmarkAction materialId={materialId} />,
+    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
     topReadingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
@@ -198,7 +207,11 @@ export const SyncedActions: Story = {
       "[data-material-actions]",
     );
     if (bottom === null) throw new Error("Bottom actions are missing");
-    const topRead = within(top).getByRole("button", { name: "Изучено" });
+    const study =
+      canvasElement.querySelector<HTMLElement>(
+        "[data-reader-study-controls]",
+      ) ?? top;
+    const topRead = within(study).getByRole("button", { name: "Изучено" });
     const bottomRead = within(bottom).getByRole("button", { name: "Изучено" });
     await waitFor(async () =>
       expect(topRead).toHaveAttribute("aria-pressed", "false"),
@@ -260,6 +273,45 @@ export const SyncedActionsMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+export const CourseStudyActions: Story = {
+  ...SyncedActions,
+  args: {
+    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+    readingAction: (
+      <SavedReadingAction compact format="guide" materialId={materialId} />
+    ),
+    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [{ kind: "text", text: "Первый шаг", marks: [] }],
+      },
+      ...meta.args.body,
+    ],
+  },
+  play: async (context) => {
+    await SyncedActions.play?.(context);
+    const canvas = within(context.canvasElement);
+    const header = canvas.getByRole("navigation", {
+      name: "Действия материала",
+    });
+    await expect(
+      within(header).getByRole("button", { name: "Изучено" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: /Содержание:/u }),
+    ).toBeNull();
+    await expect(
+      canvas.getAllByRole("button", { name: "Изучено" }),
+    ).toHaveLength(2);
+  },
+};
+export const CourseStudyActionsMobile: Story = {
+  ...CourseStudyActions,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
 async function expectEdgeNavigation(panel: HTMLElement) {
   await panel.ownerDocument.fonts.ready;
   const actions = within(panel);
@@ -271,10 +323,14 @@ async function expectEdgeNavigation(panel: HTMLElement) {
     .getByRole("link", { name: "Следующий урок" })
     .getBoundingClientRect();
   const reading = actions
-    .getByRole("button", { name: "Изучено" })
-    .getBoundingClientRect();
+    .queryByRole("button", { name: "Изучено" })
+    ?.getBoundingClientRect();
   await expect(previous.left - frame.left).toBeLessThanOrEqual(10);
   await expect(frame.right - next.right).toBeLessThanOrEqual(10);
+  if (reading === undefined) {
+    await expect(panel).toHaveAttribute("aria-label", "Действия материала");
+    return;
+  }
   await expect(
     Math.abs(reading.left + reading.width / 2 - (frame.left + frame.width / 2)),
   ).toBeLessThanOrEqual(1);
@@ -307,10 +363,9 @@ export const MobileActionPanels: Story = {
       await expect(
         actions.getByRole("button", { name: /^В закладки$/u }),
       ).toBeVisible();
-      await expect(
-        actions.getByRole("button", { name: "Изучено" }),
-      ).toBeVisible();
-      await expect(actions.getByText("Изучено", { exact: true })).toBeVisible();
+      const mark = actions.queryByRole("button", { name: "Изучено" });
+      await expect(mark).not.toBeNull();
+      await expect(mark).toBeVisible();
       await expect(
         actions.getByRole("link", { name: "Предыдущий урок" }),
       ).toHaveAttribute("href", materialReaderHref("first", programme));
@@ -318,11 +373,12 @@ export const MobileActionPanels: Story = {
         actions.getByRole("link", { name: "Следующий урок" }),
       ).toHaveAttribute("href", materialReaderHref("next", programme));
       await expect(panel.getBoundingClientRect().height).toBe(38);
-      const mark = actions.getByRole("button", { name: "Изучено" });
-      await expect(mark).toHaveAttribute("data-variant", "ghost");
-      await expect(getComputedStyle(mark).borderTopColor).toBe(
-        "rgba(0, 0, 0, 0)",
-      );
+      if (mark !== null) {
+        await expect(mark).toHaveAttribute("data-variant", "ghost");
+        await expect(getComputedStyle(mark).borderTopColor).toBe(
+          "rgba(0, 0, 0, 0)",
+        );
+      }
       for (const action of [
         ...actions.getAllByRole("button"),
         ...actions.getAllByRole("link"),
@@ -414,19 +470,25 @@ export const InitialReadFailureKeepsHeaderPlace: Story = {
     await waitFor(() => expect(initialReadReleases).toHaveLength(2));
     const before = header.getBoundingClientRect().top;
     for (const releaseRead of initialReadReleases) releaseRead();
-    await waitFor(() =>
-      expect(within(top).getAllByRole("alert")).toHaveLength(2),
+    const study = canvasElement.querySelector<HTMLElement>(
+      "[data-reader-study-controls]",
     );
+    if (study === null) throw new Error("Study controls missing");
+    await waitFor(async () => {
+      await expect(within(top).getAllByRole("alert")).toHaveLength(2);
+      await expect(within(study).getAllByRole("alert")).toHaveLength(1);
+    });
     await expect(
       Math.abs(header.getBoundingClientRect().top - before),
     ).toBeLessThanOrEqual(1);
     initialReadFailure = false;
-    await userEvent.click(within(top).getByRole("button", { name: "Изучено" }));
+    await userEvent.click(
+      within(study).getByRole("button", { name: "Изучено" }),
+    );
     await waitFor(() =>
-      expect(top.querySelector("[data-reading-action-state]")).toHaveAttribute(
-        "data-reading-action-state",
-        "ready",
-      ),
+      expect(
+        study.querySelector("[data-reading-action-state]"),
+      ).toHaveAttribute("data-reading-action-state", "ready"),
     );
     await userEvent.click(
       within(top).getByRole("button", { name: "В закладки" }),
@@ -457,8 +519,12 @@ export const SharedFailureAndRetry: Story = {
     const top = await canvas.findByRole("navigation", {
       name: "Действия материала",
     });
+    const study = canvasElement.querySelector<HTMLElement>(
+      "[data-reader-study-controls]",
+    );
+    if (study === null) throw new Error("Study controls missing");
     const reads = [
-      within(top).getByRole("button", { name: "Изучено" }),
+      within(study).getByRole("button", { name: "Изучено" }),
     ] as const;
     const save = async (button: HTMLElement) => {
       release = undefined;
@@ -470,7 +536,7 @@ export const SharedFailureAndRetry: Story = {
     await save(reads[0]);
     await waitFor(async () => {
       await expect(
-        top.querySelector("[data-reading-action-state]"),
+        study.querySelector("[data-reading-action-state]"),
       ).toHaveAttribute("data-reading-action-state", "error");
     });
     readingFailure = null;
@@ -525,10 +591,14 @@ export const SharedConflictAndDenial: Story = {
     const top = await canvas.findByRole("navigation", {
       name: "Действия материала",
     });
+    const study = canvasElement.querySelector<HTMLElement>(
+      "[data-reader-study-controls]",
+    );
+    if (study === null) throw new Error("Study controls missing");
     const save = async () => {
       release = undefined;
       await userEvent.click(
-        within(top).getByRole("button", { name: "Изучено" }),
+        within(study).getByRole("button", { name: "Изучено" }),
       );
       await waitFor(() => expect(release).toBeDefined());
       releaseReading();
@@ -537,21 +607,21 @@ export const SharedConflictAndDenial: Story = {
     await save();
     await waitFor(() =>
       expect(
-        within(top).getByRole("button", { name: "Обновить статус" }),
+        within(study).getByRole("button", { name: "Обновить статус" }),
       ).toBeVisible(),
     );
     await userEvent.click(
-      within(top).getByRole("button", { name: "Обновить статус" }),
+      within(study).getByRole("button", { name: "Обновить статус" }),
     );
     await waitFor(() =>
       expect(
-        within(top).queryByRole("button", { name: "Обновить статус" }),
+        within(study).queryByRole("button", { name: "Обновить статус" }),
       ).toBeNull(),
     );
     readingFailure = "denied";
     await save();
     await waitFor(async () => {
-      for (const root of [top]) {
+      for (const root of [study]) {
         await expect(
           root.querySelector("[data-reading-action-state]"),
         ).toHaveAttribute("data-reading-action-state", "ready");
@@ -622,9 +692,11 @@ export const AccessRestoredAfterDenial: Story = {
   render: (args) => <ReaderWithRecheckedAccess {...args} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const panels = [
-      await canvas.findByRole("navigation", { name: "Действия материала" }),
-    ] as const;
+    const study = canvasElement.querySelector<HTMLElement>(
+      "[data-reader-study-controls]",
+    );
+    if (study === null) throw new Error("Study controls missing");
+    const panels = [study] as const;
     const save = async () => {
       release = undefined;
       await userEvent.click(
@@ -742,11 +814,13 @@ export const StandaloneActionsMobile: Story = {
       name: "Действия материала",
     });
     await expect(
-      within(toolbar).getByRole("link", { name: "Назад к программе" }),
+      within(canvasElement)
+        .getByRole("navigation", { name: "Хлебные крошки" })
+        .querySelector('a[href="/products/ai-engineering/programme"]'),
     ).toBeVisible();
     await expect(
-      within(toolbar).queryByRole("link", { name: "Назад" }),
-    ).toBeNull();
+      within(toolbar).getByRole("link", { name: "Назад" }),
+    ).toBeVisible();
     await expect(toolbar.getBoundingClientRect().height).toBeLessThanOrEqual(
       104,
     );

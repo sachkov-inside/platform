@@ -43,13 +43,10 @@ async function openReader(
   const reader = page.locator(
     `[data-material-reader-state='${readerState}']:visible`,
   );
-  const actionScope =
-    readerState === "available"
-      ? reader.getByRole("navigation", {
-          name: "Действия материала",
-          exact: true,
-        })
-      : reader;
+  const actionScope = reader.getByRole("navigation", {
+    name: "Действия материала",
+    exact: true,
+  });
   const action = actionScope.locator("[data-reading-action-state]:visible");
   await expect(action).toHaveAttribute("data-reading-action-state", "ready");
   return action.getByRole("button", { name: label, exact: true });
@@ -65,6 +62,8 @@ test("reading progress persists for a free non-member, reconciles lost responses
     await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "false");
   }
+  // Finish the optional reset, including its refresh, before simulating a lost response.
+  await expect(button).toHaveAttribute("aria-busy", "false");
   // The backend commits, but the browser loses the response. Retry must reuse the command.
   const commands: string[] = [];
   let loseResponse = true;
@@ -298,11 +297,8 @@ test("reading progress appears on Home and Topic for video and other formats", a
     await expect(card.locator("[data-material-reading-status]")).toHaveText(
       material.label,
     );
-    // Новая вкладка ещё не закрывала Telegram. Каталог монтируется раньше настоящего ответа о входе.
+    // The catalogue mounts before authentication resolves; its marks must update afterward.
     const topic = await context.newPage();
-    const dismiss = topic.getByRole("button", {
-      name: "Закрыть подключение Telegram",
-    });
     let releaseAuth = (): void => undefined;
     const authReleased = new Promise<void>((resolve) => {
       releaseAuth = resolve;
@@ -321,11 +317,11 @@ test("reading progress appears on Home and Topic for video and other formats", a
       await topic.goto("/topics/platform");
       await catalogRead;
       releaseAuth();
-      const modal = topic.locator("dialog:modal").filter({ has: dismiss });
-      await expect(modal).toBeVisible();
+      await expect(
+        topic.getByRole("button", { name: "Подключить Telegram", exact: true }),
+      ).toBeVisible();
+      await expect(topic.getByRole("dialog")).toHaveCount(0);
       const search = topic.getByRole("searchbox");
-      await dismiss.click();
-      await expect(modal).toHaveCount(0);
       const filteredCatalog = topic.waitForResponse((response) => {
         const url = new URL(response.url());
         return (

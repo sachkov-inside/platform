@@ -200,6 +200,7 @@ model Tag {
 }
 
 model Product {
+  programmeExplicit Boolean @default(false) @map("programme_explicit")
   sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
   slug          String    @unique(map: "series_slug_unique")
@@ -310,6 +311,31 @@ model ProductChapter {
   @@unique([id, productId], map: "product_chapters_identity_unique")
   @@unique([productId, ordinal], map: "product_chapters_ordinal_unique")
   @@map("product_chapters")
+  @@schema("materials")
+}
+
+model ProductProgrammePlacement {
+  id String @id @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  chapterId String? @map("chapter_id") @db.Uuid
+  ordinal Int
+  stepGroup String? @map("step_group")
+  @@unique([productId, ordinal])
+  @@map("product_programme_placements")
+  @@schema("materials")
+}
+
+model ProductChapterSupplementaryMaterial {
+  chapterId String @map("chapter_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  materialId String @map("material_id") @db.Uuid
+  ordinal Int
+
+  @@id([chapterId, materialId])
+  @@unique([chapterId, ordinal])
+  @@index([productId], map: "product_chapter_supplementary_materials_product_idx")
+  @@map("product_chapter_supplementary_materials")
   @@schema("materials")
 }
 
@@ -1814,6 +1840,8 @@ model ProductTask {
   access                   String
   relatedMaterialSourceIds String[] @map("related_material_source_ids")
   afterMaterialSourceId    String?  @map("after_material_source_id")
+  programmeVisibility      String   @default("standalone") @map("programme_visibility")
+  embeddedMaterialId       String?  @unique(map: "tasks_embedded_material_unique") @map("embedded_material_id") @db.Uuid
   publicationState         String   @map("publication_state")
   page                     Json?
   currentVersion           Int      @map("current_version")
@@ -1840,6 +1868,7 @@ model ProductTaskVersion {
 
   task        ProductTask             @relation(fields: [taskId], references: [id])
   submissions ProductTaskSubmission[]
+  reviews ProductTaskReviewProgress[]
 
   @@id([taskId, version], map: "task_versions_primary")
   @@map("task_versions")
@@ -1864,6 +1893,7 @@ model ProductTaskSubmission {
   taskId             String   @map("task_id") @db.Uuid
   taskVersion        Int      @map("task_version")
   submissionKey      String   @map("submission_key")
+  reviewRunKey       String?  @map("review_run_key") @db.Uuid
   requestFingerprint String   @map("request_fingerprint") @db.Char(64)
   source             String
   reviewReport       Json?    @map("review_report")
@@ -1879,6 +1909,7 @@ model ProductTaskSubmission {
   feedback ProductTaskAuthorFeedback?
 
   @@unique([accountId, submissionKey], map: "submissions_key_unique")
+  @@index([accountId, taskId, reviewRunKey], map: "submissions_review_run")
   @@index([accountId, taskId, submittedAt(sort: Desc), id], map: "submissions_account_task")
   @@index([accountId, submittedAt], map: "submissions_account_time")
   @@index([taskId, submittedAt(sort: Desc), id], map: "submissions_task_time")
@@ -1929,4 +1960,22 @@ model ProductLearningStarted {
   @@id([accountId, productId])
   @@map("product_learning_started")
   @@schema("reading_activity")
+}
+
+model ProductTaskReviewProgress {
+  accountId String @map("account_id") @db.Uuid
+  taskId String @map("task_id") @db.Uuid
+  taskVersion Int @map("task_version")
+  runKey String @map("run_key") @db.Uuid
+  revision Int
+  phase String
+  summary String
+  reviewReport Json? @map("review_report")
+  requestFingerprint String @map("request_fingerprint") @db.Char(64)
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  version ProductTaskVersion @relation(fields: [taskId, taskVersion], references: [taskId, version])
+
+  @@id([accountId, taskId], map: "review_progress_primary")
+  @@map("review_progress")
+  @@schema("product_tasks")
 }

@@ -177,7 +177,7 @@ web: production — один экземпляр ([ADR 0014](0014-manifest-bound-
 
 ## Клиентский кеш маршрутов
 
-Страницы каталога — продукт, программа, урок, тема — объявляют
+Страницы каталога — продукт, программа, урок, задание, тема — объявляют
 `unstable_dynamicStaleTime = 60`: решение владельца 17.09.2026. Главная окна не держит: она
 блокирующая и объявляет `instant = false`, а Next.js не принимает обе настройки в одном файле
 маршрута (решение владельца 09.10.2026; без `instant` режим разработки писал ошибку в консоль). В этом окне повторный переход берёт
@@ -318,3 +318,28 @@ Vitals. Отметки остаются в User Timing браузера: их ч
 - Модульные проверки: гостевое чтение урока не несёт предложения и некешируемого тела; авторская
   запись сбрасывает каталог при любом исходе, а запись читателя и команда биллинга — нет; `GET`-обработчик отдаёт
   отказ от предсборки наружу; пакетное чтение прогресса собирает такт в один запрос.
+
+## Task navigation correction, 14 October 2026 (#1427)
+
+Task routes prefetch the public course composition, title and navigation from `readPublicSeries`.
+Their personal boundary keeps access checks, requirements, acceptance settings and submissions
+uncached. A delayed personal read replaces the task body while the course shell remains visible.
+Public composition failure or a missing task retains the personal fallback; it cannot decide 404.
+Task routes use the same 60-second browser retention window as lessons. Submission success and
+version-conflict recovery retain `router.refresh()`; authentication changes reset the route cache.
+
+## Persistent course navigation, 16 October 2026
+
+The account-scoped application shell hosts the course rail and mobile programme across page changes.
+Reader and Task pages publish validated Product composition to that host. Only known course targets
+retain the frame; standalone Material URLs keep their standalone view. Page loading and entry motion
+stay inside the document column. Reduced-motion preferences disable entry animation.
+Reader history includes the host so return navigation restores rail position and expanded chapters.
+Reference links use existing Product members and preserve their imported Material URLs.
+
+Course navigation marks an ordinary in-tab click immediately while the destination loads.
+This optimistic presentation never writes reading progress. The visible destination publishes
+its authoritative frame, including after browser back/forward navigation.
+The rail's “Страница курса” link opens the course overview; breadcrumbs retain programme return URLs.
+Reader's top action panel offers “Дальше” when the authored course composition has a next step.
+The current marker emits three short pulses, then stays static; reduced motion disables the pulses.

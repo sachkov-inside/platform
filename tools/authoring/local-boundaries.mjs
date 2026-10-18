@@ -112,6 +112,16 @@ const videoUploadSchema = z
   .passthrough();
 const orderSchema = z.object({ orderVersion: hash }).passthrough();
 const productOrderSchema = orderSchema.extend({
+  programmePlacements: z
+    .array(
+      z.object({
+        id: z.uuid(),
+        materialId: z.uuid(),
+        chapterId: z.uuid().nullable(),
+        stepGroup: z.string().nullable(),
+      }),
+    )
+    .optional(),
   items: z.array(
     z
       .object({ materialId: z.uuid(), chapterId: z.uuid().nullable() })
@@ -119,7 +129,12 @@ const productOrderSchema = orderSchema.extend({
   ),
   chapters: z.array(
     z
-      .object({ id: z.uuid(), name: z.string(), summary: z.string() })
+      .object({
+        id: z.uuid(),
+        name: z.string(),
+        summary: z.string(),
+        supplementaryMaterialIds: z.array(z.uuid()).optional(),
+      })
       .passthrough(),
   ),
 });
@@ -275,7 +290,7 @@ const localResponseSchemas = {
  *   ? "artifactOutcome"
  *   : P extends `/authoring/products/${string}/artifacts`
  *   ? "productArtifacts"
- *   : P extends `/authoring/product-artifacts/${string}/materials`
+ *   : P extends `/authoring/product-artifacts/${string}/materials` | `/authoring/import/products/${string}/artifacts/${string}/materials`
  *   ? "artifact"
  *   : P extends `/authoring/products/${string}/order`
  *   ? "productOrder"
@@ -359,6 +374,12 @@ export function localResponseKind(path) {
         return "artifactOutcome";
       if (/^\/authoring\/products\/[^/]+\/artifacts$/u.test(path))
         return "productArtifacts";
+      if (
+        /^\/authoring\/import\/products\/[^/]+\/artifacts\/[^/]+\/materials$/u.test(
+          path,
+        )
+      )
+        return "artifact";
       if (/^\/authoring\/product-artifacts\/[^/]+\/materials$/u.test(path))
         return "artifact";
       if (/^\/authoring\/products\/[^/]+\/order$/u.test(path))

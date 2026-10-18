@@ -359,10 +359,7 @@ export const CourseParticipantContinuing: Story = {
       fail("Первый экран курса");
     await expect(
       within(hero).getByRole("link", { name: "Продолжить обучение" }),
-    ).toHaveAttribute(
-      "href",
-      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme",
-    );
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
   },
 };
 export const CourseParticipantContinuingMobile: Story = {

@@ -30,7 +30,9 @@ export const numberedListBlocks: readonly RenderedBlock[] = [
 
 /** Native ol numbering and visible marker styles on the actual production surfaces. */
 export async function expectNumberedLists(canvas: HTMLElement): Promise<void> {
-  const lists = canvas.querySelectorAll("ol");
+  const lists = Array.from(canvas.querySelectorAll("ol")).filter(
+    (list) => list.closest("nav") === null,
+  );
   await expect(lists).toHaveLength(3);
   await expect(Array.from(lists, (list) => list.start)).toEqual([5, 8, 1]);
   await expect(

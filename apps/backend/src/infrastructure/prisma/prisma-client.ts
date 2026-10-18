@@ -28,8 +28,10 @@ export type MaterialsPrisma = Pick<
   | "productArtifactPlacement"
   | "productArtifactVersion"
   | "productChapter"
+  | "productChapterSupplementaryMaterial"
   | "productMaterialRemoval"
   | "productMembership"
+  | "productProgrammePlacement"
   | "tag"
   | "topic"
   | "video"
@@ -117,6 +119,7 @@ export type ProductTasksPrisma = Pick<
   | "productTaskVersion"
   | "productTaskImportReceipt"
   | "productTaskSubmission"
+  | "productTaskReviewProgress"
   | "productTaskAuthorFeedback"
 >;
 export type ProductTasksPrismaClient = ProductTasksPrisma &

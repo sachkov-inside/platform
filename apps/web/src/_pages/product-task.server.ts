@@ -2,3 +2,5 @@
 export { ProductTaskPage } from "./product-task/index.server";
 
 export { proxyProductTaskAssetDelivery } from "./product-task/api/task-assets-bff.server";
+
+export { readTaskSubmissionsRequest } from "./product-task/api/task-submissions-bff.server";

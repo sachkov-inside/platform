@@ -5,9 +5,8 @@ import { Check, CircleHelp, X } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
 /** Prepared reading content shared by Reader and its stories. */
-export interface MaterialQuizPresentation {
+interface QuizPresentation {
   readonly prompt: ReactNode;
-  readonly correctOptionId: string;
   readonly options: readonly {
     readonly id: string;
     readonly content: ReactNode;
@@ -19,12 +18,29 @@ export interface MaterialQuizPresentation {
   };
 }
 
-export function MaterialQuiz({
+export type MaterialQuizPresentation = QuizPresentation &
+  (
+    | { readonly correctOptionId: string; readonly selectionMode?: undefined }
+    | {
+        readonly selectionMode: "multiple";
+        readonly correctOptionIds: readonly string[];
+      }
+  );
+
+export function MaterialQuiz(props: MaterialQuizPresentation) {
+  return props.selectionMode === "multiple" ? (
+    <MultipleAnswerQuiz {...props} />
+  ) : (
+    <SingleAnswerQuiz {...props} />
+  );
+}
+
+function SingleAnswerQuiz({
   prompt,
   correctOptionId,
   options,
   dontKnow,
-}: MaterialQuizPresentation) {
+}: QuizPresentation & { readonly correctOptionId: string }) {
   const [answer, setAnswer] = useState<string | null>(null);
   const quizId = useId();
   const selected = options.find((option) => option.id === answer);
@@ -150,6 +166,161 @@ export function MaterialQuiz({
             ) : (
               <div className="mt-2">{selected.explanation}</div>
             )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MultipleAnswerQuiz({
+  prompt,
+  options,
+  correctOptionIds,
+  dontKnow,
+}: QuizPresentation & { readonly correctOptionIds: readonly string[] }) {
+  const quizId = useId();
+  const [selectedIds, setSelectedIds] = useState<readonly string[]>([]);
+  const [result, setResult] = useState<
+    "correct" | "incorrect" | "dontKnow" | null
+  >(null);
+  return (
+    <section
+      data-material-quiz
+      aria-label="Проверь понимание"
+      className="my-6 rounded-xl border p-3 text-sm leading-[1.55] sm:my-8 sm:p-5 sm:text-base [&_p]:min-h-0 [&_p]:mt-3 [&_p:first-child]:mt-0"
+    >
+      <h2
+        data-quiz-heading
+        className="flex items-center gap-2 text-sm font-semibold sm:text-base"
+      >
+        <span className="grid size-6 shrink-0 sm:size-8 place-items-center rounded-lg bg-action text-accent-foreground">
+          <CircleHelp aria-hidden="true" className="size-4 sm:size-5" />
+        </span>
+        Проверь понимание
+      </h2>
+      <div className="mt-3">{prompt}</div>
+      <fieldset className="mt-4 min-w-0 space-y-2">
+        <legend className="mb-2 text-sm text-muted-foreground">
+          Выбери все подходящие варианты.
+        </legend>
+        {options.map((option, index) => (
+          <label
+            key={option.id}
+            htmlFor={`${quizId}-option-${String(index)}`}
+            data-quiz-option
+            className="relative flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg border border-border bg-card px-2.5 py-2 text-left text-sm leading-[1.5] sm:px-3 sm:text-base"
+          >
+            <input
+              type="checkbox"
+              id={`${quizId}-option-${String(index)}`}
+              checked={selectedIds.includes(option.id)}
+              aria-labelledby={`${quizId}-label-${String(index)}`}
+              aria-describedby={
+                result === null
+                  ? undefined
+                  : `${quizId}-explanation-${String(index)}`
+              }
+              className="relative mt-1 size-4 shrink-0 accent-action focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              onChange={(event) => {
+                setSelectedIds(
+                  event.target.checked
+                    ? [...selectedIds, option.id]
+                    : selectedIds.filter((id) => id !== option.id),
+                );
+                setResult(null);
+              }}
+            />
+            <div className="pointer-events-none relative min-w-0 [&_a]:pointer-events-auto [&_button]:pointer-events-auto [&_summary]:pointer-events-auto">
+              <div id={`${quizId}-label-${String(index)}`}>
+                {option.content}
+              </div>
+              {result === null ? null : (
+                <div
+                  id={`${quizId}-explanation-${String(index)}`}
+                  className="mt-2 text-sm"
+                >
+                  <p className="flex items-center gap-1 font-semibold">
+                    {correctOptionIds.includes(option.id) ? (
+                      <Check aria-hidden="true" className="size-4" />
+                    ) : (
+                      <X aria-hidden="true" className="size-4" />
+                    )}
+                    {correctOptionIds.includes(option.id)
+                      ? "Подходит"
+                      : "Не подходит"}
+                  </p>
+                  <div className="mt-1">{option.explanation}</div>
+                </div>
+              )}
+            </div>
+          </label>
+        ))}
+      </fieldset>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          type="button"
+          disabled={selectedIds.length === 0}
+          onClick={() => {
+            setResult(
+              selectedIds.length === correctOptionIds.length &&
+                correctOptionIds.every((id) => selectedIds.includes(id))
+                ? "correct"
+                : "incorrect",
+            );
+          }}
+        >
+          Проверить
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          aria-pressed={result === "dontKnow"}
+          onClick={() => {
+            setResult("dontKnow");
+          }}
+        >
+          Не знаю
+        </Button>
+      </div>
+      <div aria-live="polite" id={`${quizId}-feedback`}>
+        {result === null ? null : (
+          <div data-quiz-feedback className="mt-3 border-t border-border pt-3">
+            <p
+              className="flex items-center gap-2 text-sm font-semibold"
+              style={{
+                color:
+                  result === "dontKnow"
+                    ? "var(--foreground)"
+                    : result === "correct"
+                      ? "var(--callout-good)"
+                      : "var(--callout-bad)",
+              }}
+            >
+              {result === "dontKnow" ? (
+                <CircleHelp aria-hidden="true" className="size-4" />
+              ) : result === "correct" ? (
+                <Check aria-hidden="true" className="size-4" />
+              ) : (
+                <X aria-hidden="true" className="size-4" />
+              )}
+              {result === "dontKnow"
+                ? "Не знаю · без оценки"
+                : result === "correct"
+                  ? "Правильно"
+                  : "Пока неверно"}
+            </p>
+            <div className="mt-3">{dontKnow.explanation}</div>
+            {dontKnow.reviewLinks.map((href, index) => (
+              <a
+                key={href}
+                href={href}
+                className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
+              >
+                Повторить раздел
+                {dontKnow.reviewLinks.length > 1 ? ` ${String(index + 1)}` : ""}
+              </a>
+            ))}
           </div>
         )}
       </div>

@@ -1,4 +1,20 @@
-import { courseGuide } from "@/storybook/course-reading.fixtures";
+import { TaskSubmissionWorkspace } from "@/features/product-task-submission";
+import {
+  openProductTask,
+  submittedTwice,
+  learnerMcpUrl,
+} from "@/storybook/product-task.fixtures";
+import {
+  InlineArtifactDownload,
+  readInlineArtifactReference,
+} from "@/features/product-artifacts.reader";
+import {
+  briefArtifact,
+  briefDownloadHref,
+} from "@/storybook/customer-brief.fixtures";
+import { resolveReaderReturnTarget } from "../model/reader-return-target";
+import { courseGuide, courseSource } from "@/storybook/course-reading.fixtures";
+import { resolveSeriesReaderContext } from "../model/series-reader-context";
 import { MaterialReaderPending } from "./material-reader-states";
 import { modelComparisonBlocks } from "@/storybook/model-comparison";
 import {
@@ -611,6 +627,14 @@ export const OrderedListStartMobile: Story = {
 
 export const Mobile: Story = {
   args: {},
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Matching action panels frame the material; the article has no contents disclosure.",
+      },
+    },
+  },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -624,7 +648,9 @@ export const Mobile: Story = {
     await expect(
       canvas.getByRole("navigation", { name: "Мобильная навигация" }),
     ).toBeVisible();
-    await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
+    await expect(
+      canvas.queryByLabelText("Содержание: 2"),
+    ).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
@@ -647,12 +673,15 @@ export const Mobile: Story = {
     await expect(getComputedStyle(readerBody).lineHeight).toBe("24.75px");
     for (const name of ["Действия материала", "Действия в конце материала"]) {
       const panel = canvas.getByRole("navigation", { name });
-      const mark = within(panel).getByRole("link", { name: "Изучено" });
-      await expect(getComputedStyle(mark).fontSize).toBe("12px");
-      await expect(mark.getBoundingClientRect().height).toBe(36);
-      await expect(
-        parseFloat(getComputedStyle(mark, "::after").height),
-      ).toBeGreaterThanOrEqual(44);
+      const mark = within(panel).queryByRole("link", { name: "Изучено" });
+      {
+        if (mark === null) throw new Error("Bottom study action missing");
+        await expect(getComputedStyle(mark).fontSize).toBe("12px");
+        await expect(mark.getBoundingClientRect().height).toBe(36);
+        await expect(
+          parseFloat(getComputedStyle(mark, "::after").height),
+        ).toBeGreaterThanOrEqual(44);
+      }
       const bookmark = within(panel).getByRole("link", { name: "В закладки" });
       await expect(bookmark.getBoundingClientRect().width).toBe(44);
       await expect(
@@ -690,7 +719,9 @@ export const Mobile: Story = {
     await expect(
       canvasElement.querySelector("[data-public-header]"),
     ).not.toBeVisible();
-    const back = canvas.getByRole("link", { name: "Назад на Главную" });
+    const back = within(
+      canvas.getByRole("navigation", { name: "Действия материала" }),
+    ).getByRole("link", { name: "Назад" });
     await expect(
       canvasElement.querySelector('[data-reader-return="top"]')?.contains(back),
     ).toBe(true);
@@ -706,75 +737,41 @@ export const Mobile: Story = {
       document.documentElement.style.fontSize = originalFontSize;
       scrollRoot.scrollTop = 0;
     }
+    const bottom = canvas.getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
     await expect(
-      canvasElement.querySelector('[data-reader-return="bottom"]'),
-    ).toBeNull();
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+      within(bottom).getByRole("link", { name: "Назад" }),
+    ).toBeInTheDocument();
     scrollRoot.scrollTop = scrollRoot.scrollHeight;
-    await waitFor(async () => {
-      await expect(
-        canvasElement.querySelector('[data-reader-return="bottom"]'),
-      ).not.toBeNull();
-    });
-    await expect(back.getBoundingClientRect().bottom).toBeLessThan(0);
+    await expect(
+      within(bottom).getByRole("link", { name: "Назад" }),
+    ).toBeVisible();
     scrollRoot.scrollTop = 0;
-    await waitFor(async () => {
-      await expect(
-        canvasElement.querySelector('[data-reader-return="bottom"]'),
-      ).toBeNull();
-    });
-  },
-};
-
-/** Replays an initial visible entry queued together with the first scroll-out entry. */
-export const MobileBatchedIntersection: Story = {
-  ...Mobile,
-  name: "Mobile · batched intersections",
-  beforeEach: () => {
-    const NativeObserver = window.IntersectionObserver;
-    window.IntersectionObserver = class extends NativeObserver {
-      constructor(
-        callback: IntersectionObserverCallback,
-        options?: IntersectionObserverInit,
-      ) {
-        let delivered = false;
-        let pending: IntersectionObserverEntry[] = [];
-        super((entries, observer) => {
-          if (
-            delivered ||
-            !entries.some((entry) =>
-              entry.target.hasAttribute("data-reader-return"),
-            )
-          ) {
-            callback(entries, observer);
-            return;
-          }
-          pending.push(...entries);
-          if (!entries.some((entry) => !entry.isIntersecting)) return;
-          delivered = true;
-          callback(pending, observer);
-          pending = [];
-        }, options);
-      }
-    };
-    return () => {
-      window.IntersectionObserver = NativeObserver;
-    };
   },
 };
 
 export const Desktop: Story = {
   args: { primaryVideo: readyVideo },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Matching action panels frame the material; the article has no contents disclosure.",
+      },
+    },
+  },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText(material.summary)).not.toBeInTheDocument();
     await expect(
-      canvas.getByRole("navigation", { name: "В этом материале" }),
-    ).toBeInTheDocument();
+      canvas.queryByRole("navigation", { name: "В этом материале" }),
+    ).toBeNull();
     await expect(
-      canvas.getAllByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getAllByRole("link", {
+        name: "Главная",
+      }),
     ).toHaveLength(1);
     await expect(
       canvas.getByRole("region", { name: "Таблица в материале" }),
@@ -1099,7 +1096,7 @@ export const NotFound: Story = {
       canvas.getByRole("heading", { name: "Материал не найден" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
     ).toBeInTheDocument();
   },
 };
@@ -1245,7 +1242,7 @@ export const ShortMaterial: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Назад на Главную" }),
+      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
     ).toBeVisible();
     await expect(
       canvasElement.querySelector('[data-reader-return="bottom"]'),
@@ -1810,10 +1807,101 @@ const courseContext = {
   programme: courseGuide,
 };
 export const CourseGuide: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Course Reader: compact mobile heading and actions, floating lesson dock, chapter bottom sheet, course-page return; no taxonomy metadata.",
+      },
+    },
+  },
   args: {
     material: { ...material, slug: "course-intro", title: "Как устроен курс" },
     seriesContext: courseContext,
   },
+};
+export const CourseGuideMobile: Story = {
+  ...CourseGuide,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const supplementaryReturn = parseMaterialReaderReturnTarget(
+  "/products/ai-engineering/programme?at=course-intro",
+);
+const supplementaryMaterial = {
+  ...material,
+  slug: "aie-product-brief",
+  title: "Бриф заказчика",
+  seriesMemberships: [
+    {
+      ordinal: 1,
+      series: { id: "aie", name: "AI Engineering", slug: "ai-engineering" },
+    },
+  ],
+};
+export const SupplementaryMaterial: Story = {
+  args: {
+    material: supplementaryMaterial,
+    returnTarget: resolveReaderReturnTarget({
+      material: supplementaryMaterial,
+      returnTarget: supplementaryReturn,
+    }),
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бриф заказчика" }),
+    ).toBeVisible();
+    await expect(canvas.getByLabelText("Текущая глава")).toBeInTheDocument();
+    await expect(
+      canvasElement.querySelector(
+        '[data-course-reference="aie-product-brief"][aria-current="page"]',
+      ),
+    ).not.toBeNull();
+    await expect(
+      canvasElement.querySelector(
+        '[data-course-step="material:aie-product-brief"]',
+      ),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: "К программе" }),
+    ).toHaveAttribute("href", supplementaryReturn.href);
+  },
+};
+export const SupplementaryMaterialDirect: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    seriesContext: null,
+    returnTarget: resolveReaderReturnTarget({
+      material: supplementaryMaterial,
+      returnTarget: parseMaterialReaderReturnTarget(undefined),
+      inferCourseReturn: true,
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByRole("link", { name: "AI Engineering" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(
+      within(canvasElement).queryByLabelText("Текущая глава"),
+    ).toBeNull();
+  },
+};
+export const SupplementaryMaterialMobile: Story = {
+  ...SupplementaryMaterial,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 export const CoursePending: Story = {
   render: () => (
@@ -1836,4 +1924,232 @@ export const CourseLocked: Story = {
       }
     />
   ),
+};
+
+export const CustomerBriefDownload: Story = {
+  args: {
+    material: { ...material, slug: "aie-project", title: "Проект курса" },
+    seriesContext: null,
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Читать бриф",
+            marks: [
+              {
+                kind: "link",
+                href: "/materials/inside-content-aie-product-brief",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Скачать бриф (.md)",
+            marks: [{ kind: "link", href: briefDownloadHref }],
+          },
+        ],
+      },
+    ],
+    renderLink: (href, label) =>
+      readInlineArtifactReference(href) === undefined ? undefined : (
+        <InlineArtifactDownload
+          href={href}
+          label={label}
+          artifact={briefArtifact}
+        />
+      ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: "Скачать бриф (.md)" }),
+    ).toHaveAttribute("download");
+    await expect(
+      canvas.getByRole("link", { name: "Читать бриф" }),
+    ).toHaveAttribute("href", "/materials/inside-content-aie-product-brief");
+    await expect(canvas.getByText(/customer-brief.md/)).toBeVisible();
+  },
+};
+export const CustomerBriefDownloadMobile: Story = {
+  ...CustomerBriefDownload,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const SupplementaryFromTask: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+      anchor: { kind: "task", code: "aie-ch1-onboarding" },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Бриф заказчика" }),
+    ).toBeVisible();
+    const crumbs = within(
+      canvas.getByRole("navigation", { name: "Хлебные крошки" }),
+    );
+    await expect(
+      crumbs.getByRole("link", {
+        name: "Онбординг нового разработчика за час",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/products/ai-engineering/tasks/aie-ch1-onboarding",
+    );
+    await expect(
+      canvas.queryByRole("navigation", { name: "Шаги курса" }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: /Вернуться к заданию:/u }),
+    ).toBeVisible();
+    const rail = canvas.getByLabelText("Текущая глава");
+    if (rail.getClientRects().length > 0) {
+      await expect(rail).not.toHaveTextContent("Открытый материал");
+      await expect(rail).not.toHaveTextContent("Ваше место в курсе");
+    }
+    await expect(
+      canvasElement.querySelector(
+        '[data-course-step="material:aie-product-brief"]',
+      ),
+    ).toBeNull();
+  },
+};
+export const SupplementaryFromTaskMobile: Story = {
+  ...SupplementaryFromTask,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const PracticalLesson: Story = {
+  args: {
+    submissionWorkspace: (
+      <TaskSubmissionWorkspace
+        connectionPrompt="Подключи учебный MCP по инструкции https://inside.example/practice-review-setup.txt"
+        code={openProductTask.task.code}
+        version={openProductTask.task.version}
+        accepting
+        history={submittedTwice}
+        learnerMcpUrl={learnerMcpUrl}
+        liveSubmissions={false}
+        returnTo="/materials/practical-lesson?from=%2Fproducts%2Fai-engineering%2Fprogramme&anchor=material%3Afirst"
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Сдача задания" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Мои сдачи" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: "Скопировать запрос" }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector("[data-reader-body]"),
+    ).not.toBeNull();
+    await expect(
+      canvas.getByText(
+        "Открой новую сессию агента в папке проекта, где ты выполнил задание.",
+      ),
+    ).toBeVisible();
+  },
+};
+export const PracticalLessonMobile: Story = {
+  ...PracticalLesson,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const ProjectReferenceFromLesson: Story = {
+  ...SupplementaryMaterial,
+  args: {
+    ...SupplementaryMaterial.args,
+    seriesContext: resolveSeriesReaderContext({
+      currentMaterialSlug: "aie-product-brief",
+      returnTarget: supplementaryReturn,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+      anchor: { kind: "material", slug: "course-intro" },
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const rail = canvas.getByLabelText("Текущая глава");
+    const references = within(rail).getByRole("navigation", {
+      name: "Дополнительные материалы",
+    });
+    await expect(
+      within(references).getByRole("link", { name: "Бриф заказчика" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      within(references).getByRole("link", { name: "Описание проекта" }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/aie-project?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro&view=reference&anchor=material%3Acourse-intro",
+    );
+    await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
+      "data-course-step",
+      "material:course-intro",
+    );
+    await expect(canvas.getAllByRole("link", { name: "К уроку" })).toHaveLength(
+      2,
+    );
+    await expect(
+      canvas.getByRole("link", { name: /Вернуться к уроку:/u }),
+    ).toHaveAttribute(
+      "href",
+      "/materials/course-intro?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fat%3Dcourse-intro",
+    );
+  },
+};
+export const ProjectReferenceFromLessonMobile: Story = {
+  ...ProjectReferenceFromLesson,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вся программа" }),
+    );
+    const dialog = canvas.getByRole("dialog");
+    const references = within(dialog).getByRole("navigation", {
+      name: "Дополнительные материалы",
+    });
+    await expect(
+      within(references).getByRole("link", { name: "Бриф заказчика" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      within(dialog).getByRole("link", { name: "Как устроен курс" }),
+    ).toHaveAttribute("aria-current", "step");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть программу" }),
+    );
+    await expect(dialog).not.toBeVisible();
+    await expect(document.documentElement.scrollWidth).toBe(
+      document.documentElement.clientWidth,
+    );
+  },
 };

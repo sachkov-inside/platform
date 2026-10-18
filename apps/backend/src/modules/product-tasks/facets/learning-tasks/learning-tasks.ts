@@ -1,3 +1,5 @@
+import { readMaterialTask } from "../../features/read-task-page/read-material-task.js";
+import { updateTaskReview } from "../../features/update-task-review/update-task-review.js";
 import type { Subject } from "../../../content-access/index.js";
 import { listChapterTasks } from "../../features/list-chapter-tasks/list-chapter-tasks.js";
 import { listLearningTasks } from "../../features/list-learning-tasks/list-learning-tasks.js";
@@ -19,6 +21,7 @@ export interface LearningTasks {
   readonly list: (
     input: Parameters<typeof listLearningTasks>[1],
   ) => ReturnType<typeof listLearningTasks>;
+  readonly updateReview: (input: Query) => ReturnType<typeof updateTaskReview>;
   readonly read: (input: Query) => ReturnType<typeof readLearningTask>;
   readonly submit: (
     input: Parameters<typeof submitTask>[1],
@@ -26,6 +29,7 @@ export interface LearningTasks {
   readonly submissions: (
     input: Query,
   ) => ReturnType<typeof listTaskSubmissions>;
+  readonly materialTask: (input: Query) => ReturnType<typeof readMaterialTask>;
   readonly page: (input: Query) => ReturnType<typeof readTaskPage>;
   readonly chapterTasks: (input: Query) => ReturnType<typeof listChapterTasks>;
 }
@@ -34,10 +38,12 @@ export function assembleLearningTasks(
   dependencies: LearningTaskDependencies,
 ): LearningTasks {
   return Object.freeze<LearningTasks>({
+    updateReview: (input) => updateTaskReview(dependencies, input),
     list: (input) => listLearningTasks(dependencies, input),
     read: (input) => readLearningTask(dependencies, input),
     submit: (input) => submitTask(dependencies, input),
     submissions: (input) => listTaskSubmissions(dependencies, input),
+    materialTask: (input) => readMaterialTask(dependencies, input),
     page: (input) => readTaskPage(dependencies, input),
     chapterTasks: (input) => listChapterTasks(dependencies, input),
   });

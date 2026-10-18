@@ -12,7 +12,10 @@ import {
   evidenceDirectory,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
-import { expectCourseProgrammeReturn } from "../support/course-programme";
+import {
+  expectLinearProgrammeReturn,
+  expectProgrammeReturnTarget,
+} from "../support/linear-programme";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
@@ -87,9 +90,11 @@ test("product product leads to the programme and the programme keeps the Reader 
     .click();
   await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
   expect((await opened).status()).toBe(200);
-  const programmeReturnHref =
-    "/products/demo-series-harness/programme?page=1&at=demo-295-finalnyy-gayd";
-  const programmeReturn = await expectCourseProgrammeReturn(
+  const programmeReturnHref = expectProgrammeReturnTarget(
+    new URL(page.url()).searchParams.get("from"),
+    "/products/demo-series-harness/programme?page=1&at=demo-295-finalnyy-gayd",
+  );
+  const programmeReturn = await expectLinearProgrammeReturn(
     page,
     testInfo.project.name === "mobile-chromium",
     programmeReturnHref,
@@ -117,7 +122,11 @@ test("product product leads to the programme and the programme keeps the Reader 
     "data-series-continuation",
     "true",
   );
-  const continuationHref = `/materials/demo-295-finalnyy-gayd?from=${encodeURIComponent(programmeReturnHref)}`;
+  const placementId = new URL(programmeReturnHref, page.url()).searchParams.get(
+    "atPlacement",
+  );
+  if (placementId === null) throw new Error("Missing programme placement");
+  const continuationHref = `/materials/demo-295-finalnyy-gayd?from=${encodeURIComponent(programmeReturnHref)}&placement=${placementId}`;
   await expect(continuation).toHaveAttribute("href", continuationHref);
   const continuationUrl = new URL(
     (await continuation.getAttribute("href")) ?? "",
@@ -329,8 +338,11 @@ test("product programme appends a real composition and restores Reader return po
     expect(materialSlug).not.toBeNull();
     await row.getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-    const programmeReturnHref = `/products/${slug}/programme?page=2&at=${String(materialSlug)}`;
-    const programmeReturn = await expectCourseProgrammeReturn(
+    const programmeReturnHref = expectProgrammeReturnTarget(
+      new URL(page.url()).searchParams.get("from"),
+      `/products/${slug}/programme?page=2&at=${String(materialSlug)}`,
+    );
+    const programmeReturn = await expectLinearProgrammeReturn(
       page,
       testInfo.project.name === "mobile-chromium",
       programmeReturnHref,

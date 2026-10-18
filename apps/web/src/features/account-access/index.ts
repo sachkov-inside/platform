@@ -6,13 +6,8 @@ export type {
 export { accountPresentationQueryKey } from "./model/account-presentation-query";
 export type { AccountTelegramMembership } from "./model/account-telegram-membership";
 export { AccountTelegramPanel } from "./ui/account-telegram-panel.client";
-export { AccountTelegramLinkPanel } from "./ui/account-telegram-link-panel.client";
 export {
   TelegramLinkAction,
   type TelegramLinkActionProps,
 } from "./ui/telegram-link-action.client";
-export {
-  AccountTelegramOnboarding,
-  openTelegramOnboarding,
-  telegramOnboardingDismissalKey,
-} from "./ui/account-telegram-onboarding.client";
+export { AccountTelegramNotice } from "./ui/account-telegram-notice.client";

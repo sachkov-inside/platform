@@ -42,8 +42,17 @@ export function assembleLoadSeriesOrder(
       return {
         ok: true,
         value: {
-          ...snapshot,
-          orderVersion: productOrderVersion(snapshot.items, snapshot.chapters),
+          archived: snapshot.archived,
+          chapters: snapshot.chapters,
+          items: snapshot.items,
+          name: snapshot.name,
+          programmePlacements: snapshot.programmePlacements,
+          seriesId: snapshot.seriesId,
+          orderVersion: productOrderVersion(
+            snapshot.items,
+            snapshot.chapters,
+            snapshot.programmePlacements,
+          ),
         },
       };
     } catch (error) {

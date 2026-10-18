@@ -1,6 +1,14 @@
 import { RefreshCw, SearchX, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
+import {
+  CourseReadingLayout,
+  CourseReadingHeader,
+  CourseReadingFooter,
+  type CourseReadingContext,
+} from "@/features/library-discovery";
+import styles from "./product-task-view.module.css";
+
 import { Button } from "@/shared/ui/button";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import { StatusPanel } from "@/shared/ui/status-panel";
@@ -100,5 +108,42 @@ export function ProductTaskUnexpectedError({
       state={{ "data-product-task-state": "error" }}
       title="Не удалось открыть задание"
     />
+  );
+}
+
+/** Public title and navigation stay visible while private task data streams into the body. */
+export function ProductTaskPending({
+  programme,
+}: {
+  readonly programme: CourseReadingContext;
+}) {
+  return (
+    <CourseReadingLayout context={programme}>
+      <div className={styles["task"]} data-product-task-state="pending">
+        <div data-task-header>
+          <CourseReadingHeader
+            context={programme}
+            title={programme.current.title}
+            metadata={null}
+          />
+        </div>
+        <div
+          aria-busy="true"
+          aria-label="Задание загружается"
+          className="mt-8 min-h-[60dvh] space-y-8"
+          role="status"
+        >
+          {[0, 1, 2].map((item) => (
+            <div className="grid gap-3" key={item}>
+              <span className="h-6 w-36 rounded-full bg-placeholder/30" />
+              <span className="h-4 rounded-full bg-placeholder/15" />
+              <span className="h-4 w-11/12 rounded-full bg-placeholder/15" />
+              <span className="h-4 w-4/5 rounded-full bg-placeholder/15" />
+            </div>
+          ))}
+        </div>
+        <CourseReadingFooter context={programme} />
+      </div>
+    </CourseReadingLayout>
   );
 }

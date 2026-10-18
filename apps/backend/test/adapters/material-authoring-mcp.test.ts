@@ -40,6 +40,7 @@ describe("Material authoring MCP adapter", () => {
       "playlist_save_composition",
       "product_load_composition",
       "product_save_composition",
+      "product_set_chapter_attachments",
     ]);
     expect(
       tools.find(({ name }) => name === "material_save")?.annotations,

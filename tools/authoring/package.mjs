@@ -77,6 +77,7 @@ export const materialSchema = z
     sourcePath: relativePath,
     sourceIds: z.array(identifier),
     relatedMaterialIds: z.array(identifier),
+    practiceTaskId: identifier.max(120).optional(),
     readingTimeMinutes: z.number().int().positive().nullable(),
     kind: z.enum(["video", "guide", "note"]),
     title: z.string().min(1),
@@ -114,6 +115,22 @@ export const materialSchema = z
           sourceId: identifier,
           title: z.string().min(1),
           assetId: z.string(),
+          filename: z
+            .string()
+            .min(1)
+            .max(255)
+            .regex(/^[^/\\]+$/u)
+            .refine(
+              (name) =>
+                name !== "." &&
+                name !== ".." &&
+                !Array.from(name).some(
+                  (character) =>
+                    character.charCodeAt(0) < 32 ||
+                    character.charCodeAt(0) === 127,
+                ),
+            )
+            .optional(),
         })
         .strict(),
     ),
@@ -158,6 +175,9 @@ export const sourceTaskSchema = z
     definition: z.record(z.string(), z.json()),
     relatedMaterialIds: z.array(identifier).max(50),
     afterMaterialId: identifier.optional(),
+    programmeVisibility: z
+      .enum(["standalone", "embedded", "legacy"])
+      .optional(),
     publicationState: z.enum(["published", "unpublished"]),
     provenance: z
       .object({
@@ -230,6 +250,10 @@ export const manifestSchema = z
                 title: z.string().min(1),
                 summary: z.string(),
                 materialIds: z.array(identifier),
+                supplementaryMaterialIds: z
+                  .array(identifier)
+                  .max(200)
+                  .optional(),
               })
               .strict(),
           ),
@@ -364,7 +388,11 @@ function checkSelectionScope(manifest) {
     !product.complete ||
     product.materialIds.length ||
     product.supplementaryMaterialIds.length ||
-    product.chapters.some((chapter) => chapter.materialIds.length)
+    product.chapters.some(
+      (chapter) =>
+        chapter.materialIds.length ||
+        (chapter.supplementaryMaterialIds?.length ?? 0) > 0,
+    )
   )
     throw new Error(
       "A Product shell release carries the complete chapter list without Material placement",
@@ -389,7 +417,36 @@ function checkTasks(manifest) {
       throw new Error(
         `${task.sourceId}: a task code repeats a Material identity`,
       );
+  const usesBindings =
+    manifest.materials.some((row) => row.practiceTaskId !== undefined) ||
+    tasks.some((task) => task.programmeVisibility !== undefined);
+  if (
+    usesBindings &&
+    (manifest.schemaVersion !== 2 ||
+      !manifest.requiredFeatures?.includes("material-task-v1"))
+  )
+    throw new Error("Task bindings require material-task-v1");
+  for (const material of manifest.materials) {
+    if (
+      material.practiceTaskId !== undefined &&
+      !tasks.some((task) => task.sourceId === material.practiceTaskId)
+    )
+      throw new Error(`${material.sourceId}: unknown practice Task`);
+  }
   for (const task of tasks) {
+    const bindings = manifest.materials.filter(
+      (row) => row.practiceTaskId === task.sourceId,
+    );
+    const visibility = task.programmeVisibility ?? "standalone";
+    if (
+      (visibility === "embedded" && bindings.length !== 1) ||
+      (visibility !== "embedded" && bindings.length !== 0)
+    )
+      throw new Error(`${task.sourceId}: invalid practice binding cardinality`);
+    if (visibility !== "standalone" && task.afterMaterialId !== undefined)
+      throw new Error(
+        `${task.sourceId}: embedded and legacy Tasks cannot have standalone placement`,
+      );
     const product = manifest.products.find(
       (row) => row.sourceId === task.productId,
     );
@@ -411,6 +468,24 @@ function checkTasks(manifest) {
       throw new Error(
         `${task.sourceId}: the task follows a Material outside its chapter`,
       );
+    const binding = bindings[0];
+    if (binding !== undefined) {
+      const primary = manifest.products.flatMap((product) =>
+        product.chapters.flatMap((chapter) =>
+          chapter.materialIds.includes(binding.sourceId)
+            ? [{ product: product.sourceId, chapter: chapter.sourceId }]
+            : [],
+        ),
+      );
+      if (
+        primary.length !== 1 ||
+        primary[0]?.product !== task.productId ||
+        primary[0]?.chapter !== task.chapterId
+      )
+        throw new Error(
+          `${task.sourceId}: practice Material must belong to its primary chapter`,
+        );
+    }
     unique(task.relatedMaterialIds, `${task.sourceId} related Material`);
   }
 }
@@ -464,8 +539,10 @@ export function checkCapabilities(value) {
   for (const feature of envelope.requiredFeatures ?? [])
     if (
       ![
+        "material-task-v1",
         "task-c-v2",
         "quiz-v1",
+        "quiz-multiple-v1",
         "github-anchors-v1",
         "image-variants-v1",
         "collapsible-callouts-v1",
@@ -530,6 +607,13 @@ export async function loadPackage(path) {
     ),
   ]) {
     if (material.readerBlocks !== undefined) {
+      if (
+        material.readerBlocks.some(
+          (block) => block.kind === "quiz" && "selectionMode" in block,
+        ) &&
+        !manifest.requiredFeatures?.includes("quiz-multiple-v1")
+      )
+        throw new Error("Multiple-answer quizzes require quiz-multiple-v1");
       if (
         manifest.schemaVersion !== 2 ||
         !manifest.requiredFeatures?.includes("quiz-v1") ||
@@ -598,10 +682,29 @@ export async function loadPackage(path) {
       )
     )
       throw new Error("Incomplete Product contents");
+    for (const chapter of product.chapters) {
+      unique(
+        chapter.supplementaryMaterialIds ?? [],
+        "chapter supplementary Material",
+      );
+      if (
+        (chapter.supplementaryMaterialIds ?? []).some(
+          (id) =>
+            ![
+              ...product.materialIds,
+              ...product.supplementaryMaterialIds,
+            ].includes(id),
+        )
+      )
+        throw new Error(
+          "Chapter supplementary Materials must belong to the Product",
+        );
+    }
     if (
       product.chapters.length &&
-      canonical(product.chapters.flatMap((chapter) => chapter.materialIds)) !==
-        canonical(product.materialIds)
+      canonical([
+        ...new Set(product.chapters.flatMap((chapter) => chapter.materialIds)),
+      ]) !== canonical(product.materialIds)
     )
       throw new Error("Chapter order does not match Product order");
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   Bookmark,
   ChevronLeft,
   ChevronRight,
@@ -57,6 +58,8 @@ export function ReaderTopActions({
   readingAction,
   bookmarkAction,
   returnAction,
+  breadcrumbs,
+  nextStep,
   format = "guide",
   position = "top",
 }: {
@@ -64,6 +67,9 @@ export function ReaderTopActions({
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
   readonly returnAction?: ReactNode;
+  readonly breadcrumbs?: ReactNode;
+  readonly nextStep?:
+    Pick<SeriesReaderContextItem, "href" | "title"> | null | undefined;
   readonly format?: string;
   readonly position?: "top" | "bottom";
 }) {
@@ -71,15 +77,19 @@ export function ReaderTopActions({
     context === null &&
     readingAction === undefined &&
     bookmarkAction === undefined &&
-    returnAction === undefined
+    returnAction === undefined &&
+    breadcrumbs === undefined
   )
     return null;
-  const reading = readingAction ?? (
-    <Button disabled className="h-11 rounded-lg px-3" variant="ghost">
-      <Circle aria-hidden="true" />
-      {materialReadingLabels(format).complete}
-    </Button>
-  );
+  const reading =
+    readingAction === undefined ? (
+      <Button disabled className="h-11 rounded-lg px-3" variant="ghost">
+        <Circle aria-hidden="true" />
+        {materialReadingLabels(format).complete}
+      </Button>
+    ) : (
+      readingAction
+    );
   const bookmark = bookmarkAction ?? (
     <Button
       aria-label="Закладка недоступна"
@@ -92,6 +102,7 @@ export function ReaderTopActions({
   );
   return (
     <div className="@container/reader-actions" data-reader-top-actions-slot>
+      {breadcrumbs}
       <nav
         aria-label={
           position === "top"
@@ -107,13 +118,34 @@ export function ReaderTopActions({
       >
         {context === null ? (
           <>
-            <div className="flex min-h-9 min-w-0 flex-1 items-center px-1 sm:min-h-11">
+            <div className="flex min-h-9 min-w-0 items-center px-2 sm:min-h-11">
               {returnAction}
             </div>
-            <div className="ml-auto flex max-w-full flex-wrap items-start justify-end gap-1">
+            <div className="flex max-w-full flex-wrap items-start gap-1">
               {bookmark}
-              {reading}
+              <div
+                role="group"
+                aria-label="Отметка изучения"
+                data-reader-study-controls
+              >
+                {reading}
+              </div>
             </div>
+            {nextStep == null ? null : (
+              <div className={styles["forward"]}>
+                <Button
+                  asChild
+                  className="h-9 gap-1.5 rounded-full px-3 sm:h-11"
+                >
+                  <IntentPrefetchLink
+                    href={nextStep.href}
+                    title={nextStep.title}
+                  >
+                    Дальше <ArrowRight aria-hidden="true" className="size-4" />
+                  </IntentPrefetchLink>
+                </Button>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -133,7 +165,11 @@ export function ReaderTopActions({
                 </span>
               </IntentPrefetchLink>
             </div>
-            <div className={cn(styles["reading"])}>{reading}</div>
+            {reading == null ? null : (
+              <div className={cn(styles["reading"])} data-reader-study-controls>
+                {reading}
+              </div>
+            )}
             <div className={cn(styles["bookmark"])}>{bookmark}</div>
             <div className={cn(styles["next"])}>
               <LessonArrow lesson={context.next} direction="next" />

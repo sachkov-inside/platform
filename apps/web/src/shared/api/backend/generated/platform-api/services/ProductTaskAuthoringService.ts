@@ -30,6 +30,7 @@ export class ProductTaskAuthoringService {
         }>;
         freedom: string;
         result: Array<string>;
+        reviewGuidance?: string;
         schemaVersion: 1;
         situation: string;
       } | {
@@ -44,8 +45,10 @@ export class ProductTaskAuthoringService {
         format: 'c';
         freedom: string;
         intro: string;
+        reviewGuidance?: string;
         schemaVersion: 2;
       });
+      embeddedMaterialSourceId?: string;
       expectedRevision: number | null;
       page?: Record<string, any>;
       pageBody?: {
@@ -54,6 +57,7 @@ export class ProductTaskAuthoringService {
       };
       position: number;
       productId: string;
+      programmeVisibility?: 'standalone' | 'embedded' | 'legacy';
       provenance: {
         commit: string;
         path: string;
@@ -109,6 +113,7 @@ export class ProductTaskAuthoringService {
         }>;
         freedom: string;
         result: Array<string>;
+        reviewGuidance?: string;
         schemaVersion: 1;
         situation: string;
       } | {
@@ -123,8 +128,10 @@ export class ProductTaskAuthoringService {
         format: 'c';
         freedom: string;
         intro: string;
+        reviewGuidance?: string;
         schemaVersion: 2;
       });
+      embeddedMaterialSourceId?: string;
       page?: Record<string, any>;
       pageBody?: {
         doc: Record<string, any>;
@@ -132,6 +139,7 @@ export class ProductTaskAuthoringService {
       };
       position?: number;
       productId?: string;
+      programmeVisibility?: 'standalone' | 'embedded' | 'legacy';
       provenance: {
         commit: string;
         path: string;

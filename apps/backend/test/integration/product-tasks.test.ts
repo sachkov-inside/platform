@@ -165,6 +165,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       prisma: db.prisma,
       directory,
       contentAccess,
+      materialReader: materials.publishedMaterialReader,
       submissionsEnabled,
       ...(clock === undefined ? {} : { clock }),
     });
@@ -231,6 +232,143 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     relatedSlug = related.slug;
   });
   afterAll(async () => db.dispose());
+
+  test("progress is private, version-pinned and separate from saved submissions; retries and stale runs cannot rewrite it", async () => {
+    const { code } = await imported();
+    const subject = await learner();
+    const other = await learner();
+    const tasks = learning();
+    const runKey = randomUUID();
+    const update = {
+      subject,
+      code,
+      taskVersion: 1,
+      runKey,
+      expectedRevision: 0,
+      phase: "reviewing",
+      summary: "Проверяю права доступа.",
+    };
+    const started = await tasks.updateReview(update);
+    expect(started).toMatchObject({
+      ok: true,
+      value: { revision: 1, phase: "reviewing" },
+    });
+    expect(await tasks.updateReview(update)).toEqual(started);
+    expect(await tasks.submissions({ subject: other, code })).toMatchObject({
+      ok: true,
+      value: { reviewProgress: null, submissions: [] },
+    });
+    expect(await tasks.submissions({ subject, code })).toMatchObject({
+      ok: true,
+      value: { submissions: [], reviewProgress: { revision: 1 } },
+    });
+    expect(
+      await tasks.updateReview({ ...update, summary: "Stale" }),
+    ).toMatchObject({ ok: false, error: { code: "review_conflict" } });
+    expect(
+      await tasks.updateReview({
+        ...update,
+        expectedRevision: 1,
+        taskVersion: 2,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "task_version_changed" } });
+    expect(
+      await tasks.updateReview({
+        ...update,
+        expectedRevision: 1,
+        phase: "ready",
+        reviewReport: report(definition, "ownership"),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "report_coverage_mismatch" } });
+    const completed = {
+      ...update,
+      expectedRevision: 1,
+      phase: "ready",
+      reviewReport: report(definition),
+    };
+    expect(await tasks.updateReview(completed)).toMatchObject({
+      ok: true,
+      value: { revision: 2, phase: "ready" },
+    });
+    const submission = {
+      code,
+      taskVersion: 1,
+      submissionKey: randomUUID(),
+      reviewRunKey: runKey,
+      note: "Готово",
+      reviewReport: report(definition),
+    };
+    const saved = await tasks.submit({ subject, source: "mcp", submission });
+    expect(saved.ok).toBe(true);
+    expect(await tasks.submit({ subject, source: "mcp", submission })).toEqual(
+      saved,
+    );
+    expect(await tasks.updateReview(completed)).toMatchObject({
+      ok: false,
+      error: { code: "review_conflict", currentRevision: 3 },
+    });
+    const nextRun = { ...update, runKey: randomUUID(), expectedRevision: 3 };
+    expect(await tasks.updateReview(nextRun)).toMatchObject({
+      ok: true,
+      value: { revision: 4 },
+    });
+    // Even a freshly read revision cannot resurrect an already submitted run.
+    expect(
+      await tasks.updateReview({ ...update, expectedRevision: 4 }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "review_conflict", currentRevision: 4 },
+    });
+    expect(
+      await tasks.updateReview({ ...update, expectedRevision: 2 }),
+    ).toMatchObject({ ok: false, error: { code: "review_conflict" } });
+    expect(await tasks.submissions({ subject, code })).toMatchObject({
+      ok: true,
+      value: {
+        submissions: [expect.objectContaining({ note: "Готово" })],
+        reviewProgress: { revision: 4, reviewReport: null },
+      },
+    });
+    const closed = await imported({ access: "closed" });
+    expect(
+      await tasks.updateReview({ ...update, code: closed.code }),
+    ).toMatchObject({ ok: false, error: { code: "task_not_available" } });
+  });
+
+  test("agent-only guidance is versioned with task requirements and included in complete MCP context", async () => {
+    const body = source();
+    const apply = assembleApplySourceTask(importDependencies());
+    const original = await apply(
+      {
+        ...body,
+        definition: {
+          ...definition,
+          reviewGuidance: "Check tenant isolation using existing reports.",
+        },
+        expectedRevision: null,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    if (!original.ok) throw new Error(original.error.code);
+    const first = await learning().read({
+      subject: await learner(),
+      code: body.code,
+      part: 0,
+    });
+    expect(JSON.stringify(first)).toContain("reviewGuidance");
+    const changed = await apply(
+      {
+        ...body,
+        definition: {
+          ...definition,
+          reviewGuidance: "Check tenant isolation and expired sessions.",
+        },
+        expectedRevision: original.value.revision,
+      },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(changed).toMatchObject({ ok: true, value: { currentVersion: 2 } });
+  });
 
   async function publishedMaterial(access: "free" | "closed") {
     const id = randomUUID();
@@ -416,6 +554,264 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       contextVersion: first.value.contextVersion,
     };
   }
+
+  test("embedded practice revisions preserve requirements and reject another chapter or duplicate owner", async () => {
+    const material = await chapterMaterial(chapterId, 99);
+    const task = await imported();
+    const apply = assembleApplySourceTask(importDependencies());
+    const binding = {
+      ...task.body,
+      programmeVisibility: "embedded",
+      embeddedMaterialSourceId: material.sourceId,
+      expectedRevision: 1,
+    };
+    const saved = await apply(binding, {
+      actor: owner,
+      idempotencyKey: randomUUID(),
+    });
+    expect(saved).toMatchObject({
+      ok: true,
+      value: { revision: 2, currentVersion: 1 },
+    });
+    expect(
+      await db.prisma.productTask.findUnique({ where: { id: task.taskId } }),
+    ).toMatchObject({
+      embeddedMaterialId: material.materialId,
+      programmeVisibility: "embedded",
+    });
+    expect(
+      await apply(
+        { ...binding, expectedRevision: 2 },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: true, value: { revision: 2, currentVersion: 1 } });
+    const duplicate = source();
+    expect(
+      await apply(
+        {
+          ...duplicate,
+          programmeVisibility: "embedded",
+          embeddedMaterialSourceId: material.sourceId,
+          expectedRevision: null,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: false, error: { code: "source_mismatch" } });
+    expect(
+      await apply(
+        { ...binding, chapterId: otherChapterId, expectedRevision: 2 },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toMatchObject({ ok: false, error: { code: "chapter_not_found" } });
+    const page = await learning().materialTask({
+      subject: { kind: "anonymous" },
+      materialId: material.materialId,
+    });
+    expect(page).toMatchObject({
+      ok: true,
+      value: { access: "open", task: { code: task.code } },
+    });
+    const first = partSchema.parse(
+      await learning().read({
+        subject: { kind: "anonymous" },
+        code: task.code,
+      }),
+    );
+    const context = await readAll(learning(), { kind: "anonymous" }, task.code);
+    const practice = z
+      .object({
+        payload: z.object({
+          practice: z.object({
+            materialId: z.string(),
+            complete: z.literal(true),
+            body: z.object({ blocks: z.array(z.unknown()) }),
+          }),
+        }),
+      })
+      .parse(JSON.parse(context.context));
+    expect(practice.payload.practice.materialId).toBe(material.materialId);
+    expect(practice.payload.practice.body.blocks.length).toBeGreaterThan(0);
+    const loaded = await materials.authoring.loadMaterial({
+      actor: owner,
+      materialId: material.materialId,
+    });
+    if (!loaded.ok) throw new Error(loaded.error.code);
+    const updated = await materials.authoring.applySourceMaterial({
+      actor: owner,
+      materialId: material.materialId,
+      source: {
+        id: material.sourceId,
+        path: `reviews/${material.sourceId.slice("inside-content:review-".length)}.md`,
+        revision: "b".repeat(64),
+        showInFeed: false,
+      },
+      primaryVideoId: null,
+      idempotencyKey: randomUUID(),
+      expectedContentVersion: loaded.value.contentVersion,
+      publicationState: "published",
+      body: representativeDocument("Updated full practical explanation"),
+      metadata: {
+        title: "Updated lesson",
+        summary: "Changed",
+        access: "free",
+        topicId,
+        formatId: "guide",
+        tagIds: [],
+        difficulty: null,
+        outcomes: [],
+        seriesIds: [productId],
+      },
+    });
+    if (!updated.ok) throw new Error(JSON.stringify(updated.error));
+    expect(
+      await learning().read({
+        subject: { kind: "anonymous" },
+        code: task.code,
+        expectedContextVersion: first.value.contextVersion,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "task_context_version_mismatch" },
+    });
+    const legacy = await apply(
+      { ...task.body, programmeVisibility: "legacy", expectedRevision: 2 },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(legacy).toMatchObject({
+      ok: true,
+      value: { revision: 3, currentVersion: 1 },
+    });
+    expect(
+      await learning().read({
+        subject: { kind: "anonymous" },
+        code: task.code,
+        expectedContextVersion: first.value.contextVersion,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "task_context_version_mismatch" },
+    });
+    expect(
+      await learning().materialTask({
+        subject: { kind: "anonymous" },
+        materialId: material.materialId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "task_not_found" } });
+    expect(
+      await learning().page({
+        subject: { kind: "anonymous" },
+        code: task.code,
+        productSlug,
+      }),
+    ).toMatchObject({ ok: true, value: { access: "open" } });
+  });
+
+  test("concurrent embedded Task imports claim one lesson without partial versions", async () => {
+    const material = await chapterMaterial(chapterId, 98);
+    const commands = [source(), source()];
+    const apply = assembleApplySourceTask(importDependencies());
+    const results = await Promise.all(
+      commands.map((command) =>
+        apply(
+          {
+            ...command,
+            programmeVisibility: "embedded",
+            embeddedMaterialSourceId: material.sourceId,
+            expectedRevision: null,
+          },
+          { actor: owner, idempotencyKey: randomUUID() },
+        ),
+      ),
+    );
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.find((result) => !result.ok)).toMatchObject({
+      ok: false,
+      error: { code: "source_mismatch" },
+    });
+    expect(
+      await db.prisma.productTask.count({
+        where: { code: { in: commands.map((command) => command.code) } },
+      }),
+    ).toBe(1);
+  });
+
+  test.each(["free", "closed"] as const)(
+    "a bound lesson changed to %s during Task context assembly is never published as stale context",
+    async (access) => {
+      const material = await chapterMaterial(
+        chapterId,
+        access === "free" ? 96 : 97,
+      );
+      const command = source();
+      const saved = await assembleApplySourceTask(importDependencies())(
+        {
+          ...command,
+          programmeVisibility: "embedded",
+          embeddedMaterialSourceId: material.sourceId,
+          expectedRevision: null,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      );
+      expect(saved.ok).toBe(true);
+      const tasks = assembleLearningTasks({
+        prisma: db.prisma,
+        directory,
+        contentAccess,
+        submissionsEnabled: true,
+        materialReader: {
+          read: async (query) => {
+            const snapshot =
+              await materials.publishedMaterialReader.read(query);
+            const loaded = await materials.authoring.loadMaterial({
+              actor: owner,
+              materialId: material.materialId,
+            });
+            if (!loaded.ok) throw new Error(loaded.error.code);
+            const changed = await materials.authoring.applySourceMaterial({
+              actor: owner,
+              materialId: material.materialId,
+              source: {
+                id: material.sourceId,
+                path: `reviews/${material.sourceId.slice("inside-content:review-".length)}.md`,
+                revision: "b".repeat(64),
+                showInFeed: false,
+              },
+              primaryVideoId: null,
+              idempotencyKey: randomUUID(),
+              expectedContentVersion: loaded.value.contentVersion,
+              publicationState: "published",
+              body: representativeDocument("Changed while reading"),
+              metadata: {
+                title: "Changed",
+                summary: "Changed",
+                access,
+                topicId,
+                formatId: "guide",
+                tagIds: [],
+                difficulty: null,
+                outcomes: [],
+                seriesIds: [productId],
+              },
+            });
+            if (!changed.ok) throw new Error(changed.error.code);
+            return snapshot;
+          },
+        },
+      });
+      expect(
+        await tasks.read({
+          subject: { kind: "anonymous" },
+          code: command.code,
+        }),
+      ).toMatchObject({
+        ok: false,
+        error: {
+          code:
+            access === "free" ? "task_content_changed" : "task_not_available",
+        },
+      });
+    },
+  );
 
   test("an import is idempotent; only a changed definition creates a new immutable Task Version", async () => {
     const apply = assembleApplySourceTask(importDependencies());
@@ -1168,6 +1564,15 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
     await db.prisma.publishedMaterialProductMembership.create({
       data: { seriesId: productId, materialId: material.materialId, ordinal },
+    });
+    await db.prisma.productProgrammePlacement.create({
+      data: {
+        id: randomUUID(),
+        productId,
+        materialId: material.materialId,
+        chapterId: chapter,
+        ordinal,
+      },
     });
     return material;
   }

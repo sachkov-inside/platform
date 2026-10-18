@@ -8,6 +8,10 @@ import {
 } from "@playwright/test";
 import { resolve } from "node:path";
 
+import {
+  expectLinearProgrammeReturn,
+  expectProgrammeReturnTarget,
+} from "../support/linear-programme";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
@@ -121,7 +125,8 @@ test("Home filters public products and preserves the reader return", async ({
   );
   await material.click();
   await page
-    .getByRole("link", { name: "Назад на Главную", exact: true })
+    .getByRole("main")
+    .getByRole("link", { name: "Главная", exact: true })
     .click();
   await expect(page).toHaveURL(/\/\?format=guide$/u);
   await expect(
@@ -159,11 +164,12 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       }),
     ),
     nextCursor: z.string().nullable(),
-    totalCount: z.literal(30),
+    totalCount: z.number().int().min(30),
   });
   const slugs: string[] = [];
   let response = await firstPageResponse;
-  for (const pageSize of [12, 12, 6]) {
+  let totalCount: number | undefined;
+  for (;;) {
     expect(response.status()).toBe(200);
     expect(response.headers()["cache-control"]).toBe(
       "public, max-age=30, stale-while-revalidate=60",
@@ -171,7 +177,11 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
     const body = await response.text();
     expect(body).not.toContain("Закрытое содержимое для участников");
     const catalogPage = pageSchema.parse(JSON.parse(body));
-    expect(catalogPage.items).toHaveLength(pageSize);
+    totalCount ??= catalogPage.totalCount;
+    expect(catalogPage.totalCount).toBe(totalCount);
+    expect(catalogPage.items).toHaveLength(
+      Math.min(12, totalCount - slugs.length),
+    );
     slugs.push(...catalogPage.items.map((item) => item.slug));
     await expect(articles).toHaveCount(slugs.length);
     expect(
@@ -182,7 +192,7 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
     expect(await articles.first().getAttribute("data-material-slug")).toBe(
       firstSlug,
     );
-    if (slugs.length < 30) {
+    if (slugs.length < totalCount) {
       expect(catalogPage.nextCursor).not.toBeNull();
       const nextPageResponse = page.waitForResponse((nextResponse) => {
         const url = new URL(nextResponse.url());
@@ -195,9 +205,11 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
       response = await nextPageResponse;
     } else {
       expect(catalogPage.nextCursor).toBeNull();
+      break;
     }
   }
-  expect(new Set(slugs).size).toBe(30);
+  expect(new Set(slugs).size).toBe(totalCount);
+  expect(slugs).toContain("demo-295-samostoyatelnaya-zametka");
   expect(slugs).not.toContain("developer-pipeline-bez-poteri-konteksta");
   await expect(
     feed.getByText("Все материалы загружены", { exact: true }),
@@ -399,7 +411,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     "Как устроен Inside Platform · Sachkov Inside",
   );
   await expect(
-    page.getByRole("link", { name: "Назад на Главную" }).first(),
+    page.getByRole("main").getByRole("link", { name: "Главная" }).first(),
   ).toBeVisible();
   await expect(page.getByRole("main")).toContainText(
     "PostgreSQL хранит current Material",
@@ -408,13 +420,14 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
   // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер
   // после гидрации действия чтения. Стоимость первоначального JavaScript проверяется отдельно.
-  for (const panelName of [
-    "Действия материала",
-    "Действия в конце материала",
+  for (const panel of [
+    page.getByRole("navigation", { name: "Действия материала", exact: true }),
+    page.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
   ]) {
-    const action = page
-      .getByRole("navigation", { name: panelName, exact: true })
-      .locator("[data-reading-action-state]");
+    const action = panel.locator("[data-reading-action-state]");
     await expect(
       action,
       "действие чтения гидрировано и получило ответ /auth/status",
@@ -435,13 +448,14 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
 
-  const outline = page.getByRole("navigation", { name: "В этом материале" });
-  if (!(await outline.isVisible())) {
-    await page.getByLabel(/Содержание:/u).click();
-  }
-  await expect(outline).toBeVisible();
-  await page.getByRole("link", { name: "Проверяемый результат" }).click();
-  await expect(page).toHaveURL(/#.+/u);
+  await expect(
+    page.getByRole("navigation", { name: "В этом материале" }),
+  ).toHaveCount(0);
+  await expect(
+    page
+      .locator("[data-reader-body] h2")
+      .filter({ hasText: "Проверяемый результат" }),
+  ).toBeVisible();
   await framesPresented(page);
 
   const accessibility = await new AxeBuilder({ page })
@@ -503,13 +517,14 @@ test("requires sign-in to save a video reading mark and does not create anonymou
     }
   });
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  for (const panelName of [
-    "Действия материала",
-    "Действия в конце материала",
+  for (const panel of [
+    page.getByRole("navigation", { name: "Действия материала", exact: true }),
+    page.getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    }),
   ]) {
-    const action = page
-      .getByRole("navigation", { name: panelName, exact: true })
-      .locator("[data-reading-action-state]");
+    const action = panel.locator("[data-reading-action-state]");
     await expect(action).toHaveAttribute(
       "data-reading-action-state",
       "anonymous",
@@ -607,11 +622,9 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await signInFullStack(context, "OWNER");
 
   await page.goto("/materials/produkt-i-inzhenernyy-kontekst");
-  const onboardingDismiss = page.getByRole("button", {
-    name: "Закрыть подключение Telegram",
-  });
-  await expect(onboardingDismiss).toBeVisible({ timeout: 10_000 });
-  await onboardingDismiss.click();
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
   const markWatched = page
     .getByRole("navigation", { name: "Действия материала", exact: true })
     .getByRole("button", { name: "Просмотрено", exact: true });
@@ -699,13 +712,11 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     ]),
   });
 
-  await page.addLocatorHandler(onboardingDismiss, async () => {
-    await onboardingDismiss.click();
-  });
   await page.goto("/account");
   await expect(
     page.getByRole("heading", { name: "Редактор Базы знаний" }),
   ).toHaveCount(0);
+  await expectNoTelegramOnboarding(page);
   await captureIssue271Evidence(page, testInfo, "account");
   if (testInfo.project.name === "mobile-chromium") {
     await page.goto("/authoring/materials");
@@ -774,7 +785,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("article")
     .filter({ hasText: "Developer Pipeline без потери контекста" });
   await expect(
-    page.getByRole("link", { name: "Назад на Главную" }),
+    page.getByRole("main").getByRole("link", { name: "Главная" }),
   ).toHaveAttribute("href", "/");
   await expect(
     page.getByRole("heading", { level: 1, name: "Platform" }),
@@ -884,43 +895,23 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("link", { name: "Как устроен Inside Platform", exact: true })
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
-  expect(new URL(page.url()).searchParams.get("from")).toBe(
+  const programmeReturnHref = expectProgrammeReturnTarget(
+    new URL(page.url()).searchParams.get("from"),
     "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
-  const programmeReturnHref =
-    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform";
-  const course = page.locator("[data-course-reading]:visible");
-  await expect(
-    course.getByRole("navigation", { name: "Действия материала", exact: true }),
-  ).toHaveCount(1);
-  await expect(
-    course.getByRole("navigation", {
-      name: "Действия в конце материала",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await expect(
-    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
-  ).toBeVisible();
-  const programmeAction =
-    testInfo.project.name === "mobile-chromium"
-      ? course.getByRole("button", { name: "Вся программа", exact: true })
-      : course.getByRole("link", { name: "Вся программа", exact: true });
-  await expect(programmeAction).toBeVisible();
-  if (testInfo.project.name !== "mobile-chromium")
-    await expect(programmeAction).toHaveAttribute("href", programmeReturnHref);
+  const programmeAction = await expectLinearProgrammeReturn(
+    page,
+    testInfo.project.name === "mobile-chromium",
+    programmeReturnHref,
+  );
   await expect(
     page.getByRole("link", { name: "Все материалы продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Platform", exact: true }),
-  ).toHaveAttribute("href", "/topics/platform");
-  await expect(
-    page.getByRole("link", { name: "Назад к программе" }),
-  ).toHaveCount(0);
-  await expect(
-    course.getByRole("navigation", { name: "Шаги курса", exact: true }),
-  ).not.toContainText("· №");
+    page
+      .locator("[data-reader-header]")
+      .getByRole("link", { name: "Platform", exact: true }),
+  ).toHaveCount(1);
 
   await expect(page).toHaveTitle(
     "Как устроен Inside Platform · Sachkov Inside",
@@ -929,13 +920,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
   await captureIssue271Evidence(page, testInfo, "reader");
-  if (testInfo.project.name === "mobile-chromium") {
-    await programmeAction.click();
-    await course
-      .getByRole("dialog")
-      .getByRole("link", { name: "Страница программы" })
-      .click();
-  } else await programmeAction.click();
+  await programmeAction.click();
   await expect(page).toHaveURL(new URL(programmeReturnHref, page.url()).href);
   await expect(programme).toHaveCount(1);
   await expect(representativeSeriesItem).toHaveCount(1);
@@ -948,25 +933,24 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
 
 test("uses the selected Series order for a shared Material and leaves standalone reading independent", async ({
   page,
-}, testInfo) => {
+}) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
   await page.goto("/products/demo-series-harness/programme");
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
-  const harnessNext = readerNextLink(page, testInfo);
+  const harnessNext = readerNextLink(page);
   await expect(harnessNext).toHaveAttribute(
     "href",
     /\/materials\/demo-295-finalnyy-gayd\?/u,
   );
   await expect(harnessNext).toHaveCount(1);
   await expect(harnessNext).toBeVisible();
-  expect(
+  expectProgrammeReturnTarget(
     new URL(
       (await harnessNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-  ).toBe(
     "/products/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await page.goBack();
@@ -978,19 +962,18 @@ test("uses the selected Series order for a shared Material and leaves standalone
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
-  const mixedNext = readerNextLink(page, testInfo);
+  const mixedNext = readerNextLink(page);
   await expect(mixedNext).toHaveAttribute(
     "href",
     /\/materials\/demo-295-video-razbor\?/u,
   );
   await expect(mixedNext).toHaveCount(1);
   await expect(mixedNext).toBeVisible();
-  expect(
+  expectProgrammeReturnTarget(
     new URL(
       (await mixedNext.getAttribute("href")) ?? "",
       page.url(),
     ).searchParams.get("from"),
-  ).toBe(
     "/products/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await mixedNext.click();
@@ -1010,14 +993,14 @@ test("uses the selected Series order for a shared Material and leaves standalone
     page.getByRole("navigation", { name: "Уроки продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "Назад на Главную" }).first(),
+    page.getByRole("main").getByRole("link", { name: "Главная" }).first(),
   ).toBeVisible();
 });
 
-function readerNextLink(page: Page, _testInfo: TestInfo) {
+function readerNextLink(page: Page) {
   return page
-    .getByRole("navigation", { name: "Шаги курса", exact: true })
-    .getByRole("link", { name: /^Следующий шаг/u });
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Следующий урок", exact: true });
 }
 
 async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
@@ -1047,7 +1030,7 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   });
   await expect(breadcrumb).toHaveCount(1);
   await expect(breadcrumb).toBeVisible();
-  const back = breadcrumb.getByRole("link", {
+  const back = product.getByRole("link", {
     name: "Назад к теме",
     exact: true,
   });
@@ -1103,6 +1086,12 @@ async function expectNoHorizontalOverflow(page: Page) {
     scrollWidth: element.scrollWidth,
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+}
+
+async function expectNoTelegramOnboarding(page: Page) {
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
 }
 
 async function captureIssue93Evidence(

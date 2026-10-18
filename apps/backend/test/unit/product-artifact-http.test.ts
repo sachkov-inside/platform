@@ -1,4 +1,6 @@
-import type { MultipartFile } from "@fastify/multipart";
+import multipart, { type MultipartFile } from "@fastify/multipart";
+import Fastify from "fastify";
+import { createHash } from "node:crypto";
 import { HttpException } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { describe, expect, test, vi } from "vitest";
@@ -32,6 +34,127 @@ const artifact = {
 };
 
 describe("Product Artifact HTTP controllers", () => {
+  test("imports a real multipart Markdown artifact beyond the API default part budget", async () => {
+    const sourceId = "inside-content:aie-customer-brief";
+    const productSourceId = "inside-content:inside-ai-engineering";
+    const outcome = {
+      artifactId,
+      outcome: "created" as const,
+      sourceId,
+      title: "Бриф заказчика (.md)",
+    };
+    const apply = vi
+      .fn<ProductArtifacts["applyAuthoringImport"]>()
+      .mockResolvedValue({ ok: true, value: { outcomes: [outcome] } });
+    const controller = authoringController({ applyAuthoringImport: apply });
+    const server = Fastify();
+    // The API has a small global budget; each upload must declare its full form budget.
+    await server.register(multipart, {
+      limits: { fields: 4, files: 1, parts: 5 },
+    });
+    server.post("/import", async (request, reply) => {
+      try {
+        return await reply
+          .code(201)
+          .send(await controller.importFromSource(account, productId, request));
+      } catch (error) {
+        if (error instanceof HttpException)
+          return await reply.code(error.getStatus()).send(error.getResponse());
+        throw error;
+      }
+    });
+    try {
+      const bytes = new TextEncoder().encode(
+        "# Бриф заказчика\n\nТребования компании.\n",
+      );
+      const form = new FormData();
+      for (const [name, value] of Object.entries({
+        productSourceId,
+        sourceId,
+        title: outcome.title,
+        purpose: "",
+        access: "closed",
+        declaredSize: String(bytes.length),
+        checksumSha256: createHash("sha256").update(bytes).digest("hex"),
+      }))
+        form.set(name, value);
+      form.set(
+        "file",
+        new Blob([bytes], { type: "text/markdown" }),
+        "customer-brief.md",
+      );
+      const request = new Request("http://inside.local/import", {
+        method: "POST",
+        body: form,
+      });
+      const response = await server.inject({
+        method: "POST",
+        url: "/import",
+        headers: { "content-type": request.headers.get("content-type") ?? "" },
+        payload: Buffer.from(await request.arrayBuffer()),
+      });
+      expect(response.statusCode, response.body).toBe(201);
+      expect(response.json()).toEqual(outcome);
+      const submitted = apply.mock.calls[0]?.[0];
+      expect(submitted).toMatchObject({
+        actor: account.accountId,
+        productId,
+        productSourceId,
+      });
+      expect(submitted?.artifacts[0]).toMatchObject({
+        sourceId,
+        access: "closed",
+        purpose: "",
+      });
+      expect(submitted?.artifacts[0]?.file).toMatchObject({
+        filename: "customer-brief.md",
+        declaredContentType: "text/markdown",
+        body: Buffer.from(bytes),
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  test("maps the source-scoped binding and preserves the trusted actor", async () => {
+    const attachImportedMaterials = vi
+      .fn<ProductArtifacts["attachImportedMaterials"]>()
+      .mockResolvedValue({ ok: true, value: artifact });
+    const controller = authoringController({ attachImportedMaterials });
+    const body = {
+      productSourceId: "inside-content:product",
+      sourceId: "inside-content:brief",
+      materialIds: ["30000000-0000-4000-8000-000000000001"],
+    };
+    await expect(
+      controller.attachImportedMaterials(account, productId, artifactId, body),
+    ).resolves.toMatchObject({ artifactId });
+    expect(attachImportedMaterials).toHaveBeenCalledWith({
+      ...body,
+      actor: account.accountId,
+      productId,
+      artifactId,
+    });
+    await expectHttpProblem(
+      controller.attachImportedMaterials(account, productId, artifactId, {
+        ...body,
+        actor: "untrusted",
+      }),
+      422,
+      "invalid_artifact",
+    );
+    expect(attachImportedMaterials).toHaveBeenCalledOnce();
+    attachImportedMaterials.mockResolvedValueOnce({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    await expectHttpProblem(
+      controller.attachImportedMaterials(account, productId, artifactId, body),
+      403,
+      "forbidden",
+    );
+  });
+
   test("passes validated multipart metadata and the trusted actor to the facet", async () => {
     const create = vi
       .fn<ProductArtifacts["create"]>()

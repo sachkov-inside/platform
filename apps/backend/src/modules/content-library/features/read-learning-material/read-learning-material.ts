@@ -1,3 +1,4 @@
+import type { LearningTasks } from "../../../product-tasks/index.js";
 import { randomUUID } from "node:crypto";
 import {
   materialBlockChildren,
@@ -18,6 +19,7 @@ export async function readLearningMaterial(
   dependencies: {
     readonly reader: Pick<PublishedMaterialReader, "read">;
     readonly contentAccess: ContentAccess;
+    readonly tasks?: Pick<LearningTasks, "materialTask">;
   },
   query: {
     readonly subject: Subject;
@@ -114,6 +116,9 @@ export async function readLearningMaterial(
           correlationId: randomUUID(),
         })
       : undefined;
+  const task = await dependencies.tasks?.materialTask({ subject, materialId });
+  if (task !== undefined && !task.ok && task.error.code !== "task_not_found")
+    return task;
   // Asset/video presentation loading can span a Save or access revocation. Recheck the
   // same version before publishing any body, without claiming an immutable archive.
   const current = await dependencies.contentAccess.authorize({
@@ -143,6 +148,18 @@ export async function readLearningMaterial(
   return {
     ok: true as const,
     value: {
+      ...(task?.ok !== true
+        ? {}
+        : {
+            practiceTask:
+              task.value.access === "open"
+                ? {
+                    code: task.value.task.code,
+                    taskVersion: task.value.task.version,
+                    readTool: "learning_task_read",
+                  }
+                : { availability: "locked" },
+          }),
       materialId,
       slug: material.projection.slug,
       title: material.projection.title,

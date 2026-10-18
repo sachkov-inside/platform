@@ -1,28 +1,11 @@
-import { internalRoute } from "@/shared/routing/internal-route";
-import Link from "next/link";
-import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Bot,
-  Check,
-  ChevronDown,
-  CircleCheck,
-  Eye,
-  FileText,
-  Flag,
-  LockKeyhole,
-  MessageSquareText,
-} from "lucide-react";
+import { learnerMcpConnectPrompt } from "@/features/learner-mcp";
+import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
+import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
+import { ArrowRight, Check, ChevronDown, LockKeyhole } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import type { ReactNode } from "react";
 
 import { materialSourceAnchors } from "@/entities/material";
-import {
-  formatSubmissionDay,
-  formatSubmissionMoment,
-  productTaskAgentPhrase,
-} from "@/entities/product-task";
 import {
   CourseReadingLayout,
   CourseReadingHeader,
@@ -31,12 +14,15 @@ import {
 } from "@/features/library-discovery";
 import styles from "./product-task-view.module.css";
 import { TaskPageBody } from "./task-page-body";
+import { TaskRelatedMaterials } from "./task-related-materials.client";
 
-import { ProductTaskForm } from "@/features/product-task-submission";
+import { TaskSubmissionWorkspace } from "@/features/product-task-submission";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
-import { materialPath } from "@/shared/routing/public-page-path";
-import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import {
+  productProgrammeHref,
+  productTaskHref,
+} from "@/shared/routing/subscription-route";
 
 import type {
   ProductTaskPlace,
@@ -44,7 +30,6 @@ import type {
   OwnSubmissionsView,
   TaskCriterion,
 } from "../model/product-task-page";
-import { AgentPhrase } from "./agent-phrase.client";
 
 export interface ProductTaskViewProps {
   readonly page: OpenProductTask;
@@ -52,17 +37,23 @@ export interface ProductTaskViewProps {
   readonly submissions: OwnSubmissionsView;
   /** The learner MCP address from web configuration (#938). */
   readonly learnerMcpUrl: string;
+  readonly learnerMcpSetupUrl?: string;
+  readonly liveSubmissions?: boolean;
+  readonly attemptsAfter?: string;
+  readonly accountId?: string | null;
   /** Where sign-in returns a guest: this task page. */
   readonly returnTo: string;
 }
 
 /**
- * The Product Task page, variant A «Документ» accepted by the owner on 05.10.2026 (#947): one column
- * like a Reader lesson, the parts in order, «Сдача» inside the text with the fallback form folded,
- * then «Мои сдачи» and the related Materials.
+ * The authored task remains a document. The page owns a separate submission workspace (#1504).
  */
 export function ProductTaskView({
   learnerMcpUrl,
+  learnerMcpSetupUrl = "/practice-review-setup.txt",
+  liveSubmissions = true,
+  attemptsAfter,
+  accountId = null,
   page,
   returnTo,
   submissions,
@@ -75,139 +66,12 @@ export function ProductTaskView({
   const pageId = (id: string) => (sourceIds.has(id) ? `${id}:page` : id);
   const criteria = task.definition.criteria;
   const additional = criteria.some(({ level }) => level === "additional");
-  const parts =
-    "format" in task.definition
-      ? ([
-          ["submit", "Сдать"],
-          ["mine", "Мои сдачи"],
-        ] as const)
-      : ([
-          ["situation", "Ситуация"],
-          ["result", "Результат"],
-          ["required", "Обязательно"],
-          ...(additional ? [["additional", "Дополнительно"] as const] : []),
-          ["freedom", "Свобода"],
-          ["submit", "Сдача"],
-          ["mine", "Мои сдачи"],
-        ] as const);
-  const latest =
-    submissions.kind === "ready"
-      ? (submissions.latestSubmittedAt ?? undefined)
-      : undefined;
-  const submissionBlock = (
-    <section
-      aria-labelledby={
-        "format" in task.definition ? undefined : pageId("task-submit-heading")
-      }
-      aria-label={"format" in task.definition ? "Сдать" : undefined}
-      className={styles["submission"]}
-      id={pageId("task-submit")}
-    >
-      {"format" in task.definition ? null : (
-        <h2
-          className="text-xl font-semibold tracking-[-0.015em]"
-          id={pageId("task-submit-heading")}
-        >
-          Сдача
-        </h2>
-      )}
-      <p className="mt-2 text-[0.9375rem] leading-7 text-body-muted">
-        Сдаёт твой агент: он проверит проект по критериям и отправит отчёт с
-        твоего согласия.
-      </p>
-      {page.submission.accepting ? null : (
-        <p
-          className="mt-4 rounded-xl border border-[color-mix(in_srgb,var(--callout-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--callout-warning)_10%,transparent)] px-4 py-3 text-sm leading-6"
-          role="status"
-        >
-          Приём сдач скоро откроется. Агент уже может проверить проект, но
-          отправить сдачу пока нельзя.
-        </p>
-      )}
-      <ol className="mt-5 grid gap-5 text-base">
-        <SubmitStep number={1} title="Подключи учебный MCP к своему агенту">
-          <p className="text-sm leading-6 text-body-muted">
-            Один раз для всех заданий. Подходит Claude Code, Codex, OpenCode и
-            другой агент с MCP по HTTP. Войди тем же аккаунтом, что и на сайте.
-          </p>
-          <p className="mt-2 rounded-lg bg-card px-3 py-2 font-mono text-[0.8125rem] [overflow-wrap:anywhere]">
-            {learnerMcpUrl}
-          </p>
-          <a
-            className="mt-1 inline-flex min-h-11 items-center gap-1 text-sm font-medium underline underline-offset-4"
-            href="/practice-review-setup.txt"
-            rel="noreferrer"
-            target="_blank"
-          >
-            Инструкция подключения
-            <ArrowRight aria-hidden="true" className="size-4" />
-          </a>
-        </SubmitStep>
-        <SubmitStep number={2} title="Передай агенту эту фразу">
-          <AgentPhrase text={productTaskAgentPhrase(task.code)} />
-        </SubmitStep>
-        <SubmitStep number={3} title="Проверь отчёт и подтверди отправку">
-          <p className="text-sm leading-6 text-body-muted">
-            Агент прочитает задание и проект, ничего не меняя. Команду он
-            запустит, только если ты разрешишь именно её. Перед отправкой агент
-            покажет весь отчёт и поможет написать заметку в 5–7 строк.
-          </p>
-        </SubmitStep>
-      </ol>
-      <Disclosure
-        className="mt-5"
-        title="Процедура проверки, которую получает агент"
-      >
-        <p className="text-sm leading-6 text-body-muted">
-          Тот же текст отдаёт учебный MCP. Версия процедуры{" "}
-          {page.reviewProtocol.version}.
-        </p>
-        <ol
-          className="mt-3 grid list-decimal gap-2 pl-5 font-mono text-[0.75rem] leading-5 text-body-muted"
-          lang="en"
-        >
-          {page.reviewProtocol.instructions.map((line, index) => (
-            <li key={String(index)}>{line}</li>
-          ))}
-        </ol>
-      </Disclosure>
-      <Disclosure
-        className="mt-3 bg-card"
-        dataAttribute="fallback-form"
-        title="Нет агента с MCP? Сдать через форму"
-      >
-        {submissions.kind === "guest" ? (
-          <SignIn
-            explanation="Сдача сохраняется в твоём аккаунте. Войди, чтобы отправить её."
-            returnTo={returnTo}
-          />
-        ) : (
-          <ProductTaskForm
-            accepting={page.submission.accepting}
-            code={task.code}
-            taskVersion={task.version}
-          />
-        )}
-      </Disclosure>
-    </section>
-  );
-  const mineBlock = (
-    <TaskSection
-      id="mine"
-      sectionId={pageId("task-mine")}
-      headingId={pageId("task-mine-heading")}
-      title="Мои сдачи"
-    >
-      <OwnSubmissions
-        historyAnchor={pageId("task-mine")}
-        currentVersion={task.version}
-        returnTo={returnTo}
-        submissions={submissions}
-      />
-    </TaskSection>
-  );
+
   return (
     <CourseReadingLayout context={programme}>
+      <ReaderHistoryTracker
+        path={productTaskHref(task.product.slug, task.code)}
+      />
       <div
         className={cn("@container/task", styles["task"])}
         data-product-task={task.code}
@@ -220,75 +84,28 @@ export function ProductTaskView({
             <h1 className="mt-4 break-words text-balance text-2xl font-semibold leading-[1.18] tracking-[-0.025em] md:text-[1.75rem] md:leading-[1.2]">
               {task.page?.title ?? task.title}
             </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-              {submissions.kind !== "ready" ? null : latest === undefined ? (
-                <span className="inline-flex min-h-8 items-center rounded-full bg-muted px-3 font-medium">
-                  Ещё не сдано
-                </span>
-              ) : (
-                <span
-                  className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--callout-good)_14%,transparent)] px-3 font-semibold text-[color:var(--callout-good)]"
-                  data-task-submitted
-                >
-                  <CircleCheck aria-hidden="true" className="size-4" />
-                  Сдано {formatSubmissionDay(latest)}
-                </span>
-              )}
-              <span>Требования: версия {task.version}</span>
-            </div>
-            <nav
-              aria-label="Части задания"
-              className="mt-5 flex flex-wrap gap-2"
-            >
-              {parts.map(([id, label]) => (
-                <a
-                  className="inline-flex min-h-9 items-center rounded-full border border-border px-3 text-sm no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                  href={`#${pageId(`task-${id}`)}`}
-                  key={id}
-                >
-                  {label}
-                </a>
-              ))}
-            </nav>
           </header>
         ) : (
           <div data-task-header>
             <CourseReadingHeader
               context={programme}
               title={task.page?.title ?? task.title}
-              metadata={
-                <>
-                  <span>Задание</span>
-                  <span>{task.product.name}</span>
-                  <span>Требования: версия {task.version}</span>
-                </>
-              }
-              actions={
-                <>
-                  {submissions.kind !== "ready" ? null : (
-                    <span
-                      data-task-submitted={
-                        latest === undefined ? undefined : "true"
-                      }
-                    >
-                      {latest === undefined
-                        ? "Ещё не сдано"
-                        : `Сдано ${formatSubmissionDay(latest)}`}
-                    </span>
-                  )}
-                  <a
-                    href={`#${pageId("task-submit")}`}
-                    className={styles["submitLink"]}
-                  >
-                    Сдать
-                  </a>
-                </>
-              }
+              metadata={null}
             />
           </div>
         )}
 
         <div className={styles["body"]}>
+          {task.page === undefined ? (
+            <TaskRelatedMaterials
+              anchor={{ kind: "task", code: task.code }}
+              headingId={pageId("task-related-heading")}
+              materials={page.relatedMaterials}
+              returnTo={
+                programme?.href ?? productProgrammeHref(task.product.slug)
+              }
+            />
+          ) : null}
           {task.page === undefined ? (
             <>
               <TaskSection id="situation" title="Ситуация">
@@ -343,59 +160,27 @@ export function ProductTaskView({
               page={task.page}
               code={task.code}
               productSlug={task.product.slug}
-            >
-              {submissionBlock}
-              {mineBlock}
-            </TaskPageBody>
-          )}
-
-          {task.page === undefined ? (
-            <>
-              {submissionBlock}
-              {mineBlock}
-            </>
-          ) : null}
-
-          {task.page !== undefined ||
-          page.relatedMaterials.length === 0 ? null : (
-            <section aria-labelledby={pageId("task-related-heading")}>
-              <h2
-                className="text-xl font-semibold tracking-[-0.015em]"
-                id={pageId("task-related-heading")}
-              >
-                Материалы к заданию
-              </h2>
-              <ul className="mt-3 grid gap-2">
-                {page.relatedMaterials.map((material) => (
-                  <li key={material.slug}>
-                    <IntentPrefetchLink
-                      className="flex min-h-11 items-center gap-3 sm:min-h-14 rounded-xl bg-muted/65 px-4 py-2 text-base no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                      href={materialPath(material.slug)}
-                    >
-                      <span className="min-w-0 flex-1 text-sm font-medium leading-6 [overflow-wrap:anywhere]">
-                        {material.title}
-                      </span>
-                      {material.availability === "available" ? (
-                        <ArrowRight
-                          aria-hidden="true"
-                          className="size-4 shrink-0 text-muted-foreground"
-                        />
-                      ) : (
-                        <>
-                          <LockKeyhole
-                            aria-hidden="true"
-                            className="size-4 shrink-0 text-muted-foreground"
-                          />
-                          <span className="sr-only">Нужен доступ</span>
-                        </>
-                      )}
-                    </IntentPrefetchLink>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              relatedMaterials={page.relatedMaterials}
+              returnTo={
+                programme?.href ?? productProgrammeHref(task.product.slug)
+              }
+            />
           )}
         </div>
+        <TaskSubmissionWorkspace
+          connectionPrompt={learnerMcpConnectPrompt(learnerMcpSetupUrl)}
+          code={task.code}
+          version={task.version}
+          accepting={page.submission.accepting}
+          history={submissions}
+          learnerMcpUrl={learnerMcpUrl}
+          learnerMcpSetupUrl={learnerMcpSetupUrl}
+          liveSubmissions={liveSubmissions}
+          attemptsAfter={attemptsAfter}
+          accountId={accountId}
+          returnTo={returnTo}
+          conflictingAnchorIds={[...sourceIds]}
+        />
         {programme === null ? null : (
           <CourseReadingFooter context={programme} />
         )}
@@ -417,6 +202,9 @@ export function ProductTaskClosed({
 }) {
   return (
     <CourseReadingLayout context={programme}>
+      <ReaderHistoryTracker
+        path={productTaskHref(task.product.slug, task.code)}
+      />
       <div
         className={styles["task"]}
         data-product-task={task.code}
@@ -435,13 +223,7 @@ export function ProductTaskClosed({
             <CourseReadingHeader
               context={programme}
               title={task.title}
-              metadata={
-                <>
-                  <span>Задание</span>
-                  <span>{task.product.name}</span>
-                  <span>Доступ закрыт</span>
-                </>
-              }
+              metadata={null}
             />
           </div>
         )}
@@ -499,26 +281,28 @@ export function ProductTaskClosed({
 
 function TaskBackLink({ task }: { readonly task: ProductTaskPlace }) {
   return (
-    <nav aria-label="Путь навигации" className="pt-4" data-task-return>
-      <IntentPrefetchLink
-        className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground"
-        href={productProgrammeHref(task.product.slug)}
-      >
-        <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-        <span>{task.product.name} · программа</span>
-      </IntentPrefetchLink>
-    </nav>
+    <div data-task-return>
+      <Breadcrumbs
+        items={[
+          {
+            label: task.product.name,
+            href: productProgrammeHref(task.product.slug),
+          },
+          {
+            label: `Глава ${String(task.chapter.ordinal)}`,
+            fullLabel: task.chapter.name,
+            href: productProgrammeHref(task.product.slug),
+          },
+          { label: task.title },
+        ]}
+      />
+    </div>
   );
 }
 
 function TaskEyebrow({ task }: { readonly task: ProductTaskPlace }) {
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5 font-semibold text-[color:var(--callout-task)]">
-        <Flag aria-hidden="true" className="size-4" />
-        Задание
-      </span>
-      <span aria-hidden="true">·</span>
       <span>
         Глава {task.chapter.ordinal}. {task.chapter.name}
       </span>
@@ -590,56 +374,6 @@ function CriteriaList({
   );
 }
 
-function SubmitStep({
-  children,
-  number,
-  title,
-}: {
-  readonly children: ReactNode;
-  readonly number: number;
-  readonly title: string;
-}) {
-  return (
-    <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-x-3">
-      <span
-        aria-hidden="true"
-        className="grid size-8 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground"
-      >
-        {number}
-      </span>
-      <div className="min-w-0">
-        <h3 className="flex min-h-8 items-center font-semibold">{title}</h3>
-        <div className="mt-1">{children}</div>
-      </div>
-    </li>
-  );
-}
-
-function Disclosure({
-  children,
-  className = "",
-  dataAttribute,
-  title,
-}: {
-  readonly children: ReactNode;
-  readonly className?: string;
-  readonly dataAttribute?: string;
-  readonly title: string;
-}) {
-  return (
-    <details
-      className={`group rounded-xl border border-border ${className}`}
-      data-task-disclosure={dataAttribute}
-    >
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
-        {title}
-        <Chevron />
-      </summary>
-      <div className="px-4 pb-4 text-base">{children}</div>
-    </details>
-  );
-}
-
 /** The summary of a small inline disclosure: muted text and a chevron that turns when open. */
 function InlineSummary({
   children,
@@ -664,210 +398,5 @@ function Chevron() {
       aria-hidden="true"
       className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
     />
-  );
-}
-
-function SignIn({
-  explanation,
-  returnTo,
-}: {
-  readonly explanation: string;
-  readonly returnTo: string;
-}) {
-  return (
-    <div className="grid justify-items-start gap-3">
-      <p className="text-sm leading-6 text-body-muted">{explanation}</p>
-      <form action="/auth/sign-in" method="post">
-        <input name="returnTo" type="hidden" value={returnTo} />
-        <Button className="min-h-11" type="submit" variant="outline">
-          Войти
-        </Button>
-      </form>
-    </div>
-  );
-}
-
-function OwnSubmissions({
-  currentVersion,
-  historyAnchor,
-  returnTo,
-  submissions,
-}: {
-  readonly currentVersion: number;
-  readonly historyAnchor: string;
-  readonly returnTo: string;
-  readonly submissions: OwnSubmissionsView;
-}) {
-  if (submissions.kind === "guest")
-    return (
-      <SignIn
-        explanation="Здесь будут твои сдачи, комментарий автора и отметка «посмотрел автор»."
-        returnTo={returnTo}
-      />
-    );
-  if (submissions.kind === "unavailable")
-    return (
-      <p className="text-sm leading-6 text-muted-foreground" role="status">
-        Сдачи сейчас не загрузились.
-        <RetryPageButton />
-        <Link href={internalRoute(`${returnTo}#${historyAnchor}`)}>
-          К новым сдачам
-        </Link>
-      </p>
-    );
-  if (submissions.submissions.length === 0 && submissions.continued === true)
-    return (
-      <p>
-        Более ранних сдач нет.{" "}
-        <Link href={internalRoute(`${returnTo}#${historyAnchor}`)}>
-          К новым сдачам
-        </Link>
-      </p>
-    );
-  if (submissions.submissions.length === 0)
-    return (
-      <p className="rounded-xl border border-dashed border-border px-4 py-5 text-sm leading-6 text-muted-foreground">
-        Здесь появятся твои сдачи, комментарий автора и отметка «посмотрел
-        автор». Сдавать можно сколько угодно раз: прежние сдачи остаются.
-      </p>
-    );
-  const criteriaOf = new Map(
-    submissions.versions.map((version) => [version.version, version.criteria]),
-  );
-  return (
-    <>
-      <ol className="grid border-l-2 border-border" data-own-submissions>
-        {submissions.submissions.map((submission) => {
-          const criteria = criteriaOf.get(submission.taskVersion) ?? [];
-          const feedback = submission.authorFeedback;
-          return (
-            <li
-              className="relative pb-8 pl-6 last:pb-0"
-              data-submission={submission.submissionId}
-              key={submission.submissionId}
-            >
-              <span
-                aria-hidden="true"
-                className="absolute -left-[0.45rem] top-2 size-3 rounded-full border-2 border-background bg-accent"
-              />
-              <h3 className="font-semibold">
-                <time dateTime={submission.submittedAt}>
-                  {formatSubmissionMoment(submission.submittedAt)}
-                </time>
-              </h3>
-              <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {submission.source === "mcp" ? (
-                  <span className="inline-flex items-center gap-1">
-                    <Bot aria-hidden="true" className="size-3.5" />
-                    Через агента
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1">
-                    <FileText aria-hidden="true" className="size-3.5" />
-                    Через форму
-                  </span>
-                )}
-                <span>
-                  Версия требований {submission.taskVersion}
-                  {submission.taskVersion === currentVersion
-                    ? ""
-                    : ` (сейчас ${String(currentVersion)})`}
-                </span>
-                {submission.repositoryUrl === null ? null : (
-                  <span className="[overflow-wrap:anywhere]">
-                    {submission.repositoryUrl.replace(/^https?:\/\//u, "")}
-                  </span>
-                )}
-              </p>
-              <p className="mt-3 whitespace-pre-line text-[0.9375rem] leading-7 text-body-muted [overflow-wrap:anywhere]">
-                {submission.note}
-              </p>
-              <div className="mt-3 grid gap-2">
-                {feedback === null || feedback.reviewedAt === null ? null : (
-                  <p className="inline-flex items-center gap-1.5 text-sm font-medium text-[color:var(--callout-good)]">
-                    <Eye aria-hidden="true" className="size-4" />
-                    Посмотрел автор {formatSubmissionDay(feedback.reviewedAt)}
-                  </p>
-                )}
-                {feedback === null || feedback.comment === null ? null : (
-                  <figure className="rounded-xl bg-[color-mix(in_srgb,var(--accent)_8%,var(--card))] px-4 py-3 text-[0.9375rem] leading-7">
-                    <figcaption className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-action">
-                      <MessageSquareText
-                        aria-hidden="true"
-                        className="size-3.5"
-                      />
-                      Комментарий автора
-                    </figcaption>
-                    <blockquote className="whitespace-pre-line [overflow-wrap:anywhere]">
-                      {feedback.comment}
-                    </blockquote>
-                  </figure>
-                )}
-                {feedback === null ? (
-                  <p className="text-sm text-muted-foreground">
-                    Автор ещё не смотрел.
-                  </p>
-                ) : null}
-              </div>
-              {submission.reportText === null ? null : (
-                <details className="group mt-2">
-                  <InlineSummary>Мой отчёт</InlineSummary>
-                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-body-muted [overflow-wrap:anywhere]">
-                    {submission.reportText}
-                  </p>
-                </details>
-              )}
-              {criteria.length === 0 ? null : (
-                <details className="group mt-1">
-                  <InlineSummary>
-                    Критерии версии {submission.taskVersion}
-                    {submission.taskVersion === currentVersion
-                      ? " (текущей)"
-                      : ""}
-                  </InlineSummary>
-                  <div className="mt-2 grid gap-3 text-sm leading-6">
-                    <p className="font-semibold">Обязательно</p>
-                    <CriteriaList
-                      compact
-                      criteria={criteria}
-                      level="required"
-                    />
-                    {criteria.some(({ level }) => level === "additional") ? (
-                      <>
-                        <p className="font-semibold">Дополнительно</p>
-                        <CriteriaList
-                          compact
-                          criteria={criteria}
-                          level="additional"
-                        />
-                      </>
-                    ) : null}
-                  </div>
-                </details>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      <nav
-        aria-label="Страницы моих сдач"
-        className="mt-5 flex flex-wrap gap-4 text-sm"
-      >
-        {submissions.continued === true ? (
-          <Link href={internalRoute(`${returnTo}#${historyAnchor}`)}>
-            К новым сдачам
-          </Link>
-        ) : null}
-        {submissions.nextCursor === null ? null : (
-          <Link
-            href={internalRoute(
-              `${returnTo}?attemptsAfter=${encodeURIComponent(submissions.nextCursor)}#${historyAnchor}`,
-            )}
-          >
-            Предыдущие сдачи
-          </Link>
-        )}
-      </nav>
-    </>
   );
 }

@@ -8,6 +8,41 @@ const selectedSeries = parseMaterialReaderReturnTarget(
 );
 
 describe("Series Reader context", () => {
+  it("keeps project references outside curricular positions", () => {
+    const series = {
+      kind: "ready" as const,
+      reference: { name: "Course", slug: "platform-inside" },
+      chapters: [
+        { id: "main", name: "Глава", summary: "", materialIds: ["lesson"] },
+      ],
+      items: [
+        { materialId: "brief", slug: "aie-product-brief", title: "Бриф" },
+        { materialId: "lesson", slug: "lesson", title: "Урок" },
+      ],
+    };
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "aie-product-brief",
+        returnTarget: selectedSeries,
+        series,
+      }),
+    ).toMatchObject({
+      supplementary: true,
+      programme: {
+        activeReferenceId: "reference:aie-product-brief",
+        currentPosition: 0,
+        totalMaterials: 1,
+      },
+    });
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "lesson",
+        returnTarget: selectedSeries,
+        series,
+      }),
+    ).toMatchObject({ currentPosition: 1, totalMaterials: 1 });
+  });
+
   it.each([undefined, "/", "/products/other"])(
     "does not guess a product from memberships when from is %s",
     (from) => {
@@ -127,6 +162,28 @@ describe("Series Reader context", () => {
     });
   });
 
+  it("preserves linear navigation for an explicit empty chapter list", () => {
+    expect(
+      resolveSeriesReaderContext({
+        currentMaterialSlug: "first",
+        returnTarget: selectedSeries,
+        series: {
+          kind: "ready",
+          reference: { name: "Selected", slug: "platform-inside" },
+          chapters: [],
+          items: [
+            { slug: "first", title: "First" },
+            { slug: "next", title: "Next" },
+          ],
+        },
+      }),
+    ).toMatchObject({
+      currentPosition: 1,
+      totalMaterials: 2,
+      next: { title: "Next" },
+    });
+  });
+
   it("uses the complete Series composition beyond a catalog page boundary", () => {
     const items = Array.from({ length: 30 }, (_, index) => ({
       slug: `material-${String(index + 1)}`,
@@ -170,4 +227,75 @@ describe("Series Reader context", () => {
       }),
     ).toBeNull();
   });
+});
+
+it("retains the originating lesson and marks the reference outside the step sequence", () => {
+  const context = resolveSeriesReaderContext({
+    currentMaterialSlug: "aie-product-brief",
+    returnTarget: parseMaterialReaderReturnTarget(
+      "/products/course/programme?at=lesson",
+    ),
+    anchor: { kind: "material", slug: "lesson" },
+    series: {
+      kind: "ready",
+      reference: { slug: "course", name: "Курс" },
+      chapters: [
+        { id: "one", name: "Глава", summary: "", materialIds: ["lesson-id"] },
+      ],
+      items: [
+        { materialId: "brief-id", slug: "aie-product-brief", title: "Бриф" },
+        { materialId: "lesson-id", slug: "lesson", title: "Урок" },
+      ],
+    },
+  });
+  expect(context).toMatchObject({
+    supplementary: true,
+    next: null,
+    previous: null,
+    totalMaterials: 1,
+    programme: {
+      current: { id: "material:lesson" },
+      currentPosition: 1,
+      totalSteps: 1,
+      activeReferenceId: "reference:aie-product-brief",
+    },
+  });
+});
+
+it("follows repeated flat programme positions while excluding catalogue-only documents", () => {
+  const series = {
+    kind: "ready" as const,
+    reference: { name: "Flat", slug: "flat" },
+    chapters: [],
+    items: [
+      { materialId: "a", slug: "a", title: "A" },
+      { materialId: "b", slug: "b", title: "B" },
+      { materialId: "extra", slug: "extra", title: "Extra" },
+    ],
+    programmePlacements: [
+      { id: "a1", materialId: "a", chapterId: null, stepGroup: null },
+      { id: "b1", materialId: "b", chapterId: null, stepGroup: null },
+      { id: "a2", materialId: "a", chapterId: null, stepGroup: null },
+    ],
+  };
+  const context = resolveSeriesReaderContext({
+    series,
+    currentMaterialSlug: "a",
+    placementId: "a2",
+    returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
+  });
+  expect(context).toMatchObject({
+    currentPosition: 3,
+    totalMaterials: 2,
+    next: null,
+    previous: { title: "B" },
+  });
+  expect(context?.previous?.href).toContain("placement=b1");
+  expect(
+    resolveSeriesReaderContext({
+      series,
+      currentMaterialSlug: "extra",
+      returnTarget: parseMaterialReaderReturnTarget("/products/flat/programme"),
+    }),
+  ).toMatchObject({ supplementary: true, next: null, previous: null });
 });

@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import { AccountLoading } from "@/_pages/account";
+import { BookmarksLoading, BookmarksPage } from "@/_pages/bookmarks";
 import { HomeLoading } from "@/_pages/home";
 import { NavigationPendingFrame } from "@/widgets/application-shell";
 
@@ -8,7 +9,15 @@ export function PublicNavigationPending({ href }: { readonly href: Route }) {
   const path = href.split("?")[0];
   return (
     <NavigationPendingFrame>
-      {path === "/account" ? <AccountLoading /> : <HomeLoading />}
+      {path === "/account" ? (
+        <AccountLoading />
+      ) : path === "/bookmarks" ? (
+        <BookmarksPage>
+          <BookmarksLoading />
+        </BookmarksPage>
+      ) : (
+        <HomeLoading />
+      )}
     </NavigationPendingFrame>
   );
 }

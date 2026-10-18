@@ -730,12 +730,15 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
         access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -790,6 +793,12 @@ export class ContentLibraryService {
       };
     }>;
     kind: 'related';
+    programmePlacements?: Array<{
+      chapterId: string | null;
+      id: string;
+      materialId: string;
+      stepGroup: string | null;
+    }>;
     reference: {
       cover: {
         coverId: string;
@@ -925,12 +934,15 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
         access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -985,6 +997,12 @@ export class ContentLibraryService {
       };
     }>;
     kind: 'series';
+    programmePlacements?: Array<{
+      chapterId: string | null;
+      id: string;
+      materialId: string;
+      stepGroup: string | null;
+    }>;
     reference: {
       cover: {
         coverId: string;
@@ -1121,12 +1139,15 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
         access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -1181,6 +1202,12 @@ export class ContentLibraryService {
       };
     }>;
     kind: 'series';
+    programmePlacements?: Array<{
+      chapterId: string | null;
+      id: string;
+      materialId: string;
+      stepGroup: string | null;
+    }>;
     reference: {
       cover: {
         coverId: string;
@@ -1347,12 +1374,15 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      supplementaryMaterialIds?: Array<string>;
       tasks: Array<{
         access: 'free' | 'closed';
         afterMaterialId: string | null;
         availability: 'available' | 'locked' | 'unavailable';
         code: string;
+        embeddedMaterialId?: string;
         lastSubmittedAt: string | null;
+        programmeVisibility?: 'embedded';
         title: string;
       }>;
     }>;
@@ -1407,6 +1437,12 @@ export class ContentLibraryService {
       };
     }>;
     kind: 'topic';
+    programmePlacements?: Array<{
+      chapterId: string | null;
+      id: string;
+      materialId: string;
+      stepGroup: string | null;
+    }>;
     reference: {
       cover: {
         coverId: string;

@@ -47,10 +47,17 @@ interface PublishedMaterialProjectionSearchValues {
 }
 
 export interface PublishedMaterialDiscoveryPage {
+  readonly programmePlacements?: readonly {
+    readonly id: string;
+    readonly materialId: string;
+    readonly chapterId: string | null;
+    readonly stepGroup: string | null;
+  }[];
   /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
+    readonly supplementaryMaterialIds?: readonly string[];
     readonly name: string;
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;
@@ -1018,8 +1025,19 @@ export async function selectPublishedMaterialProjectionsBySeries(
     ),
   );
   return {
+    programmePlacements: reference.publishedProgramme.map(
+      ({ id, materialId, chapterId, stepGroup }) => ({
+        id,
+        materialId,
+        chapterId,
+        stepGroup,
+      }),
+    ),
     chapters: productCompositionChapters(reference).map(
-      ({ id, materialIds, name, summary }) => ({
+      ({ id, materialIds, name, summary, supplementaryMaterialIds }) => ({
+        ...(supplementaryMaterialIds.length === 0
+          ? {}
+          : { supplementaryMaterialIds }),
         id,
         materialIds,
         name,
@@ -1314,10 +1332,5 @@ function projectNoteExcerpt(excerpt: {
 }
 
 function projectionScopeSql(feedOnly: boolean): Prisma.Sql {
-  return feedOnly
-    ? Prisma.sql`publication.access = 'free' and exists (
-        select 1 from materials.materials as original
-        where original.id = publication.material_id and original.show_in_feed
-      )`
-    : Prisma.sql`true`;
+  return feedOnly ? Prisma.sql`publication.access = 'free'` : Prisma.sql`true`;
 }

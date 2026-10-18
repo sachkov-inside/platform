@@ -1,6 +1,10 @@
+import { readerBlocksSchema } from "@inside/material-blocks";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
-import type { RenderedBlock } from "@inside/material-blocks";
+import type {
+  ContentReaderBlock,
+  RenderedBlock,
+} from "@inside/material-blocks";
 import { readerBlocks } from "@/storybook/quiz-content";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { MaterialReaderView } from "./material-reader-view";
@@ -16,7 +20,7 @@ const prose = (markdown: string): RenderedBlock[] =>
         }
       : { kind: "paragraph", content: [{ kind: "text", text, marks: [] }] },
   );
-const body: RenderedBlock[] = readerBlocks.flatMap((block): RenderedBlock[] =>
+const renderFixture = (block: ContentReaderBlock): RenderedBlock[] =>
   block.kind === "markdown"
     ? prose(block.markdown)
     : [
@@ -24,7 +28,12 @@ const body: RenderedBlock[] = readerBlocks.flatMap((block): RenderedBlock[] =>
           kind: "quiz",
           id: block.id,
           prompt: prose(block.promptMarkdown),
-          correctOptionId: block.correctOptionId,
+          ...("selectionMode" in block
+            ? {
+                selectionMode: block.selectionMode,
+                correctOptionIds: block.correctOptionIds,
+              }
+            : { correctOptionId: block.correctOptionId }),
           options: block.options.map((option) => ({
             id: option.id,
             content: prose(option.markdown),
@@ -35,8 +44,10 @@ const body: RenderedBlock[] = readerBlocks.flatMap((block): RenderedBlock[] =>
             reviewLinks: block.dontKnow.reviewLinks,
           },
         },
-      ],
-);
+      ];
+const body: RenderedBlock[] = readerBlocksSchema
+  .parse(readerBlocks)
+  .flatMap(renderFixture);
 const meta = {
   ...publicPageEnvironment("/materials/quiz-proof"),
   title: "Pages/Material Reader Quiz",
@@ -284,5 +295,76 @@ export const CompactLongChoicesMobile: Story = {
     await expect(
       within(quiz).getByText("Пока неверно", { exact: true }),
     ).toBeVisible();
+  },
+};
+
+export const MultipleAnswerReader: Story = {
+  args: {
+    body: [
+      ...prose("## Первая версия"),
+      ...renderFixture({
+        kind: "quiz",
+        id: "mvp-features",
+        selectionMode: "multiple",
+        promptMarkdown: "Какие возможности входят в первую версию платформы?",
+        correctOptionIds: ["accounts", "projects", "github", "agent"],
+        options: [
+          [
+            "accounts",
+            "Приглашать сотрудников",
+            "Сотрудники получают личные аккаунты.",
+          ],
+          [
+            "projects",
+            "Хранить проекты с репозиториями",
+            "Доступ действует на весь проект.",
+          ],
+          [
+            "github",
+            "Интегрироваться с GitHub",
+            "Начинаем интеграции с GitHub.",
+          ],
+          [
+            "agent",
+            "Подключать своего агента",
+            "Агент использует доступ сотрудника.",
+          ],
+          [
+            "cloud",
+            "Запускать агентов в облаке",
+            "Это направление дальнейшего развития.",
+          ],
+          [
+            "budgets",
+            "Управлять расходами на модели",
+            "Бюджеты добавим позже.",
+          ],
+        ].map(([id, markdown, explanationMarkdown]) => {
+          if (
+            id === undefined ||
+            markdown === undefined ||
+            explanationMarkdown === undefined
+          )
+            throw new Error("Incomplete option");
+          return { id, markdown, explanationMarkdown };
+        }),
+        dontKnow: {
+          explanationMarkdown:
+            "Первая версия создаёт основу для дальнейшего развития.",
+          reviewLinks: ["#первая-версия"],
+        },
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const quiz = within(
+      canvasElement.querySelector("[data-material-quiz]") ?? canvasElement,
+    );
+    await expect(quiz.getAllByRole("checkbox")).toHaveLength(6);
+    for (const checkbox of quiz.getAllByRole("checkbox").slice(0, 4))
+      await userEvent.click(checkbox);
+    await userEvent.click(quiz.getByRole("button", { name: "Проверить" }));
+    await expect(quiz.getByText("Правильно", { exact: true })).toBeVisible();
+    await expect(quiz.getByText("Начинаем интеграции с GitHub.")).toBeVisible();
   },
 };

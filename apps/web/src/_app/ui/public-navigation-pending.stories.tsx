@@ -56,3 +56,15 @@ export const AccountMobile: Story = {
   args: { href: "/account" },
   globals: mobile,
 };
+
+export const BookmarksMobile: Story = {
+  args: { href: "/bookmarks" },
+  globals: mobile,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", { name: "Закладки" }),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("heading", { name: "Главная" })).toBeNull();
+  },
+};

@@ -11,7 +11,6 @@ import {
   type PriceSnapshot,
   publicSubscriptionOffers,
 } from "@/entities/subscription";
-import { telegramOnboardingDismissalKey } from "@/features/account-access";
 import { storageNoticeKey } from "@/features/storage-notice";
 import { getQueryClient } from "@/shared/api/query-client";
 import { AccountCabinet } from "@/widgets/account-cabinet";
@@ -40,7 +39,6 @@ interface ShellBrowserState {
   /** `first-visit` — первое посещение: внизу висит уведомление о хранении. */
   readonly storageNotice?: "acknowledged" | "first-visit";
   /** `shown` — окно подключения Telegram открывается само, как сразу после входа. */
-  readonly telegramOnboarding?: "dismissed" | "shown";
 }
 
 /** Рамка страницы: продакшен-модуль, задающий кадр и прокрутку своего маршрута. */
@@ -69,7 +67,6 @@ function frameDecorator(Frame: PageFrame): Decorator {
 /** Хранилище браузера ставится до первого рендера: оболочка читает его синхронно. */
 function prepareShellBrowserState({
   storageNotice = "acknowledged",
-  telegramOnboarding = "dismissed",
 }: ShellBrowserState): void {
   if (storageNotice === "acknowledged")
     window.localStorage.setItem(
@@ -77,9 +74,6 @@ function prepareShellBrowserState({
       String(currentLegalEdition("cookies").version),
     );
   else window.localStorage.removeItem(storageNoticeKey);
-  if (telegramOnboarding === "dismissed")
-    window.sessionStorage.setItem(telegramOnboardingDismissalKey, "true");
-  else window.sessionStorage.removeItem(telegramOnboardingDismissalKey);
 }
 
 function routeEnvironment(

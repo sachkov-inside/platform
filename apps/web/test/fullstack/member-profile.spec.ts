@@ -40,14 +40,15 @@ test("shows private Account Telegram and Membership presentation without disclos
 
   const account = await page.goto("/account");
   expect(account?.status()).toBe(200);
-  const onboarding = page.getByRole("dialog", { name: "Подключите Telegram" });
-  await expect(onboarding).toBeVisible();
-  const onboardingPanel = onboarding.getByRole("region", {
-    name: "Подключите Telegram",
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const onboardingPanel = page.getByRole("region", {
+    name: "Подключение Telegram",
   });
-  await expect(onboardingPanel.getByText("Подключите Telegram")).toBeVisible();
   await expect(
     onboardingPanel.getByRole("button", { name: "Подключить Telegram" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
   ).toBeVisible();
   await expect(onboardingPanel).not.toContainText(
     /Доступ|Membership|Получить доступ/u,
@@ -76,7 +77,7 @@ test("shows private Account Telegram and Membership presentation without disclos
   });
 
   const onboardingAccessibility = await new AxeBuilder({ page })
-    .include("dialog[aria-labelledby='telegram-onboarding-heading']")
+    .include("section[aria-label='Подключение Telegram']")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
   expect(
@@ -84,7 +85,7 @@ test("shows private Account Telegram and Membership presentation without disclos
       ({ impact }) => impact === "serious" || impact === "critical",
     ),
   ).toEqual([]);
-  const onboardingOverflow = await onboarding.evaluate((element) => ({
+  const onboardingOverflow = await onboardingPanel.evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,
   }));
@@ -92,10 +93,6 @@ test("shows private Account Telegram and Membership presentation without disclos
     onboardingOverflow.clientWidth,
   );
 
-  await onboarding
-    .getByRole("button", { name: "Закрыть подключение Telegram" })
-    .click();
-  await expect(onboarding).toHaveCount(0);
   // Связь с Telegram живёт в разделе «Аккаунт» кабинета: проверка идёт туда, где она есть.
   const accessPage = await page.goto("/account/access");
   expect(accessPage?.status()).toBe(200);
@@ -158,12 +155,7 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   const profileKind = profileState.state?.kind;
   const account = await page.goto("/account");
   expect(account?.status()).toBe(200);
-  const onboarding = page.getByRole("dialog", { name: "Подключите Telegram" });
-  await expect(onboarding).toBeVisible();
-  await onboarding
-    .getByRole("button", { name: "Закрыть подключение Telegram" })
-    .click();
-  await expect(onboarding).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const nameInput = page.getByRole("textbox", { exact: true, name: "Имя" });
   if (profileKind === "missing") {
     await nameInput.fill("Кирилл Сачков");
@@ -204,7 +196,9 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   });
   await cropDialog.getByRole("button", { name: "Сохранить аватар" }).click();
   await expect(cropDialog).toBeHidden();
-  const renderedAvatar = page.getByAltText(`Аватар: ${displayName}`).first();
+  const renderedAvatar = page
+    .getByRole("main")
+    .getByAltText(`Аватар: ${displayName}`);
   await expect(renderedAvatar).toBeVisible();
   await expect
     .poll(() =>
@@ -290,7 +284,7 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   ).toBeVisible();
   await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
   await expect(
-    page.getByRole("img", { name: `Аватар: ${displayName}` }).first(),
+    page.getByRole("main").getByRole("img", { name: `Аватар: ${displayName}` }),
   ).toBeVisible();
 
   const removedExportRoute = await (

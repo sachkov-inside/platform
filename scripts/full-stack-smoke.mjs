@@ -309,6 +309,8 @@ try {
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,
     FULLSTACK_TASK_CODE: taskFixture.code,
+    FULLSTACK_TASK_MATERIAL_SLUG: taskFixture.materialSlug,
+    FULLSTACK_EMBEDDED_TASK_CODE: taskFixture.practiceCode,
     FULLSTACK_MATERIAL_IMAGE_VARIANTS: JSON.stringify(
       taskCFixture.materialImageVariants,
     ),

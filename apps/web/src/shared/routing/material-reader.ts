@@ -9,7 +9,7 @@ export interface MaterialReaderReturnTarget {
   readonly href: Route;
   readonly kind: MaterialReaderReturnKind;
   readonly label:
-    | "Назад на Главную"
+    | "Главная"
     | "Назад в профиль"
     | "Назад к материалам"
     | "Назад к продукту"
@@ -25,7 +25,7 @@ export const homeMaterialReaderReturnTarget: MaterialReaderReturnTarget =
   Object.freeze({
     href: internalRoute("/"),
     kind: "home",
-    label: "Назад на Главную",
+    label: "Главная",
   });
 
 export function materialReaderOriginHref(
@@ -36,16 +36,25 @@ export function materialReaderOriginHref(
   return internalRoute(`/${kind === "series" ? "products" : "topics"}/${slug}`);
 }
 
-export function materialReaderHref(slug: string, returnHref?: Route): Route {
+export function materialReaderHref(
+  slug: string,
+  returnHref?: Route,
+  context?: {
+    readonly placementId?: string | undefined;
+    readonly referenceView?: boolean | undefined;
+  },
+): Route {
   assertSlug(slug);
   const pathname = `/materials/${slug}`;
   if (returnHref === undefined) return internalRoute(pathname);
   if (readReturnTarget(returnHref) === undefined) {
     throw new TypeError("Expected a supported Material Reader return route");
   }
-  return internalRoute(
-    `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}`,
-  );
+  const search = new URLSearchParams({ from: returnHref });
+  if (context?.placementId !== undefined)
+    search.set("placement", context.placementId);
+  if (context?.referenceView === true) search.set("view", "reference");
+  return internalRoute(`${pathname}?${search}`);
 }
 
 export function collectionDiscoveryHref(
@@ -120,7 +129,9 @@ function readReturnTarget(
     const at = singleSearchValue(url.searchParams, "at");
     const part = singleSearchValue(url.searchParams, "part");
     // `part=materials` — возврат в каталог «Материалы» программы.
-    const allowed = toProduct ? ["from", "page", "at", "part"] : ["from"];
+    const allowed = toProduct
+      ? ["from", "page", "at", "atPlacement", "part"]
+      : ["from"];
     if (
       depth >= 3 ||
       [...url.searchParams.keys()].some(
@@ -134,6 +145,10 @@ function readReturnTarget(
         (page === undefined || String(readSeriesPage(page)) !== page)) ||
       (url.searchParams.has("at") &&
         (at === undefined || !slugPattern.test(at))) ||
+      (url.searchParams.has("atPlacement") &&
+        !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(
+          url.searchParams.get("atPlacement") ?? "",
+        )) ||
       (url.searchParams.has("part") && part !== "materials")
     ) {
       return undefined;
@@ -201,10 +216,14 @@ export function seriesReaderReturnHref(
   href: Route,
   page: number,
   materialSlug?: string,
+  placementId?: string,
 ): Route {
   const url = new URL(href, applicationOrigin);
   url.searchParams.delete("page");
   url.searchParams.delete("at");
+  url.searchParams.delete("atPlacement");
+  if (placementId !== undefined)
+    url.searchParams.set("atPlacement", placementId);
   url.searchParams.set("page", String(page));
   if (materialSlug !== undefined) {
     assertSlug(materialSlug);

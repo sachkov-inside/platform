@@ -95,7 +95,12 @@ async function fixture(t) {
         coverAssetId: "cover",
         coverAlt: "Обложка",
         artifacts: [
-          { sourceId: "checklist", title: "Чек-лист", assetId: "checklist" },
+          {
+            sourceId: "checklist",
+            title: "Чек-лист",
+            assetId: "checklist",
+            filename: "customer-brief.md",
+          },
         ],
       }),
       row("video", {
@@ -171,6 +176,7 @@ async function fixture(t) {
  *   sourceId: string;
  *   title: string;
  *   materialIds: string[];
+ *   filename?: string;
  * }} FakeArtifact
  * @typedef {object} FakeProduct
  * @property {string} id
@@ -210,9 +216,6 @@ const compositionBodySchema = z
   .passthrough();
 const attachBodySchema = z
   .object({ providerVideoId: z.string() })
-  .passthrough();
-const linkBodySchema = z
-  .object({ materialIds: z.array(z.string()) })
   .passthrough();
 
 /**
@@ -434,6 +437,8 @@ function applicationApi() {
         assert.ok(body instanceof FormData);
         assert.equal(body.get("productSourceId"), "inside-content:product");
         const sourceId = formText(body, "sourceId");
+        const file = body.get("file");
+        assert.ok(file instanceof File);
         const existing = artifacts.get(sourceId);
         const artifact = existing ?? {
           artifactId: uuid(next++),
@@ -442,6 +447,7 @@ function applicationApi() {
           title: formText(body, "title"),
           materialIds: [],
         };
+        artifact.filename = file.name;
         artifacts.set(artifact.sourceId, artifact);
         return {
           artifactId: artifact.artifactId,
@@ -455,12 +461,34 @@ function applicationApi() {
           path,
         ))
       ) {
-        const artifactId = match[1];
+        throw new Error(
+          "403 forbidden: manual artifact writes reject source ownership",
+        );
+      }
+      if (
+        (match =
+          /^\/authoring\/import\/products\/([^/]+)\/artifacts\/([^/]+)\/materials$/u.exec(
+            path,
+          ))
+      ) {
+        assert.equal(match[1], productId);
+        const binding = z
+          .object({
+            productSourceId: z.literal("inside-content:product"),
+            sourceId: z.string(),
+            materialIds: z.array(z.uuid()),
+          })
+          .strict()
+          .parse(body);
+        const artifactId = match[2];
         const artifact = [...artifacts.values()].find(
           (item) => item.artifactId === artifactId,
         );
         assert.ok(artifact);
-        artifact.materialIds = linkBodySchema.parse(body).materialIds;
+        assert.equal(binding.sourceId, artifact.sourceId);
+        artifact.materialIds = [
+          ...new Set([...artifact.materialIds, ...binding.materialIds]),
+        ];
         return structuredClone(artifact);
       }
       if (path === `/authoring/products/${productId}/artifacts`)
@@ -505,6 +533,10 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
     valueAt(api.artifacts, "inside-content:checklist").materialIds,
     [lesson.materialId],
   );
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").filename,
+    "customer-brief.md",
+  );
   assert.equal(api.product.name, "Продукт");
   assert.equal(
     first.notices.some((notice) => /pending|missing/u.test(notice.code)),
@@ -525,6 +557,54 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
     ),
     false,
     repeated.join("\n"),
+  );
+});
+
+test("a fresh reviewed release finishes uploaded artifact binding without reupload or journal edits", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  /** @type {LocalTransport} */
+  const interrupted = (path, body, key, options) => {
+    if (
+      /^\/authoring\/import\/products\/[^/]+\/artifacts\/[^/]+\/materials$/u.test(
+        path,
+      )
+    )
+      throw new Error("binding refused");
+    return api.request(path, body, key, options);
+  };
+  await assert.rejects(
+    run(setup, { request: interrupted }),
+    /binding refused/u,
+  );
+  const uploaded = valueAt(api.artifacts, "inside-content:checklist");
+  assert.deepEqual(uploaded.materialIds, []);
+  const receiptKey = `artifact:${productId}:inside-content:checklist`;
+  const receipt = z
+    .object({ artifactId: z.uuid(), materialIds: z.null() })
+    .passthrough()
+    .parse(resourcesOf(await readJournalFile(setup.state))[receiptKey]);
+  assert.equal(receipt.artifactId, uploaded.artifactId);
+  const uploads = () =>
+    api.calls.filter(
+      ({ path }) =>
+        path === `/authoring/import/products/${productId}/artifacts`,
+    ).length;
+  assert.equal(uploads(), 1);
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin: "http://127.0.0.1:4396",
+    publish: "all",
+    request: api.request,
+  });
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  assert.equal(uploads(), 1);
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").artifactId,
+    receipt.artifactId,
+  );
+  assert.deepEqual(
+    valueAt(api.artifacts, "inside-content:checklist").materialIds,
+    [valueAt(api.materials, "inside-content:lesson").materialId],
   );
 });
 
@@ -1819,4 +1899,54 @@ test("reviewed Product removal choice changes the fingerprint and survives parti
     assert.deepEqual(resumed.operations[key], operation);
   assert.equal(taskWrites, 1);
   assert.equal(api.count(/materials\/apply/u), materialWrites);
+});
+
+test("binds an inline source reference to a current-file route and keeps ordinary reading links", async (t) => {
+  const setup = await fixture(t);
+  itemAt(setup.manifest.materials, 0).markdown =
+    "[Читать бриф](https://example.test/brief)\n\n[Скачать бриф (.md)](artifact:checklist)";
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  const command = api.calls
+    .map((call) => materialApplyRequest(call)?.body)
+    .find((item) => item?.source.id === "inside-content:lesson");
+  assert.ok(command);
+  const body = JSON.stringify(command.body);
+  assert.ok(
+    body.includes(
+      `/api/products/${productId}/artifact-sources/inside-content%3Achecklist/file`,
+    ),
+  );
+  assert.ok(body.includes("https://example.test/brief"));
+  assert.equal(body.includes("artifact:checklist"), false);
+  assert.equal(body.includes("?version="), false);
+});
+test("refuses an undeclared artifact reference", async (t) => {
+  const setup = await fixture(t);
+  itemAt(setup.manifest.materials, 0).markdown = "[Скачать](artifact:missing)";
+  await setup.write();
+  await assert.rejects(
+    run(setup, applicationApi()),
+    /unresolved or ambiguous artifact reference/u,
+  );
+});
+test("keeps old packages valid and reapplies a changed filename without changed bytes", async (t) => {
+  const setup = await fixture(t);
+  const artifact = itemAt(itemAt(setup.manifest.materials, 0).artifacts, 0);
+  delete artifact.filename;
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").filename,
+    "checklist.md",
+  );
+  artifact.filename = "customer-brief.md";
+  await setup.write();
+  await run(setup, api);
+  assert.equal(
+    valueAt(api.artifacts, "inside-content:checklist").filename,
+    "customer-brief.md",
+  );
 });

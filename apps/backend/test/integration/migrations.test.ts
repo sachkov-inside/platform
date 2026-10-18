@@ -37,6 +37,8 @@ const materialTables = [
   "product_artifact_versions",
   "product_artifacts",
   "product_chapters",
+  "product_chapter_supplementary_materials",
+  "product_programme_placements",
   "product_material_removals",
   "home_series_pin",
   "material_related_pins",
@@ -260,6 +262,10 @@ describe("Platform migrations", () => {
         "0093_product_learning_started",
         "0094_individual_payment_links",
         "0095_historical_community_coverage",
+        "0096_task_review_progress",
+        "0097_task_submission_review_run",
+        "0098_material_task",
+        "0099_chapter_supplementary_materials",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -286,6 +292,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
+      "review_progress",
       "submissions",
       "task_versions",
       "tasks",
@@ -947,6 +954,10 @@ describe("Platform migrations", () => {
           "0093_product_learning_started",
           "0094_individual_payment_links",
           "0095_historical_community_coverage",
+          "0096_task_review_progress",
+          "0097_task_submission_review_run",
+          "0098_material_task",
+          "0099_chapter_supplementary_materials",
         ],
       });
 

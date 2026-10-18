@@ -91,6 +91,12 @@ export async function discoverPublishedMaterials(
         title: task.title,
         access: task.access,
         afterMaterialId: task.afterMaterialId,
+        ...(task.programmeVisibility === undefined
+          ? {}
+          : {
+              programmeVisibility: task.programmeVisibility,
+              embeddedMaterialId: task.embeddedMaterialId,
+            }),
         availability: task.availability,
         lastSubmittedAt: task.lastSubmittedAt,
       });
@@ -107,9 +113,15 @@ export async function discoverPublishedMaterials(
     ? {
         ok: true,
         value: {
+          ...(page.value.programmePlacements === undefined
+            ? {}
+            : { programmePlacements: page.value.programmePlacements }),
           chapters: page.value.chapters.map((chapter) => ({
             id: chapter.id,
             materialIds: chapter.materialIds,
+            ...(chapter.supplementaryMaterialIds === undefined
+              ? {}
+              : { supplementaryMaterialIds: chapter.supplementaryMaterialIds }),
             name: chapter.name,
             summary: chapter.summary,
             tasks: tasksByChapter.get(chapter.id) ?? [],

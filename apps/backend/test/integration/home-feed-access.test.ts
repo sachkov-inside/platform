@@ -65,6 +65,9 @@ for (const subject of [
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
       accountRights: membership,
     });
+    const freeCount = await database.prisma.publishedMaterial.count({
+      where: { access: "free" },
+    });
     const feed = await listPublishedMaterials(
       materials.publishedMaterialReader,
       access,
@@ -80,8 +83,7 @@ for (const subject of [
             access: "free",
           }),
         ],
-        nextCursor: null,
-        totalCount: 1,
+        totalCount: freeCount,
       },
     });
     for (const query of [

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
@@ -35,7 +35,7 @@ export interface ApplicationShellProps {
   readonly navigationItems: readonly ApplicationNavigationItem[];
   readonly mobileNavigationItems: readonly ApplicationNavigationItem[];
   readonly onMobileNavigate?: (href: Route) => void;
-  /** Desktop identity presentation supplied by the app adapter. */
+  /** Header identity presentation supplied by the app adapter. */
   readonly accountSlot?: ReactNode;
 }
 
@@ -140,6 +140,7 @@ export function ApplicationShell({
       </header>
       <MobileTopNavigation
         currentPath={currentPath}
+        accountSlot={accountSlot}
         items={mobileNavigationItems}
         onNavigate={onMobileNavigate}
       />
@@ -151,12 +152,19 @@ export function ApplicationShell({
         className="mobile-scrollbar-hidden flex min-w-0 flex-1 flex-col lg:min-h-0 lg:overflow-y-auto lg:overscroll-y-contain lg:[scrollbar-gutter:stable_both-edges]"
       >
         {/* The page fills the viewport, so a short page still keeps the footer at the bottom. */}
-        <div className="public-page-container mx-auto flex w-full flex-1 flex-col pb-[calc(2.5rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] pt-6 lg:shrink-0 lg:pb-[calc(5rem+var(--storage-notice-space,0px))] lg:pt-8">
+        <div
+          className={cn(
+            "public-page-container mx-auto flex w-full flex-1 flex-col pb-[calc(2.5rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] lg:shrink-0 lg:pb-[calc(5rem+var(--storage-notice-space,0px))] lg:pt-8",
+            currentPath.startsWith("/materials/") ? "pt-2" : "pt-6",
+          )}
+        >
           {/* Pages keep ordinary block flow; only this wrapper is a flex item. */}
           <div className="min-w-0">{children}</div>
-          <div className="public-footer-slot mt-auto pt-16">
-            <PublicFooter />
-          </div>
+          {showsPublicFooter(currentPath) ? (
+            <div className="public-footer-slot mt-auto pt-16">
+              <PublicFooter />
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
@@ -186,21 +194,40 @@ function NavigationLink({
 
 /**
  * Шапка телефона и планшета вместо нижней панели (решение владельца 09.10.2026): логотип ведёт на
- * Главную, справа значки разделов — «Курс», «Закладки», «Профиль». Нижняя панель есть только в
- * прохождении курса, у программы и урока своя, а шапка там остаётся. Витрина продуктов и покупка
+ * Главную, справа значки разделов — «Закладки», «Профиль». Нижняя панель есть только в
+ * прохождении курса, у программы и урока своя, а шапка появляется при прокрутке вверх. Витрина продуктов и покупка
  * убирают шапку компонентом `HideMobileNavigation`: у них свои верхние элементы.
  */
 function MobileTopNavigation({
   currentPath,
+  accountSlot,
   items,
   onNavigate,
 }: {
   readonly currentPath: string;
   readonly items: readonly ApplicationNavigationItem[];
+  readonly accountSlot?: ReactNode;
   readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let previous = window.scrollY;
+    const onScroll = () => {
+      const current = Math.max(0, window.scrollY);
+      if (Math.abs(current - previous) < 4) return;
+      setHidden(current > 56 && current > previous);
+      previous = current;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, []);
   const home = items.find((item) => item.icon === "home");
-  const sections = items.filter((item) => item.icon !== "home");
+  const sections = items.filter(
+    (item) =>
+      item.icon !== "home" && !(accountSlot != null && item.icon === "profile"),
+  );
   const navigate =
     onNavigate === undefined
       ? undefined
@@ -210,7 +237,13 @@ function MobileTopNavigation({
         };
   return (
     <header
-      className="mobile-navigation sticky top-0 z-40 border-b border-border bg-background/92 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden"
+      className={cn(
+        "mobile-navigation sticky top-0 z-40 border-b border-border bg-background/92 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden motion-safe:transition-transform motion-safe:duration-200 focus-within:translate-y-0",
+        hidden && "-translate-y-full",
+      )}
+      onFocusCapture={() => {
+        setHidden(false);
+      }}
       data-mobile-header
     >
       <div className="public-page-container mx-auto flex min-h-14 flex-wrap items-center justify-between gap-x-3">
@@ -273,6 +306,7 @@ function MobileTopNavigation({
                 </li>
               );
             })}
+            {accountSlot == null ? null : <li>{accountSlot}</li>}
           </ul>
         </nav>
       </div>
@@ -303,4 +337,15 @@ function isCurrentPath(pathname: string, route: Route): boolean {
   )
     return true;
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Course and purchase information retain seller documents; reading stays focused. */
+function showsPublicFooter(path: string): boolean {
+  return (
+    /^\/products\/[^/]+(?:\/buy)?\/?$/u.test(path) ||
+    path === "/payment/checkout" ||
+    path === "/payment/return" ||
+    path === "/legal" ||
+    path.startsWith("/legal/")
+  );
 }

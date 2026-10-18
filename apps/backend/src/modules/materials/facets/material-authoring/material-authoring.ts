@@ -1,3 +1,4 @@
+import type { UpdateChapterAttachmentsOperation } from "../../features/update-chapter-attachments/update-chapter-attachments.js";
 import type {
   ApplySourcePracticeOperation,
   ValidateSourcePracticeOperation,
@@ -32,6 +33,7 @@ import type { SetContentCollectionArchiveOperation } from "../../features/set-co
 import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly updateChapterAttachments: UpdateChapterAttachmentsOperation;
   readonly applySourcePractice: ApplySourcePracticeOperation;
   readonly validateSourcePractice: ValidateSourcePracticeOperation;
   readonly reserveSourceProduct: ReserveSourceProductOperation;

@@ -12,6 +12,16 @@ import {
 const schema = z
   .object({
     archived: z.boolean(),
+    programmePlacements: z
+      .array(
+        z.object({
+          id: z.uuid(),
+          materialId: z.uuid(),
+          chapterId: z.uuid().nullable(),
+          stepGroup: z.string().nullable(),
+        }),
+      )
+      .optional(),
     chapters: z
       .array(
         z
@@ -20,6 +30,7 @@ const schema = z
             name: z.string().min(1),
             ordinal: z.number().int().positive(),
             summary: z.string(),
+            supplementaryMaterialIds: z.array(z.uuid()).optional(),
           })
           .strict(),
       )
@@ -81,11 +92,19 @@ export async function getSeriesOrder(
     kind: "ready",
     order: {
       archived: parsed.data.archived,
-      chapters: parsed.data.chapters.map(({ id, name, summary }) => ({
-        id,
-        name,
-        summary,
-      })),
+      ...(parsed.data.programmePlacements === undefined
+        ? {}
+        : { programmePlacements: parsed.data.programmePlacements }),
+      chapters: parsed.data.chapters.map(
+        ({ id, name, summary, supplementaryMaterialIds }) => ({
+          ...(supplementaryMaterialIds === undefined
+            ? {}
+            : { supplementaryMaterialIds }),
+          id,
+          name,
+          summary,
+        }),
+      ),
       items: parsed.data.items.map((item) => ({
         chapterId: item.chapterId ?? null,
         materialId: item.materialId,

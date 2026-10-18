@@ -1,9 +1,8 @@
 import { currentLegalEdition, parseLegalText } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, waitFor, within } from "storybook/test";
 
 import { LegalDocumentPage } from "@/_pages/legal";
-import { PageNotFound } from "@/_pages/route-states";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import {
   accountPresentationResponse,
@@ -14,7 +13,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const terms = currentLegalEdition("terms");
 
-/** Длинная страница маршрута: на ней видно, что шапка телефона и шапка desktop не уезжают. */
+/** Длинная страница: desktop сохраняет шапку; телефон скрывает её вниз и показывает вверх. */
 function LongPage() {
   return (
     <LegalDocumentPage
@@ -59,7 +58,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Публичная оболочка в том составе, который надевает `PublicShell`: шапка на desktop, шапка с логотипом и значками разделов на телефоне, напоминание о Telegram, окно подключения и подвал. Разделы шапки зависят от прав: «Редактор» видит только тот, кто ведёт материалы. Страницы внутри — настоящие маршруты.",
+          "Публичная оболочка в том составе, который надевает `PublicShell`: шапка на desktop, шапка с логотипом и значками разделов на телефоне, кнопка подключения Telegram рядом с аватаркой и подвал. Разделы шапки зависят от прав: «Редактор» видит только тот, кто ведёт материалы. Страницы внутри — настоящие маршруты.",
       },
     },
   },
@@ -121,10 +120,7 @@ export const AuthorDesktop: Story = {
   },
 };
 
-/**
- * Участник без Telegram закрыл окно подключения: в шапке остаётся тихое напоминание, и оно же
- * открывает окно снова.
- */
+/** Участник без Telegram: кнопка подключения находится в шапке рядом с аватаркой, без окна. */
 export const MemberWithoutTelegramDesktop: Story = {
   ...memberWithoutTelegram(),
   globals: desktop,
@@ -133,26 +129,16 @@ export const MemberWithoutTelegramDesktop: Story = {
     const canvas = within(canvasElement);
     const body = within(canvasElement.ownerDocument.body);
     await expect(body.queryByRole("dialog")).not.toBeInTheDocument();
-    const reminder = await canvas.findByRole("button", {
-      name: "Telegram не подключён. Подключить",
-    });
-    await userEvent.click(reminder);
-    const dialog = await body.findByRole("dialog");
+    const header = within(canvas.getByRole("banner"));
     await expect(
-      within(dialog).getByRole("heading", { name: "Подключите Telegram" }),
+      await header.findByRole("button", { name: "Подключить Telegram" }),
     ).toBeVisible();
-    await userEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Закрыть подключение Telegram",
-      }),
-    );
-    await waitFor(() =>
-      expect(body.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
+    await expect(header.getByRole("button", { name: "Аккаунт" })).toBeVisible();
+    await expect(body.queryByRole("dialog")).not.toBeInTheDocument();
   },
 };
 
-/** На телефоне то же напоминание — точка у «Профиля» в шапке телефона. */
+/** На телефоне Telegram и аватарка сохраняют отдельные доступные кнопки в шапке. */
 export const MemberWithoutTelegramMobile: Story = {
   ...memberWithoutTelegram(),
   globals: mobile,
@@ -161,16 +147,22 @@ export const MemberWithoutTelegramMobile: Story = {
     const navigation = within(canvasElement).getByRole("navigation", {
       name: "Мобильная навигация",
     });
-    const profile = within(navigation).getByRole("link", { name: "Профиль" });
-    await waitFor(() =>
-      expect(profile.querySelector("span[aria-hidden='true']")).not.toBeNull(),
-    );
+    const controls = within(navigation);
+    await expect(
+      await controls.findByRole("button", { name: "Подключить Telegram" }),
+    ).toBeVisible();
+    await expect(
+      controls.getByRole("button", { name: "Аккаунт" }),
+    ).toBeVisible();
+    await expect(
+      within(canvasElement.ownerDocument.body).queryByRole("dialog"),
+    ).not.toBeInTheDocument();
   },
 };
 
 /**
  * Телефон 320: навигация — шапка сверху (решение владельца 09.10.2026). Логотип ведёт на Главную,
- * значки разделов держат цели не меньше 44px, шапка прилипает к верху при прокрутке и не даёт
+ * значки разделов держат цели не меньше 44px, шапка скрывается вниз и появляется вверх, не давая
  * странице уйти вбок. Нижней панели нет.
  */
 export const MobileTopNavigation: Story = {
@@ -193,8 +185,12 @@ export const MobileTopNavigation: Story = {
     const links = within(navigation).getAllByRole("link");
     await expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
       "Закладки",
-      "Профиль",
     ]);
+    const signIn = within(navigation).getByRole("button", { name: "Войти" });
+    await expect(signIn).toBeVisible();
+    await expect(signIn.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      44,
+    );
     await expect(
       links.every((link) => link.getBoundingClientRect().height >= 44),
     ).toBe(true);
@@ -203,8 +199,11 @@ export const MobileTopNavigation: Story = {
     if (scrollRoot === null) throw new Error("Документ не прокручивается");
     scrollRoot.scrollTop = 600;
     await expect(scrollRoot.scrollTop).toBeGreaterThan(0);
-    await expect(header.getBoundingClientRect().top).toBe(0);
+    await waitFor(() =>
+      expect(header.getBoundingClientRect().bottom).toBeLessThanOrEqual(0),
+    );
     scrollRoot.scrollTop = 0;
+    await waitFor(() => expect(header.getBoundingClientRect().top).toBe(0));
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
   },
 };
@@ -212,11 +211,18 @@ export const MobileTopNavigation: Story = {
 /** Короткая страница: подвал стоит внизу экрана, а не сразу под текстом. */
 function shortPageFooter(viewport: typeof desktop | typeof mobile): Story {
   return {
-    ...publicPageEnvironment("/does-not-exist"),
+    ...publicPageEnvironment("/legal/terms"),
     globals: viewport,
-    render: () => <PageNotFound />,
+    render: () => (
+      <LegalDocumentPage
+        blocks={parseLegalText(terms.text).slice(0, 1)}
+        current={terms}
+        edition={terms}
+        superseded={[]}
+      />
+    ),
     play: async ({ canvasElement }) => {
-      const footer = canvasElement.querySelector("footer");
+      const footer = canvasElement.querySelector(".public-footer-slot footer");
       if (footer === null) throw new Error("В оболочке нет подвала");
       const view = canvasElement.ownerDocument.defaultView;
       if (view === null) throw new Error("У story нет окна");

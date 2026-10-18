@@ -1,0 +1,117 @@
+.workspace {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 4rem;
+  padding: 2rem;
+  border: 1px solid color-mix(in oklch, var(--foreground) 14%, var(--card));
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  scroll-margin-top: 2rem;
+}
+.roadmap {
+  display: grid;
+  gap: 2.5rem;
+  margin-top: 1rem;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+.stepNumber {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--foreground);
+  color: var(--card);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.stepContent {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.stepDescription {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.stepHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.stepToggle {
+  min-height: 2.75rem;
+  border-color: var(--foreground);
+  background: var(--card);
+  color: var(--foreground);
+  padding: 0.625rem 0.875rem;
+}
+.stepToggle:hover {
+  background: var(--foreground);
+  color: var(--card);
+}
+.history {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--foreground) 5%, var(--card));
+}
+.setupHelp > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.setupHelp > summary::-webkit-details-marker {
+  display: none;
+}
+.setupHelp > summary svg {
+  flex-shrink: 0;
+}
+.setupHelp[open] > summary svg {
+  transform: rotate(180deg);
+}
+@media (max-width: 39.99rem) {
+  .step {
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+  .stepNumber {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .stepHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .history {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 39.99rem) {
+  .workspace {
+    margin-top: 3rem;
+    padding: 1.25rem;
+  }
+}

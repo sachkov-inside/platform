@@ -17,11 +17,11 @@ function taskFixture(): {
   return { productSlug, code };
 }
 
-/** The member session greets with the Telegram and storage notices; they cover the page. */
+/** Only the storage notice covers the page; Telegram stays in the header. */
 async function dismissNotices(page: Page) {
-  await page
-    .getByRole("button", { name: "Закрыть подключение Telegram" })
-    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Подключите Telegram" }),
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
 }
 
@@ -63,15 +63,21 @@ test("a learner without Membership reads a free task from the programme, submits
   await expect(
     form.getByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
   ).toBeVisible();
-  const mine = page.locator("[data-own-submissions]");
-  await expect(mine.getByText(note)).toBeVisible();
-  await expect(mine.getByText("Через форму").first()).toBeVisible();
-  await expect(mine.getByText("Версия требований 1").first()).toBeVisible();
+  const mine = page
+    .getByRole("region", { name: "Мои сдачи", exact: true })
+    .locator("[data-own-submissions]");
+  const submitted = mine.locator("[data-submission]").filter({ hasText: note });
+  await submitted.getByText("Моя заметка", { exact: true }).click();
+  await expect(submitted.getByText(note)).toBeVisible();
+  await expect(submitted.getByText("Через форму")).toBeVisible();
 
   await page.reload();
-  await expect(
-    page.locator("[data-own-submissions]").getByText(note),
-  ).toBeVisible();
+  const restored = page
+    .getByRole("region", { name: "Мои сдачи", exact: true })
+    .locator("[data-own-submissions] [data-submission]")
+    .filter({ hasText: note });
+  await restored.getByText("Моя заметка", { exact: true }).click();
+  await expect(restored.getByText(note)).toBeVisible();
   const violations = (
     await new AxeBuilder({ page }).include("main").analyze()
   ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
@@ -106,4 +112,70 @@ test("an unknown task code answers with the task not-found page (#947)", async (
   await expect(
     page.getByRole("heading", { level: 1, name: "Задание не найдено" }),
   ).toBeVisible();
+});
+
+test("a practical Material reuses the real submission workspace without adding a programme Task row", async ({
+  context,
+  page,
+}, testInfo) => {
+  const { productSlug } = taskFixture();
+  const slug = process.env["FULLSTACK_TASK_MATERIAL_SLUG"];
+  const code = process.env["FULLSTACK_EMBEDDED_TASK_CODE"];
+  if (slug === undefined || code === undefined)
+    throw new Error("Missing embedded practice fixture");
+  await signInFullStack(context, "NON_MEMBER");
+  const returnTo = `/materials/${slug}?from=${encodeURIComponent(`/products/${productSlug}/programme`)}`;
+  await page.goto(returnTo);
+  await dismissNotices(page);
+  await expect(page.locator("[data-reader-body]")).toContainText(
+    "Урок перед заданием.",
+  );
+  const workspace = page.locator("#task-submit");
+  await expect(
+    workspace.getByRole("heading", { name: "Сдача задания" }),
+  ).toBeVisible();
+  await expect(workspace.locator("[data-agent-phrase]")).toContainText(code);
+  await workspace.getByText("Нет агента с MCP? Сдать через форму").click();
+  const note = `Embedded practice ${testInfo.project.name}`;
+  const form = workspace.locator("[data-product-task-form]");
+  await form.getByLabel(/Заметка для автора/u).fill(note);
+  await form.getByRole("button", { name: "Отправить сдачу" }).click();
+  const attempt = workspace
+    .locator("[data-submission]")
+    .filter({ hasText: note });
+  await attempt.getByText("Моя заметка", { exact: true }).click();
+  await expect(attempt.getByText(note)).toBeVisible();
+  await expect(page).toHaveURL(returnTo);
+  await page.reload();
+  await expect(page.locator("[data-reader-body]")).toContainText(
+    "Урок перед заданием.",
+  );
+  await expect(
+    page
+      .getByRole("region", { name: "Мои сдачи", exact: true })
+      .locator("[data-own-submissions]"),
+  ).toContainText(note);
+  const programme = page.getByRole("button", {
+    name: "Вся программа",
+    exact: true,
+  });
+  const mobileProgramme = await programme.isVisible();
+  if (mobileProgramme) await programme.click();
+  await expect(
+    page.locator(
+      `[data-course-step="material:${slug}"] [data-task-submitted="true"]:visible`,
+    ),
+  ).toHaveCount(1);
+  if (mobileProgramme)
+    await page.getByRole("button", { name: "Закрыть программу" }).click();
+  await expect(page.locator(`[data-course-step="task:${code}"]`)).toHaveCount(
+    0,
+  );
+  expect(
+    (
+      await new AxeBuilder({ page }).include("main").analyze()
+    ).violations.filter(
+      (v) => v.impact === "serious" || v.impact === "critical",
+    ),
+  ).toEqual([]);
 });

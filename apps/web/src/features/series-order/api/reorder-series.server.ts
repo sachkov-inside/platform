@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { programmePlacementSchema } from "../model/presentation";
 
 import {
   productChapterDraftSchema,
@@ -46,6 +47,11 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "series-order-form" };
   }
 
+  const programmePlacements = readJsonField(
+    formData,
+    "programmePlacements",
+    z.array(programmePlacementSchema).max(20000),
+  );
   const stepGroups = readJsonField(
     formData,
     "stepGroups",
@@ -67,6 +73,7 @@ export async function executeReorderSeries(
     z.array(z.uuid()).min(1).max(100),
   );
   if (
+    programmePlacements === invalidField ||
     stepGroups === invalidField ||
     chapters === invalidField ||
     chapterAssignments === invalidField ||
@@ -81,6 +88,7 @@ export async function executeReorderSeries(
       {
         expectedOrderVersion: parsed.data.expectedOrderVersion,
         orderedMaterialIds: orderedMaterialIds.data,
+        ...(programmePlacements === undefined ? {} : { programmePlacements }),
         ...(stepGroups === undefined ? {} : { stepGroups }),
         ...(chapters === undefined ? {} : { chapters }),
         ...(chapterAssignments === undefined ? {} : { chapterAssignments }),

@@ -242,19 +242,23 @@ test("completed intent response renders the guest Reader before navigation respo
         .getByText(/Открытый текст/u)
         .first(),
     ).toBeVisible();
-    const programmeButton = reader.getByRole("button", {
+    const course = page.locator("[data-course-reading-host]");
+    const programmeButton = course.getByRole("button", {
       name: "Вся программа",
       exact: true,
     });
     const mobile = await programmeButton.isVisible();
-    if (mobile) await programmeButton.click();
     await expect(
-      reader.getByRole("link", {
-        name: mobile ? "Страница программы" : "Вся программа",
-        exact: true,
-      }),
+      mobile
+        ? reader
+            .getByRole("navigation", { name: "Хлебные крошки" })
+            .getByRole("link")
+            .first()
+        : course
+            .getByRole("navigation", { name: "Хлебные крошки" })
+            .getByRole("link")
+            .first(),
     ).toHaveAttribute("href", `${programme}?page=1&at=navigation-lesson-2`);
-    if (mobile) await page.keyboard.press("Escape");
     expect(
       await page.evaluate((): unknown => {
         const observation = window.__intentCacheAdmission;
