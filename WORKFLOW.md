@@ -40,7 +40,8 @@ or temporary semantic UI with a linked integration ticket. After publishing chil
 `ready-for-agent` from the parent; this overrides `to-tickets`' restriction on modifying parents.
 An explicit implementation assignment runs through a ready PR without renewed approval.
 The owner can invoke [implement](.agents/skills/implement/SKILL.md) for a ticket or
-[implement-spec](.agents/skills/implement-spec/SKILL.md) for an assigned specification.
+[implement-spec](.agents/skills/implement-spec/SKILL.md) for an assigned specification, including
+an explicit natural-language request to implement the whole specification.
 Acceptance criteria identify agreed seams for `tdd`;
 write their failing tests first. A criterion with no behaviour needs no test.
 
@@ -49,7 +50,24 @@ write their failing tests first. A criterion with no behaviour needs no test.
 Keep work in its assigned writing worktree. Native workers inherit the current agent and model unless the owner selects otherwise.
 Use the current runtime for native workers; Herdr manages separately assigned owner or project sessions.
 
-When the owner invokes `implement-spec`, follow its installed body with these project overrides.
+An ordinary session launch hands off an independent owner/project session: deliver the assignment,
+verify receipt, and report its location. That completes launch, including any startup recovery.
+Ongoing prompts, answering questions, accepting results, and session closure require assigned coordination.
+Record the assigned tasks/sessions, lead, and responsibilities in the issue and handoff; monitor-only
+assignments authorize observation and reporting. Preserve foreign sessions, results, and resources.
+
+An explicit request to implement a whole specification invokes the installed
+[implement-spec](.agents/skills/implement-spec/SKILL.md), including natural-language assignments.
+Launching that work elsewhere assigns execution to the destination session only. Discussing or preparing
+a specification retains the requested scope. Native pipeline workers remain internal to their task;
+independent Herdr sessions cannot substitute for required native workers.
+
+Ordinary writing, editing, research, and material review follow the requested result and the
+[domain/editorial contracts](docs/agents/domain.md), including author acceptance and publication gates.
+Engineering task graphs, integration branches, and TDD belong to software/tooling or an explicitly
+assigned implementation workflow. Documentation-only changes retain their checks and review above.
+
+For assigned whole-specification execution, follow the installed body with these project overrides.
 A specification uses one integration branch and final PR; independent assigned tasks use separate PRs.
 Coordinate only the assigned specification or tickets and the coordinator's own workers and resources.
 Use native implementer and merger workers for the assigned specification.

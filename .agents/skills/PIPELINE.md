@@ -16,6 +16,12 @@ workspace source and record their exact commit here. `sync-pipeline` is not inst
   `d459183f46290ef74ede4f3eca349ab0682cbd0c`.
   This selective cleanup adopts workflow-only classification routing and canonical AGENTS setup.
   Risk/participation reasoning and review mechanics are unchanged from the accepted adaptation.
+- `implement-spec/SKILL.md` only: workspace `0017667f4e7beb5e3b6f8428ae21441496cdfec9` (#1534).
+  SHA-256: `f6219d1993fa443122fef8748a09e085038895233b7d5dfbe7bdad4b2509927d`.
+  This supersedes that file's earlier source above; all other installed skill bytes and native
+  manual metadata remain unchanged. The source [harness contract](https://github.com/KirillSachkov/workspace/blob/0017667f4e7beb5e3b6f8428ae21441496cdfec9/docs/harness-workflow.md)
+  and [pipeline record](https://github.com/KirillSachkov/workspace/blob/0017667f4e7beb5e3b6f8428ae21441496cdfec9/pipeline/README.md)
+  define the shared adaptation; reachable local routing and exceptions live in `WORKFLOW.md`.
 - Manual skills retain `agents/openai.yaml` with `policy.allow_implicit_invocation: false`.
   `pnpm docs:check` checks that policy for skills marked `disable-model-invocation: true`.
 
