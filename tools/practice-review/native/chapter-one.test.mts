@@ -1,3 +1,7 @@
+import { watch, readFileSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -265,32 +269,32 @@ void test("failed or mismatched receipt cannot borrow a previous matching report
 
 void test("interruption and timeout reap a SIGTERM-ignoring descendant after its leader exits", async () => {
   for (const interruption of [true, false]) {
+    const directory = await mkdtemp(join(tmpdir(), "inside-chapter-process-"));
+    const ready = join(directory, "ready");
+    const pending = join(directory, "pending");
     const controller = new AbortController();
     let descendant = 0;
-    const childCode = "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)";
-    const leaderCode = `const {spawn}=require('node:child_process');const c=spawn(process.execPath,['-e',${JSON.stringify(childCode)}],{stdio:'ignore'});console.error(c.pid);setInterval(()=>{},1000)`;
-    const timer = interruption
-      ? setTimeout(() => {
-          controller.abort();
-        }, 1500)
-      : undefined;
+    const watcher = watch(directory, (_event, filename) => {
+      if (filename === "ready") {
+        descendant = Number(readFileSync(ready, "utf8"));
+        if (interruption) controller.abort();
+      }
+    });
+    const childCode =
+      "process.on('SIGTERM',()=>{});process.send('ready');setInterval(()=>{},1000)";
+    const leaderCode = `const {spawn}=require('node:child_process');const fs=require('node:fs');const c=spawn(process.execPath,['-e',${JSON.stringify(childCode)}],{stdio:['ignore','ignore','ignore','ipc']});c.once('message',()=>{fs.writeFileSync(${JSON.stringify(pending)},String(c.pid));fs.renameSync(${JSON.stringify(pending)},${JSON.stringify(ready)})});setInterval(()=>{},1000)`;
     try {
       await assert.rejects(
         command(process.execPath, ["-e", leaderCode], {
           signal: controller.signal,
           timeoutMs: interruption ? 15000 : 1500,
         }),
-        (error: unknown) => {
-          assert.ok(error instanceof Error);
-          assert.match(error.message, interruption ? /interrupted/ : /timeout/);
-          descendant = Number(/: (\d+)/u.exec(error.message)?.[1]);
-          assert.ok(descendant > 0);
-          return true;
-        },
+        interruption ? /interrupted/ : /timeout/,
       );
+      assert.ok(descendant > 0);
       assert.throws(() => process.kill(descendant, 0), { code: "ESRCH" });
     } finally {
-      clearTimeout(timer);
+      watcher.close();
       if (descendant > 0) {
         try {
           process.kill(descendant, "SIGKILL");
@@ -298,6 +302,26 @@ void test("interruption and timeout reap a SIGTERM-ignoring descendant after its
           /* Already reaped. */
         }
       }
+      await rm(directory, { recursive: true, force: true });
     }
+  }
+});
+
+void test("quoted search alternatives and readonly Git options stay reading; execution and redirection do not", () => {
+  assert.deepEqual(
+    unconsentedReviewCommands([
+      `/bin/bash -c "rg -n 'DATABASE_URL|SELECT|Pool' apps; git --no-optional-locks status --porcelain=v1; rg --files | sort"`,
+      `git config --local --get-regexp '^remote\\..*\\.url$'`,
+    ]),
+    [],
+  );
+  for (const command of [
+    "cat AGENTS.md; node scripts/check.mjs",
+    "cat AGENTS.md > /project/copy",
+    "cat $(node scripts/check.mjs)",
+    "git config --local user.name learner",
+    "/project/cat AGENTS.md",
+  ]) {
+    assert.ok(unconsentedReviewCommands([command]).length > 0, command);
   }
 });

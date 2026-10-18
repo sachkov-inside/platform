@@ -90,6 +90,10 @@ export async function observeProject(
       [...compose, "exec", "-T", "frontend", "npm", "run", "test:e2e"],
       "docker compose exec frontend npm run test:e2e",
     );
+    await record(
+      [...compose, "exec", "-T", "frontend", "npm", "run", "check"],
+      "documented: docker compose exec -T frontend npm run check",
+    );
     // Formatting, types and build need a writable disposable project, never the read-only services.
     const local = [
       "run",

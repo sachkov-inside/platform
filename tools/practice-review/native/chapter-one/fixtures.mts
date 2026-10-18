@@ -1,4 +1,12 @@
-import { cp, mkdir, readFile, writeFile, rm, symlink } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  readFile,
+  writeFile,
+  rm,
+  symlink,
+  rename,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { docker, command } from "./process.mjs";
@@ -29,6 +37,10 @@ export async function prepareProject(
   leaseId: string,
 ) {
   await cp(template, directory, { recursive: true });
+  await rename(
+    join(directory, "tsconfig.json.template"),
+    join(directory, "tsconfig.json"),
+  );
   await symlink(
     "/opt/chapter-fixture/node_modules",
     join(directory, "node_modules"),
@@ -71,7 +83,7 @@ export async function prepareProject(
   );
   await writeFile(
     join(directory, "docs/README.md"),
-    "# Development\n\nPrimary branch: main. Applications: apps/frontend and apps/backend. Use a separate Git worktree for file-changing sessions. Prepare dependencies with npm install, create local settings from .env.example and set COMPOSE_PROJECT_NAME to a unique learner-UUID value in your shell and run docker compose up -d --build --wait. Open the ephemeral frontend port from docker compose port frontend 8080. Stop with docker compose down --volumes. Database data is disposable. Every parallel run needs a separate project name and test database.\n\nRun npm run check locally. Run integration and browser checks against the Compose test services: docker compose exec backend npm run test:integration; docker compose exec frontend npm run test:e2e. The database is real and contains test data only. Saved observations are in evidence/ when available. This local project has no GitHub CI or PR review evidence.\n",
+    "# Development\n\nPrimary branch: main. Applications: apps/frontend and apps/backend. Use a separate Git worktree for file-changing sessions. Prepare dependencies with npm install, create local settings from .env.example and set COMPOSE_PROJECT_NAME to a unique learner-UUID value in your shell and run docker compose up -d --build --wait. Open the ephemeral frontend port from docker compose port frontend 8080. Stop with docker compose down --volumes. Database data is disposable. Every parallel run needs a separate project name and test database.\n\nRun the full check inside the running frontend container: docker compose exec -T frontend npm run check. The container provides Chromium and the internal service addresses; no host Node or browser installation is required. Run integration and browser checks against the Compose test services: docker compose exec backend npm run test:integration; docker compose exec frontend npm run test:e2e. The database is real and contains test data only. Saved observations are in evidence/ when available. This local project has no GitHub CI or PR review evidence.\n",
   );
   await writeFile(
     join(directory, ".env.example"),

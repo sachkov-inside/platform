@@ -2,7 +2,7 @@ import { z } from "zod";
 import { taskDefinitionSchema } from "../../../../apps/backend/src/modules/product-tasks/domain/task-definition.js";
 import { isDeepStrictEqual } from "node:util";
 import { reviewReportSchema } from "../../../../apps/backend/src/modules/product-tasks/domain/review-report.js";
-import { simpleCommands, readsOnly } from "../task-gates.mjs";
+export { unconsentedReviewCommands } from "./command-audit.mjs";
 
 export const chapterTaskCodes = [
   "aie-ch1-harness",
@@ -37,19 +37,6 @@ export const chapterSnapshotSchema = z
 export type ChapterSnapshot = z.infer<typeof chapterSnapshotSchema>;
 export type Expectations = Readonly<Record<string, readonly string[]>>;
 
-/** A conservative audit heuristic, not a shell parser or a security sandbox. */
-export function unconsentedReviewCommands(
-  commands: readonly string[],
-): string[] {
-  return commands
-    .flatMap(simpleCommands)
-    .filter(
-      (command) =>
-        !readsOnly(command) &&
-        !/^git (?:worktree list|ls-files)(?:\s|$)/u.test(command),
-    );
-}
-
 /** Expected outcomes are authored outside the learner project, never inferred from its report. */
 export function assessReport(input: unknown, expected: Expectations): string[] {
   const parsed = reviewReportSchema.safeParse(input);
@@ -61,7 +48,7 @@ export function assessReport(input: unknown, expected: Expectations): string[] {
       failures.push(`duplicate:${criterion.criterionId}`);
     seen.add(criterion.criterionId);
     if (criterion.obtainedByRun)
-      failures.push(`unsupported-run-claim:${criterion.criterionId}`);
+      failures.push(`run-claim-needs-review:${criterion.criterionId}`);
     if (expected[criterion.criterionId]?.includes(criterion.status) !== true)
       failures.push(`status:${criterion.criterionId}:${criterion.status}`);
     if (criterion.status === "confirmed" && criterion.evidence.trim() === "")
