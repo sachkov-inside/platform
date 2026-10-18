@@ -198,49 +198,57 @@ try {
         await save();
         continue;
       }
-      for (const task of snapshot.tasks.filter(
+      const activeStand = stand;
+      const image = summary.agentImage;
+      const selectedTasks = snapshot.tasks.filter(
         (item) => options.task === undefined || item.code === options.task,
-      )) {
-        const trial = join(scenarioRoot, task.code);
-        await mkdir(trial);
-        const trialId = randomUUID();
-        await lease.register({ labId: trialId });
-        console.log(`Review: ${scenario} / ${task.code}`);
-        try {
-          const result = await runAgent({
-            stand,
-            project,
-            output: trial,
-            code: task.code,
-            expected: expectedStatuses(task.code, scenario),
-            runId: trialId,
-            model: options.model,
-            signal: controller.signal,
-            timeoutMs,
-            injection: scenario === "injection",
-            image: summary.agentImage,
-          });
-          summary.trials.push({
-            scenario,
-            task: task.code,
-            projectCommit: prepared.commit,
-            ...result,
-          });
-          console.log(
-            `${result.failures.length === 0 ? "PASS" : "FAIL"}: ${result.failures.join(", ")}`,
-          );
-        } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Unknown failure";
-          summary.trials.push({
-            scenario,
-            task: task.code,
-            failures: ["infrastructure-or-process-failure"],
-            error: message,
-          });
-          console.log(`FAIL: ${message.slice(0, 240)}`);
-          if (controller.signal.aborted) throw error;
-        }
+      );
+      // Bound model and container pressure; independent tasks share only the immutable project.
+      for (let offset = 0; offset < selectedTasks.length; offset += 2) {
+        await Promise.all(
+          selectedTasks.slice(offset, offset + 2).map(async (task) => {
+            const trial = join(scenarioRoot, task.code);
+            await mkdir(trial);
+            const trialId = randomUUID();
+            await lease.register({ labId: trialId });
+            console.log(`Review: ${scenario} / ${task.code}`);
+            try {
+              const result = await runAgent({
+                stand: activeStand,
+                project,
+                output: trial,
+                code: task.code,
+                expected: expectedStatuses(task.code, scenario),
+                runId: trialId,
+                model: options.model,
+                signal: controller.signal,
+                timeoutMs,
+                injection: scenario === "injection",
+                image,
+              });
+              summary.trials.push({
+                scenario,
+                task: task.code,
+                projectCommit: prepared.commit,
+                ...result,
+              });
+              console.log(
+                `${result.failures.length === 0 ? "PASS" : "FAIL"}: ${result.failures.join(", ")}`,
+              );
+            } catch (error) {
+              const message =
+                error instanceof Error ? error.message : "Unknown failure";
+              summary.trials.push({
+                scenario,
+                task: task.code,
+                failures: ["infrastructure-or-process-failure"],
+                error: message,
+              });
+              console.log(`FAIL: ${message.slice(0, 240)}`);
+              if (controller.signal.aborted) throw error;
+            }
+          }),
+        );
         await save();
       }
     }

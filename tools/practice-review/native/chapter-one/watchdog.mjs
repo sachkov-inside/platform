@@ -74,11 +74,12 @@ async function cleanup() {
     if (
       current.status === 0 &&
       current.stdout.includes(
-        `${fileURLToPath(new URL("command-wrapper.mjs", import.meta.url))} ${token}`,
+        `${JSON.stringify(fileURLToPath(new URL("command-wrapper.mjs", import.meta.url)))},${JSON.stringify(token)}`,
       )
     ) {
       try {
-        process.kill(-pid, "SIGKILL");
+        // Signal the ownership supervisor; it must finish tree cleanup itself.
+        process.kill(pid, "SIGTERM");
       } catch {
         /* The command may have just completed. */
       }

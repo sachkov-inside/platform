@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   assessReport,
+  assessSavedSubmission,
   chapterSnapshotSchema,
   unconsentedReviewCommands,
 } from "./chapter-one/contracts.mjs";
@@ -184,4 +185,116 @@ void test("worktree inspection reads, but worktree creation and project executio
     ]),
     ["git worktree add /tmp/new", "node scripts/check.mjs"],
   );
+});
+
+void test("failed or mismatched receipt cannot borrow a previous matching report", () => {
+  const confirmed = {
+    code: "aie-ch1-harness",
+    taskVersion: 2,
+    note: "checked",
+    serviceMark: {
+      repositoryUrl: null,
+      branch: "main",
+      commit: null,
+      uncommittedChanges: false,
+    },
+    reviewReport: {
+      summary: "checked",
+      criteria: [
+        {
+          criterionId: "brief",
+          status: "not_verified" as const,
+          evidence: "",
+          gap: "remote absent",
+          obtainedByRun: false,
+        },
+      ],
+    },
+  };
+  const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const receipt = {
+    ok: true,
+    value: { submissionId: id, code: confirmed.code, taskVersion: 2 },
+  };
+  const history = {
+    ok: true,
+    value: { submissions: [{ ...confirmed, submissionId: id }] },
+  };
+  assert.deepEqual(assessSavedSubmission(confirmed, receipt, history), []);
+  assert.notDeepEqual(
+    assessSavedSubmission(
+      confirmed,
+      { ok: false, error: { code: "task_version_changed" } },
+      history,
+    ),
+    [],
+  );
+  assert.notDeepEqual(
+    assessSavedSubmission(
+      confirmed,
+      {
+        ...receipt,
+        value: {
+          ...receipt.value,
+          submissionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        },
+      },
+      history,
+    ),
+    [],
+  );
+  assert.notDeepEqual(
+    assessSavedSubmission(confirmed, receipt, {
+      ok: true,
+      value: {
+        submissions: [
+          {
+            ...confirmed,
+            submissionId: id,
+            serviceMark: { ...confirmed.serviceMark, commit: "a".repeat(40) },
+          },
+        ],
+      },
+    }),
+    [],
+  );
+});
+
+void test("interruption and timeout reap a SIGTERM-ignoring descendant after its leader exits", async () => {
+  for (const interruption of [true, false]) {
+    const controller = new AbortController();
+    let descendant = 0;
+    const childCode = "process.on('SIGTERM',()=>{});setInterval(()=>{},1000)";
+    const leaderCode = `const {spawn}=require('node:child_process');const c=spawn(process.execPath,['-e',${JSON.stringify(childCode)}],{stdio:'ignore'});console.error(c.pid);setInterval(()=>{},1000)`;
+    const timer = interruption
+      ? setTimeout(() => {
+          controller.abort();
+        }, 1500)
+      : undefined;
+    try {
+      await assert.rejects(
+        command(process.execPath, ["-e", leaderCode], {
+          signal: controller.signal,
+          timeoutMs: interruption ? 15000 : 1500,
+        }),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.match(error.message, interruption ? /interrupted/ : /timeout/);
+          descendant = Number(/: (\d+)/u.exec(error.message)?.[1]);
+          assert.ok(descendant > 0);
+          return true;
+        },
+      );
+      assert.throws(() => process.kill(descendant, 0), { code: "ESRCH" });
+    } finally {
+      clearTimeout(timer);
+      if (descendant > 0) {
+        try {
+          process.kill(descendant, "SIGKILL");
+        } catch {
+          /* Already reaped. */
+        }
+      }
+    }
+  }
 });

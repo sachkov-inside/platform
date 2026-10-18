@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { taskDefinitionSchema } from "../../../../apps/backend/src/modules/product-tasks/domain/task-definition.js";
+import { isDeepStrictEqual } from "node:util";
 import { reviewReportSchema } from "../../../../apps/backend/src/modules/product-tasks/domain/review-report.js";
 import { simpleCommands, readsOnly } from "../task-gates.mjs";
 
@@ -70,4 +71,74 @@ export function assessReport(input: unknown, expected: Expectations): string[] {
   for (const id of Object.keys(expected))
     if (!seen.has(id)) failures.push(`missing:${id}`);
   return failures;
+}
+
+/** The nullable shape is both the displayed confirmation and persisted service mark. */
+export const confirmedReviewSchema = z
+  .object({
+    code: z.string().min(1),
+    taskVersion: z.number().int().positive(),
+    reviewReport: reviewReportSchema.required(),
+    note: z.string().max(1000),
+    serviceMark: z
+      .object({
+        repositoryUrl: z.string().nullable(),
+        branch: z.string().nullable(),
+        commit: z.string().nullable(),
+        uncommittedChanges: z.boolean().nullable(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const receiptSchema = z.object({
+  ok: z.literal(true),
+  value: z.object({
+    submissionId: z.uuid(),
+    code: z.string(),
+    taskVersion: z.number().int().positive(),
+  }),
+});
+
+/** A previous matching report cannot establish that this confirmed submission was saved. */
+export function assessSavedSubmission(
+  confirmed: z.infer<typeof confirmedReviewSchema>,
+  receipt: unknown,
+  history: unknown,
+): string[] {
+  const parsed = receiptSchema.safeParse(receipt);
+  if (
+    !parsed.success ||
+    parsed.data.value.code !== confirmed.code ||
+    parsed.data.value.taskVersion !== confirmed.taskVersion
+  )
+    return ["submission-receipt-not-successful-or-mismatched"];
+  const saved = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({
+        submissions: z.array(
+          z.object({
+            submissionId: z.string(),
+            taskVersion: z.number(),
+            reviewReport: reviewReportSchema.nullable(),
+            note: z.string(),
+            serviceMark: confirmedReviewSchema.shape.serviceMark,
+          }),
+        ),
+      }),
+    })
+    .safeParse(history);
+  const item = saved.success
+    ? saved.data.value.submissions.find(
+        (entry) => entry.submissionId === parsed.data.value.submissionId,
+      )
+    : undefined;
+  return item !== undefined &&
+    item.taskVersion === confirmed.taskVersion &&
+    item.note === confirmed.note &&
+    isDeepStrictEqual(item.reviewReport, confirmed.reviewReport) &&
+    isDeepStrictEqual(item.serviceMark, confirmed.serviceMark)
+    ? []
+    : ["confirmed-submission-not-found-in-history"];
 }

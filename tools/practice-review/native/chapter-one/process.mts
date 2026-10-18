@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawnOwned } from "../../../../scripts/owned-process.mjs";
 import { processDeadline } from "../process-deadline.mjs";
 import { fileURLToPath } from "node:url";
 
@@ -28,7 +28,7 @@ export async function command(
   return new Promise<{ stdout: string; stderr: string; code: number | null }>(
     (resolve, reject) => {
       const lease = commandLease;
-      const child = spawn(
+      const child = spawnOwned(
         lease === undefined ? program : process.execPath,
         lease === undefined
           ? [...args]
@@ -42,31 +42,33 @@ export async function command(
           stdio: ["pipe", "pipe", "pipe"],
         },
       );
+      const { stdin, stdout: output, stderr: errors } = child;
+      if (stdin === null || output === null || errors === null) {
+        child.kill("SIGTERM");
+        reject(Error("Owned command requires piped streams"));
+        return;
+      }
       const deadline = processDeadline(child, options.timeoutMs ?? 120_000);
       const abort = () => {
-        try {
-          if (child.pid !== undefined) process.kill(-child.pid, "SIGTERM");
-        } catch {
-          /* Already closed. */
-        }
+        deadline.stop();
       };
       let stdout = "",
         stderr = "";
-      child.stdout.on("data", (chunk: Buffer) => {
+      output.on("data", (chunk: Buffer) => {
         stdout += chunk.toString();
       });
-      child.stderr.on("data", (chunk: Buffer) => {
+      errors.on("data", (chunk: Buffer) => {
         stderr += chunk.toString();
       });
-      child.stdin.on("error", () => {
+      stdin.on("error", () => {
         /* A failed child may close before reading stdin. */
       });
-      if (lease === undefined) child.stdin.end(options.input);
+      if (lease === undefined) stdin.end(options.input);
       else {
         void (async () => {
           if (child.pid === undefined) throw Error("Owned command has no PID");
           await lease.register(child.pid);
-          child.stdin.end(
+          stdin.end(
             JSON.stringify({
               program,
               args,
