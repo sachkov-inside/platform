@@ -1,0 +1,17 @@
+{
+  "categories": { "correctness": "error" },
+  "overrides": [
+    {
+      "files": ["apps/frontend/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": ["**/backend/**"] }]
+      }
+    },
+    {
+      "files": ["apps/backend/**"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": ["**/frontend/**"] }]
+      }
+    }
+  ]
+}
