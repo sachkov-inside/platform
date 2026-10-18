@@ -53,8 +53,9 @@ Before an agent runs repository Compose commands from any worktree, it must read
 - `WORKFLOW.md` owns session mode, classification and the developer process. Skills live in
   `.agents/skills`; `.claude/skills` is a symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
   review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
-- When the owner invokes [implement-spec](.agents/skills/implement-spec/SKILL.md), apply the
-  project execution rules in [WORKFLOW.md](WORKFLOW.md#sessions-and-coordinated-execution).
+- For session handoff, assigned coordination, or an explicit whole-specification implementation
+  request via [implement-spec](.agents/skills/implement-spec/SKILL.md) (including natural language),
+  read [session execution](WORKFLOW.md#sessions-and-coordinated-execution).
   `WORKFLOW.md` owns stage selection and ordinary task completion.
 - Keep build, test, run, deploy, and agent work dependent only on files in this repository.
 
