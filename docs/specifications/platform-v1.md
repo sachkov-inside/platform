@@ -391,6 +391,16 @@ Publication lifecycle finite: never-published `draft` скрыт и может �
 видим; `unpublished` раньше был видим, теперь скрыт и сохраняет identity/ReadingState. Slug можно
 менять только до первой публикации. Direct public read `draft | unpublished` возвращает `404`.
 
+Never-published source-owned drafts can be removed only through the manager-authorized
+`POST /authoring/import/materials/delete-draft` with the exact `sourceId`, Material ID,
+`expectedContentVersion` and idempotency key. Ordinary editor/MCP deletion still refuses
+source-owned records. Source deletion refuses Product membership and a primary Video; it never
+requests external video deletion. Existing lifecycle, reference locks and database constraints
+remain in force. Repeating the same successful delete returns its receipt after the row is gone.
+Published or previously published Materials keep their identity and can only be unpublished.
+This operation permanently retires a source identity; reimporting a deleted source is not a
+recovery path. Recovery requires the verified database backup, not an automatic reader restore.
+
 Topic, Tag и Series создаются по мере реального authoring; результаты аудита служат
 fixtures, а не заранее заданной ontology. Format определён в домене ровно тремя значениями:
 `video` — «Видео», `guide` — «Гайд», `note` — «Заметка». Материал хранит выбранное значение;

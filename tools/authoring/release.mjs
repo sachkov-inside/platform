@@ -629,7 +629,10 @@ export async function applyRelease(
     .object({ scope: z.string().optional() })
     .passthrough()
     .parse(JSON.parse(await readFile(previewPath, "utf8")));
-  if (envelope.scope === "material-retirement") {
+  if (
+    envelope.scope === "material-retirement" ||
+    envelope.scope === "source-draft-deletion"
+  ) {
     if (archive.length > 0)
       throw new Error("Retirement apply uses only its reviewed UUID targets");
     return applyRetirement(previewPath, stateDirectory, {
@@ -733,8 +736,14 @@ if (
     },
   });
   const [command] = positionals;
-  if (command !== "retirement-preview" && values.material.length > 0)
-    throw new Error("--material is a retirement-preview choice");
+  if (
+    command !== "retirement-preview" &&
+    command !== "draft-deletion-preview" &&
+    values.material.length > 0
+  )
+    throw new Error(
+      "--material is a retirement-preview or draft-deletion-preview choice",
+    );
   if (command !== "preview" && values["task-access"].length > 0)
     throw new Error(
       "--task-access is a preview choice; apply uses the reviewed choices",
@@ -751,7 +760,8 @@ if (
       : undefined;
   };
   if (
-    command === "retirement-preview" &&
+    (command === "retirement-preview" ||
+      command === "draft-deletion-preview") &&
     values.package &&
     values.target &&
     values.state
@@ -762,11 +772,12 @@ if (
       {
         origin: values.target,
         materialIds: values.material,
+        deleteDrafts: command === "draft-deletion-preview",
         accessToken: sessionFor(values.target),
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, packageId: preview.packageId, fingerprint: preview.fingerprint, protectedMaterials: preview.protected.length, retirements: preview.materials.map((row) => ({ materialId: row.materialId, sourceId: row.source.id, title: row.metadata.title, from: row.publicationState, to: "unpublished" })) }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, scope: preview.scope, packageId: preview.packageId, fingerprint: preview.fingerprint, protectedMaterials: preview.protected.length, retirements: preview.materials.map((row) => ({ materialId: row.materialId, sourceId: row.source.id, title: row.metadata.title, from: row.publicationState, to: preview.scope === "source-draft-deletion" ? "deleted" : "unpublished" })) }, null, 2)}\n`,
     );
   } else if (
     command === "preview" &&
@@ -810,11 +821,11 @@ if (
       accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
-      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
+      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, ...("deleted" in report ? { deleted: report.deleted } : {}), products: report.products, tasks: report.tasks ?? [] }, null, 2)}\n`,
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview|draft-deletion-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

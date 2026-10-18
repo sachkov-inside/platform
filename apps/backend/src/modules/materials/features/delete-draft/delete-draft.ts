@@ -45,6 +45,7 @@ type DeleteDraftEffect = {
 
 export function assembleDeleteDraft(
   dependencies: MaterialAuthoringDependencies,
+  sourceId: string | null = null,
 ): DeleteDraftOperation {
   return async (input) => {
     const parsed = parseCommand(deleteDraftCommand, input);
@@ -61,6 +62,7 @@ export function assembleDeleteDraft(
     }
     const fingerprint = fingerprintCommand({
       operation: "delete_draft",
+      ...(sourceId === null ? {} : { sourceId }),
       materialId: command.materialId,
       expectedContentVersion: command.expectedContentVersion,
       deleteVideoId: command.deleteVideoId,
@@ -106,7 +108,7 @@ export function assembleDeleteDraft(
                 currentContentVersion: material.lifecycle.contentVersion,
               });
             }
-            const sourceError = checkContentWrite(contentWriter(), [
+            const sourceError = checkContentWrite(contentWriter(sourceId), [
               {
                 kind: "material",
                 sourceId: material.sourceId,
@@ -117,6 +119,39 @@ export function assembleDeleteDraft(
             if (sourceError !== null) return rollback(sourceError);
             if (!material.lifecycle.canDelete()) {
               return rollback({ code: "draft_deletion_forbidden" });
+            }
+            // Product composition need not increment Material.contentVersion. Read membership
+            // again while holding the shared reference lock, including a concurrent new placement.
+            if (
+              sourceId !== null &&
+              (await transaction.productMembership.count({
+                where: { materialId: command.materialId },
+              })) > 0
+            ) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [
+                  {
+                    code: "source_draft_still_in_product",
+                    path: "/materialId",
+                  },
+                ],
+              });
+            }
+            if (
+              sourceId !== null &&
+              (command.deleteVideoId !== null ||
+                material.primaryVideoId !== null)
+            ) {
+              return rollback({
+                code: "invalid_reference",
+                issues: [
+                  {
+                    code: "import_video_deletion_forbidden",
+                    path: "/deleteVideoId",
+                  },
+                ],
+              });
             }
             if (
               command.deleteVideoId !== null &&

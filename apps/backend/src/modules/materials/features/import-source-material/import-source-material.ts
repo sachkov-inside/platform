@@ -16,6 +16,11 @@ import {
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleCreateDraft } from "../create-draft/create-draft.js";
 import { assembleSaveMaterial } from "../save-material/save-material.js";
+import { assembleDeleteDraft } from "../delete-draft/delete-draft.js";
+import {
+  deleteSourceDraftBodySchema,
+  type DeleteSourceDraftOperation,
+} from "./import-source-material.contract.js";
 import {
   reserveSourceBodySchema,
   applySourceBodySchema,
@@ -34,6 +39,23 @@ const receiptSchema = z.object({
   publicationState: z.enum(["draft", "published", "unpublished"]),
   publishedAt: z.date().nullable(),
 });
+
+export function assembleDeleteSourceDraft(
+  dependencies: MaterialAuthoringDependencies,
+): DeleteSourceDraftOperation {
+  return async (input) => {
+    const parsed = parseCommand(
+      deleteSourceDraftBodySchema.extend({
+        actor: accountId,
+        idempotencyKey: idempotencyKeySchema,
+      }),
+      input,
+    );
+    if (!parsed.ok) return parsed;
+    const { sourceId, ...command } = parsed.value;
+    return assembleDeleteDraft(dependencies, sourceId)(command);
+  };
+}
 
 export function assembleReserveSourceMaterial(
   dependencies: MaterialAuthoringDependencies,

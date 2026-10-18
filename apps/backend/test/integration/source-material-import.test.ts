@@ -511,4 +511,158 @@ describe("authoring source Material", () => {
       error: { code: "invalid_content" },
     });
   });
+
+  test("source deletion is restricted to the exact source and a never-published draft, and replays after deletion", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+    });
+    const draftSource = { ...source, id: "obsolete-source-draft" };
+    const reserved = await authoring.reserveSourceMaterial({
+      actor,
+      source: draftSource,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const command = {
+      actor,
+      sourceId: draftSource.id,
+      materialId: reserved.value.materialId,
+      expectedContentVersion: 1,
+      idempotencyKey: "delete-obsolete-source",
+    };
+    expect(
+      await authoring.deleteSourceDraft({
+        ...command,
+        actor: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await authoring.deleteSourceDraft({
+        ...command,
+        sourceId: "other-source",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(
+      await authoring.deleteSourceDraft({
+        ...command,
+        expectedContentVersion: 2,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "stale_content_version" } });
+    const deleted = await authoring.deleteSourceDraft(command);
+    expect(deleted).toEqual({
+      ok: true,
+      value: { materialId: reserved.value.materialId },
+    });
+    expect(await authoring.deleteSourceDraft(command)).toEqual(deleted);
+    expect(
+      await authoring.loadMaterial({ actor, materialId: command.materialId }),
+    ).toMatchObject({ ok: false, error: { code: "material_not_found" } });
+    const keptSource = { ...source, id: "retired-source-deletion-test" };
+    const retired = await authoring.reserveSourceMaterial({
+      actor,
+      source: keptSource,
+    });
+    if (!retired.ok) throw new Error(retired.error.code);
+    const topic = await authoring.createContentCollection({
+      actor,
+      kind: "topic",
+      name: "Deletion topic",
+      slug: "deletion-topic",
+      summary: "",
+    });
+    if (!topic.ok) throw new Error(topic.error.code);
+    const publish = {
+      actor,
+      source: keptSource,
+      materialId: retired.value.materialId,
+      expectedContentVersion: 1,
+      idempotencyKey: "source-deletion-publish",
+      publicationState: "published" as const,
+      primaryVideoId: null,
+      metadata: {
+        ...metadata,
+        summary: "Published original",
+        topicId: topic.value.id,
+      },
+      body: representativeDocument("Cannot delete this publication"),
+    };
+    expect(await authoring.applySourceMaterial(publish)).toMatchObject({
+      ok: true,
+    });
+    const cannotDelete = {
+      ...command,
+      sourceId: keptSource.id,
+      materialId: retired.value.materialId,
+      expectedContentVersion: 2,
+      idempotencyKey: "cannot-delete-published-source",
+    };
+    expect(await authoring.deleteSourceDraft(cannotDelete)).toMatchObject({
+      ok: false,
+      error: { code: "draft_deletion_forbidden" },
+    });
+    expect(
+      await authoring.applySourceMaterial({
+        ...publish,
+        publicationState: "unpublished",
+        expectedContentVersion: 2,
+        idempotencyKey: "source-deletion-unpublish",
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await authoring.deleteSourceDraft({
+        ...cannotDelete,
+        expectedContentVersion: 3,
+        idempotencyKey: "cannot-delete-unpublished-source",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "draft_deletion_forbidden" } });
+  });
+
+  test("source draft deletion cannot remove a Product member", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+    });
+    const product = await authoring.reserveSourceProduct({
+      actor,
+      sourceId: "draft-delete-product",
+      name: "Keep composition",
+      slug: "draft-delete-product",
+      summary: "",
+    });
+    if (!product.ok) throw new Error(product.error.code);
+    const memberSource = { ...source, id: "draft-delete-member" };
+    const reserved = await authoring.reserveSourceMaterial({
+      actor,
+      source: memberSource,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    expect(
+      await authoring.applySourceMaterial({
+        actor,
+        source: memberSource,
+        materialId: reserved.value.materialId,
+        expectedContentVersion: 1,
+        idempotencyKey: "draft-delete-attach",
+        publicationState: "draft",
+        primaryVideoId: null,
+        metadata: { ...metadata, seriesIds: [product.value.id] },
+        body: representativeDocument("Keep member"),
+      }),
+    ).toMatchObject({ ok: true });
+    expect(
+      await authoring.deleteSourceDraft({
+        actor,
+        sourceId: memberSource.id,
+        materialId: reserved.value.materialId,
+        expectedContentVersion: 2,
+        idempotencyKey: "draft-delete-member",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_reference" } });
+    expect(
+      await authoring.loadSeriesOrder({ actor, seriesId: product.value.id }),
+    ).toMatchObject({
+      ok: true,
+      value: { items: [{ materialId: reserved.value.materialId }] },
+    });
+  });
 });

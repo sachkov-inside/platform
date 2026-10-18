@@ -13,6 +13,7 @@ import { assembleValidateSourceContent } from "../../features/import-source-mate
 import {
   assembleReserveSourceMaterial,
   assembleApplySourceMaterial,
+  assembleDeleteSourceDraft,
 } from "../../features/import-source-material/import-source-material.js";
 import { assembleLoadHomePin } from "../../features/load-home-pin/load-home-pin.js";
 import { assembleSetHomePin } from "../../features/set-home-pin/set-home-pin.js";
@@ -49,6 +50,7 @@ export function assembleMaterialAuthoring(
     validateSourceContent: assembleValidateSourceContent(dependencies),
     reserveSourceMaterial: assembleReserveSourceMaterial(dependencies),
     applySourceMaterial: assembleApplySourceMaterial(dependencies),
+    deleteSourceDraft: assembleDeleteSourceDraft(dependencies),
     loadHomePin: assembleLoadHomePin(dependencies),
     setHomePin: assembleSetHomePin(dependencies),
     createContentCollection: assembleCreateContentCollection(dependencies),

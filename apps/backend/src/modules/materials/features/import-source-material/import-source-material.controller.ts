@@ -31,6 +31,7 @@ import type { MaterialAuthoring } from "../../facets/material-authoring/material
 import {
   reserveSourceBodySchema,
   applySourceBodySchema,
+  deleteSourceDraftBodySchema,
 } from "./import-source-material.contract.js";
 
 @MaterialAuthoringEndpoint()
@@ -40,6 +41,36 @@ export class ImportSourceMaterialController {
     @Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
   ) {}
+
+  @Post("delete-draft")
+  @ApiOperation({
+    operationId: "deleteSourceMaterialDraft",
+    summary: "Delete a never-published draft belonging to the exact source",
+  })
+  @ApiHeader({
+    name: "idempotency-key",
+    required: true,
+    schema: toOpenApiSchema(idempotencyKeySchema),
+  })
+  @ApiBody({ schema: toOpenApiSchema(deleteSourceDraftBodySchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(z.object({ materialId: z.uuid() }).strict()),
+  })
+  @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
+  async deleteDraft(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Headers("idempotency-key") key: string | undefined,
+    @Body() input: unknown,
+  ) {
+    const body = parseMaterialAuthoringBody(deleteSourceDraftBodySchema, input);
+    const result = await this.authoring.deleteSourceDraft({
+      actor: account.accountId,
+      idempotencyKey: key ?? "",
+      ...body,
+    });
+    if (!result.ok) throwMaterialAuthoringError(result.error);
+    return result.value;
+  }
 
   @Get("environment")
   @ApiOperation({
