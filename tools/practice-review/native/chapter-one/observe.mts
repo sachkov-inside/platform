@@ -1,5 +1,6 @@
 import { mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
 import { docker } from "./process.mjs";
 
 /** Execute outside the reviewing agent and retain actual command outcomes, including failures. */
@@ -49,6 +50,35 @@ export async function observeProject(
       [...compose, "ps", "--format", "json"],
       "docker compose ps --format json: readiness, services and published addresses",
     );
+    const published = await record(
+      [...compose, "port", "frontend", "8080"],
+      "docker compose port frontend 8080",
+    );
+    const address = z
+      .string()
+      .regex(/^127\.0\.0\.1:[1-9][0-9]{0,4}$/u)
+      .parse(published.stdout.trim());
+    for (const path of ["/", "/api/health"]) {
+      const response = await fetch(`http://${address}${path}`, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
+      });
+      const body = await response.text();
+      const healthy =
+        path === "/"
+          ? body.includes('<main id="app">')
+          : z
+              .object({
+                status: z.literal("ready"),
+                database: z.literal("connected"),
+              })
+              .safeParse(JSON.parse(body)).success;
+      evidence.push({
+        command: `host GET http://${address}${path}`,
+        code: response.ok && healthy ? 0 : 1,
+        stdout: body.slice(0, 2000),
+        stderr: "",
+      });
+    }
   };
   try {
     await start();

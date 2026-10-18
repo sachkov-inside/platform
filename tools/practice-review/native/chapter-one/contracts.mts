@@ -45,7 +45,8 @@ export function unconsentedReviewCommands(
     .flatMap(simpleCommands)
     .filter(
       (command) =>
-        !readsOnly(command) && !/^git worktree list(?:\s|$)/u.test(command),
+        !readsOnly(command) &&
+        !/^git (?:worktree list|ls-files)(?:\s|$)/u.test(command),
     );
 }
 

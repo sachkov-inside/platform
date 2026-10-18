@@ -175,7 +175,10 @@ void test("owned command preserves failure status and rejects timeout", async ()
 
 void test("worktree inspection reads, but worktree creation and project execution require consent", () => {
   assert.deepEqual(
-    unconsentedReviewCommands(["git worktree list --porcelain"]),
+    unconsentedReviewCommands([
+      "git worktree list --porcelain",
+      "git ls-files --stage",
+    ]),
     [],
   );
   assert.deepEqual(

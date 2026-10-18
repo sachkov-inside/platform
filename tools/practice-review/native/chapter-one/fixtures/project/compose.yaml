@@ -38,6 +38,7 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    networks: [default, edge]
     ports:
       - "127.0.0.1::8080"
     healthcheck:
@@ -52,5 +53,6 @@ services:
       timeout: 3s
       retries: 40
 networks:
+  edge: {}
   default:
     internal: true
