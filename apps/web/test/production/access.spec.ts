@@ -117,6 +117,19 @@ test("production access observes every live cell in one isolated scenario", asyn
       case "practice@browser":
         return observeTaskPage(await sessionOf(browser, identity), identity);
       case "practice@learner-mcp":
+        if (action === "read-retired-practice") {
+          const call = await callMcpTool(
+            productionTarget.learnerMcp,
+            await learnerTokenOf(identity),
+            "learning_practice_read",
+            { practiceId: freePracticeId, part: 0 },
+          );
+          expectDenial(identity, call, "practice_not_available");
+          return {
+            observed: "denied",
+            note: "practice_not_available; контекст не выдан",
+          };
+        }
         return action === "read-free-practice"
           ? observeFreePracticeThroughMcp(identity)
           : observeTaskThroughMcp(identity);

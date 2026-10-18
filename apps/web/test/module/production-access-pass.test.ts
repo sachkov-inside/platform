@@ -14,6 +14,7 @@ import {
   identityEmail,
   passCells,
   videoDeferred,
+  freePracticeDeferred,
 } from "../production/pass-config";
 import { redactPassText } from "../production/pass-redaction";
 import { problemLine } from "../production/pass-report";
@@ -172,7 +173,7 @@ describe("production access pass verdict", () => {
 });
 
 describe("production access pass configuration", () => {
-  it("defers only Product B and video cells, each with its owner decision", () => {
+  it("defers only unavailable owner-selected fixtures and checks retired practice denial", () => {
     const cells: readonly PassCell[] = passCells;
     const reasons = cells.map((cell) => {
       const { action, state, surface } = passCellParts(cell.id);
@@ -182,11 +183,18 @@ describe("production access pass configuration", () => {
       )
         return [cell.deferred, productBDeferred];
       if (surface === "video") return [cell.deferred, videoDeferred];
+      if (action === "read-free-practice")
+        return [cell.deferred, freePracticeDeferred];
       return [cell.deferred, undefined];
     });
 
     for (const [actual, expected] of reasons) expect(actual).toBe(expected);
     expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(30);
+    const retired = cells.find((cell) =>
+      cell.id.includes("/read-retired-practice/"),
+    );
+    expect(retired?.expected).toBe("denied");
+    expect(retired?.deferred).toBeUndefined();
   });
 
   it("reads every Product surface in the browser and body and practice through learner MCP too", () => {
