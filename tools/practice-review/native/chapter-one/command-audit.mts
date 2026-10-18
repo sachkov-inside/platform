@@ -110,6 +110,13 @@ function reading(input: readonly string[]) {
   if (words[0] === "git") {
     if (words[1] === "--no-optional-locks") words.splice(1, 1);
     if (words[1] === "-C" && words[2] === "/project") words.splice(1, 2);
+    if (words[1] === "symbolic-ref")
+      return (
+        words.at(-1) === "HEAD" &&
+        words
+          .slice(2, -1)
+          .every((value) => ["--quiet", "-q", "--short"].includes(value))
+      );
     if (words[1] === "config") {
       const flags = words.slice(2);
       if (["--local", "--global", "--system"].includes(flags[0] ?? ""))

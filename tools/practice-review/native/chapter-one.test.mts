@@ -1,5 +1,5 @@
 import { watch, readFileSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -15,8 +15,31 @@ import { createServer } from "node:http";
 import { startRelay } from "./chapter-one/relay.mjs";
 import { command } from "./chapter-one/process.mjs";
 
-void test("chapter lab refuses a snapshot that substitutes a legacy task", () => {
-  assert.equal(chapterSnapshotSchema.safeParse({ tasks: [] }).success, false);
+void test("chapter lab refuses legacy substitution and duplicate active tasks", async () => {
+  const valid = chapterSnapshotSchema.parse(
+    JSON.parse(
+      await readFile(
+        new URL("./chapter-one/snapshot.json", import.meta.url),
+        "utf8",
+      ),
+    ),
+  );
+  const [first, second, ...rest] = valid.tasks;
+  assert.ok(first !== undefined && second !== undefined);
+  assert.equal(
+    chapterSnapshotSchema.safeParse({
+      ...valid,
+      tasks: [{ ...first, code: "legacy-chapter-one" }, second, ...rest],
+    }).success,
+    false,
+  );
+  assert.equal(
+    chapterSnapshotSchema.safeParse({
+      ...valid,
+      tasks: [second, second, ...rest],
+    }).success,
+    false,
+  );
 });
 
 void test("a confident report cannot pass with missing criteria or a known defect", () => {
@@ -182,6 +205,7 @@ void test("worktree inspection reads, but worktree creation and project executio
     unconsentedReviewCommands([
       "git worktree list --porcelain",
       "git ls-files --stage",
+      "git symbolic-ref --quiet --short HEAD",
     ]),
     [],
   );
@@ -322,6 +346,7 @@ void test("quoted search alternatives and readonly Git options stay reading; exe
     "cat $(node scripts/check.mjs)",
     "git config --local user.name learner",
     "/project/cat AGENTS.md",
+    "git symbolic-ref HEAD refs/heads/changed",
     "cat AGENTS.md\nnode scripts/check.mjs",
     "cat AGENTS.md # quoted comment '\nnode scripts/check.mjs",
   ]) {
