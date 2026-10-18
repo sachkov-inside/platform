@@ -197,7 +197,7 @@ export function expectedStatuses(
         : scenario === "missing-evidence"
           ? ["not_verified"]
           : ["confirmed"],
-      delivery: ["not_verified"],
+      delivery: defect ? ["not_verified", "violation"] : ["not_verified"],
     };
   return {
     "local-checks": defect

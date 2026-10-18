@@ -46,7 +46,7 @@ pnpm practice-review:chapter-one --scenario defect
 
 `--model` selects the requested model (default `gpt-6.1-sol`). `--timeout` bounds each model turn
 in milliseconds; timeout and infrastructure errors remain failures. `--output` must name a new
-directory. The default output is `.reports/chapter-one-lab/<run UUID>`.
+directory. At most two independent Tasks are reviewed concurrently within each scenario; scenarios run sequentially. The default output is `.reports/chapter-one-lab/<run UUID>`.
 
 ## Isolation and execution
 
@@ -91,7 +91,7 @@ mark a complete criterion confirmed while its required evidence remains missing.
 The machine gates check full context parts/hashes, criterion coverage and expected statuses,
 evidence/gap presence, consent boundaries, no early submission, unchanged files and persistence.
 Only after seeing a conforming exact report does the runner send an explicit scripted confirmation.
-It compares the submitted report/note, retries the same submission and reads history back. The
+It confirms code, reviewed version, report, note and the nullable service mark. Submitted fields must match exactly (null mark fields are omitted from the request). A successful receipt must identify the same task/version; history must contain that exact submission ID and content. The runner also retries the same submission. The
 contract-only run separately covers history isolation, author feedback and obsolete versions.
 
 Machine results do not establish pedagogical quality. Inspect the full reports for specific,
