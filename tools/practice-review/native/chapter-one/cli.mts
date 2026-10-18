@@ -205,7 +205,7 @@ try {
       );
       // Bound model and container pressure; independent tasks share only the immutable project.
       for (let offset = 0; offset < selectedTasks.length; offset += 2) {
-        await Promise.all(
+        const settled = await Promise.allSettled(
           selectedTasks.slice(offset, offset + 2).map(async (task) => {
             const trial = join(scenarioRoot, task.code);
             await mkdir(trial);
@@ -250,6 +250,8 @@ try {
           }),
         );
         await save();
+        const rejected = settled.find((result) => result.status === "rejected");
+        if (rejected?.status === "rejected") throw rejected.reason;
       }
     }
   }
