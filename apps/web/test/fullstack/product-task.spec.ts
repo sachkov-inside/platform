@@ -63,7 +63,9 @@ test("a learner without Membership reads a free task from the programme, submits
   await expect(
     form.getByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
   ).toBeVisible();
-  const mine = page.locator("[data-own-submissions]");
+  const mine = page
+    .getByRole("region", { name: "Мои сдачи", exact: true })
+    .locator("[data-own-submissions]");
   const submitted = mine.locator("[data-submission]").filter({ hasText: note });
   await submitted.getByText("Моя заметка", { exact: true }).click();
   await expect(submitted.getByText(note)).toBeVisible();
@@ -71,6 +73,7 @@ test("a learner without Membership reads a free task from the programme, submits
 
   await page.reload();
   const restored = page
+    .getByRole("region", { name: "Мои сдачи", exact: true })
     .locator("[data-own-submissions] [data-submission]")
     .filter({ hasText: note });
   await restored.getByText("Моя заметка", { exact: true }).click();
@@ -147,7 +150,11 @@ test("a practical Material reuses the real submission workspace without adding a
   await expect(page.locator("[data-reader-body]")).toContainText(
     "Урок перед заданием.",
   );
-  await expect(page.locator("[data-own-submissions]")).toContainText(note);
+  await expect(
+    page
+      .getByRole("region", { name: "Мои сдачи", exact: true })
+      .locator("[data-own-submissions]"),
+  ).toContainText(note);
   const programme = page.getByRole("button", {
     name: "Вся программа",
     exact: true,
