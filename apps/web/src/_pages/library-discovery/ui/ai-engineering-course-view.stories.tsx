@@ -78,6 +78,9 @@ export const Desktop: Story = {
       canvas.getByRole("heading", { level: 1, name: /^AI Engineering/u }),
     ).toBeVisible();
     // Программа и прохождение живут на своей странице: все кнопки ведут туда.
+    await expect(
+      canvas.queryByRole("heading", { name: "Программа курса" }),
+    ).toBeNull();
     for (const link of canvas.getAllByRole("link", {
       name: /Открыть программу/u,
     })) {

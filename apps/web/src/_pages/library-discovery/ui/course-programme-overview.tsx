@@ -4,7 +4,7 @@ import type { ProductChapter } from "@/features/library-discovery";
 
 import "./course-programme-overview.css";
 
-/** Chapter copy remains authored in ProductChapter.summary, shared by both course surfaces. */
+/** Chapter copy remains authored in ProductChapter.summary on the programme page. */
 export function ChapterSummary({
   name,
   summary,
@@ -42,29 +42,5 @@ export function ChapterSummary({
         </details>
       )}
     </div>
-  );
-}
-
-export function CourseProgrammeOverview({
-  chapters,
-}: {
-  readonly chapters: readonly ProductChapter[];
-}) {
-  return (
-    <section className="course-programme-overview" id="course-programme">
-      <h2>Программа курса</h2>
-      <ol className="course-programme-chapters">
-        {chapters.map((chapter) => (
-          <li key={chapter.id}>
-            <h3>{chapter.name}</h3>
-            <ChapterSummary
-              name={chapter.name}
-              summary={chapter.summary}
-              showOutcome={chapter.materialIds.length === 0}
-            />
-          </li>
-        ))}
-      </ol>
-    </section>
   );
 }

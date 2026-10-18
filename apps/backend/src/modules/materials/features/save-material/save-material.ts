@@ -294,7 +294,6 @@ export function assembleSaveMaterial(
               slug,
             );
             const requiresPublicationValidity =
-              locked.lifecycle.publicationState === "published" ||
               next.value.publicationState === "published";
             const publishable = materializedMetadata.validateForPublication();
             if (requiresPublicationValidity && !publishable.ok) {

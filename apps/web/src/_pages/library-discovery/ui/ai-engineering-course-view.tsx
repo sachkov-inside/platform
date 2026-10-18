@@ -22,7 +22,7 @@ import {
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
-import { Fragment, type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type {
   ProductPage,
@@ -51,7 +51,6 @@ import {
 
 import { cohortEnrollAnchor } from "../model/cohort-call";
 import { countFreeLessons } from "../model/free-lessons";
-import { CourseProgrammeOverview } from "./course-programme-overview";
 import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
 
@@ -64,7 +63,7 @@ type ResolvedSeriesResult = Extract<
  * Оформление `ai-engineering-course`: страница-описание курса. Весь текст приходит из описания
  * продукта в Inside Content; оформление берёт композиции разделов страницы AI-first и добавляет к
  * знакомым блокам (по `id`) свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
- * Обзор глав приходит из состава продукта; прохождение живёт на странице программы. На телефоне и
+ * Главы и прохождение живут на странице программы. На телефоне и
  * планшете навигации сайта внизу нет: её место занимает кнопка в программу, а назад ведёт
  * маленькая кнопка в самом верху.
  */
@@ -116,17 +115,13 @@ export function AiEngineeringCourseView({
       {page.blocks
         .filter((block) => block.id !== "programme-practice")
         .map((block) => (
-          <Fragment key={block.id}>
-            {block.id === "status" ? (
-              <CourseProgrammeOverview chapters={result.chapters} />
-            ) : null}
-            <CourseBlock
-              statusCall={statusCall}
-              block={block}
-              hasFreeLessons={hasFreeLessons}
-              programme={programme}
-            />
-          </Fragment>
+          <CourseBlock
+            key={block.id}
+            statusCall={statusCall}
+            block={block}
+            hasFreeLessons={hasFreeLessons}
+            programme={programme}
+          />
         ))}
 
       <div className="ai-product-sticky">

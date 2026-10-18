@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -381,6 +382,133 @@ describe("authoring source Material", () => {
           { code: "material_source_mismatch", path: "/orderedMaterialIds/0" },
         ],
       },
+    });
+  });
+
+  test("a removed closed lesson can be unpublished idempotently but cannot be republished without a Product", async () => {
+    const { authoring, publishedMaterialReader } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+    });
+    const product = await authoring.reserveSourceProduct({
+      actor,
+      sourceId: "retired-product",
+      name: "Retired product",
+      slug: "retired-product",
+      summary: "Programme",
+    });
+    if (!product.ok) throw new Error(product.error.code);
+    const topic = await authoring.createContentCollection({
+      actor,
+      kind: "topic",
+      name: "Retirement topic",
+      slug: "retirement-topic",
+      summary: "",
+    });
+    if (!topic.ok) throw new Error(topic.error.code);
+    const retiredSource = { ...source, id: "retired-closed-lesson" };
+    const reserved = await authoring.reserveSourceMaterial({
+      actor,
+      source: retiredSource,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const command = {
+      actor,
+      source: retiredSource,
+      materialId: reserved.value.materialId,
+      expectedContentVersion: 1,
+      idempotencyKey: "retirement-publish",
+      publicationState: "published" as const,
+      primaryVideoId: null,
+      metadata: {
+        ...metadata,
+        access: "closed" as const,
+        summary: "Retired lesson",
+        topicId: topic.value.id,
+        seriesIds: [product.value.id],
+      },
+      body: representativeDocument("Retired protected body"),
+    };
+    expect(await authoring.applySourceMaterial(command)).toMatchObject({
+      ok: true,
+      value: { contentVersion: 2 },
+    });
+    const orphanedMetadata = { ...command.metadata, seriesIds: [] };
+    expect(
+      await authoring.applySourceMaterial({
+        ...command,
+        expectedContentVersion: 2,
+        idempotencyKey: "retirement-keep-published",
+        metadata: orphanedMetadata,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "invalid_content" },
+    });
+    const order = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: product.value.id,
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    expect(
+      await authoring.reorderSourceProduct({
+        actor,
+        sourceId: "retired-product",
+        seriesId: product.value.id,
+        expectedOrderVersion: order.value.orderVersion,
+        orderedMaterialIds: [],
+        confirmedProductRemovals: [product.value.id],
+      }),
+    ).toMatchObject({ ok: true });
+    const unpublish = {
+      ...command,
+      expectedContentVersion: 2,
+      idempotencyKey: "retirement-unpublish",
+      publicationState: "unpublished" as const,
+      metadata: orphanedMetadata,
+    };
+    const retired = await authoring.applySourceMaterial(unpublish);
+    if (!retired.ok) throw new Error(JSON.stringify(retired.error));
+    expect(retired).toMatchObject({
+      ok: true,
+      value: { contentVersion: 3 },
+    });
+    expect(await authoring.applySourceMaterial(unpublish)).toEqual(retired);
+    expect(
+      await authoring.loadMaterial({ actor, materialId: command.materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: { publicationState: "unpublished", contentVersion: 3 },
+    });
+    const catalog = await publishedMaterialReader.listProjections({
+      first: 12,
+    });
+    if (!catalog.ok) throw new Error(catalog.error.code);
+    expect(catalog.value.items.map((item) => item.materialId)).not.toContain(
+      command.materialId,
+    );
+    const current = await authoring.loadMaterial({
+      actor,
+      materialId: command.materialId,
+    });
+    if (!current.ok || current.value.metadata.slug === null)
+      throw new Error("Missing retired Material");
+    expect(
+      await publishedMaterialReader.read({
+        subject: anonymousSubject,
+        slug: current.value.metadata.slug,
+      }),
+    ).toEqual({ ok: false, error: { code: "material_not_found" } });
+    expect(
+      await authoring.applySourceMaterial({
+        ...command,
+        expectedContentVersion: 3,
+        idempotencyKey: "retirement-invalid-republish",
+        metadata: orphanedMetadata,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "invalid_content" },
     });
   });
 });
