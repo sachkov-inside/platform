@@ -1,7 +1,5 @@
 # platform
 
-Режим агентов: worktree
-
 ## Repository role
 
 Platform owns the Membership application, the Telegram application under `apps/telegram`,
@@ -52,8 +50,8 @@ Before an agent runs repository Compose commands from any worktree, it must read
 
 ## Process
 
-- The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
-  symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
+- `WORKFLOW.md` owns session mode, classification and the developer process. Skills live in
+  `.agents/skills`; `.claude/skills` is a symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
   review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
 - When the owner invokes [implement-spec](.agents/skills/implement-spec/SKILL.md), apply the
   project execution rules in [WORKFLOW.md](WORKFLOW.md#sessions-and-coordinated-execution).

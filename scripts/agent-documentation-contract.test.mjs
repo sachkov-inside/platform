@@ -16,6 +16,7 @@ import { describe, it } from "node:test";
 
 import {
   checkDocumentation,
+  checkHarnessConfiguration,
   checkHarnessRouting,
   checkStandardsReviewRouting,
   codingStandardsLineLimit,
@@ -347,6 +348,116 @@ describe("harness routing contract", () => {
         );
       }
       assert.deepEqual(checkHarnessRouting(root), []);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("workflow-owned harness configuration", () => {
+  it("rejects ambiguous session modes, duplicate classification and legacy instruction authority", () => {
+    const root = mkdtempSync(join(tmpdir(), "harness-config-"));
+    try {
+      writeFileSync(join(root, "AGENTS.md"), "Read WORKFLOW.md.\n");
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        "Session mode: worktree\nClassification: enabled; policy: docs/agents/change-risk.md\n",
+      );
+      mkdirSync(join(root, "docs/agents"), { recursive: true });
+      writeFileSync(join(root, "docs/agents/change-risk.md"), "Policy\n");
+      assert.deepEqual(checkHarnessConfiguration(root), []);
+      const workflow = readFileSync(join(root, "WORKFLOW.md"), "utf8");
+      for (const state of ["disabled", "deferred"]) {
+        writeFileSync(
+          join(root, "WORKFLOW.md"),
+          `Session mode: main\nClassification: ${state}\n`,
+        );
+        assert.deepEqual(checkHarnessConfiguration(root), []);
+      }
+      for (const state of [
+        "",
+        "Classification: automatic\n",
+        "Classification: enabled\n",
+      ]) {
+        writeFileSync(
+          join(root, "WORKFLOW.md"),
+          "Session mode: worktree\n" + state,
+        );
+        assert.ok(
+          checkHarnessConfiguration(root).some((failure) =>
+            failure.includes("exactly one Classification"),
+          ),
+        );
+      }
+
+      for (const mode of [
+        "",
+        "Session mode: automatic\n",
+        "Session mode: main\nSession mode: worktree\n",
+      ]) {
+        writeFileSync(
+          join(root, "WORKFLOW.md"),
+          mode +
+            "Classification: enabled; policy: docs/agents/change-risk.md\n",
+        );
+        assert.ok(
+          checkHarnessConfiguration(root).some((failure) =>
+            failure.includes("exactly one Session mode"),
+          ),
+        );
+      }
+      writeFileSync(
+        join(root, "WORKFLOW.md"),
+        workflow + "Classification: disabled\n",
+      );
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("exactly one Classification"),
+        ),
+      );
+      writeFileSync(join(root, "WORKFLOW.md"), workflow);
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "Session mode: worktree\nClassification: enabled\n",
+      );
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("WORKFLOW.md owns"),
+        ),
+      );
+      writeFileSync(join(root, "AGENTS.md"), "Read WORKFLOW.md.\n");
+      writeFileSync(join(root, "CLAUDE.md"), "@AGENTS.md\n");
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("CLAUDE.md"),
+        ),
+      );
+      rmSync(join(root, "CLAUDE.md"));
+      mkdirSync(join(root, "apps/web"), { recursive: true });
+      writeFileSync(join(root, "apps/web/CLAUDE.md"), "@AGENTS.md\n");
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("apps/web/CLAUDE.md"),
+        ),
+      );
+      rmSync(join(root, "apps/web/CLAUDE.md"));
+      mkdirSync(join(root, "apps/web/test/fixtures"), { recursive: true });
+      writeFileSync(
+        join(root, "apps/web/test/fixtures/CLAUDE.md"),
+        "Imported fixture\n",
+      );
+      mkdirSync(join(root, "docs/history"), { recursive: true });
+      writeFileSync(
+        join(root, "docs/history/CLAUDE.md"),
+        "Historical instructions\n",
+      );
+      assert.deepEqual(checkHarnessConfiguration(root), []);
+      rmSync(join(root, "docs/agents/change-risk.md"));
+      assert.ok(
+        checkHarnessConfiguration(root).some((failure) =>
+          failure.includes("classification policy"),
+        ),
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

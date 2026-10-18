@@ -1,5 +1,7 @@
 # Developer process
 
+Session mode: worktree
+
 Pipeline skills in `.agents/skills` supply workflows; this contract owns project completion requirements and owner overrides.
 Keep skills identical to their recorded workspace source. Put project exceptions here and checks in `AGENTS.md`.
 

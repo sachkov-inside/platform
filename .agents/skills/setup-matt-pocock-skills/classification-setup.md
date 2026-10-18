@@ -1,9 +1,19 @@
 # Project classification setup
 
+Assess the configuration state on every setup. Reuse accepted project choices and authority rules.
+
 Inspect actual behavior, trust boundaries, architecture/product/security sources, deployment authority, existing review, and documentation-maintenance rules.
 For an existing project, propose `docs/agents/change-risk.md` as the single project policy source.
 Link authoritative sources rather than copying architecture. Record stable consequences and verification needs, not every function or CI planner rule.
-For empty projects, record deferral in the existing setup record; enable through an assigned update when behavior or agreed design exists.
+Recommend a state from the inspected project:
+
+- `enabled`: behavior and consequences justify risk-based implementation routing; retain an existing approved policy.
+- `disabled`: the project deliberately uses a simpler accepted process, such as editorial checks and review.
+- `deferred`: behavior or agreed design is insufficient to define a useful policy; record what must become known.
+
+An existing approved state needs no repeated consent. For an unconfigured project, present the recommendation
+and obtain its project choice before writing. Separate factual policy findings from new authority choices.
+Record the reason in the existing setup/assignment trail; deferred choices include a reassessment condition.
 
 The policy should define:
 
@@ -15,13 +25,23 @@ The policy should define:
 
 Present factual findings separately from authority choices. The owner approves participation, permitted actions, and mandatory checks.
 Existing assignment approval remains valid within its scope; avoid renewed approval for accepted rules.
-After accepting the document, add this exact declaration once in `WORKFLOW.md` or root `AGENTS.md`:
+After accepting the enabled policy, add this exact declaration once in `WORKFLOW.md`:
 
 ```text
 Classification: enabled; policy: docs/agents/change-risk.md
 ```
 
 Use the actual repository-relative path if the project selects another location.
+For the other accepted states, write one of these declarations in `WORKFLOW.md`:
+
+```text
+Classification: disabled
+Classification: deferred
+```
+
+Write only the selected declaration. Keep its reason and any reassessment condition beside it.
+Root `AGENTS.md` points to `WORKFLOW.md`; it does not repeat the declaration.
+Disabled and deferred projects retain their existing implementation checks and gates.
 Route `implement` and `implement-spec` to the installed `classify-change` skill through this declaration.
 Keep project facts outside synchronized skill directories. Keep workflow routing short and link detailed policy instead of duplicating it.
 Preserve existing skill invocation metadata, ticketing, TDD, and project delivery gates.
