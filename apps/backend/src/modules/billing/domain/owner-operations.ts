@@ -36,6 +36,7 @@ import {
   applyGrantBatchCommandSchema,
   changeAccessGrantCommandSchema,
   previewGrantBatchCommandSchema,
+  grantPreviewRowSchema,
   accessGrantsViewSchema,
   classifyLegacyAccountCommandSchema,
   legacyClassificationViewSchema,
@@ -570,13 +571,7 @@ export const ownerSuccessSchema = z.union([
     previewRef: idSchema,
     revision: revisionSchema,
     expiresAt: z.iso.datetime(),
-    rows: z.array(
-      z.strictObject({
-        rowKey: z.string(),
-        accountId: idSchema,
-        status: z.enum(["confirmed", "not_found"]),
-      }),
-    ),
+    rows: z.array(grantPreviewRowSchema),
   }),
   z.strictObject({
     outcome: z.literal("grantBatch"),
