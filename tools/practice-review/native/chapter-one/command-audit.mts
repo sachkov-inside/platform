@@ -63,7 +63,7 @@ function delimitLines(line: string) {
   let comment = false;
   let result = "";
   for (let index = 0; index < line.length; index += 1) {
-    const character = line[index];
+    const character = line[index] ?? "";
     const next = line[index + 1];
     if (comment) {
       if (character === "\n" || character === "\r") {
