@@ -15,7 +15,12 @@ import {
   readLogtoCredentials,
   type LogtoPassClient,
 } from "./logto";
-import { callMcpTool, distinctiveText, type McpToolCall } from "./mcp-client";
+import {
+  assertMcpDenial,
+  callMcpTool,
+  distinctiveText,
+  type McpToolCall,
+} from "./mcp-client";
 import {
   passCellParts,
   type BlockedPassRequest,
@@ -101,7 +106,10 @@ test("production access observes every live cell in one isolated scenario", asyn
     assetPath?: string | undefined;
   } = {};
 
-  async function observeCell(id: string, browser: Browser): Promise<Observation> {
+  async function observeCell(
+    id: string,
+    browser: Browser,
+  ): Promise<Observation> {
     const { identity, action, surface, transport } = passCellParts(id);
     // deterministic-test-allow wall-clock: This live production adapter validates its seeded expired-role input against the real UTC grant owned by the remote backend.
     if (identity === "expired" && Date.now() < Date.parse(expiredGrantEndsAt)) {
@@ -125,6 +133,7 @@ test("production access observes every live cell in one isolated scenario", asyn
             { practiceId: freePracticeId, part: 0 },
           );
           expectDenial(identity, call, "practice_not_available");
+          assertMcpDenial(call.raw, "practice_not_available");
           return {
             observed: "denied",
             note: "practice_not_available; контекст не выдан",
