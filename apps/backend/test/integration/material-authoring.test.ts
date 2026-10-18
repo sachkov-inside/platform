@@ -81,6 +81,7 @@ describe("MaterialAuthoring", () => {
         primaryVideoId: null,
         primaryVideo: null,
         latestVideoDeletion: null,
+        legacyPractices: [],
         unselectedVideoUpload: null,
         metadata: {
           title: null,
