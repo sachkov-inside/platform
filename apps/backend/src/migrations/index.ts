@@ -6,6 +6,7 @@ import {
   name as individualPaymentLinksName,
   statement as individualPaymentLinksStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0094-individual-payment-links.js";
+import {
   name as chapterSupplementaryName,
   statement as chapterSupplementaryStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0099-chapter-supplementary-materials.js";
