@@ -4,8 +4,13 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { canonical, checksum } from "./package.mjs";
-import { previewRetirement, applyRetirement } from "./retirement.mjs";
+import { canonical, checksum, manifestSchema } from "./package.mjs";
+import { parseJournal } from "./local-boundaries.mjs";
+import {
+  previewRetirement,
+  applyRetirement,
+  retirementPreviewSchema,
+} from "./retirement.mjs";
 import { applyRelease } from "./release.mjs";
 
 const keepId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -131,6 +136,7 @@ async function fixture(t) {
   ]);
   /** @type {{ key: string | undefined; body: unknown }[]} */
   const writes = [];
+  /** @type {Map<string | undefined, unknown>} */
   const receipts = new Map();
   let loseReceipt = false;
   /** @type {import("./target.mjs").LocalTransport} */
@@ -295,21 +301,23 @@ test("tampered preview, changed package and unrelated pending writes cannot be a
     setup.state,
     setup.options,
   );
-  const preview = JSON.parse(await readFile(path, "utf8"));
+  const preview = retirementPreviewSchema.parse(
+    JSON.parse(await readFile(path, "utf8")),
+  );
   await writeFile(path, canonical({ ...preview, environment: "production" }));
   await assert.rejects(
     applyRelease(path, setup.state, { request: setup.options.request }),
     /changed after review/u,
   );
   await writeFile(path, canonical(preview));
-  const manifest = JSON.parse(await readFile(setup.packagePath, "utf8"));
+  const manifest = manifestSchema.parse(
+    JSON.parse(await readFile(setup.packagePath, "utf8")),
+  );
   await writeFile(
     setup.packagePath,
     canonical({
       ...manifest,
-      diagnostics: [
-        { code: "different-package", message: "Changed", severity: "warning" },
-      ],
+      products: manifest.products.map((row) => ({ ...row, title: "Changed" })),
     }),
   );
   await assert.rejects(
@@ -317,7 +325,7 @@ test("tampered preview, changed package and unrelated pending writes cannot be a
   );
   await writeFile(setup.packagePath, canonical(manifest));
   const journalPath = join(setup.state, "journal.json");
-  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  const journal = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
   const request = {
     path: "/authoring/import/materials/reserve",
     body: { source: setup.old.source },
