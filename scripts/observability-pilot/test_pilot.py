@@ -131,13 +131,31 @@ class PilotPreparationTest(unittest.TestCase):
         self.assertEqual(len({span["spanId"] for span in spans}), 5)
         self.assertEqual(spans[-1]["parentSpanId"], spans[-2]["spanId"])
 
+    def test_prepared_credential_reader_matches_private_auth_file_owner_without_dac_capability(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "prepared"
+            pilot.prepare(output)
+            auth = (output / "auth.json").stat()
+            plan = json.loads((output / "compose.json").read_text())
+            reader = plan["services"]["vmauth"]
+            self.assertEqual(auth.st_mode & 0o777, 0o600)
+            self.assertEqual(reader.get("user"), f"{auth.st_uid}:{auth.st_gid}")
+            self.assertEqual(reader["cap_drop"], ["ALL"])
+            self.assertNotIn("cap_add", reader)
+
     def test_prepared_stack_keeps_storage_ports_private_and_drops_host_capabilities(self):
         plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
-                                  {name: "pinned" for name in pilot.SERVICES})
+                                  {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
         for name in ("metrics", "logs", "traces", "vmauth"):
             self.assertNotIn("ports", plan["services"][name])
         self.assertEqual(plan["services"]["gateway"]["ports"], ["127.0.0.1:18427:8080"])
         self.assertTrue(all(service["cap_drop"] == ["ALL"] for service in plan["services"].values()))
+        self.assertEqual(plan["services"]["gateway"].get("cap_add"), ["NET_BIND_SERVICE"])
+        self.assertTrue(all("cap_add" not in service for name, service in plan["services"].items()
+                            if name != "gateway"))
+        self.assertTrue(all(service["security_opt"] == ["no-new-privileges:true"]
+                            for service in plan["services"].values()))
+        self.assertEqual(plan["services"]["vmauth"]["user"], "1001:1002")
 
     def test_diagnostics_failure_cannot_skip_owned_cleanup(self):
         with tempfile.TemporaryDirectory() as directory:
