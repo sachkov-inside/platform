@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import unittest
 import tempfile
+import socket
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -13,6 +15,34 @@ spec.loader.exec_module(runtime)
 
 
 class NativeInputBoundary(unittest.TestCase):
+    def test_readiness_retries_only_probe_with_remaining_deadline(self):
+        with patch.object(runtime.time, 'monotonic', side_effect=[100, 101, 102, 103]), \
+                patch.object(runtime.time, 'sleep') as sleep, \
+                patch.object(runtime, 'invoke', side_effect=[runtime.FixtureCommandFailed(), '']) as invoke:
+            runtime.await_database(['owned-compose'])
+        self.assertEqual([call.args[1] for call in invoke.call_args_list], [
+            ['exec', '-T', 'db', 'pg_isready', '-h', '127.0.0.1', '-p', '5432', '-t', '1', '-U', 'pilot_bootstrap', '-d', 'postgres']
+        ] * 2)
+        self.assertEqual([call.kwargs['timeout'] for call in invoke.call_args_list],
+                         [min(runtime.pilot.COMMAND_TIMEOUT_SECONDS, 59), min(runtime.pilot.COMMAND_TIMEOUT_SECONDS, 57)])
+        sleep.assert_called_once_with(runtime.DB_POLL_SECONDS)
+
+    def test_expired_readiness_never_reaches_role_sql(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / 'init.sql').write_text('private-role-sentinel')
+            with patch.object(runtime.pilot, 'command'), \
+                    patch.object(runtime.time, 'monotonic', side_effect=[100, 101, 161]), \
+                    patch.object(runtime, 'invoke', side_effect=runtime.FixtureCommandFailed()) as invoke, \
+                    patch.object(runtime.time, 'sleep') as sleep:
+                with self.assertRaisesRegex(RuntimeError, 'Umami pilot phase failed'):
+                    runtime.smoke(output, ['owned-compose'])
+            self.assertEqual(invoke.call_count, 1)
+            self.assertNotIn('payload', invoke.call_args.kwargs)
+            sleep.assert_not_called()
+            self.assertEqual(json.loads((output / 'readiness.json').read_text()),
+                             {'stage': 'database_start', 'state': 'failed', 'error_type': 'RuntimeError'})
+
     def test_failed_seed_retains_only_closed_substage_and_http_status(self):
         report = {'phase': 'seed', 'step': 'privacy_config', 'error': 'http_status', 'http_status': 403}
         with tempfile.TemporaryDirectory() as directory:
@@ -54,6 +84,36 @@ class NativeInputBoundary(unittest.TestCase):
             with self.assertRaises(runtime.FixtureCommandFailed) as failed:
                 runtime.invoke(['docker', 'compose'], ['exec', '-T', 'db', 'psql'])
             self.assertIsNone(failed.exception.diagnostic)
+
+    def test_fixture_deadline_covers_identity_preflight_and_subprocess_together(self):
+        with tempfile.TemporaryDirectory() as directory:
+            endpoint = Path(directory) / 'docker.sock'
+            listener = socket.socket(socket.AF_UNIX)
+            listener.bind(str(endpoint))
+            def metadata(args, **kwargs):
+                if args[-1] == 'show':
+                    return 'owned'
+                if 'inspect' in args:
+                    return 'unix://' + str(endpoint)
+                return json.dumps({'ID': 'owned', 'DockerRootDir': directory})
+            try:
+                with patch.dict(os.environ, {}, clear=True):
+                    identity = runtime.pilot.daemon.identify(metadata)
+                    for finished, expected_timeout in ((104, 6), (111, None)):
+                        with self.subTest(finished=finished), \
+                                patch.object(runtime.pilot, 'FROZEN_DOCKER_IDENTITY', identity), \
+                                patch.object(runtime.pilot, '_raw_command', side_effect=metadata), \
+                                patch.object(runtime.time, 'monotonic', side_effect=[100, 101, 102, 103, finished]), \
+                                patch.object(runtime.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout='', stderr='')) as command:
+                            if expected_timeout is None:
+                                with self.assertRaises(TimeoutError):
+                                    runtime.invoke(['docker', 'compose'], ['exec', '-T', 'db', 'psql'], timeout=10)
+                                command.assert_not_called()
+                            else:
+                                runtime.invoke(['docker', 'compose'], ['exec', '-T', 'db', 'psql'], timeout=10)
+                                self.assertEqual(command.call_args.kwargs['timeout'], expected_timeout)
+            finally:
+                listener.close()
 
     def test_wrong_native_lock_is_rejected_before_acquisition(self):
         for value in [None, {'lockfileVersion': 3, 'packages': {'node_modules/@umami/mcp': True}}, {'lockfileVersion': 3, 'packages': {}}]:

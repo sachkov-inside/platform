@@ -11,6 +11,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 LOCK = ROOT / 'infra/observability/umami/inputs.lock.json'
 
 
+# The image's init-only server exposes a Unix socket but no TCP listener.
+# Both health and the runner must wait for the persistent endpoint before role DDL.
+DATABASE_READY_COMMAND = ('pg_isready', '-h', '127.0.0.1', '-p', '5432', '-t', '1', '-U', 'pilot_bootstrap', '-d', 'postgres')
 LOCK_BYTES = 131_072
 
 
@@ -93,7 +96,7 @@ REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
     key_owner = (output / 'reader.key').stat()
     app_env = {'DATABASE_URL': f'postgresql://umami:{password}@db:5432/umami', 'APP_SECRET': secrets.token_hex(32), 'TWO_FACTOR_ENCRYPTION_KEY': secrets.token_hex(32), 'PRIVATE_MODE': '1', 'DISABLE_TELEMETRY': '1', 'DISABLE_UPDATES': '1', 'NEXT_TELEMETRY_DISABLED': '1', 'MCP_ENABLED': '1', 'SALT_ROTATION': 'month', 'HOSTNAME': '0.0.0.0'}
     plan = {'services': {
-        'db': {'user':str(lock['postgres_runtime']['uid']) + ':' + str(lock['postgres_runtime']['gid']), 'cap_drop':['ALL'], 'security_opt':['no-new-privileges:true'], 'image': lock['images']['postgres'], 'environment': {'POSTGRES_USER': 'pilot_bootstrap', 'POSTGRES_PASSWORD': bootstrap}, 'volumes': ['database:/var/lib/postgresql/data'], 'networks': ['private'], 'mem_limit': '512m', 'cpus': '0.5', 'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -U pilot_bootstrap -d postgres'], 'interval': '2s', 'timeout': '2s', 'retries': 30}},
+        'db': {'user':str(lock['postgres_runtime']['uid']) + ':' + str(lock['postgres_runtime']['gid']), 'cap_drop':['ALL'], 'security_opt':['no-new-privileges:true'], 'image': lock['images']['postgres'], 'environment': {'POSTGRES_USER': 'pilot_bootstrap', 'POSTGRES_PASSWORD': bootstrap}, 'volumes': ['database:/var/lib/postgresql/data'], 'networks': ['private'], 'mem_limit': '512m', 'cpus': '0.5', 'healthcheck': {'test': ['CMD', *DATABASE_READY_COMMAND], 'interval': '2s', 'timeout': '2s', 'retries': 30}},
         'umami': {'image': lock['images']['umami'], 'environment': app_env, 'depends_on': {'db': {'condition': 'service_healthy'}}, 'networks': ['private'], 'mem_limit': '1g', 'cpus': '1', 'init': True},
         'query': {'user':str(key_owner.st_uid) + ':' + str(key_owner.st_gid), 'init': True, 'image': lock['images']['python'], 'command': ['python', '/pilot/gateway.py', '--key-file', '/private/reader.key'], 'volumes': [str(ROOT / 'scripts/observability-umami') + ':/pilot:ro', str(output / 'reader.key') + ':/private/reader.key:ro'], 'ports': ['127.0.0.1:13301:3001'], 'networks': ['private', 'ingress'], 'mem_limit': '64m', 'cpus': '0.25', 'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'], 'environment': {'PYTHONDONTWRITEBYTECODE': '1'}}}, 'networks': {'private': {'internal': True}, 'ingress': {}}, 'volumes': {'database': {}}}
     for service in plan['services'].values():
