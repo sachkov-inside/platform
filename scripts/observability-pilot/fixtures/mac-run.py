@@ -72,7 +72,8 @@ with patch.object(pilot.platform,'system',return_value='Darwin'), patch.object(p
      patch.object(pilot,'smoke',side_effect=smoke):
     try:
         if role == 'parent':
-            pilot.run(output)
+            # Fake Compose does not publish ports; keep this process contract off live pilot ports.
+            pilot.run(output, ports=(0,))
         else:
             pilot.run_worker(output)
     except Exception:
