@@ -58,7 +58,7 @@ export function AccountTelegramPanel({
               <Send aria-hidden="true" />
             )}
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 [overflow-wrap:anywhere]">
             <p className="text-sm font-medium text-muted-foreground">
               Telegram
             </p>

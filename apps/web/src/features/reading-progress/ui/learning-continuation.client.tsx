@@ -57,7 +57,7 @@ export function LearningContinuationView({
   return (
     <div className="h-48" data-learning-continuation>
       <section
-        className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] z-30 mx-auto max-w-2xl rounded-2xl bg-primary px-5 py-3 text-primary-foreground shadow-lg sm:px-6"
+        className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] z-30 mx-auto max-h-[50svh] max-w-2xl overflow-y-auto rounded-2xl bg-primary px-5 py-3 text-primary-foreground shadow-lg sm:px-6"
         aria-labelledby="account-learning"
       >
         <h2
@@ -75,10 +75,10 @@ export function LearningContinuationView({
                 href={productProgrammeHref(series.collection.slug)}
               >
                 <span className="min-w-0">
-                  <strong className="block line-clamp-2 text-sm font-semibold sm:text-base">
+                  <strong className="line-clamp-2 text-sm font-semibold sm:text-base">
                     {series.collection.name}
                   </strong>
-                  <span className="text-xs text-primary-foreground/80">
+                  <span className="block text-xs text-primary-foreground/80">
                     Прочитано {series.read} из {series.total}
                   </span>
                 </span>
@@ -93,10 +93,10 @@ export function LearningContinuationView({
                 href={materialReaderHref(video.material.slug, "/account")}
               >
                 <span className="min-w-0">
-                  <strong className="block line-clamp-2 text-sm font-semibold sm:text-base">
+                  <strong className="line-clamp-2 text-sm font-semibold sm:text-base">
                     {video.material.title}
                   </strong>
-                  <span className="text-xs text-primary-foreground/80">
+                  <span className="block text-xs text-primary-foreground/80">
                     {video.label}
                   </span>
                 </span>
