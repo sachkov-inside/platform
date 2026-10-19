@@ -1,7 +1,7 @@
 """Disposable compatibility pilot for #1566. Python standard library only."""
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import hashlib
 import io
 import json
@@ -24,10 +24,14 @@ import urllib.parse
 import urllib.request
 import uuid
 import zipfile
+import orbstack
+from storage_policy import admission as check_disk, assert_budget
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "infra/observability/pilot"
 SERVICES = ("metrics", "logs", "traces", "alloy", "vmauth", "gateway", "grafana")
+FROZEN_DOCKER_ENDPOINT = None
+FROZEN_DOCKER_IDENTITY = None
 COMMAND_TIMEOUT_SECONDS = 60
 ACQUISITION_TIMEOUT_SECONDS = 240
 CLEANUP_TIMEOUT_SECONDS = 90
@@ -124,15 +128,6 @@ def corpus(*, now_ns, sequence):
     }
 
 
-def check_disk(*, total, free):
-    """Admission is conservative; it is not a storage capacity measurement."""
-    ready = total > 0 and free >= 16 * 1024**3
-    return {
-        "ready": ready, "free_bytes": free, "total_bytes": total,
-        "reason": "admitted for isolated smoke only" if ready else
-        "pilot requires 16 GiB free: 10 GiB host floor, 4 GiB growth cap, 2 GiB cleanup headroom",
-    }
-
 @contextmanager
 def disk_budget(path):
     """Bound no-build pilot growth on the identified Docker storage filesystem."""
@@ -147,9 +142,9 @@ def disk_budget(path):
         while not stop.wait(POLL_INTERVAL_SECONDS):
             try:
                 free = shutil.disk_usage(path).free
-                if free > (10 * 1024**3 + 256 * 1024**2) and initial - free < (4 * 1024**3 - 256 * 1024**2):
-                    continue
-            except OSError:
+                assert_budget(initial, free)
+                continue
+            except (OSError, RuntimeError):
                 pass
             os.kill(os.getpid(), signal.SIGUSR1)
             break
@@ -270,10 +265,14 @@ def native_probes(token, output):
         environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(output), "MCP_SERVER_MODE": "stdio",
                        f"{prefix}_INSTANCE_ENTRYPOINT": f"http://127.0.0.1:18427/{route}",
                        f"{prefix}_INSTANCE_BEARER_TOKEN": token, "VM_INSTANCE_TYPE": "single"}
-        before = resource.getrusage(resource.RUSAGE_CHILDREN)
+        before = resource.getrusage(resource.RUSAGE_CHILDREN) if system == 'Linux' else None
         results[name] = stdio_probe(executable, environment, tool, arguments, marker)
-        after = resource.getrusage(resource.RUSAGE_CHILDREN)
-        results[name]["cpu_seconds"] = after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime
+        if system == 'Linux':
+            after = resource.getrusage(resource.RUSAGE_CHILDREN)
+            results[name]['cpu_seconds'] = after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime
+        else:
+            results[name]['cpu_seconds'] = None
+            results[name]['cpu_measurement'] = 'unavailable: concurrent verification subprocesses; per-MCP measurement pending'
         results[name]["host_os"] = system
         executable.unlink()
     return results
@@ -318,9 +317,29 @@ def prepare(output):
     return token
 
 
-def command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
+def docker_args(args):
+    if args and args[0] == 'docker' and FROZEN_DOCKER_ENDPOINT and '--context' not in args and args[1:2] != ['context']:
+        return ['docker', '--host', FROZEN_DOCKER_ENDPOINT, *args[1:]]
+    return args
+
+
+def _raw_command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
     # The repository heavy-check supervisor owns the foreground CLI process tree.
-    return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout).stdout
+    return subprocess.run(docker_args(args), check=True, capture_output=True, text=True, timeout=timeout).stdout
+
+
+def assert_docker_identity():
+    if FROZEN_DOCKER_IDENTITY is not None:
+        current = orbstack.identify(lambda args: _raw_command(args, timeout=orbstack.IDENTITY_COMMAND_TIMEOUT_SECONDS),
+                                   home=Path.home())
+        if current != FROZEN_DOCKER_IDENTITY:
+            raise RuntimeError('Docker identity changed; mutations refused, manual owner recovery required')
+
+
+def command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
+    if args and args[0] == 'docker' and any(verb in args for verb in ('pull','up','down','restart')):
+        assert_docker_identity()
+    return _raw_command(args, timeout=timeout)
 
 
 def request(path, *, token=None, body=None, method="GET", port=18427):
@@ -499,11 +518,11 @@ def container_states(raw):
         rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if isinstance(rows, dict):
         rows = [rows]
-    if not isinstance(rows, list) or len(rows) > len(SERVICES):
+    if not isinstance(rows, list) or len(rows) > len(SERVICES) + 1:
         raise ValueError("unexpected owned container status collection")
     result = []
     for row in rows:
-        if not isinstance(row, dict) or row.get("Service") not in SERVICES:
+        if not isinstance(row, dict) or row.get("Service") not in (*SERVICES, "storage-probe"):
             raise ValueError("unexpected owned container service")
         state = row.get("State")
         health = row.get("Health")
@@ -518,26 +537,29 @@ def container_states(raw):
 def cleanup_project(compose, output, project, *, docker=("docker",)):
     """Diagnostics may fail; down and both residue checks are independent obligations."""
     result = {}
+    def checked_command(args, **kwargs):
+        assert_docker_identity()
+        return command(args, **kwargs)
     try:
-        snapshot = command(compose + ["ps", "--all", "--format", "json"])
+        snapshot = checked_command(compose + ["ps", "--all", "--format", "json"])
         states = container_states(snapshot)
         if not (output / "container-states.json").exists():
             write_json(output / "container-states.json", states)
         result["diagnostics"] = "passed"
-    except (OSError, ValueError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         result["diagnostics"] = "failed: " + type(error).__name__
     try:
-        command(compose + ["down", "--volumes", "--remove-orphans"], timeout=CLEANUP_TIMEOUT_SECONDS)
+        checked_command(compose + ["down", "--volumes", "--remove-orphans"], timeout=CLEANUP_TIMEOUT_SECONDS)
         result["down"] = "passed"
-    except (OSError, subprocess.SubprocessError) as error:
+    except (OSError, RuntimeError, subprocess.SubprocessError) as error:
         result["down"] = "failed: " + type(error).__name__
     remaining = []
     for args in (["ps", "-aq"], ["volume", "ls", "-q"]):
         try:
-            residual = command(list(docker) + args + ["--filter", f"label=com.docker.compose.project={project}"])
+            residual = checked_command(list(docker) + args + ["--filter", f"label=com.docker.compose.project={project}"])
             if residual.strip():
                 remaining.append("owned resources remain")
-        except (OSError, subprocess.SubprocessError) as error:
+        except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             remaining.append(type(error).__name__)
     result["residue"] = "passed" if not remaining else "failed: " + ", ".join(remaining)
     write_json(output / "cleanup.json", result)
@@ -549,38 +571,60 @@ def supervise_worker(execute, compose, output, project, *, docker=("docker",),
     """Supervisor stays outside the worker group that owns all acquisition processes."""
     process = None
     status = 1
+    monitor_failed = [False]
+    previous = signal.getsignal(signal.SIGUSR1)
+    def latch_monitor_failure(_signum, _frame):
+        # No exception may interrupt mandatory group shutdown/down/residue/outcome.
+        monitor_failed[0] = True
+    signal.signal(signal.SIGUSR1, latch_monitor_failure)
     try:
-        process = subprocess.Popen(execute, start_new_session=True)
-        write_json(output / "worker.json", {"pid": process.pid, "group": process.pid,
-                   "supervisor_pid": os.getpid(), "deadline_seconds": deadline_seconds})
         try:
-            status = process.wait(timeout=deadline_seconds)
-            if status < 0:
-                status = 128 - status
-        except subprocess.TimeoutExpired:
-            status = 124
-    finally:
-        try:
-            if process is not None:
+            process = subprocess.Popen(execute, start_new_session=True)
+            write_json(output / 'worker.json', {'pid':process.pid, 'group':process.pid,
+                       'supervisor_pid':os.getpid(), 'deadline_seconds':deadline_seconds})
+            deadline = time.monotonic() + deadline_seconds
+            while True:
+                if monitor_failed[0]:
+                    status = 1
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    status = 124
+                    break
                 try:
-                    os.killpg(process.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                try:
-                    process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
+                    status = process.wait(timeout=min(POLL_INTERVAL_SECONDS, remaining))
+                    if status < 0:
+                        status = 128 - status
+                    break
                 except subprocess.TimeoutExpired:
-                    pass
-                # Also stop group members after the worker itself has already exited.
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
+                    continue
         finally:
-            cleanup = cleanup_project(compose, output, project, docker=docker)
-            write_json(output / "worker-outcome.json", {"exit_code": status, "cleanup": cleanup})
-            if cleanup["down"] != "passed" or cleanup["residue"] != "passed":
-                raise RuntimeError("owned pilot cleanup failed; inspect cleanup.json and owner.json")
+            try:
+                if process is not None:
+                    try:
+                        os.killpg(process.pid, signal.SIGTERM)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
+                    except subprocess.TimeoutExpired:
+                        pass
+                    # The leader can exit before its CLI/stdio descendants.
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
+            finally:
+                cleanup = cleanup_project(compose, output, project, docker=docker)
+                if (monitor_failed[0] or cleanup['down'] != 'passed' or cleanup['residue'] != 'passed') and status == 0:
+                    status = 1
+                write_json(output / 'worker-outcome.json', {'exit_code':status,
+                           'monitor_failed':monitor_failed[0], 'cleanup':cleanup})
+                if cleanup['down'] != 'passed' or cleanup['residue'] != 'passed':
+                    raise RuntimeError('owned pilot cleanup failed; inspect cleanup.json and owner.json')
+    finally:
+        signal.signal(signal.SIGUSR1, previous)
     return status
 
 
@@ -588,22 +632,35 @@ def run(output):
     if command(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
         raise RuntimeError("commit pilot inputs before running; evidence must identify immutable source")
     context = command(["docker", "context", "show"]).strip()
-    if platform.system() != "Linux":
-        raise RuntimeError(f"Docker storage identification unsupported on {platform.system()}/{context}; use isolated Linux Engine for core smoke, Mac native probes separately")
-    storage = Path(command(["docker", "info", "--format", "{{.DockerRootDir}}"]).strip())
-    if not storage.is_absolute() or not storage.is_dir():
-        raise RuntimeError("cannot identify Docker storage filesystem")
+    global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
+    mac = None
+    if platform.system() == 'Darwin' and platform.machine() == 'arm64':
+        mac = orbstack.identify(command, home=Path.home())
+        FROZEN_DOCKER_ENDPOINT = mac['endpoint']
+        FROZEN_DOCKER_IDENTITY = mac
+        storage = Path(mac['backing']['path'])
+    elif platform.system() == 'Linux':
+        storage = Path(command(['docker', 'info', '--format', '{{.DockerRootDir}}']).strip())
+    else:
+        raise RuntimeError('Docker storage identification unsupported on this platform/context')
+    if not storage.is_absolute() or not storage.is_file() and not storage.is_dir():
+        raise RuntimeError('cannot identify Docker storage filesystem')
     disk = shutil.disk_usage(storage)
     admission = check_disk(total=disk.total, free=disk.free)
-    print(json.dumps({"disk_admission": admission}), flush=True)
-    if not admission["ready"]:
-        raise RuntimeError(admission["reason"])
+    print(json.dumps({'disk_admission': admission}), flush=True)
+    if not admission['ready']:
+        raise RuntimeError(admission['reason'])
     # Record shared workload but never mutate its services, networks or volumes.
     existing = json.loads(command(["docker", "compose", "ls", "--format", "json"]))
     for port in (18427, 14318, 13000):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
     prepare(output)
+    if mac:
+        lock = json.loads((CONFIG / 'probe.lock.json').read_text())
+        plan = json.loads((output / 'compose.json').read_text())
+        plan['services']['storage-probe'] = orbstack.probe_service(lock, mac['storage'])
+        write_json(output / 'compose.json', plan)
     project = "inside-observability-pilot-" + uuid.uuid4().hex[:12]
     compose = ["docker", "compose", "-p", project, "-f", str(output / "compose.json")]
     evidence = {"source": command(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).strip(),
@@ -612,16 +669,21 @@ def run(output):
                 "scope": "synthetic OTLP core compatibility smoke only",
                 "missing": ["Mac native MCP execution", "full accepted resource corpus", "SDK propagation",
                             "PII/sentinel", "retention/cleanup/restore", "Umami", "production and seven days"]}
+    if mac:
+        evidence['missing'].append('Mac native MCP CPU measurement')
     write_json(output / "owner.json", {"project": project, "cwd": str(ROOT), "supervisor_pid": os.getpid(),
-                                    "docker_storage": str(storage),
+                                    "docker_storage": str(storage), "orbstack": mac,
                                     "cleanup": compose + ["down", "--volumes", "--remove-orphans"]})
     write_json(output / "evidence.json", evidence)
     try:
-        status = supervise_worker([sys.executable, str(Path(__file__).resolve()), "worker", "--output", str(output)],
-                                  compose, output, project)
+        guard = orbstack.host_budget(mac, output, command) if mac else nullcontext()
+        with guard:
+            status = supervise_worker([sys.executable, str(Path(__file__).resolve()), "worker", "--output", str(output)],
+                                      compose, output, project)
         evidence = json.loads((output / "evidence.json").read_text())
         evidence["worker_exit_code"] = status
         if status:
+            evidence['status'] = 'failed: worker or storage monitor; inspect outcome and cleanup'
             raise subprocess.CalledProcessError(status, "observability pilot worker")
     finally:
         if (output / "cleanup.json").exists():
@@ -638,13 +700,24 @@ def run_worker(output):
         raise RuntimeError("pilot worker requires its registered external supervisor")
     compose = ["docker", "compose", "-p", owner["project"], "-f", str(output / "compose.json")]
     token = json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"]
-    with disk_budget(Path(owner["docker_storage"])):
+    global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
+    mac = owner.get('orbstack')
+    if mac:
+        FROZEN_DOCKER_ENDPOINT = mac['endpoint']
+        FROZEN_DOCKER_IDENTITY = mac
+        lock = json.loads((CONFIG / 'probe.lock.json').read_text())
+        guard = orbstack.vm_budget(compose, lock, command, output, docker_args=docker_args)
+    else:
+        guard = disk_budget(Path(owner['docker_storage']))
+    with guard:
         install_plugin(output)
         command(compose + ["config", "--quiet"])
         command(compose + ["up", "-d"], timeout=ACQUISITION_TIMEOUT_SECONDS)
         result = smoke(token, output, compose)
         evidence = json.loads((output / "evidence.json").read_text())
         evidence.update(result)
+        if mac:
+            evidence['missing'].remove('Mac native MCP execution')
         evidence["status"] = "core smoke passed; full pilot acceptance pending"
         write_json(output / "evidence.json", evidence)
 
