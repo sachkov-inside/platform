@@ -14,6 +14,7 @@ export function funnelDiagnosticDatabase(
     compositions?: unknown[];
     failTable?: string;
     lastReceivedAt?: Date | null;
+    surveyCounts?: { uploaded: number; issued: number };
   } = {},
 ) {
   const queries: string[] = [];
@@ -25,9 +26,23 @@ export function funnelDiagnosticDatabase(
       const sql = query.strings.join("?");
       queries.push(sql);
       if (sql.includes("set_config")) return Promise.resolve([]);
+      const sourceTables: Readonly<Record<string, string>> = {
+        salesFunnelBotEvent: "sales_funnel.bot_events",
+        billingPriceQuote: "billing.price_quotes",
+        billingPurchase: "billing.purchases",
+        readingMaterialVisit: "reading_activity.material_visits",
+      };
+      if (
+        input.failTable !== undefined &&
+        sql.includes(sourceTables[input.failTable] ?? "never-source")
+      )
+        return Promise.reject(new Error("source offline"));
       if (sql.includes("from materials.series"))
         return Promise.resolve(input.compositions ?? []);
-      if (sql.includes("max(received_at)"))
+      if (
+        sql.includes("max(received_at)") ||
+        sql.includes("order by received_at desc")
+      )
         return Promise.resolve([
           {
             received_at:
@@ -38,7 +53,17 @@ export function funnelDiagnosticDatabase(
         ]);
       return Promise.resolve(input.contacts ?? []);
     }),
-    billingSurveyRespondent: { count: vi.fn().mockResolvedValue(0) },
+    billingSurveyRespondent: {
+      count: vi
+        .fn()
+        .mockImplementation((query: unknown) =>
+          Promise.resolve(
+            query === undefined
+              ? (input.surveyCounts?.uploaded ?? 0)
+              : (input.surveyCounts?.issued ?? 0),
+          ),
+        ),
+    },
   };
   for (const table of [
     "product",

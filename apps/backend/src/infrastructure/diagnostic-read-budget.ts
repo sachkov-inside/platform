@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { Prisma } from "./prisma/index.js";
 
-/** Internal per-source-table budget; callers cannot raise it through diagnostic input. */
+/** Internal relevant candidate/result budget; callers cannot raise it through diagnostic input. */
 export const DIAGNOSTIC_SOURCE_ROW_LIMIT = 2_000;
 const DIAGNOSTIC_STATEMENT_TIMEOUT_MS = 2_000;
 export const diagnosticSnapshotOptions = {
@@ -25,3 +26,14 @@ export async function setDiagnosticStatementBudget(transaction: {
     Prisma.sql`select set_config('statement_timeout', ${String(DIAGNOSTIC_STATEMENT_TIMEOUT_MS)}, true)`,
   );
 }
+
+export type DiagnosticAccountScope =
+  | { readonly from: Date; readonly to: Date }
+  | { readonly accountIds: readonly string[] };
+
+export const diagnosticAccountScopeSchema = z.union([
+  z
+    .strictObject({ from: z.date(), to: z.date() })
+    .refine(({ from, to }) => from < to),
+  z.strictObject({ accountIds: z.array(z.uuid().toLowerCase()) }),
+]);

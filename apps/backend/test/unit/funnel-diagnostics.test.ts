@@ -16,9 +16,9 @@ it("denies a non-admin diagnostic actor before any report sources are read", asy
   });
 });
 
-it("stops an overflowing owner source before its unbounded report aggregation and returns unknown", async () => {
+it("stops an overflowing relevant catalog composition before report aggregation and returns unknown", async () => {
   const { prisma, queries, guards } = funnelDiagnosticDatabase({
-    sourceRows: { product: 2_001 },
+    sourceRows: { productProgrammePlacement: 2_001 },
   });
   const funnel = assembleTestFunnel(prisma);
   expect(await funnel.readDiagnostics(actor, input)).toMatchObject({
@@ -26,7 +26,10 @@ it("stops an overflowing owner source before its unbounded report aggregation an
     coverage: "unknown",
     error: { code: "source_budget_exceeded" },
   });
-  expect(guards).toContainEqual({ table: "product", take: 2_001 });
+  expect(guards).toContainEqual({
+    table: "productProgrammePlacement",
+    take: 2_001,
+  });
   expect(queries.filter((query) => !query.includes("set_config"))).toEqual([]);
 });
 
