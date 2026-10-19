@@ -7,7 +7,15 @@ import { test } from "node:test";
 test("observability pilot preparation preserves admission and private query boundaries", () => {
   const result = spawnSync(
     "python3",
-    ["-m", "unittest", "discover", "-s", "scripts/observability-pilot", "-p", "test_*.py"],
+    [
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "scripts/observability-pilot",
+      "-p",
+      "test_*.py",
+    ],
     { encoding: "utf8", timeout: 30000 },
   );
   assert.equal(result.status, 0, result.stderr);
