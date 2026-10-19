@@ -1089,8 +1089,8 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
       await runMigrationsToLatest(database.url, platformMigrations),
     ).toEqual({
       appliedMigrations: [
-        "0108_materials_notification_trace_context",
-        "0109_notifications_notification_trace_context",
+        "0109_materials_notification_trace_context",
+        "0110_notifications_notification_trace_context",
       ],
     });
     const migration = await migrateRuntimeDatabase(database.url);

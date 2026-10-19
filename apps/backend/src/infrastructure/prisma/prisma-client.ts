@@ -164,7 +164,16 @@ export type BookmarksPrismaClient = BookmarksPrisma &
 
 export type SalesFunnelPrisma = Pick<
   PlatformPrisma,
-  "$queryRaw" | "salesFunnelBotEvent"
+  | "$queryRaw"
+  | "$executeRaw"
+  | "salesFunnelBotEvent"
+  | "productWaitlistIntake"
+  | "productWaitlistMembership"
+  | "productWaitlistEvent"
+  | "productWaitlistOperation"
+  // Passed only to TelegramAccountLinks inside the waitlist transaction.
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
 >;
 export type SalesFunnelPrismaClient = SalesFunnelPrisma &
   TransactionClient<SalesFunnelPrisma>;

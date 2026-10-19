@@ -1,3 +1,6 @@
+import { ReadWaitlistAudienceController } from "./features/read-waitlist-audience/read-waitlist-audience.controller.js";
+import { BillingModule } from "../billing/index.js";
+import { SalesFunnelModule } from "../sales-funnel/index.js";
 import {
   MaterialContentModule,
   PublicContentTargets,
@@ -81,11 +84,14 @@ export class TrackingHitPump
 @Module({
   imports: [
     PrismaModule,
+    BillingModule,
+    SalesFunnelModule,
     AccountsModule,
     TelegramAccountLinksModule,
     MaterialContentModule,
   ],
   controllers: [
+    ReadWaitlistAudienceController,
     TrackVisitController,
     AuthorizeCommunicationsAuthorController,
     ValidateAuthorContentController,

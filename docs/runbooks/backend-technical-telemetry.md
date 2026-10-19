@@ -121,8 +121,8 @@ and Materials outbox together. Only the `materials` lane captures a technical ca
 from the unchanged canonical payload, digest, message ID and idempotency rules. Billing, email and
 Telegram callers of the shared transport retain their existing payload-only contracts.
 
-Migrations `0108_materials_notification_trace_context` and
-`0109_notifications_notification_trace_context` add nullable `varchar(55)` columns to their owning
+Migrations `0109_materials_notification_trace_context` and
+`0110_notifications_notification_trace_context` add nullable `varchar(55)` columns to their owning
 Materials outbox and Notifications inbox. They add no default, backfill or index. Local lock and
 statement budgets are five and fifteen seconds; refusal rolls back the migration transaction and
 ledger. The first insert owns its context: duplicate/replayed writes never replace an original

@@ -53,6 +53,7 @@
   "communications_broadcasts_launch",
   "communications_broadcasts_lifecycle",
   "communications_broadcasts_list",
+  "communications_broadcasts_preview",
   "communications_broadcasts_read",
   "communications_broadcasts_save",
   "communications_deliveries_read",

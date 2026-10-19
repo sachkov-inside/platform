@@ -1,43 +1,47 @@
 import {
   name as materialTraceName,
   statement as materialTraceStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0108-notification-trace-context.js";
+} from "../modules/materials/infrastructure/postgres/migrations/0109-notification-trace-context.js";
 import {
   name as notificationTraceName,
   statement as notificationTraceStatement,
-} from "../modules/notifications/infrastructure/postgres/migrations/0109-notification-trace-context.js";
+} from "../modules/notifications/infrastructure/postgres/migrations/0110-notification-trace-context.js";
+import {
+  name as productWaitlistsName,
+  statement as productWaitlistsStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-product-waitlists.js";
 import {
   name as learningActivityName,
   statement as learningActivityStatement,
-} from "../modules/reading-activity/infrastructure/postgres/migrations/0105-learning-activity-provenance.js";
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0106-learning-activity-provenance.js";
 import {
   name as submissionActivityName,
   statement as submissionActivityStatement,
-} from "../modules/product-tasks/infrastructure/postgres/migrations/0107-submission-activity-period.js";
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0108-submission-activity-period.js";
 import {
   name as bookmarkActivityName,
   statement as bookmarkActivityStatement,
-} from "../modules/bookmarks/infrastructure/postgres/migrations/0106-bookmark-activity-provenance.js";
+} from "../modules/bookmarks/infrastructure/postgres/migrations/0107-bookmark-activity-provenance.js";
 import {
   name as funnelDiagnostic0Name,
   statement as funnelDiagnostic0Statement,
-} from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-funnel-diagnostic-candidates.js";
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-funnel-diagnostic-candidates.js";
 import {
   name as funnelDiagnostic1Name,
   statement as funnelDiagnostic1Statement,
-} from "../modules/billing/infrastructure/postgres/migrations/0101-billing-funnel-diagnostic-sources.js";
+} from "../modules/billing/infrastructure/postgres/migrations/0102-billing-funnel-diagnostic-sources.js";
 import {
   name as funnelDiagnostic2Name,
   statement as funnelDiagnostic2Statement,
-} from "../modules/reading-activity/infrastructure/postgres/migrations/0102-reading-funnel-diagnostic-sources.js";
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0103-reading-funnel-diagnostic-sources.js";
 import {
   name as funnelDiagnostic3Name,
   statement as funnelDiagnostic3Statement,
-} from "../modules/telegram-membership/infrastructure/postgres/migrations/0103-telegram-funnel-diagnostic-identities.js";
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0104-telegram-funnel-diagnostic-identities.js";
 import {
   name as funnelDiagnostic4Name,
   statement as funnelDiagnostic4Statement,
-} from "../modules/materials/infrastructure/postgres/migrations/0104-funnel-diagnostic-current-products.js";
+} from "../modules/materials/infrastructure/postgres/migrations/0105-funnel-diagnostic-current-products.js";
 import {
   name as historicalCommunityCoverageName,
   statement as historicalCommunityCoverageStatement,
@@ -683,6 +687,7 @@ export const platformMigrations = [
   { name: submissionReviewRunName, statement: submissionReviewRunStatement },
   { name: materialTaskName, statement: materialTaskStatement },
   { name: chapterSupplementaryName, statement: chapterSupplementaryStatement },
+  { name: productWaitlistsName, statement: productWaitlistsStatement },
   { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
   { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },
   { name: funnelDiagnostic2Name, statement: funnelDiagnostic2Statement },

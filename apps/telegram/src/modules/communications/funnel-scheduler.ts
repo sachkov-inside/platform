@@ -1,3 +1,14 @@
+import { transactionWithExternalReads } from "../../database/external-reads.js";
+import { findPlatformLink } from "../identity-linking/platform-links.js";
+import {
+  WAITLIST_AUTHORIZATION,
+  DisabledWaitlistAuthorization,
+  authorizeWaitlist,
+  type WaitlistAuthorization,
+  type WaitlistQuery,
+  type WaitlistMember,
+  type WaitlistAuthorizationResult,
+} from "./waitlist-authorization.js";
 import {
   SIGN_IN_REPLY_ELIGIBILITY,
   type SignInReplyEligibility,
@@ -11,7 +22,12 @@ import { completeBroadcasts, launchDueBroadcasts } from "./broadcasts.js";
 import { trackedContent } from "./communication-tracking.js";
 import { blockDeliveryContact } from "./delivery-contactability.js";
 export { relativeDue } from "./funnel-timeline.js";
-import { reconcileFunnels, terminal, started } from "./funnel-timeline.js";
+import {
+  cancelDelivery,
+  reconcileFunnels,
+  terminal,
+  started,
+} from "./funnel-timeline.js";
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { sql, type Selectable, type Transaction } from "kysely";
@@ -24,7 +40,13 @@ import {
   APPLICATION_CONFIG,
   type ApplicationConfig,
 } from "../../config/application-config.js";
-import { CLOCK, type Clock } from "../../shared/clock.js";
+import {
+  CLOCK,
+  MONOTONIC_CLOCK,
+  systemMonotonicClock,
+  type MonotonicClock,
+  type Clock,
+} from "../../shared/clock.js";
 import {
   admitTelegramSlot,
   chatLaneBusy,
@@ -40,9 +62,13 @@ import {
   lockDeliveryContact,
   schedulerLock,
   tryContactLock,
+  trySchedulerLock,
 } from "./communication-state.js";
 import type { DeliveryPart } from "./funnel-types.js";
-import { reportFailure } from "../../shared/failure-diagnostics.js";
+import {
+  failureCode,
+  reportFailure,
+} from "../../shared/failure-diagnostics.js";
 const REPLY_KINDS = ["intro", "entry", "fallback"] as const;
 const BACKLOG_KINDS = ["step", "broadcast"] as const;
 type Queue = typeof REPLY_KINDS | typeof BACKLOG_KINDS;
@@ -51,12 +77,17 @@ type DueDelivery = Selectable<DatabaseSchema["communication_deliveries"]> & {
   private_chat_id: string;
   marketing_enabled: boolean;
 };
+type WaitlistDispatchQuery = WaitlistQuery & {
+  readonly recipient: WaitlistMember;
+};
 type Claim = {
   startedAt: Date;
   delivery: DueDelivery;
   attemptId: string;
   chatId: string;
+  telegramUserId: string;
   content: TemplateContent;
+  waitlist?: WaitlistDispatchQuery;
 };
 // `capacity_busy`: the bot's shared lane or fairness turn refuses every chat, so stop scanning.
 // `released`: a locked contact turned out unsendable; commit now so its /start never waits
@@ -67,6 +98,10 @@ type CandidateOutcome =
   | { kind: "capacity_busy" }
   | { kind: "released" };
 const STALE_CLAIM_MS = 60_000;
+const WAITLIST_ELIGIBILITY_RETRY_MS = 5_000;
+// Includes pool acquisition, local admission and commit, but excludes the fresh Platform read.
+const WAITLIST_ADMISSION_BUDGET_MS = 250;
+class WaitlistAdmissionExpired extends Error {}
 // A claim reads due work in index pages and gives up after a bounded scan, whatever the backlog.
 const CLAIM_PAGE = 50;
 const CLAIM_SCAN_LIMIT = 500;
@@ -81,6 +116,10 @@ export class FunnelScheduler {
     private readonly transport: CommunicationTransport,
     @Inject(SIGN_IN_REPLY_ELIGIBILITY)
     private readonly replyEligibility: SignInReplyEligibility,
+    @Inject(WAITLIST_AUTHORIZATION)
+    private readonly waitlist: WaitlistAuthorization = new DisabledWaitlistAuthorization(),
+    @Inject(MONOTONIC_CLOCK)
+    private readonly monotonicClock: MonotonicClock = systemMonotonicClock,
   ) {}
   async assertConfigured(): Promise<void> {
     if (!this.config.marketingEnabled) return;
@@ -102,7 +141,7 @@ export class FunnelScheduler {
       );
   }
   async processAvailable(limit = 25, signal?: AbortSignal): Promise<number> {
-    if (!this.config.marketingEnabled || isTruthy(signal?.aborted)) return 0;
+    if (isTruthy(signal?.aborted)) return 0;
     await this.plan();
     let processed = 0;
     // A released claim freed a contact that proved unsendable; it only retries, within bounds.
@@ -115,6 +154,49 @@ export class FunnelScheduler {
       if (outcome.kind === "released") continue;
       if (outcome.kind !== "claimed") break;
       const claimed = outcome.claim;
+      if (claimed.waitlist !== undefined) {
+        // This read follows the committed local claim, so an earlier Platform withdrawal
+        // cannot hide in the cached pre-claim answer or a scheduler-lock wait.
+        const query = claimed.waitlist;
+        let eligibility: WaitlistAuthorizationResult;
+        try {
+          eligibility = await this.waitlist.read(query);
+        } catch (error) {
+          reportFailure("communications.waitlist-eligibility", error);
+          eligibility = { status: "unavailable" };
+        }
+        const deadline =
+          this.monotonicClock.now() + WAITLIST_ADMISSION_BUDGET_MS;
+        const eligible =
+          eligibility.status === "ok" &&
+          eligibility.saleOpen &&
+          eligibility.members.some(
+            (member) =>
+              member.accountRef === query.recipient.accountRef &&
+              member.telegramIdentityRef ===
+                query.recipient.telegramIdentityRef,
+          ) &&
+          claimed.delivery.snapshot.some((part) =>
+            part.content.buttons.some(
+              (button) => button.url === eligibility.purchaseUrl,
+            ),
+          );
+        if (!eligible) {
+          await this.releaseUnsentClaim(
+            claimed,
+            eligibility.status === "unavailable",
+          );
+          if (eligibility.status === "unavailable") break;
+          continue;
+        }
+        if (
+          !(await this.admitWaitlistTransport(claimed, deadline)) ||
+          this.monotonicClock.now() >= deadline
+        ) {
+          await this.releaseUnsentClaim(claimed, true);
+          break;
+        }
+      }
       let result: TelegramDeliveryResult;
       try {
         result = await this.transport.send({
@@ -202,93 +284,107 @@ export class FunnelScheduler {
       }
     });
     // A separate transaction: a large launch must not hold the recovered contacts' locks.
-    await this.database.transaction().execute(async (tx) => {
+    await transactionWithExternalReads(this.database, async (tx) => {
       await schedulerLock(tx, bot);
       const now = this.clock.now();
-      await launchDueBroadcasts(tx, bot, now);
+      await launchDueBroadcasts(
+        tx,
+        bot,
+        now,
+        this.waitlist,
+        this.config.marketingEnabled,
+      );
       await completeBroadcasts(tx, bot);
     });
   }
   // Eligibility that SQL can decide, shared by the bounded scan and the locked reread.
   private dueDeliveries(tx: Transaction<DatabaseSchema>, now: Date) {
-    return (
-      tx
-        .selectFrom("communication_deliveries as d")
-        .innerJoin(
-          "communication_contacts as c",
-          "c.contact_id",
-          "d.contact_id",
-        )
-        .innerJoin(botContactRows(tx).as("b"), (j) =>
-          j
-            .onRef("b.bot_identity", "=", "c.bot_identity")
-            .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
-        )
-        .where("d.bot_identity", "=", this.config.botIdentity)
-        .where("d.completed_at", "is", null)
-        .where("d.due_at", "<=", now)
-        .where("d.cancel_requested", "=", false)
-        // A part awaiting its result or an operator decision holds the whole delivery.
-        .where(
-          sql<boolean>`not (d.parts @> '[{"state":"in_flight"}]' or d.parts @> '[{"state":"unknown"}]' or d.parts @> '[{"state":"failed"}]')`,
-        )
-        .where((eb) =>
-          eb.or([
-            eb("c.marketing_enabled", "=", true),
-            eb("d.kind", "in", ["entry", "fallback"]),
-          ]),
-        )
-        .where("b.contactability", "=", "reachable")
-        .where((eb) =>
-          eb.or([
-            eb("d.broadcast_id", "is", null),
-            eb.exists(
-              eb
-                .selectFrom("communication_broadcasts as r")
-                .select("r.broadcast_id")
-                .whereRef("r.broadcast_id", "=", "d.broadcast_id")
-                .where("r.state", "=", "running"),
-            ),
-          ]),
-        )
-        .where((eb) =>
-          eb.or([
-            eb("d.funnel_id", "is", null),
-            eb.exists(
-              eb
-                .selectFrom("communication_funnels as f")
-                .select("f.funnel_id")
-                .whereRef("f.funnel_id", "=", "d.funnel_id")
-                .where("f.lifecycle", "=", "published"),
-            ),
-          ]),
-        )
-    );
+    let query = tx
+      .selectFrom("communication_deliveries as d")
+      .innerJoin("communication_contacts as c", "c.contact_id", "d.contact_id")
+      .innerJoin(botContactRows(tx).as("b"), (j) =>
+        j
+          .onRef("b.bot_identity", "=", "c.bot_identity")
+          .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
+      )
+      .where("d.bot_identity", "=", this.config.botIdentity)
+      .where("d.completed_at", "is", null)
+      .where("d.due_at", "<=", now)
+      .where("d.cancel_requested", "=", false)
+      // A part awaiting its result or an operator decision holds the whole delivery.
+      .where(
+        sql<boolean>`not (d.parts @> '[{"state":"in_flight"}]' or d.parts @> '[{"state":"unknown"}]' or d.parts @> '[{"state":"failed"}]')`,
+      )
+      .where((eb) =>
+        eb.or([
+          eb("c.marketing_enabled", "=", true),
+          eb("d.kind", "in", ["entry", "fallback"]),
+        ]),
+      )
+      .where("b.contactability", "=", "reachable")
+      .where((eb) =>
+        eb.or([
+          eb("d.broadcast_id", "is", null),
+          eb.exists(
+            eb
+              .selectFrom("communication_broadcasts as r")
+              .select("r.broadcast_id")
+              .whereRef("r.broadcast_id", "=", "d.broadcast_id")
+              .where("r.state", "=", "running"),
+          ),
+        ]),
+      )
+      .where((eb) =>
+        eb.or([
+          eb("d.funnel_id", "is", null),
+          eb.exists(
+            eb
+              .selectFrom("communication_funnels as f")
+              .select("f.funnel_id")
+              .whereRef("f.funnel_id", "=", "d.funnel_id")
+              .where("f.lifecycle", "=", "published"),
+          ),
+        ]),
+      );
+    if (!this.config.marketingEnabled)
+      query = query.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom("communication_waitlist_recipients as w")
+            .select("w.contact_id")
+            .whereRef("w.broadcast_id", "=", "d.broadcast_id")
+            .whereRef("w.contact_id", "=", "d.contact_id"),
+        ),
+      );
+    return query;
   }
   private async claim(): Promise<CandidateOutcome> {
     // Scan positions advance only when the claim transaction commits.
     const resumeAfter = new Map(this.resumeAfter);
-    const outcome = await this.database.transaction().execute(async (tx) => {
-      await schedulerLock(tx, this.config.botIdentity);
-      const now = this.clock.now();
-      // A marketing backlog must never reserve capacity ahead of a ready service response.
-      if (
-        await hasDueReply(
-          tx,
-          this.config.botIdentity,
-          now,
-          this.config.signInEnabled === true,
-          this.replyEligibility,
+    const outcome = await transactionWithExternalReads(
+      this.database,
+      async (tx) => {
+        await schedulerLock(tx, this.config.botIdentity);
+        const now = this.clock.now();
+        // A marketing backlog must never reserve capacity ahead of a ready service response.
+        if (
+          await hasDueReply(
+            tx,
+            this.config.botIdentity,
+            now,
+            this.config.signInEnabled === true,
+            this.replyEligibility,
+          )
         )
-      )
-        return { kind: "capacity_busy" } as const;
-      // Replies to a contact's own /start go ahead of the funnel and broadcast backlog.
-      for (const queue of [REPLY_KINDS, BACKLOG_KINDS]) {
-        const outcome = await this.claimFrom(tx, resumeAfter, queue, now);
-        if (outcome.kind !== "skipped") return outcome;
-      }
-      return { kind: "skipped" } as const;
-    });
+          return { kind: "capacity_busy" } as const;
+        // Replies to a contact's own /start go ahead of the funnel and broadcast backlog.
+        for (const queue of [REPLY_KINDS, BACKLOG_KINDS]) {
+          const outcome = await this.claimFrom(tx, resumeAfter, queue, now);
+          if (outcome.kind !== "skipped") return outcome;
+        }
+        return { kind: "skipped" } as const;
+      },
+    );
     this.resumeAfter = resumeAfter;
     return outcome;
   }
@@ -382,14 +478,80 @@ export class FunnelScheduler {
     const delivery = await read();
     const part = delivery && (await this.nextPart(tx, delivery, now));
     if (!delivery || !part) return { kind: "released" };
-    const admission = await admitTelegramSlot(
-      tx,
-      this.config.botIdentity,
-      delivery.private_chat_id,
-      now,
-    );
-    if (admission === "bot_busy") return { kind: "capacity_busy" };
-    if (admission === "chat_busy") return { kind: "released" };
+    let waitlistQuery: WaitlistDispatchQuery | undefined;
+    if (delivery.broadcast_id !== null) {
+      const broadcast = await tx
+        .selectFrom("communication_broadcasts")
+        .selectAll()
+        .where("broadcast_id", "=", delivery.broadcast_id)
+        .executeTakeFirstOrThrow();
+      if (broadcast.audience.kind === "waitlist") {
+        const recipient = await tx
+          .selectFrom("communication_waitlist_recipients")
+          .selectAll()
+          .where("broadcast_id", "=", broadcast.broadcast_id)
+          .where("contact_id", "=", delivery.contact_id)
+          .executeTakeFirst();
+        const current =
+          recipient &&
+          (await findPlatformLink(
+            tx,
+            {
+              botIdentity: this.config.botIdentity,
+              telegramUserId: candidate.telegram_user_id,
+              accountRef: recipient.account_ref,
+            },
+            "share",
+          ));
+        if (
+          !recipient ||
+          current?.telegramIdentityRef !== recipient.telegram_identity_ref
+        ) {
+          await cancelDelivery(tx, delivery, now, "waitlist_link_changed");
+          return { kind: "released" };
+        }
+        const member = {
+          accountRef: recipient.account_ref,
+          telegramIdentityRef: recipient.telegram_identity_ref,
+        };
+        waitlistQuery = {
+          actorAccountRef: broadcast.owner_account_ref,
+          intakeId: broadcast.audience.intakeId,
+          recipient: member,
+        };
+        const eligibility = await authorizeWaitlist(
+          this.waitlist,
+          waitlistQuery,
+        );
+        if (eligibility.status === "unavailable")
+          return { kind: "capacity_busy" };
+        if (
+          eligibility.status !== "ok" ||
+          !eligibility.saleOpen ||
+          !eligibility.members.some(
+            (m) =>
+              m.accountRef === member.accountRef &&
+              m.telegramIdentityRef === member.telegramIdentityRef,
+          ) ||
+          !delivery.snapshot.some((p) =>
+            p.content.buttons.some((b) => b.url === eligibility.purchaseUrl),
+          )
+        ) {
+          await cancelDelivery(tx, delivery, now, "waitlist_ineligible");
+          return { kind: "released" };
+        }
+      }
+    }
+    if (waitlistQuery === undefined) {
+      const admission = await admitTelegramSlot(
+        tx,
+        this.config.botIdentity,
+        delivery.private_chat_id,
+        now,
+      );
+      if (admission === "bot_busy") return { kind: "capacity_busy" };
+      if (admission === "chat_busy") return { kind: "released" };
+    }
     const attemptId = randomUUID();
     const parts = delivery.parts;
     // nextPart returns the element of delivery.parts, so this marks the persisted part.
@@ -412,9 +574,11 @@ export class FunnelScheduler {
       kind: "claimed",
       claim: {
         startedAt: now,
+        ...(waitlistQuery === undefined ? {} : { waitlist: waitlistQuery }),
         delivery,
         attemptId,
         chatId: delivery.private_chat_id,
+        telegramUserId: candidate.telegram_user_id,
         content: await trackedContent(
           tx,
           this.config,
@@ -425,6 +589,165 @@ export class FunnelScheduler {
         ),
       },
     };
+  }
+  /** Reserve immediately before transport, after all potentially slow Platform reads. */
+  private async admitWaitlistTransport(
+    claim: Claim,
+    deadline: number,
+  ): Promise<boolean> {
+    try {
+      return await this.database.transaction().execute(async (tx) => {
+        if (this.monotonicClock.now() >= deadline)
+          throw new WaitlistAdmissionExpired();
+        await sql`set local lock_timeout = '25ms'`.execute(tx);
+        await sql`set local statement_timeout = '100ms'`.execute(tx);
+        if (!(await trySchedulerLock(tx, this.config.botIdentity)))
+          return false;
+
+        if (
+          !(await tryContactLock(
+            tx,
+            this.config.botIdentity,
+            claim.telegramUserId,
+          ))
+        )
+          return false;
+        const delivery = await tx
+          .selectFrom("communication_deliveries as d")
+          .innerJoin(
+            "communication_contacts as c",
+            "c.contact_id",
+            "d.contact_id",
+          )
+          .innerJoin(botContactRows(tx).as("b"), (join) =>
+            join
+              .onRef("b.bot_identity", "=", "c.bot_identity")
+              .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
+          )
+          .selectAll("d")
+          .select([
+            "c.telegram_user_id",
+            "c.marketing_enabled",
+            "b.contactability",
+            "b.private_chat_id",
+          ])
+          .where("d.bot_identity", "=", this.config.botIdentity)
+          .where("d.delivery_id", "=", claim.delivery.delivery_id)
+          .executeTakeFirst();
+        if (
+          !delivery ||
+          delivery.attempt_id !== claim.attemptId ||
+          !delivery.parts.some((part) => part.state === "in_flight")
+        )
+          return false;
+        const now = this.clock.now();
+        const query = claim.waitlist;
+        if (query === undefined) return false;
+        const binding = await findPlatformLink(
+          tx,
+          {
+            botIdentity: this.config.botIdentity,
+            telegramUserId: delivery.telegram_user_id,
+            accountRef: query.recipient.accountRef,
+          },
+          "share",
+          "nowait",
+        );
+        if (
+          delivery.cancel_requested ||
+          !delivery.marketing_enabled ||
+          delivery.contactability !== "reachable" ||
+          binding?.telegramIdentityRef !== query.recipient.telegramIdentityRef
+        ) {
+          await cancelDelivery(tx, delivery, now, "waitlist_ineligible");
+          return false;
+        }
+        const broadcast = await tx
+          .selectFrom("communication_broadcasts")
+          .select("state")
+          .where("broadcast_id", "=", claim.delivery.broadcast_id)
+          .executeTakeFirst();
+        if (broadcast?.state !== "running") return false;
+        if (
+          await hasDueReply(
+            tx,
+            this.config.botIdentity,
+            now,
+            this.config.signInEnabled === true,
+            this.replyEligibility,
+          )
+        )
+          return false;
+        const reserved =
+          (await admitTelegramSlot(
+            tx,
+            this.config.botIdentity,
+            delivery.private_chat_id,
+            now,
+            "general",
+            "nowait",
+          )) === "reserved";
+        if (this.monotonicClock.now() >= deadline)
+          throw new WaitlistAdmissionExpired();
+        return reserved;
+      });
+    } catch (error) {
+      if (error instanceof WaitlistAdmissionExpired) return false;
+      if (["pg_55P03", "pg_57014"].includes(failureCode(error))) {
+        reportFailure("communications.waitlist-admission", error);
+        return false;
+      }
+      throw error;
+    }
+  }
+  /** No provider call occurred. Keep outage retries distinct from unknown transport attempts. */
+  private async releaseUnsentClaim(
+    claim: Claim,
+    retry: boolean,
+  ): Promise<void> {
+    await this.database.transaction().execute(async (tx) => {
+      await schedulerLock(tx, this.config.botIdentity);
+      await lockDeliveryContact(
+        tx,
+        this.config.botIdentity,
+        claim.delivery.delivery_id,
+      );
+      const delivery = await tx
+        .selectFrom("communication_deliveries")
+        .selectAll()
+        .where("delivery_id", "=", claim.delivery.delivery_id)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      if (delivery.attempt_id !== claim.attemptId) return;
+      const part = delivery.parts.find((part) => part.state === "in_flight");
+      // Recovery may already have classified a lost lease as unknown. Never turn it into a retry.
+      if (part === undefined) return;
+      const now = this.clock.now();
+      part.state =
+        retry && !delivery.cancel_requested ? "pending" : "cancelled";
+      part.diagnosticCode =
+        part.state === "pending"
+          ? "waitlist_eligibility_unavailable"
+          : "waitlist_ineligible";
+      await tx
+        .updateTable("communication_deliveries")
+        .set({
+          parts: JSON.stringify(delivery.parts),
+          revision: delivery.revision + 1,
+          attempt_id: null,
+          locked_at: null,
+          due_at: new Date(now.getTime() + WAITLIST_ELIGIBILITY_RETRY_MS),
+          completed_at: terminal(delivery.parts) ? now : null,
+        })
+        .where("delivery_id", "=", delivery.delivery_id)
+        .execute();
+      if (delivery.broadcast_id !== null)
+        await completeBroadcasts(
+          tx,
+          this.config.botIdentity,
+          delivery.broadcast_id,
+        );
+    });
   }
   // The part to send now, or undefined while broadcast offsets, the funnel lane or the intro
   // hold this delivery.

@@ -29,7 +29,7 @@ def render():
     resource = ['keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])',
         enum_rule('service.name', policy['services']),
         enum_rule('deployment.environment.name', policy['environments']),
-        'set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4})$")']
+        'set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")']
     scope = ['set(name, "inside-collector")', 'set(version, "")', 'keep_keys(attributes, [])']
     attribute_rules = [
         enum_rule('http.route', policy['routes']),
@@ -53,7 +53,7 @@ def render():
     span_rules += [
         'set(trace_state, "")', 'set(status.message, "")', 'set(events, nil)',
         # SDK safePgBossSpan strips link metadata. This candidate preserves its correlation links.
-        'set(name, "operation") where not IsMatch(name, "^(HTTP GET /pilot|queue\\.publish|worker\\.attempt|worker\\.retry|dependency\\.http)$")',
+        'set(name, "operation") where not IsMatch(name, "^(HTTP GET /pilot|queue[.]publish|worker[.]attempt|worker[.]retry|dependency[.]http)$")',
         'set(name, Concat([attributes["http.request.method"], attributes["http.route"]], " ")) where attributes["http.request.method"] != nil and attributes["http.route"] != nil',
         'set(name, Concat([attributes["messaging.operation.name"], attributes["messaging.destination.name"]], " ")) where attributes["messaging.operation.name"] != nil and attributes["messaging.destination.name"] != nil',
     ]

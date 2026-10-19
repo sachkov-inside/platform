@@ -62,6 +62,8 @@ const tableOwners = {
   communication_step_ids: "modules/communications",
   communication_templates: "modules/communications",
   communication_tracking_hits: "modules/communications",
+  communication_waitlist_openings: "modules/communications",
+  communication_waitlist_recipients: "modules/communications",
   communication_tracking_tokens: "modules/communications",
   community_bindings: "modules/community",
   community_desired_states: "modules/community",

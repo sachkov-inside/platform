@@ -494,3 +494,41 @@ it("bounds first-open candidates by the Product materials and their first-date w
   if (full.ok)
     expect(full.value.get(id(10000))).toEqual(new Date("2025-01-01T00:00:00Z"));
 });
+
+it("keeps waitlist demand in the owner report without reading or publishing it in bounded diagnostics", async () => {
+  const productId = id(9801);
+  const intakeId = id(9802);
+  await database.prisma.product.create({
+    data: { id: productId, slug: "waitlist-boundary", name: "Waitlist" },
+  });
+  await database.prisma.productWaitlistIntake.create({
+    data: {
+      id: intakeId,
+      productId,
+      name: "Owner-only intake",
+      accepting: true,
+    },
+  });
+  const observer = createQueryRowClient(database.url);
+  try {
+    const funnel = assembleTestFunnel(observer.prisma);
+    const diagnostic = await observer.measure(() =>
+      funnel.readDiagnostics(actor, { ...input, productId }),
+    );
+    expect(diagnostic.result).toMatchObject({ ok: true });
+    expect(diagnostic.result).not.toHaveProperty("value.waitlist");
+    expect(
+      diagnostic.statements.some((statement) =>
+        statement.includes("product_waitlist"),
+      ),
+    ).toBe(false);
+    expect(
+      await funnel.readReport(actor, { ...input, productId }),
+    ).toMatchObject({
+      ok: true,
+      value: { waitlist: { intakeId, name: "Owner-only intake", active: 0 } },
+    });
+  } finally {
+    await observer.prisma.$disconnect();
+  }
+});

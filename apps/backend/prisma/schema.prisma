@@ -1981,3 +1981,44 @@ model ProductTaskReviewProgress {
   @@map("review_progress")
   @@schema("product_tasks")
 }
+
+model ProductWaitlistIntake {
+  id String @id @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  name String
+  accepting Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@map("product_waitlist_intakes")
+  @@schema("sales_funnel")
+}
+model ProductWaitlistMembership {
+  intakeId String @map("intake_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  active Boolean
+  source String?
+  joinedAt DateTime @map("joined_at") @db.Timestamptz
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@id([intakeId, accountId])
+  @@map("product_waitlist_memberships")
+  @@schema("sales_funnel")
+}
+model ProductWaitlistEvent {
+  id String @id @db.Uuid
+  intakeId String @map("intake_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  kind String
+  source String?
+  occurredAt DateTime @map("occurred_at") @db.Timestamptz
+  @@map("product_waitlist_events")
+  @@schema("sales_funnel")
+}
+
+model ProductWaitlistOperation {
+ id String @id @db.Uuid
+ intakeId String @map("intake_id") @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ source String?
+ createdAt DateTime @map("created_at") @db.Timestamptz
+ @@map("product_waitlist_operations")
+ @@schema("sales_funnel")
+}

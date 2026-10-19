@@ -8,6 +8,14 @@ Telegram owns mutable communications state. Both applications use the
 [The snapshot](../contracts/inside-communications-v1/snapshot.json) records its historical origin.
 Platform stores only the outgoing tracking-event ledger in `communications.tracking_hits`; it has no second mutable definition store or broadcast scheduler.
 
+## Intake opening notifications
+
+The active `waitlist` audience is an exception to the general contact-only recipient model:
+Platform owns its Account membership and current verified binding, while Telegram retains the
+broadcast snapshot and transport history. `broadcasts.preview` and the service-only waitlist
+callback preserve existing author permissions. The authoritative audience, dispatch, recovery
+and reporting contract lives in [Telegram communications](../../apps/telegram/docs/integrations/communications-v1.md#explicit-intake-opening-notification).
+
 ## Editor ownership
 
 Owner decision [Platform #396](https://github.com/sachkov-inside/platform/issues/396), 2026-09-08:

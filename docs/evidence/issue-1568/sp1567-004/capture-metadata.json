@@ -1,0 +1,35 @@
+{
+  "sourceSha": "c143cdf67701f348cdc72cd61dcf4c9b42e734d4",
+  "sourceTree": "51684d016d6e6fe7894a42c7bf13bac5106f6274",
+  "comparisonBase": "0fb45ce76693aa1b3dc786f0a28595962fb3f2cd",
+  "capturedAtUTC": "2026-10-19T18:28:32Z / 18:32:47Z / 18:33:54Z",
+  "widths": [
+    1440,
+    390
+  ],
+  "height": 2000,
+  "reducedMotion": "reduce",
+  "horizontalOverflow": false,
+  "capture": "unmodified Chromium locator screenshots via playwright-cli platform-1568",
+  "checksums": {
+    "live-learning-hero-desktop.png": "a04d34ec772cc5bb55d9fc555cfb0cd71ec8b248269cc74af6c61ec29ea7ed99",
+    "live-learning-hero-mobile.png": "ca2810172fcca3d6026e99e4cc31dfd020d90eb7eca2fb8eaeb9fd1b96000a86",
+    "live-learning-lower-desktop.png": "9a9be241206c7d366849b922d4643652c0c39687b40c949700b9e13e41c21598",
+    "live-learning-lower-mobile.png": "cbf16bb30aaf3ef98f87e78aaebcbe063920e1a8b2fc0dbab7e4820bd4fa788b",
+    "live-learning-retry-mobile.png": "a6a016809be24708e371cb56839fdc5b56be76774589b04c9c649d53b8daac9d",
+    "live-offer-hero-desktop.png": "9176f77e9e5135650b5951657bbba2473c8882d000c164ee4a61cab6666812ba",
+    "live-offer-hero-mobile.png": "2d1d0d26e2611c8ac7e5c6ee12dfddfb5b372738de1afb08afbacf75a44bfc6d",
+    "live-offer-lower-desktop.png": "67ba4234a528b80df149e8138efc2bc31f25b9ad5b87b8fa2a14ec7ba7c60ca6",
+    "live-offer-lower-mobile.png": "9f609222b06f3afb1e0f865767a99718ffe5165bda789c4f3a6f1ccbdf10e4dc",
+    "storybook-learning-continuing-mobile.png": "846b4ea7574348c711731983219ed23afeead42d526d767562b2d7a72c3c3820",
+    "storybook-learning-hero-desktop.png": "a5e68748aab8949b24599a9882547ed8e7579976ff98f2bb77826c8dd7ece5df",
+    "storybook-learning-hero-mobile.png": "2a221d271fafadce6c8f6e12d35fe1c1bda6abd69efd3d0481b3ce406d3d12b1",
+    "storybook-learning-lower-desktop.png": "9a9be241206c7d366849b922d4643652c0c39687b40c949700b9e13e41c21598",
+    "storybook-learning-lower-mobile.png": "acbddb042649d74f849e57d1cee25b9ee9a9f9937c8d870f4b00117859afd8ae",
+    "storybook-learning-retry-mobile.png": "241fbb4865f76b86177e215be7d920d7c9ba508dcbd25741c57dc06e3167c091",
+    "storybook-offer-hero-desktop.png": "0d672b6b8eef8604705ed90d95a4309172d3152cc4d8f1ad8fc35b038e326d08",
+    "storybook-offer-hero-mobile.png": "60321187266fcb0954a3b456b20f1d3eda24d9876ff55c419f23180cc59c33a8",
+    "storybook-offer-lower-desktop.png": "5befad21623c4d847657709d119fef62922092298e133729362410540d708977",
+    "storybook-offer-lower-mobile.png": "69c5f2b86abac2435ea2c2fb6e67074254bff03d7cfdbd81b5baade787d883d5"
+  }
+}

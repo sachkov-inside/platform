@@ -158,8 +158,16 @@ function step(t: Turn, event: AuthorEvent): void {
         );
       }
       if (!d) return;
+      const audience =
+        t.state.broadcast?.broadcastId === event.broadcastId
+          ? t.state.broadcast.waitlistAudience
+          : undefined;
+      const summary =
+        audience === undefined
+          ? ""
+          : `Активных записей при запуске: ${audience.active}\nПолучателей в снимке: ${audience.eligible}\nНедоступно при запуске: ${audience.excluded}\n`;
       return t.reply(
-        `Результаты рассылки\nОтправлено: ${d.sent}\nОжидает: ${d.pending}\nПропущено: ${d.suppressed}\nОшибки: ${d.failed}\nНеизвестный результат: ${d.unknown}\nЧастично отменено: ${d.partialCancelled}\nОбновите статус, чтобы увидеть новые результаты.`,
+        `Результаты рассылки\n${summary}Отправлено: ${d.sent}\nОжидает: ${d.pending}\nПропущено: ${d.suppressed}\nОшибки: ${d.failed}\nНеизвестный результат: ${d.unknown}\nЧастично отменено: ${d.partialCancelled}\nОбновите статус, чтобы увидеть новые результаты.`,
         [["К рассылке", { kind: "read-broadcast", id: event.broadcastId }]],
       );
     }
@@ -542,13 +550,13 @@ function performOnBroadcast(
       return t.ask({ kind: "read-statistics", broadcastId: b.broadcastId });
     case "confirm-launch":
     case "confirm-cancel":
-      if (a.kind === "confirm-launch" && b.audience.kind !== "all") {
+      if (a.kind === "confirm-launch" && b.audience.kind === "funnels") {
         b.audience = { kind: "all" };
         return saveBroadcast(t, { kind: "confirm-launch" });
       }
       return t.reply(
         a.kind === "confirm-launch"
-          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
+          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
           : "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
         [
           [

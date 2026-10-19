@@ -173,6 +173,7 @@ expectFailure(
     "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: activationRule belongs to another Module; pass the transaction to its owner's function (activationRule)",
     "src/modules/account-rights/features/read-binding-by-hand/read-binding-by-hand.ts: telegramAccountLinkState belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkState)",
     "src/modules/account-rights/features/read-binding-by-hand/read-binding-by-hand.ts: telegramAccountLinkHistory belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkHistory)",
+    "src/modules/sales-funnel/features/read-binding-by-hand/read-binding-by-hand.ts: telegramAccountLinkState belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkState)",
 
     "src/modules/example/features/swallow-failure/swallow-failure.ts:4: catch swallows its failure",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:12: catch drops error without reporting it",
