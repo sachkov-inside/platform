@@ -97,21 +97,18 @@ read-only, non-root контейнере с 512MiB/0.25 CPU/64 pids; конте�
 недопустимого строкового escape. Детерминированный contract проверяет quoted literals и
 положительные/отрицательные значения; он не подменяет настоящий запуск.
 
-Для отдельной bounded проверки actual initialization нужен уже закешированный pinned image:
+На подготовленном исправлении отдельно выполнен bounded actual RUN закреплённого Alloy:
+исходный config дал exit 1, исправленный — readiness 200. Это историческое доказательство
+устранения ошибки инициализации, не текущая самостоятельная команда проверки. Временный
+Docker helper удалён: его in-process cleanup не обеспечивал удаление daemon-контейнера при
+SIGKILL вызывающего процесса (COLFIX-ST01). Собственные контейнеры после проверки удалены.
 
-```sh
-bash scripts/heavy-check.sh python3 -B scripts/observability-pilot/check_alloy_startup.py
-```
-
-Команда использует один уникальный non-root контейнер без сети и опубликованных портов,
-read-only FS, cap-drop ALL, 512MiB/0.25 CPU/128 pids и tmpfs 16MiB. Внутренний loopback
-`/-/ready` должен вернуть 200 в пределах 12 секунд; CLI ограничен 20 секундами.
-`--pull=never` не приобретает image. Отсутствующий cache — failure, не SKIP или PASS.
-Собственный контейнер удаляется и проверяется отсутствие residue. Входящего OTLP нет;
-raw startup diagnostics не публикуются и не сохраняются на host. Эта команда была RED
-на исходном config и GREEN после исправления. Это только startup/health proof, а не
-подтверждение ingest, очистки перед storage или ошибок exporter. Обычные unit checks
-не запускают Docker; source-bound functional workflow проверяет actual RUN после acquisition.
+Настоящая проверка actual RUN, ingest и очистки перед storage выполняется существующим
+публичным supervisor из [основного runbook](observability-pilot.md). Он сохраняет внешнее
+владение процессами и cleanup. Новый lifecycle runner не вводится. `validate` и обычные
+unit contracts этого runtime proof не заменяют; raw startup diagnostics не становятся
+новым каналом сбора ошибок или payload. Исторический startup/health GREEN не доказывает
+очистку перед storage, protobuf wire path или ошибки exporter.
 
 После independent review координатор запускает прежний публичный supervisor с теми же admission,
 identity, floor/growth и cleanup. Синтетический corpus помещает фиксированный sentinel в resource,
