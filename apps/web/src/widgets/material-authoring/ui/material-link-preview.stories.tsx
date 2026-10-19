@@ -24,7 +24,7 @@ export const AutomaticImage: Story = {
     const canvas = within(canvasElement);
     await expect(
       canvas.getByRole("img", {
-        name: "Автоматическая картинка: Как устроен Inside",
+        name: "Автоматическая картинка материала",
       }),
     ).toBeVisible();
     await expect(
@@ -87,9 +87,9 @@ export const LiveEdits: Story = {
     await userEvent.type(field, "Новое название");
     await expect(
       canvas.getByRole("img", {
-        name: "Автоматическая картинка: Новое название",
+        name: "Автоматическая картинка материала",
       }),
-    ).toBeVisible();
+    ).toHaveTextContent("Новое название");
   },
 };
 

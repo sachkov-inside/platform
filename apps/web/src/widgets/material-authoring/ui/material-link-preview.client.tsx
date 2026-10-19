@@ -83,7 +83,7 @@ export function MaterialLinkPreview({
           <div
             className="aspect-[1200/630] [container-type:inline-size]"
             role="img"
-            aria-label={`Автоматическая картинка: ${presentText(title.trim()) ?? "Название материала"}`}
+            aria-label="Автоматическая картинка материала"
           >
             <SocialCardArtwork
               content={{
