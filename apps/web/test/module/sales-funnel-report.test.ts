@@ -47,6 +47,7 @@ describe("sales funnel report period", () => {
 
 describe("sales funnel report presentation", () => {
   const report: SalesFunnelReport = {
+    waitlist: null,
     generatedAt: "2030-04-01T09:00:00.000Z",
     period: {
       from: "2030-02-28T21:00:00.000Z",

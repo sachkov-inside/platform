@@ -266,6 +266,7 @@ describe("Platform migrations", () => {
         "0097_task_submission_review_run",
         "0098_material_task",
         "0099_chapter_supplementary_materials",
+        "0100_product_waitlists",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -288,7 +289,13 @@ describe("Platform migrations", () => {
       "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
-    await expectTables(testDatabase, "sales_funnel", ["bot_events"]);
+    await expectTables(testDatabase, "sales_funnel", [
+      "bot_events",
+      "product_waitlist_intakes",
+      "product_waitlist_memberships",
+      "product_waitlist_events",
+      "product_waitlist_operations",
+    ]);
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
@@ -958,6 +965,7 @@ describe("Platform migrations", () => {
           "0097_task_submission_review_run",
           "0098_material_task",
           "0099_chapter_supplementary_materials",
+          "0100_product_waitlists",
         ],
       });
 

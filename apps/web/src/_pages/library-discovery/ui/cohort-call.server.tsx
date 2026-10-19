@@ -1,4 +1,5 @@
 import "server-only";
+import { ProductWaitlistSlot } from "./waitlist-provider.client";
 import { connection } from "next/server";
 
 import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
@@ -67,6 +68,12 @@ export async function PersonalCohortCall({
   const sale = await (accessToken === undefined
     ? readGuestProductSale(productId)
     : readViewerProductSale(productId, accessToken));
+  if (
+    slug === "ai-engineering" &&
+    sale.kind !== "unavailable" &&
+    sale.offers.length === 0
+  )
+    return <ProductWaitlistSlot />;
   if (sale.kind === "unavailable" || !sale.cohortKnown)
     return <PendingCohortCall slug={slug} />;
   return (
@@ -98,6 +105,13 @@ export async function PersonalCohortStatus({
   const sale = await (accessToken === undefined
     ? readGuestProductSale(productId)
     : readViewerProductSale(productId, accessToken));
+  if (
+    slug === "ai-engineering" &&
+    sale.kind !== "unavailable" &&
+    sale.access !== "open" &&
+    sale.offers.length === 0
+  )
+    return <ProductWaitlistSlot lower />;
   if (sale.kind === "unavailable" || !sale.cohortKnown) return null;
   const status = cohortStatus({
     cohort: sale.cohort,

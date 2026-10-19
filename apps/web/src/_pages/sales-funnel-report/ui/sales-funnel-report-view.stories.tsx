@@ -18,6 +18,7 @@ const productId = "00000000-0000-4000-8000-000000000816";
 const chapterId = "00000000-0000-4000-8000-000000000817";
 
 const report: SalesFunnelReport = {
+  waitlist: null,
   generatedAt: "2030-04-01T09:00:00.000Z",
   period: {
     from: "2030-02-28T21:00:00.000Z",
@@ -232,4 +233,60 @@ export const Unauthorized: Story = {
 
 export const Unavailable: Story = {
   render: () => <SalesFunnelReportState kind="unavailable" />,
+};
+
+const waitlist = {
+  intakeId: "d4f674dc-a1a9-4f86-8855-e4d904d2845f",
+  name: "Следующий набор",
+  active: 128,
+  joined: 37,
+  withdrawn: 4,
+  sources: [
+    { source: "channel", active: 75, joined: 22, withdrawn: 2 },
+    { source: "youtube", active: 32, joined: 8, withdrawn: 1 },
+    { source: "survey", active: 15, joined: 5, withdrawn: 1 },
+    { source: null, active: 6, joined: 2, withdrawn: 0 },
+  ],
+  weeks: [
+    { from: "2030-03-01", joined: 12, withdrawn: 0 },
+    { from: "2030-03-08", joined: 8, withdrawn: 2 },
+    { from: "2030-03-15", joined: 10, withdrawn: 1 },
+    { from: "2030-03-22", joined: 7, withdrawn: 1 },
+  ],
+};
+export const WaitlistDemand: Story = {
+  args: {
+    view: presentSalesFunnelReport(
+      { ...report, waitlist },
+      { from: "2030-03-01", to: "2030-03-31", corrected: false },
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("#waitlist-report-title"),
+    ).toHaveTextContent("Ожидание набора");
+  },
+};
+export const WaitlistEmpty: Story = {
+  args: {
+    view: presentSalesFunnelReport(
+      {
+        ...report,
+        waitlist: {
+          ...waitlist,
+          active: 0,
+          joined: 0,
+          withdrawn: 0,
+          sources: [],
+          weeks: [],
+        },
+      },
+      { from: "2030-03-01", to: "2030-03-31", corrected: false },
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(canvasElement).toHaveTextContent(
+      "В этом наборе пока нет записей.",
+    );
+  },
 };

@@ -245,3 +245,24 @@ export async function tryLockBillingMethodFlow(
     );
   return rows[0]?.acquired === true;
 }
+
+/** Join replay is serialized before membership changes; every writer uses the same member key. */
+export async function lockProductWaitlistOperation(
+  transaction: AdvisoryLockTransaction,
+  operationId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `waitlist-operation:${operationId.toLowerCase()}`,
+  );
+}
+export async function lockProductWaitlistMembership(
+  transaction: AdvisoryLockTransaction,
+  intakeId: string,
+  accountId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `waitlist:${intakeId.toLowerCase()}:${accountId.toLowerCase()}`,
+  );
+}

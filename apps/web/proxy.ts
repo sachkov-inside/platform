@@ -40,6 +40,7 @@ export const config = {
   matcher: [
     "/",
     "/auth/sign-in",
+    "/api/product-waitlist/intent",
     "/callback",
     "/communications/visit",
     "/payment/links/:path*",

@@ -1,3 +1,5 @@
+import { ProductWaitlists } from "./facets/product-waitlists/product-waitlists.js";
+import { ProductWaitlistController } from "./features/manage-product-waitlist/manage-product-waitlist.controller.js";
 import { Module } from "@nestjs/common";
 import {
   PrismaClientProvider,
@@ -31,8 +33,18 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     ReadingActivityModule,
     TelegramAccountLinksModule,
   ],
-  controllers: [RecordBotEventsController, ReadFunnelReportController],
+  controllers: [
+    RecordBotEventsController,
+    ReadFunnelReportController,
+    ProductWaitlistController,
+  ],
   providers: [
+    {
+      provide: ProductWaitlists,
+      inject: [PrismaClientProvider, TelegramAccountLinks],
+      useFactory: (prisma: PrismaClientProvider, links: TelegramAccountLinks) =>
+        new ProductWaitlists({ prisma, links, clock: () => new Date() }),
+    },
     {
       provide: SalesFunnel,
       inject: [

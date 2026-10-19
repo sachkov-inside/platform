@@ -1,0 +1,148 @@
+.waitlist-action {
+  display: grid;
+  justify-items: start;
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+  order: 5;
+}
+.ai-product-page .waitlist-invitation {
+  max-width: 29rem;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.waitlist-action .aie-hero-action,
+.waitlist-action .aie-status-button {
+  min-height: 3rem;
+  margin: 0;
+  border: 0;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.waitlist-action button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+.waitlist-secondary-actions {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: start;
+}
+.waitlist-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  color: inherit;
+  font-size: 0.875rem;
+  text-underline-offset: 0.25em;
+  text-decoration: underline;
+}
+.waitlist-secondary svg {
+  width: 1rem;
+  height: 1rem;
+}
+.waitlist-secondary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.waitlist-withdraw {
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.waitlist-confirmed {
+  display: grid;
+  gap: 0.5rem;
+}
+.waitlist-confirmed > span {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+.waitlist-confirmed svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+.ai-product-page .waitlist-confirmed p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.aie-status:has(.waitlist-lower) .aie-status-default {
+  display: none;
+}
+.waitlist-lower {
+  display: grid;
+  gap: 0.85rem;
+}
+.aie-status .waitlist-lower > p {
+  margin: 0;
+  color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
+  font-size: 1.1rem;
+  line-height: 1.65;
+}
+.waitlist-action-lower {
+  margin-top: 0.3rem;
+}
+.aie-status .waitlist-secondary {
+  color: var(--primary-foreground);
+}
+.waitlist-inline-error {
+  max-width: 32rem;
+  color: var(--destructive);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.aie-status .waitlist-inline-error {
+  color: var(--primary-foreground);
+  border-left: 3px solid var(--accent);
+  padding-left: 0.75rem;
+}
+.waitlist-announcement:not(:empty),
+.waitlist-error-announcement {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: var(--secondary);
+  font-size: 0.875rem;
+}
+.waitlist-announcement:empty {
+  margin: 0;
+}
+.waitlist-error-announcement {
+  color: var(--destructive);
+}
+.waitlist-linking {
+  min-height: 75svh;
+}
+.waitlist-link-context {
+  max-width: 40rem;
+  padding: 1rem;
+  margin: 1rem auto;
+  font-size: 0.95rem;
+}
+@media (max-width: 47.999rem) {
+  .waitlist-action {
+    width: 100%;
+    margin-top: 1.25rem;
+  }
+  .waitlist-action .aie-hero-action {
+    justify-content: center;
+    width: 100%;
+  }
+  .waitlist-secondary {
+    white-space: normal;
+  }
+}
+/* The existing mobile programme action is hidden; the new waitlist action must stay visible. */
+.waitlist-action .aie-status-button {
+  display: inline-flex;
+}
+.waitlist-action .aie-hero-action {
+  order: 0;
+}

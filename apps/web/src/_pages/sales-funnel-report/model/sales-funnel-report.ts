@@ -39,6 +39,30 @@ export const salesFunnelReportSchema = z.strictObject({
     }),
   ),
   total: countsSchema,
+  waitlist: z
+    .strictObject({
+      intakeId: z.uuid(),
+      name: z.string(),
+      active: amountSchema,
+      joined: amountSchema,
+      withdrawn: amountSchema,
+      sources: z.array(
+        z.strictObject({
+          source: z.string().nullable(),
+          active: amountSchema,
+          joined: amountSchema,
+          withdrawn: amountSchema,
+        }),
+      ),
+      weeks: z.array(
+        z.strictObject({
+          from: z.iso.date(),
+          joined: amountSchema,
+          withdrawn: amountSchema,
+        }),
+      ),
+    })
+    .nullable(),
   surveyRespondents: z
     .strictObject({
       uploaded: amountSchema,
@@ -88,6 +112,7 @@ export interface SalesFunnelReportView {
   /** `null` — список анкеты ещё не загружен: доли нет, а не ноль купивших. */
   readonly surveyRespondents: SurveyRespondentsView | null;
   readonly notice: string | null;
+  readonly waitlist: SalesFunnelReport["waitlist"];
 }
 
 /** Итог скидки анкеты по личным ссылкам: только общие числа. */
@@ -229,6 +254,7 @@ export function presentSalesFunnelReport(
     (item) => item.id === report.selection?.chapterId,
   );
   return {
+    waitlist: report.waitlist,
     from: period.from,
     to: period.to,
     products: report.products,

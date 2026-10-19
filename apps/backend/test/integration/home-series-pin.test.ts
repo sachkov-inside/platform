@@ -90,6 +90,7 @@ beforeAll(async () => {
       "0097_task_submission_review_run",
       "0098_material_task",
       "0099_chapter_supplementary_materials",
+      "0100_product_waitlists",
     ],
   });
   await database.prisma.topic.create({

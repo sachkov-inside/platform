@@ -1,4 +1,8 @@
 import {
+  name as productWaitlistsName,
+  statement as productWaitlistsStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-product-waitlists.js";
+import {
   name as historicalCommunityCoverageName,
   statement as historicalCommunityCoverageStatement,
 } from "../modules/account-rights/infrastructure/postgres/migrations/0095-historical-community-coverage.js";
@@ -643,6 +647,7 @@ export const platformMigrations = [
   { name: submissionReviewRunName, statement: submissionReviewRunStatement },
   { name: materialTaskName, statement: materialTaskStatement },
   { name: chapterSupplementaryName, statement: chapterSupplementaryStatement },
+  { name: productWaitlistsName, statement: productWaitlistsStatement },
 ] as const;
 
 export function migrateToLatest(

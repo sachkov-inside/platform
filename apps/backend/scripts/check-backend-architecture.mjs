@@ -450,6 +450,7 @@ function advisoryLockViolations(sourceFile, program) {
 // Module's own infrastructure/prisma.ts.
 const handoffDelegates = new Map([
   ["assets", ["material"]],
+  ["sales-funnel", ["telegramAccountLinkState", "telegramAccountLinkHistory"]],
   [
     "billing",
     [
