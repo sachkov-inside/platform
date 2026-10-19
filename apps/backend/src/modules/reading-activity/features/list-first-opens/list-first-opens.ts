@@ -1,5 +1,7 @@
 import {
   DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticAccountScopeSchema,
+  type DiagnosticAccountScope,
   diagnosticSnapshotOptions,
   diagnosticSourceBudgetFailure,
   setDiagnosticStatementBudget,
@@ -45,25 +47,36 @@ export class MaterialFirstOpens {
 
   async listForDiagnostics(
     materialIds: readonly string[],
+    scope?: DiagnosticAccountScope,
   ): Promise<FirstOpensResult | DiagnosticSourceBudgetFailure> {
     if (!materialIdsSchema.safeParse(materialIds).success)
       return { ok: false, error: { code: "invalid_request" } };
     if (materialIds.length === 0) return { ok: true, value: new Map() };
+    const parsedScope =
+      scope === undefined
+        ? undefined
+        : diagnosticAccountScopeSchema.safeParse(scope);
+    if (parsedScope !== undefined && !parsedScope.success)
+      return { ok: false, error: { code: "invalid_request" } };
+    const normalizedScope = parsedScope?.data;
+    const boundedScope =
+      normalizedScope !== undefined && "accountIds" in normalizedScope
+        ? { accountIds: [...new Set(normalizedScope.accountIds)] }
+        : normalizedScope;
+    if (
+      boundedScope !== undefined &&
+      "accountIds" in boundedScope &&
+      boundedScope.accountIds.length > DIAGNOSTIC_SOURCE_ROW_LIMIT
+    )
+      return diagnosticSourceBudgetFailure;
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await setDiagnosticStatementBudget(transaction);
-        const sources = await Promise.all([
-          transaction.readingMaterialVisit.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { materialId: true },
-          }),
-        ]);
-        if (sources.some((rows) => rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT))
-          return diagnosticSourceBudgetFailure;
         return readMaterialFirstOpens(
           transaction,
           materialIds,
           "listForDiagnostics",
+          boundedScope,
         );
       }, diagnosticSnapshotOptions);
     } catch (error) {
@@ -79,23 +92,52 @@ export class MaterialFirstOpens {
   }
 }
 
+function readMaterialFirstOpens(
+  prisma: ReadingActivityPrisma,
+  materialIds: readonly string[],
+): Promise<FirstOpensResult>;
+function readMaterialFirstOpens(
+  prisma: ReadingActivityPrisma,
+  materialIds: readonly string[],
+  operation: "listForDiagnostics",
+  scope?: DiagnosticAccountScope,
+): Promise<FirstOpensResult | DiagnosticSourceBudgetFailure>;
 async function readMaterialFirstOpens(
   prisma: ReadingActivityPrisma,
   materialIds: readonly string[],
   operation = "listFirstOpens",
-): Promise<FirstOpensResult> {
+  scope?: DiagnosticAccountScope,
+): Promise<FirstOpensResult | DiagnosticSourceBudgetFailure> {
   const parsed = materialIdsSchema.safeParse(materialIds);
   if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
   if (parsed.data.length === 0) return { ok: true, value: new Map() };
+  const accounts =
+    scope !== undefined && "accountIds" in scope
+      ? Prisma.sql`and visit.account_id = any(${[...scope.accountIds]}::uuid[])`
+      : Prisma.empty;
+  const window =
+    scope !== undefined && "from" in scope
+      ? Prisma.sql`having min(visit.first_opened_at) >= ${scope.from} and min(visit.first_opened_at) < ${scope.to}`
+      : Prisma.empty;
+  const limit =
+    operation === "listForDiagnostics"
+      ? Prisma.sql`limit ${DIAGNOSTIC_SOURCE_ROW_LIMIT + 1}`
+      : Prisma.empty;
   try {
     const rows = rowsSchema.parse(
       await prisma.$queryRaw(Prisma.sql`
         select visit.account_id, min(visit.first_opened_at) as first_opened_at
         from reading_activity.material_visits as visit
         where visit.material_id = any(${parsed.data}::uuid[])
-        group by visit.account_id
+        ${accounts}
+        group by visit.account_id ${window} ${limit}
       `),
     );
+    if (
+      operation === "listForDiagnostics" &&
+      rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT
+    )
+      return diagnosticSourceBudgetFailure;
     return {
       ok: true,
       value: new Map(rows.map((row) => [row.account_id, row.first_opened_at])),

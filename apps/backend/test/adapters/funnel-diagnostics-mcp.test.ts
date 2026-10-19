@@ -32,6 +32,10 @@ it("registers the bounded funnel diagnostic and refuses a non-admin delegated Ac
       annotations: { readOnlyHint: true, destructiveHint: false },
     });
     expect(
+      tools.find((tool) => tool.name === "sales_funnel_diagnostics")
+        ?.description,
+    ).toContain("relevant candidates/results");
+    expect(
       await client.callTool({
         name: "sales_funnel_diagnostics",
         arguments: { from: "2026-10-18T21:00:00Z", to: "2026-10-19T21:00:00Z" },

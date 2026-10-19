@@ -1,4 +1,24 @@
 import {
+  name as funnelDiagnostic0Name,
+  statement as funnelDiagnostic0Statement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-funnel-diagnostic-candidates.js";
+import {
+  name as funnelDiagnostic1Name,
+  statement as funnelDiagnostic1Statement,
+} from "../modules/billing/infrastructure/postgres/migrations/0101-billing-funnel-diagnostic-sources.js";
+import {
+  name as funnelDiagnostic2Name,
+  statement as funnelDiagnostic2Statement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0102-reading-funnel-diagnostic-sources.js";
+import {
+  name as funnelDiagnostic3Name,
+  statement as funnelDiagnostic3Statement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0103-telegram-funnel-diagnostic-identities.js";
+import {
+  name as funnelDiagnostic4Name,
+  statement as funnelDiagnostic4Statement,
+} from "../modules/materials/infrastructure/postgres/migrations/0104-funnel-diagnostic-current-products.js";
+import {
   name as historicalCommunityCoverageName,
   statement as historicalCommunityCoverageStatement,
 } from "../modules/account-rights/infrastructure/postgres/migrations/0095-historical-community-coverage.js";
@@ -643,6 +663,11 @@ export const platformMigrations = [
   { name: submissionReviewRunName, statement: submissionReviewRunStatement },
   { name: materialTaskName, statement: materialTaskStatement },
   { name: chapterSupplementaryName, statement: chapterSupplementaryStatement },
+  { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
+  { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },
+  { name: funnelDiagnostic2Name, statement: funnelDiagnostic2Statement },
+  { name: funnelDiagnostic3Name, statement: funnelDiagnostic3Statement },
+  { name: funnelDiagnostic4Name, statement: funnelDiagnostic4Statement },
 ] as const;
 
 export function migrateToLatest(
