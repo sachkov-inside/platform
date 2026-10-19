@@ -483,20 +483,30 @@ p95 считается nearest rank по фактическим samples. Пар�
 post-phase SDK observation. Percentiles между парами не усредняются.
 
 SDK observation делает один ограниченный read через прежний gateway. Проверяется timestamp
-API request counter, с учётом [OTLP mapping VictoriaMetrics](https://docs.victoriametrics.com/victoriametrics/integrations/opentelemetry/).
+API request counter через фиксированный dotted metric `http.server.request.count` с quoted
+label `"service.name"="platform-api"` и `latency_offset=1ms`, с учётом
+[OTLP mapping VictoriaMetrics](https://docs.victoriametrics.com/victoriametrics/integrations/opentelemetry/).
+Запрос и минимальный offset разделяют закрытые constants с paired diagnostic; число reads,
+абсолютный deadline 8 секунд и response limit 64 KiB сохранены.
 Новый sample в ON подтверждает активность экспорта; отсутствие нового sample в OFF относится
 только к этому наблюдению. Это не доказательство отсутствия позднего экспорта или no-loss ledger.
 Неизвестный/недостоверный результат не разрешает overhead claim.
 
 Фактический короткий запуск `248c1315` завершил четыре режима по 100 успешных HTTP samples,
 но оба ON observation вернули пустой результат; `partial` и подавление p95 overhead сохранены.
-Причина не установлена: существующий selector предполагает underscore metric name и
-`service_name`, тогда как SDK отправляет `http.server.request.count` и `service.name`.
-Новая подготовленная диагностика не заменяет selector и не меняет acceptance gates.
+На том source selector предполагал underscore metric name и `service_name`, тогда как SDK
+отправляет `http.server.request.count` и `service.name`. Последующая диагностика не меняла
+этот selector или acceptance gates. Фактический source-bound запуск `80673cdd` получил
+свежий raw dotted/service sample через `1ms` в обеих ON-фазах, тогда как default reads
+остались пустыми или stale. Исправление основного observation использует этот подтверждённый
+query contract. Критерии свежести и interpretation ON/OFF сохранены: stale/missing sample
+не подтверждает ON, свежий sample не соответствует OFF, UNKNOWN не подтверждает ни один
+режим. Даже доступный численный p95 относится только к короткой синтетической SDK-only
+нагрузке; `acceptance=pending` и список непокрытого полного corpus сохраняются.
 
 Только для ON runner собирает два закрытых snapshot: после protected readiness перед
 measurement и после прежнего SDK observation. Каждый snapshot выполняет шесть фиксированных
-GET queries через тот же gateway: прежний selector, underscore name без service filter,
+GET queries через тот же gateway: legacy selector в поле `current`, underscore name без service filter,
 dotted name без service filter, dotted name с quoted label `"service.name"`, collector
 receiver accepted metric points и sent metric points точного metrics exporter.
 Результаты содержат только агрегатные числа или UNKNOWN. Имя сервиса фиксировано;
@@ -514,9 +524,10 @@ identity/transport command failure продолжает останавливат
 
 Матрица позволяет проверить гипотезы: dotted sample при пустом normalized selector указывает
 на различие наблюдаемых форм имени; normalized sample без результата прежнего selector
-выделяет service-label filter. Свежий результат прежнего selector после его исходного
-пустого/stale observation отмечает более позднюю видимость, но не измеряет полную задержку
-экспорта. Запросы последовательны, поэтому различия между ними ещё не доказывают причину.
+выделяет service-label filter. Поле `current_fresh_after_original_missing_or_stale` сохранено,
+но после исправления основного observation оно сравнивает legacy и raw query, поэтому не
+доказывает позднюю видимость того же selector или задержку экспорта. Запросы последовательны,
+поэтому различия между ними ещё не доказывают причину.
 Receiver/exporter deltas показывают только прогресс общего collector между snapshot,
 без отнесения к конкретному producer и без доказательства отсутствия потерь или resets
 между двумя наблюдениями. Нулевые/отсутствующие deltas не доказывают выключенный SDK.
@@ -526,7 +537,7 @@ Receiver/exporter deltas показывают только прогресс об
 receiver/exporter counters `18`, но timestamp на 10,53 секунды старше начала этой ON-фазы.
 Это не подтверждает свежую активность текущей фазы или причину исходного пустого selector.
 
-Дополнительная подготовленная проверка выполняется только после исходного observation и
+Дополнительная проверка выполняется только после исходного observation и
 шести after queries, до переключения режима. Она сравнивает две фиксированные scalar queries
 `max(timestamp(...))` для dotted metric с quoted `"service.name"="platform-api"`: без override
 и с `latency_offset=1ms`. Поле `immediate` означает минимальную поддерживаемую задержку 1 мс,
@@ -557,9 +568,10 @@ evaluation time вблизи текущего времени (строки 36–
 `7085d337f12acd3cb8de4a5eb3e8719c612f49d5d23044c11bb9f4fb3609551b`.
 Предыдущий аргумент `0` был дефектом запроса. Это не доказывает единственную причину
 исторического UNKNOWN, поскольку HTTP-статус не сохранён. Проверка `1ms` на pinned runtime
-ещё не выполнена. Query latency остаётся source-backed гипотезой для коротких фаз.
-Глобальные flags, ACL, collector и flush не меняются. Новый paired diagnostic ожидает
-review и фактического запуска с точным source-bound образом.
+подтверждена paired diagnostic в запуске `80673cdd`: обе ON-фазы имеют свежий raw sample.
+Это не исключает другие причины исторических UNKNOWN. Глобальные flags, ACL, collector
+и flush не меняются. Исправленный основной observation ожидает review и фактического
+запуска с точным source-bound образом.
 
 Raw Engine sampling хранит charged memory, file/active/inactive cache, working-set estimate,
 накопленные CPU nanoseconds и guest online CPU count раздельно. Используется
