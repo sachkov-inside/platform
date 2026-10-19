@@ -40,6 +40,12 @@ const technicalScopeKey = createContextKey("inside.technical.scope");
 class TechnicalScope {
   constructor(
     readonly correlation: Readonly<Record<string, string | boolean>>,
+    readonly dependencyTracer: Tracer,
+    readonly recordDependency: (
+      operation: KinescopeOperation,
+      failed: boolean,
+      seconds: number,
+    ) => void,
     readonly notificationTracer: Tracer,
     readonly recordNotification: (
       operation: NotificationOperation,
@@ -50,6 +56,73 @@ class TechnicalScope {
 }
 
 type NotificationOperation = "publish" | "receive" | "audience";
+
+type KinescopeOperation = "delete" | "find" | "initUpload";
+interface KinescopeObservation {
+  response(status: number): void;
+  fail(): void;
+}
+
+/** Full adapter-operation duration, including only response work the adapter already performs. */
+export async function observeKinescopeOperation<Value>(
+  operation: KinescopeOperation,
+  work: (observation: KinescopeObservation) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope))
+    return work({ response: () => undefined, fail: () => undefined });
+  const span = scope.dependencyTracer.startSpan(
+    `kinescope ${operation}`,
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "kinescope",
+        "dependency.operation": operation,
+        "http.request.method":
+          operation === "delete"
+            ? "DELETE"
+            : operation === "find"
+              ? "GET"
+              : "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), () =>
+      work({
+        response: (status) => {
+          if (Number.isInteger(status) && status >= 100 && status <= 599) {
+            span.setAttribute("http.response.status_code", status);
+            if (
+              status >= 400 &&
+              !(status === 404 && operation !== "initUpload")
+            )
+              failed = true;
+          }
+        },
+        fail: () => {
+          failed = true;
+        },
+      }),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      operation,
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
 
 /** Capture only a span inside this application's enabled, owned technical scope. */
 export function captureNotificationTraceparent(): string | undefined {
@@ -361,6 +434,25 @@ export function createTechnicalTelemetry(
       .createObservableGauge("telemetry.trace.sampling.ratio")
       .addCallback((result) => result.observe(configuration.sampleRatio));
     const tracer = traces.getTracer("inside-http");
+    const dependencyTracer = traces.getTracer("inside-dependency");
+    const dependencyCount = meter.createCounter("inside.dependency.operations");
+    const dependencyDuration = meter.createHistogram(
+      "inside.dependency.duration",
+      { unit: "s" },
+    );
+    const recordDependency = (
+      operation: KinescopeOperation,
+      failed: boolean,
+      seconds: number,
+    ) => {
+      const attributes = {
+        dependency: "kinescope",
+        operation,
+        outcome: failed ? "failed" : "completed",
+      };
+      dependencyCount.add(1, attributes);
+      dependencyDuration.record(seconds, attributes);
+    };
     const notificationTracer = traces.getTracer("inside-notification");
     const notificationCount = meter.createCounter(
       "inside.notification.operations",
@@ -401,6 +493,8 @@ export function createTechnicalTelemetry(
               technicalScopeKey,
               new TechnicalScope(
                 identity,
+                dependencyTracer,
+                recordDependency,
                 notificationTracer,
                 recordNotification,
               ),
@@ -446,6 +540,8 @@ export function createTechnicalTelemetry(
                   technicalScopeKey,
                   new TechnicalScope(
                     correlation,
+                    dependencyTracer,
+                    recordDependency,
                     notificationTracer,
                     recordNotification,
                   ),

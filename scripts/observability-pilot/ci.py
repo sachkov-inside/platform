@@ -19,7 +19,7 @@ PUBLIC_ARTIFACT_MAX_BYTES = 1024 * 1024
 PILOT_ARTIFACTS = (
     "evidence.json", "cleanup.json", "worker-outcome.json", "native-mcp.json",
     "query-timings.json", "negative-failures.json", "recovery.json",
-    "container-states.json", "readiness.json", "storage-host.json", "storage-vm.json", "monitor-failure.json", "collector-privacy.json", "collector-link-privacy.json", "trace-store-health.json", "trace-store-logging.json", "notification-collector.json",
+    "container-states.json", "readiness.json", "storage-host.json", "storage-vm.json", "monitor-failure.json", "collector-privacy.json", "collector-link-privacy.json", "trace-store-health.json", "trace-store-logging.json", "notification-collector.json", "dependency-collector.json",
     "phase-idle.json", "phase-steady.json", "phase-spike.json",
     "stats-idle.jsonl", "stats-steady.jsonl", "stats-spike.jsonl",
 )
@@ -104,7 +104,7 @@ def admission(metadata, *, inputs=None, scope=None):
         raise ValueError("checkout SHA does not match provider execution SHA")
     inputs = inputs or (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "privacy-policy.json", CONFIG / "Caddyfile",
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
-              Path(__file__).with_name("pilot.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
+              Path(__file__).with_name("pilot.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
               ROOT / ".github/workflows/observability-pilot.yml")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,

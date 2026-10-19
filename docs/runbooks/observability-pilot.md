@@ -602,3 +602,36 @@ env files, JWT/query keys и сырые Engine bodies остаются private. 
 ```sh
 bash scripts/heavy-check.sh node --test scripts/observability-resource.test.mjs
 ```
+
+### Наблюдение собственных операций Kinescope
+
+Включённый SDK наблюдает `delete`, `find` и `initUpload` через явную границу
+`observeKinescopeOperation`. Каждое фактическое обращение к методу даёт один CLIENT span,
+один прирост `inside.dependency.operations` и одно измерение `inside.dependency.duration`
+в секундах. Длительность включает существующую обработку и проверку ответа адаптером.
+Она не обозначает отдельное время сети. Ранние ответы, например DELETE 404/429/503,
+не требуют дополнительного чтения тела. Повторная попытка существующей бизнес-операции
+остаётся отдельным обращением к методу, повторная доставка OTLP не становится новой операцией.
+
+Span содержит только фиксированные `dependency.name=kinescope`, `dependency.operation`,
+`dependency.outcome=completed|failed`, HTTP method и допустимый числовой status, если ответ
+получен. `completed` обозначает завершение существующего контракта адаптера, включая
+ожидаемый 404 в `find`/`delete`. Ошибки провайдера, исключения и невалидный успешный ответ
+дают `failed`. Различение timeout/network в возвращаемом результате DELETE сохраняется;
+новая метка причины ошибки не вводится. Метрики содержат только dependency/operation/outcome,
+максимум шесть известных сочетаний на инструмент и resource identity. HTTP status, URL,
+provider request ID, названия/идентификаторы видео и произвольные ошибки туда не попадают.
+К провайдеру не добавляются trace headers. OFF подавляет сбор и внутри другого включённого SDK.
+
+`privacy-policy.json` и сгенерированный Alloy допускают этот фиксированный каталог.
+Для внешних отправителей каждый из трёх metric dimensions имеет отдельный `_OTHER`:
+максимум 24 сочетания на инструмент и resource identity. Это граница каталога, не измеренное
+число хранимых рядов. Corpus ожидает 70 рядов для двух фиксированных releases
+и семи сочетаний, включая общий fallback, по пяти экспортируемым histogram/counter series;
+это ожидаемое число конкретного corpus, которое должен подтвердить runtime gate. `scripts/observability-pilot/dependency_privacy.py` содержит фиксированный
+OTLP JSON/protobuf corpus с шестью известными сочетаниями и неизвестными, отсутствующими и неверно
+типизированными полями. Runtime controller проверяет его отдельным gate: logging-none до ingest, только два
+фиксированных trace IDs, максимум десять полных строк на запрос и закрытый итоговый
+`dependency-collector.json` без raw данных. Исполнение этого gate в pinned collector,
+настоящий API/deletion worker с PostgreSQL, причинная цепочка и ресурсная приёмка остаются
+отдельными незавершёнными проверками #1566. Loopback SDK/HTTP/OTLP проверки их не заменяют.

@@ -442,6 +442,7 @@ def fixture_trace_rows(compose, fixture):
     """
     import link_privacy
     import notification_privacy
+    import dependency_privacy
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     stage = 'ownership'
     boundary = 'input'
@@ -459,7 +460,8 @@ def fixture_trace_rows(compose, fixture):
             raise ValueError('unregistered storage reader')
         boundary = 'fixture'
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
-                   **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()}}
+                   **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
+                   **{'dependency-'+key:(value,10) for key,value in dependency_privacy.TRACE_IDS.items()}}
         trace_id, limit = queries[fixture]
         boundary = 'identity_before'
         assert_docker_identity(deadline=deadline)
@@ -584,6 +586,37 @@ def notification_catalog_corpus(token, output, compose):
     write_json(output/'notification-collector.json',proof)
     if proof['outcome']!='passed':
         raise RuntimeError('notification collector proof failed; raw diagnostics withheld')
+
+
+def dependency_catalog_corpus(token, output, compose):
+    """Stage external JSON/protobuf dependency catalog proof; never claim this ran the actual application SDK."""
+    import dependency_privacy
+    proof = {'outcome':'failed','stage':'logging','cases':[]}
+    try:
+        verify_trace_store_logging(output,compose)
+        for transport in ('json','protobuf'):
+            for signal,body in dependency_privacy.payloads(transport,time.time_ns()).items():
+                proof['stage']='ingest_'+transport+'_'+signal
+                assert_docker_identity()
+                if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+                    raise RuntimeError('dependency OTLP rejected')
+            proof['stage']='storage_'+transport
+            stored = await_fact(lambda: dependency_privacy.stored_traces(
+                fixture_trace_rows(compose,'dependency-'+transport),transport),bool,
+                probe='dependency_full_storage_'+transport,output=output)
+            proof['cases'].append(stored)
+        proof['stage']='metrics'
+        # Inspect the whole bounded corpus too, so an unregistered metric cannot hide outside a positive selector.
+        path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})
+        proof['metrics']=await_fact(lambda: dependency_privacy.stored_metrics(request(path,token=token)),bool,
+            probe='dependency_metric_catalog',output=output)
+        proof.update({'outcome':'passed','stage':'complete',
+            'scope':'external JSON/protobuf full-storage catalog; actual SDK wire and resource acceptance pending'})
+    except (RuntimeError,OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError):
+        pass
+    write_json(output/'dependency-collector.json',proof)
+    if proof['outcome']!='passed':
+        raise RuntimeError('dependency collector proof failed; raw diagnostics withheld')
 
 
 def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, output=None):
@@ -747,6 +780,7 @@ def smoke(token, output, compose):
         'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})
     link_privacy_corpus(output, compose)
     notification_catalog_corpus(token,output,compose)
+    dependency_catalog_corpus(token,output,compose)
     trace_store_surface(token, output)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)

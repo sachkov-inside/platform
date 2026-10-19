@@ -77,12 +77,12 @@ class NotificationCatalog(unittest.TestCase):
         point = actual.split('context = "datapoint"',1)[1].split('log_statements',1)[0]
         statements = re.findall(r'`([^`]+)`',point)
         keep = [line for line in statements if line.startswith('keep_keys')]
-        self.assertEqual(len(keep),2)
+        self.assertEqual(len(keep),3)
         self.assertIn('not (IsMatch(metric.name,',keep[0])
         self.assertNotIn('"operation"',keep[0])
         self.assertIn('keep_keys(attributes, ["operation", "outcome"]) where (IsMatch(metric.name,',keep[1])
         for key in ('operation','outcome'):
-            rules = [line for line in statements if line.startswith('set(attributes["'+key+'"]')]
+            rules = [line for line in statements if line.startswith('set(attributes["'+key+'"]') and 'dependency' not in line]
             self.assertEqual(len(rules),2)
             self.assertTrue(all('IsMatch(metric.name,' in line for line in rules))
             self.assertTrue(any('not IsString' in line for line in rules))

@@ -296,5 +296,11 @@
       "inside.notification.duration"
     ],
     "error": "notification_operation_failed"
+  },
+  "dependencies": {
+    "names": ["kinescope"],
+    "operations": ["delete", "find", "initUpload"],
+    "outcomes": ["completed", "failed"],
+    "metrics": ["inside.dependency.operations", "inside.dependency.duration"]
   }
 }
