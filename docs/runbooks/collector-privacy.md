@@ -120,6 +120,12 @@ Compose project/service и running state. Query, размер ответа и в
 не расширяются. Raw ответ и stderr остаются только в памяти, не попадают в logs или artifacts.
 
 `collector-link-privacy.json` содержит только фиксированные verdicts, counts и booleans.
+При потере ownership поле `storage_failure` различает фиксированные boundary и reason:
+проверку входа/fixture, frozen identity до/после чтения, поиск контейнера, проверку его ID,
+inspect и проверку владельца. Категории причины ограничены timeout, отказом команды,
+ошибкой I/O, недопустимым значением или неподтверждённой проверкой. Raw ошибки, аргументы,
+пути, IDs и labels не сохраняются. Для actual source `80673cdd` известен только отказ ownership;
+эта диагностика не устанавливает причину того завершённого запуска задним числом.
 Сохранённые metadata или sentinel дают FAIL; недоступный query, неполная schema или потеря связей
 дают UNKNOWN и FAIL. Проверяются оба transport перед общим отказом. На неподготовленном storage
 ожидается реальный RED. Потеря ownership немедленно прекращает оставшиеся ingest/query calls,

@@ -168,6 +168,46 @@ class LinkPrivacyContract(unittest.TestCase):
         self.assertIn('head -c 1048577', command[-1])
         self.assertTrue(all(0 < timeout <= pilot.QUERY_TIMEOUT_SECONDS for _, timeout in calls))
 
+    def test_storage_refusal_retains_closed_failed_boundary_without_raw_payload(self):
+        project = 'inside-observability-pilot-123456abcdef'
+        compose = ['docker','compose','-p',project,'-f','/owned/compose.json']
+        # The public corpus must distinguish failed command/identity boundaries, not guess a cause.
+        cases = [('identity_before', 'unproved'), ('locate', 'command_timeout'),
+                 ('container_id', 'invalid_value'), ('inspect', 'command_failed'),
+                 ('owner_match', 'invalid_value'), ('identity_after', 'unproved')]
+        for boundary, reason in cases:
+            def identity(**_kwargs):
+                nonlocal checks
+                checks += 1
+                if checks > 0 and boundary == ('identity_before' if checks == 1 else 'identity_after'):
+                    raise RuntimeError(link_privacy.SENTINEL)
+            def read(args, **_kwargs):
+                if args[1] == 'compose':
+                    if boundary == 'locate':
+                        raise subprocess.TimeoutExpired([link_privacy.SENTINEL], 1, output=link_privacy.SENTINEL)
+                    return 'missing' if boundary == 'container_id' else 'c'*64
+                if args[1] == 'inspect':
+                    if boundary == 'inspect':
+                        raise subprocess.CalledProcessError(1, [link_privacy.SENTINEL], stderr=link_privacy.SENTINEL)
+                    return 'foreign' if boundary == 'owner_match' else project+'|gateway|true'
+                self.fail('failed ownership must never reach exec')
+            checks = 0
+            with self.subTest(boundary=boundary), tempfile.TemporaryDirectory() as directory, \
+                 patch.object(pilot, 'FROZEN_DOCKER_ENDPOINT', 'unix:///frozen.sock'), \
+                 patch.object(pilot, 'FROZEN_DOCKER_IDENTITY', {'frozen': True}), \
+                 patch('pilot.verify_trace_store_logging'), patch('pilot.assert_docker_identity', side_effect=identity), \
+                 patch('pilot.command', side_effect=read), patch('pilot.request', return_value=(200,'')) as post:
+                # Count the separate ingest check as zero; exercise the real reader inside the corpus.
+                checks = -1
+                with self.assertRaises(RuntimeError):
+                    pilot.link_privacy_corpus(Path(directory), compose)
+                proof = json.loads((Path(directory)/'collector-link-privacy.json').read_text())
+                self.assertEqual(proof['cases'][0]['storage_failure'], {'boundary':boundary,'reason':reason})
+                self.assertEqual(proof['cases'][0]['stage'], 'ownership')
+                self.assertEqual(proof['cases'][1]['stage'], 'not_attempted')
+                self.assertEqual(post.call_count, 1)
+                self.assertNotIn(link_privacy.SENTINEL, json.dumps(proof))
+
     def test_private_storage_adapter_refuses_foreign_or_changed_identity_without_raw_errors(self):
         project = 'inside-observability-pilot-123456abcdef'
         compose = ['docker','compose','-p',project,'-f','/owned/compose.json']
