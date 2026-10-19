@@ -285,27 +285,79 @@ Contract запускает только собственный disposable Postg
 Новый полный supervised Umami run после исправления остаётся pending до immutable review
 и запуска координатором. Этот contract не доказывает runtime retention или restore.
 
-### Подготовка проверки PG18 и закрытого восстановления
+### Изолированная проверка PG18 и закрытого SQL-восстановления
 
-`scripts/observability-umami/recovery.py` пока предоставляет только функции подготовки
-собственного Compose-плана, проверки назначения восстановления и допуска SQL-читателей.
-Это ещё не исполняемый backup/restore runner. Он не вызывается обычным Umami pilot.
-Сгенерированный план использует один кластер для исходных баз, отдельный новый recovery
-volume и PostgreSQL без сети для обслуживания восстановленной копии. Backup, restore и
-offline PostgreSQL выделены в профиль `maintenance-only`. SQL-читатель и запись выделены
-в `readers-after-replay`, который будущий контроллер сможет включить после обслуживания.
-Нельзя запускать эти профили вручную вместо ещё не реализованного контроллера.
+`scripts/observability-umami/recovery_runtime.py` является отдельным кандидатом на проверку
+настоящего backup/restore. Обычный Umami pilot его не вызывает. Реальный запуск этого
+кандидата пока не выполнен. Локальные Python-тесты проверяют подготовку, входные данные,
+закрытый допуск и ошибки контроллера, без Docker и без доказательства SQL-восстановления.
 
-Проверка назначения требует предварительного отсутствия volume, его фактических Compose
-labels и mount остановленного restore-контейнера. Одного имени recovery volume недостаточно.
-Функция допуска сначала повторяет небольшой синтетический manifest удалений, затем
-вызывает существующий drainer с новым cutoff по времени БД. Ошибка или неполная очистка
-не вызывает переход к читателям и записи. Manifest не является источником актуальных
-production-удалений. Такой источник остаётся неизвестным.
+Контроллер использует публичный pilot supervisor с прежним deadline 600 секунд,
+проверкой daemon/storage и обязательным shutdown/residue check. Все ресурсы входят в один
+собственный случайный Compose project. Host ports отсутствуют. Backup, restore и offline
+PostgreSQL выделены в профиль `maintenance-only`, SQL-читатель и запись, в
+`readers-after-replay`. Контроллер регистрирует оба профиля также для cleanup/recovery.
+Нельзя запускать эти профили вручную вместо контроллера.
 
-`infra/observability/umami/recovery-cache.lock.json` фиксирует локальный ARM64 foundation
-cache и хеши его исходных файлов. Это вход для будущей проверки наличия и соответствия
-образа, а не результат запуска PG18 или pgBackRest. Production Dockerfile, WAL и backup
-конфигурация не изменены. Настоящий зашифрованный backup, восстановление двух баз,
-проверка остановки offline postmaster перед допуском SQL-акторов, отказные сценарии,
-плановая очистка и восстановление Umami HTTP/native MCP ещё не проверены этим срезом.
+`infra/observability/umami/recovery-cache.lock.json` закрепляет существующий локальный ARM64
+foundation cache и хеши Dockerfile/init/restore/config. Runtime требует точного image ID,
+соответствия собственного cache tag и архитектуры. Нет fallback build или pull.
+Контроллер также проверяет фактические PostgreSQL 18.4 и pgBackRest 2.57.0. Несоответствие
+версии останавливает проверку. Production Dockerfile, WAL и backup конфигурация не меняются.
+Частная конфигурация использует собственный POSIX repository и новый случайный cipher pass.
+
+В одном исходном кластере создаются синтетические Platform и Umami базы. Umami сохраняет
+ограничения существующего pilot: connection limit 8, statement timeout 5s, idle transaction
+timeout 10s и отсутствие административных прав. Собственный fixture запрещает Umami
+CONNECT в Platform/Logto. Это не изменение production grants и не доказательство размера
+Prisma pool. Схема Umami берётся из существующего точного fixture 26 закреплённых миграций.
+
+Контроллер выполняет stanza-create/check/full backup с archiving, выбирает точный label
+и требует обе базы в его manifest. Новый синтетический manifest удалений записывается
+вне базы после backup. Исходный сервер останавливается. Перед очисткой PGDATA требуются
+предварительное отсутствие recovery volume, его фактические Compose labels, local driver
+без внешних options и правильный mount ещё не запущенного restore-контейнера. Одного
+имени volume недостаточно. Исходный data volume не используется как назначение restore.
+
+Восстановленная копия запускается без сети, с выключенным archiving и repository read-only.
+Контроллер ждёт завершения recovery, сверяет lineage и обе базы. Настоящая ошибочная SQL
+операция проверяет, что внешние SQL-акторы отсутствуют. Затем повторяются текущий синтетический
+manifest и TTL с новым cutoff по времени БД. Ошибка или неполная очистка не вызывает допуск.
+Перед запуском private `read-db` контроллер останавливает offline postmaster и требует
+через inspect нулевой PID и отсутствие работающего процесса. После этого SQL-читатель
+проверяет сохранённые свежие строки и отсутствие запрещённых, а запись создаёт только
+синтетическое событие. Это SQL-акторы, не Umami HTTP-приложение или native MCP.
+
+После immutable review, координации общего runtime и при наличии закреплённого cache
+запуск из чистого checkout с новым private output directory:
+
+```bash
+bash scripts/heavy-check.sh python3 scripts/observability-umami/recovery_runtime.py run \
+  --output .reports/umami-recovery-01
+```
+
+Для аварийного cleanup только этого зарегистрированного project, после завершения его
+worker и process group:
+
+```bash
+bash scripts/heavy-check.sh python3 scripts/observability-umami/recovery_runtime.py recover \
+  --output .reports/umami-recovery-01
+```
+
+Проверяются `recovery-proof.json`, `recovery-inputs.json`, `evidence.json`,
+`worker-outcome.json`, `cleanup.json` и storage evidence. Успешный SQL-result без успешного
+cleanup не является успешным запуском. `compose.json` содержит credentials, остаётся
+mode 0600 в private mode 0700 directory и нужен для cleanup. Его нельзя публиковать,
+как и весь private output directory. Копировать можно только перечисленные curated artifacts.
+
+Источник актуальных production-удалений остаётся неизвестным. Синтетический manifest
+доказывает лишь механизм повтора и порядок допуска. Плановая очистка в следующие сутки,
+Umami HTTP/native MCP restore, production S3 recovery, ресурсные критерии и семь суток
+наблюдений остаются отдельными непроверенными требованиями #1565/#1566.
+
+Production encryption отдельно блокирует #1579. [Официальное сообщение pgBackRest
+от 4 октября 2026](https://pgbackrest.org/news.html) указывает: до 2.59.3 ошибка получения
+случайных данных OpenSSL могла остаться незамеченной и ослабить subkeys/salts. В этом
+срезе 2.57 сохранён только для синтетической совместимости. Его запуск не доказывает
+пригодность production-шифрования. Обновление binary само по себе не заменяет старые
+stanza subkeys. Дальнейшая работа с foundation и существующим repository относится к #1579.

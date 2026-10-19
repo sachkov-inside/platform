@@ -18,6 +18,8 @@ PROJECT_PREFIX = 'inside-observability-umami-recovery-'
 PGDATA = '/var/lib/postgresql/18/docker'
 RECOVERY_PREFIX = 'inside-production-postgres-data-recovery-'
 SITE = '00000000-0000-4000-8000-000000001566'
+DELETE_EVENT = '00000000-0000-4000-8000-000000001567'
+INGEST_EVENT = '00000000-0000-4000-8000-000000001568'
 SQL_COMMAND = ['psql', '-X', '-qAt', '-U', 'umami', '-d', 'umami', '-v', 'ON_ERROR_STOP=1']
 
 
@@ -36,7 +38,7 @@ def prepare_inputs(output, *, foundation_image):
     (output / 'pgbackrest.conf').write_text(config)
     os.chmod(output / 'pgbackrest.conf', 0o644)  # Secret-free file; containing directory is private.
     environment = {'PGDATA': PGDATA, 'INSIDE_POSTGRES_DATA_PATH': PGDATA,
-                   'PGBACKREST_PG1_PATH': PGDATA, 'PGBACKREST_CONFIG': '/config/pgbackrest.conf',
+                   'PGBACKREST_PG1_PATH': PGDATA, 'PGBACKREST_PG1_USER': bootstrap_env['POSTGRES_USER'], 'PGBACKREST_CONFIG': '/config/pgbackrest.conf',
                    'PGBACKREST_REPO1_TYPE': 'posix', 'PGBACKREST_REPO1_CIPHER_PASS': cipher}
     config_mount = str(output / 'pgbackrest.conf') + ':/config/pgbackrest.conf:ro'
     common = {'image': foundation_image, 'pull_policy': 'never', 'init': True,
@@ -50,8 +52,9 @@ def prepare_inputs(output, *, foundation_image):
     reader_profile = ['readers-after-replay']
     services = {
         'repo-init': {**common, 'user': 'root', 'cap_add': root_caps, 'network_mode': 'none',
-            'entrypoint': ['sh', '-ec'], 'command': ['install -d -o postgres -g postgres -m 700 /backup /var/spool/pgbackrest; install -d -o postgres -g postgres -m 3777 /var/run/postgresql; pgbackrest version'],
-            'volumes': ['repository:/backup', 'spool:/var/spool/pgbackrest', 'socket:/var/run/postgresql']},
+            'entrypoint': ['sh', '-ec'], 'command': ['install -d -o postgres -g postgres -m 700 /backup /var/spool/pgbackrest; install -d -o postgres -g postgres -m 3777 /var/run/postgresql /recovery-socket; install -d -o postgres -g postgres -m 700 /recovery-spool; pgbackrest version'],
+            'volumes': ['repository:/backup', 'spool:/var/spool/pgbackrest', 'socket:/var/run/postgresql',
+                        'recovery-socket:/recovery-socket', 'recovery-spool:/recovery-spool']},
         'db': {**common, 'cap_add': root_caps, 'networks': ['private'],
             'environment': {**environment, **bootstrap_env, 'POSTGRES_DB': 'postgres',
                 'PLATFORM_DATABASE_PASSWORD': secrets.token_hex(24), 'LOGTO_DATABASE_PASSWORD': secrets.token_hex(24)},
@@ -65,7 +68,8 @@ def prepare_inputs(output, *, foundation_image):
             'volumes': restored_mounts + ['repository:/backup:ro', config_mount],
             'command': ['--stanza=production', '--archive-mode=off', '--type=immediate', '--target-action=promote', 'restore']},
         'recovered': {**common, 'profiles': ['maintenance-only'], 'user': 'postgres', 'network_mode': 'none',
-            'environment': {'PGDATA': PGDATA}, 'volumes': restored_mounts,
+            'environment': environment, 'volumes': restored_mounts + ['repository:/backup:ro',
+                'recovery-spool:/var/spool/pgbackrest', config_mount],
             'command': ['postgres', '-c', 'listen_addresses=', '-c', 'archive_mode=off']},
         'read-db': {**common, 'user': 'postgres', 'networks': ['private'], 'profiles': reader_profile,
             'environment': {'PGDATA': PGDATA}, 'volumes': restored_mounts,
@@ -74,9 +78,9 @@ def prepare_inputs(output, *, foundation_image):
     for name in ('reader', 'ingest'):
         services[name] = {**common, 'user': 'postgres', 'networks': ['private'], 'profiles': reader_profile,
             'environment': {'PGPASSWORD': umami_password, 'PGCONNECT_TIMEOUT': '3'},
-            'entrypoint': ['psql'], 'command': ['-X', '-qAt', '-h', 'read-db', '-U', 'umami', '-d', 'umami', '-v', 'ON_ERROR_STOP=1', '-c', 'SELECT 1']}
+            'entrypoint': ['psql'], 'command': ['-X', '-qAt', '-h', 'read-db', '-U', 'umami', '-d', 'umami', '-v', 'ON_ERROR_STOP=1', '-c', READER_SQL if name == 'reader' else INGEST_SQL]}
     plan = {'services': services, 'networks': {'private': {'internal': True}},
-            'volumes': {name: {} for name in ('database', 'repository', 'socket', 'spool', 'recovery-socket')}}
+            'volumes': {name: {} for name in ('database', 'repository', 'socket', 'spool', 'recovery-socket', 'recovery-spool')}}
     plan['volumes']['recovery'] = {'name': recovery_volume}
     (output / 'compose.json').write_text(json.dumps(plan, indent=2) + '\n')
     os.chmod(output / 'compose.json', 0o600)
@@ -98,7 +102,9 @@ def confirm_destination(project, name, image, volume, container, *, absent_befor
             or not isinstance(container.get('labels'), dict)
             or container['labels'].get('com.docker.compose.project') != project
             or container['labels'].get('com.docker.compose.service') != 'restore'
-            or container.get('state') != {'status': 'created', 'running': False, 'pid': 0}):
+            or not isinstance(container.get('state'), dict)
+            or container['state'].get('status') != 'created' or container['state'].get('running') is not False
+            or type(container['state'].get('pid')) is not int or container['state']['pid'] != 0):
         raise ValueError('unconfirmed_recovery_ownership')
     mounts = container.get('mounts')
     if not isinstance(mounts, list) or not 2 <= len(mounts) <= 8 or any(not isinstance(mount, dict) for mount in mounts):
@@ -174,3 +180,85 @@ def restore_gate(execute, manifest, open_readers, record):
         report['state'] = 'failed'
         record(dict(report))
         raise RuntimeError('synthetic_recovery_gate_failed') from None
+
+
+CACHE_LOCK = ROOT / 'infra/observability/umami/recovery-cache.lock.json'
+FOUNDATION_INPUTS = tuple('infra/production/database/' + name for name in
+                          ('Dockerfile', 'init-production-databases.sh', 'restore-entrypoint.sh', 'pgbackrest.conf'))
+
+
+def validate_cache(raw):
+    """Bind the existing local cache to unchanged reviewed foundation inputs, never a mutable tag alone."""
+    if (not isinstance(raw, dict) or set(raw) != {'schema', 'image', 'cache_owner', 'source', 'architecture', 'inputs'}
+            or type(raw['schema']) is not int or raw['schema'] != 1
+            or not isinstance(raw['image'], str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', raw['image'])
+            or not isinstance(raw['cache_owner'], str)
+            or not re.fullmatch(r'inside-platform-production-smoke-cache-[a-z0-9-]+-foundation:local', raw['cache_owner'])
+            or not isinstance(raw['source'], str) or not re.fullmatch(r'[a-f0-9]{40}', raw['source'])
+            or raw['architecture'] != 'arm64' or not isinstance(raw['inputs'], dict)
+            or set(raw['inputs']) != set(FOUNDATION_INPUTS)):
+        raise ValueError('foundation_cache_identity')
+    for path, expected in raw['inputs'].items():
+        if expected != hashlib.sha256((ROOT / path).read_bytes()).hexdigest():
+            raise ValueError('foundation_cache_source_changed')
+    return raw
+
+
+def _backup_record(encoded):
+    if not isinstance(encoded, str) or len(encoded.encode()) > 65536:
+        raise ValueError('backup_info_size')
+    rows = json.loads(encoded)
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        raise ValueError('backup_info_shape')
+    stanza = rows[0]
+    status = stanza.get('status')
+    backups = stanza.get('backup')
+    if (stanza.get('name') != 'production' or stanza.get('cipher') != 'aes-256-cbc'
+            or not isinstance(status, dict) or type(status.get('code')) is not int or status['code'] != 0
+            or not isinstance(backups, list) or len(backups) != 1 or not isinstance(backups[0], dict)):
+        raise ValueError('backup_info_incomplete')
+    backup = backups[0]
+    label, times = backup.get('label'), backup.get('timestamp')
+    if (not isinstance(label, str) or not re.fullmatch(r'[0-9]{8}-[0-9]{6}F', label)
+            or backup.get('type') != 'full' or backup.get('error', False) is not False
+            or not isinstance(times, dict) or set(times) != {'start', 'stop'}
+            or any(type(value) is not int or not 0 < value <= 2**53 - 1 for value in times.values())
+            or times['stop'] < times['start']):
+        raise ValueError('backup_info_record')
+    return backup
+
+
+def backup_label(encoded):
+    return _backup_record(encoded)['label']
+
+
+def backup_proof(encoded):
+    """Project only the chosen full backup identity and inclusion, never raw info/annotations."""
+    backup = _backup_record(encoded)
+    databases = backup.get('database-ref')
+    if (not isinstance(databases, list) or not 2 <= len(databases) <= 16
+            or any(not isinstance(row, dict) or not isinstance(row.get('name'), str)
+                   or type(row.get('oid')) is not int or row['oid'] <= 0 for row in databases)
+            or not {'inside', 'umami'} <= {row['name'] for row in databases}):
+        raise ValueError('backup_database_inclusion')
+    return {'label': backup['label'], 'cipher': 'aes-256-cbc',
+            'started_at_epoch': backup['timestamp']['start'], 'finished_at_epoch': backup['timestamp']['stop'],
+            'both_databases_in_manifest': True}
+
+
+# These are synthetic SQL actors, not the Umami application or a production ingestion boundary.
+READER_SQL = f"""BEGIN READ ONLY;
+SET LOCAL statement_timeout='1s';
+SELECT json_build_object('reader_rows', count(*), 'blocked_rows', count(*) FILTER
+(WHERE created_at IS NULL OR created_at < transaction_timestamp()-INTERVAL '365 days' OR event_id='{DELETE_EVENT}'))
+FROM public.website_event WHERE website_id='{SITE}';
+COMMIT;"""
+INGEST_SQL = f"""BEGIN;
+SET LOCAL statement_timeout='1s';
+INSERT INTO public.website_event(event_id,website_id,session_id,visit_id,url_path,event_type,event_name)
+SELECT '{INGEST_EVENT}',website_id,session_id,visit_id,'/synthetic/restore',2,'recovery_ingest_probe'
+FROM public.website_event WHERE website_id='{SITE}' AND event_name='ttl_recent'
+ON CONFLICT(event_id) DO NOTHING;
+SELECT json_build_object('ingest_rows', count(*)) FROM public.website_event
+WHERE website_id='{SITE}' AND event_id='{INGEST_EVENT}';
+COMMIT;"""

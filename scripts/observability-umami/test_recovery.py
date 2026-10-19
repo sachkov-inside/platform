@@ -23,10 +23,12 @@ class RecoveryPreparation(unittest.TestCase):
             for name in ('read-db', 'reader', 'ingest'):
                 self.assertEqual(services[name]['profiles'], ['readers-after-replay'])
             self.assertFalse(any('ports' in service for service in services.values()))
-            self.assertNotIn('build', json.dumps(plan))
+            self.assertTrue(all('build' not in service for service in services.values()))
             for service in services.values():
                 self.assertEqual(service['pull_policy'], 'never')
             self.assertEqual(services['db']['image'], IMAGE)
+            self.assertEqual(services['backup']['environment']['PGBACKREST_PG1_USER'],
+                             services['db']['environment']['POSTGRES_USER'])
             self.assertIn('recovery:/var/lib/postgresql', services['restore']['volumes'])
             self.assertIn('repository:/backup:ro', services['restore']['volumes'])
             self.assertIn('database:/var/lib/postgresql', services['db']['volumes'])
@@ -98,7 +100,7 @@ class ClosedReaderGate(unittest.TestCase):
             execute.assert_not_called()
             opened.assert_not_called()
 
-    def test_partial_drain_and_lost_commit_response_keep_gate_closed(self):
+    def test_partial_drain_keeps_gate_closed(self):
         from unittest.mock import Mock
         import test_retention
         manifest = {'schema': 1, 'scope': 'synthetic_only', 'event_ids': ['00000000-0000-4000-8000-000000000001']}
@@ -124,5 +126,64 @@ class ClosedReaderGate(unittest.TestCase):
         result = recovery.restore_gate(execute, manifest, opened, lambda value: None)
         opened.assert_called_once_with()
         self.assertEqual(result['reader_gate'], 'opened_after_replay_and_current_ttl')
-        self.assertIn("NULLIF('', '')", observed[1])
+        self.assertEqual(result['retention']['cutoff_at'], '2025-10-19T12:00:00.000000Z')
         self.assertEqual(result['production_deletion_authority'], 'unknown')
+
+
+class RecoverySourceAndBackupEvidence(unittest.TestCase):
+    def test_local_cache_requires_exact_context_hashes_before_preparing_inputs(self):
+        import copy
+        lock = json.loads((recovery.ROOT / 'infra/observability/umami/recovery-cache.lock.json').read_text())
+        self.assertEqual(recovery.validate_cache(lock)['image'], lock['image'])
+        invalid = []
+        changed = copy.deepcopy(lock)
+        changed['inputs']['infra/production/database/Dockerfile'] = '0' * 64
+        invalid.append(changed)
+        changed = copy.deepcopy(lock)
+        changed['image'] = 'inside/postgres:latest'
+        invalid.append(changed)
+        changed = copy.deepcopy(lock)
+        del changed['inputs']['infra/production/database/restore-entrypoint.sh']
+        invalid.append(changed)
+        for candidate in invalid:
+            with self.subTest(candidate=candidate), self.assertRaises(ValueError):
+                recovery.validate_cache(candidate)
+
+    def test_backup_evidence_requires_encryption_selected_full_backup_and_both_databases(self):
+        import copy
+        upstream = [{'name': 'production', 'cipher': 'aes-256-cbc', 'status': {'code': 0},
+            'backup': [{'label': '20261019-120000F', 'type': 'full', 'error': False,
+                        'timestamp': {'start': 1792411200, 'stop': 1792411201},
+                        'database-ref': [{'name': 'inside', 'oid': 16384}, {'name': 'umami', 'oid': 16400}],
+                        'annotation': {'private': 'do-not-forward'}}]}]
+        proof = recovery.backup_proof(json.dumps(upstream))
+        self.assertEqual(proof, {'label': '20261019-120000F', 'cipher': 'aes-256-cbc',
+                                'started_at_epoch': 1792411200, 'finished_at_epoch': 1792411201,
+                                'both_databases_in_manifest': True})
+        for field, value in [('cipher', 'none'), ('status', {'code': True}), ('backup', [])]:
+            changed = copy.deepcopy(upstream)
+            changed[0][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                recovery.backup_proof(json.dumps(changed))
+        for field, value in [('label', '../foreign'), ('type', 'incr'), ('error', True),
+                             ('database-ref', [{'name': 'umami', 'oid': 16400}]),
+                             ('timestamp', {'start': 10, 'stop': 9})]:
+            changed = copy.deepcopy(upstream)
+            changed[0]['backup'][0][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                recovery.backup_proof(json.dumps(changed))
+
+
+class LostMaintenanceAcknowledgement(unittest.TestCase):
+    def test_lost_commit_acknowledgement_never_opens_readers(self):
+        from unittest.mock import Mock
+        manifest = {'schema': 1, 'scope': 'synthetic_only', 'event_ids': ['00000000-0000-4000-8000-000000000001']}
+        execute = Mock(side_effect=[json.dumps({'remaining': 0}), OSError('private-commit-ack-sentinel')])
+        opened = Mock()
+        records = []
+        with self.assertRaises(RuntimeError):
+            recovery.restore_gate(execute, manifest, opened, records.append)
+        opened.assert_not_called()
+        self.assertEqual(records[-1]['retention']['state'], 'error')
+        self.assertEqual(records[-1]['reader_gate'], 'closed')
+        self.assertNotIn('sentinel', json.dumps(records))
