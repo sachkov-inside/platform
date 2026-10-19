@@ -1,13 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
+import { LearningContinuationView } from "@/features/reading-progress";
 import type { AcceptedDocumentsPanelProps } from "@/features/accepted-documents";
 import { legalEditionPath } from "@/shared/routing/public-page-path";
 
 import { AccountAccessView } from "./account-access-view.client";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 
-const environment = accountSectionEnvironment("/account/access");
+const environment = accountSectionEnvironment("/account");
 
 const policies: AcceptedDocumentsPanelProps["policies"] = [
   { label: "политика, редакция 3", href: legalEditionPath("privacy", 3) },
@@ -55,6 +56,7 @@ const acceptedDocuments: AcceptedDocumentsPanelProps = {
 const meta = {
   ...environment,
   args: {
+    email: "kirill@example.com",
     acceptedDocuments,
     link: { kind: "linked" },
     onTelegramRefresh: () => Promise.resolve(),
@@ -65,11 +67,11 @@ const meta = {
     docs: {
       description: {
         component:
-          "Раздел «Аккаунт»: принятые документы, связь с Telegram и выход. Права доступа и их сроки объясняет раздел «Покупки».",
+          "Единый личный кабинет: Telegram, документы, выход и компактное продолжение обучения. Покупки и управление подпиской появляются у владельцев.",
       },
     },
   },
-  title: "Pages/Account/Access",
+  title: "Pages/Account/Cabinet",
 } satisfies Meta<typeof AccountAccessView>;
 
 export default meta;
@@ -79,9 +81,10 @@ export const Linked: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Аккаунт" }),
+      canvas.getByRole("heading", { name: "Личный кабинет" }),
     ).toBeInTheDocument();
     await expect(canvas.getByText("Telegram подключён")).toBeInTheDocument();
+    await userEvent.click(canvas.getByText("Документы", { exact: true }));
     const accepted = within(
       canvas.getByRole("region", { name: "Принятые документы" }),
     );
@@ -127,6 +130,9 @@ export const Loading: Story = { args: { link: null, loading: true } };
 export const AcceptedDocumentsLoading: Story = {
   args: { acceptedDocuments: { policies, state: { kind: "loading" } } },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByText("Документы", { exact: true }),
+    );
     const accepted = within(
       within(canvasElement).getByRole("region", { name: "Принятые документы" }),
     );
@@ -140,6 +146,7 @@ export const AcceptedDocumentsUnavailable: Story = {
   args: { acceptedDocuments: { policies, state: { kind: "unavailable" } } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("Документы", { exact: true }));
     await expect(canvas.getByRole("alert")).toHaveTextContent(
       "Список принятых документов сейчас недоступен.",
     );
@@ -174,4 +181,76 @@ export const Mobile: Story = {
 };
 export const Desktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
+};
+
+export const WithLearning: Story = {
+  args: {
+    continuationSlot: (
+      <LearningContinuationView
+        continuation={{
+          series: {
+            collection: { name: "AI Engineering", slug: "ai-engineering" },
+            read: 3,
+            total: 17,
+          },
+        }}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: "Продолжить продукт AI Engineering" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(canvas.queryByRole("textbox")).not.toBeInTheDocument();
+    const learning = canvas.getByRole("region", {
+      name: "Продолжить обучение",
+    });
+    const telegram = canvas.getByRole("region", {
+      name: /^Telegram$/,
+    });
+    await expect(learning.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      telegram.getBoundingClientRect().top,
+    );
+    await expect(getComputedStyle(learning).position).toBe("static");
+    const documents = canvas.getByRole("button", { name: /Документы/ });
+    documents.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(documents).toHaveAttribute("aria-expanded", "true");
+    await userEvent.keyboard(" ");
+    await expect(documents).toHaveAttribute("aria-expanded", "false");
+  },
+};
+
+export const WithLearningMobile: Story = {
+  ...WithLearning,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+export const CourseAndVideo: Story = {
+  args: {
+    continuationSlot: (
+      <LearningContinuationView
+        continuation={{
+          series: {
+            collection: {
+              name: "Подготовь проект к разработке: harness, skills и AI-first процесс",
+              slug: "ai-engineering",
+            },
+            read: 3,
+            total: 17,
+          },
+          video: {
+            material: {
+              slug: "agent-setup",
+              title:
+                "Как выбрать и настроить агента для работы с большим проектом",
+            },
+            label: "Продолжить с 12:30",
+          },
+        }}
+      />
+    ),
+  },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };

@@ -22,11 +22,8 @@ export function AcceptedDocumentsPanel({
   policies,
 }: AcceptedDocumentsPanelProps) {
   return (
-    <section
-      aria-labelledby="accepted-documents"
-      className="rounded-2xl border border-border bg-card p-6 shadow-card"
-    >
-      <h2 className="text-xl font-semibold" id="accepted-documents">
+    <section aria-labelledby="accepted-documents" className="py-2">
+      <h2 className="sr-only" id="accepted-documents">
         Принятые документы
       </h2>
       {state.kind === "loading" ? (

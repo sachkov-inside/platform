@@ -11,13 +11,7 @@ import { personalHomeQueryKey } from "../model/personal-home-contract";
 
 export function LearningContinuation() {
   const reading = useMaterialReading();
-  return !reading.resolved ? (
-    <section
-      className="mb-10 min-h-80"
-      aria-label="Продолжить обучение"
-      aria-busy="true"
-    />
-  ) : reading.accountId === null ? null : (
+  return !reading.resolved ? null : reading.accountId === null ? null : (
     <AccountContinuation
       key={reading.accountId}
       accountId={reading.accountId}
@@ -31,14 +25,10 @@ function AccountContinuation({ accountId }: { readonly accountId: string }) {
     retry: false,
   });
   if (query.isError || query.data?.kind !== "ready")
-    return (
-      <section className="mb-10 min-h-80" aria-label="Продолжить обучение">
-        <p role="status">
-          {query.isPending
-            ? "Загружаем продолжение обучения…"
-            : "Не удалось загрузить продолжение обучения."}
-        </p>
-      </section>
+    return query.isPending ? null : (
+      <p className="mt-6 text-sm text-muted-foreground" role="status">
+        Не удалось загрузить продолжение обучения.
+      </p>
     );
   return <LearningContinuationView continuation={query.data.continuation} />;
 }
@@ -63,52 +53,59 @@ export function LearningContinuationView({
   };
 }) {
   const { series, video } = continuation;
-  if (series === undefined && video === undefined)
-    return (
-      <section className="mb-10 min-h-80" aria-label="Продолжить обучение">
-        <p>Откройте материал — здесь появится продолжение обучения.</p>
-      </section>
-    );
+  if (series === undefined && video === undefined) return null;
   return (
-    <section className="mb-10 min-h-80" aria-labelledby="account-learning">
-      <h2 className="text-xl font-semibold" id="account-learning">
-        Продолжить обучение
-      </h2>
-      <ul className="mt-4 divide-y divide-border">
-        {series === undefined ? null : (
-          <li>
-            <Link
-              className="flex min-h-20 items-center justify-between gap-4 py-4 no-underline"
-              aria-label={`Продолжить продукт ${series.collection.name}`}
-              href={productProgrammeHref(series.collection.slug)}
-            >
-              <span>
-                <strong className="block">{series.collection.name}</strong>
-                <span className="text-sm text-muted-foreground">
-                  Прочитано {series.read} из {series.total}
+    <div className="mb-8" data-learning-continuation>
+      <section
+        className="rounded-2xl bg-primary px-5 py-4 text-primary-foreground sm:px-6"
+        aria-labelledby="account-learning"
+      >
+        <h2
+          className="text-xs font-medium text-primary-foreground/80"
+          id="account-learning"
+        >
+          Продолжить обучение
+        </h2>
+        <ul className="divide-y divide-primary-foreground/20">
+          {series === undefined ? null : (
+            <li>
+              <Link
+                className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-foreground"
+                aria-label={`Продолжить продукт ${series.collection.name}`}
+                href={productProgrammeHref(series.collection.slug)}
+              >
+                <span className="min-w-0">
+                  <strong className="line-clamp-2 text-sm font-semibold sm:text-base">
+                    {series.collection.name}
+                  </strong>
+                  <span className="block text-xs text-primary-foreground/80">
+                    Прочитано {series.read} из {series.total}
+                  </span>
                 </span>
-              </span>
-              <ArrowRight aria-hidden="true" className="size-5 shrink-0" />
-            </Link>
-          </li>
-        )}
-        {video === undefined ? null : (
-          <li>
-            <Link
-              className="flex min-h-20 items-center justify-between gap-4 py-4 no-underline"
-              href={materialReaderHref(video.material.slug, "/account")}
-            >
-              <span>
-                <strong className="block">{video.material.title}</strong>
-                <span className="text-sm text-muted-foreground">
-                  {video.label}
+                <ArrowRight aria-hidden="true" className="size-5 shrink-0" />
+              </Link>
+            </li>
+          )}
+          {video === undefined ? null : (
+            <li>
+              <Link
+                className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary-foreground"
+                href={materialReaderHref(video.material.slug, "/account")}
+              >
+                <span className="min-w-0">
+                  <strong className="line-clamp-2 text-sm font-semibold sm:text-base">
+                    {video.material.title}
+                  </strong>
+                  <span className="block text-xs text-primary-foreground/80">
+                    {video.label}
+                  </span>
                 </span>
-              </span>
-              <ArrowRight aria-hidden="true" className="size-5 shrink-0" />
-            </Link>
-          </li>
-        )}
-      </ul>
-    </section>
+                <ArrowRight aria-hidden="true" className="size-5 shrink-0" />
+              </Link>
+            </li>
+          )}
+        </ul>
+      </section>
+    </div>
   );
 }

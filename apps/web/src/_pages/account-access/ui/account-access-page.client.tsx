@@ -8,6 +8,10 @@ import {
   type AcceptedDocumentsPanelProps,
 } from "@/features/accepted-documents";
 
+import { LearningContinuation } from "@/features/reading-progress";
+import { useBillingContact } from "@/features/billing-contact";
+import { AccountBilling } from "./account-billing.client";
+
 import { AccountAccessView } from "./account-access-view.client";
 
 /** Производственный путь раздела «Аккаунт»: состояние Account и журнал принятия. */
@@ -17,12 +21,23 @@ export function AccountAccessPage({
   readonly policies: AcceptedDocumentsPanelProps["policies"];
 }) {
   const query = useQuery(accountPresentationBrowserQueryOptions());
+  const contact = useBillingContact({ enabled: query.data?.kind === "ready" });
   const accepted = useQuery(acceptedDocumentsQueryOptions());
   const presentation =
     query.data?.kind === "ready" ? query.data.presentation : null;
 
+  const showPrivateSections =
+    !query.isPending && query.data?.kind !== "unauthorized";
+
   return (
     <AccountAccessView
+      billingSlot={showPrivateSections ? <AccountBilling /> : null}
+      continuationSlot={showPrivateSections ? <LearningContinuation /> : null}
+      email={
+        query.data?.kind === "ready" && contact.data?.ok === true
+          ? contact.data.initialEmail
+          : undefined
+      }
       acceptedDocuments={{
         policies,
         state:
@@ -39,7 +54,7 @@ export function AccountAccessPage({
       loading={query.isPending}
       onTelegramRefresh={() => query.refetch().then(() => undefined)}
       sessionExpired={query.data?.kind === "unauthorized"}
-      unavailable={query.isError && presentation === null}
+      unavailable={!query.isPending && presentation === null}
     />
   );
 }

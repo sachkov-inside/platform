@@ -1,344 +1,70 @@
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
-import { deflateSync } from "node:zlib";
-
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { z } from "zod";
 
 import {
   fullStackBrowserRequest,
-  fullStackPageRequest,
   signInFullStack,
 } from "../support/full-stack-session";
-import {
-  evidenceDirectory,
-  prepareEvidenceDirectory,
-} from "../../../../scripts/evidence-path.mjs";
-import { z } from "zod";
 
-test("shows private Account Telegram and Membership presentation without disclosure", async ({
+test("cabinet presents private Telegram state and documents on one page", async ({
   context,
   page,
-}, testInfo) => {
+}) => {
   await signInFullStack(context, "OWNER");
-
-  // The renewed session cookie is Secure: on 127.0.0.1 only the browser itself sends it.
-  await page.goto("/");
-  const accountStateResponse = await fullStackBrowserRequest(
-    page,
-    "/api/account",
-  );
-  expect(accountStateResponse.status()).toBe(200);
-  const accountState = z
-    .object({ telegramMembership: z.unknown() })
-    .parse(await accountStateResponse.json());
-  expect(accountState.telegramMembership).toEqual({
-    link: { kind: "unlinked" },
-    // No subscription is on sale in the check catalogue, so membership is not offered (#507).
-    membership: { kind: "notOffered" },
-  });
-
-  const account = await page.goto("/account");
-  expect(account?.status()).toBe(200);
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  const onboardingPanel = page.getByRole("region", {
-    name: "Подключение Telegram",
-  });
+  const response = await page.goto("/account");
+  expect(response?.status()).toBe(200);
   await expect(
-    onboardingPanel.getByRole("button", { name: "Подключить Telegram" }),
+    page.getByRole("heading", { name: "Личный кабинет", exact: true }),
+  ).toBeVisible();
+  const telegram = page.getByRole("region", { name: "Telegram", exact: true });
+  await expect(
+    telegram.getByRole("button", { name: "Подключить", exact: true }),
+  ).toBeVisible();
+  await expect(telegram).not.toContainText(
+    /accountId|checkedAt|issuer|subject|telegramIdentity/u,
+  );
+  await page.getByText("Документы", { exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Принятые документы" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Аккаунт", exact: true }),
+    page.getByRole("button", { name: "Выйти из аккаунта" }),
   ).toBeVisible();
-  await expect(onboardingPanel).not.toContainText(
-    /Доступ|Membership|Получить доступ/u,
-  );
-  await expect(onboardingPanel).not.toContainText(
-    /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|username|validUntil/u,
-  );
-  await expect(onboardingPanel).not.toContainText(
-    /\d{1,2}[.:]\d{2}|\d{4}-\d{2}-\d{2}/u,
-  );
-
-  const snapshots = evidenceDirectory("issue-122");
-  const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
-  await prepareEvidenceDirectory("issue-189");
-  await mkdir(reviewDirectory, { recursive: true });
-  const viewportName =
-    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-  await page.screenshot({
-    path: resolve(snapshots, `onboarding-unlinked-${viewportName}.png`),
-  });
-  await page.screenshot({
-    path: resolve(
-      reviewDirectory,
-      `issue-122-onboarding-unlinked-${viewportName}.png`,
-    ),
-  });
-
-  const onboardingAccessibility = await new AxeBuilder({ page })
-    .include("section[aria-label='Подключение Telegram']")
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
+  const results = await new AxeBuilder({ page }).analyze();
   expect(
-    onboardingAccessibility.violations.filter(
+    results.violations.filter(
       ({ impact }) => impact === "serious" || impact === "critical",
     ),
   ).toEqual([]);
-  const onboardingOverflow = await onboardingPanel.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(onboardingOverflow.scrollWidth).toBeLessThanOrEqual(
-    onboardingOverflow.clientWidth,
-  );
-
-  // Связь с Telegram живёт в разделе «Аккаунт» кабинета: проверка идёт туда, где она есть.
-  const accessPage = await page.goto("/account/access");
-  expect(accessPage?.status()).toBe(200);
-  await expect(
-    page.getByRole("heading", { exact: true, level: 1, name: "Аккаунт" }),
-  ).toBeVisible();
-  const accessPanel = page.getByRole("region", {
-    exact: true,
-    name: "Telegram",
-  });
-  await expect(accessPanel).toBeVisible();
-  await accessPanel.screenshot({
-    path: resolve(snapshots, `account-unlinked-${viewportName}.png`),
-  });
-  await accessPanel.screenshot({
-    path: resolve(
-      reviewDirectory,
-      `issue-122-account-unlinked-${viewportName}.png`,
-    ),
-  });
-
-  // Раздел «Аккаунт» решает две задачи — связь с Telegram и выход, — и обе входят в проверку.
-  const accessibility = await new AxeBuilder({ page })
-    .include("section[aria-labelledby='telegram-connection-heading']")
-    .include("section[aria-labelledby='account-session']")
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
   expect(
-    accessibility.violations.filter(
-      ({ impact }) => impact === "serious" || impact === "critical",
-    ),
-  ).toEqual([]);
-  const overflow = await accessPanel.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+    await page
+      .locator("html")
+      .evaluate((element) => element.scrollWidth > element.clientWidth),
+  ).toBe(false);
 });
 
-test("creates or edits the Account Profile that only its owner sees", async ({
+test("simplified cabinet preserves private profile data without profile editing UI", async ({
   context,
   page,
-}, testInfo) => {
+}) => {
   await signInFullStack(context, "MEMBER");
-
-  const home = await page.goto("/");
-  expect(home?.status()).toBe(200);
-  await expect(
-    page.getByRole("complementary", { name: "Подписка Inside" }),
-  ).toHaveCount(0);
-
-  const profileStateResponse = await fullStackBrowserRequest(
-    page,
-    "/api/account/profile",
-  );
-  expect(profileStateResponse.status()).toBe(200);
-  const profileState = z
-    .object({ state: z.object({ kind: z.string().optional() }).nullish() })
-    .parse(await profileStateResponse.json());
-  const profileKind = profileState.state?.kind;
-  const account = await page.goto("/account");
-  expect(account?.status()).toBe(200);
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  const nameInput = page.getByRole("textbox", { exact: true, name: "Имя" });
-  if (profileKind === "missing") {
-    await nameInput.fill("Кирилл Сачков");
-    await page.getByRole("button", { name: "Создать" }).click();
-    await expect(page.getByText("Профиль сохранён.")).toBeVisible();
-  } else {
-    expect(profileKind).toBe("profile");
-  }
-  await expect(
-    page.getByRole("heading", { name: "Профиль", exact: true }),
-  ).toBeVisible();
-  const displayName = await nameInput.inputValue();
-
-  await page.getByLabel("Выбрать изображение для аватара").setInputFiles({
-    buffer: profileAvatarPng(),
-    mimeType: "image/png",
-    name: "profile-avatar.png",
-  });
-  const cropDialog = page.getByRole("dialog", { name: "Кадрировать аватар" });
-  await expect(cropDialog).toBeVisible();
-  const horizontalCrop = cropDialog.getByLabel("По горизонтали");
-  await horizontalCrop.focus();
-  await page.keyboard.press("ArrowRight");
-  await expect(horizontalCrop).toBeFocused();
-  await cropDialog.getByLabel("Масштаб").press("ArrowRight");
-
-  const avatarEvidenceDirectory = evidenceDirectory("issue-153");
-  const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
-  await prepareEvidenceDirectory("issue-153");
-  await mkdir(reviewDirectory, { recursive: true });
-  const viewportName =
-    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-  await cropDialog.screenshot({
-    path: resolve(reviewDirectory, `issue-153-crop-${viewportName}.png`),
-  });
-  await cropDialog.screenshot({
-    path: resolve(avatarEvidenceDirectory, `crop-${viewportName}.png`),
-  });
-  await cropDialog.getByRole("button", { name: "Сохранить аватар" }).click();
-  await expect(cropDialog).toBeHidden();
-  const renderedAvatar = page
-    .getByRole("main")
-    .getByAltText(`Аватар: ${displayName}`);
-  await expect(renderedAvatar).toBeVisible();
-  await expect
-    .poll(() =>
-      renderedAvatar.evaluate((element) =>
-        element instanceof HTMLImageElement ? element.naturalWidth : 0,
-      ),
-    )
-    .toBeGreaterThan(0);
-  await page.screenshot({
-    path: resolve(reviewDirectory, `issue-153-account-${viewportName}.png`),
-  });
-  await page.screenshot({
-    path: resolve(avatarEvidenceDirectory, `account-${viewportName}.png`),
-  });
-
-  const bioInput = page.getByLabel("О себе · необязательно");
-  const preferredBio =
-    testInfo.project.name === "mobile-chromium"
-      ? "Развиваю инженерные команды и проверяю agent-first delivery на практике."
-      : "Развиваю инженерные команды и изучаю agent-first delivery.";
-  const alternateBio = `${preferredBio} Проверка повторного запуска.`;
-  const bio =
-    (await bioInput.inputValue()) === preferredBio
-      ? alternateBio
-      : preferredBio;
-  await bioInput.fill(bio);
-  await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
-  await expect(page.getByText("Профиль сохранён.")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /Удалить профиль/u }),
-  ).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(
-    0,
-  );
-  await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
-
-  // Профиль виден только владельцу: ссылки для участников и страницы участника нет.
-  await expect(
-    page.getByText("Профиль заполняется по желанию и виден только вам", {
-      exact: false,
-    }),
-  ).toBeVisible();
-  await expect(
-    page.locator("code").filter({ hasText: "/members/" }),
-  ).toHaveCount(0);
-  expect(
-    (
-      await page.goto("/members/5d34da22-548e-4b02-b6e8-9c918ad536ef")
-    )?.status(),
-  ).toBe(404);
+  await page.goto("/");
+  const before = await fullStackBrowserRequest(page, "/api/account/profile");
+  expect(before.status()).toBe(200);
+  const state = z.object({ state: z.unknown() }).parse(await before.json());
   await page.goto("/account");
-
-  const accessibility = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-  expect(
-    accessibility.violations.filter(
-      ({ impact }) => impact === "serious" || impact === "critical",
-    ),
-  ).toEqual([]);
-  const overflow = await page.locator("html").evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
-
-  const snapshots = evidenceDirectory("issue-189");
-  await mkdir(reviewDirectory, { recursive: true });
-  await prepareEvidenceDirectory("issue-189");
-  const screenshotName =
-    testInfo.project.name === "mobile-chromium" ? "mobile.png" : "desktop.png";
-  await page.screenshot({ path: resolve(reviewDirectory, screenshotName) });
-  await page.screenshot({ path: resolve(snapshots, screenshotName) });
-  if (testInfo.project.name === "desktop-chromium") {
-    await page.getByRole("main").screenshot({
-      path: resolve(reviewDirectory, "hero-repro.png"),
-    });
-  }
-
-  await page.getByRole("button", { name: "Удалить" }).click();
   await expect(
-    page.getByRole("status").filter({ hasText: "Аватар удалён." }),
+    page.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
-  await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
   await expect(
-    page.getByRole("main").getByRole("img", { name: `Аватар: ${displayName}` }),
-  ).toBeVisible();
-
-  const removedExportRoute = await (
-    await fullStackPageRequest(page)
-  ).get("/account/export-profile");
-  expect(removedExportRoute.status()).toBe(404);
-});
-
-function profileAvatarPng(): Buffer {
-  const width = 480;
-  const height = 320;
-  const scanlines = Buffer.alloc(height * (1 + width * 3));
-  for (let y = 0; y < height; y += 1) {
-    const row = y * (1 + width * 3);
-    scanlines[row] = 0;
-    for (let x = 0; x < width; x += 1) {
-      const offset = row + 1 + x * 3;
-      scanlines[offset] = 216;
-      scanlines[offset + 1] = Math.round(80 + (70 * x) / width);
-      scanlines[offset + 2] = Math.round(48 + (80 * y) / height);
-    }
-  }
-  const header = Buffer.alloc(13);
-  header.writeUInt32BE(width, 0);
-  header.writeUInt32BE(height, 4);
-  header.set([8, 2, 0, 0, 0], 8);
-  return Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    pngChunk("IHDR", header),
-    pngChunk("IDAT", deflateSync(scanlines)),
-    pngChunk("IEND", Buffer.alloc(0)),
-  ]);
-}
-
-function pngChunk(type: string, data: Buffer): Buffer {
-  const typeBytes = Buffer.from(type, "ascii");
-  const result = Buffer.alloc(12 + data.length);
-  result.writeUInt32BE(data.length, 0);
-  typeBytes.copy(result, 4);
-  data.copy(result, 8);
-  result.writeUInt32BE(
-    crc32(Buffer.concat([typeBytes, data])),
-    8 + data.length,
+    page.getByRole("textbox", { name: "Имя", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: /О себе/u })).toHaveCount(0);
+  await expect(page.locator("[data-account-section-nav]")).toHaveCount(0);
+  const after = await fullStackBrowserRequest(page, "/api/account/profile");
+  expect(after.status()).toBe(200);
+  expect(z.object({ state: z.unknown() }).parse(await after.json())).toEqual(
+    state,
   );
-  return result;
-}
-
-function crc32(data: Buffer): number {
-  let crc = 0xffffffff;
-  for (const byte of data) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ ((crc & 1) !== 0 ? 0xedb88320 : 0);
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
+});
