@@ -9,8 +9,17 @@
 
 [inputs.lock.json](../../infra/observability/umami/inputs.lock.json) закрепляет Umami 3.4.0,
 PostgreSQL 16.13 и Python 3.13.12 OCI index digest. Там же находятся URL и SHA256 прочитанных
-файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Image pull/execution на Mac
-не выполнялись. Digest подтверждён registry manifest, совместимость доказывается запуском.
+файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Digest подтверждён registry
+manifest. Фактические supervised запуски Mac (`9d38522d`) и Linux CI (`39297716250`, тот же
+source tree) завершились на `synthetic_seed`; monitor не отказал, diagnostics/down/residue прошли,
+собственных ресурсов после cleanup не осталось. Успешная совместимость ещё не доказана.
+
+Источник закреплённого [POST /api/teams](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/teams/route.ts)
+возвращает результат [createTeam](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/team.ts)
+как tuple `[Team, TeamUser]`. Прежний seed ошибочно требовал объект. Регрессия воспроизводит
+этот отказ по форме ответа; отдельный adapter проверяет UUID, связь teamId и owner role до
+использования идентификатора. Старые runtime evidence не содержат seed substage, поэтому
+нельзя исключить более ранний сбой. Повторный supervised запуск исправленного source pending.
 
 В закреплённом [send handler](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/send/route.ts)
 по умолчанию сохраняются query/hash URL, title, referrer path/query, UTM, click IDs и свойства.
@@ -154,9 +163,12 @@ Query gateway работает с numeric UID/GID владельца private rea
 reader key, npm installation, seed output и raw provider errors исключены. Proof Linux CI
 не становится Timeweb capacity, PostgreSQL restore, browser consent или семью сутками production.
 
-`fixture.py` сообщает только тип исключения и фазу. Raw provider error и чувствительный
-ответ не становятся диагностикой. Для различения startup причин runner может сохранять
-разрешённые stage/status/container state поля по общему pilot contract.
+При ошибке seed `fixture.py` передаёт закрытую форму `phase/step/error/http_status`:
+фиксированные имена шага и категории, числовой HTTP status либо null. Runner принимает её
+только для seed, в пределах 1024 bytes, с точным набором полей и разрешённых значений; иначе
+сохраняет только общий отказ команды. В `readiness.json` не попадают URL, Account/team/site ID,
+credentials, response body, exception text или произвольный stderr. Ошибки других команд
+остаются без provider diagnostics. Stage/status/container state следуют общему pilot contract.
 
 ## Очистка и восстановление: подготовленный SQL
 

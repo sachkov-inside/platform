@@ -31,16 +31,24 @@ NATIVE_SETUP_SECONDS = 240
 
 
 class FixtureCommandFailed(RuntimeError):
-    pass
+    def __init__(self, diagnostic=None):
+        super().__init__('owned fixture command failed')
+        self.diagnostic = diagnostic
 
 
-def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS):
+def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS, fixture_phase=None):
     """Private fixture input uses stdin, never argv or public diagnostics."""
     pilot.assert_docker_identity()
     result = subprocess.run(pilot.docker_args(compose + args), input=payload,
                             capture_output=True, text=True, timeout=timeout)
     if result.returncode:
-        raise FixtureCommandFailed('owned fixture command failed')
+        diagnostic = None
+        if fixture_phase == 'seed' and len(result.stderr.encode()) <= fixture.FAILURE_REPORT_BYTES:
+            try:
+                diagnostic = fixture.failure_report(json.loads(result.stderr))
+            except (ValueError, TypeError):
+                pass
+        raise FixtureCommandFailed(diagnostic)
     if len(result.stdout.encode()) > FIXTURE_BYTES:
         raise RuntimeError('owned fixture response exceeds budget')
     return result.stdout
@@ -145,7 +153,7 @@ def smoke(output, compose):
         stage = 'umami_start'
         pilot.command(compose + ['up', '-d', 'umami', 'query'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
         stage = 'synthetic_seed'
-        state = fixture.load_state(json.loads(invoke(compose, ['exec', '-T', 'query', 'python', '/pilot/fixture.py', 'seed'])))
+        state = fixture.load_state(json.loads(invoke(compose, ['exec', '-T', 'query', 'python', '/pilot/fixture.py', 'seed'], fixture_phase='seed')))
         # Preserve inode: the bind mount must observe this key, not a replaced file.
         (output / 'reader.key').write_text(state['key'])
         os.chmod(output / 'reader.key', 0o600)
@@ -166,7 +174,10 @@ def smoke(output, compose):
         pilot.write_json(output / 'readiness.json', {'stage': 'completed', 'state': 'passed'})
         return {'umami': proof, 'status': 'Umami synthetic compatibility passed; full acceptance pending'}
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        pilot.write_json(output / 'readiness.json', {'stage': stage, 'state': 'failed', 'error_type': type(error).__name__})
+        report = {'stage': stage, 'state': 'failed', 'error_type': type(error).__name__}
+        if isinstance(error, FixtureCommandFailed) and error.diagnostic is not None:
+            report['fixture'] = error.diagnostic
+        pilot.write_json(output / 'readiness.json', report)
         raise RuntimeError('Umami pilot phase failed; inspect curated readiness evidence') from None
 
 
