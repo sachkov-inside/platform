@@ -112,23 +112,28 @@ describe("technical OpenTelemetry context", () => {
   });
 
   it("keeps a foreign global context manager intact when enabled registration fails or telemetry is disabled", async () => {
-    const foreign = new AsyncLocalStorageContextManager().enable();
-    const key = createContextKey("foreign-owner-test");
-    expect(context.setGlobalContextManager(foreign)).toBe(true);
-    let refused = false;
-    const enabled = createTechnicalTelemetry({
-      enabled: true,
-      service: "platform-api",
-      environment: "test",
-      release: "test",
-      sampleRatio: 1,
-      exporters: exporters(),
-      onContextUnavailable: () => {
-        refused = true;
-      },
-    });
-    const disabled = createTechnicalTelemetry({ enabled: false });
+    let foreign: AsyncLocalStorageContextManager | undefined;
+    let registered = false;
+    let enabled: ReturnType<typeof createTechnicalTelemetry> | undefined;
+    let disabled: ReturnType<typeof createTechnicalTelemetry> | undefined;
     try {
+      foreign = new AsyncLocalStorageContextManager().enable();
+      const key = createContextKey("foreign-owner-test");
+      registered = context.setGlobalContextManager(foreign);
+      expect(registered).toBe(true);
+      let refused = false;
+      enabled = createTechnicalTelemetry({
+        enabled: true,
+        service: "platform-api",
+        environment: "test",
+        release: "test",
+        sampleRatio: 1,
+        exporters: exporters(),
+        onContextUnavailable: () => {
+          refused = true;
+        },
+      });
+      disabled = createTechnicalTelemetry({ enabled: false });
       expect(refused).toBe(true);
       await enabled.shutdown();
       await disabled.shutdown();
@@ -137,7 +142,12 @@ describe("technical OpenTelemetry context", () => {
         expect(context.active().getValue(key)).toBe("preserved");
       });
     } finally {
-      context.disable();
+      await Promise.allSettled([
+        Promise.resolve().then(() => enabled?.shutdown()),
+        Promise.resolve().then(() => disabled?.shutdown()),
+      ]);
+      if (registered) context.disable();
+      else foreign?.disable();
     }
   });
 
@@ -235,18 +245,25 @@ describe("technical OpenTelemetry context", () => {
       sampleRatio: 1,
       exporters: exporters(),
     });
-    context.disable();
-    const foreign = new AsyncLocalStorageContextManager().enable();
-    const key = createContextKey("replacement-manager-test");
-    expect(context.setGlobalContextManager(foreign)).toBe(true);
+    let foreign: AsyncLocalStorageContextManager | undefined;
+    let registered = false;
     try {
+      context.disable();
+      foreign = new AsyncLocalStorageContextManager().enable();
+      const key = createContextKey("replacement-manager-test");
+      registered = context.setGlobalContextManager(foreign);
+      expect(registered).toBe(true);
       await telemetry.shutdown();
       foreign.with(ROOT_CONTEXT.setValue(key, true), () =>
         expect(context.active().getValue(key)).toBe(true),
       );
     } finally {
-      await telemetry.shutdown();
-      context.disable();
+      try {
+        await telemetry.shutdown();
+      } finally {
+        if (registered) context.disable();
+        else foreign?.disable();
+      }
     }
   });
 
