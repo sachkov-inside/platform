@@ -19,12 +19,15 @@ import {
   type OAuthProtectedResourceMetadata,
 } from "@modelcontextprotocol/server";
 
+import type { TechnicalTelemetry } from "../../infrastructure/observability/technical-telemetry.js";
+import { observeNodeHttpRequest } from "../../infrastructure/observability/node-http-telemetry.js";
 import type { McpConfig } from "../../config/mcp-config.js";
 import { PRIVATE_NO_STORE_HEADERS } from "../../infrastructure/http/http-cache-policy.js";
 import {
   generateRequestId,
   reportDependencyFailure,
   runWithLogContext,
+  type LogContext,
 } from "../../infrastructure/observability/index.js";
 import type { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import {
@@ -61,6 +64,7 @@ export function createMcpHttpServer(dependencies: {
   readonly identityIssuer: string;
   readonly readiness: Pick<OperationalReadiness, "check" | "live">;
   readonly tokenVerifier: LogtoAccessTokenVerifier;
+  readonly technicalTelemetry?: TechnicalTelemetry;
   readonly onError?: (error: Error) => void;
 }): McpHttpServer {
   const configuredUrl = new URL(dependencies.config.serverUrl);
@@ -170,25 +174,47 @@ export function createMcpHttpServer(dependencies: {
   ];
   const validateHost = hostHeaderValidation(allowedHostnames);
   const validateOrigin = originValidation(allowedHostnames);
+  const knownPaths = new Set([
+    "/_health/live",
+    "/_health/ready",
+    new URL(metadataUrl).pathname,
+    new URL(learningMetadataUrl).pathname,
+    learningUrl.pathname,
+    configuredUrl.pathname,
+  ]);
   const server = createServer((request, response) => {
-    if (
-      !validateHost(request, response) ||
-      !validateOrigin(request, response)
-    ) {
-      return;
-    }
-    const completeRequest = Object.assign(request, {
+    const path = URL.parse(request.url ?? "/", configuredUrl)?.pathname;
+    const route = path !== undefined && knownPaths.has(path) ? path : undefined;
+    const scope: LogContext = {
+      process: "mcp",
+      requestId: generateRequestId(),
       method: request.method ?? "GET",
-      url: request.url ?? "/",
-    });
-    runWithLogContext(
-      {
-        process: "mcp",
-        requestId: generateRequestId(),
-        method: completeRequest.method,
-      },
-      () => void nodeHandler(completeRequest, response),
-    );
+      ...(route === undefined ? {} : { route }),
+    };
+    const observation =
+      dependencies.technicalTelemetry === undefined
+        ? undefined
+        : observeNodeHttpRequest(
+            request,
+            response,
+            dependencies.technicalTelemetry,
+            scope,
+          );
+    const handle = () => {
+      if (
+        !validateHost(request, response) ||
+        !validateOrigin(request, response)
+      ) {
+        return;
+      }
+      const completeRequest = Object.assign(request, {
+        method: request.method ?? "GET",
+        url: request.url ?? "/",
+      });
+      void nodeHandler(completeRequest, response);
+    };
+    if (observation === undefined) runWithLogContext(scope, handle);
+    else observation.run(handle);
   });
 
   return {
