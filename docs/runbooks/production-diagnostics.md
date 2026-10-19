@@ -167,8 +167,45 @@ SQL возвращает максимум 2001, переполнение даё�
 catalog, Material first facts, journal account/identity/receipt и verified Telegram identity.
 Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;
 стоимость, запас места и допустимое окно требуют отдельной проверки при порученном deployment.
-Fixture с тысячами строк не измеряет этот production lock. Откат application code совместим с
-добавочными индексами и не требует удаления доменных данных; migration ledger не переписывается.
+Fixture с тысячами строк не измеряет этот production lock.
+
+После применения 0100–0104 прежний application image запускать нельзя: его короткая migration
+registry отвергает новый ledger как не являющийся exact prefix, поэтому readiness/worker startup
+не пройдут. Нужен отдельный **rollback build** от принятого нового source: откатить диагностическую
+реализацию вместе с соответствующим public tool description, сохранив полную новую registry,
+все ранее зарегистрированные migration files и их байтовые checksums.
+
+Для отката именно candidate implementation commit `bcb6a0723` на отдельной ветке шаблон такой
+(значения в угловых скобках заменяются проверенными SHA принятой поставки):
+
+```bash
+git switch -c rollback/funnel-diagnostics <accepted-release-sha>
+git revert --no-commit bcb6a0723
+git restore --source bcb6a0723^ -- \
+  apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/register-funnel-diagnostics-tool.ts
+git restore --source <accepted-release-sha> -- \
+  apps/backend/src/migrations/index.ts \
+  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0100-funnel-diagnostic-candidates.ts \
+  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0101-billing-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0102-reading-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0103-telegram-funnel-diagnostic-identities.ts \
+  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0104-funnel-diagnostic-current-products.ts \
+  apps/backend/test/integration/migrations.test.ts
+```
+
+При конфликтах требуется review собранного результата; более поздние изменения других features
+этот шаблон не разрешает удалять. Public description должен соответствовать возвращённой реализации,
+а не оставаться описанием новых scoped candidates. Сохранение migration tests предотвращает возврат
+старого ожидаемого ledger. Проверка
+[funnel-diagnostics-rollback.test.ts](../../apps/backend/test/unit/funnel-diagnostics-rollback.test.ts)
+исполняет настоящий `assertAppliedMigrations`: ledger с checksums индексов, закреплёнными от reviewed `bd524e53`, отвергается прежней registry,
+принимается полностью сохранённой новой и снова отвергается при изменении SQL/checksum.
+
+Это проверка совместимости registry, не испытание production rollback. До публикации rollback build
+нужны обычные build/checks/review и exact-source CI; migration verification/readiness должны видеть
+ту же полную registry принятой БД. Развёртывание поручается отдельно. Ledger, доменные данные и
+добавочные индексы сохраняются; автоматическое удаление ledger rows или `DROP INDEX` не является
+частью отката. Уже зарегистрированные файлы и checksums не переписываются.
 
 Между владельцами нет общей атомарной копии: `independent_owner_snapshots`, обход живой.
 Каждый запрос продолжения заново читает ограниченные источники и не удерживает транзакцию
