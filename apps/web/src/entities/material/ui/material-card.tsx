@@ -134,12 +134,16 @@ export function MaterialCard({
       data-material-variant="feed"
     >
       <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-[0.6875rem] font-bold text-primary-foreground sm:size-10 sm:text-xs"
-        >
-          S
-        </span>
+        {/* Pre-sized WebP covers this 32/40px avatar up to DPR 3. */}
+        {/* oxlint-disable-next-line next/no-img-element */}
+        <img
+          alt=""
+          className="size-8 shrink-0 rounded-full bg-primary object-cover sm:size-10"
+          decoding="async"
+          height={120}
+          src="/images/sachkov-dev-avatar.webp"
+          width={120}
+        />
         <div className="min-w-0 text-[0.8125rem] sm:text-sm">
           <strong>Sachkov Dev</strong>
           <p className="text-[0.6875rem] text-muted-foreground sm:text-xs">
