@@ -724,15 +724,15 @@ test.each(["before-admission", "before-commit", "after-commit"] as const)(
       (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
     ).toBe(200);
     let reads = 0;
-    waitlist.read.mockImplementation(async () => {
+    waitlist.read.mockImplementation(() => {
       reads++;
-      return {
+      return Promise.resolve({
         status: "ok",
         saleOpen: true,
         purchaseUrl,
         active: 1,
         members: [member],
-      };
+      });
     });
     const monotonic = app.get<{ now(): number }>(MONOTONIC_CLOCK);
     const now = vi.spyOn(monotonic, "now");
