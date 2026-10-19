@@ -16,6 +16,7 @@ import { ContentCoverImage } from "./content-cover-image.client";
 import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
+import { MaterialShareButton } from "./material-share-button.client";
 import {
   SeriesContinuationAction,
   SeriesRowArticle,
@@ -220,7 +221,10 @@ export function MaterialCard({
               : "Открыть заметку"}
           <ChevronRight aria-hidden="true" className="size-4" />
         </IntentPrefetchLink>
-        {readingStatus}
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {readingStatus}
+          <MaterialShareButton slug={material.slug} title={material.title} />
+        </div>
       </div>
     </article>
   );
@@ -314,6 +318,7 @@ function MaterialRow({
             {readingStatus}
           </span>
         ) : null}
+        <MaterialShareButton slug={material.slug} title={material.title} />
         {showAccessDetails ? (
           <span
             className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground"
@@ -442,6 +447,7 @@ function SeriesMaterialRow({
           )}
         </span>
       </div>
+      <MaterialShareButton slug={material.slug} title={material.title} />
       <SeriesContinuationAction href={readerHref} slug={material.slug} />
     </SeriesRowArticle>
   );
