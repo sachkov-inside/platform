@@ -690,14 +690,12 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await page
     .getByRole("searchbox", { name: "Поиск по материалам курса" })
     .fill("Developer Pipeline без потери контекста");
-  const membershipCard = page
-    .getByRole("article")
-    .filter({
-      has: page.getByRole("link", {
-        name: "Developer Pipeline без потери контекста",
-        exact: true,
-      }),
-    });
+  const membershipCard = page.getByRole("article").filter({
+    has: page.getByRole("link", {
+      name: "Developer Pipeline без потери контекста",
+      exact: true,
+    }),
+  });
   await expect(membershipCard).toBeVisible();
   await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
