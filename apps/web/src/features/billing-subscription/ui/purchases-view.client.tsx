@@ -12,7 +12,6 @@ import {
 } from "@/entities/subscription";
 
 import { ProductAccessList } from "./product-access-list";
-import { ProductPurchases } from "./product-purchases";
 import { BillingHistory } from "./billing-history.client";
 import { BillingSectionError } from "./billing-section-error.client";
 import { BillingSignIn } from "./billing-sign-in";
@@ -70,16 +69,14 @@ export function PurchasesSectionView({
       {grounds.some(
         (ground) =>
           ground.content?.some((entry) => entry.kind === "product") === true,
-      ) ? (
-        <ProductAccessList grounds={grounds} />
-      ) : (
+      ) ? null : (
         <SubscriptionGrounds
           grounds={grounds}
           loading={loading}
           storefrontHref={storefrontHref}
         />
       )}
-      <ProductPurchases payments={payments} />
+      <ProductAccessList grounds={grounds} payments={payments} />
       {communitySlot}
       {contactSlot}
       {subscription === null ? null : (
@@ -92,14 +89,14 @@ export function PurchasesSectionView({
       )}
       <BillingDisclosure title="История оплат, чеки и возвраты">
         <BillingHistory notices={notices} payments={payments} />
+        <p className="mt-4 text-sm text-muted-foreground">
+          Для возврата обратитесь к продавцу:{" "}
+          <a className="underline" href={`mailto:${legalSeller.email}`}>
+            {legalSeller.email}
+          </a>
+          .
+        </p>
       </BillingDisclosure>
-      <p className="text-sm text-muted-foreground">
-        Для возврата обратитесь к продавцу:{" "}
-        <a className="underline" href={`mailto:${legalSeller.email}`}>
-          {legalSeller.email}
-        </a>
-        .
-      </p>
       <BillingSectionError error={error} />
     </div>
   );
