@@ -45,7 +45,7 @@ export function placeChapterTasks(
 
 /** The phrase a learner gives any agent: the task code is all the agent needs (#939). */
 export function productTaskAgentPhrase(code: string): string {
-  return `Проверь моё задание ${code} через учебный MCP Sachkov Inside и помоги его сдать.`;
+  return `Проверь моё задание ${code} через учебный MCP Sachkov Dev и помоги его сдать.`;
 }
 
 /** «5 октября»: the day of a submission in the reader's language, stable across renders. */

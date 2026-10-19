@@ -101,7 +101,8 @@ export function CommunicationsPage() {
             Рассылки и аналитика
           </h1>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            Разовые сообщения контактам Inside и наблюдаемые входы и переходы.
+            Разовые сообщения контактам Sachkov Dev и наблюдаемые входы и
+            переходы.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

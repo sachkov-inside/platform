@@ -38,7 +38,7 @@ export function WelcomeView({
     <WelcomeDialog labelledBy={titleId}>
       <div className="p-6 sm:p-7">
         <p className="text-[0.95rem] font-semibold tracking-[-0.02em]">
-          Sachkov <span className="text-action">Inside</span>
+          Sachkov <span className="text-action">Dev</span>
         </p>
         <h1
           className="mt-5 text-[1.75rem] font-bold leading-[1.1] tracking-[-0.04em]"
@@ -72,7 +72,7 @@ export function WelcomeView({
               >
                 условия использования
               </Link>
-              ; пользоваться Inside можно с 14 лет. Данные аккаунта
+              ; пользоваться Sachkov Dev можно с 14 лет. Данные аккаунта
               обрабатываются по{" "}
               <Link
                 className="text-action underline underline-offset-4"

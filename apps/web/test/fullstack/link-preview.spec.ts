@@ -19,7 +19,7 @@ test("главная отдаёт карточку ссылки с назван�
     String(baseURL),
   );
   expect(await metaContent(page, "og:url")).toBe(String(baseURL));
-  expect(await metaContent(page, "og:site_name")).toBe("Sachkov Inside");
+  expect(await metaContent(page, "og:site_name")).toBe("Sachkov Dev");
   expect(await metaContent(page, "og:locale")).toBe("ru_RU");
   expect(await metaContent(page, "og:image")).toBe(
     `${String(baseURL)}/social-card`,

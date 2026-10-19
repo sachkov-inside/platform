@@ -24,7 +24,7 @@ const serverName = "inside_learning";
  */
 export function learnerMcpConnectPrompt(setupUrl: string): string {
   return [
-    "Подключи учебный MCP Sachkov Inside.",
+    "Подключи учебный MCP Sachkov Dev.",
     `Прочитай инструкцию ${setupUrl} и добавь сервер в свои настройки по разделу для твоего агента.`,
     "Если можешь, запусти команду входа; если нет, назови мне её одной строкой.",
     "Пароли, коды и токены у меня не спрашивай: вход в браузере я подтвержу сам.",
@@ -39,7 +39,7 @@ export function practiceReviewSetupText(
   const { url } = connection;
   const clientId = connection.publicClientId ?? "CLIENT_ID_ОТ_АВТОРА_КУРСА";
   return [
-    "Учебный MCP Sachkov Inside: подключение агента",
+    "Учебный MCP Sachkov Dev: подключение агента",
     "",
     "Подключение делается один раз. Дальше агент сам продлевает доступ.",
     "",
@@ -51,7 +51,7 @@ export function practiceReviewSetupText(
     "Агент добавит сервер сам. Вам останется подтвердить вход в браузере",
     "и открыть новую сессию агента.",
     "",
-    "Вход: агент откроет страницу входа Sachkov Inside. Войдите тем же",
+    "Вход: агент откроет страницу входа Sachkov Dev. Войдите тем же",
     "аккаунтом, что и на сайте, и нажмите «Разрешить». Пароль, код и токен",
     "агенту не передавайте.",
     "",

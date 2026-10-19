@@ -282,7 +282,7 @@ function delayedPractice(
         canvasElement.querySelector("[data-practice-loading]"),
       ).toBeVisible();
       await expect(
-        canvas.queryByRole("navigation", { name: "Документы Inside" }),
+        canvas.queryByRole("navigation", { name: "Документы Sachkov Dev" }),
       ).not.toBeInTheDocument();
       const before = anchors.map((selector) => boxOf(canvasElement, selector));
       sequence.deliverPersonalPart();

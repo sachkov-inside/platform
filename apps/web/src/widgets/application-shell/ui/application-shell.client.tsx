@@ -260,7 +260,7 @@ function MobileTopNavigation({
             : { onNavigate: navigate(home.href) })}
         >
           <span>Sachkov</span>
-          <span className="text-action">Inside</span>
+          <span className="text-action">Dev</span>
         </Link>
         <nav aria-label="Мобильная навигация">
           <ul className="flex flex-wrap items-center gap-1">

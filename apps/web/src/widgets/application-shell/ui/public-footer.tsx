@@ -19,7 +19,7 @@ const FOOTER_DOCUMENTS = new Set(["privacy", "cookies", "contacts"]);
 export function PublicFooter() {
   return (
     <footer className="border-t border-border pt-5 text-xs text-muted-foreground sm:text-sm">
-      <nav aria-label="Документы Inside">
+      <nav aria-label="Документы Sachkov Dev">
         <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
           {LEGAL_NAVIGATION.filter((entry) =>
             FOOTER_DOCUMENTS.has(entry.key),

@@ -80,7 +80,7 @@ for (const destination of destinations) {
       destination.heading,
     );
     await expect(page).toHaveTitle(
-      new RegExp(`^${destination.label} · Sachkov Inside$`, "u"),
+      new RegExp(`^${destination.label} · Sachkov Dev$`, "u"),
     );
 
     const navigation = getPrimaryNavigation(page, testInfo.project.name);
@@ -123,7 +123,7 @@ test("неизвестный адрес отвечает 404 по-русски �
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Страница не найдена",
   );
-  await expect(page).toHaveTitle("Страница не найдена · Sachkov Inside");
+  await expect(page).toHaveTitle("Страница не найдена · Sachkov Dev");
   await expect(page.getByText("This page could not be found")).toHaveCount(0);
   await expect(
     getPrimaryNavigation(page, testInfo.project.name).getByRole("link", {
@@ -224,7 +224,7 @@ test("map remains available by direct URL without a primary navigation item", as
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Карта Inside",
+    "Карта Sachkov Dev",
   );
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(navigation.getByRole("link")).toHaveCount(2);
@@ -677,9 +677,7 @@ test("keyboard reaches the visible desktop or mobile navigation", async ({
   ).toBeFocused();
   await page.keyboard.press("Tab");
   if (navigationMode(testInfo.project.name) === "desktop") {
-    await expect(
-      page.getByRole("link", { name: "Sachkov Inside" }),
-    ).toBeFocused();
+    await expect(page.getByRole("link", { name: "Sachkov Dev" })).toBeFocused();
     await page.keyboard.press("Tab");
   }
   const navigation = getPrimaryNavigation(page, testInfo.project.name);

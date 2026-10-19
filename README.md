@@ -1,5 +1,5 @@
 # platform
-Sachkov Inside membership platform
+Sachkov Dev membership platform
 
 ## Product and application contract
 
