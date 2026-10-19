@@ -1,3 +1,11 @@
+import {
+  DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticSnapshotOptions,
+  diagnosticSourceBudgetFailure,
+  setDiagnosticStatementBudget,
+  type DiagnosticSourceBudgetFailure,
+} from "../../../../infrastructure/diagnostic-read-budget.js";
+import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
@@ -40,35 +48,97 @@ export type ProductOutlinesResult =
 export class ProductOutlines {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
 
-  async list(): Promise<ProductOutlinesResult> {
+  list(): Promise<ProductOutlinesResult> {
+    return readProductOutlines(this.prisma);
+  }
+
+  async listForDiagnostics(): Promise<
+    ProductOutlinesResult | DiagnosticSourceBudgetFailure
+  > {
     try {
-      const products = await loadProductCompositions(
-        this.prisma,
-        { current: true },
-        MAX_PRODUCTS + 1,
-      );
-      const rows = rowsSchema.parse(
-        products.map((product) => ({
-          id: product.id,
-          name: product.name,
-          chapters: productCompositionChapters(product).map(
-            ({ id, name, materialIds }) => ({
-              id,
-              name,
-              materialIds: [...new Set(materialIds)],
-            }),
-          ),
-        })),
-      );
-      if (rows.length > MAX_PRODUCTS)
-        return { ok: false, error: { code: "products_too_many" } };
-      return { ok: true, value: rows };
+      return await this.prisma.$transaction(async (transaction) => {
+        await setDiagnosticStatementBudget(transaction);
+        const sources = await Promise.all([
+          transaction.product.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { id: true },
+          }),
+          transaction.productProgrammePlacement.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { id: true },
+          }),
+          transaction.productChapter.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { id: true },
+          }),
+          transaction.productChapterSupplementaryMaterial.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { materialId: true },
+          }),
+          transaction.productMembership.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { materialId: true },
+          }),
+          transaction.publishedMaterialProductMembership.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { materialId: true },
+          }),
+          transaction.material.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { id: true },
+          }),
+          transaction.publishedMaterial.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { materialId: true },
+          }),
+        ]);
+        if (sources.some((rows) => rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT))
+          return diagnosticSourceBudgetFailure;
+        return readProductOutlines(transaction, "listForDiagnostics");
+      }, diagnosticSnapshotOptions);
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "listProductOutlines" },
+        { module: "materials", operation: "listForDiagnostics" },
         error,
-        { ok: false, error: { code: "dependency_unavailable" } } as const,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
       );
     }
+  }
+}
+
+async function readProductOutlines(
+  prisma: MaterialsPrisma,
+  operation = "listProductOutlines",
+): Promise<ProductOutlinesResult> {
+  try {
+    const products = await loadProductCompositions(
+      prisma,
+      { current: true },
+      MAX_PRODUCTS + 1,
+    );
+    const rows = rowsSchema.parse(
+      products.map((product) => ({
+        id: product.id,
+        name: product.name,
+        chapters: productCompositionChapters(product).map(
+          ({ id, name, materialIds }) => ({
+            id,
+            name,
+            materialIds: [...new Set(materialIds)],
+          }),
+        ),
+      })),
+    );
+    if (rows.length > MAX_PRODUCTS)
+      return { ok: false, error: { code: "products_too_many" } };
+    return { ok: true, value: rows };
+  } catch (error) {
+    return dependencyFailure({ module: "materials", operation }, error, {
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    } as const);
   }
 }

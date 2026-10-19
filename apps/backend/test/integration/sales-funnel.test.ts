@@ -1,3 +1,7 @@
+import { z } from "zod";
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
+import { registerFunnelDiagnosticsTool } from "../../src/modules/sales-funnel/index.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -458,6 +462,63 @@ describe("Sales funnel report on PostgreSQL", () => {
     ]);
     expect(report.value.total).toEqual(counts(4, 1, 3, 2, 1));
     expect(report.value.lastBotEventReceivedAt).not.toBeNull();
+    // The admin diagnostic preserves the existing cohort and its confirmed-sales facts; a billing
+    // operator keeps the REST report but does not receive this new diagnostic capability.
+    expect(
+      await funnel.readDiagnostics(owner, { from, to, productId }),
+    ).toEqual({ ok: false, error: { code: "forbidden" } });
+    const diagnosticAdmin = await account();
+    await db.prisma.accountPermission.create({
+      data: { accountId: diagnosticAdmin, permission: "platform:admin" },
+    });
+    const mcp = new McpServer({ name: "funnel-postgres", version: "1" });
+    registerFunnelDiagnosticsTool(mcp, { accountId: diagnosticAdmin, funnel });
+    const client = new Client({ name: "funnel-postgres-client", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    try {
+      await Promise.all([
+        mcp.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+      const diagnostic = await client.callTool({
+        name: "sales_funnel_diagnostics",
+        arguments: { from, to, productId, limit: 1 },
+      });
+      expect(diagnostic).toMatchObject({
+        structuredContent: {
+          ok: true,
+          value: {
+            rows: [report.value.rows[0]],
+            total: counts(4, 1, 3, 2, 1),
+            totalScope: "bounded_cohort",
+            coverage: "paginated",
+            freshness: { status: "not_proven" },
+            consistency: "independent_owner_snapshots",
+          },
+        },
+      });
+      const cursor = z
+        .object({ value: z.object({ nextCursor: z.string() }) })
+        .parse(diagnostic.structuredContent).value.nextCursor;
+      const remaining = await client.callTool({
+        name: "sales_funnel_diagnostics",
+        arguments: { from, to, productId, limit: 50, cursor },
+      });
+      expect(remaining).toMatchObject({
+        structuredContent: {
+          ok: true,
+          value: {
+            rows: report.value.rows.slice(1),
+            total: counts(4, 1, 3, 2, 1),
+            nextCursor: null,
+          },
+        },
+      });
+    } finally {
+      await client.close();
+      await mcp.close();
+    }
 
     // A linked contact without an entry has no source: its Account joins by its first step.
     const later = await funnel.readReport(owner, {
@@ -552,6 +613,16 @@ describe("Sales funnel report on PostgreSQL", () => {
       uploaded: 6,
       issued: 5,
       paid: 1,
+    });
+    const diagnosticAdmin = await account();
+    await db.prisma.accountPermission.create({
+      data: { accountId: diagnosticAdmin, permission: "platform:admin" },
+    });
+    expect(
+      await funnel.readDiagnostics(diagnosticAdmin, { from, to, productId }),
+    ).toMatchObject({
+      ok: true,
+      value: { surveyRespondents: { uploaded: 6, issued: 5, paid: 1 } },
     });
 
     const earlier = await funnel.readReport(owner, {

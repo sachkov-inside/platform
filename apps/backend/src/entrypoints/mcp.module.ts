@@ -1,3 +1,4 @@
+import { SalesFunnelModule } from "../modules/sales-funnel/index.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
 import { BillingModule } from "../modules/billing/index.js";
 import { CommunicationsModule } from "../modules/communications/index.js";
@@ -33,6 +34,7 @@ export class McpModule {
         CommunicationsModule,
         MaterialsModule,
         BillingModule,
+        SalesFunnelModule,
         ProductTasksModule,
         CoverageCatalogModule,
         RecipientLinksModule,

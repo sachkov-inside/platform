@@ -1,8 +1,16 @@
+import {
+  DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticSnapshotOptions,
+  diagnosticSourceBudgetFailure,
+  setDiagnosticStatementBudget,
+  type DiagnosticSourceBudgetFailure,
+} from "../../../../infrastructure/diagnostic-read-budget.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type SalesFunnelPrismaClient,
+  type SalesFunnelPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type {
@@ -24,11 +32,17 @@ import {
 export type ReadFunnelReportDependencies = {
   readonly prisma: SalesFunnelPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
-  readonly links: Pick<TelegramAccountLinks, "findCurrentAccounts">;
-  readonly outlines: Pick<ProductOutlines, "list">;
-  readonly firstOpens: Pick<MaterialFirstOpens, "list">;
-  readonly sales: Pick<BillingProductSales, "list">;
-  readonly surveyRespondents: Pick<BillingSurveyRespondentSales, "read">;
+  readonly links: Pick<
+    TelegramAccountLinks,
+    "findCurrentAccounts" | "findCurrentAccountsForDiagnostics"
+  >;
+  readonly outlines: Pick<ProductOutlines, "list" | "listForDiagnostics">;
+  readonly firstOpens: Pick<MaterialFirstOpens, "list" | "listForDiagnostics">;
+  readonly sales: Pick<BillingProductSales, "list" | "listForDiagnostics">;
+  readonly surveyRespondents: Pick<
+    BillingSurveyRespondentSales,
+    "read" | "readForDiagnostics"
+  >;
   readonly clock: () => Date;
 };
 
@@ -72,11 +86,23 @@ const failure = (code: FunnelReportErrorCode): FunnelReportResult => ({
  * a known bot entry whose first step for this Product falls in it. Every later step counts who of
  * that cohort has reached it by now.
  */
+export function readFunnelReport(
+  dependencies: ReadFunnelReportDependencies,
+  actorId: string,
+  input: unknown,
+): Promise<FunnelReportResult>;
+export function readFunnelReport(
+  dependencies: ReadFunnelReportDependencies,
+  actorId: string,
+  input: unknown,
+  diagnostics: true,
+): Promise<FunnelReportResult | DiagnosticSourceBudgetFailure>;
 export async function readFunnelReport(
   dependencies: ReadFunnelReportDependencies,
   actorId: string,
   input: unknown,
-): Promise<FunnelReportResult> {
+  diagnostics = false,
+): Promise<FunnelReportResult | DiagnosticSourceBudgetFailure> {
   const parsed = funnelReportQuerySchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   const from = new Date(parsed.data.from);
@@ -96,8 +122,13 @@ export async function readFunnelReport(
     );
   if (!permission.allowed) return failure("forbidden");
 
-  const outlines = await dependencies.outlines.list();
-  if (!outlines.ok) return failure("dependency_unavailable");
+  const outlines = await (diagnostics
+    ? dependencies.outlines.listForDiagnostics()
+    : dependencies.outlines.list());
+  if (!outlines.ok)
+    return outlines.error.code === "source_budget_exceeded"
+      ? diagnosticSourceBudgetFailure
+      : failure("dependency_unavailable");
   const product =
     parsed.data.productId === undefined
       ? undefined
@@ -116,15 +147,27 @@ export async function readFunnelReport(
     return failure("chapter_not_found");
 
   const [journal, surveyRespondents] = await Promise.all([
-    readJournal(dependencies.prisma),
-    dependencies.surveyRespondents.read({
+    diagnostics
+      ? readJournalForDiagnostics(dependencies.prisma)
+      : readJournal(dependencies.prisma),
+    (diagnostics
+      ? dependencies.surveyRespondents.readForDiagnostics.bind(
+          dependencies.surveyRespondents,
+        )
+      : dependencies.surveyRespondents.read.bind(
+          dependencies.surveyRespondents,
+        ))({
       productId: product?.id ?? null,
       from,
       to,
     }),
   ]);
   if (journal === undefined) return failure("dependency_unavailable");
-  if (!surveyRespondents.ok) return failure(surveyRespondents.error.code);
+  if ("ok" in journal) return journal;
+  if (!surveyRespondents.ok)
+    return surveyRespondents.error.code === "source_budget_exceeded"
+      ? diagnosticSourceBudgetFailure
+      : failure(surveyRespondents.error.code);
   const measured: Readonly<Record<PlatformStep, boolean>> = {
     openedChapter: product !== undefined && chapter !== undefined,
     checkout: product !== undefined,
@@ -158,19 +201,37 @@ export async function readFunnelReport(
     const attribution = await attributeAccounts(
       dependencies.links,
       journal.contacts,
+      diagnostics,
     );
     if (attribution === undefined) return failure("dependency_unavailable");
+    if ("ok" in attribution) return attribution;
     const [opens, productOpens, sales] = await Promise.all([
       chapter === undefined
         ? Promise.resolve({ ok: true as const, value: new Map<string, Date>() })
-        : dependencies.firstOpens.list(chapter.materialIds),
-      dependencies.firstOpens.list(
-        product.chapters.flatMap((item) => item.materialIds),
-      ),
-      dependencies.sales.list(product.id),
+        : diagnostics
+          ? dependencies.firstOpens.listForDiagnostics(chapter.materialIds)
+          : dependencies.firstOpens.list(chapter.materialIds),
+      diagnostics
+        ? dependencies.firstOpens.listForDiagnostics(
+            product.chapters.flatMap((item) => item.materialIds),
+          )
+        : dependencies.firstOpens.list(
+            product.chapters.flatMap((item) => item.materialIds),
+          ),
+      diagnostics
+        ? dependencies.sales.listForDiagnostics(product.id)
+        : dependencies.sales.list(product.id),
     ]);
-    if (!opens.ok || !productOpens.ok || !sales.ok)
+    if (!opens.ok || !productOpens.ok || !sales.ok) {
+      if (
+        (!opens.ok && opens.error.code === "source_budget_exceeded") ||
+        (!productOpens.ok &&
+          productOpens.error.code === "source_budget_exceeded") ||
+        (!sales.ok && sales.error.code === "source_budget_exceeded")
+      )
+        return diagnosticSourceBudgetFailure;
       return failure("dependency_unavailable");
+    }
     const reached: Readonly<Record<PlatformStep, ReadonlyMap<string, Date>>> = {
       openedChapter: opens.value,
       checkout: sales.value.checkout,
@@ -205,12 +266,7 @@ export async function readFunnelReport(
 
   const ordered = [...rows.entries()]
     .map(([key, counts]) => ({ source: sourceOf(key), counts }))
-    .sort((left, right) => {
-      const byKind = sourceRank(left.source) - sourceRank(right.source);
-      return byKind !== 0
-        ? byKind
-        : sourceCode(left.source).localeCompare(sourceCode(right.source));
-    });
+    .sort((left, right) => compareFunnelSources(left.source, right.source));
   const total = (step: keyof FunnelCounts, isMeasured: boolean) =>
     isMeasured ? sum(ordered.map((item) => item.counts[step] ?? 0)) : null;
   // Before the bot reports anything its steps are unknown, not zero.
@@ -260,11 +316,35 @@ const firstEntries = Prisma.sql`
   order by contact_ref, occurred_at, event_id
 `;
 
+async function readJournalForDiagnostics(prisma: SalesFunnelPrismaClient) {
+  try {
+    return await prisma.$transaction(async (transaction) => {
+      await setDiagnosticStatementBudget(transaction);
+      const rows = await transaction.salesFunnelBotEvent.findMany({
+        take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+        select: { eventId: true },
+      });
+      if (rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+        return diagnosticSourceBudgetFailure;
+      return readJournal(transaction, "readFunnelDiagnostics");
+    }, diagnosticSnapshotOptions);
+  } catch (error) {
+    return dependencyFailure(
+      { module: "sales-funnel", operation: "readFunnelDiagnostics" },
+      error,
+      undefined,
+    );
+  }
+}
+
 /**
  * Every contact with its first entry, its first consent and its latest reported link, or
  * undefined when the journal is unavailable.
  */
-async function readJournal(prisma: SalesFunnelPrismaClient) {
+async function readJournal(
+  prisma: SalesFunnelPrisma,
+  operation = "readFunnelReport",
+) {
   try {
     const [contacts, lastReceived] = await Promise.all([
       prisma.$queryRaw(Prisma.sql`
@@ -300,7 +380,7 @@ async function readJournal(prisma: SalesFunnelPrismaClient) {
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "sales-funnel", operation: "readFunnelReport" },
+      { module: "sales-funnel", operation },
       error,
       undefined,
     );
@@ -314,13 +394,22 @@ async function readJournal(prisma: SalesFunnelPrismaClient) {
  * contact without an entry gives no source.
  */
 async function attributeAccounts(
-  links: Pick<TelegramAccountLinks, "findCurrentAccounts">,
+  links: Pick<
+    TelegramAccountLinks,
+    "findCurrentAccounts" | "findCurrentAccountsForDiagnostics"
+  >,
   contacts: readonly ContactRow[],
+  diagnostics: boolean,
 ): Promise<
   | ReadonlyMap<string, { readonly key: SourceKey; readonly enteredAt: Date }>
   | undefined
+  | DiagnosticSourceBudgetFailure
 > {
-  const resolved = await links.findCurrentAccounts(
+  const resolved = await (
+    diagnostics
+      ? links.findCurrentAccountsForDiagnostics.bind(links)
+      : links.findCurrentAccounts.bind(links)
+  )(
     contacts.flatMap((contact) =>
       contact.entered_at !== null &&
       contact.account_id === null &&
@@ -329,7 +418,10 @@ async function attributeAccounts(
         : [],
     ),
   );
-  if (!resolved.ok) return undefined;
+  if (!resolved.ok)
+    return resolved.error.code === "source_budget_exceeded"
+      ? diagnosticSourceBudgetFailure
+      : undefined;
   const earliest = new Map<
     string,
     { readonly key: SourceKey; readonly enteredAt: Date }
@@ -356,6 +448,16 @@ function sourceOf(key: SourceKey): FunnelSource {
   if (key === OUTSIDE_BOT) return { kind: "outside_bot" };
   if (key === UNLABELLED) return { kind: "unlabelled" };
   return { kind: "label", code: key.slice(LABEL_PREFIX.length) };
+}
+
+export function compareFunnelSources(
+  left: FunnelSource,
+  right: FunnelSource,
+): number {
+  const byKind = sourceRank(left) - sourceRank(right);
+  return byKind !== 0
+    ? byKind
+    : sourceCode(left).localeCompare(sourceCode(right));
 }
 
 function sourceRank(source: FunnelSource) {
