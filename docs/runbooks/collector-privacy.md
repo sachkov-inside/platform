@@ -3,7 +3,8 @@
 Подготовленная часть [#1566](https://github.com/sachkov-inside/platform/issues/1566).
 Production и default-OFF настройки SDK не меняются. Конфигурация предназначена для изолированного
 синтетического пилота и композиции с нашим SDK, а не для произвольных OTLP источников.
-Полная privacy/resource приёмка и фактический SDK → collector → storage запуск ещё не подтверждены.
+Синтетический core на Mac source `525f71d1` прошёл с этим config. Полная privacy/resource
+приёмка и фактический SDK → collector → storage запуск остаются неподтверждёнными.
 
 ## Граница и сохраняемые данные
 
@@ -83,7 +84,7 @@ gap и не добавлен в pipeline. Target-specific ingestion filtering т
 и [exporter source](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/otelcol/exporter/exporter.go#L169-L170)
 закреплены тем же release. Upstream [factory metadata](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlphttpexporter/metadata.yaml)
 задаёт type `otlp_http`, хотя Alloy component называется `otlphttp`; полные exporter IDs
-подтверждены source, а их actual counters ещё должен подтвердить следующий reviewed runtime. Smoke требует
+подтверждены source и actual counters в Mac core `525f71d1`. Smoke требует
 отдельный положительный sent counter для каждого из трёх точных exporter IDs и signal family,
 прежде чем записать `safe_collector_export_counters` как passed. На actual `4da87e1d` receiver counter имел положительное значение,
 но прежний relabel-фильтр отвергал полный typed ID. Поэтому `up` и данные smoke проходили,
@@ -128,12 +129,23 @@ unit contracts этого runtime proof не заменяют; raw startup diagn
 новым каналом сбора ошибок или payload. Исторический startup/health GREEN не доказывает
 очистку перед storage, protobuf wire path или ошибки exporter.
 
-После independent review координатор запускает прежний публичный supervisor с теми же admission,
-identity, floor/growth и cleanup. Синтетический corpus помещает фиксированный sentinel в resource,
+После independent review координатор выполнил публичный supervisor на `525f71d1` с прежними
+admission, identity, floor/growth и cleanup. Синтетический corpus помещает фиксированный sentinel в resource,
 scope, schema URLs, status/events, unknown attributes, log body, metric metadata/exemplars и проверяет
 его отсутствие в bounded storage/API/MCP responses. Положительная проверка сохраняет link IDs.
 `collector-privacy.json` содержит только фиксированные verdicts и явные gaps, без raw ответов.
 
-До такого запуска новый collector config не имеет runtime PASS. Не доказаны произвольные links,
+[Actual Mac core evidence](https://github.com/sachkov-inside/platform/issues/1566#issuecomment-6276818970)
+для source `525f71d14283e116888f3e1b55ba4df31a8c53eb`, tree
+`377f71db8825e6ceade7e623c6749d98b0c77a38`: worker exit 0, monitor не отказал,
+diagnostics/down/residue PASS, собственных containers/volumes/networks осталось 0.
+Config SHA256 `b4ac658837c8615a847396444d3528abb4896b841fcad45614c5e793cae66233`;
+curated proof SHA256 `421c611b4a1632b6931358aaecd1bafd8b67aef57ff46445485fce60c0dabae1`.
+Проверены accessible-field sentinels, сохранение SDK-shaped link IDs, `up`, receiver и все три
+точных typed exporter counters, restart, read-only/revocation и три native Victoria MCP с
+изолированными CPU records. Raw collector diagnostics отброшены, а не очищены и собраны.
+
+Это ограниченный synthetic core PASS, а не общий PASS source `525f71d1`: отдельный fresh-carrier
+PostgreSQL case остановился по 240-секундному сроку и остаётся открытым. Не доказаны произвольные links,
 реальный SDK wire path, protobuf sentinel corpus, stdout/browser/Telegram coverage, все collector
 error paths, полная кардинальность/ресурсный запас и production rollout с семью сутками наблюдений.

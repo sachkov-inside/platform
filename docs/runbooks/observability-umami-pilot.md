@@ -3,8 +3,8 @@
 Это подготовленный компонент #1566 к спецификации #1565. Он не включает tracker в Platform,
 не меняет legal-редакции и не означает готовность production. API/native MCP совместимость,
 privacy/read-only/revocation подтверждены на Mac и Linux для указанного ниже source tree.
-Retention runner подготовлен; его новый полный supervised corpus, полный каталог аналитики,
-restore и resource acceptance ещё требуют отдельного доказательства.
+Supervised synthetic retention corpus прошёл на Mac `fe89f406` и Linux source `4da87e1d`.
+Это не полный каталог аналитики, scheduler, restore или resource acceptance.
 
 Общий с core stdlib helper записывает отдельный kernel CPU record для единственного native
 Umami MCP. Он включает native child и kernel-accounted/reaped descendants, исключая параллельные
@@ -24,6 +24,17 @@ Linux [run 39299627883](https://github.com/sachkov-inside/platform/actions/runs/
 checkout `36eb90bb`, имеет тот же tree и SUCCESS. Monitor не отказал; diagnostics/down/residue
 PASS, собственных containers/volumes/networks после cleanup — 0. Это API/MCP compatibility,
 не history TTL, capacity, resource acceptance или pgBackRest proof.
+
+Текущий retention proof: Mac source `fe89f4062960178fcf3ddea45fb35fc861b3736b`, tree
+`c86e6996f33f171d331c0f64c2ae5d8381911014`, curated SHA256
+`d224e4fbd479c29fc72192dbb0b050678c0bbb2efbd61f2df4532385a10e2bf4`.
+Linux [run 39315356798](https://github.com/sachkov-inside/platform/actions/runs/39315356798)
+выполнил source `4da87e1d`, provider checkout `26cfd4e1`, с проверенным exact tree
+`343da0e42496f3b587b4cd803eafa89de413b7c4`. Оба запуска прошли query boundary до удаления,
+partial/full drain 502 expired events и idempotent retry; worker exit 0, monitor без отказа,
+diagnostics/down/residue PASS. На Mac отдельно проверен нулевой остаток собственных Docker resources.
+Это bounded pinned Umami 3.4 / PostgreSQL 16.13 proof; scheduler, существующая PostgreSQL 18
+topology, pgBackRest/restore и replay актуальных удалений остаются открытыми.
 
 Источник закреплённого [POST /api/teams](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/teams/route.ts)
 возвращает результат [createTeam](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/team.ts)
@@ -93,8 +104,10 @@ DNS/connect, upstream headers/body и запись ответа. Отдельн�
 `npm ci --ignore-scripts --omit=dev --no-audit --no-fund` в private output, не workspace install.
 Host Node должен совпасть с `.node-version`. CLI получает только фиксированные origin/token,
 без inherited `UMAMI_API_URL`, Cloud key, proxy или Node options. Ни `npx latest`, ни обход
-gateway не являются рецептом. Discovery и известный pageview проверяет prepared runner;
-фактическое выполнение, полный каталог инструментов и isolated MCP CPU proof пока pending.
+gateway не являются рецептом. Discovery и известный pageview подтверждены указанными API/MCP запусками. Изолированный
+Mac CPU record для native Umami MCP уже получен на `b708afe1` ([evidence](https://github.com/sachkov-inside/platform/issues/1566#issuecomment-6274516488));
+это исторический отдельный source, не resource acceptance текущего retention runner.
+Полный каталог аналитических сценариев остаётся pending.
 
 ## Подготовка и протокол runtime
 
@@ -151,7 +164,7 @@ cleanup на другом daemon; требуется ручная проверк
 `inputs.lock.json` содержит проверенные amd64/arm64 OCI config digests Postgres 16.13: image
 создаёт postgres UID/GID 70 и PGDATA/socket directories с owner postgres. Сервис запускается
 как `70:70`, с `cap_drop: ALL`, без privilege escalation. Fresh named-volume copy-up permissions
-ещё подтверждаются actual runtime. SQL не монтируется из host mode-0600 файла в entrypoint:
+подтверждены указанными Mac/Linux supervised retention запусками. SQL не монтируется из host mode-0600 файла в entrypoint:
 после bounded `pg_isready` внешний worker передаёт его `psql` по stdin, без паролей в argv.
 Query gateway работает с numeric UID/GID владельца private reader key, чтобы читать mode 0600
 без DAC override. Эти значения не являются production credentials.
@@ -235,9 +248,9 @@ bash scripts/heavy-check.sh node --test scripts/observability-umami-retention.pg
 
 Полный supervised runner дополнен corpus после native baseline и до revocation. SQL добавляет
 только synthetic custom events (pageview baseline остаётся 1), затем проверяет query boundary
-до физического удаления, partial/full drain и retry. Новый полный Umami retention run **pending**
-до immutable review и фактического запуска координатором. Schema-only PG и Python doubles
-не подменяют этот source-bound API/cleanup proof.
+до физического удаления, partial/full drain и retry. Этот bounded corpus
+прошёл в указанных Mac `fe89f406` / Linux source `4da87e1d` запусках. Schema-only PG и Python
+doubles отдельно не подменяют source-bound API/cleanup proof. Scheduler и restore остаются pending.
 
 Разрешённые reads: `/api/websites` возвращает metadata без event history; `/stats` и `/events`
 требуют start/end в пределах 365×24 часов и окна 31 день. Для stats дополнительно ограничен
@@ -282,5 +295,6 @@ bash scripts/heavy-check.sh node --test scripts/observability-umami-startup.pg.t
 Contract запускает только собственный disposable PostgreSQL через Testcontainers; Umami app
 не запускается. Он проверяет init barrier, Unix/TCP различие, обрыв активного SQL при restart,
 готовность persistent server, исходный role SQL и удаление owned container/volume.
-Новый полный supervised Umami run после исправления остаётся pending до immutable review
-и запуска координатором. Этот contract не доказывает runtime retention или restore.
+После исправления supervised Umami retention запуски на Mac `fe89f406` и Linux source
+`4da87e1d` прошли, как указано выше. Сам этот schema-only contract не доказывает runtime
+retention или restore; доказательство bounded runtime retention относится к указанным supervised запускам.
