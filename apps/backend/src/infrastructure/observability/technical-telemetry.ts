@@ -20,8 +20,10 @@ import {
   type PushMetricExporter,
 } from "@opentelemetry/sdk-metrics";
 
+import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
+
 const MAX_PENDING_SPANS = 512;
-const EXPORT_TIMEOUT_MS = 1_000;
+
 const EXPORT_INTERVAL_MS = 5_000;
 const contexts = new AsyncLocalStorage<
   Readonly<Record<string, string | boolean>>
@@ -46,7 +48,11 @@ interface EnabledConfiguration {
 
 export interface HttpObservation {
   run<Value>(work: () => Value): Value;
-  finish(status: number, durationMs: number): void;
+  finish(
+    status: number | undefined,
+    durationMs: number,
+    outcome?: "completed" | "aborted" | "timeout",
+  ): void;
 }
 export interface TechnicalTelemetry {
   startHttp(input: {
@@ -109,7 +115,7 @@ export function createTechnicalTelemetry(
     maxQueueSize: MAX_PENDING_SPANS,
     maxExportBatchSize: 64,
     scheduledDelayMillis: EXPORT_INTERVAL_MS,
-    exportTimeoutMillis: EXPORT_TIMEOUT_MS,
+    exportTimeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
   });
   const traces = new BasicTracerProvider({
     resource,
@@ -170,13 +176,17 @@ export function createTechnicalTelemetry(
   const reader = new PeriodicExportingMetricReader({
     exporter: metricExporter,
     exportIntervalMillis: EXPORT_INTERVAL_MS,
-    exportTimeoutMillis: EXPORT_TIMEOUT_MS,
+    exportTimeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
     cardinalityLimits: { default: 128 },
     maxExportBatchSize: 128,
   });
   const meters = new MeterProvider({ resource, readers: [reader] });
   const meter = meters.getMeter("inside-http");
   const requests = meter.createCounter("http.server.request.count");
+  let activeRequests = 0;
+  meter
+    .createObservableGauge("http.server.active_requests")
+    .addCallback((result) => result.observe(activeRequests));
   const duration = meter.createHistogram("http.server.request.duration", {
     unit: "s",
   });
@@ -195,6 +205,7 @@ export function createTechnicalTelemetry(
   const tracer = traces.getTracer("inside-http");
   return {
     startHttp: (input) => {
+      activeRequests++;
       const method = [
         "GET",
         "POST",
@@ -225,17 +236,26 @@ export function createTechnicalTelemetry(
       let finished = false;
       return {
         run: (work) => contexts.run(correlation, work),
-        finish: (status, durationMs) => {
+        finish: (status, durationMs, outcome = "completed") => {
           if (finished) return;
           finished = true;
+          activeRequests--;
           const completed = {
             ...attributes,
-            "http.response.status_code": status,
+            "http.request.outcome": outcome,
+            ...(status === undefined
+              ? {}
+              : { "http.response.status_code": status }),
+            ...(outcome === "completed" ? {} : { "error.type": outcome }),
           };
           requests.add(1, completed);
           duration.record(Math.max(0, durationMs) / 1_000, completed);
-          span.setAttribute("http.response.status_code", status);
-          if (status >= 500) span.setStatus({ code: SpanStatusCode.ERROR });
+          span.setAttributes(completed);
+          if (
+            outcome !== "completed" ||
+            (status !== undefined && status >= 500)
+          )
+            span.setStatus({ code: SpanStatusCode.ERROR });
           span.end();
         },
       };

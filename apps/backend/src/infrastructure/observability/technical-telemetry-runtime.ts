@@ -9,6 +9,8 @@ import {
   type TechnicalTelemetry,
 } from "./technical-telemetry.js";
 
+import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
+
 const runtimeSchema = z.object({
   INSIDE_OTEL_ENDPOINT: z.url().refine((value) => {
     const url = new URL(value);
@@ -32,6 +34,16 @@ export function technicalTelemetryFromEnvironment(input: {
 }): TechnicalTelemetry {
   if (input.environment["INSIDE_OTEL_ENABLED"] !== "true")
     return createTechnicalTelemetry({ enabled: false });
+  // Pinned exporters read process.env even with an explicit endpoint and merge ambient headers.
+  // Refuse their entire transport namespace before construction, including client certificate files.
+  if (
+    Object.keys(process.env).some((key) => key.startsWith("OTEL_EXPORTER_OTLP"))
+  ) {
+    writeLog("warn", "telemetry_ambient_configuration_unsupported", {
+      service: input.service,
+    });
+    return createTechnicalTelemetry({ enabled: false });
+  }
   const parsed = runtimeSchema.safeParse(input.environment);
   if (!parsed.success) {
     writeLog("warn", "telemetry_configuration_invalid", {
@@ -54,12 +66,12 @@ export function technicalTelemetryFromEnvironment(input: {
     exporters: {
       spans: new OTLPTraceExporter({
         url: `${endpoint}/v1/traces`,
-        timeoutMillis: 1_000,
+        timeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
         concurrencyLimit: 1,
       }),
       metrics: new OTLPMetricExporter({
         url: `${endpoint}/v1/metrics`,
-        timeoutMillis: 1_000,
+        timeoutMillis: TELEMETRY_EXPORT_TIMEOUT_MS,
         concurrencyLimit: 1,
       }),
     },

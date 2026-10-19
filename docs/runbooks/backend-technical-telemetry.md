@@ -3,7 +3,9 @@
 The API has opt-in manual OpenTelemetry instrumentation. It exports registered route templates,
 HTTP methods, response statuses and durations. HTTP counters and duration histograms include
 successful health requests and failed requests independently of trace sampling. Unmatched routes
-use `unmatched`; arbitrary HTTP methods use `_OTHER`.
+use `unmatched`; arbitrary HTTP methods use `_OTHER`. Aborts and timeouts finish once,
+with fixed `http.request.outcome` / `error.type` values and no invented HTTP status when no response
+was completed. `http.server.active_requests` reports the current total, including unsampled work.
 
 The API runtime reads these settings:
 
@@ -17,6 +19,12 @@ The existing runtime identity supplies the release, and Platform mode supplies t
 Service identity is `platform-api`. Invalid telemetry configuration emits a fixed warning and
 leaves the application running with export disabled. No production configuration is enabled by
 this change.
+
+When any ambient `OTEL_EXPORTER_OTLP*` variable is present, export stays disabled with the fixed
+`telemetry_ambient_configuration_unsupported` warning. This prevents the pinned SDK from inheriting
+foreign collector credentials, headers, endpoints or TLS client certificate/key files from `process.env`.
+The application keeps running; no environment values are logged. This runtime does not support
+ambient OTLP transport configuration or authenticated collectors yet.
 
 The telemetry interface accepts no request headers, raw URL, body, SQL or exception. Trace status
 records a server failure without its message or stack. HTTP logs keep the existing server-generated

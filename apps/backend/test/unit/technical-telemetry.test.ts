@@ -27,26 +27,34 @@ describe("technical telemetry", () => {
       sampleRatio: 0,
       exporters: { spans, metrics },
     });
-    for (const status of [200, 500]) {
-      const request = telemetry.startHttp({ method: "GET", route: "/health" });
-      await request.run(() => Promise.resolve());
-      request.finish(status, 12);
+    try {
+      for (const status of [200, 500]) {
+        const request = telemetry.startHttp({
+          method: "GET",
+          route: "/health",
+        });
+        await request.run(() => Promise.resolve());
+        request.finish(status, 12);
+      }
+      await telemetry.flush();
+      expect(spans.getFinishedSpans()).toHaveLength(0);
+      const exported = metrics
+        .getMetrics()
+        .flatMap((batch) =>
+          batch.scopeMetrics.flatMap((scope) => scope.metrics),
+        );
+      const count = exported.find(
+        (metric) => metric.descriptor.name === "http.server.request.count",
+      );
+      expect(count?.dataPoints.map((point) => point.value)).toEqual([1, 1]);
+      expect(
+        count?.dataPoints.map(
+          (point) => point.attributes["http.response.status_code"],
+        ),
+      ).toEqual([200, 500]);
+    } finally {
+      await telemetry.shutdown();
     }
-    await telemetry.flush();
-    expect(spans.getFinishedSpans()).toHaveLength(0);
-    const exported = metrics
-      .getMetrics()
-      .flatMap((batch) => batch.scopeMetrics.flatMap((scope) => scope.metrics));
-    const count = exported.find(
-      (metric) => metric.descriptor.name === "http.server.request.count",
-    );
-    expect(count?.dataPoints.map((point) => point.value)).toEqual([1, 1]);
-    expect(
-      count?.dataPoints.map(
-        (point) => point.attributes["http.response.status_code"],
-      ),
-    ).toEqual([200, 500]);
-    await telemetry.shutdown();
   });
 
   it("isolates concurrent request correlation and excludes private HTTP input and exception text", async () => {

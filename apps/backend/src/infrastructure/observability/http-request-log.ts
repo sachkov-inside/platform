@@ -24,7 +24,22 @@ export function observeHttpRequests(
 ): void {
   const scopes = new WeakMap<FastifyRequest, AsyncResource>();
   const observations = new WeakMap<FastifyRequest, HttpObservation>();
-  fastify.addHook("onRequest", (request, _reply, done) => {
+  const started = new WeakMap<FastifyRequest, number>();
+  const interrupted = (
+    request: FastifyRequest,
+    outcome: "aborted" | "timeout",
+  ) => {
+    const begin = started.get(request);
+    if (begin !== undefined)
+      observations
+        .get(request)
+        ?.finish(undefined, performance.now() - begin, outcome);
+  };
+  fastify.addHook("onRequest", (request, reply, done) => {
+    started.set(request, performance.now());
+    reply.raw.once("close", () => {
+      if (!reply.raw.writableFinished) interrupted(request, "aborted");
+    });
     const route = request.routeOptions.url;
     const observation = telemetry?.startHttp({
       method: request.method,
@@ -53,6 +68,14 @@ export function observeHttpRequests(
     const scope = scopes.get(request);
     if (scope === undefined) done();
     else scope.runInAsyncScope(done);
+  });
+  fastify.addHook("onRequestAbort", (request, done) => {
+    interrupted(request, "aborted");
+    done();
+  });
+  fastify.addHook("onTimeout", (request, _reply, done) => {
+    interrupted(request, "timeout");
+    done();
   });
   fastify.addHook("onResponse", (request, reply, done) => {
     const route = request.routeOptions.url;
