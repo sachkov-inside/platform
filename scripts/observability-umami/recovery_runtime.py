@@ -270,34 +270,63 @@ def _sql(compose, service, payload, *, execute, role='umami', database='umami', 
                    '-d', database, '-v', 'ON_ERROR_STOP=1'], payload=payload, timeout=timeout)
 
 
-def _await_sql(compose, service, *, execute, tcp=False):
+def _await_sql(compose, service, *, execute, tcp=False, progress=None):
     import time
     deadline = time.monotonic() + SQL_READY_SECONDS
+    diagnostic = {'schema': 1, 'condition': 'pending', 'pg_isready_returncode': None,
+                  'recovery_ended': None, 'error': None}
+    def publish(condition=None, error=None):
+        if condition is not None:
+            diagnostic['condition'] = condition
+        diagnostic['error'] = error
+        if progress is not None:
+            progress(dict(diagnostic))
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            publish(error='deadline_exceeded')
             raise RuntimeError('recovered_database_readiness_deadline')
         args = ['exec', '-T', service, 'pg_isready', '-t', '1', '-U', 'pilot_bootstrap', '-d', 'postgres']
         if tcp:
             args += ['-h', '127.0.0.1']
+        phase = 'pg_isready'
         try:
+            publish('probing')
             execute(compose, args, timeout=min(12, remaining))
+            diagnostic['pg_isready_returncode'] = 0
             if not tcp:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
+                    publish(error='deadline_exceeded')
                     raise RuntimeError('recovered_database_readiness_deadline')
+                phase = 'recovery_query'
+                publish('checking_recovery')
                 recovery_state = json.loads(_sql(compose, service,
                     "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
                     execute=execute, role='pilot_bootstrap', database='postgres', timeout=min(12, remaining)))
                 if (not isinstance(recovery_state, dict) or set(recovery_state) != {'recovery_ended'}
                         or type(recovery_state['recovery_ended']) is not bool):
+                    publish('invalid_response', 'invalid_result')
                     raise ValueError('recovery_readiness_shape')
+                diagnostic['recovery_ended'] = recovery_state['recovery_ended']
                 if not recovery_state['recovery_ended']:
+                    publish('recovering')
                     time.sleep(min(SQL_POLL_SECONDS, max(0, deadline - time.monotonic())))
                     continue
+            publish('ready')
             return
-        except runtime.FixtureCommandFailed:
+        except runtime.FixtureCommandFailed as error:
+            if phase == 'pg_isready':
+                code = error.returncode
+                diagnostic['pg_isready_returncode'] = code if type(code) is int and -128 <= code <= 255 else None
+            publish('not_accepting' if phase == 'pg_isready' else 'query_failed', 'command_failed')
             time.sleep(min(SQL_POLL_SECONDS, max(0, deadline - time.monotonic())))
+        except json.JSONDecodeError:
+            publish('invalid_response', 'invalid_json')
+            raise
+        except (subprocess.TimeoutExpired, TimeoutError):
+            publish('timeout', 'timeout')
+            raise
 
 
 def _expect(encoded, expected):
@@ -444,7 +473,11 @@ def _confirm_recovered_postmaster(compose, project, name, source, sql, execute, 
         progress('start')
         execute(compose, ['start', 'recovered'])
         progress('sql_ready')
-        _await_sql(compose, 'recovered', execute=execute)
+        def readiness(value):
+            diagnostic['readiness'] = value
+            report['recovered_postmaster'] = dict(diagnostic)
+            record()
+        _await_sql(compose, 'recovered', execute=execute, progress=readiness)
         progress('recovery_ended')
         _expect(sql('recovered', "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
                     role='pilot_bootstrap', database='postgres'), {'recovery_ended': True})

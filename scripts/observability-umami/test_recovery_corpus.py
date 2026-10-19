@@ -248,8 +248,16 @@ class CorpusCallbackContinuity(unittest.TestCase):
                 self.assertEqual(report['operation']['service'], 'restore')
                 self.assertEqual(report['operation']['outcome'], 'passed')
                 self.assertTrue(report['repo_init_wait_comparison']['same_owned_id_exited_zero'])
-                self.assertEqual(report['recovered_postmaster'], {'schema': 1, 'step': step,
-                    'outcome': 'failed', 'error': category, 'returncode': code})
+                expected = {'schema': 1, 'step': step, 'outcome': 'failed', 'error': category, 'returncode': code}
+                if step in ('sql_ready', 'recovery_ended', 'cluster', 'lineage', 'platform', 'role', 'events', 'readers_absent'):
+                    expected['readiness'] = {'schema': 1, 'condition': 'ready', 'pg_isready_returncode': 0,
+                        'recovery_ended': True, 'error': None}
+                    if failure == 'ready_timeout':
+                        expected['readiness'].update(condition='timeout', pg_isready_returncode=None,
+                            recovery_ended=None, error='timeout')
+                    if failure == 'ready_json':
+                        expected['readiness'].update(condition='invalid_response', recovery_ended=None, error='invalid_json')
+                self.assertEqual(report['recovered_postmaster'], expected)
                 self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
                     ('read-db', 'reader', 'ingest') for args in calls))
                 self.assertNotIn('private-sentinel', json.dumps(report))
@@ -261,6 +269,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
         self.assertEqual(report['stage'], 'current_replay_and_ttl')
         self.assertEqual(report['reader_gate'], 'closed')
         self.assertEqual(report['recovered_postmaster'], {'schema': 1, 'step': 'readers_absent',
-            'outcome': 'passed', 'error': None, 'returncode': 0})
+            'outcome': 'passed', 'error': None, 'returncode': 0,
+            'readiness': {'schema': 1, 'condition': 'ready', 'pg_isready_returncode': 0,
+                'recovery_ended': True, 'error': None}})
         self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
             ('read-db', 'reader', 'ingest') for args in calls))
