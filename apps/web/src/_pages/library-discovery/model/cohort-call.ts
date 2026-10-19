@@ -71,13 +71,7 @@ export function cohortCall({
   switch (cohort.stage) {
     case "announcement":
       return {
-        banner: {
-          kind: "card",
-          label: "",
-          text: `Старт ${date}`,
-          detail:
-            "Предзаказ откроется скоро. До старта курс будет стоить дешевле.",
-        },
+        banner: null,
         action: null,
       };
     case "preorder":

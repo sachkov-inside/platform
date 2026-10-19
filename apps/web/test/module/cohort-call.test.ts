@@ -71,7 +71,7 @@ describe("first screen call of a product cohort", () => {
       cohort: { ...cohort, stage: "announcement" },
       signedIn: false,
     });
-    expect(guest.banner?.text).toBe("Старт 20 октября");
+    expect(guest.banner).toBeNull();
     expect(guest.action).toBeNull();
     expect(
       call({ cohort: { ...cohort, stage: "announcement" } }).action,

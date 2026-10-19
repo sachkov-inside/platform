@@ -75,15 +75,15 @@
 /* Пункты — короткий столбец со значками: на любой ширине колонки они не рвутся на неровные ряды. */
 .aie-hero-points {
   display: grid;
-  gap: 0.6rem;
-  margin: 1.4rem 0 0;
+  gap: 1.25rem;
+  margin: 1.75rem 0 0;
   padding: 0;
   list-style: none;
 }
 .aie-hero-points li {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 1rem;
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.4;
@@ -164,8 +164,8 @@
     background: var(--secondary);
   }
   .aie-hero-points li {
-    gap: 0.7rem;
-    padding: 0.8rem 0;
+    gap: 1rem;
+    padding: 1.2rem 0;
     border-radius: 0;
     background: transparent;
     font-size: 0.9rem;
@@ -266,7 +266,6 @@
     height: 1rem;
   }
   .aie-hero-points li {
-    padding: 0.65rem 0;
     font-size: 0.875rem;
   }
   .aie-hero-points .aie-icon {
