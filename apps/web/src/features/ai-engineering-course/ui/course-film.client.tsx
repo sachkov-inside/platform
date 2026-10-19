@@ -176,7 +176,10 @@ export function CourseFilm({
         pixelHeight / FILM_HEIGHT,
       );
       g.setTransform(1, 0, 0, 1, 0, 0);
-      g.clearRect(0, 0, pixelWidth, pixelHeight);
+      // Cover the entire physical buffer before fitting the authored frame. Fractional
+      // mobile pixels can leave a partially transparent edge around the contained scene.
+      g.fillStyle = palette.ink;
+      g.fillRect(0, 0, pixelWidth, pixelHeight);
       g.setTransform(
         scale,
         0,
