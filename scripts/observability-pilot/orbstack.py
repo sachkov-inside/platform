@@ -296,7 +296,7 @@ def vm_budget(compose, lock, command, output, *, docker_args):
     """Bootstrap is a limited preflight, before admitting the full pilot workload."""
     import json
     verify_probe(lock)
-    command(['docker', '--context', 'orbstack', 'pull', '--platform', 'linux/arm64', lock['image']],
+    command(['docker', 'pull', '--platform', 'linux/arm64', lock['image']],
             timeout=PROBE_BOOTSTRAP_TIMEOUT_SECONDS)
     command(compose + ['up', '-d', '--no-deps', 'storage-probe'], timeout=PROBE_BOOTSTRAP_TIMEOUT_SECONDS)
     process = subprocess.Popen(docker_args(compose + ['logs', '--no-log-prefix', '--no-color', '--follow', 'storage-probe']),

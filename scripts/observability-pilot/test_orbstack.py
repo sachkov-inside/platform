@@ -126,6 +126,7 @@ class OrbStackAdmissionTest(unittest.TestCase):
                     except RuntimeError:
                         self.assertEqual(outcome, 'invalid')
                 self.assertEqual(calls[0][-1], lock['image'])
+                self.assertNotIn('--context', calls[0])
                 self.assertEqual(calls[1], ['fake-compose','up','-d','--no-deps','storage-probe'])
                 pid = int((output/'probe-pid').read_text())
                 with self.assertRaises(ProcessLookupError):
