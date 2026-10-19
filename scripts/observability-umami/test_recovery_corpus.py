@@ -12,7 +12,7 @@ from test_retention import batch
 
 
 class CorpusCallbackContinuity(unittest.TestCase):
-    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all'):
+    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None):
         project = recovery.PROJECT_PREFIX + 'a' * 12
         image = json.loads(recovery.CACHE_LOCK.read_text())['image']
         with tempfile.TemporaryDirectory() as directory:
@@ -51,6 +51,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
                 if args[:2] == ['volume', 'ls']:
                     return ''
                 if payload is not None and 'recovered' in args:
+                    if recovered_cluster is not None and "'version_num'" in payload:
+                        return json.dumps(recovered_cluster)
                     if "'recovery_ended'" in payload:
                         recovery_checks += 1
                         if failure == 'postmaster_ready_json' and recovery_checks == 1:
@@ -262,6 +264,32 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     ('read-db', 'reader', 'ingest') for args in calls))
                 self.assertNotIn('private-sentinel', json.dumps(report))
                 self.assertLess(len(json.dumps(report['recovered_postmaster']).encode()), 1024)
+
+    def test_recovered_metadata_rejection_identifies_only_the_invalid_field(self):
+        valid = {'version_num': 180004, 'system_identifier': '1234567890123456789',
+            'archive_mode': 'off', 'archive_command': 'pgbackrest --stanza=production archive-push %p'}
+        cases = [('shape', []), ('shape', {'private-sentinel': 'private-sentinel'}),
+            ('shape', {**valid, 'private-sentinel': 'private-sentinel'})]
+        for field, values in (
+                ('version_num', [True, 99999, 1000000, 'private-sentinel', []]),
+                ('system_identifier', [123, '0', '1' * 21, 'private-sentinel', {}]),
+                ('archive_mode', ['always', 'private-sentinel', False, []]),
+                ('archive_command', ['', 'private-sentinel', False, {}])):
+            cases.extend((field, {**valid, field: value}) for value in values)
+        for index, (field, metadata) in enumerate(cases):
+            with self.subTest(case=index, field=field):
+                report, calls = self.run_corpus('metadata', whole_controller=True, recovered_cluster=metadata)
+                self.assertEqual(report['recovered_postmaster']['cluster_validation'],
+                    {'schema': 1, 'invalid_field': field})
+                self.assertEqual(report['recovered_postmaster']['error'], 'proof_mismatch')
+                self.assertEqual(report['recovered_postmaster']['step'], 'cluster')
+                self.assertEqual(report['operation']['service'], 'restore')
+                self.assertEqual(report['operation']['outcome'], 'passed')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['recovered_postmaster']).encode()), 1024)
+                self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
+                    ('read-db', 'reader', 'ingest') for args in calls))
 
     def test_recovered_postmaster_proof_survives_later_maintenance_failure(self):
         report, calls = self.run_corpus('postmaster_later', whole_controller=True)
