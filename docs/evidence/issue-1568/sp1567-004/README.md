@@ -71,6 +71,12 @@ A global alert check also counted an empty framework announcer. These were harne
 final assertions still check B's real join response, Account identity, both controls, membership
 errors/retries and durable withdrawal. `behavior-results.json` preserves these outcomes/limits.
 
+The entitled ready-intent path was executed separately before the learning capture (the inline
+CLI result at 18:27:41 UTC showed two withdrawal controls, no signup CTA, and a ready active
+membership). The later Account proof also starts Account A from `continuation-state.json`
+while its isolated learning grant is active, and awaits that real continuation before switching
+to B. `sp004-learning-proof.js` then covers the already-confirmed membership and withdrawal.
+
 No auth handler, Account cache key, API, persistence rule, entitlement or notification behavior
 changed. Independent Standards and Spec review on c143 found no blockers. Spec checked the actual
 keyed `ReadingProgressProvider` ancestor, which remounts the child provider when Account changes.
@@ -96,9 +102,11 @@ Worktree: `/Users/dev/orca/workspaces/inside-platform/ai-waitlist-implementation
 - Storybook continuing: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-continuing-with-learning
 - Storybook retry: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-withdrawal-retry-with-learning
 
-Owned listeners at capture: Storybook `6018`, PID `20245`, cwd `apps/web`, started 16:06:43 UTC;
+Current owned preview listeners after restart: Storybook `6018`, PID `20245`, cwd `apps/web`, started 16:06:43 UTC;
 API/launcher `6020`, PID `6814`, cwd `apps/backend`, started 18:30:19 UTC; its production Web child
-`6019`, PID `6916`, cwd `apps/web`, started 18:30:23 UTC. API/Web report c143 source. Storybook
+`6019`, PID `6916`, cwd `apps/web`, started 18:30:23 UTC. The earlier live learning captures used the previous owned API/Web pair, PID `78620`/`79467`,
+also running c143. That pair was stopped gracefully before restarting the same production build
+with the isolated dummy bank/contact contour for the Offer scenario. API/Web report c143 source. Storybook
 serves the same current production presentation source. Accepted-proof port6017 is already stopped
 by the coordinator; its branch/source remain preserved.
 
