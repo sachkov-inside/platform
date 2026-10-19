@@ -39,6 +39,8 @@ ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 30
 MCP_RESPONSE_TIMEOUT_SECONDS = 15
 WORKER_SHUTDOWN_SECONDS = 2
 MONITOR_SHUTDOWN_SECONDS = 1
+COMPRESSED_ASSET_MEMORY_BUDGET_BYTES = 128 * 1024**2
+PLUGIN_UNPACKED_BUDGET_BYTES = 256 * 1024**2
 
 
 def compose_plan(source, output, images):
@@ -157,9 +159,12 @@ def disk_budget(path):
 
 
 def downloaded_asset(asset):
+    size = asset.get("size_bytes")
+    if type(size) is not int or not 0 < size <= COMPRESSED_ASSET_MEMORY_BUDGET_BYTES:
+        raise RuntimeError("pinned archive has invalid size metadata")
     with urllib.request.urlopen(asset["url"], timeout=ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS) as response:
-        archive = response.read(64 * 1024 * 1024 + 1)
-    if len(archive) > 64 * 1024 * 1024 or "sha256:" + hashlib.sha256(archive).hexdigest() != asset["digest"]:
+        archive = response.read(size + 1)
+    if len(archive) != size or "sha256:" + hashlib.sha256(archive).hexdigest() != asset["digest"]:
         raise RuntimeError("pinned archive failed size/digest check")
     return archive
 
@@ -348,10 +353,13 @@ def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS):
 def install_plugin(output):
     lock = json.loads((CONFIG / "inputs.lock.json").read_text())
     asset = lock["artifacts"]["victorialogs-datasource"]["assets"][0]
+    unpacked_size = asset.get("unpacked_size_bytes")
+    if type(unpacked_size) is not int or not 0 < unpacked_size <= PLUGIN_UNPACKED_BUDGET_BYTES:
+        raise RuntimeError("pinned plugin unpacked size metadata exceeds pilot budget")
     archive = downloaded_asset(asset)
     with zipfile.ZipFile(io.BytesIO(archive)) as zipped:
-        if sum(info.file_size for info in zipped.infolist()) > 128 * 1024 * 1024:
-            raise RuntimeError("VictoriaLogs plugin exceeds unpacked pilot budget")
+        if sum(info.file_size for info in zipped.infolist()) != unpacked_size:
+            raise RuntimeError("plugin unpacked size differs from pinned metadata")
         for info in zipped.infolist():
             destination = (output / "plugins" / info.filename).resolve()
             if not destination.is_relative_to((output / "plugins").resolve()):

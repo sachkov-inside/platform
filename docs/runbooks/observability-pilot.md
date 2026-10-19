@@ -35,6 +35,16 @@ Publisher releases: [Grafana 13.2.4](https://github.com/grafana/grafana/releases
 [VictoriaTraces 0.12.0](https://github.com/VictoriaMetrics/VictoriaTraces/releases/tag/v0.12.0).
 Это происхождение inputs, а не доказательство совместимости.
 
+Для каждого asset закреплён `size_bytes` из GitHub Releases. Downloader читает не больше
+этого размера плюс один байт и требует точного размера и SHA256; дополнительный memory cap — 128MiB.
+У VictoriaLogs datasource v0.33.1 опубликованный ZIP занимает 79,389,151B и превышает прежний
+общий предел 64MiB. Проверенная по закреплённому digest центральная директория ZIP содержит
+45 entries общим распакованным объёмом 224,056,733B; крупнейший entry — 28,246,176B.
+Эта проверка 19.10.2026 читала архив в памяти, без распаковки или выполнения. Точный
+`unpacked_size_bytes` закреплён отдельно; перед распаковкой требуется совпадение, в пределах 256MiB.
+Сумма compressed/unpacked размеров этого plugin — 303,445,884B, внутри общего growth cap 4GiB;
+расход images и всего workload по-прежнему проверяется самим пилотом.
+
 ## Изолированный запуск
 
 Нужны Linux Engine с локально доступным `DockerRootDir`, Docker Compose, Git, Python 3.9+

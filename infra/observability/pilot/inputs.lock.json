@@ -18,22 +18,26 @@
         {
           "name": "mcp-victoriametrics_Darwin_arm64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Darwin_arm64.tar.gz",
-          "digest": "sha256:ca7559352bbb21e0387b591cf12e14b879afa9a2bcc1aef128e9914b369c7835"
+          "digest": "sha256:ca7559352bbb21e0387b591cf12e14b879afa9a2bcc1aef128e9914b369c7835",
+          "size_bytes": 42824824
         },
         {
           "name": "mcp-victoriametrics_Darwin_x86_64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Darwin_x86_64.tar.gz",
-          "digest": "sha256:da976f17b79b8740c6fe7ec8927d60d8ecc300044f242406b4763fe7dfcb13c3"
+          "digest": "sha256:da976f17b79b8740c6fe7ec8927d60d8ecc300044f242406b4763fe7dfcb13c3",
+          "size_bytes": 43991043
         },
         {
           "name": "mcp-victoriametrics_Linux_arm64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Linux_arm64.tar.gz",
-          "digest": "sha256:f3a544a20cfa20178c852b9b98aa470651446ba6c7167af74afeebcc7ca82b51"
+          "digest": "sha256:f3a544a20cfa20178c852b9b98aa470651446ba6c7167af74afeebcc7ca82b51",
+          "size_bytes": 41185188
         },
         {
           "name": "mcp-victoriametrics_Linux_x86_64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Linux_x86_64.tar.gz",
-          "digest": "sha256:8f73d4656e2b85c947b97f28a17c803d2b74c4b4201a2ff0400880911c2bbeb5"
+          "digest": "sha256:8f73d4656e2b85c947b97f28a17c803d2b74c4b4201a2ff0400880911c2bbeb5",
+          "size_bytes": 43088677
         }
       ]
     },
@@ -44,22 +48,26 @@
         {
           "name": "mcp-victorialogs_Darwin_arm64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Darwin_arm64.tar.gz",
-          "digest": "sha256:601edbc5fba4a6f18bb62e4dbedef9b6bf55660b635b7bc8f62cb7c3490bc361"
+          "digest": "sha256:601edbc5fba4a6f18bb62e4dbedef9b6bf55660b635b7bc8f62cb7c3490bc361",
+          "size_bytes": 16623798
         },
         {
           "name": "mcp-victorialogs_Darwin_x86_64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Darwin_x86_64.tar.gz",
-          "digest": "sha256:22b58f6a3941518deea48f756bc24d968bc007d451857ead1ae82f1e87010d5b"
+          "digest": "sha256:22b58f6a3941518deea48f756bc24d968bc007d451857ead1ae82f1e87010d5b",
+          "size_bytes": 17437592
         },
         {
           "name": "mcp-victorialogs_Linux_arm64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Linux_arm64.tar.gz",
-          "digest": "sha256:35c4cdbf28eab62c0dc160d64001a7e16f6dd5f68689f85430e89149d72b5078"
+          "digest": "sha256:35c4cdbf28eab62c0dc160d64001a7e16f6dd5f68689f85430e89149d72b5078",
+          "size_bytes": 15836746
         },
         {
           "name": "mcp-victorialogs_Linux_x86_64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Linux_x86_64.tar.gz",
-          "digest": "sha256:66f68c07f780ec41c9283df19d1df77a7824a1830fdcdb4b6a5ebb84f0b1f871"
+          "digest": "sha256:66f68c07f780ec41c9283df19d1df77a7824a1830fdcdb4b6a5ebb84f0b1f871",
+          "size_bytes": 16949647
         }
       ]
     },
@@ -70,22 +78,26 @@
         {
           "name": "mcp-victoriatraces_Darwin_arm64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Darwin_arm64.tar.gz",
-          "digest": "sha256:91056b7079d5f33e3a57cf47bc2e7b57e41e3bf9b3e636bcf72d51717f4016c1"
+          "digest": "sha256:91056b7079d5f33e3a57cf47bc2e7b57e41e3bf9b3e636bcf72d51717f4016c1",
+          "size_bytes": 13253072
         },
         {
           "name": "mcp-victoriatraces_Darwin_x86_64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Darwin_x86_64.tar.gz",
-          "digest": "sha256:566697b73b9de0ba9ddf27dcd94a616cb13f117d2e2f9a148793e8b941d2f9b2"
+          "digest": "sha256:566697b73b9de0ba9ddf27dcd94a616cb13f117d2e2f9a148793e8b941d2f9b2",
+          "size_bytes": 14044357
         },
         {
           "name": "mcp-victoriatraces_Linux_arm64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Linux_arm64.tar.gz",
-          "digest": "sha256:8517cb004164794075db27990df935ac83d4015706fd367028ecd439358e8fe6"
+          "digest": "sha256:8517cb004164794075db27990df935ac83d4015706fd367028ecd439358e8fe6",
+          "size_bytes": 12554902
         },
         {
           "name": "mcp-victoriatraces_Linux_x86_64.tar.gz",
           "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Linux_x86_64.tar.gz",
-          "digest": "sha256:bd0f92234cafc3794877c6081253fc0448ff993e9d693bb7c29380e4c1b60de0"
+          "digest": "sha256:bd0f92234cafc3794877c6081253fc0448ff993e9d693bb7c29380e4c1b60de0",
+          "size_bytes": 13622804
         }
       ]
     },
@@ -96,7 +108,9 @@
         {
           "name": "victoriametrics-logs-datasource-v0.33.1.zip",
           "url": "https://github.com/VictoriaMetrics/victorialogs-datasource/releases/download/v0.33.1/victoriametrics-logs-datasource-v0.33.1.zip",
-          "digest": "sha256:73e7ce379ae9a9ce6fdb978e5d6d43f67029b4c3e4d970f1ca8f7f4617f331c5"
+          "digest": "sha256:73e7ce379ae9a9ce6fdb978e5d6d43f67029b4c3e4d970f1ca8f7f4617f331c5",
+          "size_bytes": 79389151,
+          "unpacked_size_bytes": 224056733
         }
       ]
     }
