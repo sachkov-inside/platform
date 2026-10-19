@@ -402,6 +402,31 @@ schema, фиксированные step/outcome/error и проверенный 
 mounts и offline-состояния обязательны. Исторический точный отказ на `restore_destination`
 остаётся неизвестным до получения нового доказательства.
 
+После успешного restore поле `recovered_postmaster` показывает последний подэтап:
+`create`, `container_identity`, `container_inspect`, `stopped`, `mount`, `offline`,
+`start`, `sql_ready`, `recovery_ended`, `cluster`, `lineage`, `platform`, `role`,
+`events` или `readers_absent`. `sql_ready` включает существующее ожидание SQL readiness
+и окончания recovery с прежним deadline. Успех фиксируется только после всех проверок.
+Поле содержит только schema, фиксированные step/outcome/error и проверенный числовой
+returncode либо `null`, занимает меньше 1 KiB и перезаписывается без истории.
+SQL, строки результатов, исключения, ID, paths и secrets туда не записываются.
+Поле сохраняется после последующих maintenance-операций. Его отказ оставляет reader gate
+закрытым; readers и ingest не создаются. Порядок команд, проверки и deadlines прежние.
+
+Вложенное `recovered_postmaster.readiness` сохраняет последний проверенный числовой
+код `pg_isready` либо `null`, последнее известное булево `recovery_ended` либо `null`,
+фиксированные condition/error и schema. При истечении прежних 60 секунд error становится
+`deadline_exceeded`, а condition сохраняет различие между `not_accepting`, `recovering`
+и `query_failed`. Неправильный ответ отмечается как `invalid_response`, timeout команды
+как `timeout`. Эти значения не содержат SQL, тела ответа или сообщения об ошибке.
+Последнее известное `recovery_ended` описывает ранее прочитанный факт, а не текущую
+готовность после последующего отказа. Callback необязателен; polling и deadlines прежние.
+
+В запуске `4ff1c1b2` destination и restore прошли, `recovered` к моменту cleanup работал,
+reader gate остался закрытым. Точный подэтап отказа после restore и успешные SQL-проверки
+не установлены. Новая диагностика нужна для следующего доказательства и сама по себе
+не определяет историческую причину.
+
 Создание контейнеров `restore`, `recovered` и `read-db` использует только
 `docker compose create SERVICE`. Generated plan не объявляет `depends_on`; скрытых
 зависимостей у этих сервисов нет. `create` не запускает контейнеры. Проверки offline,

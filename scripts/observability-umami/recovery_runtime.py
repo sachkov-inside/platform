@@ -270,34 +270,63 @@ def _sql(compose, service, payload, *, execute, role='umami', database='umami', 
                    '-d', database, '-v', 'ON_ERROR_STOP=1'], payload=payload, timeout=timeout)
 
 
-def _await_sql(compose, service, *, execute, tcp=False):
+def _await_sql(compose, service, *, execute, tcp=False, progress=None):
     import time
     deadline = time.monotonic() + SQL_READY_SECONDS
+    diagnostic = {'schema': 1, 'condition': 'pending', 'pg_isready_returncode': None,
+                  'recovery_ended': None, 'error': None}
+    def publish(condition=None, error=None):
+        if condition is not None:
+            diagnostic['condition'] = condition
+        diagnostic['error'] = error
+        if progress is not None:
+            progress(dict(diagnostic))
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            publish(error='deadline_exceeded')
             raise RuntimeError('recovered_database_readiness_deadline')
         args = ['exec', '-T', service, 'pg_isready', '-t', '1', '-U', 'pilot_bootstrap', '-d', 'postgres']
         if tcp:
             args += ['-h', '127.0.0.1']
+        phase = 'pg_isready'
         try:
+            publish('probing')
             execute(compose, args, timeout=min(12, remaining))
+            diagnostic['pg_isready_returncode'] = 0
             if not tcp:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
+                    publish(error='deadline_exceeded')
                     raise RuntimeError('recovered_database_readiness_deadline')
+                phase = 'recovery_query'
+                publish('checking_recovery')
                 recovery_state = json.loads(_sql(compose, service,
                     "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
                     execute=execute, role='pilot_bootstrap', database='postgres', timeout=min(12, remaining)))
                 if (not isinstance(recovery_state, dict) or set(recovery_state) != {'recovery_ended'}
                         or type(recovery_state['recovery_ended']) is not bool):
+                    publish('invalid_response', 'invalid_result')
                     raise ValueError('recovery_readiness_shape')
+                diagnostic['recovery_ended'] = recovery_state['recovery_ended']
                 if not recovery_state['recovery_ended']:
+                    publish('recovering')
                     time.sleep(min(SQL_POLL_SECONDS, max(0, deadline - time.monotonic())))
                     continue
+            publish('ready')
             return
-        except runtime.FixtureCommandFailed:
+        except runtime.FixtureCommandFailed as error:
+            if phase == 'pg_isready':
+                code = error.returncode
+                diagnostic['pg_isready_returncode'] = code if type(code) is int and -128 <= code <= 255 else None
+            publish('not_accepting' if phase == 'pg_isready' else 'query_failed', 'command_failed')
             time.sleep(min(SQL_POLL_SECONDS, max(0, deadline - time.monotonic())))
+        except json.JSONDecodeError:
+            publish('invalid_response', 'invalid_json')
+            raise
+        except (subprocess.TimeoutExpired, TimeoutError):
+            publish('timeout', 'timeout')
+            raise
 
 
 def _expect(encoded, expected):
@@ -423,6 +452,77 @@ def _confirm_restore_destination(compose, project, plan, name, execute, report, 
         raise
 
 
+def _confirm_recovered_postmaster(compose, project, name, source, sql, execute, report, record):
+    """Closed progress through offline postmaster checks, never raw SQL or inspect evidence."""
+    diagnostic = {'schema': 1, 'step': 'create', 'outcome': 'running', 'error': None, 'returncode': None}
+    def progress(step, _shape=None):
+        diagnostic['step'] = {'identity': 'container_identity', 'inspect': 'container_inspect'}.get(step, step)
+        report['recovered_postmaster'] = dict(diagnostic)
+        record()
+    progress('create')
+    try:
+        execute(compose, ['create', 'recovered'])
+        offline = _inspect_service(compose, project, 'recovered', execute, progress=progress)
+        progress('stopped')
+        _require_stopped(offline)
+        progress('mount')
+        _data_mount(offline, name)
+        progress('offline')
+        if offline.get('network') != 'none' or offline.get('ports') not in (None, {}):
+            raise ValueError('recovered_postmaster_not_offline')
+        progress('start')
+        execute(compose, ['start', 'recovered'])
+        progress('sql_ready')
+        def readiness(value):
+            diagnostic['readiness'] = value
+            report['recovered_postmaster'] = dict(diagnostic)
+            record()
+        _await_sql(compose, 'recovered', execute=execute, progress=readiness)
+        progress('recovery_ended')
+        _expect(sql('recovered', "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
+                    role='pilot_bootstrap', database='postgres'), {'recovery_ended': True})
+        progress('cluster')
+        restored = _cluster(sql('recovered', CLUSTER_SQL, role='pilot_bootstrap', database='postgres'))
+        progress('lineage')
+        if (restored['system_identifier'] != source['system_identifier'] or restored['version_num'] != 180004
+                or restored['archive_mode'] != 'off'):
+            raise ValueError('restored_lineage_or_archive_mode')
+        progress('platform')
+        report['restored_platform'] = _expect(sql('recovered', PLATFORM_SQL, role='platform', database='inside'), PLATFORM_EXPECTED)
+        progress('role')
+        _expect(sql('recovered', ROLE_SQL), ROLE_EXPECTED)
+        progress('events')
+        report['backup_data_reappeared'] = _expect(sql('recovered', RESTORED_EVENT_SQL),
+            {'deleted_event_reappeared': 1, 'expired_events_reappeared': 502})
+        progress('readers_absent')
+        _no_readers(compose, execute)
+        diagnostic.update(outcome='passed', returncode=0)
+        report['recovered_postmaster'] = dict(diagnostic)
+        record()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        code = getattr(error, 'returncode', None)
+        if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+            category = 'timeout'
+        elif isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)):
+            category = 'command_failed'
+        elif isinstance(error, json.JSONDecodeError):
+            category = 'invalid_json'
+        elif isinstance(error, ValueError):
+            category = {'container_identity': 'invalid_identity', 'container_inspect': 'inspection_mismatch',
+                        'mount': 'mount_mismatch', 'offline': 'offline_mismatch',
+                        'lineage': 'lineage_mismatch'}.get(diagnostic['step'], 'proof_mismatch')
+        elif isinstance(error, OSError):
+            category = 'io_failure'
+        else:
+            category = {'stopped': 'stopped_mismatch', 'sql_ready': 'readiness_failed',
+                        'readers_absent': 'readers_present'}.get(diagnostic['step'], 'runtime_failure')
+        diagnostic.update(outcome='failed', error=category,
+                          returncode=code if type(code) is int and -128 <= code <= 255 else None)
+        report['recovered_postmaster'] = dict(diagnostic)
+        record()
+        raise
+
+
 def _database_corpus(output, compose, project, plan, source, report, record, execute, record_operation):
     import retention_fixture
     def stage(value):
@@ -481,25 +581,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     report['destination'] = _confirm_restore_destination(compose, project, plan, name, execute, report, record)
     stage('offline_restore')
     _one_shot(compose, project, 'restore', execute, already_created=True, record=record_operation)
-    execute(compose, ['create', 'recovered'])
-    offline = _inspect_service(compose, project, 'recovered', execute)
-    _require_stopped(offline)
-    _data_mount(offline, name)
-    if offline.get('network') != 'none' or offline.get('ports') not in (None, {}):
-        raise ValueError('recovered_postmaster_not_offline')
-    execute(compose, ['start', 'recovered'])
-    _await_sql(compose, 'recovered', execute=execute)
-    _expect(sql('recovered', "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
-                role='pilot_bootstrap', database='postgres'), {'recovery_ended': True})
-    restored = _cluster(sql('recovered', CLUSTER_SQL, role='pilot_bootstrap', database='postgres'))
-    if (restored['system_identifier'] != source['system_identifier'] or restored['version_num'] != 180004
-            or restored['archive_mode'] != 'off'):
-        raise ValueError('restored_lineage_or_archive_mode')
-    report['restored_platform'] = _expect(sql('recovered', PLATFORM_SQL, role='platform', database='inside'), PLATFORM_EXPECTED)
-    _expect(sql('recovered', ROLE_SQL), ROLE_EXPECTED)
-    report['backup_data_reappeared'] = _expect(sql('recovered', RESTORED_EVENT_SQL),
-        {'deleted_event_reappeared': 1, 'expired_events_reappeared': 502})
-    _no_readers(compose, execute)
+    _confirm_recovered_postmaster(compose, project, name, source, sql, execute, report, record)
     stage('maintenance_failure_gate')
     # Real SQL failure must not create/start either external SQL actor.
     def fail_sql(_payload, *, timeout):
