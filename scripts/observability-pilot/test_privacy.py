@@ -1,5 +1,6 @@
 """Contracts bind the actual Alloy pipeline to a closed SDK operation catalogue."""
 import json
+import re
 from pathlib import Path
 import unittest
 
@@ -8,6 +9,31 @@ import collector_privacy
 
 
 class CollectorPrivacyContract(unittest.TestCase):
+    def test_generated_ottl_quoted_literals_are_decodable_before_component_start(self):
+        import privacy_config
+        for statement in re.findall(r'`([^`]+)`', privacy_config.render()):
+            for quoted in re.findall(r'"(?:\\.|[^"\\])*"', statement):
+                # These generated literals use JSON-compatible Go/OTTL string escapes.
+                json.loads(quoted)
+
+    def test_wire_release_and_span_operation_allowlists_keep_exact_literal_dots(self):
+        import privacy_config
+        actual = privacy_config.render()
+        release = re.search(r'IsMatch\(attributes\["service.version"\], ("[^"\n]+")\)', actual)
+        operation = re.search(r'IsMatch\(name, ("\^\(HTTP GET /pilot[^"\n]+")\)', actual)
+        self.assertIsNotNone(release)
+        self.assertIsNotNone(operation)
+        release_pattern = json.loads(release[1])
+        operation_pattern = json.loads(operation[1])
+        for value in ('1.2.3', '0001.0020.9999', 'a'*40):
+            self.assertIsNotNone(re.fullmatch(release_pattern, value))
+        for value in ('1x2x3', '1.2', '1.2.3.4', '10000.2.3', 'A'*40, 'secret'):
+            self.assertIsNone(re.fullmatch(release_pattern, value))
+        for value in ('HTTP GET /pilot','queue.publish','worker.attempt','worker.retry','dependency.http'):
+            self.assertIsNotNone(re.fullmatch(operation_pattern, value))
+        for value in ('queueXpublish','worker/retry','dependency/http','HTTP GET /private'):
+            self.assertIsNone(re.fullmatch(operation_pattern, value))
+
     def test_health_proof_requires_exact_closed_metric_and_successful_numeric_sample(self):
         body = {'status':'success', 'data':{'resultType':'vector', 'result':[
             {'metric':{'__name__':'up', 'job':'platform-collector', 'instance':'pilot'}, 'value':[1790000000,'1']}]}}

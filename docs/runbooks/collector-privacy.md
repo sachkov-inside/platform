@@ -91,7 +91,27 @@ Generator связывает фактический Alloy config с закрыт
 устаревшую генерацию, ложный health verdict, сохранённый sentinel и неподдерживаемые links. Они
 не исполняют OTTL. Отдельно выполнен `validate` закреплённого Alloy в собственном no-network,
 read-only, non-root контейнере с 512MiB/0.25 CPU/64 pids; контейнер удалён. Это проверка синтаксиса,
-не runtime sanitizer proof.
+не runtime sanitizer proof. `validate` не инициализировал OTTL: actual запуск исходного
+`fe89f406` завершился exit 1 из-за недопустимого `\.` внутри строк OTTL для
+`service.version` и имён span. Запись `[.]` сохраняет тот же literal-dot regex без
+недопустимого строкового escape. Детерминированный contract проверяет quoted literals и
+положительные/отрицательные значения; он не подменяет настоящий запуск.
+
+Для отдельной bounded проверки actual initialization нужен уже закешированный pinned image:
+
+```sh
+bash scripts/heavy-check.sh python3 -B scripts/observability-pilot/check_alloy_startup.py
+```
+
+Команда использует один уникальный non-root контейнер без сети и опубликованных портов,
+read-only FS, cap-drop ALL, 512MiB/0.25 CPU/128 pids и tmpfs 16MiB. Внутренний loopback
+`/-/ready` должен вернуть 200 в пределах 12 секунд; CLI ограничен 20 секундами.
+`--pull=never` не приобретает image. Отсутствующий cache — failure, не SKIP или PASS.
+Собственный контейнер удаляется и проверяется отсутствие residue. Входящего OTLP нет;
+raw startup diagnostics не публикуются и не сохраняются на host. Эта команда была RED
+на исходном config и GREEN после исправления. Это только startup/health proof, а не
+подтверждение ingest, очистки перед storage или ошибок exporter. Обычные unit checks
+не запускают Docker; source-bound functional workflow проверяет actual RUN после acquisition.
 
 После independent review координатор запускает прежний публичный supervisor с теми же admission,
 identity, floor/growth и cleanup. Синтетический corpus помещает фиксированный sentinel в resource,
