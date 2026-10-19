@@ -267,7 +267,7 @@ export const aiEngineeringCoursePage: ProductPage = {
         },
         {
           title: "Сколько длится доступ к курсу?",
-          text: "Материалы и сообщество доступны {access_term}, включая главы, которые выйдут позже.",
+          text: "Доступ к курсу бессрочный, включая главы, которые выйдут позже.",
           detailLabel: "",
           detail: "",
         },
