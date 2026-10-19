@@ -48,30 +48,27 @@ export function socialCardResponse(content: SocialCardContent): ImageResponse {
             backgroundColor: PAPER,
             borderRadius: "16px",
             display: "flex",
-            flexDirection: "column",
             height: "56px",
             justifyContent: "center",
             width: "56px",
           }}
         >
-          <div
-            style={{
-              backgroundColor: ACCENT,
-              borderRadius: "3px",
-              display: "flex",
-              height: "10px",
-              width: "10px",
-            }}
-          />
-          <div
-            style={{
-              backgroundColor: INK,
-              display: "flex",
-              height: "20px",
-              marginTop: "5px",
-              width: "10px",
-            }}
-          />
+          <svg height="48" viewBox="0 0 48 48" width="48">
+            <path
+              d="M33 14H23a10 10 0 0 0 0 20h10"
+              fill="none"
+              stroke={INK}
+              strokeLinecap="round"
+              strokeWidth="6"
+            />
+            <path
+              d="M28 14h5"
+              fill="none"
+              stroke={ACCENT}
+              strokeLinecap="round"
+              strokeWidth="6"
+            />
+          </svg>
         </div>
         <div
           style={{ display: "flex", fontSize: "30px", letterSpacing: "-0.5px" }}

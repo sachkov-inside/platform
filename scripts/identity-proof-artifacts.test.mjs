@@ -235,7 +235,7 @@ test("Experience UI fork keeps the Inside shell and removes the unknown-account 
   ]);
 
   assert.doesNotMatch(layout, /LogtoSignature|Powered by/u);
-  assert.match(title, /return 'Sachkov Inside'/u);
+  assert.match(title, /return 'Sachkov Dev'/u);
   assert.doesNotMatch(
     verification,
     /usePromiseConfirmModal|sign_in_id_does_not_exist/u,

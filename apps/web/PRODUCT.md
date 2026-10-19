@@ -1,4 +1,4 @@
-# Sachkov Inside Platform web
+# Sachkov Dev Platform web
 
 <!-- impeccable:product-schema 1 -->
 
@@ -59,7 +59,7 @@ web
 
 ## Brand Commitments
 
-- Product name: Sachkov Inside.
+- Public website name follows [the product brief](../../docs/product/platform-mvp-brief.md#публичное-название-сайта).
 - Russian is the primary interface language; established domain and engineering terms stay exact.
 - Voice is direct, calm and operational: controls name the user action, failures explain recovery,
   and technical state is shown only when it helps the author act safely.

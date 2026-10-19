@@ -158,7 +158,7 @@ export const NoSubscription: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByText("Автопродление Inside не подключено"),
+      await page.findByText("Автопродление Sachkov Dev не подключено"),
     ).toBeInTheDocument();
     await expect(
       page.getByRole("link", { name: "Посмотреть тарифы" }),
@@ -176,7 +176,7 @@ export const NoSubscriptionNotOffered: Story = {
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
     await expect(
-      await page.findByText("Автопродление Inside не подключено"),
+      await page.findByText("Автопродление Sachkov Dev не подключено"),
     ).toBeInTheDocument();
     await expect(
       page.queryByRole("link", { name: "Посмотреть тарифы" }),

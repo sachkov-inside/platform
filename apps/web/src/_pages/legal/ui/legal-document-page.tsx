@@ -8,6 +8,7 @@ import {
   legalEditionPath,
 } from "@/shared/routing/public-page-path";
 
+import { LegalBrandNote } from "./legal-brand-note";
 import { LegalDocumentView } from "./legal-document-view";
 
 /**
@@ -33,9 +34,10 @@ export function LegalDocumentPage({
           className="text-muted-foreground underline underline-offset-2"
           href={LEGAL_PATH}
         >
-          Документы Inside
+          Документы Sachkov Dev
         </Link>
       </nav>
+      <LegalBrandNote />
       <div className="mt-4">
         {pinned ? (
           <p className="mb-6 rounded-2xl border border-border bg-muted px-4 py-3 text-sm leading-6">

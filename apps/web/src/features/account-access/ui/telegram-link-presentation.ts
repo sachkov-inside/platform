@@ -29,14 +29,14 @@ export function telegramLinkPresentation(
     case "unlinked":
       return {
         account: {
-          description: "Подключите бота Inside — это займёт меньше минуты.",
+          description: "Подключите бота платформы — это займёт меньше минуты.",
           title: "Telegram не подключён",
           tone: "pending",
         },
         action: { context: "initial", kind: "begin" },
         onboarding: {
           description:
-            "Бот Inside присылает сообщения о новых материалах и открывает сообщество продукта тем, у кого он входит в доступ. Подключение займёт меньше минуты.",
+            "Бот платформы присылает сообщения о новых материалах и открывает сообщество продукта тем, у кого он входит в доступ. Подключение займёт меньше минуты.",
           title: "Подключите Telegram",
           tone: "pending",
         },
@@ -64,7 +64,7 @@ export function telegramLinkPresentation(
     case "linked":
       return {
         account: {
-          description: "Готово. Аккаунт связан с ботом Inside.",
+          description: "Готово. Аккаунт связан с ботом платформы.",
           title: "Telegram подключён",
           tone: "active",
         },

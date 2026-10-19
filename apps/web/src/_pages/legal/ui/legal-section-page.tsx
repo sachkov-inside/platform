@@ -11,6 +11,8 @@ import {
 } from "@/entities/legal-document";
 import { legalDocumentPath } from "@/shared/routing/public-page-path";
 
+import { LegalBrandNote } from "./legal-brand-note";
+
 /** Список юридического раздела: что действует, о чём документ и с какого дня он применяется. */
 export function LegalSectionPage({
   editions,
@@ -21,13 +23,14 @@ export function LegalSectionPage({
     <>
       <header className="max-w-3xl">
         <h1 className="text-balance text-4xl font-semibold tracking-[-0.035em] sm:text-5xl">
-          Документы Inside
+          Документы Sachkov Dev
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
           Условия, оферты, обработка данных и реквизиты продавца. Каждый
           документ открыт без входа и без оплаты, а у каждой его редакции есть
           постоянный адрес и контрольная сумма.
         </p>
+        <LegalBrandNote />
       </header>
       <div className="mt-10 flex max-w-3xl flex-col gap-10">
         {LEGAL_GROUP_ORDER.map((group) => (
