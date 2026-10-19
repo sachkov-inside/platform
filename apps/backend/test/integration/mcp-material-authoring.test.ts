@@ -11,7 +11,10 @@ import {
   type ContentAccess,
 } from "../../src/modules/content-access/index.js";
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
-import { BillingOperations } from "../../src/modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import { createServer, type Server } from "node:http";
 
@@ -137,6 +140,7 @@ describe("delegated Material authoring over MCP", () => {
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
+      diagnostics: application.get(PaymentDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

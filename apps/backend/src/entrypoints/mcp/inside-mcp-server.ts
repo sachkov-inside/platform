@@ -6,6 +6,8 @@ import type { McpServer } from "@modelcontextprotocol/server";
 
 import {
   registerBillingTools,
+  registerPaymentDiagnosticsTool,
+  type PaymentDiagnostics,
   type BillingOwnerTools,
 } from "../../modules/billing/index.js";
 import {
@@ -28,6 +30,7 @@ export interface InsideMcpToolDependencies {
   readonly communications: Pick<Communications, "execute">;
   readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
+  readonly diagnostics: Pick<PaymentDiagnostics, "read">;
 }
 
 /**
@@ -46,6 +49,10 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
+  });
+  registerPaymentDiagnosticsTool(server, {
+    accountId,
+    diagnostics: dependencies.diagnostics,
   });
   registerBillingTools(server, { accountId, billing: dependencies.billing });
   registerWebTelemetryTool(server, {
