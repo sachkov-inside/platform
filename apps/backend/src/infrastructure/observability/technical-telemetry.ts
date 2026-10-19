@@ -8,6 +8,12 @@ import {
   SpanStatusCode,
   type Attributes,
 } from "@opentelemetry/api";
+import type { OpenTelemetryOptions } from "pg-boss";
+import {
+  pgBossAttributes,
+  pgBossTracePropagator,
+  safePgBossSpan,
+} from "./pg-boss-telemetry.js";
 import { ExportResultCode } from "@opentelemetry/core";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
@@ -54,7 +60,8 @@ export function technicalLogCorrelation(): Readonly<
 
 interface EnabledConfiguration {
   readonly enabled: true;
-  readonly service: "platform-api" | "platform-mcp";
+  readonly service:
+    "platform-api" | "platform-mcp" | "platform-material-assets-worker";
   readonly environment: "development" | "test" | "production";
   readonly release: string;
   readonly sampleRatio: number;
@@ -75,6 +82,8 @@ export interface HttpObservation {
   ): void;
 }
 export interface TechnicalTelemetry {
+  pgBoss(queues: readonly string[]): OpenTelemetryOptions;
+  runJob<Value>(work: () => Value): Value;
   startHttp(input: {
     readonly method: string;
     readonly route?: string;
@@ -98,6 +107,8 @@ export function createTechnicalTelemetry(
   let failedMetricExports = 0;
   if (!configuration.enabled)
     return {
+      pgBoss: () => ({ enabled: false }),
+      runJob: (work) => work(),
       startHttp: () => ({ run: (work) => work(), finish: () => undefined }),
       correlation: () => ({}),
       diagnostics: () => ({
@@ -133,17 +144,25 @@ export function createTechnicalTelemetry(
       "deployment.environment.name": identity.environment,
       "service.version": identity.release,
     });
+    const queues = new Set<string>();
     let pending = 0;
     const spanExporter: SpanExporter = {
       export: (spans, callback) =>
-        configuration.exporters.spans.export(spans, (result) => {
-          pending -= spans.length;
-          if (result.code !== ExportResultCode.SUCCESS) {
-            failedTraceExports++;
-            configuration.onExportFailure?.("traces");
-          }
-          callback(result);
-        }),
+        configuration.exporters.spans.export(
+          spans.map((span) =>
+            span.instrumentationScope.name === "pg-boss"
+              ? safePgBossSpan(span, queues)
+              : span,
+          ),
+          (result) => {
+            pending -= spans.length;
+            if (result.code !== ExportResultCode.SUCCESS) {
+              failedTraceExports++;
+              configuration.onExportFailure?.("traces");
+            }
+            callback(result);
+          },
+        ),
       shutdown: () => configuration.exporters.spans.shutdown(),
     };
     const batch = new BatchSpanProcessor(spanExporter, {
@@ -156,10 +175,10 @@ export function createTechnicalTelemetry(
       resource,
       sampler: new TraceIdRatioBasedSampler(configuration.sampleRatio),
       spanLimits: {
-        attributeCountLimit: 8,
+        attributeCountLimit: 16,
         attributeValueLengthLimit: 160,
         eventCountLimit: 0,
-        linkCountLimit: 0,
+        linkCountLimit: 32,
       },
       spanProcessors: [
         {
@@ -218,6 +237,14 @@ export function createTechnicalTelemetry(
     const meters = (metricRuntime = new MeterProvider({
       resource,
       readers: [reader],
+      views: [
+        {
+          meterName: "pg-boss",
+          attributesProcessors: [
+            { process: (attributes) => pgBossAttributes(attributes, queues) },
+          ],
+        },
+      ],
     }));
     const meter = meters.getMeter("inside-http");
     const requests = meter.createCounter("http.server.request.count");
@@ -243,6 +270,23 @@ export function createTechnicalTelemetry(
     const tracer = traces.getTracer("inside-http");
     let closing: Promise<void> | undefined;
     return {
+      pgBoss: (names) => {
+        for (const name of names) queues.add(name);
+        return {
+          enabled: true,
+          propagateContext: true,
+          propagator: pgBossTracePropagator(),
+          tracerProvider: { getTracer: () => traces.getTracer("pg-boss") },
+          meterProvider: { getMeter: () => meters.getMeter("pg-boss") },
+        };
+      },
+      runJob: (work) =>
+        context.with(
+          context
+            .active()
+            .setValue(technicalScopeKey, new TechnicalScope(identity)),
+          work,
+        ),
       startHttp: (input) => {
         activeRequests++;
         const method = [

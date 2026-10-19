@@ -1,4 +1,4 @@
-# Backend HTTP technical telemetry
+# Backend technical telemetry
 
 The API and MCP have opt-in manual OpenTelemetry instrumentation. It exports registered route templates,
 HTTP methods, response statuses and durations. HTTP counters and duration histograms include
@@ -7,7 +7,7 @@ use `unmatched`; arbitrary HTTP methods use `_OTHER`. Aborts and timeouts finish
 with fixed `http.request.outcome` / `error.type` values and no invented HTTP status when no response
 was completed. `http.server.active_requests` reports the current total, including unsampled work.
 
-Both process runtimes read these settings:
+The API, MCP and material-assets-worker runtimes read these settings:
 
 | Variable | Meaning |
 | --- | --- |
@@ -16,7 +16,7 @@ Both process runtimes read these settings:
 | `INSIDE_OTEL_SAMPLE_RATIO` | Trace ratio between 0 and 1; default 1 for the initial pilot. It does not sample HTTP metrics. |
 
 The existing runtime identity supplies the release, and Platform mode supplies the environment.
-Service identity is `platform-api` or `platform-mcp`, selected by its entrypoint. Invalid telemetry configuration emits a fixed warning and
+Service identity is `platform-api`, `platform-mcp` or `platform-material-assets-worker`, selected by its entrypoint. Invalid telemetry configuration emits a fixed warning and
 leaves the application running with export disabled. No production configuration is enabled by
 this change.
 
@@ -59,16 +59,51 @@ HTTP spans start from `ROOT_CONTEXT`; library spans can inherit their active con
 HTTP trace headers and baggage are ignored. Trace/log correlation follows an active library child span
 and restores the parent after its asynchronous completion or error.
 
-This is one implementation slice of #1566. Workers, durable propagation, dependency spans,
-Telegram and collector-side privacy controls are not covered by this HTTP instrumentation. The
-owned loopback test proves actual SDK OTLP traces and metrics reach its receiver; it does not prove
-production collector retention, resource capacity, or full business trace chains.
+The material-assets worker now passes explicit `openTelemetry` options to pinned pg-boss 12.36.
+The SDK exposes this named adapter, not the underlying SDK providers, and never replaces global tracer
+or meter providers. Disabled/invalid runtime configuration explicitly disables pg-boss telemetry too.
+Its existing startup `send`, scheduled cleanup and handler are the real producer/consumer paths.
+No queue name, business payload, retention, retry, singleton or job identity options change.
+SDK shutdown follows `runWorker` draining and closing the application, including startup failure.
+
+pg-boss owns the existing persisted `trace_context` column and retry semantics; this change adds no
+queue migration or parallel propagation mechanism. The explicit propagator uses the official W3C
+parser/formatter and allows only `traceparent`, excluding baggage and opaque `tracestate` both on
+injection and extraction. Single-job attempts continue their producer trace with distinct consumer
+span IDs; batch consumers start a root trace and link producers. Links are bounded to 32 per span.
+An interrupted process cannot export its unfinished span; durable retries can still retain the
+producer trace. This is correlation, not a guarantee that every attempt is retained.
+
+At the span export boundary, pg-boss spans are copied rather than mutating SDK spans. Only fixed
+operation/state/type values, registered queue names, valid UUID job IDs and integer retry/batch counts
+survive. Unknown queues/operations become `_OTHER`; errors become `job_error`. Database/schema names,
+exception events, status descriptions, link attributes and trace state are excluded. The metric View
+applies the queue/value allowlist and fixed error type **before aggregation**, dropping database/schema,
+job IDs and attempt counts. Arbitrary error constructor names cannot multiply metric series. Queue
+counts/durations remain independent of trace sampling and share the SDK's 128-series overflow marker,
+bounded export batches, drop/failure counters and one-second timeout policy.
+
+`pgboss.queue.jobs` is the library's cached state gauge, not a fresh database query, queue age, lag or
+proof that a worker is healthy. Existing operational-readiness checks remain authoritative. Job logs
+keep the existing job-derived `requestId`, process and queue; enabled handlers gain the current
+consumer trace/span plus service/environment/release. Existing log redaction is unchanged; logs are
+not exported to OTLP.
+
+The isolated PostgreSQL contract uses separate producer, killed consumer and restarted consumer
+processes, a synthetic payload and a loopback OTLP receiver. It proves persisted correlation across
+SIGKILL, expiration and two retries, distinct attempt spans, fixed error evidence and absence of
+payload/error/baggage sentinels on the actual wire. Fixture-only monitor/supervisor intervals are one
+second and expiration two seconds; production timing is unchanged. It also checks the job's unchanged
+payload and final completed state, and log request IDs/release. A synthetic HTTP root in that fixture
+is an SDK propagation test, not an existing product API-to-queue producer path.
+
+This remains a bounded implementation slice of #1566. Billing, profile-avatar and video-deletion
+workers are not yet wired. Their producers currently live in their own startup/scheduling paths;
+the API does not send these pg-boss maintenance jobs. HTTP-to-outbox/AMQP linkage, dependency spans,
+Telegram, queue-age/lag metrics and collector-side privacy controls remain separate work. The
+loopback receiver does not prove production retention, capacity or full business trace chains.
 
 SDK configuration follows the [official JavaScript exporter documentation](https://opentelemetry.io/docs/languages/js/exporters/).
-Dependencies are pinned in `apps/backend/package.json` and `pnpm-lock.yaml`.
-
-The pinned pg-boss 12.36 telemetry implementation already owns persisted `trace_context` and retry/
-consumer links. It uses the global context API even with injected providers. Its default error capture
-records exception and status messages, and its default propagator can carry baggage. Queue telemetry
-has not been enabled by this HTTP slice: it needs an explicit W3C trace-only propagator, exporter privacy
-controls and real PostgreSQL restart/retry/cross-process proofs before wiring existing workers.
+The [pg-boss telemetry contract](https://pgboss.io/opentelemetry) documents provider injection and durable
+propagation; implementation is verified against installed pinned 12.36.0 source, rather than assuming
+the current website version. Dependencies remain pinned in `apps/backend/package.json` and `pnpm-lock.yaml`.
