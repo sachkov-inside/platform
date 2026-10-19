@@ -62,6 +62,7 @@ web
 - Product name: Sachkov Inside.
 - Russian is the primary interface language; established domain and engineering terms stay exact.
 - Landing-page copy keeps established acronyms such as RAG without expansions or parenthetical definitions.
+- Course landing pages speak about Kirill’s teaching, videos, support and reviews in the first person.
 - Voice is direct, calm and operational: controls name the user action, failures explain recovery,
   and technical state is shown only when it helps the author act safely.
 

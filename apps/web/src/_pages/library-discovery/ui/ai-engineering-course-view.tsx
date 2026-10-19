@@ -246,24 +246,20 @@ const topicTiles: readonly {
     size: "wide",
     tone: "ink",
     art: (
-      <div className="aie-art-flow">
-        <div className="aie-art-flow-steps">
-          {["Задача", "План", "Код", "Проверка"].map((step, index) => (
-            <span key={step}>
-              {index === 3 ? <ShieldCheck /> : <Check />}
-              {step}
-            </span>
-          ))}
+      <div className="aie-art-engineering">
+        <span className="aie-art-engineering-question">
+          <Search /> Что нужно решить?
+        </span>
+        <div className="aie-art-engineering-decisions">
+          <span>
+            <Layers /> Архитектура
+          </span>
+          <span>
+            <GitPullRequest /> Компромиссы
+          </span>
         </div>
-        <div className="aie-art-flow-roles">
-          <span>
-            <UserRound />
-            Ты контролируешь
-          </span>
-          <span>
-            <Bot />
-            Агент выполняет
-          </span>
+        <div className="aie-art-engineering-result">
+          <ShieldCheck /> Понятная и поддерживаемая система
         </div>
       </div>
     ),
@@ -294,13 +290,24 @@ const topicTiles: readonly {
   },
   {
     size: "narrow",
-    tone: "sand",
+    tone: "blue",
     art: (
-      <div className="aie-art-stack">
-        <span>Задача</span>
-        <span>Решения</span>
-        <span>Код модуля</span>
-        <span data-muted="true">Лишнее</span>
+      <div className="aie-art-budget">
+        <span>
+          <Bot /> Агент под задачу
+        </span>
+        <span>
+          <Gauge /> Уровень мышления
+        </span>
+        <div className="aie-art-budget-steps">
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+        <span>
+          <Coins /> Расход под контролем
+        </span>
       </div>
     ),
   },
@@ -363,24 +370,48 @@ const topicTiles: readonly {
   },
   {
     size: "narrow",
+    tone: "sand",
+    art: (
+      <div className="aie-art-guard">
+        <span className="aie-art-guard-action">
+          <Bot />
+          Изменение готово
+        </span>
+        <span className="aie-art-guard-gate">
+          <ShieldCheck />
+          Проверки пройдены
+        </span>
+        <span className="aie-art-guard-buttons">
+          <b>
+            <GitPullRequest />
+            Ревью
+          </b>
+          <b>Принято</b>
+        </span>
+      </div>
+    ),
+  },
+  {
+    size: "wide",
     tone: "blue",
     art: (
-      <div className="aie-art-rag">
-        <span className="aie-art-rag-query">
-          <Search />
-          Как устроен вход?
-        </span>
-        <span>
-          <FileText />
-          auth.md
-        </span>
-        <span>
-          <FileText />
-          adr-012.md
-        </span>
-        <span className="aie-art-rag-answer">
-          <MessagesSquare />
-          Ответ со ссылками [1] [2]
+      <div className="aie-art-memory">
+        <div className="aie-art-memory-sources">
+          <span>
+            <MessagesSquare /> Сессия
+          </span>
+          <span>
+            <FileText /> Знания
+          </span>
+          <span>
+            <Search /> RAG
+          </span>
+        </div>
+        <div className="aie-art-memory-context">
+          <Layers /> Нужный контекст
+        </div>
+        <span className="aie-art-memory-agent">
+          <Bot /> Агент помнит важное
         </span>
       </div>
     ),
@@ -389,22 +420,49 @@ const topicTiles: readonly {
     size: "wide",
     tone: "sand",
     art: (
-      <div className="aie-art-guard">
-        <span className="aie-art-guard-action">
-          <Bot />
-          Шаг 3 из 5 · auth.ts
+      <div className="aie-art-team">
+        <span>
+          <UserRound /> Задача и критерии
         </span>
-        <span className="aie-art-guard-gate">
-          <ShieldCheck />
-          Тесты 24/24
+        <div className="aie-art-team-agents">
+          <span>
+            <Bot /> Код
+          </span>
+          <span>
+            <Bot /> Тесты
+          </span>
+          <span>
+            <Bot /> Ревью
+          </span>
+        </div>
+        <span>
+          <GitPullRequest /> Согласованный результат
         </span>
-        <span className="aie-art-guard-buttons">
-          <b>
-            <GitPullRequest />
-            PR #42 проверен
-          </b>
-          <b>Merge</b>
+      </div>
+    ),
+  },
+  {
+    size: "wide",
+    tone: "good",
+    art: (
+      <div className="aie-art-toolkit">
+        <span className="aie-art-toolkit-agent">
+          <Bot /> Агент
         </span>
+        <div>
+          <span>
+            <Plug /> MCP
+          </span>
+          <span>
+            <Code2 /> CLI / API
+          </span>
+          <span>
+            <FolderGit2 /> Репозиторий
+          </span>
+          <span>
+            <Wrench /> Хуки и скиллы
+          </span>
+        </div>
       </div>
     ),
   },
@@ -424,57 +482,6 @@ const topicTiles: readonly {
           <Gauge />
           было → стало
         </span>
-      </div>
-    ),
-  },
-  {
-    size: "wide",
-    tone: "good",
-    art: (
-      <div className="aie-art-process">
-        {["Разбор обращений", "Ревью изменений", "Подготовка релиза"].map(
-          (label) => (
-            <div key={label}>
-              <span>
-                <Bot />
-                {label}
-              </span>
-              <ArrowRight />
-              <span className="aie-art-process-human">
-                <UserRound />
-                Проверка
-              </span>
-            </div>
-          ),
-        )}
-      </div>
-    ),
-  },
-  {
-    size: "wide",
-    tone: "blue",
-    art: (
-      <div className="aie-art-tokens">
-        <div className="aie-art-tokens-meter">
-          <span>
-            <Layers />
-            Контекст
-          </span>
-          <i>
-            <b />
-          </i>
-          <small>18k из 200k</small>
-        </div>
-        <div className="aie-art-tokens-chips">
-          <span>
-            <Sparkles />
-            Модель под задачу
-          </span>
-          <span>
-            <Coins />
-            $0.04 за задачу
-          </span>
-        </div>
       </div>
     ),
   },

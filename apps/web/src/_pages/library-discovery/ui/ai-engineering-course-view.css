@@ -360,48 +360,6 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
 }
 
-.aie-art-flow {
-  display: grid;
-  justify-items: center;
-  gap: 1.1rem;
-  width: 100%;
-}
-.aie-art-flow-steps {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.6rem 1rem;
-}
-.aie-art-flow span {
-  position: relative;
-  padding: 0.55rem 0.7rem;
-  background: color-mix(in srgb, var(--primary-foreground) 12%, var(--primary));
-  color: var(--primary-foreground);
-  box-shadow: none;
-}
-.aie-art-flow span svg {
-  color: var(--accent-bright);
-}
-.aie-art-flow-steps span + span::before {
-  content: "";
-  position: absolute;
-  right: calc(100% + 0.25rem);
-  top: 50%;
-  width: 0.5rem;
-  border-top: 1.5px solid
-    color-mix(in srgb, var(--primary-foreground) 45%, var(--primary));
-}
-.aie-art-flow-roles {
-  display: flex;
-  gap: 0.6rem;
-}
-.aie-art-flow-roles span {
-  background: transparent;
-  border: 1px dashed
-    color-mix(in srgb, var(--primary-foreground) 35%, var(--primary));
-  font-weight: 500;
-}
-
 .aie-art-tree {
   display: grid;
   gap: 0.4rem;
@@ -415,27 +373,6 @@
 }
 .aie-art-tree svg {
   color: var(--callout-example);
-}
-
-.aie-art-stack {
-  display: grid;
-  gap: 0.35rem;
-  justify-items: center;
-}
-.aie-art-stack span {
-  min-width: 8.5rem;
-  justify-content: center;
-}
-.aie-art-stack span:nth-child(1) {
-  border-left: 3px solid var(--accent);
-}
-/* Лишнее выглядит вычеркнутым пунктиром, но остаётся читаемым: контраст не ниже 4.5:1. */
-.aie-art-stack span[data-muted="true"] {
-  border: 1px dashed var(--border);
-  background: transparent;
-  color: var(--muted-foreground);
-  text-decoration: line-through;
-  box-shadow: none;
 }
 
 .aie-art-pipeline {
@@ -497,33 +434,6 @@
 }
 .aie-art-agent-tools span svg {
   color: var(--accent);
-}
-
-.aie-art-rag {
-  display: grid;
-  gap: 0.4rem;
-  justify-items: start;
-  max-width: 100%;
-}
-.aie-art-rag span {
-  white-space: normal;
-}
-.aie-art-rag .aie-art-rag-query {
-  border: 1px solid
-    color-mix(in srgb, var(--cover-blue-foreground) 35%, transparent);
-  color: var(--cover-blue-foreground);
-}
-.aie-art-rag .aie-art-rag-answer {
-  margin-top: 0.25rem;
-  background: var(--cover-blue-foreground);
-  color: var(--background);
-  font-family: inherit;
-  font-weight: 600;
-}
-.aie-art-rag span:not(.aie-art-rag-query, .aie-art-rag-answer) {
-  margin-left: 1rem;
-  font-family: var(--font-utility);
-  font-weight: 500;
 }
 
 .aie-art-guard {
@@ -600,90 +510,138 @@
   color: var(--cover-lavender-foreground);
 }
 
-.aie-art-process {
-  display: grid;
-  gap: 0.5rem;
-}
-.aie-art-process > div {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.aie-art-process > div > svg {
-  color: var(--callout-good);
-}
-.aie-art-process span svg {
-  color: var(--callout-good);
-}
-.aie-art-process .aie-art-process-human {
-  background: var(--callout-good);
-  color: var(--background);
-}
-.aie-art-process .aie-art-process-human svg {
-  color: var(--background);
-}
-
 /* Самые узкие экраны (320 px): процесс без стрелки, чтобы строка не выходила за плитку. */
 .aie-bento > li {
   container-type: inline-size;
 }
-@container (max-width: 19rem) {
-  .aie-art-process > div > svg {
-    display: none;
-  }
-  .aie-art-process span {
-    padding: 0.35rem 0.45rem;
-    font-size: 0.72rem;
-  }
-}
 
-.aie-art-tokens {
+/* Иллюстрации показывают инженерные связи, а не показатели или обещания результата. */
+.aie-art-engineering,
+.aie-art-budget,
+.aie-art-memory,
+.aie-art-team,
+.aie-art-toolkit {
   display: grid;
-  gap: 0.75rem;
-  width: min(100%, 20rem);
+  justify-items: center;
+  gap: 0.8rem;
+  width: 100%;
 }
-.aie-art-tokens-meter {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 0.8rem;
-  border-radius: 0.75rem;
-  background: var(--background);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
-}
-.aie-art-tokens-meter span {
-  padding: 0;
-  box-shadow: none;
-}
-.aie-art-tokens-meter span svg {
-  color: var(--cover-blue-foreground);
-}
-.aie-art-tokens-meter i {
-  height: 0.45rem;
-  border-radius: 999px;
-  background: var(--muted);
-}
-.aie-art-tokens-meter i b {
-  display: block;
-  width: 24%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--cover-blue-foreground);
-}
-.aie-art-tokens-meter small {
-  font-family: var(--font-utility);
-  font-size: 0.72rem;
-  color: var(--muted-foreground);
-}
-.aie-art-tokens-chips {
+.aie-art-engineering-decisions,
+.aie-art-memory-sources,
+.aie-art-team-agents {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.5rem;
 }
-.aie-art-tokens-chips span svg {
+.aie-art-engineering span {
+  background: color-mix(in srgb, var(--primary-foreground) 12%, var(--primary));
+  color: var(--primary-foreground);
+  box-shadow: none;
+}
+.aie-art-engineering svg {
+  flex: none;
+  color: var(--accent-bright);
+}
+.aie-art-engineering .aie-art-engineering-question {
+  padding: 0.7rem 1rem;
+}
+.aie-art-engineering-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid
+    color-mix(in srgb, var(--primary-foreground) 25%, transparent);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.aie-art-budget {
+  gap: 0.5rem;
+}
+.aie-art-budget span {
+  white-space: normal;
+}
+.aie-art-budget svg {
+  flex: none;
   color: var(--cover-blue-foreground);
+}
+.aie-art-budget-steps {
+  display: flex;
+  gap: 0.35rem;
+  padding-block: 0.3rem;
+  width: 70%;
+}
+.aie-art-budget-steps i {
+  flex: 1;
+  height: 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--cover-blue-foreground);
+}
+.aie-art-budget-steps i:last-child {
+  background: color-mix(in srgb, var(--cover-blue-foreground) 25%, transparent);
+}
+.aie-art-memory-sources {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--cover-blue-foreground) 35%, transparent);
+}
+.aie-art-memory-sources svg,
+.aie-art-memory-agent svg {
+  color: var(--cover-blue-foreground);
+}
+.aie-art-memory-context {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cover-blue-foreground);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.aie-art-memory .aie-art-memory-agent {
+  background: var(--cover-blue-foreground);
+  color: var(--background);
+}
+.aie-art-memory-agent svg {
+  color: inherit;
+}
+.aie-art-team > span:first-child {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie-art-team-agents {
+  padding-block: 0.6rem;
+  border-block: 1px dashed
+    color-mix(in srgb, var(--foreground) 25%, transparent);
+}
+.aie-art-team svg {
+  color: var(--callout-good);
+}
+.aie-art-team > span:first-child svg {
+  color: var(--accent-bright);
+}
+.aie-art-toolkit > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid color-mix(in srgb, var(--callout-good) 35%, transparent);
+}
+.aie-art-toolkit svg {
+  flex: none;
+  color: var(--callout-good);
+}
+.aie-art-toolkit span {
+  white-space: normal;
+}
+.aie-art-toolkit .aie-art-toolkit-agent {
+  padding-inline: 1.25rem;
+  background: var(--callout-good);
+  color: var(--background);
+}
+.aie-art-toolkit-agent svg {
+  color: inherit;
 }
 
 /* ---------- Что даёт курс: столбики роста ---------- */
@@ -1361,30 +1319,6 @@
   .aie-format ol {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .aie-art-flow-steps {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
-    width: 100%;
-  }
-  .aie-art-flow-steps span {
-    justify-content: center;
-  }
-  .aie-art-flow-steps span + span::before {
-    content: none;
-  }
-  .aie-art-flow-roles {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-    gap: 0.5rem;
-  }
-  .aie-art-flow-roles span {
-    justify-content: center;
-    padding-inline: 0.5rem;
-    white-space: normal;
-    text-align: center;
-  }
 }
 /* Три шага агента перестают помещаться в узкой карточке планшетной сетки. */
 @media (max-width: 55.999rem) {
@@ -1406,12 +1340,6 @@
   }
   .aie-art-agent-tools {
     gap: 0.4rem;
-  }
-  .aie-art-process > div {
-    gap: 0.35rem;
-  }
-  .aie-art-process span {
-    padding: 0.4rem 0.5rem;
   }
   .aie-art-agent-tools span {
     padding: 0.45rem 0.55rem;
@@ -1517,17 +1445,6 @@
   }
   .aie-bento-copy {
     padding: 0 1.1rem 1.2rem;
-  }
-
-  /* Роли — два ряда во всю ширину: текст не упирается в значок и край. */
-  .aie-art-flow-roles {
-    grid-template-columns: 1fr;
-  }
-  .aie-art-flow-roles span {
-    justify-content: flex-start;
-    padding: 0.55rem 0.8rem;
-    white-space: nowrap;
-    text-align: left;
   }
 }
 
