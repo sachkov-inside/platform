@@ -472,7 +472,7 @@ def smoke(token, output, compose):
         if index == 2:
             collector_privacy.assert_link_preserved(response[1])
     # Read all records/series in this bounded disposable corpus, not only the positive marker.
-    for path in ('/logs/select/logsql/query?'+urllib.parse.urlencode({'query':'_time:5m', 'limit':200}),
+    for path in ('/logs/select/logsql/query?'+urllib.parse.urlencode({'query':'_time:1h', 'limit':200}),
                  '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})):
         status, body = request(path, token=token)
         if status != 200:
@@ -480,11 +480,17 @@ def smoke(token, output, compose):
         collector_privacy.assert_clean(body)
     up_path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'up{job="platform-collector"}'})
     health = await_fact(lambda: request(up_path, token=token),
-        lambda response: response[0] == 200 and '"1"' in response[1],
+        collector_privacy.healthy,
         probe='collector_safe_health', output=output)
     collector_privacy.assert_clean(health[1])
+    counter_path = '/metrics/api/v1/query?'+urllib.parse.urlencode({
+        'query':'sum({__name__=~"otelcol_receiver_accepted_spans(_total)?",job="platform-collector"})'})
+    counters = await_fact(lambda: request(counter_path, token=token),
+        collector_privacy.accepted_counter, probe='collector_safe_acceptance_counter', output=output)
+    collector_privacy.assert_clean(counters[1])
     write_json(output/'collector-privacy.json', {'accessible_field_sentinel':'passed',
         'safe_link_correlation':'passed', 'safe_collector_health':'passed',
+        'safe_collector_acceptance_counter':'passed',
         'collector_raw_diagnostics':'discarded by Docker logging none; not collected',
         'untrusted_link_metadata':'unsupported; no production/general-source acceptance',
         'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})

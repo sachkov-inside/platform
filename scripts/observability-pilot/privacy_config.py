@@ -97,7 +97,7 @@ otelcol.processor.transform "privacy" {
         'set(unit, "s") where IsMatch(name, "duration$")'])
     text += block('metric','datapoint',['keep_keys(attributes, '+literal(keys)+')',*attribute_rules, 'set(exemplars, nil)'])
     text += block('log','log',['keep_keys(attributes, [])',
-        'set(body, "telemetry.redacted") where body != "pilot.known_failure"',
+        'set(body, "telemetry.redacted") where not IsString(body) or body != "pilot.known_failure"',
         'set(event_name, "")', 'set(severity_text, "")'])
     text += '''  output {
     metrics = [otelcol.exporter.otlphttp.metrics.input]
@@ -142,12 +142,12 @@ prometheus.relabel "collector_health" {
   }
   rule {
     source_labels = ["receiver"]
-    regex = "(|otlp/pilot|otelcol.receiver.otlp.pilot)"
+    regex = "(|otlp|otlp/pilot|otelcol[.]receiver[.]otlp[.]pilot)"
     action = "keep"
   }
   rule {
     source_labels = ["exporter"]
-    regex = "(|otlphttp/(metrics|logs|traces)|otelcol.exporter.otlphttp.(metrics|logs|traces))"
+    regex = "(|otlphttp|otlphttp/(metrics|logs|traces)|otelcol[.]exporter[.]otlphttp[.](metrics|logs|traces))"
     action = "keep"
   }
   rule {

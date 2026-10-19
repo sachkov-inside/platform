@@ -4,14 +4,12 @@
     "platform-api",
     "platform-mcp",
     "platform-material-assets-worker",
-    "platform-pilot"
+    "platform-pilot",
+    "platform-profile-avatars-worker",
+    "platform-video-deletions-worker",
+    "platform-billing-worker"
   ],
-  "environments": [
-    "development",
-    "test",
-    "production",
-    "isolated-pilot"
-  ],
+  "environments": ["development", "test", "production", "isolated-pilot"],
   "routes": [
     "/account/profile",
     "/account/profile/avatar",

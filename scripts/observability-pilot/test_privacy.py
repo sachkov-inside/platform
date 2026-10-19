@@ -8,6 +8,23 @@ import collector_privacy
 
 
 class CollectorPrivacyContract(unittest.TestCase):
+    def test_health_proof_requires_exact_closed_metric_and_successful_numeric_sample(self):
+        body = {'status':'success', 'data':{'resultType':'vector', 'result':[
+            {'metric':{'__name__':'up', 'job':'platform-collector', 'instance':'pilot'}, 'value':[1790000000,'1']}]}}
+        self.assertTrue(collector_privacy.healthy((200,json.dumps(body))))
+        for candidate in ('{"error":"1"}', '{', json.dumps({'status':'success','data':{'result':[]}})):
+            self.assertFalse(collector_privacy.healthy((200,candidate)))
+        self.assertFalse(collector_privacy.healthy((500,json.dumps(body))))
+        body['data']['result'][0]['value'][1] = '0'
+        self.assertFalse(collector_privacy.healthy((200,json.dumps(body))))
+
+    def test_acceptance_counter_cannot_treat_missing_unknown_or_nonfinite_as_success(self):
+        body = {'status':'success', 'data':{'resultType':'vector','result':[{'metric':{},'value':[1,'300']}]}}
+        self.assertTrue(collector_privacy.accepted_counter((200,json.dumps(body))))
+        for value in ('0','NaN','Infinity','secret',None):
+            body['data']['result'][0]['value'][1] = value
+            self.assertFalse(collector_privacy.accepted_counter((200,json.dumps(body))))
+
     def test_corpus_challenges_real_surfaces_without_claiming_untrusted_links_are_sanitized(self):
         fixture = pilot.corpus(now_ns=1790000000000000000, sequence=0)
         self.assertIn(collector_privacy.SENTINEL, json.dumps(fixture))

@@ -34,7 +34,7 @@ otelcol.processor.transform "privacy" {
     context = "resource"
     statements = [
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
-      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot)$")`,
+      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
       `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$")`,
     ]
@@ -51,7 +51,7 @@ otelcol.processor.transform "privacy" {
     context = "resource"
     statements = [
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
-      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot)$")`,
+      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
       `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$")`,
     ]
@@ -68,7 +68,7 @@ otelcol.processor.transform "privacy" {
     context = "resource"
     statements = [
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
-      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot)$")`,
+      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
       `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$")`,
     ]
@@ -135,7 +135,7 @@ otelcol.processor.transform "privacy" {
     context = "log"
     statements = [
       `keep_keys(attributes, [])`,
-      `set(body, "telemetry.redacted") where body != "pilot.known_failure"`,
+      `set(body, "telemetry.redacted") where not IsString(body) or body != "pilot.known_failure"`,
       `set(event_name, "")`,
       `set(severity_text, "")`,
     ]
@@ -207,12 +207,12 @@ prometheus.relabel "collector_health" {
   }
   rule {
     source_labels = ["receiver"]
-    regex = "(|otlp/pilot|otelcol.receiver.otlp.pilot)"
+    regex = "(|otlp|otlp/pilot|otelcol[.]receiver[.]otlp[.]pilot)"
     action = "keep"
   }
   rule {
     source_labels = ["exporter"]
-    regex = "(|otlphttp/(metrics|logs|traces)|otelcol.exporter.otlphttp.(metrics|logs|traces))"
+    regex = "(|otlphttp|otlphttp/(metrics|logs|traces)|otelcol[.]exporter[.]otlphttp[.](metrics|logs|traces))"
     action = "keep"
   }
   rule {
