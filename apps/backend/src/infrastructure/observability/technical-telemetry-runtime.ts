@@ -58,6 +58,10 @@ export function technicalTelemetryFromEnvironment(input: {
     environment: input.mode,
     release: input.identity.release,
     sampleRatio: parsed.data.INSIDE_OTEL_SAMPLE_RATIO,
+    onContextUnavailable: () =>
+      writeLog("warn", "telemetry_context_unavailable", {
+        service: input.service,
+      }),
     onExportFailure: (signal) =>
       writeLog("warn", "telemetry_export_failed", {
         signal,
