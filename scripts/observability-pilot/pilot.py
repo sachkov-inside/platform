@@ -335,19 +335,33 @@ def request(path, *, token=None, body=None, method="GET", port=18427):
         return status, ""
 
 
-def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS):
+def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, output=None):
     deadline = time.monotonic() + budget
-    last = None
-    while time.monotonic() < deadline:
-        try:
-            last = read()
-            if predicate(last):
-                return last
-        except (OSError, urllib.error.URLError):
-            pass
-        # Real network compatibility probe; this pause bounds poll load, not success.
-        time.sleep(POLL_INTERVAL_SECONDS)
-    raise RuntimeError("pilot fact did not become visible before deadline")
+    diagnostic = {"probe": probe, "attempts": 0, "outcome": "failed",
+                  "last_http_status": None, "last_transport_error_type": None}
+    try:
+        while time.monotonic() < deadline:
+            diagnostic["attempts"] += 1
+            try:
+                last = read()
+                if isinstance(last, tuple) and last and type(last[0]) is int:
+                    diagnostic["last_http_status"] = last[0]
+                diagnostic["last_transport_error_type"] = None
+                if predicate(last):
+                    diagnostic["outcome"] = "passed"
+                    return last
+            except (OSError, urllib.error.URLError) as error:
+                diagnostic["last_http_status"] = None
+                diagnostic["last_transport_error_type"] = type(error).__name__
+            # Real network compatibility probe; this pause bounds poll load, not success.
+            time.sleep(POLL_INTERVAL_SECONDS)
+        diagnostic["outcome"] = "timed_out"
+        raise RuntimeError(f"pilot fact {probe or 'unlabelled'} did not become visible before deadline")
+    finally:
+        if probe is not None and output is not None:
+            destination = output / "readiness.json"
+            previous = json.loads(destination.read_text()) if destination.exists() else []
+            write_json(destination, [*previous, diagnostic])
 
 
 def install_plugin(output):
@@ -370,19 +384,21 @@ def install_plugin(output):
             path.chmod(0o755)
 
 
-def await_otlp_ready(*, port=14318):
+def await_otlp_ready(*, port=14318, output=None, probe="alloy_otlp"):
     return await_fact(lambda: request("/v1/traces", body={"resourceSpans": []}, method="POST", port=port),
-                      lambda response: response[0] == 200)
+                      lambda response: response[0] == 200, probe=probe, output=output)
 
 
-def await_stored_trace(token, trace_id, *, port=18427):
+def await_stored_trace(token, trace_id, *, port=18427, output=None):
     return await_fact(lambda: request("/traces/select/jaeger/api/traces/" + trace_id, token=token, port=port),
-                      lambda response: response[0] == 200 and "worker.retry" in response[1])
+                      lambda response: response[0] == 200 and "worker.retry" in response[1],
+                      probe="restarted_stored_trace", output=output)
 
 
 def smoke(token, output, compose):
     query = "/metrics/api/v1/query?" + urllib.parse.urlencode({"query": "1"})
-    await_fact(lambda: request(query, token=token), lambda response: response[0] == 200)
+    await_fact(lambda: request(query, token=token), lambda response: response[0] == 200,
+               probe="metrics_query", output=output)
     failures = []
     for prefix, path in [
         ("metrics", "/api/v1/import"), ("metrics", "/api/v1/admin/tsdb/delete_series"),
@@ -408,7 +424,7 @@ def smoke(token, output, compose):
         raise RuntimeError("read-only negative probes failed")
 
     timings = []
-    await_otlp_ready()
+    await_otlp_ready(output=output)
     offset = 0
     for phase, count in (("idle", 0), ("steady", 10), ("spike", 50)):
         phase_start = time.monotonic()
@@ -437,9 +453,10 @@ def smoke(token, output, compose):
         ("/logs/select/logsql/query?" + urllib.parse.urlencode({"query": "_time:5m", "limit": 10}), "pilot.known_failure"),
         ("/traces/select/jaeger/api/traces/00000000000000000000000000000001", "worker.retry"),
     ]
-    for path, marker in checks:
+    for index, (path, marker) in enumerate(checks):
         await_fact(lambda p=path: request(p, token=token),
-                   lambda response, m=marker: response[0] == 200 and m in response[1])
+                   lambda response, m=marker: response[0] == 200 and m in response[1],
+                   probe=("metrics_fixture", "logs_fixture", "traces_fixture")[index], output=output)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)
     post_path = "/metrics/api/v1/query"
@@ -447,16 +464,17 @@ def smoke(token, output, compose):
     if request(post_path + "?query=1", token=token, method="POST")[0] != 200:
         raise RuntimeError("required read POST failed")
     command(compose + ["restart", "alloy"])
-    await_otlp_ready()
+    await_otlp_ready(output=output, probe="restarted_alloy_otlp")
     restarted = corpus(now_ns=time.time_ns(), sequence=100)["traces"]
     if request("/v1/traces", body=restarted, method="POST", port=14318)[0] != 200:
         raise RuntimeError("restarted collector rejected its unique trace fixture")
-    await_stored_trace(token, f"{101:032x}")
+    await_stored_trace(token, f"{101:032x}", output=output)
     # Rotate the disposable fixture key and prove the original key no longer works.
     new_token = secrets.token_urlsafe(32)
     write_json(output / "auth.json", auth_config(new_token))
     command(compose + ["restart", "vmauth"])
-    await_fact(lambda: request(query, token=new_token), lambda response: response[0] == 200)
+    await_fact(lambda: request(query, token=new_token), lambda response: response[0] == 200,
+               probe="replacement_key_query", output=output)
     if request(query, token=token)[0] != 401:
         raise RuntimeError("revoked fixture key still accepted")
     write_json(output / "query-timings.json", timings)
@@ -464,14 +482,40 @@ def smoke(token, output, compose):
             "resource_acceptance": "pending", "application_sdk_propagation": "pending"}
 
 
+def container_states(raw):
+    """Compose status boundary: retain no commands, environment, labels or error text."""
+    try:
+        rows = json.loads(raw)
+    except json.JSONDecodeError:
+        rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
+    if isinstance(rows, dict):
+        rows = [rows]
+    if not isinstance(rows, list) or len(rows) > len(SERVICES):
+        raise ValueError("unexpected owned container status collection")
+    result = []
+    for row in rows:
+        if not isinstance(row, dict) or row.get("Service") not in SERVICES:
+            raise ValueError("unexpected owned container service")
+        state = row.get("State")
+        health = row.get("Health")
+        exit_code = row.get("ExitCode")
+        result.append({"service": row["Service"],
+            "state": state if state in ("created", "restarting", "running", "removing", "paused", "exited", "dead") else "unknown",
+            "health": health if health in ("", "starting", "healthy", "unhealthy", "none") else "unknown",
+            "exit_code": exit_code if type(exit_code) is int and 0 <= exit_code <= 255 else None})
+    return result
+
+
 def cleanup_project(compose, output, project, *, docker=("docker",)):
     """Diagnostics may fail; down and both residue checks are independent obligations."""
     result = {}
     try:
         snapshot = command(compose + ["ps", "--all", "--format", "json"])
-        (output / "container-states.json").write_text(snapshot)
+        states = container_states(snapshot)
+        if not (output / "container-states.json").exists():
+            write_json(output / "container-states.json", states)
         result["diagnostics"] = "passed"
-    except (OSError, subprocess.SubprocessError) as error:
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
         result["diagnostics"] = "failed: " + type(error).__name__
     try:
         command(compose + ["down", "--volumes", "--remove-orphans"], timeout=CLEANUP_TIMEOUT_SECONDS)

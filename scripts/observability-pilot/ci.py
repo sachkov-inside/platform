@@ -17,6 +17,7 @@ PUBLIC_ARTIFACT_MAX_BYTES = 1024 * 1024
 PILOT_ARTIFACTS = (
     "evidence.json", "cleanup.json", "worker-outcome.json", "native-mcp.json",
     "query-timings.json", "negative-failures.json", "recovery.json",
+    "container-states.json", "readiness.json",
     "phase-idle.json", "phase-steady.json", "phase-spike.json",
     "stats-idle.jsonl", "stats-steady.jsonl", "stats-spike.jsonl",
 )
