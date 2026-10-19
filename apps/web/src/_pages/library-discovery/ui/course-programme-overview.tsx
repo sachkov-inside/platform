@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Clock3 } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { ProductChapter } from "@/features/library-discovery";
@@ -25,7 +25,10 @@ export function PreparingChapter({
         <ChevronDown aria-hidden="true" />
       </summary>
       <p className="course-chapter-preparing-notice">
-        Материалы этой главы готовятся и появятся по мере развития потока.
+        <Clock3 aria-hidden="true" />
+        <span>
+          Материалы этой главы готовятся и появятся по мере развития курса.
+        </span>
       </p>
       <ChapterSummary name={chapter.name} summary={chapter.summary} expanded />
     </details>
