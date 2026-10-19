@@ -44,7 +44,7 @@ import {
   AggregationTemporality,
   InMemoryMetricExporter,
 } from "@opentelemetry/sdk-metrics";
-import { expect, test } from "vitest";
+import { expect, test, onTestFailed } from "vitest";
 import fixtures from "../../../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import { createTechnicalTelemetry } from "../../src/infrastructure/observability/technical-telemetry.js";
 import { assembleMaterialsNotificationOutbox } from "../../src/modules/materials/index.js";
@@ -153,12 +153,63 @@ test("retains the first publication context across replay and relay attempts out
 test(
   "authenticated first publication survives broker relay and resumes its own durable audience context",
   async () => {
+    type Stage =
+      | "database_setup"
+      | "collector_start"
+      | "identity_start"
+      | "broker_start"
+      | "api_start"
+      | "seed_audience"
+      | "draft_create"
+      | "http_authorization"
+      | "http_publication"
+      | "relay_failure"
+      | "receipt_start"
+      | "confirm_crash"
+      | "receipt_committed"
+      | "crashed_processes_stop"
+      | "broker_consumers_drained"
+      | "redelivery"
+      | "relay_retry"
+      | "broker_queue_drained"
+      | "first_audience"
+      | "resumed_audience"
+      | "parallel_publications"
+      | "api_close"
+      | "trace_assertions"
+      | "cleanup_children"
+      | "cleanup_api"
+      | "cleanup_broker"
+      | "cleanup_identity"
+      | "cleanup_collector"
+      | "cleanup_database"
+      | "cleanup_log_capture"
+      | "cleanup_environment";
+    let stage: Stage = "database_setup";
+    let failedStage: Stage | undefined;
+    onTestFailed(() => {
+      process.stderr.write(
+        `${JSON.stringify({ event: "notification_recovery_failure", stage, failedStage })}\n`,
+      );
+    });
+    const cleanupAt = (owner: Stage, stop: () => unknown) => async () => {
+      stage = owner;
+      try {
+        await stop();
+      } catch (error) {
+        failedStage ??= owner;
+        throw error;
+      }
+    };
     const database = await createMigratedTestDatabase();
-    const cleanup: (() => unknown)[] = [() => database.dispose()];
+    const cleanup: (() => unknown)[] = [
+      cleanupAt("cleanup_database", () => database.dispose()),
+    ];
     const wire: string[] = [];
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
-    cleanup.push(() => info.mockRestore());
+    cleanup.push(cleanupAt("cleanup_log_capture", () => info.mockRestore()));
     try {
+      stage = "collector_start";
       const collector = createServer((request, response) => {
         let body = "";
         request.setEncoding("utf8");
@@ -173,10 +224,13 @@ test(
       });
       collector.listen(0, "127.0.0.1");
       cleanup.unshift(
-        () =>
-          new Promise<void>((resolve, reject) =>
-            collector.close((error) => (error ? reject(error) : resolve())),
-          ),
+        cleanupAt(
+          "cleanup_collector",
+          () =>
+            new Promise<void>((resolve, reject) =>
+              collector.close((error) => (error ? reject(error) : resolve())),
+            ),
+        ),
       );
       await once(collector, "listening");
       const address = collector.address();
@@ -185,16 +239,19 @@ test(
       const endpoint = `http://127.0.0.1:${address.port}`;
       vi.stubEnv("INSIDE_OTEL_ENABLED", "true");
       vi.stubEnv("INSIDE_OTEL_ENDPOINT", endpoint);
-      cleanup.push(() => vi.unstubAllEnvs());
+      cleanup.push(cleanupAt("cleanup_environment", () => vi.unstubAllEnvs()));
+      stage = "identity_start";
       const identity = await startTestIdentityIssuer({
         issuer: "https://identity.example.test/oidc",
         audience: "https://api.example.test",
       });
-      cleanup.unshift(() => identity.close());
+      cleanup.unshift(cleanupAt("cleanup_identity", () => identity.close()));
+      stage = "broker_start";
       const broker = await startNotificationBroker({
         topology: localNotificationTopology("inside-test", 100),
       });
-      cleanup.unshift(() => broker.stop());
+      cleanup.unshift(cleanupAt("cleanup_broker", () => broker.stop()));
+      stage = "api_start";
       const app = await createApiApplication(
         parsePlatformConfig({
           NODE_ENV: "test",
@@ -207,9 +264,10 @@ test(
         }),
         { logger: false },
       );
-      cleanup.unshift(() => app.close());
+      cleanup.unshift(cleanupAt("cleanup_api", () => app.close()));
       await app.listen(0, "127.0.0.1");
       const origin = await app.getUrl();
+      stage = "seed_audience";
       const owner = randomUUID();
       const topic = randomUUID();
       const readers = Array.from({ length: 26 }, () => randomUUID());
@@ -253,6 +311,7 @@ test(
         prisma: database.prisma,
         authorPolicy: { canManage: (id) => id === owner },
       });
+      stage = "draft_create";
       const draft = await materials.authoring.createDraft({
         actor: owner,
         idempotencyKey: randomUUID(),
@@ -275,6 +334,7 @@ test(
         "idempotency-key": randomUUID(),
         "x-request-id": requestId,
       };
+      stage = "http_authorization";
       expect(
         (
           await fetch(url, {
@@ -300,6 +360,7 @@ test(
         ).status,
       ).toBe(403);
       expect(await database.prisma.materialNotificationOutbox.count()).toBe(0);
+      stage = "http_publication";
       const response = await fetch(url, {
         method: "PUT",
         headers,
@@ -341,8 +402,10 @@ test(
         children.push(child);
         return child;
       };
-      cleanup.unshift(async () =>
-        finishFixtureCleanup(children.map((child) => () => child.stop())),
+      cleanup.unshift(
+        cleanupAt("cleanup_children", () =>
+          finishFixtureCleanup(children.map((child) => () => child.stop())),
+        ),
       );
       const record = z.object({
         kind: z.string(),
@@ -374,6 +437,7 @@ test(
         await boundedProcessFact(child.exited);
         await child.stop();
       };
+      stage = "relay_failure";
       const failed = launch("fail-publish");
       await waitMessage(failed, "publish-failed");
       await finish(failed);
@@ -392,10 +456,13 @@ test(
         publishedAt: null,
         traceparent: source.traceparent,
       });
+      stage = "receipt_start";
       const receipt = launch("accept-crash");
       await waitMessage(receipt, "ready");
+      stage = "confirm_crash";
       const confirmed = launch("confirm-crash");
       await waitMessage(confirmed, "confirmed");
+      stage = "receipt_committed";
       await waitMessage(receipt, "accepted");
       const inbox = await database.prisma.notificationInbox.findUniqueOrThrow({
         where: {
@@ -408,8 +475,10 @@ test(
         traceparent: expect.any(String) as unknown,
         completedAt: null,
       });
+      stage = "crashed_processes_stop";
       await kill(confirmed);
       await kill(receipt);
+      stage = "broker_consumers_drained";
       await eventually(
         async () =>
           expect(
@@ -421,11 +490,13 @@ test(
           ).toBe(0),
         RECOVERY_FACT_BUDGET_MS,
       );
+      stage = "redelivery";
       const restarted = launch("accept");
       await waitMessage(restarted, "acknowledged");
       await finish(restarted);
       const duplicate = launch("accept");
       await waitMessage(duplicate, "ready");
+      stage = "relay_retry";
       const retry = launch("publish");
       await waitMessage(retry, "published");
       await finish(retry);
@@ -444,6 +515,7 @@ test(
         traceparent: inbox.traceparent,
         digest: source.digest,
       });
+      stage = "broker_queue_drained";
       await eventually(
         async () =>
           expect(
@@ -456,6 +528,7 @@ test(
         RECOVERY_FACT_BUDGET_MS,
       );
       // A distinct process resumes each batch of the persisted audience checkpoint.
+      stage = "first_audience";
       const firstAudience = launch("audience");
       await finish(firstAudience);
       const checkpoint =
@@ -472,6 +545,7 @@ test(
         recipients: 25,
         after: expect.any(String) as unknown,
       });
+      stage = "resumed_audience";
       const resumedAudience = launch("audience");
       await finish(resumedAudience);
       expect(
@@ -488,6 +562,7 @@ test(
         traceparent: inbox.traceparent,
       });
       const traceId = source.traceparent?.split("-")[1];
+      stage = "parallel_publications";
       const parallel = await Promise.all(
         [0, 1].map(async (index) => {
           const parallelMetadata = {
@@ -567,7 +642,9 @@ test(
       expect(z.uuid().safeParse(request?.requestId).success).toBe(true);
       expect(request?.requestId).not.toBe(requestId);
       expect(source.payload).not.toContain(requestId);
+      stage = "api_close";
       await app.close();
+      stage = "trace_assertions";
       const exported = wire.join("\n");
       const observed = exportedSpans(wire).filter((span) =>
         span.name.endsWith(" materials"),
@@ -601,6 +678,9 @@ test(
         ...readers,
       ])
         expect(exported).not.toContain(sentinel);
+    } catch (error) {
+      failedStage ??= stage;
+      throw error;
     } finally {
       await finishFixtureCleanup(cleanup);
     }
@@ -1228,5 +1308,25 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
     ).toMatchObject({ traceparent: null });
   } finally {
     await finishFixtureCleanup([() => admin.end(), () => database.dispose()]);
+  }
+});
+
+// Stops a broken observer before Vitest's outer deadline; exceeds the native command's kill budget.
+const BROKER_ADMIN_OBSERVATION_BUDGET_MS = 15_000;
+test("broker admin terminates a hung Erlang command and preserves broker availability", async () => {
+  const broker = await startNotificationBroker({
+    topology: localNotificationTopology("inside-test", 100),
+  });
+  let pending: Promise<string> | undefined;
+  try {
+    pending = broker.admin(["eval", "timer:sleep(infinity)."]);
+    await expect(
+      boundedProcessFact(pending, BROKER_ADMIN_OBSERVATION_BUDGET_MS),
+    ).rejects.toThrow("notification_broker_admin_failed");
+    expect((await broker.admin(["eval", "1 + 1."])).trim()).toBe("2");
+  } finally {
+    await broker.stop();
+    // Container shutdown also ends the intentionally hung command on the RED implementation.
+    if (pending !== undefined) await Promise.allSettled([pending]);
   }
 });
