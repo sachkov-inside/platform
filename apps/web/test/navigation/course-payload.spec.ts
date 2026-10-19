@@ -117,6 +117,48 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   expect(accessibility.violations).toEqual([]);
 });
 
+test("programme reveals the next batch before the last loaded lesson reaches the scroll edge", async ({
+  page,
+}) => {
+  await page.goto(programme);
+  const surface = page.locator(
+    '[data-product-programme="performance-course"]:visible',
+  );
+  await expect(surface.locator('[data-programme-part="header"]')).toContainText(
+    "всё открыто",
+  );
+  const rows = surface.locator("[data-series-ordinal]");
+  await expect(rows).toHaveCount(24);
+  const first = rows.first();
+  await first.evaluate((node) => {
+    node.setAttribute("data-retained-lesson", "true");
+  });
+  for (const loaded of [24, 36, 48]) {
+    await rows.nth(loaded - 1).evaluate((node) => {
+      const main = node.closest("main");
+      node.scrollIntoView({ block: "end" });
+      if (main !== null && getComputedStyle(main).overflowY === "auto") {
+        main.scrollTop -= 320;
+      } else {
+        window.scrollBy(0, -320);
+      }
+    });
+    await expect(rows).toHaveCount(loaded + 12);
+    await expect(first).toHaveAttribute("data-retained-lesson", "true");
+    if (loaded === 24) {
+      const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
+      await page.setViewportSize(
+        desktop ? { width: 390, height: 844 } : { width: 1440, height: 1024 },
+      );
+    }
+  }
+  expect(
+    await rows.evaluateAll((nodes) =>
+      nodes.map((node) => Number(node.getAttribute("data-series-ordinal"))),
+    ),
+  ).toEqual(Array.from({ length: 60 }, (_, index) => index + 1));
+});
+
 for (const version of ["v1", "v2", "v3"] as const) {
   test(`course film ${version} draws its selected reduced-motion frame without hydration errors`, async ({
     page,
