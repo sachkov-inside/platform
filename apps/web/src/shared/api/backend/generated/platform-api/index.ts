@@ -33,6 +33,7 @@ export { ProductArtifactsService } from './services/ProductArtifactsService';
 export { ProductTaskAssetsService } from './services/ProductTaskAssetsService';
 export { ProductTaskAuthoringService } from './services/ProductTaskAuthoringService';
 export { ProductTasksService } from './services/ProductTasksService';
+export { ProductWaitlistsService } from './services/ProductWaitlistsService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
 export { ReadingActivityService } from './services/ReadingActivityService';
 export { SalesFunnelService } from './services/SalesFunnelService';

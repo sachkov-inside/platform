@@ -1,3 +1,7 @@
+import {
+  captureNotificationTraceparent,
+  observeNotification,
+} from "../observability/technical-telemetry.js";
 import type { Prisma } from "../prisma/index.js";
 import {
   encodeNotification,
@@ -7,7 +11,9 @@ import {
 } from "./wire.js";
 
 // Three module-owned tables have the same transport columns; callers pass only their own delegate.
-type OutboxRow = Prisma.NotificationOutboxGetPayload<Record<never, never>>;
+type OutboxRow = Prisma.NotificationOutboxGetPayload<Record<never, never>> & {
+  traceparent?: string | null;
+};
 type OutboxKey = { scope_messageId: { scope: string; messageId: string } };
 export interface NotificationOutboxTable {
   upsert(args: {
@@ -18,6 +24,7 @@ export interface NotificationOutboxTable {
       lane: string;
       payload: string;
       digest: string;
+      traceparent?: string | null;
     };
     update: Record<never, never>;
   }): Promise<OutboxRow>;
@@ -38,7 +45,10 @@ export interface NotificationOutboxTable {
 export interface NotificationOutbox {
   relay(
     lane: NotificationLane,
-    publish: (envelope: NotificationEnvelope) => Promise<void>,
+    publish: (
+      envelope: NotificationEnvelope,
+      metadata?: { readonly traceparent?: string },
+    ) => Promise<void>,
   ): Promise<boolean>;
 }
 export async function stageNotification(
@@ -56,6 +66,9 @@ export async function stageNotification(
       lane,
       payload: envelope.payload,
       digest: envelope.digest,
+      ...(lane === "materials"
+        ? { traceparent: captureNotificationTraceparent() ?? null }
+        : {}),
     },
     update: {},
   });
@@ -87,7 +100,14 @@ export function assembleNotificationOutbox(
           envelope.messageId !== row.messageId
         )
           throw new Error("outbox_integrity_failure");
-        await publish(envelope);
+        if (lane === "materials") {
+          await observeNotification("publish", row.traceparent, (traceparent) =>
+            publish(
+              envelope,
+              traceparent === undefined ? undefined : { traceparent },
+            ),
+          );
+        } else await publish(envelope);
         // A crash here deliberately republishes the same immutable ID after restart.
         await table.update({
           where,

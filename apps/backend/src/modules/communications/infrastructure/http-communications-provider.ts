@@ -112,6 +112,15 @@ function matchesOperation(
       return "templates" in value;
     case "funnels.list":
       return "funnels" in value;
+    case "broadcasts.preview":
+      return (
+        "waitlistPreview" in value &&
+        sameId(
+          value.waitlistPreview.broadcastId,
+          request.payload.broadcastId,
+        ) &&
+        value.waitlistPreview.revision === request.expectedRevision
+      );
     case "broadcasts.read":
     case "broadcasts.save":
     case "broadcasts.launch":

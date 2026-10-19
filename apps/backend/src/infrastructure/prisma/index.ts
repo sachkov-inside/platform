@@ -58,3 +58,8 @@ export {
   lockTelegramCommunityWork,
   lockTelegramMembershipLink,
 } from "./transaction-locks.js";
+
+export {
+  lockProductWaitlistOperation,
+  lockProductWaitlistMembership,
+} from "./transaction-locks.js";

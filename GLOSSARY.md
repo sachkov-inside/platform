@@ -104,6 +104,19 @@ individual Product by its kind, such as «курс». An archived Product is wit
 and sale: holders keep reading its programme and Materials, and others get «not found».
 _Avoid_: Subscription, «руководство» as the product name, using course as the universal category
 
+**Product Intake**:
+A particular upcoming admission to a Product, with an identity that remains stable when its
+presentation or dates change. A later admission is a different intake.
+In Russian product language: «набор».
+_Avoid_: Product, ProductCohort revision, sales opening date
+
+**Product Waitlist**:
+An Account's explicit request to hear in Telegram when admission to one Product Intake opens.
+Withdrawing and rejoining change the same Account's membership. This request neither grants
+learning or community rights nor changes general messaging preferences.
+In Russian product language: «список ожидания».
+_Avoid_: Bot start, marketing consent, reservation, purchase
+
 **ProductProgramme**:
 The reader-facing surface that carries a Product's Materials, their chapters, access states and
 progress, and the Product's own price. It is separate from the product page, which explains the

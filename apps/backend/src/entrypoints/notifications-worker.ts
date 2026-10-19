@@ -1,3 +1,8 @@
+import { technicalTelemetryFromEnvironment } from "../infrastructure/observability/technical-telemetry-runtime.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../infrastructure/runtime-identity.js";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import {
@@ -40,36 +45,50 @@ async function bootstrap() {
     config.billingContact && config.notificationDelivery
       ? assembleNotificationEmailSender(config.billingContact)
       : undefined;
-  const worker = assembleNotificationPipeline({
-    config: config.notifications,
-    prisma,
-    transport: notifications.transport,
-    processInbox: () => notifications.sweep(sendEmail),
-    // Каждый проход разбора входящих вместе с его наблюдениями — своя единица работы в журнале.
-    runInboxSweep: (sweep) =>
-      runWithLogContext(
-        {
+  const technicalTelemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-notifications-worker",
+    mode: config.mode,
+    identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+  });
+  try {
+    const worker = assembleNotificationPipeline({
+      config: config.notifications,
+      prisma,
+      transport: notifications.transport,
+      processInbox: () =>
+        technicalTelemetry.runJob(() => notifications.sweep(sendEmail)),
+      // Каждый проход разбора входящих вместе с его наблюдениями — своя единица работы в журнале.
+      runInboxSweep: (sweep) =>
+        runWithLogContext(
+          {
+            process: "notifications-worker",
+            queue: "notifications.inbox",
+            requestId: generateRequestId(),
+          },
+          sweep,
+        ),
+      report: (event) =>
+        writeLog(transportLogLevel(event), "notification_transport", {
           process: "notifications-worker",
-          queue: "notifications.inbox",
-          requestId: generateRequestId(),
-        },
-        sweep,
-      ),
-    report: (event) =>
-      writeLog(transportLogLevel(event), "notification_transport", {
-        process: "notifications-worker",
-        ...event,
-      }),
-  });
-  await runWorker({
-    application,
-    databaseUrl: config.database.url,
-    jobs: worker,
-    failed: worker.failed,
-    process: "notifications-worker",
-    readiness: application.get(OperationalReadiness),
-    registerJobs: () => Promise.resolve(),
-  });
+          ...event,
+        }),
+    });
+    await runWorker({
+      application,
+      databaseUrl: config.database.url,
+      jobs: {
+        start: () => technicalTelemetry.runJob(() => worker.start()),
+        stop: (options) => worker.stop(options),
+      },
+      failed: worker.failed,
+      process: "notifications-worker",
+      readiness: application.get(OperationalReadiness),
+      registerJobs: () => Promise.resolve(),
+    });
+  } finally {
+    await technicalTelemetry.shutdown();
+  }
 }
 
 // Наблюдение с причиной — сбой, остальные сигналы оператору — предупреждение.

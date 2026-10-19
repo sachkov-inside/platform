@@ -1,3 +1,5 @@
+import { type WaitlistAuthorization } from "./waitlist-authorization.js";
+import { waitlistContacts, previewWaitlist } from "./waitlist-broadcasts.js";
 import { botContactRows } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
@@ -26,9 +28,20 @@ export function broadcastView(row: Broadcast) {
     scheduledAt: row.scheduled_at?.toISOString() ?? null,
     audienceSnapshotId: row.audience_snapshot_id,
     snapshotSize: row.snapshot_size,
+    ...(row.waitlist_active_count === null ||
+    row.waitlist_excluded_count === null
+      ? {}
+      : {
+          waitlistAudience: {
+            active: row.waitlist_active_count,
+            eligible: row.snapshot_size,
+            excluded: row.waitlist_excluded_count,
+          },
+        }),
   };
 }
 export type BroadcastResult =
+  | { waitlistPreview: Awaited<ReturnType<typeof previewWaitlist>> }
   | { broadcast: ReturnType<typeof broadcastView> }
   | {
       broadcasts: ReturnType<typeof broadcastView>[];
@@ -43,6 +56,7 @@ export async function applyBroadcast(
   bot: string,
   actor: string,
   now: Date,
+  waitlist: WaitlistAuthorization,
 ): Promise<BroadcastResult> {
   const { operation, payload, expectedRevision } = request;
   if (operation === "broadcasts.list") {
@@ -66,6 +80,13 @@ export async function applyBroadcast(
     .executeTakeFirst();
   if (row && (row.bot_identity !== bot || row.owner_account_ref !== actor))
     throw new CommunicationsError("not_found");
+  if (operation === "broadcasts.preview") {
+    if (row?.audience.kind !== "waitlist")
+      throw new CommunicationsError("not_found");
+    if (row.revision !== expectedRevision)
+      throw new CommunicationsError("revision_conflict");
+    return { waitlistPreview: await previewWaitlist(tx, row, waitlist) };
+  }
   if (operation === "broadcasts.read") {
     if (!row) throw new CommunicationsError("not_found");
     return { broadcast: broadcastView(row) };
@@ -94,6 +115,13 @@ export async function applyBroadcast(
         throw new CommunicationsError("unsupported_content");
     });
     const audience = requiredField(payload.audience);
+    if (
+      audience.kind === "waitlist" &&
+      (payload.scheduledAt !== null ||
+        parts.length !== 1 ||
+        (parts[0]?.sendAfterSeconds ?? 0) !== 0)
+    )
+      throw new CommunicationsError("malformed");
     if (audience.kind === "funnels") {
       const ids = [...new Set(audience.funnelIds)];
       const owned = await tx
@@ -155,7 +183,7 @@ export async function applyBroadcast(
         .returningAll()
         .executeTakeFirstOrThrow();
       if (!row.scheduled_at || row.scheduled_at <= now)
-        row = await launchBroadcast(tx, row, now);
+        row = await launchBroadcast(tx, row, now, waitlist);
     } else if (operation === "broadcasts.lifecycle") {
       let state: Broadcast["state"];
       if (payload.action === "cancel") state = "cancelled";
@@ -204,8 +232,13 @@ async function launchBroadcast(
   tx: Tx,
   row: Broadcast,
   now: Date,
+  waitlist: WaitlistAuthorization,
 ): Promise<Broadcast> {
   if (hasText(row.audience_snapshot_id)) return row;
+  if (row.audience.kind === "waitlist") {
+    const contacts = await waitlistContacts(tx, row, waitlist);
+    return snapshotBroadcast(tx, row, contacts, now);
+  }
   // All includes legacy contacts who never entered a marketing funnel. No enrollment is created.
   await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id)
     select gen_random_uuid(),bot_identity,telegram_user_id from (${botContactRows(tx)}) b where bot_identity=${row.bot_identity}
@@ -238,6 +271,14 @@ async function launchBroadcast(
       ),
     );
   const contacts = (await query.execute()).map((c) => c.contact_id);
+  return snapshotBroadcast(tx, row, contacts, now);
+}
+async function snapshotBroadcast(
+  tx: Tx,
+  row: Broadcast,
+  contacts: readonly string[],
+  now: Date,
+): Promise<Broadcast> {
   const parts = row.parts;
   const due = new Date(+now + (parts[0]?.sendAfterSeconds ?? 0) * 1000);
   await planDeliveries(
@@ -272,6 +313,8 @@ export async function launchDueBroadcasts(
   tx: Tx,
   bot: string,
   now: Date,
+  waitlist: WaitlistAuthorization,
+  marketingEnabled = true,
 ): Promise<void> {
   const scheduled = await tx
     .selectFrom("communication_broadcasts")
@@ -282,7 +325,9 @@ export async function launchDueBroadcasts(
       eb.or([eb("scheduled_at", "is", null), eb("scheduled_at", "<=", now)]),
     )
     .execute();
-  for (const row of scheduled) await launchBroadcast(tx, row, now);
+  for (const row of scheduled)
+    if (marketingEnabled || row.audience.kind === "waitlist")
+      await launchBroadcast(tx, row, now, waitlist);
 }
 // Completes launched broadcasts without unfinished recipients: one broadcast after its result,
 // or every one in the planning phase after stop/block cancellations.

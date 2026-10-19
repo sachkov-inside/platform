@@ -409,6 +409,27 @@ describe("broadcast", () => {
     ]);
   });
 
+  it("keeps the explicit waitlist audience through owner confirmation and launch", () => {
+    const audience = { kind: "waitlist" as const, intakeId: uuid(902) };
+    const dialog = new Dialog({
+      ...emptyAuthorState("menu"),
+      actions: [{ kind: "confirm-launch" }],
+      broadcast: broadcast({ audience }),
+      broadcastName: "Предзаказ",
+    }).send({ kind: "callback", data: "author:menu:0" });
+    expect(dialog.state.broadcast?.audience).toEqual(audience);
+    expect(required(dialog.menu).text).toContain(
+      "список ожидания выбранного набора",
+    );
+    dialog.click("Запустить рассылку");
+    expect(dialog.query("change-broadcast")).toEqual({
+      kind: "change-broadcast",
+      broadcastId: uuid(900),
+      revision: 1,
+      operation: "launch",
+    });
+  });
+
   it("asks for a message before launching a broadcast that was never saved", () => {
     const dialog = new Dialog({
       ...emptyAuthorState("menu"),

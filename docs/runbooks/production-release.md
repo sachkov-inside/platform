@@ -263,6 +263,7 @@ edge описано в
 | POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/communications/waitlist` | бот Telegram: активная аудитория набора и допуск отправки | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/sales-funnel/events` | бот Telegram | bearer `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` | `401 unauthorized` (без настройки — тоже `401`) |
 | любой | `/authoring-api/authoring/*` | перенос из Content (`pnpm authoring:release`) | bearer Logto автора с аудиторией API и право `materials:manage`; префикс снимается до API | `401`, без права — `403` |
@@ -326,7 +327,7 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
 11. **Уведомления.** `notifications-worker` уже подключён к брокеру с шага 5. После включения
     Telegram у очередей `telegram.notifications.subscription.v1` и `telegram.notifications.material.v1`
     появляются consumers (команда в [проверках](#checks-after-rollout)).
-12. **Авторское меню и воронки.** Маршруты `communications/authorize` и `validate-content` опубликованы
+12. **Авторское меню и воронки.** Маршруты `communications/authorize`, `validate-content` и `waitlist` опубликованы
     с шага 5; проверка — в разделе «Воронки идут».
 
 Постоянную продажу разового продукта владелец включает после шага 12; приёмка реальными платежами —

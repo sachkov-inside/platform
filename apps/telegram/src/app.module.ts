@@ -1,3 +1,8 @@
+import { HttpWaitlistAuthorizationAdapter } from "./adapters/platform/http-waitlist-authorization.adapter.js";
+import {
+  WAITLIST_AUTHORIZATION,
+  DisabledWaitlistAuthorization,
+} from "./modules/communications/waitlist-authorization.js";
 import { TelegramContacts } from "./modules/identity-linking/telegram-contacts.js";
 import { TelegramContactsController } from "./modules/identity-linking/telegram-contacts.controller.js";
 import {
@@ -92,7 +97,13 @@ import { BotContacts } from "./modules/bot-contacts/bot-contacts.js";
 import { SignInAccountLink } from "./modules/bot-sign-in/sign-in-account-link.js";
 import { BotSignIn } from "./modules/bot-sign-in/bot-sign-in.js";
 import { BotSignInController } from "./modules/bot-sign-in/bot-sign-in.controller.js";
-import { CLOCK, systemClock, type Clock } from "./shared/clock.js";
+import {
+  CLOCK,
+  systemClock,
+  MONOTONIC_CLOCK,
+  systemMonotonicClock,
+  type Clock,
+} from "./shared/clock.js";
 import { IdentityLinking } from "./modules/identity-linking/identity-linking.js";
 import { IdentityLinkRecovery } from "./modules/identity-linking/identity-link-recovery.js";
 import { IdentityLinkingController } from "./modules/identity-linking/identity-linking.controller.js";
@@ -197,6 +208,7 @@ export class AppModule {
         },
         { provide: APPLICATION_CONFIG, useValue: config },
         { provide: CLOCK, useValue: systemClock },
+        { provide: MONOTONIC_CLOCK, useValue: systemMonotonicClock },
         {
           provide: DATABASE,
           inject: [APPLICATION_CONFIG],
@@ -386,11 +398,20 @@ export class AppModule {
         MarketingEntry,
         FunnelScheduler,
         {
+          provide: WAITLIST_AUTHORIZATION,
+          useFactory: () =>
+            hasText(config.platformAuthorAuthorizationUrl) &&
+            hasText(config.platformAuthorAuthorizationSecret)
+              ? new HttpWaitlistAuthorizationAdapter(
+                  config.platformAuthorAuthorizationUrl,
+                  config.platformAuthorAuthorizationSecret,
+                )
+              : new DisabledWaitlistAuthorization(),
+        },
+        {
           provide: COMMUNICATION_TRANSPORT,
           useFactory: () =>
-            config.marketingEnabled &&
-            config.deliveryMode === "live" &&
-            hasText(config.botToken)
+            config.deliveryMode === "live" && hasText(config.botToken)
               ? new GrammyCommunicationsAdapter(
                   new Api(config.botToken, { timeoutSeconds: 10 }),
                 )

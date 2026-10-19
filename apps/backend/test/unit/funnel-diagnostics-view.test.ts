@@ -20,6 +20,17 @@ it("does not publish a future private owner report field in the diagnostic respo
       paid: null,
     },
     surveyRespondents: null,
+    waitlist: {
+      intakeId: "private-intake",
+      name: "Private waitlist",
+      active: 1,
+      joined: 1,
+      withdrawn: 0,
+      sources: [
+        { source: "private-source", active: 1, joined: 1, withdrawn: 0 },
+      ],
+      weeks: [],
+    },
     futurePrivateField: "private-owner-sentinel",
   };
   const response = projectFunnelDiagnosticPage(report, {
@@ -27,6 +38,7 @@ it("does not publish a future private owner report field in the diagnostic respo
     nextCursor: null,
   });
   expect(response).not.toHaveProperty("futurePrivateField");
+  expect(response).not.toHaveProperty("waitlist");
   expect(Object.keys(response).sort()).toEqual([
     "consistency",
     "coverage",

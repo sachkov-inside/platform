@@ -5,6 +5,7 @@ import {
   setDiagnosticStatementBudget,
   type DiagnosticSourceBudgetFailure,
 } from "../../../../infrastructure/diagnostic-read-budget.js";
+import { ProductWaitlists } from "../../facets/product-waitlists/product-waitlists.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -34,6 +35,7 @@ export type ReadFunnelReportDependencies = {
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly links: Pick<
     TelegramAccountLinks,
+    | "readBinding"
     | "findCurrentAccounts"
     | "findCurrentAccountsForDiagnostics"
     | "findCurrentIdentitiesForDiagnostics"
@@ -148,6 +150,16 @@ export async function readFunnelReport(
   if (parsed.data.chapterId !== undefined && chapter === undefined)
     return failure("chapter_not_found");
 
+  // The bounded diagnostic projection has no waitlist field or demand-query budget.
+  const waitlist =
+    product === undefined || diagnostics
+      ? { ok: true as const, value: null }
+      : await new ProductWaitlists(dependencies).demand({
+          productId: product.id,
+          from,
+          to,
+        });
+  if (!waitlist.ok) return failure("dependency_unavailable");
   const [initialJournal, surveyRespondents] = await Promise.all([
     diagnostics
       ? readJournalForDiagnostics(dependencies.prisma, { from, to })
@@ -360,6 +372,7 @@ export async function readFunnelReport(
       paid: total("paid", measured.paid),
     },
     surveyRespondents: surveyRespondents.value,
+    waitlist: waitlist.value,
   };
   return { ok: true, value: report };
 }

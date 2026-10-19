@@ -1,4 +1,4 @@
-export const name = "0105_learning_activity_provenance";
+export const name = "0106_learning_activity_provenance";
 export const statement = `
 CREATE TABLE reading_activity.learning_started_events (
   event_id uuid PRIMARY KEY,

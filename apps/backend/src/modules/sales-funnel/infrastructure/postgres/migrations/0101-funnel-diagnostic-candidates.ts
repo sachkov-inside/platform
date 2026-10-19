@@ -1,4 +1,4 @@
-export const name = "0100_funnel_diagnostic_candidates";
+export const name = "0101_funnel_diagnostic_candidates";
 
 export const statement = `
 create index bot_events_link_account on sales_funnel.bot_events(account_id, contact_ref) where kind = 'account_linked';
