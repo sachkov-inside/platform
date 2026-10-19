@@ -26,6 +26,7 @@ import uuid
 import zipfile
 import orbstack
 import daemon
+import collector_privacy
 import native_cpu
 from storage_policy import admission as check_disk, assert_budget
 
@@ -67,6 +68,7 @@ def compose_plan(source, output, images, *, credential_owner):
     for name in ("logs", "traces"):
         services[name]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2"]
     services["alloy"].update({"command": ["run", "/etc/alloy/config.alloy", "--storage.path=/tmp/alloy"],
+        "logging": {"driver":"none"},
         "ports": ["127.0.0.1:14318:4318"],
         "volumes": [f"{source / 'config.alloy'}:/etc/alloy/config.alloy:ro"]})
     # The private auth bind mount is mode 0600; its owner can read it without DAC_OVERRIDE.
@@ -114,7 +116,7 @@ def corpus(*, now_ns, sequence):
         if index:
             span["parentSpanId"] = f"{index:016x}"
         spans.append(span)
-    return {
+    return collector_privacy.challenge({
         "traces": {"resourceSpans": [{"resource": resource, "scopeSpans": [{"spans": spans}]}]},
         "logs": {"resourceLogs": [{"resource": resource, "scopeLogs": [{"logRecords": [{
             "timeUnixNano": str(now_ns), "observedTimeUnixNano": str(now_ns),
@@ -127,7 +129,7 @@ def corpus(*, now_ns, sequence):
                 "attributes": [attribute("http.route", "/pilot")],
             }]},
         }]}]}]},
-    }
+    })
 
 
 @contextmanager
@@ -223,6 +225,7 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
             raise RuntimeError("native MCP failed to return known fixture")
         if validate_result is not None:
             validate_result(result)
+        collector_privacy.assert_clean(result)
         proof = {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
     return {**proof, **measurement}
 
@@ -472,9 +475,35 @@ def smoke(token, output, compose):
         ("/traces/select/jaeger/api/traces/00000000000000000000000000000001", "worker.retry"),
     ]
     for index, (path, marker) in enumerate(checks):
-        await_fact(lambda p=path: request(p, token=token),
+        response = await_fact(lambda p=path: request(p, token=token),
                    lambda response, m=marker: response[0] == 200 and m in response[1],
                    probe=("metrics_fixture", "logs_fixture", "traces_fixture")[index], output=output)
+        collector_privacy.assert_clean(response[1])
+        if index == 2:
+            collector_privacy.assert_link_preserved(response[1])
+    # Read all records/series in this bounded disposable corpus, not only the positive marker.
+    for path in ('/logs/select/logsql/query?'+urllib.parse.urlencode({'query':'_time:1h', 'limit':200}),
+                 '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})):
+        status, body = request(path, token=token)
+        if status != 200:
+            raise RuntimeError('collector privacy storage corpus query failed')
+        collector_privacy.assert_clean(body)
+    up_path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'up{job="platform-collector"}'})
+    health = await_fact(lambda: request(up_path, token=token),
+        collector_privacy.healthy,
+        probe='collector_safe_health', output=output)
+    collector_privacy.assert_clean(health[1])
+    counter_path = '/metrics/api/v1/query?'+urllib.parse.urlencode({
+        'query':'sum({__name__=~"otelcol_receiver_accepted_spans(_total)?",job="platform-collector"})'})
+    counters = await_fact(lambda: request(counter_path, token=token),
+        collector_privacy.accepted_counter, probe='collector_safe_acceptance_counter', output=output)
+    collector_privacy.assert_clean(counters[1])
+    write_json(output/'collector-privacy.json', {'accessible_field_sentinel':'passed',
+        'safe_link_correlation':'passed', 'safe_collector_health':'passed',
+        'safe_collector_acceptance_counter':'passed',
+        'collector_raw_diagnostics':'discarded by Docker logging none; not collected',
+        'untrusted_link_metadata':'unsupported; no production/general-source acceptance',
+        'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)
     post_path = "/metrics/api/v1/query"

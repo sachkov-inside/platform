@@ -3,14 +3,18 @@
 Статус на 19.10.2026: подготовлен исполняемый **кандидат** первого технического smoke
 для [#1566](https://github.com/sachkov-inside/platform/issues/1566) /
 [принятой спецификации #1565](https://github.com/sachkov-inside/platform/issues/1565).
+Новая [collector privacy candidate](collector-privacy.md) меняет Alloy config; её runtime ещё не
+проверен. Приведённые ниже успешные запуски относятся к предшествующему контуру.
 Функциональный Linux smoke прошёл на sources `a087bb271` и `14faa9904`:
 [run 39288942467](https://github.com/sachkov-inside/platform/actions/runs/39288942467),
 [run 39289463842](https://github.com/sachkov-inside/platform/actions/runs/39289463842).
 На Mac source `3bd70d3398a2341d0fd619e1a796b822edcfd0a8` весь core smoke прошёл:
 три native Victoria MCP прочитали известные fixtures, identity/storage monitor и cleanup завершились
 успешно. Кураторские доказательства сохранены в `.reports/observability-1566/mac-3bd70d33`.
-В этом запуске отдельный native CPU ещё был unavailable; новый CPU helper требует отдельного
-запуска после ревью. История: source `507ed39c` также прочитал fixtures, но остановился из-за
+В этом запуске отдельный native CPU ещё был unavailable. В последующем Mac core запуске source
+`b708afe1` новый изолированный helper измерил CPU: VM 14.702612s, VL 1.810982s, VT 0.319836s;
+известные fixtures, совместимость и cleanup прошли. Это не full resource acceptance.
+История: source `507ed39c` также прочитал fixtures, но остановился из-за
 VM identity monitor; diagnostics/down/residue прошли, а отклонённый sample тогда не сохранялся.
 Production не менялся; аналитика не включалась.
 Этот smoke не является полным ресурсным пилотом или выполнением спецификации.
@@ -85,7 +89,8 @@ Caddyfile. Поэтому только `gateway` получает `NET_BIND_SERV
 Нужны Linux Engine с локально доступным `DockerRootDir` либо Mac arm64 с уже работающим
 OrbStack, Docker Compose, Git, Python 3.9+ и сеть для получения pinned images/artifacts.
 Checkout должен быть чистым и закоммиченным. Короткий core smoke на OrbStack проверен:
-core Mac smoke прошёл на source `3bd70d33`; отдельный CPU нового helper ещё требует проверки. Остальные Darwin/context combinations
+core Mac smoke прошёл на sources `3bd70d33` и `b708afe1`; во втором проверены отдельные CPU records.
+Новый privacy config требует нового supervised smoke. Остальные Darwin/context combinations
 отклоняются до получения images.
 
 ```bash
@@ -157,7 +162,11 @@ KILL; аварийная уборка helper повторяет KILL/reap с т�
 
 Core снимает CPU-pending только при трёх корректных Victoria records; Umami — при своём одном.
 Остальные missing/resource acceptance пункты сохраняются. Старые evidence не пересчитываются;
-новый Mac CPU и полный ресурсный пилот остаются обязательными отдельными проверками;
+четыре native Mac MCP уже получили корректные изолированные records на source `b708afe1`,
+при byte-identical runtime inputs integration `b33d7a52`:
+[точное evidence](https://github.com/sachkov-inside/platform/issues/1566#issuecomment-6274516488),
+curated SHA256 `b9fba18421c78d73a672d97d23eb9670b89abf21332b57132b781a7d4b0e73df`.
+Полный ресурсный пилот остаётся обязательной отдельной проверкой;
 общую сумму дочерних процессов нельзя выдавать за расход одного MCP. Umami использует тот же
 изолированный CPU-канал для своего одного native MCP.
 
@@ -290,7 +299,7 @@ recovery отказывает, чтобы
 Обычные выходы/timeout/signals по-прежнему обслуживает собственный supervisor.
 
 Зелёный hosted smoke подтверждает только проверенный синтетический Linux сценарий этого source.
-Он не доказывает запас Timeweb VPS, отдельный CPU нового helper на Mac, полный согласованный resource workload,
+Он не доказывает запас Timeweb VPS, полный согласованный resource workload,
 аналитическую часть, production rollout или семь суток наблюдений. Первый фактический запуск workflow
 и его artifact должны быть отдельно записаны в #1566.
 
@@ -343,7 +352,8 @@ Evidence находится в `.reports/observability-pilot-*/evidence.json` в
 
 После успешного core smoke по #1565 ещё обязательны:
 
-- Mac stdio для Victoria MCP; Umami read-only MCP, ключ отдельного пользователя и отзыв.
+- Повторную совместимость с новым collector privacy config; предыдущие Mac stdio/CPU proofs
+  Victoria/Umami не являются выполнением всего resource corpus.
 - SDK всех production процессов, реальная HTTP/queue/retry/worker/dependency корреляция,
   отдельные попытки, SQL/HTTP latency и release comparison.
 - PII/sentinel во всех storage/MCP/collector/browser/exporter путях; ограниченная cardinality.
