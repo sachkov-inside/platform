@@ -18,7 +18,8 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  width: fit-content;
+  width: 100%;
+  justify-content: flex-end;
   min-height: 2.75rem;
   color: var(--foreground);
   cursor: pointer;
@@ -30,7 +31,7 @@
   display: none;
 }
 
-.course-chapter-details > summary:hover {
+.course-chapter-details > summary:hover .course-chapter-details-label {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
@@ -123,14 +124,19 @@
   }
 }
 
-.course-chapter-details > summary:has(.programme-chapter-progress) {
-  margin-left: calc(-1 * var(--chapter-rail, 0rem));
+.course-chapter-summary:has(> .course-chapter-disclosure) {
+  max-width: none;
 }
-.course-chapter-details > summary .programme-chapter-progress {
-  margin-right: 0.5rem;
+.course-chapter-disclosure {
+  position: relative;
+}
+.course-chapter-disclosure > .programme-chapter-progress {
+  position: absolute;
+  top: 0.75rem;
+  left: calc(-1 * var(--chapter-rail, 0rem));
 }
 @media (max-width: 39.999rem) {
-  .course-chapter-details > summary:has(.programme-chapter-progress) {
-    margin-left: -1.1rem;
+  .course-chapter-disclosure > .programme-chapter-progress {
+    left: -1.1rem;
   }
 }

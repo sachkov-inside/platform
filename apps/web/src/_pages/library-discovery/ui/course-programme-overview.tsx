@@ -73,14 +73,18 @@ export function ChapterSummary({
           {content}
         </>
       ) : (
-        <details className="course-chapter-details">
-          <summary>
-            {progress}
-            Темы и практика<span className="sr-only"> главы «{name}»</span>
-            <ChevronDown aria-hidden="true" />
-          </summary>
-          {content}
-        </details>
+        <div className="course-chapter-disclosure">
+          {progress}
+          <details className="course-chapter-details">
+            <summary>
+              <span className="course-chapter-details-label">
+                Темы и практика<span className="sr-only"> главы «{name}»</span>
+              </span>
+              <ChevronDown aria-hidden="true" />
+            </summary>
+            {content}
+          </details>
+        </div>
       )}
     </div>
   );
