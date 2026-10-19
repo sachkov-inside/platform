@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import {
@@ -8,7 +8,7 @@ import {
   publicNavigationItems,
 } from "@/widgets/application-shell";
 
-/** Throwaway #1566 proof: can people decline, reopen and withdraw consent? Memory only. */
+/** Throwaway #1566 unified StorageNotice replacement. Existing acknowledgement is not consent. Memory only; no second prompt on registration. */
 function AnalyticsConsentProof({
   initial = "undecided",
 }: {
@@ -18,7 +18,23 @@ function AnalyticsConsentProof({
   const [open, setOpen] = useState(initial === "undecided");
   const [lessonOpen, setLessonOpen] = useState(false);
   const settings = useRef<HTMLButtonElement>(null);
-  const heading = useRef<HTMLHeadingElement>(null);
+  const notice = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const element = notice.current;
+    if (!open || element === null) return;
+    const root = document.documentElement.style;
+    const observer = new ResizeObserver(() => {
+      root.setProperty(
+        "--storage-notice-space",
+        `${String(element.offsetHeight)}px`,
+      );
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      root.removeProperty("--storage-notice-space");
+    };
+  }, [open]);
   function choose(next: "necessary" | "allowed") {
     setChoice(next);
     setOpen(false);
@@ -30,7 +46,7 @@ function AnalyticsConsentProof({
       navigationItems={publicNavigationItems}
       mobileNavigationItems={publicMobileNavigationItems}
     >
-      <div className="mx-auto max-w-3xl pb-96">
+      <div className="mx-auto max-w-3xl">
         <h1 className="text-3xl font-bold tracking-tight">
           Продолжить обучение
         </h1>
@@ -59,31 +75,26 @@ function AnalyticsConsentProof({
             </p>
           )}
         </section>
-        <section className="mt-8" aria-labelledby="privacy-heading">
-          <h2 id="privacy-heading" className="text-xl font-semibold">
-            Конфиденциальность
-          </h2>
-          <p className="mt-2 text-sm leading-6" role="status">
-            {choice === "allowed"
-              ? "Аналитика разрешена."
-              : choice === "necessary"
-                ? "Только необходимые технологии. Аналитика выключена."
-                : "Вы ещё не выбрали. Аналитика выключена."}
-          </p>
+        <footer className="mt-8">
           <Button
             ref={settings}
-            variant="outline"
-            className="mt-4 min-h-11 px-4"
+            variant="link"
+            className="min-h-11 px-0"
             aria-expanded={open}
-            aria-controls="analytics-settings"
+            aria-controls="storage-settings"
             onClick={() => {
               setOpen(true);
-              requestAnimationFrame(() => heading.current?.focus());
+              requestAnimationFrame(() => notice.current?.focus());
             }}
           >
-            Настройки аналитики
+            Настройки cookies и аналитики
           </Button>
-        </section>
+          <p className="text-sm leading-6 text-muted-foreground" role="status">
+            {choice === "allowed"
+              ? "Аналитика разрешена."
+              : "Аналитика выключена."}
+          </p>
+        </footer>
         <aside
           className="mt-10 text-sm leading-6 text-muted-foreground"
           aria-label="О прототипе"
@@ -94,34 +105,22 @@ function AnalyticsConsentProof({
       </div>
       {open && (
         <section
-          id="analytics-settings"
-          aria-labelledby="analytics-heading"
-          className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-foreground"
+          id="storage-settings"
+          ref={notice}
+          tabIndex={-1}
+          aria-label="Cookies и аналитика"
+          className="storage-notice fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring lg:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
         >
-          <h2
-            id="analytics-heading"
-            ref={heading}
-            tabIndex={-1}
-            className="text-lg font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-          >
-            {choice === "undecided"
-              ? "Разрешить аналитику?"
-              : "Настройки аналитики"}
-          </h2>
-          <p className="mt-3 text-sm leading-6">
-            Необходимые технологии обеспечивают вход и сохранение прогресса.
-            Аналитика помогает понять, как используют сайт. Она включится только
-            с вашего разрешения.
-          </p>
-          <p className="mt-2 text-sm leading-6">
-            Отказ не ограничит доступ к продукту. Изменить выбор можно в
-            «Настройках аналитики». При отзыве сбор сразу прекращается.
+          <p className="text-sm leading-6">
+            Необходимые технологии сохраняют вход и прогресс. Аналитика помогает
+            улучшать сайт и включается только с вашего разрешения. Отказ не
+            ограничит доступ.
           </p>
           <a
             href="/legal/cookies"
             className="mt-2 inline-flex min-h-11 items-center text-sm text-action underline underline-offset-4"
           >
-            Подробнее о технологиях и данных
+            Подробнее
           </a>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Button
@@ -129,16 +128,14 @@ function AnalyticsConsentProof({
               className="min-h-11 px-4"
               onClick={() => choose("necessary")}
             >
-              {choice === "allowed"
-                ? "Отозвать разрешение"
-                : "Только необходимые"}
+              Только необходимые
             </Button>
             <Button
               variant="outline"
               className="min-h-11 px-4"
               onClick={() => choose("allowed")}
             >
-              Разрешить
+              Разрешить аналитику
             </Button>
           </div>
           {choice !== "undecided" && (
@@ -166,7 +163,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Throwaway Storybook-only proof for #1566 / #1565. In-memory choice, no analytics or storage. Incumbent shell, tokens and Button. Owner visual acceptance pending.",
+          "Revised throwaway #1566 / #1565 proof: one minimalist replacement for the existing storage notice, not an additional consent popup. The same banner opens from one settings entry for withdrawal. No registration step. Memory only, no analytics or storage. Earlier proof superseded; owner visual acceptance pending.",
       },
     },
   },
