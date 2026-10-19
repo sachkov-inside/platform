@@ -32,6 +32,52 @@ Transform/filter используют `error_mode = "propagate"`: ошибочн
 обработку payload. Режимы ignore/silent не используются: они могли бы пропустить исходное поле после ошибки.
 Это не доказательство покрытия всех будущих типов и новых источников.
 
+## Notifications: зарегистрированный materials lane
+
+Collector catalog дополнен уже существующим
+[`observeNotification`](../../apps/backend/src/infrastructure/observability/technical-telemetry.ts):
+service `platform-notifications-worker`, `messaging.system=rabbitmq`, единственная destination
+`inside.events.materials.v1`, operations `publish`, `receive`, `audience` и error code
+`notification_operation_failed`. Другие email/Telegram/billing lanes этим не инструментируются.
+222 HTTP route entries и девять canonical pg-boss queues сохранены отдельно; RabbitMQ exchange
+не добавлен как pg-boss queue. Сохранённое имя span строится прежним закрытым правилом,
+например `publish inside.events.materials.v1`, а не обещает исходное SDK имя `publish materials`.
+
+Разрешены только две новые raw OTLP метрики: counter `inside.notification.operations` и histogram
+`inside.notification.duration` в секундах. Только их datapoints сохраняют `operation` и `outcome`;
+HTTP/pg-boss metrics сохраняют прежние keys. Operation ограничен тремя значениями выше, outcome
+ограничен `completed`/`failed`. Неизвестный, отсутствующий или нестроковый атрибут заменяется `_OTHER`.
+Account/message IDs, адреса, HTTP attributes и другие поля не становятся notification metric labels.
+Pinned [OTTL datapoint resolver](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.162.0/pkg/ottl/contexts/ottldatapoint/datapoint.go)
+поддерживает `metric.name` для такого ограничения; обычные contracts не исполняют OTTL и не заменяют
+reviewed actual RUN.
+
+В существующем public supervisor подготовлен отдельный внешний JSON/protobuf corpus, не запуск SDK.
+Для каждого transport есть шесть operation/outcome комбинаций и один fallback span с фиксированными
+trace/parent/link IDs. Метрики дополнительно проверяют неизвестные, отсутствующие и нестроковые
+значения. Полные VT rows проверяются до Jaeger projection; разрешены только два новых фиксированных
+trace IDs с limit 8, без новых public query routes. Секретный sentinel не должен сохраняться ни в одном
+прочитанном поле или metric response. `notification-collector.json` содержит только закрытые результаты.
+Logging-none execution gate остаётся перед unsafe ingest; resource, identity, cleanup и 600s guards сохранены.
+
+Pinned [VM naming](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/protoparser/opentelemetry/stream/sanitize.go)
+по умолчанию сохраняет точки в именах;
+[histogram decoder](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/protoparser/opentelemetry/pb/pb.go)
+создаёт `_count`, `_sum`, `_bucket`. Corpus ожидает 70 series: два фиксированных release resources,
+семь нормализованных labelsets и пять counter/histogram series на labelset. Это ожидаемый результат
+будущего runtime, не измерение. Native MCP делает дополнительный metric query и два trace query
+в тех же трёх owned/measured процессах; проверяется JSON body, все span IDs и причинные references,
+а не только наличие marker. Pinned tools
+[VM1.20.2](https://github.com/VictoriaMetrics/mcp-victoriametrics/blob/v1.20.2/cmd/mcp-victoriametrics/tools/utils.go)
+и [VT1.5.0](https://github.com/VictoriaMetrics/mcp-victoriatraces/blob/v1.5.0/cmd/mcp-victoriatraces/tools/utils.go)
+возвращают HTTP body как JSON TextContent. Неизвестный формат считается неподтверждённым.
+
+Для одного фиксированного service/environment/release SDK даёт до шести labelsets на instrument;
+с `_OTHER` верхняя граница составляет 12 на instrument. Histogram buckets увеличивают число stored
+series, поэтому это не общий Prometheus series limit. Число releases не ограничивается проверкой
+формата release. SDK cardinality/export limits и default OFF не меняются. Actual application SDK
+wire, полный durable journey, ресурсный запас и production acceptance остаются отдельными gaps.
+
 ## Links: обязательное ограничение кандидата
 
 Links сохраняются для уже проверенной pg-boss batch correlation. Наш SDK `safePgBossSpan` создаёт

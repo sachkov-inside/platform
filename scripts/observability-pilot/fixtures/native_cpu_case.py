@@ -68,6 +68,26 @@ elif mode == 'protocol-error':
         print(json.dumps({'outcome': 'error'}), flush=True)
     else:
         sys.exit(8)
+elif mode in ('additional','additional-error'):
+    validated = 0
+    def validate(result):
+        global validated
+        if mode=='additional-error':
+            raise RuntimeError('additional fixture rejected')
+        if result.get('private_pipe_fds')!=[]:
+            raise RuntimeError('native inherited private descriptor')
+        validated += 1
+    try:
+        result = pilot.stdio_probe(sys.executable,environment,'query',{},'known-fixture',
+            argv=[*native,'normal'], additional=(('query',{},'known-fixture',validate),)*3)
+    except RuntimeError as error:
+        if mode!='additional-error' or str(error)!='additional fixture rejected':
+            raise
+        print(json.dumps({'outcome':'rejected'}),flush=True)
+    else:
+        if mode!='additional' or validated!=3:
+            sys.exit(8)
+        print(json.dumps({**result,'validated':validated}),flush=True)
 elif mode == 'timeout':
     pilot.MCP_RESPONSE_TIMEOUT_SECONDS = NATIVE_RESPONSE_TIMEOUT_SECONDS
     try:

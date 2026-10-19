@@ -179,7 +179,7 @@ def downloaded_asset(asset):
     return archive
 
 
-def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None):
+def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=()):
     """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
     # The helper and native process stay in the externally supervised worker group.
     with native_cpu.measured_process(argv or [str(executable)], environment) as (process, measurement):
@@ -231,10 +231,21 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
             validate_result(result)
         collector_privacy.assert_clean(result)
         proof = {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
+        for index,(extra_tool,extra_arguments,extra_marker,validate) in enumerate(additional):
+            if extra_tool not in names:
+                raise RuntimeError('required additional native MCP tool unavailable')
+            extra = rpc(index+4,'tools/call',{'name':extra_tool,'arguments':extra_arguments})
+            if not isinstance(extra,dict) or extra.get('isError') or extra_marker not in json.dumps(extra):
+                raise RuntimeError('additional native MCP fixture unavailable')
+            validate(extra)
+            collector_privacy.assert_clean(extra)
+        if additional:
+            proof['additional_known_fixtures']=len(additional)
     return {**proof, **measurement}
 
 
 def native_probes(token, output):
+    import notification_privacy
     system = platform.system()
     if system not in ("Darwin", "Linux") or platform.machine() not in ("arm64", "aarch64", "x86_64"):
         raise RuntimeError("native MCP pilot supports Darwin/Linux arm64/x86_64 only")
@@ -260,7 +271,15 @@ def native_probes(token, output):
         environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(output), "MCP_SERVER_MODE": "stdio",
                        f"{prefix}_INSTANCE_ENTRYPOINT": f"http://127.0.0.1:18427/{route}",
                        f"{prefix}_INSTANCE_BEARER_TOKEN": token, "VM_INSTANCE_TYPE": "single"}
-        results[name] = stdio_probe(executable, environment, tool, arguments, marker)
+        additional = ()
+        if route=='metrics':
+            additional = (('query',{'query':notification_privacy.METRIC_QUERY},
+                           'inside.notification.operations',notification_privacy.mcp_metrics),)
+        elif route=='traces':
+            additional = tuple(('trace',{'trace_id':trace_id},trace_id,
+                lambda result, transport=transport: notification_privacy.mcp_trace(result,transport))
+                for transport,trace_id in notification_privacy.TRACE_IDS.items())
+        results[name] = stdio_probe(executable, environment, tool, arguments, marker,additional=additional)
         results[name]["host_os"] = system
         executable.unlink()
     return results
@@ -405,12 +424,17 @@ def verify_trace_store_logging(output, compose):
 
 
 def link_storage_row(compose, transport):
+    return fixture_trace_rows(compose,'link-'+transport)
+
+
+def fixture_trace_rows(compose, fixture):
     """Read only fixed synthetic traces internally; never extend vmauth/MCP query authority.
 
     The existing external pilot supervisor owns the exec client/process tree and project.
     No response/stderr is logged; head bounds capture before it enters Python memory.
     """
     import link_privacy
+    import notification_privacy
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     stage = 'ownership'
     def read(args):
@@ -425,7 +449,9 @@ def link_storage_row(compose, transport):
                 not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', compose[3]) or
                 not Path(compose[5]).is_absolute() or Path(compose[5]).name != 'compose.json'):
             raise ValueError('unregistered storage reader')
-        trace_id = link_privacy.TRACE_IDS[transport]
+        queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
+                   **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()}}
+        trace_id, limit = queries[fixture]
         assert_docker_identity(deadline=deadline)
         container = read(compose+['ps','-q','gateway']).strip()
         if not re.fullmatch(r'[0-9a-f]{64}', container):
@@ -438,8 +464,8 @@ def link_storage_row(compose, transport):
         assert_docker_identity(deadline=deadline)
         stage = 'query'
         # VT0.12 logsql.ProcessQueryRequest emits every stored column by default.
-        # No fields/delete/pack pipe, no user query, and two rows expose accidental duplicates.
-        query = urllib.parse.urlencode({'query':'trace_id:="'+trace_id+'"', 'limit':2, 'timeout':'2s'})
+        # No fields/delete/pack pipe or user query; one extra row exposes accidental duplicates.
+        query = urllib.parse.urlencode({'query':'trace_id:="'+trace_id+'"', 'limit':limit, 'timeout':'2s'})
         url = 'http://traces:10428/select/logsql/query?'+query
         raw = read(['docker','exec',container,'sh','-euc',
                     "set -o pipefail; wget -q -T 3 -O - '"+url+"' | head -c 1048577"])
@@ -507,6 +533,37 @@ def trace_store_surface(token, output):
         'unproved':'oversized/error attribution, counter-reset scenarios and complete loss coverage'})
     if failed:
         raise RuntimeError('trace store reported an ingest error or dropped rows; see closed counters')
+
+
+def notification_catalog_corpus(token, output, compose):
+    """Stage external JSON/protobuf catalog proof; never claim this ran the actual application SDK."""
+    import notification_privacy
+    proof = {'outcome':'failed','stage':'logging','cases':[]}
+    try:
+        verify_trace_store_logging(output,compose)
+        for transport in ('json','protobuf'):
+            for signal,body in notification_privacy.payloads(transport,time.time_ns()).items():
+                proof['stage']='ingest_'+transport+'_'+signal
+                assert_docker_identity()
+                if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+                    raise RuntimeError('notification OTLP rejected')
+            proof['stage']='storage_'+transport
+            stored = await_fact(lambda: notification_privacy.stored_traces(
+                fixture_trace_rows(compose,'notification-'+transport),transport),bool,
+                probe='notification_full_storage_'+transport,output=output)
+            proof['cases'].append(stored)
+        proof['stage']='metrics'
+        # Inspect the whole bounded corpus too, so an unregistered metric cannot hide outside a positive selector.
+        path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})
+        proof['metrics']=await_fact(lambda: notification_privacy.stored_metrics(request(path,token=token)),bool,
+            probe='notification_metric_catalog',output=output)
+        proof.update({'outcome':'passed','stage':'complete',
+            'scope':'external JSON/protobuf full-storage catalog; actual SDK wire and resource acceptance pending'})
+    except (RuntimeError,OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError):
+        pass
+    write_json(output/'notification-collector.json',proof)
+    if proof['outcome']!='passed':
+        raise RuntimeError('notification collector proof failed; raw diagnostics withheld')
 
 
 def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, output=None):
@@ -669,6 +726,7 @@ def smoke(token, output, compose):
         'untrusted_link_metadata':'separate JSON/protobuf full-storage gate; production/general-source acceptance pending',
         'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})
     link_privacy_corpus(output, compose)
+    notification_catalog_corpus(token,output,compose)
     trace_store_surface(token, output)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)
