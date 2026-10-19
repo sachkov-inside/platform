@@ -1,4 +1,12 @@
 import {
+  name as materialTraceName,
+  statement as materialTraceStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0109-notification-trace-context.js";
+import {
+  name as notificationTraceName,
+  statement as notificationTraceStatement,
+} from "../modules/notifications/infrastructure/postgres/migrations/0110-notification-trace-context.js";
+import {
   name as productWaitlistsName,
   statement as productWaitlistsStatement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-product-waitlists.js";
@@ -688,6 +696,8 @@ export const platformMigrations = [
   { name: learningActivityName, statement: learningActivityStatement },
   { name: bookmarkActivityName, statement: bookmarkActivityStatement },
   { name: submissionActivityName, statement: submissionActivityStatement },
+  { name: materialTraceName, statement: materialTraceStatement },
+  { name: notificationTraceName, statement: notificationTraceStatement },
 ] as const;
 
 export function migrateToLatest(

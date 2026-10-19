@@ -25,6 +25,8 @@ const appendedNames = [
   "0106_learning_activity_provenance",
   "0107_bookmark_activity_provenance",
   "0108_submission_activity_period",
+  "0109_materials_notification_trace_context",
+  "0110_notifications_notification_trace_context",
 ];
 
 it("upgrades exact main0100 without changing canonical SQL/checksums/positions and retains a compatible rollback registry", async () => {
@@ -98,6 +100,95 @@ it("upgrades exact main0100 without changing canonical SQL/checksums/positions a
     ).rejects.toThrow(
       "Migration checksum mismatch: 0101_funnel_diagnostic_candidates",
     );
+    expect(await ledger()).toEqual(after);
+  } finally {
+    await database.dispose();
+  }
+});
+
+// Frozen from prepared root4da87e1d before adding the two carrier migrations.
+const preparedRootCount = 109;
+const preparedRootDigest =
+  "9ec856bf4e1f555c648028ed80fd2d8715835376746b8eb3b42166b23a5b3872";
+const carrierChecksums = [
+  "ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b",
+  "d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
+];
+it("upgrades exact prepared root0108 with unchanged SQL and retains canonical carrier positions and rollback ledger", async () => {
+  const rootRegistry = platformMigrations.slice(0, preparedRootCount);
+  expect(
+    createHash("sha256").update(JSON.stringify(rootRegistry)).digest("hex"),
+  ).toBe(preparedRootDigest);
+  expect(rootRegistry.at(-1)?.name).toBe("0108_submission_activity_period");
+  expect(
+    platformMigrations
+      .slice(preparedRootCount)
+      .map(({ statement }) => migrationChecksum(statement)),
+  ).toEqual(carrierChecksums);
+  const database = await createTestDatabase();
+  const ledger = async () =>
+    parseAppliedMigrations(
+      await database.prisma.$queryRaw(Prisma.sql`
+    select name, checksum, position from public.platform_migrations order by position
+  `),
+    );
+  try {
+    await runMigrationsToLatest(database.url, rootRegistry);
+    const before = await ledger();
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: [
+        "0109_materials_notification_trace_context",
+        "0110_notifications_notification_trace_context",
+      ],
+    });
+    const after = await ledger();
+    expect(after.slice(0, preparedRootCount)).toEqual(before);
+    expect(after.slice(preparedRootCount)).toEqual([
+      {
+        name: "0109_materials_notification_trace_context",
+        checksum: carrierChecksums[0],
+        position: 110,
+      },
+      {
+        name: "0110_notifications_notification_trace_context",
+        checksum: carrierChecksums[1],
+        position: 111,
+      },
+    ]);
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: [],
+    });
+    await expect(
+      runMigrationsToLatest(database.url, rootRegistry),
+    ).rejects.toThrow("not an exact registry prefix at position 110");
+    const oldAllocation = [
+      ...rootRegistry,
+      ...platformMigrations
+        .slice(preparedRootCount)
+        .map((migration, index) => ({
+          ...migration,
+          name:
+            index === 0
+              ? "0108_materials_notification_trace_context"
+              : "0109_notifications_notification_trace_context",
+        })),
+    ];
+    await expect(
+      runMigrationsToLatest(database.url, oldAllocation),
+    ).rejects.toThrow("not an exact registry prefix at position 110");
+    const changedCarrier = platformMigrations.map((migration, index) =>
+      index === preparedRootCount
+        ? { ...migration, statement: migration.statement + "\n-- changed" }
+        : migration,
+    );
+    await expect(
+      runMigrationsToLatest(database.url, changedCarrier),
+    ).rejects.toThrow(
+      "Migration checksum mismatch: 0109_materials_notification_trace_context",
+    );
+    expect(
+      await runMigrationsToLatest(database.url, [...platformMigrations]),
+    ).toEqual({ appliedMigrations: [] });
     expect(await ledger()).toEqual(after);
   } finally {
     await database.dispose();

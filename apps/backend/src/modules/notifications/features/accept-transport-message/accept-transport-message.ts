@@ -1,3 +1,4 @@
+import { notificationTraceparent } from "../../../../infrastructure/observability/notification-trace.js";
 import {
   lockNotification,
   type NotificationsPrismaClient,
@@ -14,6 +15,7 @@ const QUARANTINE_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 export async function acceptTransportMessage(
   prisma: NotificationsPrismaClient,
   envelope: NotificationEnvelope,
+  metadata?: { readonly traceparent?: unknown },
 ): Promise<"accepted" | "duplicate" | "conflict"> {
   return prisma.$transaction(async (transaction) => {
     const scope = lanes[envelope.lane].publisher;
@@ -25,6 +27,10 @@ export async function acceptTransportMessage(
         lane: envelope.lane,
         payload: envelope.payload,
         digest: envelope.digest,
+        traceparent:
+          envelope.lane === "materials"
+            ? (notificationTraceparent(metadata?.traceparent) ?? null)
+            : null,
       },
       skipDuplicates: true,
     });

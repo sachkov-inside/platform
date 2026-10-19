@@ -50,7 +50,10 @@ export class Notifications {
     );
     this.transport = {
       ...transport,
-      accept: (envelope: NotificationEnvelope) => this.acceptEvent(envelope),
+      accept: (
+        envelope: NotificationEnvelope,
+        metadata?: { readonly traceparent?: unknown },
+      ) => this.acceptEvent(envelope, metadata),
       observe: async () => ({
         ...(await transport.observe()),
         emailPending: await deps.prisma.notificationEmailEffect.count({
@@ -62,7 +65,10 @@ export class Notifications {
       }),
     };
   }
-  async acceptEvent(envelope: NotificationEnvelope) {
+  async acceptEvent(
+    envelope: NotificationEnvelope,
+    metadata?: { readonly traceparent?: unknown },
+  ) {
     if (
       envelope.lane === "emailMaterial" ||
       envelope.lane === "emailSubscription"
@@ -75,6 +81,7 @@ export class Notifications {
       );
     return assembleNotificationTransport(this.deps.prisma, 1_000).accept(
       envelope,
+      metadata,
     );
   }
   readPreferences(accountId: string) {
