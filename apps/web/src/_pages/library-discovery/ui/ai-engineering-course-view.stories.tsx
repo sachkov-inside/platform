@@ -388,9 +388,8 @@ export const CohortAnnouncement: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(/Старт 20 октября/u)).toBeVisible();
-    await expect(
-      canvas.getByRole("button", { name: /Читать главу 1 бесплатно/u }),
-    ).toBeVisible();
+    await expect(canvas.queryByRole("button")).toBeNull();
+    await expect(canvas.queryByText(/главу бесплатно/u)).toBeNull();
     await expect(canvas.queryByRole("link", { name: /^Оплатить/u })).toBeNull();
   },
 };

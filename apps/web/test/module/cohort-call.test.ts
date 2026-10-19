@@ -71,17 +71,11 @@ describe("first screen call of a product cohort", () => {
       cohort: { ...cohort, stage: "announcement" },
       signedIn: false,
     });
-    expect(guest.banner?.text).toBe(
-      "Старт 20 октября. Предзаказ откроется скоро",
-    );
-    expect(guest.action).toEqual({
-      kind: "sign-in",
-      returnTo: "/products/ai-engineering/programme",
-      label: "Читать главу 1 бесплатно",
-    });
+    expect(guest.banner?.text).toBe("Старт 20 октября");
+    expect(guest.action).toBeNull();
     expect(
-      call({ cohort: { ...cohort, stage: "announcement" } }).action?.kind,
-    ).toBe("programme");
+      call({ cohort: { ...cohort, stage: "announcement" } }).action,
+    ).toBeNull();
   });
 
   it("only announces the pre-order on the first screen and asks to pay with the price while running", () => {

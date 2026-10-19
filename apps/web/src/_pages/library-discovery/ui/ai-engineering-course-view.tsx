@@ -123,13 +123,6 @@ export function AiEngineeringCourseView({
             programme={programme}
           />
         ))}
-
-      <div className="ai-product-sticky">
-        <IntentPrefetchLink className="ai-product-button" href={programme}>
-          Открыть программу
-          <ArrowRight />
-        </IntentPrefetchLink>
-      </div>
     </article>
   );
 }
