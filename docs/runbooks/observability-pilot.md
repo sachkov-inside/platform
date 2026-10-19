@@ -73,9 +73,11 @@ vmauth concurrency — 2 на ключ / 4 суммарно. Это началь
 
 ## Что делает smoke
 
-Runner отправляет через Alloy синтетические OTLP metrics/logs/traces, читает известный
+Runner ждёт принятия пустого OTLP запроса Alloy, затем отправляет синтетические
+OTLP metrics/logs/traces, читает известный
 log и trace через query API, выполняет обязательный read POST, отрицательные проверки
-auth/method/mutation/encoded traversal, перезапускает Alloy и отзывает временный ключ.
+auth/method/mutation/encoded traversal, перезапускает Alloy, дожидается сохранения нового
+уникального trace через защищённый Jaeger API и отзывает временный ключ.
 Пять spans HTTP → publish → attempt → retry → dependency **сгенерированы fixture**;
 это не доказательство передачи контекста SDK/настоящей очередью/worker.
 
@@ -106,10 +108,18 @@ No-build smoke допускается при 16GiB на идентифициро
 тоже может безопасно прервать пилот. Docker VM quota и физическая изоляция partition
 этим не доказаны; для resource acceptance они остаются открытыми.
 
-При успехе, ошибке и SIGTERM runner выполняет `down --volumes --remove-orphans` только
-для своего случайного проекта и проверяет отсутствие его containers/volumes.
-SIGKILL/отключение машины не перехватываются. В каталоге результата `owner.json` заранее
-записана точная команда cleanup для восстановления после такого обрыва.
+Публичная точка входа `run` — supervisor: до acquisition он записывает точный случайный проект
+и cleanup, затем запускает внутренний worker в отдельной process group. Прямой запуск
+`worker` без зарегистрированного родителя не поддерживается. После успеха, ошибки, timeout,
+SIGTERM или SIGKILL worker supervisor ограниченно останавливает всю его группу **до**
+`down --volumes --remove-orphans` и проверяет отсутствие только своих containers/volumes.
+Сбой diagnostics не пропускает shutdown; оба residue check выполняются независимо.
+Исходный exit code worker сохраняется при успешной очистке; ошибка очистки явно завершает запуск.
+
+Локальные process fixtures проверяют эти пять исходов и сбой diagnostics без Docker;
+реальное удаление Docker resources пока не проверено. SIGKILL самого supervisor, уничтожение
+всего внешнего дерева и отключение машины требуют ручного восстановления. В `owner.json`
+заранее записана точная команда cleanup; `worker.json` содержит PID/group и supervisor PID.
 Не применять `docker system prune` и не удалять чужие volumes/images.
 Скачанные pinned images остаются общим Docker cache.
 

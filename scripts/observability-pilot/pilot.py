@@ -1,11 +1,44 @@
 """Disposable compatibility pilot for #1566. Python standard library only."""
 
+import argparse
+from contextlib import contextmanager
+import hashlib
+import io
 import json
+import os
 from pathlib import Path
+import platform
+import resource
+import secrets
+import select
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tarfile
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "infra/observability/pilot"
 SERVICES = ("metrics", "logs", "traces", "alloy", "vmauth", "gateway", "grafana")
+COMMAND_TIMEOUT_SECONDS = 60
+ACQUISITION_TIMEOUT_SECONDS = 240
+CLEANUP_TIMEOUT_SECONDS = 90
+PILOT_DEADLINE_SECONDS = 600
+QUERY_TIMEOUT_SECONDS = 10
+FACT_TIMEOUT_SECONDS = 60
+POLL_INTERVAL_SECONDS = .25
+ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS = 30
+MCP_RESPONSE_TIMEOUT_SECONDS = 15
+WORKER_SHUTDOWN_SECONDS = 2
+MONITOR_SHUTDOWN_SECONDS = 1
 
 
 def compose_plan(source, output, images):
@@ -19,9 +52,8 @@ def compose_plan(source, output, images):
             "pids_limit": 128, "cap_drop": ["ALL"], "security_opt": ["no-new-privileges:true"],
             "read_only": True, "tmpfs": ["/tmp:size=16777216"], "networks": ["pilot"],
             "logging": {"driver": "json-file", "options": {"max-size": "5m", "max-file": "1"}}}
-    for name, port, retention in [("metrics", 8428, "90d"), ("logs", 9428, "14d"), ("traces", 10428, "14d")]:
-        storage_flag = "storageDataPath" if name == "metrics" else "storageDataPath"
-        services[name].update({"command": [f"-{storage_flag}=/data", f"-retentionPeriod={retention}",
+    for name, retention in [("metrics", "90d"), ("logs", "14d"), ("traces", "14d")]:
+        services[name].update({"command": ["-storageDataPath=/data", f"-retentionPeriod={retention}",
             "-memory.allowedBytes=256MiB"], "volumes": [f"{name}:/data"]})
     services["metrics"]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2"]
     for name in ("logs", "traces"):
@@ -92,30 +124,6 @@ def check_disk(*, total, free):
         "pilot requires 16 GiB free: 10 GiB host floor, 4 GiB growth cap, 2 GiB cleanup headroom",
     }
 
-import argparse
-import hashlib
-import io
-import os
-import secrets
-import shutil
-import signal
-import socket
-import subprocess
-import sys
-import time
-import urllib.error
-import urllib.parse
-import urllib.request
-import uuid
-import zipfile
-import platform
-import resource
-import select
-import tarfile
-import threading
-from contextlib import contextmanager
-
-
 @contextmanager
 def disk_budget(path):
     """Bound no-build pilot growth on the identified Docker storage filesystem."""
@@ -127,7 +135,7 @@ def disk_budget(path):
         raise RuntimeError("pilot disk budget exceeded; stopping owned resources")
 
     def monitor():
-        while not stop.wait(.25):
+        while not stop.wait(POLL_INTERVAL_SECONDS):
             try:
                 free = shutil.disk_usage(path).free
                 if free > (10 * 1024**3 + 256 * 1024**2) and initial - free < (4 * 1024**3 - 256 * 1024**2):
@@ -144,12 +152,12 @@ def disk_budget(path):
         yield
     finally:
         stop.set()
-        worker.join(timeout=1)
+        worker.join(timeout=MONITOR_SHUTDOWN_SECONDS)
         signal.signal(signal.SIGUSR1, previous)
 
 
 def downloaded_asset(asset):
-    with urllib.request.urlopen(asset["url"], timeout=30) as response:
+    with urllib.request.urlopen(asset["url"], timeout=ARCHIVE_DOWNLOAD_TIMEOUT_SECONDS) as response:
         archive = response.read(64 * 1024 * 1024 + 1)
     if len(archive) > 64 * 1024 * 1024 or "sha256:" + hashlib.sha256(archive).hexdigest() != asset["digest"]:
         raise RuntimeError("pinned archive failed size/digest check")
@@ -158,8 +166,9 @@ def downloaded_asset(asset):
 
 def stdio_probe(executable, environment, tool, arguments, marker):
     """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
+    # Stay in the owned worker group so its external supervisor also catches a killed worker.
     process = subprocess.Popen([str(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, env=environment, start_new_session=True)
+        stderr=subprocess.DEVNULL, env=environment)
     buffered = b""
 
     def rpc(identifier, method, params):
@@ -171,7 +180,7 @@ def stdio_probe(executable, environment, tool, arguments, marker):
         process.stdin.flush()
         if identifier is None:
             return None
-        deadline = time.monotonic() + 15
+        deadline = time.monotonic() + MCP_RESPONSE_TIMEOUT_SECONDS
         while time.monotonic() < deadline:
             while b"\n" in buffered:
                 line, buffered = buffered.split(b"\n", 1)
@@ -207,16 +216,19 @@ def stdio_probe(executable, environment, tool, arguments, marker):
             raise RuntimeError("native MCP failed to return known fixture")
         return {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
     finally:
-        process.stdin.close()
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            process.stdin.close()
+        except BrokenPipeError:
+            pass
+        try:
+            process.terminate()
         except ProcessLookupError:
             pass
         try:
-            process.wait(timeout=2)
+            process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
         except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
-            process.wait(timeout=2)
+            process.kill()
+            process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
         process.stdout.close()
 
 
@@ -292,7 +304,7 @@ def prepare(output):
     return token
 
 
-def command(args, *, timeout=60):
+def command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
     # The repository heavy-check supervisor owns the foreground CLI process tree.
     return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout).stdout
 
@@ -306,17 +318,19 @@ def request(path, *, token=None, body=None, method="GET", port=18427):
         body = json.dumps(body).encode()
     req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=QUERY_TIMEOUT_SECONDS) as response:
             payload = response.read(1_048_577)
             if len(payload) > 1_048_576:
                 raise RuntimeError("query exceeded the 1 MiB pilot response budget")
             return response.status, payload.decode()
     except urllib.error.HTTPError as error:
         # Never persist error bodies: collectors/proxies can echo request data.
-        return error.code, ""
+        status = error.code
+        error.close()
+        return status, ""
 
 
-def await_fact(read, predicate, *, budget=60):
+def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS):
     deadline = time.monotonic() + budget
     last = None
     while time.monotonic() < deadline:
@@ -327,7 +341,7 @@ def await_fact(read, predicate, *, budget=60):
         except (OSError, urllib.error.URLError):
             pass
         # Real network compatibility probe; this pause bounds poll load, not success.
-        time.sleep(.25)
+        time.sleep(POLL_INTERVAL_SECONDS)
     raise RuntimeError("pilot fact did not become visible before deadline")
 
 
@@ -346,6 +360,16 @@ def install_plugin(output):
     for path in (output / "plugins").rglob("*"):
         if path.is_file() and "backend" in path.name:
             path.chmod(0o755)
+
+
+def await_otlp_ready(*, port=14318):
+    return await_fact(lambda: request("/v1/traces", body={"resourceSpans": []}, method="POST", port=port),
+                      lambda response: response[0] == 200)
+
+
+def await_stored_trace(token, trace_id, *, port=18427):
+    return await_fact(lambda: request("/traces/select/jaeger/api/traces/" + trace_id, token=token, port=port),
+                      lambda response: response[0] == 200 and "worker.retry" in response[1])
 
 
 def smoke(token, output, compose):
@@ -376,6 +400,7 @@ def smoke(token, output, compose):
         raise RuntimeError("read-only negative probes failed")
 
     timings = []
+    await_otlp_ready()
     offset = 0
     for phase, count in (("idle", 0), ("steady", 10), ("spike", 50)):
         phase_start = time.monotonic()
@@ -414,8 +439,11 @@ def smoke(token, output, compose):
     if request(post_path + "?query=1", token=token, method="POST")[0] != 200:
         raise RuntimeError("required read POST failed")
     command(compose + ["restart", "alloy"])
-    await_fact(lambda: request("/v1/traces", body=corpus(now_ns=time.time_ns(), sequence=100)["traces"],
-                              method="POST", port=14318), lambda response: response[0] == 200)
+    await_otlp_ready()
+    restarted = corpus(now_ns=time.time_ns(), sequence=100)["traces"]
+    if request("/v1/traces", body=restarted, method="POST", port=14318)[0] != 200:
+        raise RuntimeError("restarted collector rejected its unique trace fixture")
+    await_stored_trace(token, f"{101:032x}")
     # Rotate the disposable fixture key and prove the original key no longer works.
     new_token = secrets.token_urlsafe(32)
     write_json(output / "auth.json", auth_config(new_token))
@@ -426,6 +454,73 @@ def smoke(token, output, compose):
     write_json(output / "query-timings.json", timings)
     return {"query_ingest_auth_revocation": "passed", "native_mcp": native,
             "resource_acceptance": "pending", "application_sdk_propagation": "pending"}
+
+
+def cleanup_project(compose, output, project, *, docker=("docker",)):
+    """Diagnostics may fail; down and both residue checks are independent obligations."""
+    result = {}
+    try:
+        snapshot = command(compose + ["ps", "--all", "--format", "json"])
+        (output / "container-states.json").write_text(snapshot)
+        result["diagnostics"] = "passed"
+    except (OSError, subprocess.SubprocessError) as error:
+        result["diagnostics"] = "failed: " + type(error).__name__
+    try:
+        command(compose + ["down", "--volumes", "--remove-orphans"], timeout=CLEANUP_TIMEOUT_SECONDS)
+        result["down"] = "passed"
+    except (OSError, subprocess.SubprocessError) as error:
+        result["down"] = "failed: " + type(error).__name__
+    remaining = []
+    for args in (["ps", "-aq"], ["volume", "ls", "-q"]):
+        try:
+            residual = command(list(docker) + args + ["--filter", f"label=com.docker.compose.project={project}"])
+            if residual.strip():
+                remaining.append("owned resources remain")
+        except (OSError, subprocess.SubprocessError) as error:
+            remaining.append(type(error).__name__)
+    result["residue"] = "passed" if not remaining else "failed: " + ", ".join(remaining)
+    write_json(output / "cleanup.json", result)
+    return result
+
+
+def supervise_worker(execute, compose, output, project, *, docker=("docker",),
+                     deadline_seconds=PILOT_DEADLINE_SECONDS):
+    """Supervisor stays outside the worker group that owns all acquisition processes."""
+    process = None
+    status = 1
+    try:
+        process = subprocess.Popen(execute, start_new_session=True)
+        write_json(output / "worker.json", {"pid": process.pid, "group": process.pid,
+                   "supervisor_pid": os.getpid(), "deadline_seconds": deadline_seconds})
+        try:
+            status = process.wait(timeout=deadline_seconds)
+            if status < 0:
+                status = 128 - status
+        except subprocess.TimeoutExpired:
+            status = 124
+    finally:
+        try:
+            if process is not None:
+                try:
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                try:
+                    process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
+                except subprocess.TimeoutExpired:
+                    pass
+                # Also stop group members after the worker itself has already exited.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
+        finally:
+            cleanup = cleanup_project(compose, output, project, docker=docker)
+            write_json(output / "worker-outcome.json", {"exit_code": status, "cleanup": cleanup})
+            if cleanup["down"] != "passed" or cleanup["residue"] != "passed":
+                raise RuntimeError("owned pilot cleanup failed; inspect cleanup.json and owner.json")
+    return status
 
 
 def run(output):
@@ -447,46 +542,55 @@ def run(output):
     for port in (18427, 14318, 13000):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
-    token = prepare(output)
+    prepare(output)
     project = "inside-observability-pilot-" + uuid.uuid4().hex[:12]
     compose = ["docker", "compose", "-p", project, "-f", str(output / "compose.json")]
     evidence = {"source": command(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).strip(),
                 "project": project, "disk_admission": admission, "docker_context": context,
                 "foreign_projects": [row.get("Name") for row in existing], "status": "failed",
                 "scope": "synthetic OTLP core compatibility smoke only",
-                "missing": ["native MCP execution", "full accepted resource corpus", "SDK propagation",
+                "missing": ["Mac native MCP execution", "full accepted resource corpus", "SDK propagation",
                             "PII/sentinel", "retention/cleanup/restore", "Umami", "production and seven days"]}
-    write_json(output / "owner.json", {"project": project, "cwd": str(ROOT), "pid": os.getpid(),
+    write_json(output / "owner.json", {"project": project, "cwd": str(ROOT), "supervisor_pid": os.getpid(),
+                                    "docker_storage": str(storage),
                                     "cleanup": compose + ["down", "--volumes", "--remove-orphans"]})
+    write_json(output / "evidence.json", evidence)
     try:
-        with disk_budget(storage):
-            install_plugin(output)
-            command(compose + ["config", "--quiet"])
-            command(compose + ["up", "-d"], timeout=240)
-            evidence.update(smoke(token, output, compose))
-            evidence["status"] = "core smoke passed; full pilot acceptance pending"
+        status = supervise_worker([sys.executable, str(Path(__file__).resolve()), "worker", "--output", str(output)],
+                                  compose, output, project)
+        evidence = json.loads((output / "evidence.json").read_text())
+        evidence["worker_exit_code"] = status
+        if status:
+            raise subprocess.CalledProcessError(status, "observability pilot worker")
     finally:
-        try:
-            ids = command(compose + ["ps", "-aq"]).split()
-            if ids:
-                projection = "{{json .State}} {{json .HostConfig.Memory}} {{json .HostConfig.NanoCpus}}"
-                (output / "container-states.txt").write_text(command(["docker", "inspect", "--format", projection, *ids]))
-            command(compose + ["down", "--volumes", "--remove-orphans"], timeout=90)
-            remaining = command(["docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={project}"]).strip()
-            volumes = command(["docker", "volume", "ls", "-q", "--filter", f"label=com.docker.compose.project={project}"]).strip()
-            evidence["cleanup"] = "passed" if not remaining and not volumes else "failed"
-            if remaining or volumes:
-                raise RuntimeError("owned pilot resources remain; use owner.json cleanup command")
-        finally:
-            (output / "auth.json").unlink(missing_ok=True)
-            (output / "datasources.json").unlink(missing_ok=True)
-            write_json(output / "evidence.json", evidence)
+        if (output / "cleanup.json").exists():
+            evidence["cleanup"] = json.loads((output / "cleanup.json").read_text())
+        (output / "auth.json").unlink(missing_ok=True)
+        (output / "datasources.json").unlink(missing_ok=True)
+        write_json(output / "evidence.json", evidence)
     return evidence
+
+
+def run_worker(output):
+    owner = json.loads((output / "owner.json").read_text())
+    if owner["supervisor_pid"] != os.getppid():
+        raise RuntimeError("pilot worker requires its registered external supervisor")
+    compose = ["docker", "compose", "-p", owner["project"], "-f", str(output / "compose.json")]
+    token = json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"]
+    with disk_budget(Path(owner["docker_storage"])):
+        install_plugin(output)
+        command(compose + ["config", "--quiet"])
+        command(compose + ["up", "-d"], timeout=ACQUISITION_TIMEOUT_SECONDS)
+        result = smoke(token, output, compose)
+        evidence = json.loads((output / "evidence.json").read_text())
+        evidence.update(result)
+        evidence["status"] = "core smoke passed; full pilot acceptance pending"
+        write_json(output / "evidence.json", evidence)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("preflight", "prepare", "run"))
+    parser.add_argument("action", choices=("preflight", "prepare", "run", "worker"))
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.action == "preflight":
@@ -498,6 +602,10 @@ def main():
     if args.action == "prepare":
         prepare(output)
         print(f"Prepared {output}; runtime compatibility unverified; no images downloaded.")
+    elif args.action == "worker":
+        if args.output is None:
+            raise RuntimeError("supervised worker requires its owned output directory")
+        run_worker(output)
     else:
         print(json.dumps(run(output), indent=2))
     return 0
@@ -511,4 +619,4 @@ if __name__ == "__main__":
         sys.exit(main())
     except (RuntimeError, OSError, subprocess.SubprocessError) as error:
         print(f"observability-pilot: {type(error).__name__}: {error}", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(error.returncode if isinstance(error, subprocess.CalledProcessError) else 1)

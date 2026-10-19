@@ -2,6 +2,10 @@
 
 import unittest
 from pathlib import Path
+import sys
+import tempfile
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from pilot import check_disk
 import pilot
@@ -34,6 +38,71 @@ class PilotPreparationTest(unittest.TestCase):
             self.assertNotIn("ports", plan["services"][name])
         self.assertEqual(plan["services"]["gateway"]["ports"], ["127.0.0.1:18427:8080"])
         self.assertTrue(all(service["cap_drop"] == ["ALL"] for service in plan["services"].values()))
+
+    def test_diagnostics_failure_cannot_skip_owned_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "owned-resource").write_text("owned")
+            (output / "foreign-resource").write_text("foreign")
+            fixture = Path(__file__).parent / "fixtures/process.py"
+            compose = [sys.executable, str(fixture), "compose", directory, "diagnostics-failure"]
+            docker = [sys.executable, str(fixture), "docker", directory, "normal"]
+            result = pilot.cleanup_project(compose, output, "inside-observability-pilot-fixture", docker=docker)
+            self.assertEqual(result["down"], "passed")
+            self.assertEqual(result["residue"], "passed")
+            self.assertIn("failed", result["diagnostics"])
+            self.assertFalse((output / "owned-resource").exists())
+            self.assertTrue((output / "foreign-resource").exists())
+
+    def test_supervisor_cleans_only_owned_resources_after_each_worker_outcome(self):
+        fixture = Path(__file__).parent / "fixtures/process.py"
+        for mode, expected_status in [("success", 0), ("failure", 7), ("timeout", 124),
+                                      ("sigterm", 143), ("sigkill", 137)]:
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                (output / "foreign-resource").write_text("foreign")
+                compose = [sys.executable, str(fixture), "compose", directory, "normal"]
+                docker = [sys.executable, str(fixture), "docker", directory, "normal"]
+                execute = [sys.executable, str(fixture), "worker", directory, mode]
+                status = pilot.supervise_worker(execute, compose, output,
+                    "inside-observability-pilot-fixture", docker=docker, deadline_seconds=1)
+                self.assertEqual(status, expected_status)
+                self.assertFalse((output / "owned-resource").exists())
+                self.assertTrue((output / "foreign-resource").exists())
+                self.assertIn("down --volumes --remove-orphans", (output / "commands").read_text())
+
+    def test_otlp_readiness_waits_for_acceptance_and_restart_waits_for_stored_trace(self):
+        class Receiver(BaseHTTPRequestHandler):
+            posts = 0
+            queries = 0
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                Receiver.posts += 1
+                self.send_response(503 if Receiver.posts == 1 else 200)
+                self.end_headers()
+
+            def do_GET(self):
+                Receiver.queries += 1
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{}' if Receiver.queries == 1 else b'{"span":"worker.retry"}')
+
+            def log_message(self, *_args):
+                pass
+
+        with HTTPServer(("127.0.0.1", 0), Receiver) as server:
+            thread = threading.Thread(target=server.serve_forever)
+            thread.start()
+            try:
+                port = server.server_port
+                pilot.await_otlp_ready(port=port)
+                pilot.await_stored_trace("fixture-key", "0" * 31 + "1", port=port)
+                self.assertEqual(Receiver.posts, 2)
+                self.assertEqual(Receiver.queries, 2)
+            finally:
+                server.shutdown()
+                thread.join(timeout=2)
 
 
 if __name__ == "__main__":
