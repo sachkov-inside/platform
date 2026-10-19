@@ -43,6 +43,6 @@ class HostedBoundaries(unittest.TestCase):
     def test_source_binding_includes_the_shared_supervisor_and_native_lock(self):
         names = {str(path.relative_to(hosted.ROOT)) for path in hosted.source_inputs()}
         self.assertTrue({'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/pilot.py',
-                         'scripts/observability-pilot/storage_policy.py', 'infra/observability/umami/mcp/package-lock.json',
+                         'scripts/observability-pilot/storage_policy.py', 'scripts/observability-pilot/native_cpu.py', 'infra/observability/umami/mcp/package-lock.json',
                          '.github/workflows/observability-umami.yml'} <= names)
         self.assertTrue(all(path.is_file() for path in hosted.source_inputs()))

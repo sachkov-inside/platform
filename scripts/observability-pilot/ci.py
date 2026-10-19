@@ -104,7 +104,7 @@ def admission(metadata, *, inputs=None, scope=None):
         raise ValueError("checkout SHA does not match provider execution SHA")
     inputs = inputs or (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "privacy-policy.json", CONFIG / "Caddyfile",
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
-              Path(__file__).with_name("pilot.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
+              Path(__file__).with_name("pilot.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
               ROOT / ".github/workflows/observability-pilot.yml")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,
