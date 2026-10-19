@@ -131,6 +131,20 @@ class PilotPreparationTest(unittest.TestCase):
         self.assertEqual(len({span["spanId"] for span in spans}), 5)
         self.assertEqual(spans[-1]["parentSpanId"], spans[-2]["spanId"])
 
+    def test_only_loopback_published_services_join_the_owned_ingress_bridge(self):
+        plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
+                                  {name: "pinned" for name in pilot.SERVICES}, credential_owner=(1001, 1002))
+        ingress_services = {"gateway", "alloy", "grafana"}
+        self.assertTrue(plan["networks"]["pilot"]["internal"])
+        self.assertEqual(plan["networks"].get("ingress"), {"driver": "bridge", "internal": False})
+        for name, service in plan["services"].items():
+            if name in ingress_services:
+                self.assertEqual(service["networks"], ["pilot", "ingress"])
+                self.assertTrue(all(port.startswith("127.0.0.1:") for port in service["ports"]))
+            else:
+                self.assertEqual(service["networks"], ["pilot"])
+                self.assertNotIn("ports", service)
+
     def test_prepared_credential_reader_matches_private_auth_file_owner_without_dac_capability(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "prepared"

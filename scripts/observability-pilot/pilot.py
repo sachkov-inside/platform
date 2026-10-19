@@ -79,8 +79,12 @@ def compose_plan(source, output, images, *, credential_owner):
             "GF_AUTH_DISABLE_LOGIN_FORM": "true", "GF_AUTH_BASIC_ENABLED": "false",
             "GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION": "true", "GF_ANALYTICS_REPORTING_ENABLED": "false",
             "GF_ANALYTICS_CHECK_FOR_UPDATES": "false", "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES": "false"}})
+    # Internal-only networking omitted host port mappings in the component probe. Keep storage/auth isolated.
+    for service in services.values():
+        if "ports" in service:
+            service["networks"].append("ingress")
     return {"services": services, "volumes": {name: {} for name in ("metrics", "logs", "traces", "grafana")},
-            "networks": {"pilot": {"internal": True}}}
+            "networks": {"pilot": {"internal": True}, "ingress": {"driver": "bridge", "internal": False}}}
 
 
 def attribute(key, value):
