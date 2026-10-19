@@ -14,6 +14,13 @@ Production не менялся; аналитика не включалась.
 Подготовленный доменный отчёт Platform MCP описан в
 [инструкции диагностики](production-diagnostics.md); его наличие не подтверждает rollout всего контура.
 
+Linux и Umami runtime используют общий внешний supervisor, cleanup и storage policy.
+На Linux перед первым приобретением фиксируются local Unix socket/inode, context, daemon ID
+и DockerRootDir; перед mutation и recovery эта identity проверяется заново. Смена daemon
+останавливает автоматическое действие и требует ручной проверки владельца. Umami сохраняет
+собственные services/project prefix, private configuration и whitelist доказательств; её
+процедура описана в [отдельном runbook](observability-umami-pilot.md).
+
 ## Подготовка без установки
 
 Из корня репозитория:
@@ -204,7 +211,9 @@ failed outcome сохраняются для ручного восстановл
 зависшего процесса ответа и сохранность foreign resource. Отдельные регрессии проверяют
 monitor signals внутри down и replacement identity между diagnostics и down. Это не Docker/OrbStack runtime evidence. Полная потеря supervisor/host
 сохраняет прежнее ограничение ручного exact-owner recovery. Recovery также сверяет OrbStack
-identity и использует закреплённый socket; при несовпадении отказывает.
+identity и использует закреплённый socket; при несовпадении отказывает. Для recovery нужна ровно
+одна полная запись Linux или OrbStack identity. Отсутствующая, пустая, повреждённая или
+неоднозначная запись запрещает cleanup до обращения к Docker; fallback на текущий daemon нет.
 
 `storage-host.json` и `storage-vm.json` содержат только начальные/последние числовые измерения
 и filesystem identity, без backing path, socket, env, argv или raw errors. Они включены

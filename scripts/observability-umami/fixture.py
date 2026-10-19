@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from credentials import credential, native_key
+from gateway import NoRedirect
 
 APP = 'http://umami:3000'
 QUERY = 'http://query:3001'
@@ -16,6 +17,57 @@ RESPONSE_BYTES = 1_048_576
 BARRIER_SECONDS = 60
 PROVIDER_TIMEOUT_SECONDS = 10
 POLL_INTERVAL_SECONDS = 0.25
+
+
+SEED_STEPS = ('heartbeat', 'privacy_config', 'bootstrap_login', 'bootstrap_password', 'admin_login',
+              'reader_create', 'team_create', 'team_membership', 'website_create', 'reader_login',
+              'api_key_create', 'synthetic_send')
+FAILURE_KINDS = ('http_status', 'transport', 'invalid_response', 'invariant')
+FAILURE_REPORT_BYTES = 1024
+
+
+class UnexpectedHTTPStatus(RuntimeError):
+    def __init__(self, status):
+        super().__init__('unexpected fixture HTTP status')
+        self.status = status
+
+
+class InvalidHTTPResponse(ValueError):
+    def __init__(self, status):
+        super().__init__('invalid fixture HTTP response')
+        self.status = status
+
+
+class FixtureStepFailed(RuntimeError):
+    def __init__(self, report):
+        super().__init__('synthetic seed step failed')
+        self.report = failure_report(report)
+
+
+def failure_report(raw):
+    """The only fixture stderr fields allowed into public readiness evidence."""
+    if (not isinstance(raw, dict) or set(raw) != {'phase', 'step', 'error', 'http_status'}
+            or raw['phase'] != 'seed' or raw['step'] not in SEED_STEPS
+            or raw['error'] not in FAILURE_KINDS):
+        raise ValueError('fixture_failure_shape')
+    status = raw['http_status']
+    if ((status is not None and (type(status) is not int or not 100 <= status <= 599))
+            or (raw['error'] == 'http_status' and status is None)
+            or (raw['error'] in ('transport', 'invariant') and status is not None)):
+        raise ValueError('fixture_failure_status')
+    return raw
+
+
+def created_team(raw):
+    """Pinned Umami 3.4.0 returns the [Team, owner TeamUser] transaction tuple."""
+    if not isinstance(raw, list) or len(raw) != 2:
+        raise ValueError('team_response_shape')
+    team, membership = raw
+    response_fields(team, {'id': 'uuid'})
+    response_fields(membership, {'id': 'uuid', 'teamId': 'uuid', 'userId': 'uuid'})
+    if membership['teamId'] != team['id'] or membership.get('role') != 'team-owner':
+        raise ValueError('team_response_membership')
+    return {'id': team['id']}
 
 
 def capture(raw, website):
@@ -44,23 +96,32 @@ def response_fields(raw, fields):
             native_key(value)
     return raw
 
-def call(base, path, *, token=None, body=None, method=None, expected=200, fields=None):
+def call(base, path, *, token=None, body=None, method=None, expected=200, fields=None, response_kind="object"):
     headers = {'Content-Type': 'application/json'}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     request = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=PROVIDER_TIMEOUT_SECONDS) as response:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(request, timeout=PROVIDER_TIMEOUT_SECONDS) as response:
             status = response.status
             raw = response.read(RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as error:
         status = error.code
         error.close()
         raw = b'{}'
-    if status != expected or len(raw) > RESPONSE_BYTES:
-        raise RuntimeError(f'http_{status}_expected_{expected}')
-    parsed = json.loads(raw)
-    return response_fields(parsed, fields or {})
+    if status != expected:
+        raise UnexpectedHTTPStatus(status)
+    try:
+        if len(raw) > RESPONSE_BYTES:
+            raise ValueError('response_size')
+        parsed = json.loads(raw)
+        if response_kind == 'created_team':
+            parsed = created_team(parsed)
+        elif response_kind != 'object':
+            raise ValueError('response_kind')
+        return response_fields(parsed, fields or {})
+    except (ValueError, KeyError):
+        raise InvalidHTTPResponse(status) from None
 
 
 def await_stats(site, key):
@@ -79,32 +140,52 @@ def await_stats(site, key):
 
 
 def seed():
-    deadline = time.monotonic() + BARRIER_SECONDS
-    while True:
-        try:
-            call(APP, '/api/heartbeat')
-            break
-        except (OSError, RuntimeError):
-            if time.monotonic() >= deadline:
-                raise RuntimeError('heartbeat_barrier') from None
-            time.sleep(POLL_INTERVAL_SECONDS)
-    config = call(APP, '/api/config')
-    if any(config.get(key) is not True for key in ('privateMode', 'telemetryDisabled', 'updatesDisabled')):
-        raise RuntimeError('privacy_configuration')
-    admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': 'umami'}, fields={'token': 'credential'})['token']
-    admin_password = secrets.token_hex(24)
-    call(APP, '/api/me/password', token=admin, body={'currentPassword': 'umami', 'newPassword': admin_password})
-    admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': admin_password}, fields={'token': 'credential'})['token']
-    password = secrets.token_hex(24)
-    reader = call(APP, '/api/users', token=admin, body={'username': 'fixture-reader', 'password': password, 'role': 'view-only'}, fields={'id': 'uuid'})
-    team = call(APP, '/api/teams', token=admin, body={'name': 'fixture-team'}, fields={'id': 'uuid'})
-    call(APP, f'/api/teams/{team["id"]}/users', token=admin, body={'userId': reader['id'], 'role': 'team-view-only'})
-    site = call(APP, '/api/websites', token=admin, body={'name': 'fixture', 'domain': 'fixture.invalid', 'teamId': team['id']}, fields={'id': 'uuid'})
-    session = call(APP, '/api/auth/login', body={'username': 'fixture-reader', 'password': password}, fields={'token': 'credential'})['token']
-    key = call(APP, '/api/me/api-keys', token=session, body={'name': 'fixture-diagnostic'}, fields={'key': 'api-key', 'id': 'uuid'})
-    call(APP, '/api/send', body=capture({'route': 'material', 'url': '/private?email=sentinel@example.invalid#secret', 'title': 'sentinel-private-title', 'referrer': 'https://private.invalid/person', 'data': {'secret': 'sentinel-private-data'}}, site['id']))
-    # Private stdout must be captured into a mode-0600 fixture file, never CI logs/artifacts.
-    return {'site': site['id'], 'reader': reader['id'], 'key': key['key'], 'key_id': key['id'], 'session': session, 'team': team['id']}
+    step = 'heartbeat'
+    try:
+        deadline = time.monotonic() + BARRIER_SECONDS
+        while True:
+            try:
+                call(APP, '/api/heartbeat')
+                break
+            except (OSError, RuntimeError):
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('heartbeat_barrier') from None
+                time.sleep(POLL_INTERVAL_SECONDS)
+        step = 'privacy_config'
+        config = call(APP, '/api/config')
+        if any(config.get(key) is not True for key in ('privateMode', 'telemetryDisabled', 'updatesDisabled')):
+            raise RuntimeError('privacy_configuration')
+        step = 'bootstrap_login'
+        admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': 'umami'}, fields={'token': 'credential'})['token']
+        admin_password = secrets.token_hex(24)
+        step = 'bootstrap_password'
+        call(APP, '/api/me/password', token=admin, body={'currentPassword': 'umami', 'newPassword': admin_password})
+        step = 'admin_login'
+        admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': admin_password}, fields={'token': 'credential'})['token']
+        password = secrets.token_hex(24)
+        step = 'reader_create'
+        reader = call(APP, '/api/users', token=admin, body={'username': 'fixture-reader', 'password': password, 'role': 'view-only'}, fields={'id': 'uuid'})
+        step = 'team_create'
+        team = call(APP, '/api/teams', token=admin, body={'name': 'fixture-team'}, fields={'id': 'uuid'}, response_kind='created_team')
+        step = 'team_membership'
+        call(APP, f'/api/teams/{team["id"]}/users', token=admin, body={'userId': reader['id'], 'role': 'team-view-only'})
+        step = 'website_create'
+        site = call(APP, '/api/websites', token=admin, body={'name': 'fixture', 'domain': 'fixture.invalid', 'teamId': team['id']}, fields={'id': 'uuid'})
+        step = 'reader_login'
+        session = call(APP, '/api/auth/login', body={'username': 'fixture-reader', 'password': password}, fields={'token': 'credential'})['token']
+        step = 'api_key_create'
+        key = call(APP, '/api/me/api-keys', token=session, body={'name': 'fixture-diagnostic'}, fields={'key': 'api-key', 'id': 'uuid'})
+        step = 'synthetic_send'
+        call(APP, '/api/send', body=capture({'route': 'material', 'url': '/private?email=sentinel@example.invalid#secret', 'title': 'sentinel-private-title', 'referrer': 'https://private.invalid/person', 'data': {'secret': 'sentinel-private-data'}}, site['id']))
+        # Private stdout must be captured into a mode-0600 fixture file, never CI logs/artifacts.
+        return {'site': site['id'], 'reader': reader['id'], 'key': key['key'], 'key_id': key['id'], 'session': session, 'team': team['id']}
+    except (OSError, ValueError, KeyError, RuntimeError) as error:
+        if isinstance(error, UnexpectedHTTPStatus):
+            kind, status = 'http_status', error.status
+        else:
+            kind = 'transport' if isinstance(error, OSError) else 'invalid_response' if isinstance(error, (ValueError, KeyError)) else 'invariant'
+            status = error.status if isinstance(error, InvalidHTTPResponse) else None
+        raise FixtureStepFailed({'phase': 'seed', 'step': step, 'error': kind, 'http_status': status}) from None
 
 
 def load_state(raw):
@@ -147,5 +228,6 @@ if __name__ == '__main__':
         print(json.dumps(result, separators=(',', ':')))
     except (OSError, ValueError, KeyError, RuntimeError) as error:
         # Exception text/bodies may contain credentials or private provider output.
-        print(json.dumps({'error': type(error).__name__, 'phase': args.phase}), file=sys.stderr)
+        report = error.report if isinstance(error, FixtureStepFailed) else {'error': type(error).__name__, 'phase': args.phase}
+        print(json.dumps(report), file=sys.stderr)
         sys.exit(1)

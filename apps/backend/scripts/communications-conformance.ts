@@ -1,3 +1,5 @@
+import { PgBossQueueDiagnostics } from "../src/infrastructure/pg-boss-queue-diagnostics.js";
+import { QueueDiagnostics } from "../src/entrypoints/mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../src/modules/web-telemetry/index.js";
 import {
@@ -151,6 +153,10 @@ const mcp = createMcpHttpServer({
   billing: app.get(BillingOperations),
   diagnostics: app.get(PaymentDiagnostics),
   funnel: app.get(SalesFunnel),
+  queues: new QueueDiagnostics(
+    app.get<Accounts>(ACCOUNTS),
+    new PgBossQueueDiagnostics(prisma),
+  ),
   telemetry: app.get(WebTelemetry),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),
   identityIssuer: issuer,

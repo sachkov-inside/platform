@@ -64,9 +64,9 @@ it("accepts the rollback build retaining the full registry and unchanged migrati
     ...platformMigrations.slice(0, beforeIndexes),
     ...platformMigrations.slice(beforeIndexes),
   ];
-  expect(rollbackBuildRegistry.at(-1)?.name).toBe(
-    "0104_funnel_diagnostic_current_products",
-  );
+  expect(
+    rollbackBuildRegistry.at(beforeIndexes + indexLedger.length - 1)?.name,
+  ).toBe("0104_funnel_diagnostic_current_products");
   expect(() =>
     assertAppliedMigrations(applied, rollbackBuildRegistry),
   ).not.toThrow();

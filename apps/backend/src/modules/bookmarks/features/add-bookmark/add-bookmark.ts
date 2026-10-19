@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  Prisma,
+  lockBookmarkPair,
+  type BookmarksPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId } from "../../../materials/index.js";
@@ -43,24 +47,32 @@ export async function addBookmark(
       },
     };
   try {
-    const bookmarkedAt = new Date();
-    await dependencies.prisma.bookmarkedMaterial.createMany({
-      data: [{ accountId: account, materialId: material, bookmarkedAt }],
-      skipDuplicates: true,
+    return await dependencies.prisma.$transaction(async (transaction) => {
+      await lockBookmarkPair(transaction, account, material);
+      const bookmarkedAt = new Date();
+      const changed = await transaction.bookmarkedMaterial.createMany({
+        data: [{ accountId: account, materialId: material, bookmarkedAt }],
+        skipDuplicates: true,
+      });
+      if (changed.count > 0)
+        await transaction.$executeRaw(Prisma.sql`
+        insert into bookmarks.activity_events (event_id, account_id, material_id, event_type, occurred_at)
+        values (${randomUUID()}::uuid, ${account}::uuid, ${material}::uuid, 'bookmark_added', ${bookmarkedAt})
+      `);
+      const row = await transaction.bookmarkedMaterial.findUnique({
+        where: {
+          accountId_materialId: { accountId: account, materialId: material },
+        },
+      });
+      return {
+        ok: true as const,
+        value: {
+          materialId: material,
+          bookmarked: true as const,
+          bookmarkedAt: (row?.bookmarkedAt ?? bookmarkedAt).toISOString(),
+        },
+      };
     });
-    const row = await dependencies.prisma.bookmarkedMaterial.findUnique({
-      where: {
-        accountId_materialId: { accountId: account, materialId: material },
-      },
-    });
-    return {
-      ok: true,
-      value: {
-        materialId: material,
-        bookmarked: true,
-        bookmarkedAt: (row?.bookmarkedAt ?? bookmarkedAt).toISOString(),
-      },
-    };
   } catch (error) {
     return dependencyFailure(
       { module: "bookmarks", operation: "addBookmark" },

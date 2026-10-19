@@ -9,8 +9,17 @@
 
 [inputs.lock.json](../../infra/observability/umami/inputs.lock.json) закрепляет Umami 3.4.0,
 PostgreSQL 16.13 и Python 3.13.12 OCI index digest. Там же находятся URL и SHA256 прочитанных
-файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Image pull/execution на Mac
-не выполнялись. Digest подтверждён registry manifest, совместимость доказывается запуском.
+файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Digest подтверждён registry
+manifest. Фактические supervised запуски Mac (`9d38522d`) и Linux CI (`39297716250`, тот же
+source tree) завершились на `synthetic_seed`; monitor не отказал, diagnostics/down/residue прошли,
+собственных ресурсов после cleanup не осталось. Успешная совместимость ещё не доказана.
+
+Источник закреплённого [POST /api/teams](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/teams/route.ts)
+возвращает результат [createTeam](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/team.ts)
+как tuple `[Team, TeamUser]`. Прежний seed ошибочно требовал объект. Регрессия воспроизводит
+этот отказ по форме ответа; отдельный adapter проверяет UUID, связь teamId и owner role до
+использования идентификатора. Старые runtime evidence не содержат seed substage, поэтому
+нельзя исключить более ранний сбой. Повторный supervised запуск исправленного source pending.
 
 В закреплённом [send handler](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/send/route.ts)
 по умолчанию сохраняются query/hash URL, title, referrer path/query, UTM, click IDs и свойства.
@@ -29,8 +38,11 @@ visitor не равен человеку. Переход часа сам по с
 Первые три значения дополнительно проверяются через native `/api/config`. Проверены
 [config](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/config/route.ts)
 и [telemetry handler](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/scripts/telemetry/route.ts).
-Compose internal network и локальный DNS upstream закрывают внешний egress контейнеров;
-проверка фактического сетевого поведения входит в Linux runtime. Replay/heatmap не вызываются.
+Umami/PostgreSQL подключены только к internal network; query gateway дополнительно имеет
+ingress bridge, чтобы loopback published port работал с Docker internal networks. У gateway
+поэтому есть сетевой egress: это не обещание его сетевой изоляции. Upstream остаётся фиксированным,
+redirect и proxy environment в HTTP-клиентах запрещены. У Umami/PostgreSQL нет published ports.
+Проверка фактического сетевого поведения входит в runtime. Replay/heatmap не вызываются.
 
 ## Граница чтения
 
@@ -63,9 +75,13 @@ DNS/connect, upstream headers/body и запись ответа. Отдельн�
 
 В этом срезе gateway намеренно не пропускает embedded `/mcp`: тот вызывает внутренний API и
 обошёл бы ограничения gateway. Official `@umami/mcp` существует в upstream, версия 0.2.0;
-его stdio adapter должен использовать этот query API после отдельного закрепления npm
-артефакта **и полного dependency lock**. Ни `npx latest`, ни обход gateway не являются рецептом.
-Полное discovery/query MCP доказательство и остальные analytical routes пока pending.
+его stdio adapter использует этот query API. В `infra/observability/umami/mcp` закреплён полный
+пятикомпонентный dependency graph с sha512 integrity каждого npm artifact. Acquisition использует
+`npm ci --ignore-scripts --omit=dev --no-audit --no-fund` в private output, не workspace install.
+Host Node должен совпасть с `.node-version`. CLI получает только фиксированные origin/token,
+без inherited `UMAMI_API_URL`, Cloud key, proxy или Node options. Ни `npx latest`, ни обход
+gateway не являются рецептом. Discovery и известный pageview проверяет prepared runner;
+фактическое выполнение, полный каталог инструментов и isolated MCP CPU proof пока pending.
 
 ## Подготовка и протокол runtime
 
@@ -89,7 +105,7 @@ SIGKILL самого Node owner, уничтожение всего supervisor tr
 восстановления: автоматическая гарантия не продолжается бесконечной цепочкой supervisors.
 При таком аварийном завершении перед повтором необходимо проверить принадлежность оставшейся
 test process group текущей задаче, остановить её и подтвердить закрытие её listener. Этот
-контракт касается локальных contracts; supervised Docker runtime runner всё ещё pending.
+контракт касается локальных contracts; Docker runtime использует отдельный общий pilot supervisor.
 
 `prepare.py` сначала валидирует bounded JSON lock целиком: schema/revisions, exact image
 repositories с digest, даты и source proofs. Дубликаты JSON keys запрещены. При отказе выходной
@@ -97,32 +113,62 @@ repositories с digest, даты и source proofs. Дубликаты JSON keys 
 Ответы fixture API проверяют используемые UUID и bounded non-control credentials до передачи
 в URL/headers; это относится также к private state и локальному reader key.
 Compose plan содержит случайные fixture secrets: **не публиковать весь каталог**. Он создаёт
-отдельную базу/роль `umami`, connection limit 8, pool limit 5, statement timeout 5 секунд и
+отдельную базу/роль `umami`, server-side connection limit 8, statement timeout 5 секунд и
 idle-in-transaction timeout 10 секунд. Это отдельный disposable PostgreSQL, не production
 и не доказательство включения существующего PostgreSQL в pgBackRest.
 
-Runtime driver ещё не подключён к hosted workflow. Подключать только через уже используемый
-в #1566 внешний supervisor с disk admission, отдельным process group, deadline и cleanup
-после success/failure/timeout/interruption. Не запускать Compose вручную без этого владельца.
-Последовательность фаз внутри такого runner:
+Подготовлены `runtime.py`, `hosted.py` и отдельный no-secrets workflow
+`.github/workflows/observability-umami.yml`. Полный запуск разрешается после проверки immutable
+runner: Standards, Spec, security и classification. До этого image pull/runtime не выполняются.
+После принятия runner используется публичная команда, а не ручной Compose:
 
-1. Создать private inputs и запустить их собственный случайный Compose project.
-2. Выполнить в `query` контейнере `python /pilot/fixture.py seed`. Захватить stdout напрямую
-   в private state; **не echo/tee/upload**: он содержит fixture API key и browser login token.
-   Default admin password сразу заменяется случайным, до создания данных.
-3. Записать `state.key` в host `reader.key` **в существующий inode**, сохранив mode 0600.
-   В контейнер смонтирован только этот файл, не каталог с database/admin secrets.
-4. Передать private state по stdin в `python /pilot/fixture.py verify` в том же контейнере.
-   Только stdout этой фазы является curated JSON proof. Проверяются сохранённый pageview,
-   ограниченное чтение events, sentinel privacy, direct API mutation corpus через gateway,
-   отдельный native team reset deny и последующий 401 отозванного ключа.
-5. Перед публикацией добавить точные source commit/tree/run/attempt и input hashes внешнего
-   runner. Публиковать только явный whitelist curated proof, не stdout seed и не raw logs.
-6. Остановить project с volumes и проверить отсутствие его ресурсов при любом исходе.
+```sh
+bash scripts/heavy-check.sh python3 scripts/observability-umami/runtime.py run --output /absolute/task-owned/new-private-directory
+```
 
-`fixture.py` сообщает только тип исключения и фазу. Raw provider error и чувствительный
-ответ не становятся диагностикой. Для различения startup причин runner может сохранять
-разрешённые stage/status/container state поля по общему pilot contract.
+Сначала соблюдается [singleton ownership](local-development.md#parallel-worktrees-and-singleton-ownership).
+Runtime использует тот же внешний supervisor и policy, что technical pilot: 16 GiB admission,
+неизменённые floor/growth/headroom, host+VM checks на OrbStack и Linux storage monitor,
+отдельная worker process group, 600 секунд worker deadline, обязательные down/volumes/residue
+после success/failure/timeout/interruption. Linux фиксирует context/socket inode/daemon/storage;
+OrbStack — также backing identity. Изменение identity запрещает mutation и автоматический
+cleanup на другом daemon; требуется ручная проверка владельцем. Подробности storage guard
+находятся в [общем runbook](observability-pilot.md), их отдельная копия здесь не вводится.
+
+`inputs.lock.json` содержит проверенные amd64/arm64 OCI config digests Postgres 16.13: image
+создаёт postgres UID/GID 70 и PGDATA/socket directories с owner postgres. Сервис запускается
+как `70:70`, с `cap_drop: ALL`, без privilege escalation. Fresh named-volume copy-up permissions
+ещё подтверждаются actual runtime. SQL не монтируется из host mode-0600 файла в entrypoint:
+после bounded `pg_isready` внешний worker передаёт его `psql` по stdin, без паролей в argv.
+Query gateway работает с numeric UID/GID владельца private reader key, чтобы читать mode 0600
+без DAC override. Эти значения не являются production credentials.
+
+Последовательность runtime:
+
+1. Записать private source-bound ownership и случайный project; запустить только PostgreSQL,
+   дождаться readiness, создать отдельную role/database по private stdin, затем Umami/query.
+2. Выполнить internal synthetic seed; его stdout с key/session остаётся только в памяти worker,
+   не echo/tee/upload. Default admin password заменяется случайным до создания данных.
+3. Записать key в существующий inode mode 0600. Через native stdio проверить discovery и
+   `get_website_stats`: ожидается правильный website и ровно один fixture pageview.
+4. Запустить API privacy/read-only corpus и отзыв ключа. Опубликовать только проверенную
+   закрытую форму `umami-proof.json`, без дополнительных provider fields.
+5. Source metadata связывает checkout SHA/tree, provider execution/PR head/base, run/attempt
+   и hashes shared supervisor/guards, собственного runner/config, npm locks и workflow.
+6. При любом исходе остановить собственный project и volumes, проверить residue. Recovery
+   допускается только для зарегистрированного random prefix и той же daemon identity,
+   после исчезновения worker и его process group.
+
+`hosted.py collect` публикует только явный whitelist bounded JSON. Private compose, SQL,
+reader key, npm installation, seed output и raw provider errors исключены. Proof Linux CI
+не становится Timeweb capacity, PostgreSQL restore, browser consent или семью сутками production.
+
+При ошибке seed `fixture.py` передаёт закрытую форму `phase/step/error/http_status`:
+фиксированные имена шага и категории, числовой HTTP status либо null. Runner принимает её
+только для seed, в пределах 1024 bytes, с точным набором полей и разрешённых значений; иначе
+сохраняет только общий отказ команды. В `readiness.json` не попадают URL, Account/team/site ID,
+credentials, response body, exception text или произвольный stderr. Ошибки других команд
+остаются без provider diagnostics. Stage/status/container state следуют общему pilot contract.
 
 ## Очистка и восстановление: подготовленный SQL
 

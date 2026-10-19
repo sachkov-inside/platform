@@ -10,6 +10,7 @@ import { integrationWorkerBudget } from "./test/integration/setup/worker-budget.
  * набором они измеряют загрузку runner, а не поведение, поэтому идут отдельной группой по одному.
  */
 const serialFiles = [
+  "test/integration/pg-boss-telemetry.test.ts",
   "test/integration/billing-notices-broker.test.ts",
   "test/integration/billing-payments.test.ts",
   "test/integration/material-announcement-broker.test.ts",

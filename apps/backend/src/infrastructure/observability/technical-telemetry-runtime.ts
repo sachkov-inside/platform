@@ -28,7 +28,8 @@ const runtimeSchema = z.object({
 /** Opt-in only. Invalid telemetry configuration cannot stop the application. */
 export function technicalTelemetryFromEnvironment(input: {
   readonly environment: NodeJS.ProcessEnv;
-  readonly service: "platform-api" | "platform-mcp";
+  readonly service:
+    "platform-api" | "platform-mcp" | "platform-material-assets-worker";
   readonly mode: "development" | "test" | "production";
   readonly identity: RuntimeIdentity;
 }): TechnicalTelemetry {

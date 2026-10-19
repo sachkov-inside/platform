@@ -223,3 +223,96 @@ Account ID и username респондентов в этот отчёт не вх
 [SalesFunnel diagnostics](../../apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/read-funnel-diagnostics.ts);
 определения когорты остаются в
 [общем отчёте](../../apps/backend/src/modules/sales-funnel/features/read-funnel-report/read-funnel-report.ts).
+
+### Операционные очереди pg-boss
+
+`operational_queue_diagnostics` в Platform MCP требует актуального `platform:admin` делегированного
+Account. Вход — строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
+бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
+Отчёт читает только инфраструктурные `pgboss.version`, `pgboss.queue`, `pgboss.job` через
+[owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
+Девять известных имён имеют один
+[contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
+не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
+retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
+
+Один `RepeatableRead READ ONLY`-снимок имеет UTC `asOf`, проверяет точную schema version установленного
+pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
+1 s. Объём ответа ограничен девятью очередями и шестью известными states; история не обрезается до
+произвольного числа jobs. Агрегация может сканировать всю сохранённую историю выбранных очередей;
+при превышении бюджета или недоступности источника ответ — `coverage: unknown` и
+`source_unavailable`, при несовместимой версии — `schema_mismatch`. Это не нулевые счётчики.
+Отсутствующая очередь имеет `status: unknown / queue_not_registered`, существующая пустая — нули и
+`oldestBacklogAgeSeconds: null`.
+
+`states` считает сохранённые `created`, `retry`, `active`, `completed`, `cancelled`, `failed`.
+`backlog` — `created + retry`, включая отложенные и blocked задания; `ready` — не blocked с
+`start_after <= asOf`, `scheduled` — не blocked с будущим `start_after`, `blocked` — ожидающие
+зависимости jobs этих двух states. Возраст старейшего backlog считается от `created_on`, включая
+scheduled/blocked. `retrying` — незавершённые `created/retry/active` с `retry_count > 0`;
+`retainedRetryAttempts` суммирует `retry_count` всех сохранённых states. После удаления истории эти
+значения не являются пожизненными totals. Повторная попытка задания не равна повторному внешнему
+платежу. `failed` не доказывает денежную ошибку, а `completed` — успешный внешний эффект.
+
+`workerFreshness: not_proven` и `lastSuccessfulWorkAt: null` остаются даже после успешного запроса:
+текущего durable owner-факта, подтверждающего последнее успешное выполнение/доставку, здесь нет.
+Отчёт не заменяет worker liveness, readiness или source freshness. RabbitMQ, доменные outbox и
+email delivery в этом bounded этапе ещё не покрыты; их отсутствие в отчёте не означает отсутствие
+backlog или ошибок. Настройки сбора, entitlement/business semantics и production-конфигурация этим
+инструментом не меняются.
+
+### Provenance подтверждённой Membership activity
+
+Подготовлены внутренние owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read`
+и `TaskSubmissionFacts.read` для следующего distinct Account report. Новый MCP/REST-инструмент
+или permission в этом этапе не добавлены. Эти trusted owner-интерфейсы возвращают Account ID;
+потребитель обязан проверить право до их вызова. Их результат не является публичной аналитикой.
+
+Источники фактов:
+
+- `reading_activity.events`: существующие реальные ручные `material_marked_read` и
+  `material_marked_unread`; исходные event ID, command ID и state version сохраняются.
+  No-op, stale/conflicting command и повтор receipt не добавляют переход.
+- `reading_activity.learning_started_events`: только фактическое первое создание Account/Product
+  `product_learning_started` новой версией writer, в той же транзакции с исходным command ID.
+  Конкурентные открытия разных Materials одного Product не создают второй start. Существующая
+  таблица `product_learning_started` содержит backfill из first-open в migration 0093; она не
+  реконструируется как журнал. Повторное открытие после старого backfilled start не новый start.
+- `bookmarks.activity_events`: фактические add/remove под общим owner pair lock, атомарно с
+  изменением bookmark. No-op и параллельные одинаковые add/remove не создают события. Existing
+  bookmarks не backfill. Bookmark contract не имеет command ID: старый add, пришедший после
+  remove, по текущему contract снова меняет состояние. Journal отражает этот реальный переход;
+  причинную дедупликацию переставленных команд без ключа он не обещает.
+- `product_tasks.submissions`: существующий подтверждённый receipt пользовательской сдачи form/MCP
+  с исходными submission ID/key и submitted time. Retry возвращает receipt, не новую сдачу;
+  фоновые review/progress/reconciliation не входят. Payload, note и review text не читаются.
+
+Каждый owner читает только свою schema в отдельном `RepeatableRead READ ONLY`-снимке, с бюджетами
+statement 2 s / transaction 5 s / ожидание соединения 1 s. UTC `[from,to)` имеет длину до 31 дня.
+Фильтр времени применяется к настоящему event/submission time до агрегации. Ответ содержит окно,
+UTC `asOf`, Account/kind, точное число сохранённых фактов и first/last event time этого окна.
+Эти first/last являются границами прочитанных реальных событий, не восстановлением активности
+из mutable visit/state. До 2000 релевантных Account/kind групп возвращаются целиком;
+2001-я означает `source_budget_exceeded / unknown`, без выдачи усечённых distinct totals.
+Потребитель может сузить окно. Cursor и стабильное продолжение между снимками не реализованы;
+объединение результатов разных окон/owners и политика distinct остаются следующим report slice.
+Unread/removal сохранены отдельно; решение об их включении в active participant показатель здесь
+не вводится. Checkout и технические события источниками этих интерфейсов не являются.
+
+`coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
+нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
+непрерывность rollout. После rollback на старый writer возможен gap сбора; compatible rollback build
+должен сохранить полную применённую registry, включая 0105–0107 и неизменные checksums. Старый image
+с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
+нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
+
+Read horizon — последние 365 дней относительно DB snapshot clock; более раннее начало запроса
+получает `outside_retention / unknown`. Исходные учебные receipts/manual journals и Product state
+не удаляются ради аналитики. Физическая очистка двух новых activity journals **ещё не реализована**:
+365-дневная retention полностью не принята. Для следующего retention slice подготовлен owner index
+`(occurred_at,event_id,...)`: bounded cleanup должен удалять только новые analytics events раньше
+cutoff, страницами по этому ключу, с конечным batch/work budget; отдельно показывать earliest retained
+expired event и cleanup lag, проверять повтор, остановку и restore. Не удалять исходные task receipts
+или читать чужую schema для этого cleanup. Ни cleanup job, ни новые внешние collector/Umami вызовы
+в бизнес-транзакции этим этапом не добавлены. Production migration/rollout требует отдельного допуска;
+новые period indexes существующих journals могут блокировать запись при обычном `CREATE INDEX`.

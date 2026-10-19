@@ -1,4 +1,8 @@
 import {
+  registerQueueDiagnosticsTool,
+  type QueueDiagnostics,
+} from "./queue-diagnostics.js";
+import {
   registerFunnelDiagnosticsTool,
   type SalesFunnel,
 } from "../../modules/sales-funnel/index.js";
@@ -29,6 +33,7 @@ import {
 
 export interface InsideMcpToolDependencies {
   readonly accountId: string;
+  readonly queues: Pick<QueueDiagnostics, "read">;
   readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
@@ -54,6 +59,10 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
+  });
+  registerQueueDiagnosticsTool(server, {
+    accountId,
+    queues: dependencies.queues,
   });
   registerFunnelDiagnosticsTool(server, {
     accountId,
