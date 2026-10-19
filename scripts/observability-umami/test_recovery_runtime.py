@@ -159,3 +159,83 @@ class PublicRecoveryEntryPoint(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs['services'], recovery.SERVICES)
         self.assertEqual(run.call_args.kwargs['project_prefix'], recovery.PROJECT_PREFIX)
         self.assertEqual(run.call_args.kwargs['worker_script'], Path(recovery_runtime.__file__).resolve())
+
+
+class PublicMacPreparationBinding(unittest.TestCase):
+    def run_public_cycle(self, mutation=None):
+        """Real public prepare/augmentation, with OS admission and worker spawn boundaries replaced."""
+        from contextlib import nullcontext, redirect_stdout
+        import io
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        import subprocess
+        pilot = recovery_runtime.pilot
+        with tempfile.TemporaryDirectory() as directory:
+            backing = Path(directory) / 'owned.raw'
+            backing.touch()
+            output = Path(directory) / 'owned-output'
+            identity = {'context': 'orbstack', 'endpoint': 'unix:///fixture/docker.sock',
+                'daemon_id': 'owned', 'storage': '/var/lib/docker', 'socket_device': 1, 'socket_inode': 2,
+                'backing': {'path': str(backing), 'device': 1, 'inode': 2}}
+            docker = Mock(return_value=json.dumps({'id': 'sha256:' + '0' * 64, 'architecture': 'arm64', 'os': 'linux'}))
+            def command(args, **kwargs):
+                if args[-2:] == ['status', '--porcelain']:
+                    return ''
+                if args[-2:] == ['rev-parse', 'HEAD']:
+                    return 'a' * 40
+                if args == ['docker', 'context', 'show']:
+                    return 'orbstack'
+                if args == ['docker', 'compose', 'ls', '--format', 'json']:
+                    return '[]'
+                self.fail('unexpected external command in public preparation')
+            def worker(_argv, compose, path, project, **kwargs):
+                plan = json.loads((path / 'compose.json').read_text())
+                self.assertIn('storage-probe', plan['services'])
+                if mutation is not None:
+                    mutation(path, plan)
+                with self.assertRaises(RuntimeError):
+                    recovery_runtime.exercise(path, compose, project, execute=docker)
+                return 1  # Stop before any container acquisition, never a successful runtime proof.
+            with patch.object(pilot, 'command', side_effect=command), \
+                    patch.object(pilot.platform, 'system', return_value='Darwin'), \
+                    patch.object(pilot.platform, 'machine', return_value='arm64'), \
+                    patch.object(pilot.orbstack, 'identify', return_value=identity), \
+                    patch.object(pilot.orbstack, 'host_budget', return_value=nullcontext()), \
+                    patch.object(pilot.shutil, 'disk_usage', return_value=SimpleNamespace(total=100*1024**3, free=80*1024**3)), \
+                    patch.object(pilot, 'supervise_worker', side_effect=worker), \
+                    patch.object(pilot, 'FROZEN_DOCKER_IDENTITY', None), \
+                    patch.object(pilot, 'FROZEN_DOCKER_ENDPOINT', None), redirect_stdout(io.StringIO()):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    pilot.run(output, prepare_inputs=recovery_runtime.prepare_bound_inputs,
+                              worker_script=Path(recovery_runtime.__file__), ports=(),
+                              project_prefix=recovery.PROJECT_PREFIX, services=recovery.SERVICES)
+            return docker.call_count
+
+    def test_pg_bind_1_public_mac_augmentation_reaches_worker_image_admission(self):
+        self.assertEqual(self.run_public_cycle(), 1)
+
+    def test_mac_augmentation_never_admits_unexpected_composition_or_private_input_edits(self):
+        for case in ('additional_service', 'source_mount', 'probe_mount', 'probe_writable',
+                     'probe_missing', 'configuration', 'initial_roles'):
+            def mutate(path, plan):
+                if case == 'configuration':
+                    with (path / 'pgbackrest.conf').open('a') as config:
+                        config.write('\n# unexpected edit\n')
+                    return
+                if case == 'initial_roles':
+                    with (path / 'init.sql').open('a') as roles:
+                        roles.write('\nCREATE ROLE unexpected_admin SUPERUSER;\n')
+                    return
+                if case == 'additional_service':
+                    plan['services']['unexpected'] = {'image': 'foreign:latest'}
+                elif case == 'source_mount':
+                    plan['services']['db']['volumes'][0] = 'foreign:/var/lib/postgresql'
+                elif case == 'probe_mount':
+                    plan['services']['storage-probe']['volumes'][0]['source'] = '/foreign'
+                elif case == 'probe_writable':
+                    plan['services']['storage-probe']['volumes'][0]['read_only'] = False
+                elif case == 'probe_missing':
+                    del plan['services']['storage-probe']
+                recovery_runtime.pilot.write_json(path / 'compose.json', plan)
+            with self.subTest(case=case):
+                self.assertEqual(self.run_public_cycle(mutate), 0)

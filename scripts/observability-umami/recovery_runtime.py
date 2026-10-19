@@ -21,7 +21,8 @@ BINDING_INPUTS = (*recovery.FOUNDATION_INPUTS,
     'scripts/observability-umami/retention-corpus.sql', 'scripts/observability-umami/retention-proof.sql',
     'scripts/observability-umami/retention_fixture.py',
     'scripts/observability-pilot/pilot.py', 'scripts/observability-pilot/orbstack.py',
-    'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/storage_policy.py')
+    'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/storage_policy.py',
+    'infra/observability/pilot/probe.lock.json')
 IMAGE_INSPECT = '{"id":{{json .Id}},"architecture":{{json .Architecture}},"os":{{json .Os}}}'
 
 
@@ -31,8 +32,31 @@ def prepare_bound_inputs(output):
     pilot.write_json(output / 'recovery-inputs.json', {
         'schema': 1, 'foundation_source': cache['source'], 'foundation_image': cache['image'],
         'inputs': {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in BINDING_INPUTS},
-        'private_compose_sha256': hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest(),
-        'configuration_sha256': hashlib.sha256((output / 'pgbackrest.conf').read_bytes()).hexdigest()})
+        'private_compose_sha256': _expected_supervised_compose_hash(output),
+        'configuration_sha256': hashlib.sha256((output / 'pgbackrest.conf').read_bytes()).hexdigest(),
+        'initial_roles_sha256': hashlib.sha256((output / 'init.sql').read_bytes()).hexdigest()})
+
+
+def _expected_supervised_compose_hash(output):
+    """Predict only the public supervisor's exact Mac addition; never normalize worker input."""
+    identity = pilot.FROZEN_DOCKER_IDENTITY
+    if identity is None or identity.get('platform') == 'linux':
+        return hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest()
+    pilot.validate_recorded_daemon_identity(identity, linux=False)
+    plan = json.loads((output / 'compose.json').read_text())
+    if 'storage-probe' in plan['services']:
+        raise ValueError('unexpected_prepared_storage_probe')
+    lock = json.loads((pilot.CONFIG / 'probe.lock.json').read_text())
+    plan['services']['storage-probe'] = pilot.orbstack.probe_service(lock, identity['storage'])
+    # Use the SAME owning serializer as pilot.run. The private expected copy is
+    # removed before preparation returns; only its digest survives.
+    expected = output / 'expected-compose.private.json'
+    expected.touch(mode=0o600, exist_ok=False)
+    try:
+        pilot.write_json(expected, plan)
+        return hashlib.sha256(expected.read_bytes()).hexdigest()
+    finally:
+        expected.unlink()
 
 
 def exercise(output, compose, project, *, execute=runtime.invoke):
@@ -49,7 +73,8 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
                 or binding.get('foundation_source') != cache['source'] or binding.get('foundation_image') != cache['image']
                 or binding.get('inputs') != {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in BINDING_INPUTS}
                 or binding.get('private_compose_sha256') != hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest()
-                or binding.get('configuration_sha256') != hashlib.sha256((output / 'pgbackrest.conf').read_bytes()).hexdigest()):
+                or binding.get('configuration_sha256') != hashlib.sha256((output / 'pgbackrest.conf').read_bytes()).hexdigest()
+                or binding.get('initial_roles_sha256') != hashlib.sha256((output / 'init.sql').read_bytes()).hexdigest()):
             raise ValueError('recovery_prepared_inputs_changed')
         for reference in (cache['image'], cache['cache_owner']):
             actual = json.loads(execute(['docker'], ['image', 'inspect', reference, '--format', IMAGE_INSPECT]))

@@ -302,6 +302,13 @@ PostgreSQL выделены в профиль `maintenance-only`, SQL-читат
 `infra/observability/umami/recovery-cache.lock.json` закрепляет существующий локальный ARM64
 foundation cache и хеши Dockerfile/init/restore/config. Runtime требует точного image ID,
 соответствия собственного cache tag и архитектуры. Нет fallback build или pull.
+На Mac ожидаемый Compose hash заранее включает только точное добавление `storage-probe`
+публичным supervisor. Оно вычисляется из frozen daemon identity, закреплённого probe lock
+и того же владельца service/serializer. Worker сравнивает итоговые байты, не удаляет probe
+из проверки и не нормализует неожиданные правки. Изменения другого service, mount,
+параметров probe, private config или первоначального `init.sql` останавливают вход до
+Docker I/O. Это исправление PG-BIND-1, обнаруженного до первого runtime-запуска кандидата.
+
 Контроллер также проверяет фактические PostgreSQL 18.4 и pgBackRest 2.57.0. Несоответствие
 версии останавливает проверку. Production Dockerfile, WAL и backup конфигурация не меняются.
 Частная конфигурация использует собственный POSIX repository и новый случайный cipher pass.
