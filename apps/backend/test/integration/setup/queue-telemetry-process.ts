@@ -38,28 +38,55 @@ export interface QueueTelemetryProcess {
 }
 
 /** The independent Python supervisor survives test-worker exit/SIGKILL and reaps the command tree. */
-export function launchQueueTelemetryProcess(input: {
-  readonly databaseUrl: string;
-  readonly endpoint: string;
-  readonly mode: "produce" | "crash" | "retry" | "ownership";
-}): QueueTelemetryProcess {
+export function launchQueueTelemetryProcess(
+  input: {
+    readonly databaseUrl: string;
+    readonly endpoint: string;
+  } & (
+    | {
+        readonly mode: "produce" | "crash" | "retry" | "ownership";
+      }
+    | {
+        readonly mode: "worker";
+        readonly worker:
+          | "profile-avatars-worker"
+          | "video-deletions-worker"
+          | "billing-worker";
+        readonly enabled: boolean;
+      }
+  ),
+): QueueTelemetryProcess {
   const child = spawnOwned(
     process.execPath,
     [
       "--import",
       "tsx",
       fileURLToPath(
-        new URL("../fixtures/pg-boss-telemetry-worker.ts", import.meta.url),
+        new URL(
+          input.mode === "worker"
+            ? "../fixtures/technical-worker.ts"
+            : "../fixtures/pg-boss-telemetry-worker.ts",
+          import.meta.url,
+        ),
       ),
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
       env: {
-        ...Object.fromEntries(
-          Object.entries(process.env).filter(
-            ([key]) => !key.startsWith("OTEL_EXPORTER_OTLP"),
-          ),
-        ),
+        ...(input.mode === "worker"
+          ? {
+              PATH: process.env["PATH"],
+              NODE_ENV: "test",
+              DATABASE_URL: input.databaseUrl,
+              KINESCOPE_PROVIDER_MODE: "test",
+              ...(input.enabled ? { INSIDE_OTEL_ENABLED: "true" } : {}),
+              INSIDE_OTEL_ENDPOINT: input.endpoint,
+            }
+          : Object.fromEntries(
+              Object.entries(process.env).filter(
+                ([key]) => !key.startsWith("OTEL_EXPORTER_OTLP"),
+              ),
+            )),
         PG_BOSS_TELEMETRY_FIXTURE: JSON.stringify(input),
       },
     },
@@ -107,7 +134,19 @@ export function launchQueueTelemetryProcess(input: {
       }
     }
   });
-  child.stderr?.resume();
+  if (input.mode === "worker") {
+    let errors = "";
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk: string) => {
+      errors += chunk;
+      for (;;) {
+        const end = errors.indexOf("\n");
+        if (end < 0) break;
+        output.push(`${errors.slice(0, end)}\n`);
+        errors = errors.slice(end + 1);
+      }
+    });
+  } else child.stderr?.resume();
   // Consume early rejection until the caller awaits the bounded fact.
   void firstMessage.catch(() => undefined);
   void exited.catch(() => undefined);

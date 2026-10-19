@@ -58,10 +58,17 @@ export function technicalLogCorrelation(): Readonly<
       };
 }
 
+export type TechnicalService =
+  | "platform-api"
+  | "platform-mcp"
+  | "platform-material-assets-worker"
+  | "platform-profile-avatars-worker"
+  | "platform-video-deletions-worker"
+  | "platform-billing-worker";
+
 interface EnabledConfiguration {
   readonly enabled: true;
-  readonly service:
-    "platform-api" | "platform-mcp" | "platform-material-assets-worker";
+  readonly service: TechnicalService;
   readonly environment: "development" | "test" | "production";
   readonly release: string;
   readonly sampleRatio: number;

@@ -14,6 +14,11 @@ import {
   reportQueueFailure,
   writeLog,
 } from "../infrastructure/observability/index.js";
+import { technicalTelemetryFromEnvironment } from "../infrastructure/observability/technical-telemetry-runtime.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../infrastructure/runtime-identity.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
@@ -72,151 +77,199 @@ async function bootstrap(): Promise<void> {
   const notices = application.get(BillingNotices);
   const operations = application.get(BillingOperations);
   const community = application.get(CommunityEntitlements);
-  const jobs = new PgBoss({
-    connectionString: config.database.url,
-    createSchema: false,
-    migrate: false,
-    schema: "pgboss",
+  const technicalTelemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-billing-worker",
+    mode: config.mode,
+    identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
-  jobs.on("error", (error: unknown) =>
-    reportQueueFailure("billing-worker", error),
-  );
-  await runWorker({
-    application,
-    databaseUrl: config.database.url,
-    jobs,
-    process: "billing-worker",
-    readiness: application.get(OperationalReadiness),
-    async registerJobs() {
-      await jobs.createQueue(telemetryCleanupQueue, {
-        deleteAfterSeconds: telemetryReceiptRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(
+  try {
+    const jobs = new PgBoss({
+      openTelemetry: technicalTelemetry.pgBoss([
         telemetryCleanupQueue,
-        "0 3 * * *",
-        {},
-        { tz: "Etc/UTC" },
-      );
-      await jobs.send(
-        telemetryCleanupQueue,
-        {},
-        { singletonSeconds: jobRetentionSeconds },
-      );
-      await jobs.work(
-        telemetryCleanupQueue,
-        observeJob("billing-worker", telemetryCleanupQueue, async () => {
-          const result = await telemetry.clean();
-          if (!result.ok) throw new Error(result.error.code);
-          return result;
-        }),
-      );
-      await jobs.createQueue(recoveryQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(recoveryQueue, "* * * * *", {});
-      await jobs.send(
         recoveryQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        recoveryQueue,
-        observeJob("billing-worker", recoveryQueue, async () => {
-          return runRecoveryJob(payments, operations);
-        }),
-      );
-      await jobs.createQueue(renewalQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(renewalQueue, "* * * * *", {});
-      await jobs.send(
         renewalQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        renewalQueue,
-        observeJob("billing-worker", renewalQueue, async () => {
-          return runRenewalJob(payments, subscriptions);
-        }),
-      );
-      await jobs.createQueue(noticeQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(noticeQueue, "* * * * *", {});
-      await jobs.send(
         noticeQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        noticeQueue,
-        observeJob("billing-worker", noticeQueue, async () => {
-          // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
-          return runNoticeJob(notices);
-        }),
-      );
-      // Community delivery only runs where the provider direction is actually configured.
-      await jobs.createQueue(tributeQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(tributeQueue, "* * * * *", {});
-      await jobs.send(
         tributeQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        tributeQueue,
-        observeJob("billing-worker", tributeQueue, async () => {
-          const report = await tribute.sweep(50);
-          if (report.pending > 0)
-            writeLog("warn", "queue_attention", {
-              status: "operator_attention",
-              pending: report.pending,
-            });
-        }),
-      );
-      if (!config.communityEntitlements) return;
-      await jobs.createQueue(communityQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(communityQueue, "* * * * *", {});
-      await jobs.send(
         communityQueue,
-        {},
-        { singletonSeconds: communityIntervalSeconds },
-      );
-      await jobs.work(
-        communityQueue,
-        observeJob("billing-worker", communityQueue, async () => {
-          const report = await community.sweep(communityBatchSize);
-          if (
-            report.backlog.overdue > 0 ||
-            report.backlog.rejected > 0 ||
-            report.failed > 0
-          ) {
-            // Overdue or refused community work is operator attention, not a silent retry.
-            writeLog("warn", "queue_attention", {
-              status: "operator_attention",
-              ...report,
-            });
-          }
-          return report;
-        }),
-      );
-    },
-  });
+      ]),
+      connectionString: config.database.url,
+      createSchema: false,
+      migrate: false,
+      schema: "pgboss",
+    });
+    jobs.on("error", (error: unknown) =>
+      reportQueueFailure("billing-worker", error),
+    );
+    await runWorker({
+      application,
+      databaseUrl: config.database.url,
+      jobs,
+      process: "billing-worker",
+      readiness: application.get(OperationalReadiness),
+      async registerJobs() {
+        await jobs.createQueue(telemetryCleanupQueue, {
+          deleteAfterSeconds: telemetryReceiptRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(
+          telemetryCleanupQueue,
+          "0 3 * * *",
+          {},
+          { tz: "Etc/UTC" },
+        );
+        await jobs.send(
+          telemetryCleanupQueue,
+          {},
+          { singletonSeconds: jobRetentionSeconds },
+        );
+        await jobs.work(
+          telemetryCleanupQueue,
+          observeJob(
+            "billing-worker",
+            telemetryCleanupQueue,
+            async () => {
+              const result = await telemetry.clean();
+              if (!result.ok) throw new Error(result.error.code);
+              return result;
+            },
+            technicalTelemetry,
+          ),
+        );
+        await jobs.createQueue(recoveryQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(recoveryQueue, "* * * * *", {});
+        await jobs.send(
+          recoveryQueue,
+          {},
+          { singletonSeconds: jobIntervalSeconds },
+        );
+        await jobs.work(
+          recoveryQueue,
+          observeJob(
+            "billing-worker",
+            recoveryQueue,
+            async () => {
+              return runRecoveryJob(payments, operations);
+            },
+            technicalTelemetry,
+          ),
+        );
+        await jobs.createQueue(renewalQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(renewalQueue, "* * * * *", {});
+        await jobs.send(
+          renewalQueue,
+          {},
+          { singletonSeconds: jobIntervalSeconds },
+        );
+        await jobs.work(
+          renewalQueue,
+          observeJob(
+            "billing-worker",
+            renewalQueue,
+            async () => {
+              return runRenewalJob(payments, subscriptions);
+            },
+            technicalTelemetry,
+          ),
+        );
+        await jobs.createQueue(noticeQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(noticeQueue, "* * * * *", {});
+        await jobs.send(
+          noticeQueue,
+          {},
+          { singletonSeconds: jobIntervalSeconds },
+        );
+        await jobs.work(
+          noticeQueue,
+          observeJob(
+            "billing-worker",
+            noticeQueue,
+            async () => {
+              // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
+              return runNoticeJob(notices);
+            },
+            technicalTelemetry,
+          ),
+        );
+        // Community delivery only runs where the provider direction is actually configured.
+        await jobs.createQueue(tributeQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(tributeQueue, "* * * * *", {});
+        await jobs.send(
+          tributeQueue,
+          {},
+          { singletonSeconds: jobIntervalSeconds },
+        );
+        await jobs.work(
+          tributeQueue,
+          observeJob(
+            "billing-worker",
+            tributeQueue,
+            async () => {
+              const report = await tribute.sweep(50);
+              if (report.pending > 0)
+                writeLog("warn", "queue_attention", {
+                  status: "operator_attention",
+                  pending: report.pending,
+                });
+            },
+            technicalTelemetry,
+          ),
+        );
+        if (!config.communityEntitlements) return;
+        await jobs.createQueue(communityQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(communityQueue, "* * * * *", {});
+        await jobs.send(
+          communityQueue,
+          {},
+          { singletonSeconds: communityIntervalSeconds },
+        );
+        await jobs.work(
+          communityQueue,
+          observeJob(
+            "billing-worker",
+            communityQueue,
+            async () => {
+              const report = await community.sweep(communityBatchSize);
+              if (
+                report.backlog.overdue > 0 ||
+                report.backlog.rejected > 0 ||
+                report.failed > 0
+              ) {
+                // Overdue or refused community work is operator attention, not a silent retry.
+                writeLog("warn", "queue_attention", {
+                  status: "operator_attention",
+                  ...report,
+                });
+              }
+              return report;
+            },
+            technicalTelemetry,
+          ),
+        );
+      },
+    });
+  } finally {
+    await technicalTelemetry.shutdown();
+  }
 }

@@ -14,6 +14,11 @@ import {
   reportProcessFailure,
   reportQueueFailure,
 } from "../infrastructure/observability/index.js";
+import { technicalTelemetryFromEnvironment } from "../infrastructure/observability/technical-telemetry-runtime.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../infrastructure/runtime-identity.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
@@ -50,55 +55,71 @@ async function bootstrap(): Promise<void> {
   );
   const materials = application.get<MaterialContent>(MATERIAL_CONTENT);
   const readiness = application.get(OperationalReadiness);
-  const jobs = new PgBoss({
-    connectionString: config.database.url,
-    createSchema: false,
-    migrate: false,
-    schema: "pgboss",
+  const technicalTelemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-video-deletions-worker",
+    mode: config.mode,
+    identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
-  jobs.on("error", (error: unknown) =>
-    reportQueueFailure("video-deletions-worker", error),
-  );
-  await runWorker({
-    application,
-    databaseUrl: config.database.url,
-    jobs,
-    process: "video-deletions-worker",
-    readiness,
-    async registerJobs() {
-      await jobs.createQueue(DELETION_QUEUE, {
-        deleteAfterSeconds: VIDEO_DELETION_JOB_RETENTION_SECONDS,
-        expireInSeconds: VIDEO_DELETION_JOB_TIMEOUT_SECONDS,
-        retryBackoff: true,
-        retryDelay: VIDEO_DELETION_RETRY_INITIAL_DELAY_SECONDS,
-        retryDelayMax: VIDEO_DELETION_RETRY_MAX_DELAY_SECONDS,
-        retryLimit: VIDEO_DELETION_RETRY_LIMIT,
-      });
-      await jobs.schedule(DELETION_QUEUE, VIDEO_DELETION_SCHEDULE, {});
-      await jobs.send(
-        DELETION_QUEUE,
-        {},
-        {
-          singletonSeconds: VIDEO_DELETION_SINGLETON_SECONDS,
-        },
-      );
-      await jobs.work(
-        DELETION_QUEUE,
-        observeJob("video-deletions-worker", DELETION_QUEUE, async () => {
-          const result = await maintenance.process({
-            async isReferenced(transaction, input) {
-              const reference = await materials.containsVideoReference(
-                transaction,
-                input,
-              );
-              if (!reference.ok) throw new Error(reference.error.code);
-              return reference.value;
+  try {
+    const jobs = new PgBoss({
+      openTelemetry: technicalTelemetry.pgBoss([DELETION_QUEUE]),
+      connectionString: config.database.url,
+      createSchema: false,
+      migrate: false,
+      schema: "pgboss",
+    });
+    jobs.on("error", (error: unknown) =>
+      reportQueueFailure("video-deletions-worker", error),
+    );
+    await runWorker({
+      application,
+      databaseUrl: config.database.url,
+      jobs,
+      process: "video-deletions-worker",
+      readiness,
+      async registerJobs() {
+        await jobs.createQueue(DELETION_QUEUE, {
+          deleteAfterSeconds: VIDEO_DELETION_JOB_RETENTION_SECONDS,
+          expireInSeconds: VIDEO_DELETION_JOB_TIMEOUT_SECONDS,
+          retryBackoff: true,
+          retryDelay: VIDEO_DELETION_RETRY_INITIAL_DELAY_SECONDS,
+          retryDelayMax: VIDEO_DELETION_RETRY_MAX_DELAY_SECONDS,
+          retryLimit: VIDEO_DELETION_RETRY_LIMIT,
+        });
+        await jobs.schedule(DELETION_QUEUE, VIDEO_DELETION_SCHEDULE, {});
+        await jobs.send(
+          DELETION_QUEUE,
+          {},
+          {
+            singletonSeconds: VIDEO_DELETION_SINGLETON_SECONDS,
+          },
+        );
+        await jobs.work(
+          DELETION_QUEUE,
+          observeJob(
+            "video-deletions-worker",
+            DELETION_QUEUE,
+            async () => {
+              const result = await maintenance.process({
+                async isReferenced(transaction, input) {
+                  const reference = await materials.containsVideoReference(
+                    transaction,
+                    input,
+                  );
+                  if (!reference.ok) throw new Error(reference.error.code);
+                  return reference.value;
+                },
+              });
+              if (!result.ok) throw new Error(result.error.code);
+              return result;
             },
-          });
-          if (!result.ok) throw new Error(result.error.code);
-          return result;
-        }),
-      );
-    },
-  });
+            technicalTelemetry,
+          ),
+        );
+      },
+    });
+  } finally {
+    await technicalTelemetry.shutdown();
+  }
 }
