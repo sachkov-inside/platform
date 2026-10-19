@@ -12,7 +12,6 @@ import {
   expectLinearProgrammeReturn,
   expectProgrammeReturnTarget,
 } from "../support/linear-programme";
-import { homeFeedCard } from "../support/home-feed";
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
@@ -686,16 +685,21 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     0,
   );
 
-  // Closed cards belong to Topic/Product discovery, including for an authenticated owner.
-  await page.goto("/?topic=platform");
-  const visibleMembershipCard = await homeFeedCard(
-    page,
-    "Developer Pipeline без потери контекста",
-  );
-  await expect(visibleMembershipCard).toBeVisible();
-  await expect(
-    visibleMembershipCard.locator("[data-access-cover]"),
-  ).toHaveCount(0);
+  // Closed cards remain in the product catalog; the public Home feed only lists free materials.
+  await page.goto("/products/platform-inside/programme?part=materials");
+  await page
+    .getByRole("searchbox", { name: "Поиск по материалам курса" })
+    .fill("Developer Pipeline без потери контекста");
+  const membershipCard = page
+    .getByRole("article")
+    .filter({
+      has: page.getByRole("link", {
+        name: "Developer Pipeline без потери контекста",
+        exact: true,
+      }),
+    });
+  await expect(membershipCard).toBeVisible();
+  await expect(membershipCard.locator("[data-access-cover]")).toHaveCount(0);
 
   // The renewed session cookie is Secure: on 127.0.0.1 only the browser itself sends it.
   const bffResponse = await page.evaluate(async () => {
@@ -874,7 +878,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   ).toHaveCount(0);
   await expect(
     page
-      .locator("[data-reader-header]")
+      .getByRole("navigation", { name: "Хлебные крошки", exact: true })
       .getByRole("link", { name: "Создание Platform Inside", exact: true }),
   ).toHaveCount(1);
 
@@ -979,7 +983,7 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   });
   await expect(home).toHaveCount(1);
   await expect(home).toBeHidden();
-  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("href", /^\/(?:\?topic=platform)?$/u);
   await expect(home).toHaveAttribute("aria-current", "true");
 
   const product = page.locator(
@@ -993,13 +997,9 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   });
   await expect(breadcrumb).toHaveCount(1);
   await expect(breadcrumb).toBeVisible();
-  const back = product.getByRole("link", {
-    name: "Назад к теме",
-    exact: true,
-  });
-  await expect(back).toHaveCount(1);
-  await expect(back).toBeVisible();
-  await expect(back).toHaveAttribute("href", "/topics/platform?from=%2F");
+  await expect(
+    product.getByRole("link", { name: "Назад к теме", exact: true }),
+  ).toHaveCount(0);
   const current = breadcrumb.getByText("Создание Platform Inside", {
     exact: true,
   });
@@ -1026,7 +1026,7 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
     .getByRole("link", { name: "Главная", exact: true });
   await expect(home).toHaveCount(1);
   await expect(home).toBeVisible();
-  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("href", /^\/(?:\?topic=platform)?$/u);
   await expect(home).toHaveAttribute("aria-current", "true");
 }
 
