@@ -25,10 +25,19 @@ export async function admitTelegramSlot(
   chat: string,
   now: Date,
   purpose: Purpose = "general",
+  admission?: "nowait",
 ): Promise<"reserved" | "chat_busy" | "bot_busy"> {
-  await sql`select pg_advisory_xact_lock(hashtextextended(${`telegram-transport:${bot}`}, 0))`.execute(
-    tx,
-  );
+  if (admission === "nowait") {
+    const lock = await sql<{
+      locked: boolean;
+    }>`select pg_try_advisory_xact_lock(hashtextextended(${`telegram-transport:${bot}`}, 0)) as locked`.execute(
+      tx,
+    );
+    if (lock.rows[0]?.locked !== true) return "bot_busy";
+  } else
+    await sql`select pg_advisory_xact_lock(hashtextextended(${`telegram-transport:${bot}`}, 0))`.execute(
+      tx,
+    );
   // Persist the next turn rather than assigning wall-clock windows: preflight latency
   // cannot make a pending category miss its share forever.
   await tx

@@ -1,3 +1,7 @@
+import {
+  contactLock,
+  schedulerLock,
+} from "../../src/modules/communications/communication-state.js";
 import { reserveTelegramSlot } from "../../src/modules/outbound/telegram-transport-slots.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { SIGN_IN_REPLY_ELIGIBILITY } from "../../src/modules/outbound/sign-in-reply-eligibility.js";
@@ -24,7 +28,7 @@ import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { AUTHOR_AUTHORIZATION } from "../../src/modules/communications/author-authorization.js";
 import { COMMUNICATION_TRANSPORT } from "../../src/modules/communications/communication-delivery.js";
 import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
-import { CLOCK } from "../../src/shared/clock.js";
+import { CLOCK, MONOTONIC_CLOCK } from "../../src/shared/clock.js";
 import { hasText } from "../../src/shared/text.js";
 const databaseUrl = process.env["DATABASE_URL"];
 if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
@@ -45,6 +49,7 @@ const config = loadApplicationConfig({
   TELEGRAM_MARKETING_ENABLED: "false",
 });
 const instant = new Date("2030-01-01T00:00:00Z");
+let elapsed = 0;
 let currentTime = new Date(instant);
 const clock = { now: () => new Date(currentTime) };
 const transport = {
@@ -90,6 +95,8 @@ beforeAll(async () => {
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
+    .overrideProvider(MONOTONIC_CLOCK)
+    .useValue({ now: () => elapsed })
     .overrideProvider(CLOCK)
     .useValue(clock)
     .overrideProvider(AUTHOR_AUTHORIZATION)
@@ -106,10 +113,14 @@ beforeAll(async () => {
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
 });
-beforeEach(async () => {
+async function clearOwnedHistory() {
   await sql`truncate communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_funnels, communication_intro, platform_links, link_transactions cascade`.execute(
     database,
   );
+}
+beforeEach(async () => {
+  await clearOwnedHistory();
+  elapsed = 0;
   currentTime = new Date(instant);
   intakeId = randomUUID();
   transport.send.mockClear();
@@ -154,6 +165,7 @@ beforeEach(async () => {
 afterAll(async () => {
   try {
     await closeIfStarted(app);
+    await clearOwnedHistory();
   } finally {
     await database.destroy();
   }
@@ -616,4 +628,155 @@ test("slow final Platform preflight respects a service sender's current transpor
   currentTime = new Date("2030-01-01T00:00:08Z");
   expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
   expect(transport.send).toHaveBeenCalledTimes(1);
+});
+
+test.each(["scheduler", "contact", "transport", "link"] as const)(
+  "%s contention after final Platform response defers transport",
+  async (lock) => {
+    const broadcastId = await prepared();
+    expect(
+      (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+    ).toBe(200);
+    let release: () => void = () => {
+      throw new Error("Contention barrier not initialized");
+    };
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let locked = false;
+    let finalResponse = false;
+    let withdrawn = false;
+    let first = true;
+    let holding: Promise<void> | undefined;
+    waitlist.read.mockImplementation(async () => {
+      if (first) first = false;
+      else if (!withdrawn) {
+        holding = database.transaction().execute(async (tx) => {
+          if (lock === "scheduler") await schedulerLock(tx, "inside");
+          if (lock === "contact") await contactLock(tx, "inside", "42");
+          if (lock === "transport")
+            await sql`select pg_advisory_xact_lock(hashtextextended('telegram-transport:inside', 0))`.execute(
+              tx,
+            );
+          if (lock === "link")
+            await tx
+              .selectFrom("platform_links")
+              .selectAll()
+              .forUpdate()
+              .execute();
+          locked = true;
+          await released;
+        });
+        await vi.waitFor(
+          () => {
+            expect(locked).toBe(true);
+          },
+          { timeout: 2000, interval: 5 },
+        );
+        finalResponse = true;
+      }
+      return {
+        status: "ok",
+        saleOpen: true,
+        purchaseUrl,
+        active: withdrawn ? 0 : 1,
+        members: withdrawn ? [] : [member],
+      };
+    });
+    const processing = app.get(FunnelScheduler).processAvailable();
+    let processed: number | undefined;
+    try {
+      await vi.waitFor(
+        () => {
+          expect(finalResponse).toBe(true);
+        },
+        { timeout: 2000, interval: 5 },
+      );
+      if (lock === "scheduler" || lock === "contact") {
+        await vi.waitFor(
+          async () => {
+            const waiting = await sql<{
+              waiting: boolean;
+            }>`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event = 'advisory') as waiting`.execute(
+              database,
+            );
+            expect(waiting.rows[0]?.waiting).toBe(true);
+          },
+          { timeout: 2000, interval: 5 },
+        );
+      } else await processing;
+      withdrawn = true;
+    } finally {
+      release();
+      await holding;
+      processed = await processing;
+    }
+    expect(processed).toBe(0);
+    expect(transport.send).not.toHaveBeenCalled();
+  },
+);
+
+test.each(["before-admission", "before-commit", "after-commit"] as const)(
+  "an expired %s monotonic budget defers and a fresh healthy cycle delivers",
+  async (edge) => {
+    const broadcastId = await prepared();
+    expect(
+      (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+    ).toBe(200);
+    let reads = 0;
+    waitlist.read.mockImplementation(async () => {
+      reads++;
+      return {
+        status: "ok",
+        saleOpen: true,
+        purchaseUrl,
+        active: 1,
+        members: [member],
+      };
+    });
+    const monotonic = app.get<{ now(): number }>(MONOTONIC_CLOCK);
+    const now = vi.spyOn(monotonic, "now");
+    now.mockReturnValueOnce(0);
+    if (edge !== "before-admission") now.mockReturnValueOnce(0);
+    if (edge === "after-commit") now.mockReturnValueOnce(0);
+    now.mockReturnValue(251);
+    try {
+      expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+      expect(transport.send).not.toHaveBeenCalled();
+    } finally {
+      now.mockRestore();
+    }
+    currentTime = new Date(instant.getTime() + 5000);
+    expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+    expect(reads).toBeGreaterThanOrEqual(4);
+    expect(transport.send).toHaveBeenCalledTimes(1);
+  },
+);
+
+test("a recovered lease cannot send or become pending after delayed final eligibility", async () => {
+  const broadcastId = await prepared();
+  expect(
+    (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+  ).toBe(200);
+  let first = true;
+  waitlist.read.mockImplementation(async () => {
+    if (first) first = false;
+    else {
+      currentTime = new Date(instant.getTime() + 60_001);
+      expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+    }
+    return {
+      status: "ok",
+      saleOpen: true,
+      purchaseUrl,
+      active: 1,
+      members: [member],
+    };
+  });
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(transport.send).not.toHaveBeenCalled();
+  const report = await command("statistics.read", { broadcastId });
+  expect(report.json()).toMatchObject({
+    statistics: { deliveries: { pending: 0, unknown: 1, sent: 0 } },
+  });
 });

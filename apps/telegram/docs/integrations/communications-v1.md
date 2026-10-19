@@ -71,14 +71,19 @@ uses the existing unique broadcast/contact delivery key. Before claiming each pa
 rechecks the snapshot's Account/identity against Telegram's current verified link and asks Platform
 for current active membership, author authority, sale and purchase URL. After the local claim commits, the worker performs a fresh, uncached Platform check before transport.
 After that final read, the worker rechecks the live local contact/link, broadcast state and priority
-service backlog, then reserves shared transport slots immediately before sending. A busy slot
-releases the unsent claim to pending with backpressure; unknown leases never become pending.
-A withdrawal committed before the local claim therefore suppresses the delivery even when the
-pre-claim answer became stale during a lock wait. The committed claim is the dispatch cutoff;
-a transport already admitted after it cannot be recalled. External reads run outside database
-transactions, then local rows and locks are reread. Unavailable final eligibility releases the
-unsent claim back to pending with a five-second delay and no invented transport attempt;
-withdrawal, a changed link, revoked authority or a closed/changed purchase target cancels it.
+service backlog, then reserves shared transport slots immediately before sending. Scheduler, contact
+and transport admission use nonblocking advisory locks; the link row uses `FOR SHARE NOWAIT`.
+Admission statements have a 25 ms lock timeout and 100 ms statement timeout. A fixed 250 ms monotonic
+budget includes pool acquisition, local admission and commit, with a final check immediately before
+the provider call. Expiry inside admission rolls back any reserved capacity. Busy locks, capacity or
+an expired budget release the unsent claim to pending with five-second backpressure; the next cycle
+must obtain a new Platform answer. Cleanup may wait but cannot send. Unknown leases never become pending.
+These bounds remove deliberate waiting on an earlier approval; they do not make the Platform
+withdrawal and Telegram send atomic across services. A change after the final Platform answer can
+race with an already admitted provider call, which cannot be recalled. External Platform reads run
+outside database transactions. Unavailable final eligibility releases the unsent claim with no
+invented transport attempt; withdrawal, a changed link, revoked authority or a closed/changed
+purchase target cancels it.
 
 This one-time, explicitly launched audience uses the existing transport slots and delivery ledger
 with `TELEGRAM_DELIVERY_MODE=live` even when `TELEGRAM_MARKETING_ENABLED=false`. The disabled

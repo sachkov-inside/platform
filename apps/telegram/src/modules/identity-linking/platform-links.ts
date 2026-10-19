@@ -66,6 +66,7 @@ export async function findPlatformLink(
   database: Executor,
   match: PlatformLinkMatch,
   lock?: PlatformLinkLock,
+  admission?: "nowait",
 ): Promise<PlatformLink | undefined> {
   let query = database.selectFrom("platform_links").selectAll();
   if ("telegramIdentityRef" in match)
@@ -82,6 +83,7 @@ export async function findPlatformLink(
     query = query.where("account_ref", "=", match.accountRef);
   if (lock === "share") query = query.forShare();
   if (lock === "update") query = query.forUpdate();
+  if (lock !== undefined && admission === "nowait") query = query.noWait();
   const row = await query.executeTakeFirst();
   return row && platformLink(row);
 }
