@@ -94,6 +94,8 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         report['stage'] = 'repository_initialize'
         record()
         _one_shot(compose, project, 'repo-init', execute, record=record_operation)
+        report['repo_init_wait_comparison'] = report['operation']['compatibility']
+        record()
         report['stage'] = 'source_database'
         record()
         execute(compose, ['up', '-d', '--no-deps', 'db'])
@@ -377,6 +379,50 @@ def _no_readers(compose, execute):
         raise RuntimeError('readers_or_ingestion_exist_before_gate')
 
 
+def _confirm_restore_destination(compose, project, plan, name, execute, report, record):
+    """Keep the last closed pre-restore boundary without retaining external metadata."""
+    diagnostic = {'schema': 1, 'step': 'create', 'outcome': 'running', 'error': None, 'returncode': None}
+    def progress(step, _shape=None):
+        diagnostic['step'] = {'identity': 'container_identity', 'inspect': 'container_inspect'}.get(step, step)
+        report['destination_operation'] = dict(diagnostic)
+        record()
+    progress('create')
+    try:
+        execute(compose, ['create', '--no-deps', 'restore'])
+        progress('volume_inspect')
+        volume = json.loads(execute(['docker'], ['volume', 'inspect', name, '--format', '{{json .}}']))
+        restore = _inspect_service(compose, project, 'restore', execute, progress=progress)
+        progress('offline')
+        if restore.get('network') != 'none' or restore.get('ports') not in (None, {}):
+            raise ValueError('restore_not_offline')
+        progress('ownership_mounts')
+        destination = recovery.confirm_destination(project, name, plan['services']['db']['image'], volume, restore,
+                                                   absent_before_acquisition=True)
+        diagnostic.update(outcome='passed', returncode=0)
+        report['destination_operation'] = dict(diagnostic)
+        record()
+        return destination
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        code = getattr(error, 'returncode', None)
+        if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+            category = 'timeout'
+        elif isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)):
+            category = 'command_failed'
+        elif isinstance(error, json.JSONDecodeError):
+            category = 'invalid_json'
+        elif isinstance(error, ValueError):
+            category = {'container_identity': 'invalid_identity', 'container_inspect': 'inspection_mismatch',
+                        'offline': 'offline_mismatch', 'ownership_mounts': 'ownership_mounts_mismatch'}.get(
+                            diagnostic['step'], 'invalid_value')
+        else:
+            category = 'io_failure' if isinstance(error, OSError) else 'runtime_failure'
+        diagnostic.update(outcome='failed', error=category,
+                          returncode=code if type(code) is int and -128 <= code <= 255 else None)
+        report['destination_operation'] = dict(diagnostic)
+        record()
+        raise
+
+
 def _database_corpus(output, compose, project, plan, source, report, record, execute, record_operation):
     import retention_fixture
     def stage(value):
@@ -431,14 +477,8 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     plan['services']['restore']['command'].insert(0, '--set=' + label)
     pilot.write_json(output / 'compose.json', plan)
     report['selected_compose_sha256'] = hashlib.sha256((output / 'compose.json').read_bytes()).hexdigest()
-    execute(compose, ['create', '--no-deps', 'restore'])
     name = plan['volumes']['recovery']['name']
-    volume = json.loads(execute(['docker'], ['volume', 'inspect', name, '--format', '{{json .}}']))
-    restore = _inspect_service(compose, project, 'restore', execute)
-    if restore.get('network') != 'none' or restore.get('ports') not in (None, {}):
-        raise ValueError('restore_not_offline')
-    report['destination'] = recovery.confirm_destination(project, name, plan['services']['db']['image'], volume, restore,
-                                                         absent_before_acquisition=True)
+    report['destination'] = _confirm_restore_destination(compose, project, plan, name, execute, report, record)
     stage('offline_restore')
     _one_shot(compose, project, 'restore', execute, already_created=True, record=record_operation)
     execute(compose, ['create', '--no-deps', 'recovered'])

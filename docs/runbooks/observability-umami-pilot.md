@@ -375,6 +375,19 @@ ID, владелец и exit 0. `operation.compatibility` сохраняет т�
 проверенные коды и признак неизменного собственного ID. Это диагностика после основного
 допуска, она не повторяет операцию и не заменяет проверку успеха.
 
+Успешное сравнение сохраняется отдельно в `repo_init_wait_comparison` и остаётся
+доступным после backup, restore или последующего отказа. Последнее поле `operation`
+по-прежнему перезаписывается следующей one-shot операцией.
+
+До запуска restore поле `destination_operation` показывает последний подэтап:
+`create`, `volume_inspect`, `container_identity`, `container_inspect`, `offline` или
+`ownership_mounts`. Это одно перезаписываемое поле размером меньше 1 KiB. В нём только
+schema, фиксированные step/outcome/error и проверенный числовой returncode либо `null`.
+Оно не сохраняет ID, имена volumes, paths, inspect, stderr, SQL или тексты исключений.
+Отказ сохраняет закрытый reader gate и запрещает запуск restore. Проверки владельца,
+mounts и offline-состояния обязательны. Исторический точный отказ на `restore_destination`
+остаётся неизвестным до получения нового доказательства.
+
 В среде неуспешного запуска установлен Compose `v2.40.3-desktop.1` (read-only metadata).
 В upstream [Compose v2.40.3 wait.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/wait.go)
 выбор контейнеров передаёт `all=false`; [containers.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/containers.go)
