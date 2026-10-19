@@ -96,8 +96,10 @@ Community entitlement и его permit остаются в telegram-membership �
 - #410 (поставлено): Billing events/reminders через общий модуль; `NotificationSources.resolve`
   отвечает подтверждёнными фактами Billing, а `billing.notice-ready` проходит оба канала.
   Границы поводов описаны в [billing v1](subscription-billing-v1.md#текущая-поставка-410).
-- #494 (поставлено): раздел «Уведомления» личного кабинета даёт собственные opt-in переключатели
-  каналов «Новые материалы» поверх уже поставленных `readPreferences`/`changePreferences`.
+- #494 поставил opt-in переключатели каналов «Новые материалы» поверх
+  `readPreferences`/`changePreferences`. При упрощении кабинета в одну страницу (2026-10-19)
+  отдельный раздел и переключатели убраны из интерфейса. Сохранённые предпочтения и API остаются;
+  старый `/account/notifications` направляет в `/account`.
 - #437 (поставлено): Materials записывает анонс первой публикации, его revision и строку outbox в
   той же транзакции, что и саму публикацию, и отвечает на `material.published` фасетом
   `resolveAnnouncement`. Анонс принадлежит Material, а не месту в руководстве: повторная

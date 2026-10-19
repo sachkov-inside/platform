@@ -6,11 +6,11 @@ import {
 } from "@/widgets/application-shell";
 
 describe("site navigation without a separate course entry", () => {
-  it("keeps Home, Bookmarks and Profile in mobile navigation", () => {
+  it("keeps Home, Bookmarks and Account cabinet in mobile navigation", () => {
     expect(publicMobileNavigationItems.map((item) => item.label)).toEqual([
       "Главная",
       "Закладки",
-      "Профиль",
+      "Личный кабинет",
     ]);
   });
 

@@ -278,7 +278,7 @@ for (const state of ["authenticated", "unavailable"] as const) {
     await trigger.click();
     if (state === "authenticated")
       await expect(
-        page.getByRole("menuitem", { name: "Профиль" }),
+        page.getByRole("menuitem", { name: "Личный кабинет" }),
       ).toHaveAttribute("href", "/account");
     await page.keyboard.press("Escape");
     await expect(trigger).toBeFocused();

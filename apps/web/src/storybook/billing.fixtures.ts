@@ -542,3 +542,37 @@ export const unknownPurchase: PurchaseStatus = {
   state: "unknown",
   paymentUrl: null,
 };
+
+/** One Product appears in both current access and a real one-time purchase. */
+export const cabinetProduct = {
+  kind: "product" as const,
+  id: "00000000-0000-4000-8000-000000000f01",
+  title: "AI Engineering",
+  slug: "ai-engineering",
+  available: true,
+};
+export const cabinetProductGround: AccessGround = {
+  source: "paid",
+  content: [cabinetProduct],
+  capabilities: [productCapability(cabinetProduct.id)],
+  startsAt: "2026-09-01T09:00:00.000Z",
+  validUntil: null,
+  active: true,
+};
+export const cabinetProductPayment: OwnPayment = {
+  purchaseRef: "00000000-0000-4000-8000-000000000b03",
+  content: [cabinetProduct],
+  snapshot: productOnlyOffer,
+  kind: "one_time",
+  state: "confirmed",
+  access: "ready",
+  amountKopecks: 3000,
+  offerName: "AI Engineering",
+  months: 1,
+  fiscalization: "confirmed",
+  confirmedAt: "2026-09-01T09:00:00.000Z",
+  periodEndsAt: null,
+  createdAt: "2026-09-01T08:58:00.000Z",
+  refundedKopecks: 0,
+  refundedAt: null,
+};

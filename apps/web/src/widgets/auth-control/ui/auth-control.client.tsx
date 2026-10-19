@@ -68,7 +68,7 @@ export function HeaderAuthControl({ state, avatar }: AuthControlStateProps) {
             <DropdownMenu.Item asChild>
               <Link href="/account" className={menuItemClass}>
                 <CircleUserRound aria-hidden="true" className="size-5" />
-                Профиль
+                Личный кабинет
               </Link>
             </DropdownMenu.Item>
           ) : (

@@ -119,6 +119,12 @@ repository, run ID/attempt и SHA256 входов. Для PR checkout обычн
 query timings и короткие stats/phase snapshots. Auth/datasources JSON, binaries/plugins и raw collector
 errors не загружаются; symlink под разрешённым именем отклоняется.
 
+Для разбора startup/ingestion failures сохраняется `readiness.json`: имя этапа, число попыток,
+исход, последний HTTP status либо тип transport error. URL, response body и текст ошибки туда
+не входят. `container-states.json` содержит только известный service, state, health и exit code;
+первый успешный snapshot до shutdown сохраняется при последующем recovery. Command, env,
+labels и raw error text исключены до записи и публикации.
+
 После шага запуска `always()` выполняет best-effort recovery только зарегистрированного случайного
 проекта. Значение project/cwd проверяется, команда Compose конструируется заново; argv из owner JSON
 не исполняется. Если worker или его process group ещё существует либо регистрация неполна,

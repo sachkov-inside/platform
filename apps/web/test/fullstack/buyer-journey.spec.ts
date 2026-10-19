@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { z } from "zod";
+import { formatKopecks } from "@/entities/subscription";
 
 import { fullStackBrowserRequest } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -218,6 +219,28 @@ test("покупатель курса проходит путь от стран�
   await expect(
     page.getByRole("heading", { name: "Ваши продукты" }),
   ).toBeVisible();
+  const productCard = page.locator("[data-account-product]");
+  await expect(productCard).toHaveCount(1);
+  await expect(
+    productCard.getByRole("heading", { name: "Создание Platform Inside" }),
+  ).toBeVisible();
+  await expect(
+    productCard.getByRole("link", { name: "Открыть продукт" }),
+  ).toHaveAttribute("href", `/products/${slug}/programme`);
+  await expect(
+    page.getByRole("heading", { name: "Покупки продуктов" }),
+  ).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
+  expect(
+    (await new AxeBuilder({ page }).include("[data-account-product]").analyze())
+      .violations,
+  ).toEqual([]);
   const billingResponse = await fullStackBrowserRequest(
     page,
     "/api/account/billing",
@@ -244,6 +267,23 @@ test("покупатель курса проходит путь от стран�
     }),
   });
   const billing = billingSchema.parse(await billingResponse.json());
+  const paidPurchase = billing.value.payments.find(
+    (payment) => payment.purchaseRef === purchaseRef,
+  );
+  if (paidPurchase === undefined)
+    throw new Error("Paid purchase is missing from account billing");
+  await expect(
+    productCard.getByText(formatKopecks(paidPurchase.amountKopecks), {
+      exact: true,
+    }),
+  ).toBeVisible();
+  console.info("Account product evidence", {
+    viewport: page.viewportSize(),
+    cards: await productCard.count(),
+    amountKopecks: paidPurchase.amountKopecks,
+    horizontalOverflow: false,
+    accessibilityViolations: 0,
+  });
   expect(billing.value.payments).toEqual([
     expect.objectContaining({ purchaseRef, state: "confirmed" }),
   ]);
