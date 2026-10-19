@@ -49,7 +49,7 @@ export function AccountTelegramPanel({
       <h2 className="sr-only" id="telegram-connection-heading">
         Telegram
       </h2>
-      <article className="flex flex-col gap-5 rounded-2xl border border-[#229ED9]/25 bg-[#229ED9]/[0.08] p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <article className="flex flex-col gap-5 rounded-2xl bg-muted/50 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex min-w-0 items-start gap-4 sm:items-center">
           <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#229ED9] text-white shadow-sm [&_svg]:size-5">
             {linked ? (
@@ -58,8 +58,8 @@ export function AccountTelegramPanel({
               <Send aria-hidden="true" />
             )}
           </span>
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#075985]">
+          <div className="min-w-0 [overflow-wrap:anywhere]">
+            <p className="text-sm font-medium text-muted-foreground">
               Telegram
             </p>
             <h3 className="mt-1 text-lg font-bold tracking-[-0.025em]">

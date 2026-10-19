@@ -1,16 +1,7 @@
 "use client";
-import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 
 import type { PriceSnapshot } from "@/entities/subscription";
-import {
-  useCurrentBilling,
-  useOwnEnrollments,
-} from "@/features/billing-subscription";
-
-import { visibleAccountSections } from "../model/account-sections";
-import { AccountSectionNav } from "./account-section-nav.client";
-
 export interface AccountCabinetProps {
   readonly children: ReactNode;
   /** Публичные варианты подписки; каталог читается один раз на весь кабинет. */
@@ -37,34 +28,13 @@ export function useSubscriptionOffered(): boolean {
   return subscriptionOfferedIn(useSubscriptionOptions());
 }
 
-/**
- * Рамка личного кабинета: слева разделы, справа один раздел. Состояние подписки читается тем
- * же ключом, что и сами разделы, поэтому навигация не спорит с их содержимым.
- */
+/** Single account page; the provider keeps existing subscription commands on their shared catalog. */
 export function AccountCabinet({ children, options }: AccountCabinetProps) {
-  const pathname = usePathname();
-  // Провайдер стоит ниже, поэтому рамка считает то же правило по своему же каталогу.
-  const subscriptionOffered = subscriptionOfferedIn(options);
-  const billing = useCurrentBilling();
-  const subscription =
-    billing.data?.ok === true ? billing.data.value.subscription : null;
-  const enrollments = useOwnEnrollments();
-  const sections = visibleAccountSections({
-    subscriptionOffered,
-    // Назначения остаются видны вместе с историей после окончания и отзыва.
-    subscriptionOwned:
-      (enrollments.data?.length ?? 0) > 0 ||
-      (subscription !== null && subscription.state !== "ended"),
-  });
-
   return (
-    <div className="mx-auto w-full max-w-6xl lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10">
-      <AccountSectionNav currentHref={pathname} sections={sections} />
-      <div className="min-w-0">
-        <SubscriptionOptionsContext value={options}>
-          {children}
-        </SubscriptionOptionsContext>
-      </div>
+    <div className="mx-auto w-full max-w-3xl pb-8">
+      <SubscriptionOptionsContext value={options}>
+        {children}
+      </SubscriptionOptionsContext>
     </div>
   );
 }
