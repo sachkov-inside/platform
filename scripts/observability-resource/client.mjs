@@ -519,7 +519,7 @@ export async function latencyProbe(key, started, transport = QUERY_TRANSPORT) {
         false,
         "&time=" +
           String(evaluated) +
-          (name === "immediate" ? "&latency_offset=0" : ""),
+          (name === "immediate" ? "&latency_offset=1ms" : ""),
       );
     }
     attempts.push(pair);
