@@ -1,0 +1,57 @@
+// Synthetic, non-personal fixtures only. Not the production privacy pipeline.
+logging {
+  level = "warn"
+}
+
+otelcol.receiver.otlp "pilot" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+  output {
+    metrics = [otelcol.exporter.otlphttp.metrics.input]
+    logs    = [otelcol.exporter.otlphttp.logs.input]
+    traces  = [otelcol.exporter.otlphttp.traces.input]
+  }
+}
+
+otelcol.exporter.otlphttp "metrics" {
+  client {
+    endpoint = "http://metrics:8428/opentelemetry"
+    timeout  = "5s"
+  }
+  sending_queue {
+    queue_size = 64
+    num_consumers = 1
+  }
+  retry_on_failure {
+    max_elapsed_time = "30s"
+  }
+}
+
+otelcol.exporter.otlphttp "logs" {
+  client {
+    endpoint = "http://logs:9428/insert/opentelemetry"
+    timeout  = "5s"
+  }
+  sending_queue {
+    queue_size = 64
+    num_consumers = 1
+  }
+  retry_on_failure {
+    max_elapsed_time = "30s"
+  }
+}
+
+otelcol.exporter.otlphttp "traces" {
+  client {
+    endpoint = "http://traces:10428/insert/opentelemetry"
+    timeout  = "5s"
+  }
+  sending_queue {
+    queue_size = 64
+    num_consumers = 1
+  }
+  retry_on_failure {
+    max_elapsed_time = "30s"
+  }
+}
