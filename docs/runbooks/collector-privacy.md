@@ -3,7 +3,8 @@
 Подготовленная часть [#1566](https://github.com/sachkov-inside/platform/issues/1566).
 Production и default-OFF настройки SDK не меняются. Конфигурация предназначена для изолированного
 синтетического пилота и композиции с нашим SDK, а не для произвольных OTLP источников.
-Синтетический core на Mac source `525f71d1` прошёл с этим config. Полная privacy/resource
+Синтетический core на Mac source `525f71d1` прошёл с прежним config. Новый кандидат добавляет
+фильтр link metadata перед хранением VictoriaTraces и требует отдельного GREEN. Полная privacy/resource
 приёмка и фактический SDK → collector → storage запуск остаются неподтверждёнными.
 
 ## Граница и сохраняемые данные
@@ -37,14 +38,50 @@ Links сохраняются для уже проверенной pg-boss batch 
 отдельный snapshot и удаляет link attributes и link tracestate до batch/export; эта часть контракта
 описана в [SDK runbook](backend-technical-telemetry.md).
 
-**Alloy candidate не очищает произвольную metadata внутри links.** В закреплённом OTTL доступен
-только весь `SpanLinkSlice`; очистка всего slice сломала бы корреляцию. VictoriaTraces сохраняет link
-tracestate и attributes. Поэтому произвольный OTLP источник способен сохранить секрет в link metadata.
-Это известный unsupported gap, который запрещает production/general-source acceptance.
+**OTTL не очищает произвольную metadata внутри links.** В закреплённой версии доступен только весь
+`SpanLinkSlice`; очистка всего slice сломала бы корреляцию. Исходный VictoriaTraces decoder сохраняет
+link tracestate и attributes. Новый кандидат удаляет эти поля через статический exporter header
+`VT-Ignore-Fields: link:link_attr:*,link:link_trace_state:*` на закреплённой границе ingestion.
+Link trace/span IDs, flags и dropped-attribute counts не входят в фильтр. Receiver явно отключает
+client metadata; входящий caller не задаёт этот header или query exporter. Это target-specific
+фильтр перед storage, не универсальный sanitizer внутри Alloy для любого backend.
+До фактического GREEN и закрытия остальных gaps production/general-source acceptance запрещена.
 
 `require_supported_links` проверяет только собственный harness corpus. Его отрицательный тест
 отвергает unsafe fixture; это не enforcement на collector endpoint и не успешная проверка очистки
 такого входящего payload. Полная задача остаётся незавершённой, пока эта граница не решена и проверена.
+
+Подготовлен отдельный adversarial corpus для существующего публичного supervisor. Два небольших
+внешних trace payload поступают через OTLP HTTP JSON и отдельно закодированный protobuf по
+[schema v1.5](https://github.com/open-telemetry/opentelemetry-proto/blob/v1.5.0/opentelemetry/proto/trace/v1/trace.proto).
+Каждый содержит три link с известными IDs, tracestate и scalar/nested/array/binary attributes.
+К ним намеренно не применяется SDK-only `require_supported_links`. На source
+`564696680c43f29258770a4b35145fd1caf501c5`, tree `dc78d46d1c8e4f6bcfa292619326342796ade0c7`,
+публичный supervisor подтвердил RED: оба transport сохранили одну строку и все три link,
+но metadata/sentinel остались в storage. Worker exit 1, monitor не отказал, diagnostics/down/residue PASS,
+независимо проверенный остаток собственных containers/volumes/networks равен 0.
+Curated RED proof SHA256 `e482ce397a6d8345d5c5c75156f68b6c06f023efdddf789030f2e83e60d3fa7d`.
+Новый filter/logging/counter кандидат ещё не исполнялся. Oversized/error corpus пока не запускается.
+
+Проверка читает полные сохранённые поля по двум фиксированным trace IDs через внутренний
+`/select/logsql/query`. [Закреплённый handler](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtselect/logsql/logsql.go)
+возвращает все columns как NDJSON, если query не содержит `fields` pipe;
+[storage decoder](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtinsert/opentelemetry/pb.go)
+разделяет link IDs, tracestate и attributes. Проверка требует одну строку, точные trace/span/parent IDs
+и все три пары link IDs. Jaeger/MCP projection не подменяет этот storage read.
+Read-only exec разрешён только в собственном gateway после проверки frozen daemon/socket identity,
+Compose project/service и running state. Query, размер ответа и время ограничены; vmauth/MCP routes
+не расширяются. Raw ответ и stderr остаются только в памяти, не попадают в logs или artifacts.
+
+`collector-link-privacy.json` содержит только фиксированные verdicts, counts и booleans.
+Сохранённые metadata или sentinel дают FAIL; недоступный query, неполная schema или потеря связей
+дают UNKNOWN и FAIL. Проверяются оба transport перед общим отказом. На неподготовленном storage
+ожидается реальный RED. Потеря ownership немедленно прекращает оставшиеся ingest/query calls,
+включая второй transport. После обычного privacy RED
+текущий smoke остановится до native MCP/restart/revocation.
+Их прежние проверки сохранены для будущего GREEN. В actual RED они не достигнуты, поэтому прежний
+native MCP/restart/revocation PASS не является новым доказательством. Production/general-source
+acceptance, oversized/raw-error attribution и actual SDK wire proof остаются открыты.
 
 ## Metadata и закреплённые реализации
 
@@ -66,14 +103,50 @@ corpus, включающий schema URLs, а не предположение, ч
 
 Дополнительно изучен [pinned redaction processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/v0.162.0/processor/redactionprocessor/processor.go):
 `processResourceSpan` обходит resource/scope/span/event attributes, но не links. Он не устраняет этот
-gap и не добавлен в pipeline. Target-specific ingestion filtering требует отдельного подтверждения;
-никакие неподтверждённые drop flags в candidate не включены.
+gap и не добавлен в pipeline.
+
+Для target-specific фильтра проверены точные реализации: VT0.12
+[GetCommonParams](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtinsert/insertutil/common_params.go)
+передаёт `VT-Ignore-Fields` в LogRows; pinned
+[httputil.GetArray](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/d4a40004ef28/lib/httputil/array.go)
+разделяет header по запятой. Embedded VictoriaLogs
+[c945d2949e98](https://github.com/VictoriaMetrics/VictoriaLogs/blob/c945d2949e98/lib/logstorage/log_rows.go)
+поддерживает prefix `*` и пропускает совпавшие fields до копирования в stored row.
+[Alloy HTTP client](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/otelcol/config_http.go)
+передаёт статическую headers map в exporter. Header/filter runtime proof остаётся обязательным;
+положительные offline примеры не подменяют повтор того же JSON/protobuf storage corpus.
 
 ## Collector diagnostics
 
-Только Alloy использует Docker logging driver `none`, чтобы raw transform/receiver/exporter errors
-не сохранялись в Docker logs. Это явная потеря сырых diagnostics, а не их полноценная очистка или
-сбор. Остальные services сохраняют прежние ограниченные logging settings.
+Alloy и VictoriaTraces используют Docker logging driver `none`, чтобы raw diagnostics не сохранялись
+в Docker logs. У VT0.12 проверка слишком большого числа fields вызывает raw warning до ignore filter;
+[index queue failure](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtinsert/insertutil/trace_processor.go)
+тоже может вывести исходные fields. Поэтому одного header недостаточно. Это явная потеря сырых
+diagnostics, а не их полноценная очистка или сбор. Остальные services сохраняют прежние ограниченные
+logging settings. До первого unsafe OTLP, включая исходный accessible-field corpus, supervisor worker
+проверяет фактический owned/running контейнер `traces` и строгое равенство
+`HostConfig.LogConfig.Type=none`. До и после bounded inspection проверяется frozen endpoint/socket/daemon.
+Недоступный inspect, потеря ownership или любой другой driver прекращают ingest.
+`trace-store-logging.json` сохраняет только фиксированные outcome/ownership/driver verdicts;
+container IDs, labels, пути и raw inspect не публикуются. Новая execution condition требует
+фактического подтверждения на том же source, а не только unit PASS.
+
+Вместо raw VT logs подготовлен ограниченный self-scrape `platform-trace-store`: `up`,
+`vt_http_requests_total`, `vt_http_errors_total`, `vt_rows_ingested_total`, `vt_rows_dropped_total`
+и `vt_traceid_index_push_error_total`. Разрешены только фиксированные protobuf insert path/type,
+reasons `debug`/`too_many_fields` и labels `job`, `instance`, `path`, `format`, `type`, `reason`.
+Alloy → VT использует protobuf независимо от JSON/protobuf входа в Alloy.
+[HTTP handler](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtinsert/opentelemetry/otlphttp.go)
+регистрирует request/error counters; `common_params.go` регистрирует drop counters.
+`vt_rows_ingested_total` считает входные попытки, включая отвергнутые строки, не сохранённые rows.
+Index error counter создаётся лениво: отсутствие в `trace-store-health.json` обозначается `unknown`,
+не нулём. Missing обязательной серии, stale sample или нечисловое значение не дают PASS.
+Проверяется `up=1`, возраст scrape не более двух интервалов по 5 секунд, положительные
+request/attempt counters и отсутствие зарегистрированных error/drop событий в этом smoke.
+`trace-store-health.json` содержит только закрытые числовые поля и ограниченный verdict.
+Это доступность конкретных counters, не полная приёмка здоровья VT. Oversized loss attribution,
+counter reset и все error paths ещё не проверены; перед oversized input нужно отдельно подтвердить
+фактический owned VT `LogConfig.Type=none` и измерить attributable drop delta без raw logs.
 
 Взамен подготовлен self-scrape: фиксированные `up`, accepted/refused/sent/send_failed/queue counters,
 закрытые component labels и фиксированные job/instance. Публичный smoke требует точного `up=1` и

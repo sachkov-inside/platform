@@ -3,12 +3,124 @@ import json
 import re
 from pathlib import Path
 import unittest
+import tempfile
+from unittest.mock import patch
 
 import pilot
 import collector_privacy
 
 
 class CollectorPrivacyContract(unittest.TestCase):
+    def test_trace_exporter_removes_only_link_metadata_at_the_pinned_storage_boundary(self):
+        import privacy_config
+        actual = privacy_config.render()
+        exporter = actual.split('otelcol.exporter.otlphttp "traces"', 1)[1].split('\n// Raw diagnostics', 1)[0]
+        header = re.search(r'"VT-Ignore-Fields"\s*=\s*"([^"]+)"', exporter)
+        self.assertIsNotNone(header)
+        self.assertEqual(header[1].split(','), ['link:link_attr:*', 'link:link_trace_state:*'])
+        # Worked pinned prefix-filter semantics; actual JSON/protobuf storage gate proves execution.
+        prefixes = [value[:-1] for value in header[1].split(',')]
+        for field in ('link:link_attr:user.email:0', 'link:link_attr:arbitrary.nested:812',
+                      'link:link_attr::2', 'link:link_trace_state:0', 'link:link_trace_state:1001'):
+            self.assertTrue(any(field.startswith(prefix) for prefix in prefixes))
+        for field in ('trace_id', 'span_id', 'parent_span_id', 'link:link_trace_id:0',
+                      'link:link_span_id:1001', 'link:link_flags:2', 'link:link_dropped_attributes_count:2'):
+            self.assertFalse(any(field.startswith(prefix) for prefix in prefixes))
+        self.assertEqual(actual.count('VT-Ignore-Fields'), 1)
+        self.assertIn('include_metadata = false', actual)
+        self.assertNotIn('headers_setter', actual)
+        self.assertNotIn('from_context', actual)
+
+    def test_raw_trace_store_errors_are_not_retained_while_other_storage_logging_is_unchanged(self):
+        plan = pilot.compose_plan(Path('/source'), Path('/owned'),
+                                  {name:'pinned' for name in pilot.SERVICES}, credential_owner=(1001,1002))
+        self.assertEqual(plan['services']['traces']['logging'], {'driver':'none'})
+        for service in ('metrics','logs'):
+            self.assertEqual(plan['services'][service]['logging']['options']['max-size'], '5m')
+
+    def test_trace_store_self_scrape_keeps_only_fixed_metrics_and_dimension_values(self):
+        import privacy_config
+        actual = privacy_config.render()
+        scrape = actual.split('prometheus.scrape "trace_store_health"', 1)[1].split('prometheus.relabel', 1)[0]
+        self.assertIn('"__address__" = "traces:10428"', scrape)
+        self.assertIn('body_size_limit = "1MiB"', scrape)
+        relabel = actual.split('prometheus.relabel "trace_store_health"', 1)[1]
+        rules = dict(re.findall(r'source_labels = \["([^\"]+)"\]\n    regex = "([^"]+)"', relabel))
+        for metric in ('up','vt_http_requests_total','vt_http_errors_total',
+                       'vt_rows_ingested_total','vt_rows_dropped_total','vt_traceid_index_push_error_total'):
+            self.assertIsNotNone(re.fullmatch(rules['__name__'], metric))
+        for metric in ('go_info','private_metric','vt_http_errors_total_private'):
+            self.assertIsNone(re.fullmatch(rules['__name__'], metric))
+        external = re.search(r'metric = \[`not IsMatch\(name, ("(?:\\.|[^"\\])*")\)', actual)[1]
+        for metric in collector_privacy.TRACE_STORE_METRICS:
+            self.assertIsNone(re.fullmatch(json.loads(external),metric))
+        allowed = {'path':['','/insert/opentelemetry/v1/traces'], 'format':['','protobuf'],
+            'type':['','opentelemetry_traces_otlphttp_protobuf'],
+            'reason':['','debug','too_many_fields']}
+        for label, values in allowed.items():
+            for value in values:
+                self.assertIsNotNone(re.fullmatch(rules[label], value))
+            for value in ('private-sentinel', '/select/logsql/query?secret=sentinel', 'unknown'):
+                self.assertIsNone(re.fullmatch(rules[label], value))
+        keep = re.search(r'regex = "([^"]+)"\n    action = "labelkeep"', relabel)[1]
+        for label in ('__name__','job','instance','path','format','type','reason'):
+            self.assertIsNotNone(re.fullmatch(keep, label))
+        for label in ('trace_id','error.message','query','url','account.id'):
+            self.assertIsNone(re.fullmatch(keep, label))
+
+    def test_trace_store_health_requires_real_fresh_samples_and_reports_lazy_counter_unknown(self):
+        labels = {'job':'platform-trace-store','instance':'pilot'}
+        def row(name, value, **extra):
+            return {'metric':{'__name__':name, **labels, **extra}, 'value':[1790000000, str(value)]}
+        rows = [row('up',1),
+            row('vt_http_requests_total',65,path='/insert/opentelemetry/v1/traces',format='protobuf'),
+            row('vt_http_errors_total',0,path='/insert/opentelemetry/v1/traces',format='protobuf'),
+            row('vt_rows_ingested_total',362,type='opentelemetry_traces_otlphttp_protobuf'),
+            row('vt_rows_dropped_total',0,reason='too_many_fields'), row('vt_rows_dropped_total',0,reason='debug')]
+        def response(values):
+            return 200,json.dumps({'status':'success','data':{'resultType':'vector','result':values}})
+        age = response([{'metric': labels, 'value':[1790000000,'2']}])
+        proof = collector_privacy.trace_store_health(response(rows), age)
+        self.assertEqual(proof['index_push_errors'], 'unknown')
+        self.assertEqual(proof['ingest_attempts'],362)
+        self.assertEqual(proof['rows_dropped_too_many_fields'],0)
+        self.assertEqual(proof['scrape_age_seconds'],2)
+        for damaged in (rows[:-1], rows+rows[:1], rows+[row('unexpected',1)],
+                        rows+[row('vt_rows_dropped_total',0,reason='private-sentinel')]):
+            self.assertIsNone(collector_privacy.trace_store_health(response(damaged),age))
+        for value in ('NaN','Infinity','-1','11'):
+            self.assertIsNone(collector_privacy.trace_store_health(response(rows),
+                response([{'metric': labels, 'value':[1790000000,value]}])))
+        for value in ('NaN','-1','0.5'):
+            damaged = json.loads(json.dumps(rows))
+            damaged[2]['value'][1] = value
+            self.assertIsNone(collector_privacy.trace_store_health(response(damaged),age))
+        for index in (0,1,3):
+            damaged = json.loads(json.dumps(rows))
+            damaged[index]['value'][1] = '0'
+            self.assertIsNone(collector_privacy.trace_store_health(response(damaged),age))
+        with_index = collector_privacy.trace_store_health(response(rows+[row('vt_traceid_index_push_error_total',1)]),age)
+        self.assertEqual(with_index['index_push_errors'],1)
+
+    def test_trace_store_error_or_loss_counter_fails_and_is_retained_as_closed_evidence(self):
+        base = {'up':1, 'http_requests':65, 'ingest_attempts':362, 'http_errors':0,
+                'rows_dropped_too_many_fields':0, 'rows_dropped_debug':0,
+                'index_push_errors':'unknown', 'scrape_age_seconds':2}
+        for field in ('http_errors','rows_dropped_too_many_fields','rows_dropped_debug','index_push_errors'):
+            with tempfile.TemporaryDirectory() as directory, \
+                 patch('pilot.await_fact',return_value={**base,field:1}):
+                with self.assertRaisesRegex(RuntimeError, 'trace store reported'):
+                    pilot.trace_store_surface('private-key',Path(directory))
+                proof = json.loads((Path(directory)/'trace-store-health.json').read_text())
+                self.assertEqual(proof['outcome'],'failed')
+                self.assertEqual(proof['counters'][field],1)
+                self.assertNotIn('private-key',json.dumps(proof))
+        with tempfile.TemporaryDirectory() as directory, patch('pilot.await_fact',return_value=base):
+            pilot.trace_store_surface('private-key',Path(directory))
+            proof = json.loads((Path(directory)/'trace-store-health.json').read_text())
+            self.assertEqual(proof['outcome'],'passed')
+            self.assertEqual(proof['counters']['index_push_errors'],'unknown')
+
     def test_generated_ottl_quoted_literals_are_decodable_before_component_start(self):
         import privacy_config
         for statement in re.findall(r'`([^`]+)`', privacy_config.render()):

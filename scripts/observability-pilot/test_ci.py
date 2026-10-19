@@ -99,7 +99,7 @@ class HostedEvidenceTest(unittest.TestCase):
                                 self.assertEqual(ci.pilot.FROZEN_DOCKER_ENDPOINT, identity['endpoint'])
                                 cleanup.assert_called_once()
 
-    def test_source_binding_includes_the_exact_native_cpu_helper(self):
+    def test_source_binding_includes_native_cpu_and_link_wire_corpus(self):
         import io
         import hashlib
         with tempfile.TemporaryDirectory() as directory:
@@ -119,8 +119,10 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            helper = ci.ROOT / 'scripts/observability-pilot/native_cpu.py'
-            self.assertEqual(proof['inputs']['scripts/observability-pilot/native_cpu.py'], hashlib.sha256(helper.read_bytes()).hexdigest())
+            for name in ('native_cpu.py', 'link_privacy.py'):
+                relative = 'scripts/observability-pilot/'+name
+                helper = ci.ROOT / relative
+                self.assertEqual(proof['inputs'][relative], hashlib.sha256(helper.read_bytes()).hexdigest())
 
     def test_artifact_collection_excludes_keys_binaries_and_raw_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -130,10 +132,11 @@ class HostedEvidenceTest(unittest.TestCase):
             metadata.mkdir()
             (metadata / "source.json").write_text('{"checkout_sha":"fixture"}')
             (output / "evidence.json").write_text('{"status":"failed"}')
-            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable"):
+            (output / "trace-store-logging.json").write_text('{"outcome":"passed","ownership":"passed","driver":"none"}')
+            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json"):
                 (output / forbidden).write_text("sentinel-secret")
             ci.collect(output, metadata, public)
-            self.assertEqual(sorted(path.name for path in public.iterdir()), ["evidence.json", "source.json"])
+            self.assertEqual(sorted(path.name for path in public.iterdir()), ["evidence.json", "source.json", "trace-store-logging.json"])
             self.assertNotIn("sentinel-secret", "".join(path.read_text() for path in public.iterdir()))
 
     def test_recovery_refuses_foreign_project_instead_of_executing_owner_argv(self):
