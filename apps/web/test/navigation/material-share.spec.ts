@@ -39,8 +39,13 @@ test("при запрете clipboard остаётся доступный адр
     Object.defineProperty(navigator, "share", { value: undefined });
     Object.defineProperty(navigator, "clipboard", {
       value: {
-        writeText: () =>
-          Promise.reject(new DOMException("Denied", "NotAllowedError")),
+        writeText: () => {
+          document.documentElement.dataset["clipboardCalls"] = String(
+            Number(document.documentElement.dataset["clipboardCalls"] ?? "0") +
+              1,
+          );
+          return Promise.reject(new DOMException("Denied", "NotAllowedError"));
+        },
       },
     });
   });
@@ -49,4 +54,57 @@ test("при запрете clipboard остаётся доступный адр
   await expect(
     page.getByRole("textbox", { name: /Скопируйте ссылку/ }),
   ).toHaveValue(`${String(baseURL)}/materials/navigation-lesson-3`);
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-clipboard-calls",
+    "1",
+  );
+});
+
+test("кнопка обмена доступна только после подключения обработчика", async ({
+  page,
+  baseURL,
+}) => {
+  let releaseScripts!: () => void;
+  const scriptsReady = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  // Keep the server-rendered control on screen before any client code can hydrate it.
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await scriptsReady;
+    await route.continue();
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "share", { value: undefined });
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: () => {
+          document.documentElement.dataset["clipboardCalls"] = String(
+            Number(document.documentElement.dataset["clipboardCalls"] ?? "0") +
+              1,
+          );
+          return Promise.reject(new DOMException("Denied", "NotAllowedError"));
+        },
+      },
+    });
+  });
+  try {
+    await page.goto("/materials/navigation-lesson-3?from=%2Flibrary", {
+      waitUntil: "commit",
+    });
+    const share = page.getByRole("button", { name: /^Поделиться материалом/ });
+    await expect(share).toBeVisible();
+    await expect(share).toBeDisabled();
+    releaseScripts();
+    // A single ordinary click waits on the control's own readiness, not page timing.
+    await share.click();
+    await expect(
+      page.getByRole("textbox", { name: /Скопируйте ссылку/ }),
+    ).toHaveValue(`${String(baseURL)}/materials/navigation-lesson-3`);
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-clipboard-calls",
+      "1",
+    );
+  } finally {
+    releaseScripts();
+  }
 });
