@@ -488,6 +488,10 @@ label `"service.name"="platform-api"` и `latency_offset=1ms`, с учётом
 [OTLP mapping VictoriaMetrics](https://docs.victoriametrics.com/victoriametrics/integrations/opentelemetry/).
 Запрос и минимальный offset разделяют закрытые constants с paired diagnostic; число reads,
 абсолютный deadline 8 секунд и response limit 64 KiB сохранены.
+Граница `phase_started_seconds` фиксируется после завершения замены API и успешных
+public/protected readiness, перед диагностикой ON и одинаковым прогревом/measurement.
+Финальный sample прежнего ON-процесса во время замены не относится к следующему OFF-окну;
+свежий sample после этой границы по-прежнему не соответствует OFF.
 Новый sample в ON подтверждает активность экспорта; отсутствие нового sample в OFF относится
 только к этому наблюдению. Это не доказательство отсутствия позднего экспорта или no-loss ledger.
 Неизвестный/недостоверный результат не разрешает overhead claim.
