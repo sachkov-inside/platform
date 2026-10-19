@@ -502,7 +502,7 @@ receiver accepted metric points и sent metric points точного metrics exp
 Результаты содержат только агрегатные числа или UNKNOWN. Имя сервиса фиксировано;
 raw series, label maps, тела ответов, token, URL и error text не сохраняются.
 Один последовательный batch имеет общий абсолютный deadline 8 секунд, response limit
-65 KiB на query и не создаёт дополнительной query concurrency. Четыре batch добавляют
+64 KiB на query и не создаёт дополнительной query concurrency. Четыре batch добавляют
 максимум 24 queries вне measurement window, общий supervisor deadline остаётся 600 секунд.
 
 `resource-sdk-diagnostics.json` входит в public whitelist и ограничен прежним 1 MiB.

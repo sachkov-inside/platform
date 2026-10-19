@@ -643,3 +643,100 @@ test("closed metric probe preserves only aggregates and owns one total query dea
     });
   }
 });
+
+// deterministic-test-allow unit-io: the real HTTP decoder must validate original counter decimal strings before Number conversion; finally closes the owned loopback server and sockets.
+test("counter probes preserve exact decimal precision before safe-integer classification", async () => {
+  /** @type {unknown} */ let counterValue = "0";
+  const server = createServer((req, res) => {
+    const query =
+      new URL(req.url ?? "", "http://owned").searchParams.get("query") ?? "";
+    res.end(
+      JSON.stringify({
+        status: "success",
+        data: {
+          resultType: "vector",
+          result: [
+            {
+              metric: {},
+              value: [
+                1,
+                query.includes("metric_points") ? counterValue : "123.25",
+              ],
+            },
+          ],
+        },
+      }),
+    );
+  });
+  await new Promise((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  /** @type {Array<[string,unknown,number|null]>} */
+  const cases = [
+    ["fractional_at_max", "9007199254740991.1", null],
+    ["fraction_rounded_to_one", "1.0000000000000000000001", null],
+    ["scientific_fraction_at_max", "9.0071992547409911e15", null],
+    ["zero", "0", 0],
+    ["one", "1", 1],
+    ["decimal_integer", "1.0000000000000000000000", 1],
+    ["scientific_one", "1e0", 1],
+    ["negative_exponent_integer", "10e-1", 1],
+    ["decimal_scientific_integer", "100.00e-2", 1],
+    ["leading_fraction_becomes_integer", "0.001e3", 1],
+    ["safe_boundary", "9007199254740991", 9007199254740991],
+    ["scientific_boundary", "9.007199254740991e15", 9007199254740991],
+    ["exact_decimal_shift", "90071992547409910e-1", 9007199254740991],
+    ["zero_exponent", "0e-999", 0],
+    ["out_of_range", "9007199254740992", null],
+    ["rounded_out_of_range", "9007199254740993", null],
+    ["scientific_out_of_range", "9.007199254740992e15", null],
+    ["underflow", "1e-999", null],
+    ["overflow", "1e999", null],
+    ["fraction", "0.5", null],
+    ["scientific_fraction", "1.2e-1", null],
+    ["huge_exponent", "1e65537", null],
+    ["huge_negative_exponent", "1e-65537", null],
+    ["nonfinite", "NaN", null],
+    ["infinite", "Infinity", null],
+    ["boolean", true, null],
+    ["number_not_string", 1, null],
+    ["object", {}, null],
+    ["null", null, null],
+  ];
+  const mismatches = [];
+  try {
+    for (const [name, input, expected] of cases) {
+      counterValue = input;
+      const result = await metricProbe("A".repeat(43), {
+        host: "127.0.0.1",
+        port: address.port,
+        timeoutMs: 1000,
+      });
+      for (const key of /** @type {const} */ (["receiver", "exporter"])) {
+        const actual = result.queries[key];
+        if (
+          actual.state !== (expected === null ? "unknown" : "known") ||
+          actual.value !== expected
+        )
+          mismatches.push(name + ":" + key);
+      }
+      assert.deepEqual(
+        result.queries.dotted,
+        { state: "known", value: 123.25 },
+        "scalar timestamps retain fractional precision",
+      );
+    }
+    assert.deepEqual(
+      mismatches,
+      [],
+      "original decimal counter values must be exact safe integers",
+    );
+  } finally {
+    await new Promise((resolve) => {
+      server.close(() => resolve(undefined));
+      server.closeAllConnections();
+    });
+  }
+});

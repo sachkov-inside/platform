@@ -244,8 +244,42 @@ export async function schedule(
   return (clock.now() - start) / 1000;
 }
 
-/** @param {number} status @param {unknown} body */
-export function aggregateResult(status, body) {
+const MAX_COUNTER_DECIMAL = "9007199254740991";
+
+/** Original decimal syntax is checked by aggregateResult before this exact integer projection.
+ * @param {string} value @returns {number|null}
+ */
+function exactCounter(value) {
+  const [mantissa = "", exponent = "0"] = value.toLowerCase().split("e");
+  const [whole = "", fraction = ""] = mantissa.split(".");
+  let digits = (whole + fraction).replace(/^0+/u, "");
+  if (digits === "") return 0;
+  const power = Number(exponent);
+  // The bounded response cannot contain enough coefficient digits to offset a larger exponent.
+  if (!Number.isSafeInteger(power) || Math.abs(power) > RESPONSE_BYTES)
+    return null;
+  const shift = power - fraction.length;
+  if (shift < 0) {
+    const removed = -shift;
+    if (removed >= digits.length || !/^0+$/u.test(digits.slice(-removed)))
+      return null;
+    digits = digits.slice(0, -removed);
+  } else {
+    if (digits.length + shift > MAX_COUNTER_DECIMAL.length) return null;
+    digits += "0".repeat(shift);
+  }
+  if (
+    digits.length > MAX_COUNTER_DECIMAL.length ||
+    (digits.length === MAX_COUNTER_DECIMAL.length &&
+      digits > MAX_COUNTER_DECIMAL)
+  )
+    return null;
+  // Conversion is lossless only after the original decimal proved an integer within this range.
+  return Number(digits);
+}
+
+/** @param {number} status @param {unknown} body @param {boolean} [counter] */
+export function aggregateResult(status, body, counter = false) {
   const unknown = { state: "unknown", value: null };
   if (
     status !== 200 ||
@@ -274,6 +308,10 @@ export function aggregateResult(status, body) {
     )
   )
     return unknown;
+  if (counter) {
+    const exact = exactCounter(row["value"][1]);
+    return exact === null ? unknown : { state: "known", value: exact };
+  }
   const latest = Number(row["value"][1]);
   if (latest === 0 && /[1-9]/u.test(row["value"][1].split(/[eE]/u)[0] ?? ""))
     return unknown;
@@ -320,8 +358,8 @@ function queryKey(filename) {
   return key;
 }
 
-/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @returns {Promise<{state:string,value:number|null}>} */
-async function metricQuery(key, query, transport) {
+/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @param {boolean} [counter] @returns {Promise<{state:string,value:number|null}>} */
+async function metricQuery(key, query, transport, counter = false) {
   return await new Promise((resolve) => {
     let settled = false;
     /** @param {string} state @param {number|null} value */
@@ -356,7 +394,7 @@ async function metricQuery(key, query, transport) {
             /** @type {unknown} */ const body = JSON.parse(
               Buffer.concat(chunks).toString("utf8"),
             );
-            const value = aggregateResult(res.statusCode ?? 0, body);
+            const value = aggregateResult(res.statusCode ?? 0, body, counter);
             finish(value.state, value.value);
           } catch {
             finish("unknown", null);
@@ -415,10 +453,15 @@ export async function metricProbe(key, transport = QUERY_TRANSPORT) {
   ])) {
     const remaining = deadline - performance.now();
     if (remaining <= MIN_QUERY_REMAINING_MS) continue;
-    const result = await metricQuery(key, PROBE_QUERIES[name], {
-      ...transport,
-      timeoutMs: remaining,
-    });
+    const result = await metricQuery(
+      key,
+      PROBE_QUERIES[name],
+      {
+        ...transport,
+        timeoutMs: remaining,
+      },
+      name === "receiver" || name === "exporter",
+    );
     queries[name] =
       (name === "receiver" || name === "exporter") &&
       result.value !== null &&
