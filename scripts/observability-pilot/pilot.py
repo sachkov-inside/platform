@@ -68,6 +68,9 @@ def compose_plan(source, output, images, *, credential_owner):
     services["metrics"]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2"]
     for name in ("logs", "traces"):
         services[name]["command"] += ["-search.maxQueryDuration=8s", "-search.maxConcurrentRequests=2"]
+    # Pinned VT can log unfiltered fields before its ingestion filter, including rejected rows.
+    # Closed self-scraped counters replace raw retention; this is not complete error collection.
+    services['traces']['logging'] = {'driver':'none'}
     services["alloy"].update({"command": ["run", "/etc/alloy/config.alloy", "--storage.path=/tmp/alloy"],
         "logging": {"driver":"none"},
         "ports": ["127.0.0.1:14318:4318"],
@@ -411,7 +414,7 @@ def link_storage_row(compose, transport):
 
 
 def link_privacy_corpus(output, compose):
-    """A deliberately failing RED gate until full stored link metadata is actually absent."""
+    """Require clean full stored links without losing any fixture causality."""
     import link_privacy
     fixtures = (('json', link_privacy.json_fixture), ('protobuf', link_privacy.protobuf_fixture))
     cases = [{'transport': transport, 'privacy': 'unknown', 'stage': 'not_attempted'}
@@ -443,6 +446,27 @@ def link_privacy_corpus(output, compose):
         'cases': cases})
     if any(case['privacy'] != 'passed' for case in cases):
         raise RuntimeError('external OTLP link metadata privacy unproved; see closed verdicts')
+
+
+def trace_store_surface(token, output):
+    """Require current fixed VT health/error/drop evidence, without pretending lazy absence is zero."""
+    selector = '{job="platform-trace-store",instance="pilot",__name__=~"'+ '|'.join(collector_privacy.TRACE_STORE_METRICS)+'"}'
+    path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':selector})
+    age_path = '/metrics/api/v1/query?'+urllib.parse.urlencode({
+        'query':'time()-timestamp(up{job="platform-trace-store",instance="pilot"})'})
+    counters = await_fact(lambda: collector_privacy.trace_store_health(
+        request(path,token=token), request(age_path,token=token)), bool,
+        probe='trace_store_closed_counter_surface', output=output)
+    failed = any(counters[key] != 0 for key in
+        ('http_errors','rows_dropped_too_many_fields','rows_dropped_debug'))
+    failed = failed or counters['index_push_errors'] not in (0, 'unknown')
+    write_json(output/'trace-store-health.json', {
+        'outcome':'failed' if failed else 'passed', 'counters':counters,
+        'raw_diagnostics':'discarded by Docker logging none; not captured or sanitized',
+        'scope':'fixed available VT counters; ingest_attempts are not persisted rows; lazy index absence is unknown',
+        'unproved':'oversized/error attribution, counter-reset scenarios and complete loss coverage'})
+    if failed:
+        raise RuntimeError('trace store reported an ingest error or dropped rows; see closed counters')
 
 
 def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, output=None):
@@ -600,9 +624,10 @@ def smoke(token, output, compose):
         'safe_collector_acceptance_counter':'passed',
         'safe_collector_export_counters':{'traces':'passed','logs':'passed','metrics':'passed'},
         'collector_raw_diagnostics':'discarded by Docker logging none; not collected',
-        'untrusted_link_metadata':'unsupported; no production/general-source acceptance',
+        'untrusted_link_metadata':'separate JSON/protobuf full-storage gate; production/general-source acceptance pending',
         'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})
     link_privacy_corpus(output, compose)
+    trace_store_surface(token, output)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)
     post_path = "/metrics/api/v1/query"
