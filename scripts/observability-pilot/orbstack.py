@@ -227,10 +227,49 @@ MONITOR_JOIN_SECONDS = PROBE_HEARTBEAT_TIMEOUT_SECONDS + 1
 IDENTITY_COMMAND_TIMEOUT_SECONDS = .5
 
 
+def retain_monitor_failure(output, source, error):
+    """Retain only the first fixed-category failure, never exception payloads."""
+    import json
+    if source not in ('host', 'identity', 'vm'):
+        raise ValueError('unknown storage monitor source')
+    if isinstance(error, subprocess.TimeoutExpired):
+        category, reason = 'TimeoutExpired', 'command_timeout'
+    elif isinstance(error, subprocess.CalledProcessError):
+        category, reason = 'CalledProcessError', 'command_failed'
+    elif isinstance(error, OSError):
+        category, reason = 'OSError', 'filesystem_unavailable'
+    elif isinstance(error, ValueError):
+        category, reason = 'ValueError', 'invalid_sample'
+    else:
+        category = 'RuntimeError'
+        reason = {'OrbStack daemon/socket/backing identity changed':'identity_changed',
+                  'OrbStack backing file identity changed':'identity_changed',
+                  'host filesystem identity changed':'identity_changed',
+                  'VM filesystem identity changed':'identity_changed',
+                  'pilot storage budget exceeded':'storage_budget_exceeded',
+                  'probe bootstrap host growth budget exceeded':'bootstrap_budget_exceeded',
+                  'OrbStack allocated image growth budget exceeded':'allocated_image_budget_exceeded'
+                  }.get(str(error), 'invalid_sample')
+    try:
+        descriptor = os.open(output/'monitor-failure.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return
+    with os.fdopen(descriptor, 'w') as stream:
+        json.dump({'source':source, 'exception_class':category, 'reason':reason}, stream)
+        stream.write('\n')
+
+
 @contextmanager
-def sampled_budget(sample, accept, *, interval=HOST_SAMPLE_INTERVAL_SECONDS):
+def sampled_budget(sample, accept, *, interval=HOST_SAMPLE_INTERVAL_SECONDS, output=None, source=None):
     """Every missing/invalid sample fails closed in the foreground owner."""
-    accept(sample())
+    def retain(error):
+        if output is not None:
+            retain_monitor_failure(output, source, error)
+    try:
+        accept(sample())
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        retain(error)
+        raise
     stop = threading.Event()
     previous = signal.getsignal(signal.SIGUSR1)
     failure = []
@@ -242,8 +281,11 @@ def sampled_budget(sample, accept, *, interval=HOST_SAMPLE_INTERVAL_SECONDS):
                 accept(sample())
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
                 failure.append(type(error).__name__)
-                if not stop.is_set():
-                    os.kill(os.getpid(), signal.SIGUSR1)
+                try:
+                    retain(error)
+                finally:
+                    if not stop.is_set():
+                        os.kill(os.getpid(), signal.SIGUSR1)
                 break
     signal.signal(signal.SIGUSR1, interrupt)
     thread = threading.Thread(target=monitor, daemon=True)
@@ -278,8 +320,8 @@ def host_budget(identity, output, command):
         if current != identity:
             raise RuntimeError('OrbStack daemon/socket/backing identity changed')
     # Slow daemon metadata reads never pause the independent 250ms host disk checks.
-    with sampled_budget(sample, accept), sampled_budget(identity_sample, identity_accept,
-                                                       interval=IDENTITY_SAMPLE_INTERVAL_SECONDS):
+    with sampled_budget(sample, accept, output=output, source='host'), sampled_budget(identity_sample, identity_accept,
+                        interval=IDENTITY_SAMPLE_INTERVAL_SECONDS, output=output, source='identity'):
         import json
         (output / 'storage-host.json').write_text(json.dumps({'admission':initial})+'\n')
         try:
@@ -313,7 +355,7 @@ def vm_budget(compose, lock, command, output, *, docker_args):
     def accept(line):
         latest[0] = budget.accept(line, now=time.monotonic())
     try:
-        with sampled_budget(sample, accept, interval=PROBE_SAMPLE_INTERVAL_SECONDS):
+        with sampled_budget(sample, accept, interval=PROBE_SAMPLE_INTERVAL_SECONDS, output=output, source='vm'):
             yield
     finally:
         (output / 'storage-vm.json').write_text(json.dumps({'admission':first,'latest':latest[0],

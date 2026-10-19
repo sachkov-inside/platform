@@ -189,7 +189,12 @@ identity и использует закреплённый socket; при нес�
 
 `storage-host.json` и `storage-vm.json` содержат только начальные/последние числовые измерения
 и filesystem identity, без backing path, socket, env, argv или raw errors. Только они дополнены
-в curated upload allowlist. Shared image cache не удаляется; размер acquisition учитывается
+в curated upload allowlist. `monitor-failure.json` сохраняет первую причину отказа до сигнала:
+источник `host` / `identity` / `vm`, фиксированную категорию exception и фиксированный reason.
+Сообщения исключений, команды, paths и payload в него не попадают; последующий отказ не
+перезаписывает первый. Если исходный отказ произошёл до этой диагностики, его причина остаётся
+неизвестной. Файл создаётся с режимом `0600` и включён в curated allowlist.
+Shared image cache не удаляется; размер acquisition учитывается
 в бюджете. Совместное выполнение с foreign stand не доказывает capacity Timeweb или 25% запаса.
 
 ## Проверка на GitHub-hosted Linux

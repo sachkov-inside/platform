@@ -14,6 +14,44 @@ MONITOR_FAILURE_BUDGET_SECONDS = 1
 MONITOR_FIXTURE_INTERVAL_SECONDS = .001
 
 class OrbStackAdmissionTest(unittest.TestCase):
+    def test_monitor_timeout_retains_first_safe_cause_before_signal(self):
+        import signal
+        import subprocess
+        import threading
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            calls = [0]
+            ready = threading.Event()
+            def sample():
+                calls[0] += 1
+                if calls[0] > 1:
+                    ready.wait(MONITOR_FAILURE_BUDGET_SECONDS)
+                    raise subprocess.TimeoutExpired(['secret-command'], .5, output='secret-output')
+                return None
+            observed = []
+            previous = signal.signal(signal.SIGUSR1, lambda *_: observed.append(
+                json.loads((output/'monitor-failure.json').read_text())))
+            try:
+                with orbstack.sampled_budget(sample, lambda _: None,
+                        interval=MONITOR_FIXTURE_INTERVAL_SECONDS, output=output, source='identity'):
+                    signal.signal(signal.SIGUSR1, lambda *_: observed.append(
+                        json.loads((output/'monitor-failure.json').read_text())))
+                    ready.set()
+                    deadline = time.monotonic() + MONITOR_FAILURE_BUDGET_SECONDS
+                    while not observed and time.monotonic() < deadline:
+                        threading.Event().wait(MONITOR_FIXTURE_INTERVAL_SECONDS)
+                self.assertEqual(observed, [{'source':'identity', 'exception_class':'TimeoutExpired',
+                                             'reason':'command_timeout'}])
+                self.assertEqual((output/'monitor-failure.json').stat().st_mode & 0o777, 0o600)
+                with self.assertRaises(RuntimeError):
+                    with orbstack.sampled_budget(lambda: (_ for _ in ()).throw(RuntimeError('secret')),
+                            lambda _: None, output=output, source='host'):
+                        pass
+                self.assertEqual(json.loads((output/'monitor-failure.json').read_text()), observed[0])
+            finally:
+                signal.signal(signal.SIGUSR1, previous)
+
     def test_vm_sample_gates_actual_vm_free_space_and_rejects_identity_change(self):
         budget = orbstack.VmBudget()
         with self.assertRaisesRegex(RuntimeError, '16 GiB'):
