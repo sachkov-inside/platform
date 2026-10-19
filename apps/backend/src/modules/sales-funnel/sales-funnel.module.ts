@@ -32,6 +32,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     TelegramAccountLinksModule,
   ],
   controllers: [RecordBotEventsController, ReadFunnelReportController],
+  exports: [SalesFunnel],
   providers: [
     {
       provide: SalesFunnel,
