@@ -8,6 +8,9 @@ if [[ $# -ne 2 || ( "$1" != origin && "$1" != edge ) || "$2" != /* ]]; then
 fi
 snapshot_dir="$2"
 if [[ "$1" == origin ]]; then
+  # Share the application deployment lock before touching the live Caddy baseline.
+  exec 9>/var/lib/inside/deployments/operation.lock
+  flock -n 9
   test -f "$snapshot_dir/Caddyfile"
   caddy validate --config "$snapshot_dir/Caddyfile" --adapter caddyfile
   install -m 644 "$snapshot_dir/Caddyfile" /etc/caddy/Caddyfile

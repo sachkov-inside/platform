@@ -25,6 +25,8 @@ systemctl daemon-reload
 ## Origin 201.24.126.23
 
 ```sh
+exec 9>/var/lib/inside/deployments/operation.lock
+flock -n 9
 test -f "$snapshot_dir/Caddyfile" || install -m 600 /etc/caddy/Caddyfile "$snapshot_dir/Caddyfile"
 install -m 644 "$entry_source/haproxy-origin.cfg" /etc/inside-entry/haproxy.cfg
 install -m 644 "$entry_source/non-public-clients.lst" /etc/inside-entry/non-public-clients.lst
@@ -34,6 +36,8 @@ install -m 644 infra/production/host/Caddyfile /etc/caddy/Caddyfile
 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 ufw allow from 185.125.101.90 to any port 8443 proto tcp comment inside-entry-1575
 systemctl enable --now inside-entry.service
+flock -u 9
+exec 9>&-
 ```
 
 ## Aeza 185.125.101.90

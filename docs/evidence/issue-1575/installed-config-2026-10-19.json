@@ -35,8 +35,8 @@
     "role": "origin",
     "source": "infra/production/entry/rollback-entry.sh",
     "installed_path": "/etc/inside-entry/rollback-entry.sh",
-    "source_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
-    "installed_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
+    "source_sha256": "8f354eafdfe6ddd73e0fbb799a256891b48fd38d752acaaef915ebc778843dfb",
+    "installed_sha256": "8f354eafdfe6ddd73e0fbb799a256891b48fd38d752acaaef915ebc778843dfb",
     "matches": true
   },
   {
@@ -75,8 +75,8 @@
     "role": "edge",
     "source": "infra/production/entry/rollback-entry.sh",
     "installed_path": "/etc/inside-entry/rollback-entry.sh",
-    "source_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
-    "installed_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
+    "source_sha256": "8f354eafdfe6ddd73e0fbb799a256891b48fd38d752acaaef915ebc778843dfb",
+    "installed_sha256": "8f354eafdfe6ddd73e0fbb799a256891b48fd38d752acaaef915ebc778843dfb",
     "matches": true
   },
   {

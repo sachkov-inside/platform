@@ -75,13 +75,14 @@
       "protocol": "h2",
       "credentials_submitted": false
     },
-    "quic_fallback": "Chrome cold/warm HTTP/2 succeeded; actual QUIC attempt not proven"
+    "quic_fallback": "Chrome with cached Alt-Svc sent QUIC packets for sachkov.dev and loaded via h2 in 664.7 ms; see chrome-quic-fallback-2026-10-19.json"
   },
   "acme": {
     "site_keys_copied_to_edge": false,
     "http01_relay_configured": true,
     "forced_issuance_tested": false,
-    "existing_ip_certificate_renewal": "unchanged webroot authenticator and nginx reload hook"
+    "existing_ip_certificate_renewal": "unchanged webroot authenticator and nginx reload hook",
+    "synthetic_http01_token_passed_all_four_names": true
   },
   "limitations": [
     "No GeoDNS account selected or registrar login yet",
@@ -89,8 +90,8 @@
     "No complete owner login or payment performed",
     "No live token-bearing subscription test",
     "No reboot test",
-    "Aeza TCP-only; Caddy Alt-Svc still advertises HTTP/3",
-    "External samples do not reproduce every affected VPN"
+    "External samples do not reproduce every affected VPN",
+    "Aeza TCP-only with h3 Alt-Svc: curl_cffi and Chrome fallback verified on current owner VPN only; other clients remain sampled"
   ],
   "globalping_evidence": "aeza-globalping-2026-10-19.json",
   "proxy_negative_evidence": "origin-proxy-negative-2026-10-19.jsonl",
