@@ -5,6 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 import os
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import ci
 
@@ -55,6 +57,24 @@ class HostedEvidenceTest(unittest.TestCase):
             (output / "worker.json").write_text(json.dumps({"pid": os.getpid(), "group": os.getpid()}))
             with self.assertRaisesRegex(ValueError, "registered worker still exists"):
                 ci.recover(output)
+
+    def test_admission_refuses_empty_or_relative_docker_root_without_measuring_checkout(self):
+        for label, docker_root in (("empty", ""), ("relative", ".")):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                metadata = Path(directory) / "metadata"
+
+                def process_result(args, **_kwargs):
+                    if args[0] == "docker":
+                        return SimpleNamespace(stdout=docker_root)
+                    value = "" if "status" in args else "a" * 40
+                    return SimpleNamespace(stdout=value)
+
+                with patch.dict(os.environ, {"GITHUB_SHA": "a" * 40}), \
+                        patch("ci.subprocess.run", side_effect=process_result), \
+                        patch("ci.shutil.disk_usage", side_effect=AssertionError("checkout must not be measured")):
+                    self.assertEqual(ci.admission(metadata), 1)
+                report = json.loads((metadata / "admission.json").read_text())
+                self.assertEqual(report, {"ready": False, "error_type": "ValueError"})
 
 
 if __name__ == "__main__":

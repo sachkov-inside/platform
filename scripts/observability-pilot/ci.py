@@ -109,9 +109,10 @@ def admission(metadata):
         "scope": "Linux hosted functional smoke; not Timeweb capacity, Mac MCP or full resource acceptance",
     })
     try:
-        storage = Path(read_command(["docker", "info", "--format", "{{.DockerRootDir}}"])).resolve()
+        storage = Path(read_command(["docker", "info", "--format", "{{.DockerRootDir}}"]))
         if not storage.is_absolute() or not storage.is_dir():
             raise ValueError("local Docker storage filesystem not identified")
+        storage = storage.resolve()
         disk = shutil.disk_usage(storage)
         result = {"storage_filesystem_path": str(storage), **check_disk(total=disk.total, free=disk.free)}
         code = 0 if result["ready"] else 2
