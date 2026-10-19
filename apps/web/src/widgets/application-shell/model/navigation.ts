@@ -11,7 +11,7 @@ export const publicNavigationItems = [
 /** Мобильная навигация добавляет профиль: на телефоне кабинет открывают отсюда. */
 export const publicMobileNavigationItems = [
   ...publicNavigationItems,
-  { href: "/account", icon: "profile", label: "Профиль" },
+  { href: "/account", icon: "profile", label: "Личный кабинет" },
 ] as const satisfies readonly ApplicationNavigationItem[];
 
 /** Редактор виден только тому, кто ведёт материалы. */

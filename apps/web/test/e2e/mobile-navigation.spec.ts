@@ -386,7 +386,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
     "true",
   );
   await navigation(page).getByRole("button", { name: "Аккаунт" }).click();
-  await page.getByRole("menuitem", { name: "Профиль" }).click();
+  await page.getByRole("menuitem", { name: "Личный кабинет" }).click();
   const name = page.getByRole("textbox", { name: "Имя", exact: true });
   await name.fill("Старый аккаунт");
   await expect(homeLink(page)).toHaveAttribute("href", /topic=platform/u);
