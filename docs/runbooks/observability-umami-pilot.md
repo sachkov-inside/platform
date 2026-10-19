@@ -422,6 +422,25 @@ SQL, строки результатов, исключения, ID, paths и sec
 Последнее известное `recovery_ended` описывает ранее прочитанный факт, а не текущую
 готовность после последующего отказа. Callback необязателен; polling и deadlines прежние.
 
+Если JSON metadata прочитан, но прежняя строгая проверка кластера не пройдена,
+`recovered_postmaster.cluster_validation` содержит только `schema: 1` и
+`invalid_field`: `shape`, `version_num`, `system_identifier`, `archive_mode` или
+`archive_command`. Указывается первая непройденная проверка в этом порядке.
+Значения полей, дополнительные ключи и сырой ответ не сохраняются. Неправильный JSON
+по-прежнему отмечается `error: invalid_json` без `cluster_validation`. Проверки SQL,
+версии, system identifier, archive command, lineage и reader gate не ослаблены.
+
+В запуске `435a5806` restore завершился с кодом 0, postmaster принимал соединения,
+recovery закончилось, затем строгая проверка metadata отказала на шаге `cluster`.
+Конкретное поле не установлено, reader gate остался закрытым. Инициализация задаёт
+archive command через `ALTER SYSTEM` в `init-production-databases.sh`.
+[Исходник pgBackRest 2.57.0](https://github.com/pgbackrest/pgbackrest/blob/release/2.57.0/src/command/restore/restore.c#L1494-L1590)
+сохраняет прежние настройки `postgresql.auto.conf`, исключая заменяемые recovery target
+settings; `--archive-mode=off` добавляет `archive_mode=off`. Штатная очистка archive
+command этим исходником не подтверждена. SHA-256 проверенного `restore.c`:
+`b95cd8cb00c58fe0fa3eb7d9e4a912d13db128bb1f4586b54a48c9e9f153dc60`.
+Новая диагностика различает поля следующего отказа, но не устанавливает историческую причину.
+
 В запуске `4ff1c1b2` destination и restore прошли, `recovered` к моменту cleanup работал,
 reader gate остался закрытым. Точный подэтап отказа после restore и успешные SQL-проверки
 не установлены. Новая диагностика нужна для следующего доказательства и сама по себе
