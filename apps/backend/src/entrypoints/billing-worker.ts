@@ -1,3 +1,4 @@
+import { jobQueues } from "../infrastructure/job-queues.js";
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
@@ -35,14 +36,14 @@ import {
   runNoticeJob,
 } from "./billing-worker/jobs.js";
 
-const telemetryCleanupQueue = "web-telemetry.retention";
+const telemetryCleanupQueue = jobQueues.telemetryRetention;
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
 const telemetryReceiptRetentionSeconds = 172_800;
-const recoveryQueue = "billing.payment-recovery";
-const renewalQueue = "billing.subscription-renewal";
-const noticeQueue = "billing.subscription-notices";
-const tributeQueue = "tribute.source-reconciliation";
-const communityQueue = "community.entitlement-delivery";
+const recoveryQueue = jobQueues.paymentRecovery;
+const renewalQueue = jobQueues.subscriptionRenewal;
+const noticeQueue = jobQueues.subscriptionNotices;
+const tributeQueue = jobQueues.tributeReconciliation;
+const communityQueue = jobQueues.communityDelivery;
 const communityBatchSize = 50;
 const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
 const jobTimeoutSeconds = 300;

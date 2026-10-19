@@ -1,3 +1,5 @@
+import { PgBossQueueDiagnostics } from "../../src/infrastructure/pg-boss-queue-diagnostics.js";
+import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -258,6 +260,10 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
       billing: app.get(BillingOperations),
       diagnostics: app.get(PaymentDiagnostics),
       funnel: app.get(SalesFunnel),
+      queues: new QueueDiagnostics(
+        app.get<Accounts>(ACCOUNTS),
+        new PgBossQueueDiagnostics(database.prisma),
+      ),
       telemetry: app.get(WebTelemetry),
       tokenVerifier: app.get<LogtoAccessTokenVerifier>(
         LOGTO_ACCESS_TOKEN_VERIFIER,

@@ -17,6 +17,7 @@ export function refusingMcpToolDependencies(): Omit<
 > {
   return {
     telemetry: { summary: refuse },
+    queues: { read: refuse },
     authoring: stubMaterialAuthoring(),
     billing: { execute: refuse },
     diagnostics: { read: refuse },
