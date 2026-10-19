@@ -1,14 +1,18 @@
-"""Public preparation boundary; no Docker, network or process dependencies."""
+"""Preparation and bounded local process/loopback contracts; no Docker or live providers."""
 
 import unittest
 from pathlib import Path
 import sys
 import tempfile
 import threading
+import socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from pilot import check_disk
 import pilot
+
+WORKER_FAILURE_BUDGET_SECONDS = 1
+SERVER_SHUTDOWN_BUDGET_SECONDS = 2
 
 
 class PilotPreparationTest(unittest.TestCase):
@@ -57,7 +61,7 @@ class PilotPreparationTest(unittest.TestCase):
     def test_supervisor_cleans_only_owned_resources_after_each_worker_outcome(self):
         fixture = Path(__file__).parent / "fixtures/process.py"
         for mode, expected_status in [("success", 0), ("failure", 7), ("timeout", 124),
-                                      ("sigterm", 143), ("sigkill", 137)]:
+                                      ("sigterm", 143), ("sigkill", 137), ("descendant", 0)]:
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 output = Path(directory)
                 (output / "foreign-resource").write_text("foreign")
@@ -65,11 +69,22 @@ class PilotPreparationTest(unittest.TestCase):
                 docker = [sys.executable, str(fixture), "docker", directory, "normal"]
                 execute = [sys.executable, str(fixture), "worker", directory, mode]
                 status = pilot.supervise_worker(execute, compose, output,
-                    "inside-observability-pilot-fixture", docker=docker, deadline_seconds=1)
+                    "inside-observability-pilot-fixture", docker=docker,
+                    deadline_seconds=WORKER_FAILURE_BUDGET_SECONDS)
                 self.assertEqual(status, expected_status)
                 self.assertFalse((output / "owned-resource").exists())
                 self.assertTrue((output / "foreign-resource").exists())
                 self.assertIn("down --volumes --remove-orphans", (output / "commands").read_text())
+                if mode == "descendant":
+                    def descendant_socket_closed():
+                        with socket.socket(socket.AF_UNIX) as probe:
+                            try:
+                                probe.connect(str(output / "child.sock"))
+                            except ConnectionRefusedError:
+                                return True
+                            return False
+                    pilot.await_fact(descendant_socket_closed, bool,
+                                     budget=WORKER_FAILURE_BUDGET_SECONDS)
 
     def test_otlp_readiness_waits_for_acceptance_and_restart_waits_for_stored_trace(self):
         class Receiver(BaseHTTPRequestHandler):
@@ -102,7 +117,8 @@ class PilotPreparationTest(unittest.TestCase):
                 self.assertEqual(Receiver.queries, 2)
             finally:
                 server.shutdown()
-                thread.join(timeout=2)
+                thread.join(timeout=SERVER_SHUTDOWN_BUDGET_SECONDS)
+                self.assertFalse(thread.is_alive())
 
 
 if __name__ == "__main__":

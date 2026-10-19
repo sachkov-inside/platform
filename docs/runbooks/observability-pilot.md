@@ -116,7 +116,8 @@ SIGTERM или SIGKILL worker supervisor ограниченно останавл
 Сбой diagnostics не пропускает shutdown; оба residue check выполняются независимо.
 Исходный exit code worker сохраняется при успешной очистке; ошибка очистки явно завершает запуск.
 
-Локальные process fixtures проверяют эти пять исходов и сбой diagnostics без Docker;
+Локальные process fixtures проверяют эти пять исходов, остановку оставленного дочернего
+процесса с игнорированием SIGTERM и сбой diagnostics без Docker;
 реальное удаление Docker resources пока не проверено. SIGKILL самого supervisor, уничтожение
 всего внешнего дерева и отключение машины требуют ручного восстановления. В `owner.json`
 заранее записана точная команда cleanup; `worker.json` содержит PID/group и supervisor PID.

@@ -3,13 +3,28 @@
 import os
 from pathlib import Path
 import signal
+import socket
+import subprocess
 import sys
 
 role, directory, mode, *args = sys.argv[1:]
 state = Path(directory)
 owned = state / "owned-resource"
+if role == "descendant":
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+    with socket.socket(socket.AF_UNIX) as listener:
+        listener.bind(str(state / "child.sock"))
+        listener.listen(1)
+        print("ready", flush=True)
+        signal.pause()
 if role == "worker":
     owned.write_text("owned")
+    if mode == "descendant":
+        child = subprocess.Popen([sys.executable, __file__, "descendant", directory, mode],
+                                 stdout=subprocess.PIPE, text=True)
+        if child.stdout.readline() != "ready\n":
+            sys.exit(8)
+        child.stdout.close()
     if mode == "timeout":
         signal.pause()
     if mode in ("sigterm", "sigkill"):

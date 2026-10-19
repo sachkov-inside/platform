@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
-// deterministic-test-allow unit-io: Python preparation contracts own no Docker or network resources.
+// deterministic-test-allow unit-io: Python owns bounded local process/loopback contracts; no Docker or live providers.
 test("observability pilot preparation preserves admission and private query boundaries", () => {
   const result = spawnSync(
     "python3",
