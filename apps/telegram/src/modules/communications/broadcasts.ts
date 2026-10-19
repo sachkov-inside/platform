@@ -71,7 +71,7 @@ export async function applyBroadcast(
   if (row && (row.bot_identity !== bot || row.owner_account_ref !== actor))
     throw new CommunicationsError("not_found");
   if (operation === "broadcasts.preview") {
-    if (!row || row.audience.kind !== "waitlist")
+    if (row?.audience.kind !== "waitlist")
       throw new CommunicationsError("not_found");
     if (row.revision !== expectedRevision)
       throw new CommunicationsError("revision_conflict");

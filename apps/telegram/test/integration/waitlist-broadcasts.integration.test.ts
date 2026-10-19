@@ -1,3 +1,4 @@
+import { SIGN_IN_REPLY_ELIGIBILITY } from "../../src/modules/outbound/sign-in-reply-eligibility.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import type { TelegramDeliveryResult } from "../../src/modules/outbound/telegram-messages.js";
 import {
@@ -145,7 +146,7 @@ beforeEach(async () => {
     .execute();
 });
 afterAll(async () => {
-  await app?.close();
+  await app.close();
   await database.destroy();
 });
 test("owner can prepare an explicit waitlist draft without sending or enabling marketing", async () => {
@@ -177,30 +178,26 @@ test("owner can prepare an explicit waitlist draft without sending or enabling m
 });
 
 test("explicit launch sends only the real waitlist audience with global marketing disabled", async () => {
-  await app
-    .get(BotContacts)
-    .observeStart(
-      {
-        botIdentity: "inside",
-        telegramUserId: "42",
-        privateChatId: "42",
-        updateId: "1",
-        observedAt: instant,
-      },
-      "none",
-    );
-  await app
-    .get(BotContacts)
-    .observeStart(
-      {
-        botIdentity: "inside",
-        telegramUserId: "43",
-        privateChatId: "43",
-        updateId: "2",
-        observedAt: instant,
-      },
-      "none",
-    );
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "43",
+      privateChatId: "43",
+      updateId: "2",
+      observedAt: instant,
+    },
+    "none",
+  );
   const broadcastId = randomUUID();
   expect(
     (
@@ -232,18 +229,16 @@ test("explicit launch sends only the real waitlist audience with global marketin
 });
 
 async function prepared() {
-  await app
-    .get(BotContacts)
-    .observeStart(
-      {
-        botIdentity: "inside",
-        telegramUserId: "42",
-        privateChatId: "42",
-        updateId: "1",
-        observedAt: instant,
-      },
-      "none",
-    );
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
   const broadcastId = randomUUID();
   expect(
     (
@@ -341,6 +336,15 @@ test("unknown transport result remains unknown after repeated worker runs and la
   expect(
     (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
   ).toBe(409);
+  const restarted = new FunnelScheduler(
+    database,
+    config,
+    { now: () => new Date(instant) },
+    transport,
+    app.get(SIGN_IN_REPLY_ELIGIBILITY),
+    waitlist,
+  );
+  expect(await restarted.processAvailable()).toBe(0);
   expect(transport.send).toHaveBeenCalledTimes(1);
   const statistics = await command("statistics.read", { broadcastId });
   expect(statistics.json()).toMatchObject({
@@ -352,18 +356,16 @@ test("current stop after snapshot suppresses notification without resetting the 
   expect(
     (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
   ).toBe(200);
-  await app
-    .get(MarketingEntry)
-    .setPreference(
-      {
-        botIdentity: "inside",
-        telegramUserId: "42",
-        privateChatId: "42",
-        updateId: "99",
-        observedAt: instant,
-      },
-      false,
-    );
+  await app.get(MarketingEntry).setPreference(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "99",
+      observedAt: instant,
+    },
+    false,
+  );
   expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
   const statistics = await command("statistics.read", { broadcastId });
@@ -383,4 +385,64 @@ test("a changed local verified identity is never substituted into the snapshot",
     .execute();
   expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
   expect(transport.send).not.toHaveBeenCalled();
+});
+
+test("confirmed Telegram block is reported as failure and never retried", async () => {
+  const broadcastId = await prepared();
+  expect(
+    (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+  ).toBe(200);
+  transport.send.mockResolvedValueOnce({
+    kind: "api_rejected",
+    providerErrorCode: 403,
+  });
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(transport.send).toHaveBeenCalledTimes(1);
+  expect(
+    (await command("statistics.read", { broadcastId })).json(),
+  ).toMatchObject({
+    statistics: { blocked: 1, deliveries: { failed: 1, sent: 0 } },
+  });
+});
+test("ordinary broadcasts remain pending while the explicitly launched waitlist can dispatch", async () => {
+  const broadcastId = await prepared();
+  const all = randomUUID();
+  const parts = [
+    {
+      partId: randomUUID(),
+      content: {
+        type: "text",
+        text: "Ordinary marketing",
+        entities: [],
+        buttons: [],
+      },
+    },
+  ];
+  expect(
+    (
+      await command("broadcasts.save", {
+        broadcastId: all,
+        audience: { kind: "all" },
+        parts,
+        scheduledAt: null,
+      })
+    ).statusCode,
+  ).toBe(200);
+  expect(
+    (await command("broadcasts.launch", { broadcastId: all }, 1)).statusCode,
+  ).toBe(200);
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  const launches = await Promise.all([
+    command("broadcasts.launch", { broadcastId }, 1),
+    command("broadcasts.launch", { broadcastId }, 1),
+  ]);
+  expect(launches.map((response) => response.statusCode).sort()).toEqual([
+    200, 409,
+  ]);
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(transport.send).toHaveBeenCalledTimes(1);
+  expect(
+    (await command("statistics.read", { broadcastId: all })).json(),
+  ).toMatchObject({ statistics: { deliveries: { sent: 0, pending: 1 } } });
 });

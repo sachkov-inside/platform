@@ -84,9 +84,9 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   try {
-    await app?.close();
+    await app.close();
   } finally {
-    await db?.dispose();
+    await db.dispose();
   }
 });
 function request(body: object, authorization = `Bearer ${secret}`) {
