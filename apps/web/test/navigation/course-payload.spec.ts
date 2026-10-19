@@ -202,3 +202,41 @@ for (const version of ["v1", "v2", "v3"] as const) {
     expect(errors).toEqual([]);
   });
 }
+
+test("course canvas resizes its backing store when only slot height changes", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/products/performance-course");
+  const canvas = page.locator(".aie-film canvas").first();
+  await expect(canvas).toBeVisible();
+  for (const ratio of ["2 / 1", "1 / 1", "3 / 2"]) {
+    await canvas.evaluate((element, aspectRatio) => {
+      const slot = element.parentElement;
+      if (slot === null) throw new Error("Missing film slot");
+      slot.style.aspectRatio = aspectRatio;
+    }, ratio);
+    await expect
+      .poll(() =>
+        canvas.evaluate((element: HTMLCanvasElement) => {
+          const dpr = Math.min(
+            window.devicePixelRatio > 0 ? window.devicePixelRatio : 1,
+            2,
+          );
+          const context = element.getContext("2d");
+          if (context === null) return false;
+          const transform = context.getTransform();
+          return (
+            element.width === Math.round(element.clientWidth * dpr) &&
+            element.height === Math.round(element.clientHeight * dpr) &&
+            Math.abs(transform.a - transform.d) < 0.001 &&
+            transform.e >= -0.001 &&
+            transform.f >= -0.001 &&
+            transform.e + 960 * transform.a <= element.width + 0.001 &&
+            transform.f + 640 * transform.d <= element.height + 0.001
+          );
+        }),
+      )
+      .toBe(true);
+  }
+});

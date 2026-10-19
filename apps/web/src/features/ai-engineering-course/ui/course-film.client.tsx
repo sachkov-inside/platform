@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   DEFAULT_PALETTE,
   FILM_WIDTH,
+  FILM_HEIGHT,
   type FilmFonts,
   type FilmPalette,
 } from "../model/film-kit";
@@ -163,12 +164,27 @@ export function CourseFilm({
       );
       const width = element.clientWidth;
       const height = element.clientHeight;
-      if (element.width !== Math.round(width * dpr)) {
-        element.width = Math.round(width * dpr);
-        element.height = Math.round(height * dpr);
+      const pixelWidth = Math.round(width * dpr);
+      const pixelHeight = Math.round(height * dpr);
+      if (element.width !== pixelWidth || element.height !== pixelHeight) {
+        element.width = pixelWidth;
+        element.height = pixelHeight;
       }
-      const scale = (dpr * width) / FILM_WIDTH;
-      g.setTransform(scale, 0, 0, scale, 0, 0);
+      // Fit the authored frame without distortion, including height-only slot changes.
+      const scale = Math.min(
+        pixelWidth / FILM_WIDTH,
+        pixelHeight / FILM_HEIGHT,
+      );
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.clearRect(0, 0, pixelWidth, pixelHeight);
+      g.setTransform(
+        scale,
+        0,
+        0,
+        scale,
+        (pixelWidth - FILM_WIDTH * scale) / 2,
+        (pixelHeight - FILM_HEIGHT * scale) / 2,
+      );
       filmRef.current.draw(g, time.current, fonts, palette);
     };
     const resize = new ResizeObserver(paint);

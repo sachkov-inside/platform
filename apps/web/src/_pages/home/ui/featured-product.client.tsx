@@ -63,6 +63,7 @@ function AiEngineeringFeaturedProduct({
         <h2 id="featured-title">
           <IntentPrefetchLink href={href}>{series.name}</IntentPrefetchLink>
         </h2>
+        <p className="home-course-description">{series.hero.lead}</p>
         <div className="home-course-call">
           {courseCall ?? (
             <IntentPrefetchLink href={href} className="home-course-open">
