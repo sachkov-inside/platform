@@ -175,6 +175,15 @@ export const RealDataReady: Story = {
       canvas.queryByText("Что даёт подписка"),
     ).not.toBeInTheDocument();
     await expect(canvas.queryByText("База знаний")).not.toBeInTheDocument();
+    await waitFor(async () => {
+      const avatars = canvasElement.querySelectorAll<HTMLImageElement>(
+        'img[src="/images/sachkov-dev-avatar.webp"]',
+      );
+      await expect(avatars.length).toBeGreaterThan(0);
+      for (const avatar of avatars) {
+        await expect(avatar.naturalWidth).toBe(120);
+      }
+    });
   },
 };
 /**
