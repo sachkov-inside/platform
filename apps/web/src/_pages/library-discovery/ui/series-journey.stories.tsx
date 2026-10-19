@@ -1443,6 +1443,77 @@ export const InfiniteScroll: Story = {
   },
 };
 
+/** The continuation must follow loaded lessons, even with future chapters below them. */
+export const EarlyLessonReveal: Story = {
+  args: {
+    result: {
+      ...result,
+      chapters: [
+        {
+          id: "early-first",
+          name: "Первая глава",
+          summary: "",
+          materialIds: materials
+            .slice(0, 8)
+            .flatMap((item) =>
+              item.materialId === undefined ? [] : [item.materialId],
+            ),
+        },
+        {
+          id: "early-second",
+          name: "Вторая глава",
+          summary: "",
+          materialIds: materials
+            .slice(8)
+            .flatMap((item) =>
+              item.materialId === undefined ? [] : [item.materialId],
+            ),
+        },
+        ...Array.from({ length: 6 }, (_, index) => ({
+          id: `future-${String(index)}`,
+          name: `Будущая глава ${String(index + 3)}`,
+          summary:
+            "Материалы этой главы готовятся. Здесь появятся следующие темы и практика курса.",
+          materialIds: [],
+        })),
+      ],
+    },
+    learning: { kind: "guest" },
+  },
+  play: async ({ canvasElement }) => {
+    const rows = () =>
+      canvasElement.querySelectorAll<HTMLElement>("[data-series-ordinal]");
+    await expect(rows()).toHaveLength(12);
+    const last = rows()[11];
+    if (last === undefined) throw new Error("Missing last loaded lesson");
+    const main = last.closest("main");
+    last.scrollIntoView({ block: "end" });
+    if (main !== null && getComputedStyle(main).overflowY === "auto") {
+      main.scrollTop -= 320;
+    } else {
+      window.scrollBy(0, -320);
+    }
+    const edge =
+      main !== null && getComputedStyle(main).overflowY === "auto"
+        ? main.getBoundingClientRect().bottom
+        : window.innerHeight;
+    await expect(last.getBoundingClientRect().bottom).toBeGreaterThan(
+      edge + 150,
+    );
+    await waitFor(async () => {
+      await expect(rows()).toHaveLength(24);
+    });
+    await expect(
+      canvasElement.querySelectorAll(".course-preparing-chapter[open]"),
+    ).toHaveLength(0);
+  },
+};
+
+export const EarlyLessonRevealMobile: Story = {
+  ...EarlyLessonReveal,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
 export const PartSwitchClearsContinuationPosition: Story = {
   args: {
     result: chapteredResult,
@@ -1454,12 +1525,16 @@ export const PartSwitchClearsContinuationPosition: Story = {
     ).toHaveLength(24);
     await openPart(canvasElement, /^Материалы/u);
     await openPart(canvasElement, /Программа/u);
-    await expect(
-      canvasElement.querySelectorAll("[data-series-ordinal]"),
-    ).toHaveLength(12);
-    await expect(
-      canvasElement.querySelector('[data-series-ordinal="1"]'),
-    ).toBeVisible();
+    const first = canvasElement.querySelector<HTMLElement>(
+      '[data-series-ordinal="1"]',
+    );
+    if (first === null)
+      throw new Error("Missing first lesson after part switch");
+    // The early buffer may already reveal another batch; switching still returns to the start.
+    await expect(first.getBoundingClientRect().top).toBeLessThan(
+      window.innerHeight,
+    );
+    await expect(first.getBoundingClientRect().bottom).toBeGreaterThan(0);
   },
 };
 
@@ -1480,9 +1555,6 @@ export const PartSwitchResetsDesktopScroll: Story = {
     await openPart(canvasElement, /^Материалы/u);
     await openPart(canvasElement, /Программа/u);
     await waitFor(() => expect(content.scrollTop).toBe(0));
-    await expect(
-      canvasElement.querySelectorAll("[data-series-ordinal]"),
-    ).toHaveLength(12);
   },
 };
 
