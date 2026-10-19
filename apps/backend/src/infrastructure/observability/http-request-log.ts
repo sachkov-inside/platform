@@ -4,6 +4,10 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 
 import type { BackendProcess } from "../../config/platform-config.js";
+import type {
+  HttpObservation,
+  TechnicalTelemetry,
+} from "./technical-telemetry.js";
 import { runWithLogContext, writeLog } from "./log.js";
 
 /** Свой идентификатор у каждого запроса: присланный клиентом заголовок не принимается. */
@@ -16,23 +20,48 @@ export const generateRequestId = (): string => randomUUID();
 export function observeHttpRequests(
   fastify: FastifyInstance,
   process: BackendProcess,
+  telemetry?: TechnicalTelemetry,
 ): void {
   const scopes = new WeakMap<FastifyRequest, AsyncResource>();
-  fastify.addHook("onRequest", (request, _reply, done) => {
+  const observations = new WeakMap<FastifyRequest, HttpObservation>();
+  const started = new WeakMap<FastifyRequest, number>();
+  const interrupted = (
+    request: FastifyRequest,
+    outcome: "aborted" | "timeout",
+  ) => {
+    const begin = started.get(request);
+    if (begin !== undefined)
+      observations
+        .get(request)
+        ?.finish(undefined, performance.now() - begin, outcome);
+  };
+  fastify.addHook("onRequest", (request, reply, done) => {
+    started.set(request, performance.now());
+    reply.raw.once("close", () => {
+      if (!reply.raw.writableFinished) interrupted(request, "aborted");
+    });
     const route = request.routeOptions.url;
-    runWithLogContext(
-      {
-        process,
-        requestId: request.id,
-        method: request.method,
-        ...(route === undefined ? {} : { route }),
-      },
-      () => {
-        const scope = new AsyncResource("inside-http-request");
-        scopes.set(request, scope);
-        scope.runInAsyncScope(done);
-      },
-    );
+    const observation = telemetry?.startHttp({
+      method: request.method,
+      ...(route === undefined ? {} : { route }),
+    });
+    if (observation !== undefined) observations.set(request, observation);
+    const enter = () =>
+      runWithLogContext(
+        {
+          process,
+          requestId: request.id,
+          method: request.method,
+          ...(route === undefined ? {} : { route }),
+        },
+        () => {
+          const scope = new AsyncResource("inside-http-request");
+          scopes.set(request, scope);
+          scope.runInAsyncScope(done);
+        },
+      );
+    if (observation === undefined) enter();
+    else observation.run(enter);
   });
   // Тело запроса читается из событий сокета, и контекст теряется: обработчик получает его обратно.
   fastify.addHook("preValidation", (request, _reply, done) => {
@@ -40,8 +69,17 @@ export function observeHttpRequests(
     if (scope === undefined) done();
     else scope.runInAsyncScope(done);
   });
+  fastify.addHook("onRequestAbort", (request, done) => {
+    interrupted(request, "aborted");
+    done();
+  });
+  fastify.addHook("onTimeout", (request, _reply, done) => {
+    interrupted(request, "timeout");
+    done();
+  });
   fastify.addHook("onResponse", (request, reply, done) => {
     const route = request.routeOptions.url;
+    observations.get(request)?.finish(reply.statusCode, reply.elapsedTime);
     // Проверки здоровья опрашивает оркестратор; в журнал попадает только их отказ.
     if (
       reply.statusCode >= 500 ||
