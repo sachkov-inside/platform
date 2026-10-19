@@ -26,6 +26,7 @@ async function boundedFact(fact) {
   try {
     /** @type {Promise<never>} */
     const deadline = new Promise((_, reject) => {
+      // deterministic-test-allow duration-wait: bound the actual child exit fact; finally clears the failure deadline.
       timer = setTimeout(
         () => reject(new Error("fixture process exit deadline")),
         FIXTURE_BUDGET_MS + CHILD_CLEANUP_MS,
@@ -66,6 +67,7 @@ async function ready(report) {
         throw error;
       if (performance.now() >= deadline)
         throw new Error("fixture registration timeout", { cause: error });
+      // deterministic-test-allow duration-wait: poll the external fixture registration file until FIXTURE_BUDGET_MS expires.
       await delay(PROBE_INTERVAL_MS);
     }
   }
@@ -79,6 +81,7 @@ async function cleanupGroup(group) {
   while (processGroupExists(group)) {
     if (performance.now() >= deadline)
       throw new Error("fixture fallback group cleanup timeout");
+    // deterministic-test-allow duration-wait: poll POSIX group absence after SIGKILL until CHILD_CLEANUP_MS expires.
     await delay(PROBE_INTERVAL_MS);
   }
 }
@@ -96,6 +99,7 @@ async function socketClosed(port) {
           resolve(undefined);
         else reject(error);
       });
+      // deterministic-test-allow duration-wait: bound the real socket ECONNREFUSED fact; finally destroys the probe socket.
       socket.setTimeout(CHILD_CLEANUP_MS, () =>
         reject(new Error("socket closure probe timed out")),
       );
