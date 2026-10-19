@@ -96,22 +96,13 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   ).toBeVisible();
   const cabinet = await context.newPage();
   await cabinet.goto("/account");
-  async function openSubscription() {
-    const navigation = cabinet.locator(
-      `[data-account-section-nav="${info.project.name === "mobile-chromium" ? "mobile" : "desktop"}"]`,
-    );
-    if (info.project.name === "mobile-chromium") {
-      const toggle = navigation.getByRole("button", {
-        name: /^Личный кабинет/u,
-      });
-      if ((await toggle.getAttribute("aria-expanded")) !== "true")
-        await toggle.click();
-      await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    }
-    await navigation.getByRole("link", { name: /^Подписка/u }).click();
+  async function expectSubscription() {
+    await expect(
+      cabinet.getByRole("heading", { name: "Подписка", exact: true }),
+    ).toBeVisible();
   }
   await expect(
-    cabinet.getByRole("textbox", { name: "Имя", exact: true }),
+    cabinet.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
   await page
     .getByLabel("Подтверждённая Telegram identity получателя")
@@ -165,8 +156,8 @@ test("owner assigns course tariff and the open cabinet converges through real BF
       has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
     }),
   ).toBeVisible();
-  await openSubscription();
-  await expect(cabinet).toHaveURL(/\/account\/subscription$/u);
+  await expectSubscription();
+  await expect(cabinet).toHaveURL(/\/account$/u);
   const card = cabinet.getByRole("article").filter({
     has: cabinet.getByRole("heading", { name: tierName, exact: true }),
   });
@@ -201,7 +192,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   });
   await expect(otherCard.getByText("Отозвано", { exact: true })).toBeVisible();
   await cabinet.goto("/account");
-  await openSubscription();
+  await expectSubscription();
   await expect(card.getByText("Отозвано", { exact: true })).toBeVisible();
   await changes
     .getByRole("combobox", { name: "Действие" })
