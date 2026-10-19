@@ -78,7 +78,9 @@ export const CancelMenu: Story = {
       const canvas = within(canvasElement);
       await userEvent.click(canvas.getByRole("button"));
       await expect(canvas.getByRole("button")).toBeEnabled();
-      await expect(canvas.getByRole("status")).toBeEmptyDOMElement();
+      await expect(
+        canvas.queryByText("Ссылка скопирована"),
+      ).not.toBeInTheDocument();
       await expect(copy).not.toHaveBeenCalled();
     } finally {
       copy.mockRestore();

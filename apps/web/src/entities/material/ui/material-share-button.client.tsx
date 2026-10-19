@@ -67,7 +67,7 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
         <Share2 aria-hidden="true" className="size-4 shrink-0" />
         Поделиться
       </Button>
-      <span role="status" className="text-xs text-muted-foreground">
+      <span aria-live="polite" className="text-xs text-muted-foreground">
         {current === null
           ? null
           : current.copied

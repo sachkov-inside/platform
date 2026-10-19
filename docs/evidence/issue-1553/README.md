@@ -4,6 +4,7 @@ Production-owned `MaterialShareButton` используется карточка
 
 - [Карточки, desktop](share-cards-1440.png)
 - [Карточки, mobile](share-cards-390.png)
+- [Ручное копирование, mobile](share-manual-390.png)
 
 В браузере WebKit выполнены play-сценарии CopyLink, NativeMenu, CancelMenu, ManualCopy и NativeUnavailable: постоянный URL, отмена без копирования и выделение ручного адреса. Нативный share подменён; реальные сообщения не отправлялись. Проверка axe WCAG 2 A/AA и 2.1 AA карточек и Reader на 1440/390 px: 0 нарушений, без горизонтального переполнения. Desktop-story Reader при принудительной ширине 390 px ожидаемо имеет desktop-only assertion о размере заголовка; для подтверждения мобильного Reader открыта его отдельная Mobile-story.
 
