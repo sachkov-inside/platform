@@ -78,7 +78,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def handler(upstream, key_path):
-    opener = urllib.request.build_opener(NoRedirect)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
 
     class QueryHandler(http.server.BaseHTTPRequestHandler):
         def setup(self):

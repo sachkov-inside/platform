@@ -15,7 +15,7 @@ LOCK_BYTES = 131_072
 
 
 def validate_lock(raw):
-    fields = {'schema', 'umami_version', 'upstream_commit', 'checked_at', 'images', 'sources'}
+    fields = {'schema', 'umami_version', 'upstream_commit', 'checked_at', 'images', 'sources', 'postgres_runtime'}
     if not isinstance(raw, dict) or set(raw) != fields or type(raw['schema']) is not int or raw['schema'] != 1:
         raise ValueError('lock_shape')
     def matches(pattern, value):
@@ -24,6 +24,20 @@ def validate_lock(raw):
         raise ValueError('lock_revision')
     if not isinstance(raw['checked_at'], str) or datetime.date.fromisoformat(raw['checked_at']).isoformat() != raw['checked_at']:
         raise ValueError('lock_date')
+    postgres = raw['postgres_runtime']
+    if (not isinstance(postgres, dict) or type(postgres.get('uid')) is not int or type(postgres.get('gid')) is not int
+            or postgres['uid'] != 70 or postgres['gid'] != 70 or postgres.get('pgdata') != '/var/lib/postgresql/data'
+            or postgres.get('pgdata_image_mode') != '1777' or postgres.get('socket_image_mode') != '3777'
+            or not isinstance(postgres.get('proof'), list) or len(postgres['proof']) != 2):
+        raise ValueError('postgres_runtime_contract')
+    architectures = set()
+    for proof in postgres['proof']:
+        if (not isinstance(proof, dict) or set(proof) != {'architecture', 'manifest', 'config'}
+                or proof['architecture'] not in ('amd64','arm64') or proof['architecture'] in architectures
+                or not matches(r'sha256:[0-9a-f]{64}', proof['manifest'])
+                or not matches(r'sha256:[0-9a-f]{64}', proof['config'])):
+            raise ValueError('postgres_runtime_proof')
+        architectures.add(proof['architecture'])
     images = raw['images']
     if not isinstance(images, dict) or set(images) != {'umami', 'postgres', 'python'}:
         raise ValueError('lock_images')
@@ -76,12 +90,17 @@ REVOKE CONNECT ON DATABASE template1 FROM PUBLIC;
 """
     (output / 'init.sql').write_text(init)
     (output / 'reader.key').write_text('')
-    app_env = {'DATABASE_URL': f'postgresql://umami:{password}@db:5432/umami?connection_limit=5', 'APP_SECRET': secrets.token_hex(32), 'TWO_FACTOR_ENCRYPTION_KEY': secrets.token_hex(32), 'PRIVATE_MODE': '1', 'DISABLE_TELEMETRY': '1', 'DISABLE_UPDATES': '1', 'NEXT_TELEMETRY_DISABLED': '1', 'MCP_ENABLED': '1', 'SALT_ROTATION': 'month', 'HOSTNAME': '0.0.0.0'}
+    key_owner = (output / 'reader.key').stat()
+    app_env = {'DATABASE_URL': f'postgresql://umami:{password}@db:5432/umami', 'APP_SECRET': secrets.token_hex(32), 'TWO_FACTOR_ENCRYPTION_KEY': secrets.token_hex(32), 'PRIVATE_MODE': '1', 'DISABLE_TELEMETRY': '1', 'DISABLE_UPDATES': '1', 'NEXT_TELEMETRY_DISABLED': '1', 'MCP_ENABLED': '1', 'SALT_ROTATION': 'month', 'HOSTNAME': '0.0.0.0'}
     plan = {'services': {
-        'db': {'image': lock['images']['postgres'], 'environment': {'POSTGRES_USER': 'pilot_bootstrap', 'POSTGRES_PASSWORD': bootstrap}, 'volumes': [str(output / 'init.sql') + ':/docker-entrypoint-initdb.d/10-umami.sql:ro', 'database:/var/lib/postgresql/data'], 'networks': ['private'], 'mem_limit': '512m', 'cpus': '0.5', 'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -U pilot_bootstrap -d postgres'], 'interval': '2s', 'timeout': '2s', 'retries': 30}},
+        'db': {'user':str(lock['postgres_runtime']['uid']) + ':' + str(lock['postgres_runtime']['gid']), 'cap_drop':['ALL'], 'security_opt':['no-new-privileges:true'], 'image': lock['images']['postgres'], 'environment': {'POSTGRES_USER': 'pilot_bootstrap', 'POSTGRES_PASSWORD': bootstrap}, 'volumes': ['database:/var/lib/postgresql/data'], 'networks': ['private'], 'mem_limit': '512m', 'cpus': '0.5', 'healthcheck': {'test': ['CMD-SHELL', 'pg_isready -U pilot_bootstrap -d postgres'], 'interval': '2s', 'timeout': '2s', 'retries': 30}},
         'umami': {'image': lock['images']['umami'], 'environment': app_env, 'depends_on': {'db': {'condition': 'service_healthy'}}, 'networks': ['private'], 'mem_limit': '1g', 'cpus': '1', 'init': True},
-        'query': {'init': True, 'image': lock['images']['python'], 'command': ['python', '/pilot/gateway.py', '--key-file', '/private/reader.key'], 'volumes': [str(ROOT / 'scripts/observability-umami') + ':/pilot:ro', str(output / 'reader.key') + ':/private/reader.key:ro'], 'ports': ['127.0.0.1:13301:3001'], 'networks': ['private'], 'mem_limit': '64m', 'cpus': '0.25', 'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'], 'environment': {'PYTHONDONTWRITEBYTECODE': '1'}}}, 'networks': {'private': {'internal': True}}, 'volumes': {'database': {}}}
+        'query': {'user':str(key_owner.st_uid) + ':' + str(key_owner.st_gid), 'init': True, 'image': lock['images']['python'], 'command': ['python', '/pilot/gateway.py', '--key-file', '/private/reader.key'], 'volumes': [str(ROOT / 'scripts/observability-umami') + ':/pilot:ro', str(output / 'reader.key') + ':/private/reader.key:ro'], 'ports': ['127.0.0.1:13301:3001'], 'networks': ['private', 'ingress'], 'mem_limit': '64m', 'cpus': '0.25', 'read_only': True, 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'], 'environment': {'PYTHONDONTWRITEBYTECODE': '1'}}}, 'networks': {'private': {'internal': True}, 'ingress': {}}, 'volumes': {'database': {}}}
     for service in plan['services'].values():
+        service.setdefault('cap_drop', ['ALL'])
+        service.setdefault('security_opt', ['no-new-privileges:true'])
+        service['pids_limit'] = 128
+        service['logging'] = {'driver':'json-file', 'options':{'max-size':'5m', 'max-file':'1'}}
         service['dns'] = ['127.0.0.1']
     (output / 'compose.json').write_text(json.dumps(plan, indent=2) + '\n')
     for child in output.iterdir():

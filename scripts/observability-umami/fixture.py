@@ -9,6 +9,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from credentials import credential, native_key
+from gateway import NoRedirect
 
 APP = 'http://umami:3000'
 QUERY = 'http://query:3001'
@@ -50,7 +51,7 @@ def call(base, path, *, token=None, body=None, method=None, expected=200, fields
         headers['Authorization'] = 'Bearer ' + token
     request = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=PROVIDER_TIMEOUT_SECONDS) as response:
+        with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect).open(request, timeout=PROVIDER_TIMEOUT_SECONDS) as response:
             status = response.status
             raw = response.read(RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as error:

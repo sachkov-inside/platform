@@ -1,0 +1,84 @@
+name: Umami functional pilot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/observability-umami.yml
+      - infra/observability/umami/**
+      - infra/observability/pilot/probe.lock.json
+      - scripts/observability-umami/**
+      - scripts/observability-umami*.test.mjs
+      - scripts/observability-pilot/**
+      - scripts/process-group-signal.mjs
+      - scripts/heavy-check.sh
+      - docs/runbooks/observability-umami-pilot.md
+      - .node-version
+
+permissions:
+  contents: read
+
+concurrency:
+  group: umami-pilot-${{ github.event.pull_request.number }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  functional:
+    name: Isolated Umami functional smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pinned host Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - name: Verify local API and process ownership contracts
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh node --test scripts/observability-umami.test.mjs scripts/observability-umami-process.test.mjs
+      - name: Record exact source and measured Docker disk admission
+        timeout-minutes: 1
+        run: >-
+          python3 scripts/observability-umami/hosted.py admission
+          --output "$RUNNER_TEMP/inside-umami-private"
+          --metadata "$RUNNER_TEMP/inside-umami-metadata"
+          --public "$RUNNER_TEMP/inside-umami-public"
+      - name: Run synthetic Umami through external supervisor
+        timeout-minutes: 20
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-umami/runtime.py run
+          --output "$RUNNER_TEMP/inside-umami-private"
+      - name: Recover only registered project on the same daemon
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-umami/hosted.py recover
+          --output "$RUNNER_TEMP/inside-umami-private"
+          --metadata "$RUNNER_TEMP/inside-umami-metadata"
+          --public "$RUNNER_TEMP/inside-umami-public"
+      - name: Collect explicit public evidence whitelist
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 scripts/observability-umami/hosted.py collect
+          --output "$RUNNER_TEMP/inside-umami-private"
+          --metadata "$RUNNER_TEMP/inside-umami-metadata"
+          --public "$RUNNER_TEMP/inside-umami-public"
+      - name: Upload curated evidence
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: umami-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/inside-umami-public
+          if-no-files-found: warn
+          retention-days: 7
