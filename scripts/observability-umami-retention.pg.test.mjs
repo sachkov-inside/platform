@@ -78,7 +78,7 @@ function encodedRows(value) {
     .join("\n");
 }
 
-// deterministic-test-allow integration: dedicated Testcontainers database, bounded queries, no app/foreign stand.
+// Integration contract: dedicated Testcontainers database, bounded queries, no app/foreign stand.
 test(
   "pinned Umami SQL drains bounded batches, preserves boundary/concurrent data and fails closed on locks",
   { timeout: FIXTURE_MILLISECONDS },
@@ -94,7 +94,10 @@ test(
       .withDatabase("postgres")
       .withResourcesQuota({ memory: 0.5, cpu: 0.5 })
       .withStartupTimeout(PG_STARTUP_MILLISECONDS)
-      .start();
+      .start()
+      .catch(() => {
+        throw new Error("schema-only retention PostgreSQL acquisition failed");
+      });
     /** @type {InstanceType<typeof Client>[]} */
     const clients = [];
     /** @param {string} connectionString */
@@ -108,6 +111,9 @@ test(
       await client.connect();
       return client;
     }
+    /** @type {string | undefined} */
+    let failureStage;
+    let cleanupFailed = false;
     try {
       stage = "isolated-role";
       const bootstrap = await connect(container.getConnectionUri());
@@ -226,9 +232,7 @@ test(
       await assert.rejects(forbidden.query(sql));
     } catch {
       // Neither pg errors nor connection URIs/passwords enter logs/artifacts.
-      throw new Error(
-        "schema-only retention PostgreSQL proof failed at " + stage,
-      );
+      failureStage = stage;
     } finally {
       const closed = await Promise.allSettled(
         clients.map((client) => client.end()),
@@ -240,13 +244,18 @@ test(
           removeVolumes: true,
         }),
       ]);
-      if (
-        [...closed, ...stopped].some((result) => result.status === "rejected")
-      ) {
-        throw new Error(
-          "schema-only retention owned PostgreSQL cleanup failed",
-        );
-      }
+      cleanupFailed = [...closed, ...stopped].some(
+        (result) => result.status === "rejected",
+      );
     }
+    if (cleanupFailed)
+      throw new Error(
+        "schema-only retention owned PostgreSQL cleanup failed" +
+          (failureStage ? " after " + failureStage : ""),
+      );
+    if (failureStage !== undefined)
+      throw new Error(
+        "schema-only retention PostgreSQL proof failed at " + failureStage,
+      );
   },
 );
