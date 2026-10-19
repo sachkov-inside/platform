@@ -53,6 +53,8 @@ import { createMigratedTestDatabase } from "./setup/test-database.js";
 import { finishFixtureCleanup } from "./setup/queue-telemetry-process.js";
 
 const RECOVERY_FACT_BUDGET_MS = 25_000;
+// A past HTTP-date requests immediate real OTLP retries without clocks, jitter or timeout overrides.
+const IMMEDIATE_RETRY_HTTP_DATE = "Thu, 01 Jan 1970 00:00:00 GMT";
 // Includes owned broker startup and six serial process start/reap boundaries plus durable fact waits.
 const PUBLICATION_RECOVERY_BUDGET_MS = 240_000;
 const spanSchema = z.looseObject({
@@ -854,7 +856,9 @@ for (const mode of ["off", "export-failure"] as const) {
           });
           request.on("end", () => {
             wire.push(body);
-            response.writeHead(503);
+            response.writeHead(503, {
+              "Retry-After": IMMEDIATE_RETRY_HTTP_DATE,
+            });
             response.end("private-collector-error-sentinel");
           });
         });
@@ -1004,9 +1008,23 @@ for (const mode of ["off", "export-failure"] as const) {
           RECOVERY_FACT_BUDGET_MS,
         );
         await worker.runJob(() => notifications.sweep());
+        expect(await database.prisma.materialNotificationOutbox.count()).toBe(
+          1,
+        );
         expect(
-          await database.prisma.notificationInbox.findFirstOrThrow(),
+          await database.prisma.materialNotificationOutbox.findFirstOrThrow(),
         ).toMatchObject({
+          ...source,
+          publishedAt: expect.any(Date) as unknown,
+          attempts: 0,
+          lastFailure: null,
+        });
+        expect(await database.prisma.notificationInbox.count()).toBe(1);
+        const inbox =
+          await database.prisma.notificationInbox.findFirstOrThrow();
+        expect(inbox).toMatchObject({
+          scope: source.scope,
+          messageId: source.messageId,
           completedAt: expect.any(Date) as unknown,
           digest: source.digest,
           payload: source.payload,
@@ -1016,11 +1034,75 @@ for (const mode of ["off", "export-failure"] as const) {
         await app.close();
         if (mode === "off") expect(wire).toEqual([]);
         else {
+          // A retry resends the same OTLP payload, not another business operation.
+          const tracePayloadAttempts = new Map<string, number>();
+          const logicalSpans = new Map<string, z.infer<typeof spanSchema>>();
+          for (const payload of wire) {
+            const spans = exportedSpans([payload]);
+            if (spans.length === 0) continue;
+            tracePayloadAttempts.set(
+              payload,
+              (tracePayloadAttempts.get(payload) ?? 0) + 1,
+            );
+            const identities = spans.map(
+              (span) => `${span.traceId}/${span.spanId}`,
+            );
+            expect(new Set(identities).size).toBe(spans.length);
+            for (const span of spans) {
+              const identity = `${span.traceId}/${span.spanId}`;
+              const previous = logicalSpans.get(identity);
+              if (previous !== undefined) expect(span).toEqual(previous);
+              logicalSpans.set(identity, span);
+            }
+          }
+          // The fixed Retry-After must exercise the pinned transport, not merely allow duplicates.
+          expect(tracePayloadAttempts.size).toBeGreaterThan(0);
+          for (const attempts of tracePayloadAttempts.values())
+            expect(attempts).toBeGreaterThan(1);
+          const observed = [...logicalSpans.values()];
+          expect(observed.map((span) => span.name).sort()).toEqual([
+            "PUT /authoring/materials/:materialId",
+            "audience materials",
+            "publish materials",
+            "receive materials",
+          ]);
           expect(
-            exportedSpans(wire).filter((span) =>
-              span.name.endsWith(" materials"),
+            observed.every(
+              (span) => span.traceId === source.traceparent?.split("-")[1],
             ),
-          ).toHaveLength(3);
+          ).toBe(true);
+          const publish = observed.find(
+            (span) => span.name === "publish materials",
+          );
+          const receive = observed.find(
+            (span) => span.name === "receive materials",
+          );
+          const audience = observed.find(
+            (span) => span.name === "audience materials",
+          );
+          expect(publish?.parentSpanId).toBe(source.traceparent?.split("-")[2]);
+          expect(receive?.parentSpanId).toBe(publish?.spanId);
+          expect(inbox.traceparent?.split("-")[2]).toBe(receive?.spanId);
+          expect(audience?.parentSpanId).toBe(receive?.spanId);
+          // OTLP protobuf kinds are one-based, unlike the OpenTelemetry API enum.
+          for (const [span, operation, kind] of [
+            [publish, "publish", 4],
+            [receive, "receive", 5],
+            [audience, "audience", 1],
+          ] as const) {
+            expect(span).toMatchObject({ kind });
+            expect(span?.["attributes"]).toEqual([
+              { key: "messaging.system", value: { stringValue: "rabbitmq" } },
+              {
+                key: "messaging.destination.name",
+                value: { stringValue: "inside.events.materials.v1" },
+              },
+              {
+                key: "messaging.operation.name",
+                value: { stringValue: operation },
+              },
+            ]);
+          }
           expect(worker.diagnostics().failedTraceExports).toBeGreaterThan(0);
           expect(worker.diagnostics().failedMetricExports).toBeGreaterThan(0);
           expect(
