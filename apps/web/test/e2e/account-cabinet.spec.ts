@@ -471,6 +471,7 @@ test("возврат во вкладку не прячет продолжени�
         record.learningContinuationLost = true;
       }
     }).observe(document.body, { childList: true, subtree: true });
+    window.dispatchEvent(new Event("visibilitychange"));
     window.dispatchEvent(new Event("focus"));
   });
 
