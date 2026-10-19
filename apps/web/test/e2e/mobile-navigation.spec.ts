@@ -341,7 +341,7 @@ test("a newer tab selection wins over an unfinished route request", async ({
   ).toHaveCount(0);
 });
 
-test("changing account identity clears remembered tabs and the old Profile form", async ({
+test("changing account identity clears remembered tabs and the previous account email", async ({
   page,
 }) => {
   let accountId = "11111111-1111-4111-8111-111111111111";
@@ -363,6 +363,18 @@ test("changing account identity clears remembered tabs and the old Profile form"
       },
     });
   });
+  await page.route("**/api/account/billing/contact", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        contact: null,
+        documents: [],
+        initialEmail: accountId.startsWith("1111")
+          ? "first@example.com"
+          : "second@example.com",
+      },
+    }),
+  );
   await page.route(materialCatalogRequests, (route) =>
     route.fulfill({
       json: {
@@ -387,8 +399,9 @@ test("changing account identity clears remembered tabs and the old Profile form"
   );
   await navigation(page).getByRole("button", { name: "Аккаунт" }).click();
   await page.getByRole("menuitem", { name: "Личный кабинет" }).click();
-  const name = page.getByRole("textbox", { name: "Имя", exact: true });
-  await name.fill("Старый аккаунт");
+  await expect(
+    page.getByText("first@example.com", { exact: true }),
+  ).toBeVisible();
   await expect(homeLink(page)).toHaveAttribute("href", /topic=platform/u);
   const before = accountRequests;
   accountId = "22222222-2222-4222-8222-222222222222";
@@ -396,7 +409,12 @@ test("changing account identity clears remembered tabs and the old Profile form"
     window.dispatchEvent(new Event("focus"));
   });
   await expect.poll(() => accountRequests).toBeGreaterThan(before);
-  await expect(name).toHaveValue("");
+  await expect(
+    page.getByText("second@example.com", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("first@example.com", { exact: true }),
+  ).toHaveCount(0);
   await expect(homeLink(page)).toHaveAttribute("href", "/");
   await homeLink(page).click();
   await expect(topicChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
