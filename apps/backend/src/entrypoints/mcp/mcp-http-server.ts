@@ -1,3 +1,4 @@
+import { type QueueDiagnostics } from "./queue-diagnostics.js";
 import type { SalesFunnel } from "../../modules/sales-funnel/index.js";
 import type { PaymentDiagnostics } from "../../modules/billing/index.js";
 import type { WebTelemetry } from "../../modules/web-telemetry/index.js";
@@ -59,6 +60,7 @@ export function createMcpHttpServer(dependencies: {
   readonly telemetry: Pick<WebTelemetry, "summary">;
   readonly billing: BillingOwnerTools;
   readonly diagnostics: Pick<PaymentDiagnostics, "read">;
+  readonly queues: Pick<QueueDiagnostics, "read">;
   readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
   readonly config: McpConfig;
   readonly identityIssuer: string;
@@ -82,6 +84,7 @@ export function createMcpHttpServer(dependencies: {
         billing: dependencies.billing,
         diagnostics: dependencies.diagnostics,
         funnel: dependencies.funnel,
+        queues: dependencies.queues,
         telemetry: dependencies.telemetry,
         communications: dependencies.communications,
         videos: dependencies.videos,

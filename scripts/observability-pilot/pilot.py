@@ -25,6 +25,7 @@ import urllib.request
 import uuid
 import zipfile
 import orbstack
+import daemon
 from storage_policy import admission as check_disk, assert_budget
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -171,10 +172,10 @@ def downloaded_asset(asset):
     return archive
 
 
-def stdio_probe(executable, environment, tool, arguments, marker):
+def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None):
     """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
     # Stay in the owned worker group so its external supervisor also catches a killed worker.
-    process = subprocess.Popen([str(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    process = subprocess.Popen(argv or [str(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL, env=environment)
     buffered = b""
 
@@ -221,6 +222,8 @@ def stdio_probe(executable, environment, tool, arguments, marker):
         result = rpc(3, "tools/call", {"name": tool, "arguments": arguments})
         if not isinstance(result, dict) or result.get("isError") or marker not in json.dumps(result):
             raise RuntimeError("native MCP failed to return known fixture")
+        if validate_result is not None:
+            validate_result(result)
         return {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
     finally:
         try:
@@ -330,8 +333,8 @@ def _raw_command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
 
 def assert_docker_identity():
     if FROZEN_DOCKER_IDENTITY is not None:
-        current = orbstack.identify(lambda args: _raw_command(args, timeout=orbstack.IDENTITY_COMMAND_TIMEOUT_SECONDS),
-                                   home=Path.home())
+        read = lambda args: _raw_command(args, timeout=orbstack.IDENTITY_COMMAND_TIMEOUT_SECONDS)
+        current = daemon.identify(read) if FROZEN_DOCKER_IDENTITY.get('platform') == 'linux' else orbstack.identify(read, home=Path.home())
         if current != FROZEN_DOCKER_IDENTITY:
             raise RuntimeError('Docker identity changed; mutations refused, manual owner recovery required')
 
@@ -510,7 +513,7 @@ def smoke(token, output, compose):
             "resource_acceptance": "pending", "application_sdk_propagation": "pending"}
 
 
-def container_states(raw):
+def container_states(raw, *, services=SERVICES):
     """Compose status boundary: retain no commands, environment, labels or error text."""
     try:
         rows = json.loads(raw)
@@ -518,11 +521,11 @@ def container_states(raw):
         rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if isinstance(rows, dict):
         rows = [rows]
-    if not isinstance(rows, list) or len(rows) > len(SERVICES) + 1:
+    if not isinstance(rows, list) or len(rows) > len(services) + 1:
         raise ValueError("unexpected owned container status collection")
     result = []
     for row in rows:
-        if not isinstance(row, dict) or row.get("Service") not in (*SERVICES, "storage-probe"):
+        if not isinstance(row, dict) or row.get("Service") not in (*services, "storage-probe"):
             raise ValueError("unexpected owned container service")
         state = row.get("State")
         health = row.get("Health")
@@ -534,7 +537,7 @@ def container_states(raw):
     return result
 
 
-def cleanup_project(compose, output, project, *, docker=("docker",)):
+def cleanup_project(compose, output, project, *, docker=("docker",), services=SERVICES):
     """Diagnostics may fail; down and both residue checks are independent obligations."""
     result = {}
     def checked_command(args, **kwargs):
@@ -542,7 +545,7 @@ def cleanup_project(compose, output, project, *, docker=("docker",)):
         return command(args, **kwargs)
     try:
         snapshot = checked_command(compose + ["ps", "--all", "--format", "json"])
-        states = container_states(snapshot)
+        states = container_states(snapshot, services=services)
         if not (output / "container-states.json").exists():
             write_json(output / "container-states.json", states)
         result["diagnostics"] = "passed"
@@ -567,7 +570,7 @@ def cleanup_project(compose, output, project, *, docker=("docker",)):
 
 
 def supervise_worker(execute, compose, output, project, *, docker=("docker",),
-                     deadline_seconds=PILOT_DEADLINE_SECONDS):
+                     deadline_seconds=PILOT_DEADLINE_SECONDS, cleanup_services=None):
     """Supervisor stays outside the worker group that owns all acquisition processes."""
     process = None
     status = 1
@@ -616,7 +619,7 @@ def supervise_worker(execute, compose, output, project, *, docker=("docker",),
                         pass
                     process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
             finally:
-                cleanup = cleanup_project(compose, output, project, docker=docker)
+                cleanup = cleanup_project(compose, output, project, docker=docker, **({'services': cleanup_services} if cleanup_services is not None else {}))
                 if (monitor_failed[0] or cleanup['down'] != 'passed' or cleanup['residue'] != 'passed') and status == 0:
                     status = 1
                 write_json(output / 'worker-outcome.json', {'exit_code':status,
@@ -628,19 +631,81 @@ def supervise_worker(execute, compose, output, project, *, docker=("docker",),
     return status
 
 
-def run(output):
+def validate_recorded_daemon_identity(identity, *, linux):
+    """Validate the current ownership-record format without consulting Docker."""
+    common = {'context', 'endpoint', 'daemon_id', 'storage', 'socket_device', 'socket_inode'}
+    expected = common | ({'platform'} if linux else {'backing'})
+    if not isinstance(identity, dict) or set(identity) != expected:
+        raise ValueError('invalid recorded Docker identity')
+    for key in ('context', 'endpoint', 'daemon_id', 'storage'):
+        value = identity[key]
+        if (not isinstance(value, str) or not 0 < len(value) <= 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+            raise ValueError('invalid recorded Docker identity')
+    if (not identity['endpoint'].startswith('unix:///')
+            or not Path(identity['storage']).is_absolute()
+            or type(identity['socket_device']) is not int or identity['socket_device'] < 0
+            or type(identity['socket_inode']) is not int or identity['socket_inode'] <= 0):
+        raise ValueError('invalid recorded Docker identity')
+    if linux:
+        if identity['platform'] != 'linux':
+            raise ValueError('invalid recorded Docker identity')
+    else:
+        backing = identity['backing']
+        if (identity['context'] != 'orbstack' or identity['storage'] != '/var/lib/docker'
+                or not isinstance(backing, dict) or set(backing) != {'path', 'device', 'inode'}
+                or not isinstance(backing['path'], str) or not 0 < len(backing['path']) <= 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in backing['path'])
+                or not Path(backing['path']).is_absolute()
+                or type(backing['device']) is not int or backing['device'] < 0
+                or type(backing['inode']) is not int or backing['inode'] <= 0):
+            raise ValueError('invalid recorded Docker identity')
+
+
+def restore_daemon(owner):
+    """Require one valid, freshly matched identity before permitting mutation."""
+    global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
+    if not isinstance(owner, dict):
+        raise ValueError('invalid recorded Docker identity')
+    # The unused platform is absent or null; other falsey values are malformed.
+    records = [(name, owner[name]) for name in ('orbstack', 'daemon')
+               if name in owner and owner[name] is not None]
+    if len(records) != 1:
+        raise ValueError('invalid recorded Docker identity: exactly one variant required')
+    name, identity = records[0]
+    linux = name == 'daemon'
+    validate_recorded_daemon_identity(identity, linux=linux)
+    current = daemon.identify(command) if linux else orbstack.identify(command, home=Path.home())
+    if current != identity:
+        raise RuntimeError('Docker recovery identity changed; manual owner inspection required')
+    FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY = current['endpoint'], current
+
+
+def worker_storage_guard(owner, compose, output):
+    restore_daemon(owner)
+    if owner.get('orbstack'):
+        lock = json.loads((CONFIG / 'probe.lock.json').read_text())
+        return orbstack.vm_budget(compose, lock, command, output, docker_args=docker_args)
+    return disk_budget(Path(owner['docker_storage']))
+
+
+def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318, 13000),
+        project_prefix='inside-observability-pilot-', services=None, scope=None, missing=None):
     if command(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
         raise RuntimeError("commit pilot inputs before running; evidence must identify immutable source")
     context = command(["docker", "context", "show"]).strip()
     global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
     mac = None
+    linux = None
     if platform.system() == 'Darwin' and platform.machine() == 'arm64':
         mac = orbstack.identify(command, home=Path.home())
         FROZEN_DOCKER_ENDPOINT = mac['endpoint']
         FROZEN_DOCKER_IDENTITY = mac
         storage = Path(mac['backing']['path'])
     elif platform.system() == 'Linux':
-        storage = Path(command(['docker', 'info', '--format', '{{.DockerRootDir}}']).strip())
+        linux = daemon.identify(command)
+        FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY = linux['endpoint'], linux
+        storage = Path(linux['storage'])
     else:
         raise RuntimeError('Docker storage identification unsupported on this platform/context')
     if not storage.is_absolute() or not storage.is_file() and not storage.is_dir():
@@ -652,34 +717,34 @@ def run(output):
         raise RuntimeError(admission['reason'])
     # Record shared workload but never mutate its services, networks or volumes.
     existing = json.loads(command(["docker", "compose", "ls", "--format", "json"]))
-    for port in (18427, 14318, 13000):
+    for port in ports:
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
-    prepare(output)
+    (prepare_inputs or prepare)(output)
     if mac:
         lock = json.loads((CONFIG / 'probe.lock.json').read_text())
         plan = json.loads((output / 'compose.json').read_text())
         plan['services']['storage-probe'] = orbstack.probe_service(lock, mac['storage'])
         write_json(output / 'compose.json', plan)
-    project = "inside-observability-pilot-" + uuid.uuid4().hex[:12]
+    project = project_prefix + uuid.uuid4().hex[:12]
     compose = ["docker", "compose", "-p", project, "-f", str(output / "compose.json")]
     evidence = {"source": command(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).strip(),
                 "project": project, "disk_admission": admission, "docker_context": context,
                 "foreign_projects": [row.get("Name") for row in existing], "status": "failed",
-                "scope": "synthetic OTLP core compatibility smoke only",
-                "missing": ["Mac native MCP execution", "full accepted resource corpus", "SDK propagation",
+                "scope": scope or "synthetic OTLP core compatibility smoke only",
+                "missing": missing if missing is not None else ["Mac native MCP execution", "full accepted resource corpus", "SDK propagation",
                             "PII/sentinel", "retention/cleanup/restore", "Umami", "production and seven days"]}
     if mac:
         evidence['missing'].append('Mac native MCP CPU measurement')
     write_json(output / "owner.json", {"project": project, "cwd": str(ROOT), "supervisor_pid": os.getpid(),
-                                    "docker_storage": str(storage), "orbstack": mac,
+                                    "docker_storage": str(storage), "orbstack": mac, "daemon": linux,
                                     "cleanup": compose + ["down", "--volumes", "--remove-orphans"]})
     write_json(output / "evidence.json", evidence)
     try:
         guard = orbstack.host_budget(mac, output, command) if mac else nullcontext()
         with guard:
-            status = supervise_worker([sys.executable, str(Path(__file__).resolve()), "worker", "--output", str(output)],
-                                      compose, output, project)
+            status = supervise_worker([sys.executable, str(worker_script or Path(__file__).resolve()), "worker", "--output", str(output)],
+                                      compose, output, project, **({'cleanup_services':services} if services is not None else {}))
         evidence = json.loads((output / "evidence.json").read_text())
         evidence["worker_exit_code"] = status
         if status:
@@ -700,15 +765,8 @@ def run_worker(output):
         raise RuntimeError("pilot worker requires its registered external supervisor")
     compose = ["docker", "compose", "-p", owner["project"], "-f", str(output / "compose.json")]
     token = json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"]
-    global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
     mac = owner.get('orbstack')
-    if mac:
-        FROZEN_DOCKER_ENDPOINT = mac['endpoint']
-        FROZEN_DOCKER_IDENTITY = mac
-        lock = json.loads((CONFIG / 'probe.lock.json').read_text())
-        guard = orbstack.vm_budget(compose, lock, command, output, docker_args=docker_args)
-    else:
-        guard = disk_budget(Path(owner['docker_storage']))
+    guard = worker_storage_guard(owner, compose, output)
     with guard:
         install_plugin(output)
         command(compose + ["config", "--quiet"])

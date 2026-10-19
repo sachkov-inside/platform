@@ -380,6 +380,13 @@ function databaseReferenceViolations(sourceFile, program) {
       ) {
         return [];
       }
+      // The infrastructure reader owns only these fixed pg-boss metadata tables.
+      if (
+        sourcePath === "src/infrastructure/pg-boss-queue-diagnostics.ts" &&
+        ["pgboss.version", "pgboss.queue", "pgboss.job"].includes(reference)
+      ) {
+        return [];
+      }
       if (expectedSchema === undefined) {
         return [
           `${sourcePath}: application schema references must stay inside the owning Module (${reference})`,

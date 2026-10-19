@@ -1,3 +1,4 @@
+import { jobQueues } from "../infrastructure/job-queues.js";
 import "reflect-metadata";
 
 import { NestFactory } from "@nestjs/core";
@@ -25,7 +26,7 @@ import {
 } from "../modules/videos/index.js";
 import { VideoDeletionsWorkerModule } from "./video-deletions-worker/video-deletions-worker.module.js";
 
-const DELETION_QUEUE = "videos.deletions";
+const DELETION_QUEUE = jobQueues.videoDeletions;
 const VIDEO_DELETION_JOB_RETENTION_SECONDS = 86_400;
 const VIDEO_DELETION_JOB_TIMEOUT_SECONDS = 300;
 const VIDEO_DELETION_RETRY_INITIAL_DELAY_SECONDS = 30;

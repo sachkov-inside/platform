@@ -223,3 +223,40 @@ Account ID и username респондентов в этот отчёт не вх
 [SalesFunnel diagnostics](../../apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/read-funnel-diagnostics.ts);
 определения когорты остаются в
 [общем отчёте](../../apps/backend/src/modules/sales-funnel/features/read-funnel-report/read-funnel-report.ts).
+
+### Операционные очереди pg-boss
+
+`operational_queue_diagnostics` в Platform MCP требует актуального `platform:admin` делегированного
+Account. Вход — строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
+бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
+Отчёт читает только инфраструктурные `pgboss.version`, `pgboss.queue`, `pgboss.job` через
+[owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
+Девять известных имён имеют один
+[contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
+не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
+retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
+
+Один `RepeatableRead READ ONLY`-снимок имеет UTC `asOf`, проверяет точную schema version установленного
+pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
+1 s. Объём ответа ограничен девятью очередями и шестью известными states; история не обрезается до
+произвольного числа jobs. Агрегация может сканировать всю сохранённую историю выбранных очередей;
+при превышении бюджета или недоступности источника ответ — `coverage: unknown` и
+`source_unavailable`, при несовместимой версии — `schema_mismatch`. Это не нулевые счётчики.
+Отсутствующая очередь имеет `status: unknown / queue_not_registered`, существующая пустая — нули и
+`oldestBacklogAgeSeconds: null`.
+
+`states` считает сохранённые `created`, `retry`, `active`, `completed`, `cancelled`, `failed`.
+`backlog` — `created + retry`, включая отложенные и blocked задания; `ready` — не blocked с
+`start_after <= asOf`, `scheduled` — не blocked с будущим `start_after`, `blocked` — ожидающие
+зависимости jobs этих двух states. Возраст старейшего backlog считается от `created_on`, включая
+scheduled/blocked. `retrying` — незавершённые `created/retry/active` с `retry_count > 0`;
+`retainedRetryAttempts` суммирует `retry_count` всех сохранённых states. После удаления истории эти
+значения не являются пожизненными totals. Повторная попытка задания не равна повторному внешнему
+платежу. `failed` не доказывает денежную ошибку, а `completed` — успешный внешний эффект.
+
+`workerFreshness: not_proven` и `lastSuccessfulWorkAt: null` остаются даже после успешного запроса:
+текущего durable owner-факта, подтверждающего последнее успешное выполнение/доставку, здесь нет.
+Отчёт не заменяет worker liveness, readiness или source freshness. RabbitMQ, доменные outbox и
+email delivery в этом bounded этапе ещё не покрыты; их отсутствие в отчёте не означает отсутствие
+backlog или ошибок. Настройки сбора, entitlement/business semantics и production-конфигурация этим
+инструментом не меняются.

@@ -1,3 +1,4 @@
+import { jobQueues } from "../infrastructure/job-queues.js";
 import "reflect-metadata";
 
 import { NestFactory } from "@nestjs/core";
@@ -21,7 +22,7 @@ import {
 } from "../modules/member-profiles/index.js";
 import { ProfileAvatarsWorkerModule } from "./profile-avatars-worker/profile-avatars-worker.module.js";
 
-const CLEANUP_QUEUE = "profile-avatars.cleanup";
+const CLEANUP_QUEUE = jobQueues.profileAvatars;
 const CLEANUP_JOB_RETENTION_SECONDS = 86_400;
 const CLEANUP_JOB_TIMEOUT_SECONDS = 300;
 const CLEANUP_RETRY_INITIAL_DELAY_SECONDS = 30;
