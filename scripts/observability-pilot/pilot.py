@@ -383,6 +383,13 @@ def request(path, *, token=None, body=None, method="GET", port=18427):
 class LinkStorageOwnershipError(RuntimeError):
     """An ownership failure stops this corpus, including its remaining ingest/query calls."""
 
+    def __init__(self, *, boundary='ingest_identity', reason='unproved'):
+        super().__init__('link storage ownership unproved; raw diagnostics withheld')
+        self.diagnostic = {
+            'boundary': boundary if boundary in ('ingest_identity','input','fixture','identity_before',
+                'locate','container_id','inspect','owner_match','identity_after') else 'input',
+            'reason': reason if reason in ('unproved','command_timeout','command_failed','io_error','invalid_value') else 'unproved'}
+
 
 def verify_trace_store_logging(output, compose):
     """Unsafe OTLP requires actual owned VT logging=none, not just the intended Compose input."""
@@ -437,6 +444,7 @@ def fixture_trace_rows(compose, fixture):
     import notification_privacy
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     stage = 'ownership'
+    boundary = 'input'
     def read(args):
         remaining = deadline-time.monotonic()
         if remaining <= 0:
@@ -449,18 +457,25 @@ def fixture_trace_rows(compose, fixture):
                 not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', compose[3]) or
                 not Path(compose[5]).is_absolute() or Path(compose[5]).name != 'compose.json'):
             raise ValueError('unregistered storage reader')
+        boundary = 'fixture'
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()}}
         trace_id, limit = queries[fixture]
+        boundary = 'identity_before'
         assert_docker_identity(deadline=deadline)
+        boundary = 'locate'
         container = read(compose+['ps','-q','gateway']).strip()
+        boundary = 'container_id'
         if not re.fullmatch(r'[0-9a-f]{64}', container):
             raise ValueError('ambiguous gateway')
+        boundary = 'inspect'
         labels = read(['docker','inspect','--format',
             '{{index .Config.Labels "com.docker.compose.project"}}|'
             '{{index .Config.Labels "com.docker.compose.service"}}|{{.State.Running}}', container]).strip()
+        boundary = 'owner_match'
         if labels != compose[3]+'|gateway|true':
             raise ValueError('foreign gateway')
+        boundary = 'identity_after'
         assert_docker_identity(deadline=deadline)
         stage = 'query'
         # VT0.12 logsql.ProcessQueryRequest emits every stored column by default.
@@ -472,9 +487,13 @@ def fixture_trace_rows(compose, fixture):
         if len(raw.encode()) > link_privacy.MAX_RESPONSE_BYTES:
             raise ValueError('storage read too large')
         return raw
-    except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError, UnicodeError):
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError, UnicodeError) as error:
         if stage == 'ownership':
-            raise LinkStorageOwnershipError('link storage ownership unproved; raw diagnostics withheld') from None
+            reason = ('command_timeout' if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)) else
+                      'command_failed' if isinstance(error, subprocess.SubprocessError) else
+                      'io_error' if isinstance(error, OSError) else
+                      'invalid_value' if isinstance(error, (ValueError, KeyError)) else 'unproved')
+            raise LinkStorageOwnershipError(boundary=boundary, reason=reason) from None
         raise RuntimeError('fixed link storage read unavailable; raw diagnostics withheld') from None
 
 
@@ -491,7 +510,7 @@ def link_privacy_corpus(output, compose):
             try:
                 assert_docker_identity()
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
-                raise LinkStorageOwnershipError('link ingest ownership unproved') from None
+                raise LinkStorageOwnershipError() from None
             status, _ = request('/v1/traces', body=fixture(time.time_ns()), method='POST', port=14318)
             if status == 200:
                 case['stage'] = 'storage'
@@ -499,8 +518,9 @@ def link_privacy_corpus(output, compose):
                     bool, probe='collector_link_storage_'+transport, output=output)
                 case = {**projected, 'privacy': 'failed' if
                         projected['metadata_present'] or projected['sentinel_present'] else 'passed'}
-        except LinkStorageOwnershipError:
+        except LinkStorageOwnershipError as error:
             case['stage'] = 'ownership'
+            case['storage_failure'] = error.diagnostic
             cases[index] = case
             break
         except (RuntimeError, OSError, ValueError):
