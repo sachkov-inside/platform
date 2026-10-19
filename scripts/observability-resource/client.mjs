@@ -328,16 +328,18 @@ export function metricResult(status, body) {
     : { state: parsed.state, latest_seconds: parsed.value };
 }
 
-const CURRENT_METRIC_QUERY =
+const LEGACY_METRIC_QUERY =
   'max(timestamp({__name__=~"http_server_request_count(_total)?",service_name="platform-api"}))';
+const SDK_METRIC_QUERY =
+  'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?","service.name"="platform-api"}))';
+const MINIMUM_LATENCY_QUERY_ARG = "&latency_offset=1ms";
 const PROBE_QUERIES = {
-  current: CURRENT_METRIC_QUERY,
+  current: LEGACY_METRIC_QUERY,
   normalized:
     'max(timestamp({__name__=~"http_server_request_count(_total)?"}))',
   dotted:
     'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?"}))',
-  dotted_service:
-    'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?","service.name"="platform-api"}))',
+  dotted_service: SDK_METRIC_QUERY,
   receiver:
     'sum({__name__=~"otelcol_receiver_accepted_metric_points(_total)?",job="platform-collector"})',
   exporter:
@@ -420,12 +422,20 @@ async function metricQuery(
   });
 }
 
-/** @param {string} filename */
-async function metric(filename) {
+/** @param {string} filename @param {{host:string,port:number,timeoutMs:number}} [transport] */
+export async function metric(filename, transport = QUERY_TRANSPORT) {
+  if (
+    !Number.isFinite(transport.timeoutMs) ||
+    transport.timeoutMs <= 0 ||
+    transport.timeoutMs > QUERY_BATCH_MS
+  )
+    throw new Error("closed query budget");
   const result = await metricQuery(
     queryKey(filename),
-    CURRENT_METRIC_QUERY,
-    QUERY_TRANSPORT,
+    SDK_METRIC_QUERY,
+    transport,
+    false,
+    MINIMUM_LATENCY_QUERY_ARG,
   );
   return result.value === 0
     ? { state: "unknown", latest_seconds: null }
@@ -519,7 +529,7 @@ export async function latencyProbe(key, started, transport = QUERY_TRANSPORT) {
         false,
         "&time=" +
           String(evaluated) +
-          (name === "immediate" ? "&latency_offset=1ms" : ""),
+          (name === "immediate" ? MINIMUM_LATENCY_QUERY_ARG : ""),
       );
     }
     attempts.push(pair);

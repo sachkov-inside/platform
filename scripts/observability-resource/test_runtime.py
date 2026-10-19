@@ -196,3 +196,17 @@ class Lifecycle(unittest.TestCase):
             self.assertTrue(runtime.sdk_observation({'state':'known','latest_seconds':None},90,'off')['matches_configured_mode'])
         with self.assertRaises(ValueError):
             runtime.sdk_observation({'state':'known','latest_seconds':None,'body':'secret'},90,'off')
+
+    def test_observed_counter_phase_boundary_and_off_never_turn_unknown_into_absence(self):
+        cases = [(95,True,True,False),(90,True,True,False),(89,False,False,True),(None,False,False,True)]
+        with patch.object(runtime.time,'time',return_value=100):
+            for latest,fresh,on_match,off_match in cases:
+                for mode,match in [('on',on_match),('off',off_match)]:
+                    result=runtime.sdk_observation({'state':'known','latest_seconds':latest},90,mode)
+                    self.assertEqual(result['phase_started_seconds'],90)
+                    self.assertEqual(result['fresh_sample_observed'],fresh)
+                    self.assertEqual(result['matches_configured_mode'],match)
+            for mode in ('on','off'):
+                result=runtime.sdk_observation({'state':'unknown','latest_seconds':None},90,mode)
+                self.assertIsNone(result['fresh_sample_observed'])
+                self.assertIsNone(result['matches_configured_mode'])
