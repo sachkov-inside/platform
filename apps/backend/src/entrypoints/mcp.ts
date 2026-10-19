@@ -1,6 +1,9 @@
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { VIDEOS, type Videos } from "../modules/videos/index.js";
-import { BillingOperations } from "../modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../modules/billing/index.js";
 import { Communications } from "../modules/communications/index.js";
 import "reflect-metadata";
 
@@ -60,6 +63,7 @@ async function bootstrap(): Promise<void> {
     videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),
     billing: application.get(BillingOperations),
+    diagnostics: application.get(PaymentDiagnostics),
     telemetry: application.get(WebTelemetry),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,
