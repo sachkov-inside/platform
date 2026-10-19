@@ -564,7 +564,9 @@ test("slow final Platform preflight respects a service sender's current transpor
     (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
   ).toBe(200);
   let finalReadEntered = false;
-  let release: () => void = () => {};
+  let release: () => void = () => {
+    throw new Error("Preflight barrier not initialized");
+  };
   const released = new Promise<void>((resolve) => {
     release = resolve;
   });
