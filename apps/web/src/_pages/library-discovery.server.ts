@@ -1,6 +1,5 @@
-/** Server-only public interface for generated Topic, Series and related Material views. */
+/** Server-only public interface for Product and related Material views. */
 export {
   ProductProgrammePage,
   PublishedSeriesPage,
-  PublishedTopicPage,
 } from "./library-discovery/index.server";

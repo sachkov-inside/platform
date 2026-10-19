@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   productLinkPreview,
   productSocialCard,
-  topicLinkPreview,
-  topicSocialCard,
 } from "@/_pages/library-discovery";
 import {
   materialLinkPreview,
@@ -87,21 +85,6 @@ describe("Карточка публичной ссылки", () => {
     expect(preview.image.url).toBe("/products/platform-inside/social-card");
   });
 
-  it("называет тему темой и объясняет её содержимое, когда описания нет", () => {
-    const preview = topicLinkPreview({
-      ...product,
-      name: "Platform",
-      slug: "platform",
-      summary: " ",
-    });
-
-    expect(preview.canonicalPath).toBe("/topics/platform");
-    expect(preview.title).toBe("Platform — тема");
-    expect(preview.description).toBe(
-      "Опубликованные материалы по теме «Platform» в авторском порядке.",
-    );
-  });
-
   it("даёт главной собственную карточку и название площадки в предпросмотре", () => {
     const metadata = publicPageMetadata(origin, "website", siteLinkPreview());
 
@@ -135,13 +118,6 @@ describe("Содержимое сгенерированной карточки",
     expect(productSocialCard(product)).toEqual({
       eyebrow: "Продукт",
       title: "Создание Platform Inside",
-    });
-
-    const topic = { ...product, name: "Platform", slug: "platform" };
-    expect(topicLinkPreview(topic).title).toBe("Platform — тема");
-    expect(topicSocialCard(topic)).toEqual({
-      eyebrow: "Тема",
-      title: "Platform",
     });
   });
 

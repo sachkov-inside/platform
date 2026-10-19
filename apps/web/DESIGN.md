@@ -248,6 +248,9 @@ Without a cover, the title and public summary lead. For locked or unavailable Ma
 summary is blurred beneath the access badge; protected lesson bodies are never used as teasers.
 Available Materials keep their summary readable.
 
+The full feed card opens the Material through its native title link. Explicit secondary links and
+reading controls keep their own targets and remain above the stretched link.
+
 ### Discovery Copy
 
 Композицию главной и поведение её иллюстрации описывает

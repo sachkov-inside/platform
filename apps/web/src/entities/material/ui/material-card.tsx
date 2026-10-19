@@ -127,7 +127,7 @@ export function MaterialCard({
   ) : null;
   return (
     <article
-      className="home-feed-post min-w-0"
+      className="home-feed-post relative min-w-0"
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="feed"
@@ -164,7 +164,7 @@ export function MaterialCard({
           на телефоне как в программе, на широком экране на ступень крупнее. */}
       <Heading className="mt-3 text-[0.9375rem] font-semibold leading-snug tracking-[-0.02em] sm:mt-4 sm:text-[1.0625rem]">
         <IntentPrefetchLink
-          className="no-underline hover:text-action"
+          className="no-underline hover:text-action after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
           href={readerHref}
         >
           {material.title}
@@ -196,7 +196,7 @@ export function MaterialCard({
       {!hasCover ? (
         link === undefined ? null : (
           <a
-            className="home-feed-link-domain no-underline hover:text-foreground"
+            className="home-feed-link-domain relative z-10 no-underline hover:text-foreground"
             href={link.href}
             target="_blank"
             rel="noopener noreferrer"
@@ -230,7 +230,7 @@ export function MaterialCard({
         </IntentPrefetchLink>
       ) : (
         <a
-          className="home-feed-artwork home-feed-link-preview"
+          className="home-feed-artwork home-feed-link-preview z-10"
           href={link.href}
           target="_blank"
           rel="noopener noreferrer"
@@ -245,7 +245,7 @@ export function MaterialCard({
       )}
       <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
         <IntentPrefetchLink
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
+          className="relative z-10 inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
           href={readerHref}
         >
           {video
@@ -261,7 +261,9 @@ export function MaterialCard({
             {duration}
           </span>
         ) : null}
-        {readingStatus}
+        {readingStatus === undefined ? null : (
+          <div className="relative z-10">{readingStatus}</div>
+        )}
       </div>
     </article>
   );
@@ -351,7 +353,7 @@ function MaterialRow({
           </span>
         ) : null}
         {readingStatus !== undefined ? (
-          <span className="mt-2 flex min-h-6 items-center">
+          <span className="relative z-10 mt-2 flex min-h-6 items-center">
             {readingStatus}
           </span>
         ) : null}

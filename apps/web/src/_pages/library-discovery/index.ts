@@ -1,8 +1,6 @@
 export {
   productLinkPreview,
   productSocialCard,
-  topicLinkPreview,
-  topicSocialCard,
 } from "./model/collection-link-preview";
 export type {
   LibraryDiscoveryKind,
