@@ -21,6 +21,7 @@ import ci
 sys.path.insert(0, str(SCRIPTS))
 import fixture
 import measurements
+import sdk_diagnostics
 import binding
 import profile as resource_profile
 
@@ -137,6 +138,54 @@ def startup_client(output, compose, action, mode, *, timeout=PHASE_SECONDS):
         reason = 'transport' if isinstance(error, (OSError, subprocess.SubprocessError)) else 'invalid_sample' if isinstance(error, ValueError) else 'client_failed'
         binding.write(path, {**record,'state':'client_error','error_type':reason})
         raise
+
+
+def sdk_probe_snapshot(compose):
+    raw = invoke(compose, ['exec','-T','loadgen','node','/resource/client.mjs','metric-probe','/query/key'])
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return sdk_diagnostics.unknown_probe()
+    return sdk_diagnostics.parse_probe(value, now=time.time())
+
+
+def write_sdk_probes(output, records):
+    binding.write(output / 'resource-sdk-diagnostics.json', {'schema':1,
+        'scope':'fixed aggregate snapshots around ON measurement and existing SDK observation; not acceptance, producer attribution or SDK absence proof',
+        'phases':records})
+
+
+def begin_sdk_probe(output, compose, records, *, pair, started):
+    if (type(pair) is not int or pair not in (0,1) or len(records) >= 2
+            or any(record['pair'] == pair for record in records)
+            or type(started) not in (int,float) or not 0 < started <= sdk_diagnostics.MAX_SAFE_INTEGER or not math.isfinite(started)):
+        raise ValueError('closed_sdk_diagnostic_phase')
+    record = {'pair':pair,'mode':'on','phase_started_seconds':started,'state':'before_pending',
+              'before':None,'after':None,'original':None,'facts':None}
+    records.append(record)
+    write_sdk_probes(output, records)
+    try:
+        record.update({'before':sdk_probe_snapshot(compose),'state':'before_measurement'})
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        record.update({'state':'before_failed','error_type':'command_failed'})
+        write_sdk_probes(output, records)
+        raise
+    write_sdk_probes(output, records)
+    return record
+
+
+def finish_sdk_probe(output, compose, records, record, original):
+    try:
+        after = sdk_probe_snapshot(compose)
+        checked = sdk_observation(original, record['phase_started_seconds'], 'on')
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        record.update({'state':'after_failed','error_type':'command_failed'})
+        write_sdk_probes(output, records)
+        raise
+    observation = {key:checked[key] for key in ('state','latest_seconds')}
+    record.update({'after':after,'original':observation,'state':'observed',
+        'facts':sdk_diagnostics.facts(record['before'],after,observation,started=record['phase_started_seconds'])})
+    write_sdk_probes(output, records)
 
 
 def valid_sample(value, *, success_status=200):
@@ -333,6 +382,7 @@ def worker(output):
     stage = 'configuration'
     proof = {'schema':1, 'acceptance':'pending', 'scope':'short proposed synthetic SDK-only comparison', 'pairs':[], 'missing':MISSING}
     binding.write(output / 'resource-proof.json',proof)
+    diagnostic_records = []
     try:
         with pilot.worker_storage_guard(owner, compose, output):
             manifest = resource_profile.load()
@@ -393,11 +443,18 @@ def worker(output):
                     stage = startup_stage('protected-ready', mode)
                     if startup_client(output, compose, 'protected-ready', mode).get('outcome') != 'ok':
                         raise RuntimeError('protected_fixture_readiness')
+                    diagnostic_record = None
+                    if mode == 'on':
+                        stage = 'sdk_diagnostics_before_on'
+                        diagnostic_record = begin_sdk_probe(output, compose, diagnostic_records, pair=pair, started=phase_started)
                     stage = 'measure_' + mode
                     result['modes'][mode] = measure(output, compose, owner['project'])
                     binding.write(output / 'resource-current.json', {'pair':pair,'mode':mode,'measurement':result['modes'][mode]})
                     observation = json.loads(invoke(compose, ['exec','-T','loadgen','node','/resource/client.mjs','metric','/query/key']))
                     result['modes'][mode]['sdk_observation'] = sdk_observation(observation, phase_started, mode)
+                    if diagnostic_record is not None:
+                        stage = 'sdk_diagnostics_after_on'
+                        finish_sdk_probe(output, compose, diagnostic_records, diagnostic_record, observation)
                     binding.write(output / 'resource-proof.json', {**proof, 'partial_pair':result})
                 result['p95_overhead_percent'] = {label: measurements.overhead(result['modes']['off']['samples'], result['modes']['on']['samples'], label) if all(result['modes'][switch]['sdk_observation']['matches_configured_mode'] is True and result['modes'][switch]['client_completed'] and len(result['modes'][switch]['warmup_samples']) == 20 and all(sample['outcome'] == 'ok' for sample in result['modes'][switch]['warmup_samples']) for switch in ('off','on')) else None for label in resource_profile.LABELS}
                 proof['pairs'].append(result)

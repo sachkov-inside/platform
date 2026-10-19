@@ -8,7 +8,7 @@ SCRIPTS = Path(__file__).parent
 MAX_BYTES = 1_048_576
 ARTIFACTS = ('evidence.json','cleanup.json','worker-outcome.json','recovery.json','container-states.json',
              'readiness.json','storage-host.json','storage-vm.json','monitor-failure.json',
-             'startup-client.json','resource-source.json','resource-proof.json','resource-current.json','resource-images.json')
+             'resource-sdk-diagnostics.json','startup-client.json','resource-source.json','resource-proof.json','resource-current.json','resource-images.json')
 
 
 def inputs():
