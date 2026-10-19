@@ -7,27 +7,29 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { TelegramLinkAction } from "@/features/account-access";
 import {
   WaitlistAction,
   type WaitlistState,
-} from "@/features/product-waitlist";
-import {
+  useProductWaitlist,
+  productWaitlistKey,
+  productWaitlistChanges,
+  refreshProductWaitlist,
   beginWaitlistIntent,
   joinWaitlist,
-  readWaitlist,
   withdrawWaitlist,
-} from "../api/product-waitlist.browser";
+} from "@/features/product-waitlist";
 const Context = createContext<{
   state: WaitlistState;
   begin: () => void;
   withdraw: () => void;
   finishLink: () => Promise<void>;
   notice: string;
+  retryingWithdrawal: boolean;
 } | null>(null);
-const syncKey = "inside.product-waitlist.changed";
-/** Owns one query and one mutation lifecycle for both accepted course slots. No optimistic success. */
+type Retry = "join" | "withdraw" | null;
+/** Owns one mutation lifecycle for both course slots; the feature owns the Account-scoped fact. */
 export function WaitlistProvider({
   productId,
   children,
@@ -36,53 +38,67 @@ export function WaitlistProvider({
   readonly children: ReactNode;
 }) {
   const client = useQueryClient();
-  const key = ["product-waitlist", productId] as const;
-  const query = useQuery({
-    queryKey: key,
-    queryFn: () => readWaitlist(productId),
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: "always",
-    retry: false,
-  });
+  const { query, accountId, resolved } = useProductWaitlist(productId);
+  const key = productWaitlistKey(accountId, productId);
   const [phase, setPhase] = useState<WaitlistState | null>(null);
+  const [retry, setRetry] = useState<Retry>(null);
   const [notice, setNotice] = useState("");
   const continued = useRef(false);
-  function notify() {
-    try {
-      localStorage.setItem(syncKey, crypto.randomUUID());
-    } catch {
-      /* Storage is optional; focus still revalidates the server-owned state. */
+  function clearReturnMarker() {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("waitlist")) {
+      url.searchParams.delete("waitlist");
+      window.history.replaceState(null, "", url);
     }
   }
-  function apply(result: Awaited<ReturnType<typeof joinWaitlist>>) {
-    if (result.kind === "saved") {
+  async function apply(
+    result: Awaited<ReturnType<typeof joinWaitlist>>,
+    operation: Exclude<Retry, null>,
+  ) {
+    if (result.kind === "saved" && accountId !== null) {
+      await client.cancelQueries({ queryKey: key });
       client.setQueryData(key, {
         kind: "ready",
         intakeId: result.intakeId,
         name: result.name,
         active: result.active,
+        accountId,
         continuation: false,
       });
       setPhase(null);
+      setRetry(null);
+      clearReturnMarker();
       setNotice(
         result.active
           ? "Вы в списке."
           : "Вы отказались от ожидания. Можно записаться снова.",
       );
-      notify();
-      void client.invalidateQueries({ queryKey: key });
-    } else if (result.kind === "telegram-required") setPhase("linking");
-    else if (result.kind === "expired") setPhase("expired");
-    else setPhase("error");
+      await refreshProductWaitlist(
+        client,
+        accountId,
+        productId,
+        productWaitlistChanges(accountId, productId).announce(),
+      );
+    } else if (result.kind === "telegram-required") {
+      setRetry("join");
+      setPhase("linking");
+    } else if (result.kind === "expired") {
+      setRetry(null);
+      setPhase("expired");
+      clearReturnMarker();
+    } else {
+      setRetry(operation);
+      setPhase("error");
+    }
   }
   const continuation = useMutation({
     mutationFn: () => joinWaitlist(productId),
     onMutate: () => {
       setPhase("saving");
     },
-    onSuccess: apply,
+    onSuccess: (result) => apply(result, "join"),
     onError: () => {
+      setRetry("join");
       setPhase("error");
     },
   });
@@ -99,22 +115,22 @@ export function WaitlistProvider({
         const input = document.createElement("input");
         input.type = "hidden";
         input.name = "returnTo";
-        input.value = "/products/ai-engineering";
+        input.value = result.returnTo;
         form.append(input);
         document.body.append(form);
         form.submit();
         return null;
       }
-      return result.kind === "continue"
-        ? await joinWaitlist(productId)
-        : result;
+      if (result.kind !== "continue") return result;
+      setRetry("join");
+      return await joinWaitlist(productId);
     },
     onMutate: () => {
       setNotice("");
       setPhase("saving");
     },
-    onSuccess: (result) => {
-      if (result !== null) apply(result);
+    onSuccess: async (result) => {
+      if (result !== null) await apply(result, "join");
     },
     onError: () => {
       setPhase("error");
@@ -125,60 +141,55 @@ export function WaitlistProvider({
     onMutate: () => {
       setPhase("saving");
     },
-    onSuccess: apply,
+    onSuccess: (result) => apply(result, "withdraw"),
     onError: () => {
+      setRetry("withdraw");
       setPhase("error");
     },
   });
   const finishLink = async () => {
-    apply(await joinWaitlist(productId));
+    await apply(await joinWaitlist(productId), "join");
   };
   const continueIntent = continuation.mutate;
   useEffect(() => {
     if (
       query.data?.kind === "ready" &&
       query.data.continuation &&
+      phase !== "linking" &&
       !continued.current
     ) {
       continued.current = true;
       continueIntent();
     }
-  }, [query.data, continueIntent]);
-  useEffect(() => {
-    const changed = (event: StorageEvent) => {
-      if (event.key === syncKey) {
-        setPhase(null);
-        void client.invalidateQueries({
-          queryKey: ["product-waitlist", productId],
-        });
-      }
-    };
-    window.addEventListener("storage", changed);
-    return () => {
-      window.removeEventListener("storage", changed);
-    };
-  }, [client, productId]);
+  }, [query.data, continueIntent, phase]);
   const state: WaitlistState =
     phase ??
-    (query.isPending
+    (!resolved
       ? "loading"
-      : query.data?.kind === "unavailable" || query.isError
-        ? "error"
-        : query.data.kind === "ready" && query.data.active
-          ? "success"
-          : "idle");
+      : accountId === null
+        ? "idle"
+        : query.isPending
+          ? "loading"
+          : query.isError || query.data.kind === "unavailable"
+            ? "error"
+            : query.data.kind === "ready" && query.data.active
+              ? "success"
+              : "idle");
   return (
     <Context
       value={{
         state,
         begin: () => {
-          begin.mutate();
+          if (retry === "withdraw") withdraw.mutate();
+          else if (retry === "join") continuation.mutate();
+          else begin.mutate();
         },
         withdraw: () => {
           withdraw.mutate();
         },
         finishLink,
         notice,
+        retryingWithdrawal: retry === "withdraw",
       }}
     >
       {children}
@@ -199,6 +210,7 @@ export function ProductWaitlistSlot({
       onBegin={context.begin}
       onWithdraw={context.withdraw}
       notice={context.notice}
+      retryingWithdrawal={context.retryingWithdrawal}
       linking={<TelegramLinkAction onRefresh={context.finishLink} />}
     />
   );

@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   signWaitlistIntent,
   verifyWaitlistIntent,
-} from "../../src/_pages/library-discovery/model/product-waitlist-intent";
+} from "../../src/features/product-waitlist/model/product-waitlist-intent";
 const now = new Date("2030-03-01T12:00:00Z");
 const key = "test-secret-with-enough-length";
 const input = {

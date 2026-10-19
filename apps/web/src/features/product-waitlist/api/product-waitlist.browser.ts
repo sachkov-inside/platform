@@ -9,16 +9,20 @@ function form(productId: string) {
   data.set("productId", productId);
   return data;
 }
-export async function readWaitlist(productId: string) {
+export async function readWaitlist(
+  productId: string,
+  accountId: string | null,
+  signal?: AbortSignal,
+) {
   const result = await requestAuthenticatedRead(
     `/api/product-waitlist?productId=${encodeURIComponent(productId)}`,
+    signal,
   );
   if (result.kind !== "ready") return { kind: "unavailable" } as const;
-  return (
-    waitlistReadSchema.safeParse(result.value).data ?? {
-      kind: "unavailable" as const,
-    }
-  );
+  const parsed = waitlistReadSchema.safeParse(result.value).data;
+  return parsed?.kind === "ready" && parsed.accountId !== accountId
+    ? { kind: "unavailable" as const }
+    : (parsed ?? { kind: "unavailable" as const });
 }
 export async function beginWaitlistIntent(
   productId: string,

@@ -6,11 +6,15 @@ const membership = z.object({
 });
 export const waitlistReadSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("guest") }),
-  membership.extend({ kind: z.literal("ready"), continuation: z.boolean() }),
+  membership.extend({
+    kind: z.literal("ready"),
+    continuation: z.boolean(),
+    accountId: z.uuid(),
+  }),
   z.object({ kind: z.literal("unavailable") }),
 ]);
 export const waitlistMutationSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("sign-in") }),
+  z.object({ kind: z.literal("sign-in"), returnTo: z.string() }),
   z.object({ kind: z.literal("continue") }),
   z.object({ kind: z.literal("telegram-required") }),
   z.object({ kind: z.literal("expired") }),

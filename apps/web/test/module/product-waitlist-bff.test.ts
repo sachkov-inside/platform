@@ -1,3 +1,8 @@
+import { z } from "zod";
+import {
+  beginWaitlistSignIn,
+  finishWaitlistSignIn,
+} from "@/features/product-waitlist.sign-in.server";
 import { beforeEach, expect, test, vi } from "vitest";
 const fakes = vi.hoisted(() => ({
   token: vi.fn(),
@@ -92,9 +97,15 @@ test("ordinary sign-in and a fabricated return address never create a membership
 });
 test("explicit guest intent retains source through sign-in and consumes only after durable confirmation", async () => {
   fakes.optional.mockResolvedValue(undefined);
-  expect(await (await handleWaitlistIntent(request("youtube"))).json()).toEqual(
-    { kind: "sign-in" },
-  );
+  const started = z
+    .object({ kind: z.literal("sign-in"), returnTo: z.string() })
+    .parse(await (await handleWaitlistIntent(request("youtube"))).json());
+  expect(started).toMatchObject({ kind: "sign-in" });
+  expect(await (await handleWaitlistJoin(request())).json()).toEqual({
+    kind: "expired",
+  });
+  await beginWaitlistSignIn(started.returnTo);
+  await finishWaitlistSignIn(started.returnTo, "trusted-token");
   expect(fakes.join).not.toHaveBeenCalled();
   const read = await handleWaitlistRead(
     new Request(
@@ -166,4 +177,14 @@ test("server errors retain retryable intent and never claim durable success", as
     kind: "unavailable",
   });
   expect(fakes.store.size).toBe(1);
+});
+
+test("ordinary new sign-in cancels an abandoned guest intent instead of later completing it", async () => {
+  fakes.optional.mockResolvedValue(undefined);
+  await handleWaitlistIntent(request("youtube"));
+  await beginWaitlistSignIn("http://127.0.0.1:3000/");
+  expect(await (await handleWaitlistJoin(request())).json()).toEqual({
+    kind: "expired",
+  });
+  expect(fakes.join).not.toHaveBeenCalled();
 });

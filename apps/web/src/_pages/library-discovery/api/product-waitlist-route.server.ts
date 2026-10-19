@@ -21,7 +21,7 @@ import {
   verifyWaitlistIntent,
   WAITLIST_INTENT_COOKIE,
   WAITLIST_INTENT_LIFETIME_SECONDS,
-} from "../model/product-waitlist-intent";
+} from "@/features/product-waitlist.intent.server";
 const intakeSchema = z.strictObject({ intakeId: z.uuid(), name: z.string() });
 const membershipSchema = intakeSchema.extend({ active: z.boolean() });
 const sourceSchema = z
@@ -65,7 +65,8 @@ export async function handleWaitlistRead(request: Request): Promise<Response> {
     return Response.json({
       kind: "ready",
       ...parsed.data,
-      continuation: intent?.productId === productId,
+      continuation: intent?.productId === productId && intent.phase === "ready",
+      accountId: (await resolveAccount(accessToken)).accountId,
     });
   });
 }
@@ -84,6 +85,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
       const account =
         accessToken === undefined ? null : await resolveAccount(accessToken);
       const config = readLogtoBffConfig();
+      const now = new Date();
       const token = signWaitlistIntent(
         {
           productId,
@@ -92,7 +94,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
           source: sourceSchema.safeParse(form.get("source")).data ?? null,
         },
         config.cookieSecret,
-        new Date(),
+        now,
       );
       (await cookies()).set(WAITLIST_INTENT_COOKIE, token, {
         httpOnly: true,
@@ -103,6 +105,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
       });
       return Response.json({
         kind: accessToken === undefined ? "sign-in" : "continue",
+        returnTo: `/products/ai-engineering?waitlist=${verifyWaitlistIntent(token, config.cookieSecret, now)?.operationId ?? ""}`,
       });
     },
   );
@@ -117,11 +120,14 @@ export function handleWaitlistJoin(request: Request): Promise<Response> {
       config.cookieSecret,
       new Date(),
     );
-    if (intent === null || intent.productId !== productId)
+    if (
+      intent?.phase !== "ready" ||
+      intent.productId !== productId ||
+      intent.accountId === null
+    )
       return { kind: "expired" };
     const account = await resolveAccount(accessToken);
-    if (intent.accountId !== null && intent.accountId !== account.accountId)
-      return { kind: "expired" };
+    if (intent.accountId !== account.accountId) return { kind: "expired" };
     const result = await requestJoinProductWaitlist(
       {
         intakeId: intent.intakeId,

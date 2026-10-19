@@ -12,6 +12,7 @@ export interface WaitlistActionProps {
   readonly onWithdraw: () => void;
   readonly linking?: ReactNode;
   readonly notice?: string;
+  readonly retryingWithdrawal?: boolean;
 }
 /** The accepted #1568 presentation. Both course slots consume one confirmed membership state. */
 export function WaitlistAction({
@@ -21,6 +22,7 @@ export function WaitlistAction({
   onWithdraw,
   linking,
   notice = "",
+  retryingWithdrawal = false,
 }: WaitlistActionProps) {
   const saved = state === "success";
   const busy = state === "saving" || state === "loading";
@@ -60,7 +62,9 @@ export function WaitlistAction({
             </>
           ) : (
             <>
-              Вступить в список ожидания
+              {retryingWithdrawal
+                ? "Повторить отказ"
+                : "Вступить в список ожидания"}
               <ArrowRight aria-hidden="true" />
             </>
           )}

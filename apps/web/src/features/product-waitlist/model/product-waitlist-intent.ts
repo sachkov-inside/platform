@@ -5,6 +5,7 @@ export const WAITLIST_INTENT_LIFETIME_SECONDS = 15 * 60;
 export const WAITLIST_INTENT_COOKIE = "inside_waitlist_intent";
 const intentSchema = z.strictObject({
   purpose: z.literal("product-waitlist.v1"),
+  phase: z.enum(["pending", "signing-in", "ready"]),
   operationId: z.uuid(),
   productId: z.uuid(),
   intakeId: z.uuid(),
@@ -37,6 +38,7 @@ export function signWaitlistIntent(
   const intent = intentSchema.parse({
     ...input,
     purpose: "product-waitlist.v1",
+    phase: input.accountId === null ? "pending" : "ready",
     operationId: randomUUID(),
     issuedAt,
     expiresAt: issuedAt + WAITLIST_INTENT_LIFETIME_SECONDS,
@@ -73,4 +75,15 @@ export function verifyWaitlistIntent(
     // Not a dependency failure: signed but invalid cookie payload is untrusted input.
     return null;
   }
+}
+
+export function progressWaitlistIntent(
+  intent: WaitlistIntent,
+  phase: WaitlistIntent["phase"],
+  accountId: string | null,
+  key: string,
+): string {
+  const checked = intentSchema.parse({ ...intent, phase, accountId });
+  const payload = Buffer.from(JSON.stringify(checked)).toString("base64url");
+  return `${payload}.${signature(payload, key).toString("base64url")}`;
 }

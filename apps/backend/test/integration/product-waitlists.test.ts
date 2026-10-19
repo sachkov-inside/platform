@@ -1,5 +1,6 @@
+import { migrateToLatest } from "../../src/migrations/index.js";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
 import { ProductWaitlists } from "../../src/modules/sales-funnel/facets/product-waitlists/product-waitlists.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
@@ -29,9 +30,6 @@ beforeAll(async () => {
       summary: "",
     },
   });
-  await db.prisma.productWaitlistIntake.create({
-    data: { id: intakeId, productId, name: "Следующий набор", accepting: true },
-  });
   await db.prisma.telegramAccountLinkState.create({
     data: {
       accountId,
@@ -46,6 +44,15 @@ beforeAll(async () => {
     prisma: db.prisma,
     links: new TelegramAccountLinks(db.prisma),
     clock: () => new Date("2030-03-05T12:00:00Z"),
+  });
+});
+beforeEach(async () => {
+  await db.prisma.productWaitlistOperation.deleteMany({});
+  await db.prisma.productWaitlistEvent.deleteMany({});
+  await db.prisma.productWaitlistMembership.deleteMany({});
+  await db.prisma.productWaitlistIntake.deleteMany({});
+  await db.prisma.productWaitlistIntake.create({
+    data: { id: intakeId, productId, name: "Следующий набор", accepting: true },
   });
 });
 afterAll(async () => {
@@ -90,6 +97,11 @@ test("explicit concurrent joins converge on one active membership for one intake
 });
 
 test("withdrawal and rejoin change stock once and retain distinct period events without granting access", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: "youtube",
+  });
   expect(await waitlists.withdraw(accountId, { intakeId })).toMatchObject({
     ok: true,
     value: { active: false },
@@ -204,6 +216,26 @@ test("a completed join intent cannot re-enrol after withdrawal or act for anothe
   });
   await waitlists.withdraw(accountId, { intakeId: current.value.intakeId });
   expect(await waitlists.join(accountId, command)).toMatchObject({
+    ok: true,
+    value: { active: false },
+  });
+});
+
+test("migration replay and application reconstruction preserve a confirmed membership and operation receipt", async () => {
+  const command = { intakeId, operationId: randomUUID(), source: "youtube" };
+  await waitlists.join(accountId, command);
+  await migrateToLatest(db.url);
+  const reconstructed = new ProductWaitlists({
+    prisma: db.prisma,
+    links: new TelegramAccountLinks(db.prisma),
+    clock: () => new Date("2030-03-06T00:00:00Z"),
+  });
+  expect(await reconstructed.read(accountId, productId)).toMatchObject({
+    ok: true,
+    value: { intakeId, active: true },
+  });
+  await reconstructed.withdraw(accountId, { intakeId });
+  expect(await reconstructed.join(accountId, command)).toMatchObject({
     ok: true,
     value: { active: false },
   });
