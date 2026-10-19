@@ -17,6 +17,11 @@ SOCKET_PROBE_SECONDS = .1
 
 
 class Processes(unittest.TestCase):
+    def setUp(self):
+        frozen=patch.multiple(runtime.pilot,FROZEN_DOCKER_ENDPOINT=None,FROZEN_DOCKER_IDENTITY=None)
+        frozen.start()
+        self.addCleanup(frozen.stop)
+
     def test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome(self):
         fixture = runtime.ROOT / 'scripts/observability-pilot/fixtures/process.py'
         for mode, expected in (('success',0),('failure',7),('timeout',124),('sigterm',143),('sigkill',137),('descendant',0)):

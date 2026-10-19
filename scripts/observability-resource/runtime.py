@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import resource
 import signal
+import stat
 import subprocess
 import sys
 import threading
@@ -23,7 +24,7 @@ import measurements
 import binding
 import profile as resource_profile
 
-PROJECT_PREFIX = 'inside-observability-resource-'
+PROJECT_PREFIX = resource_profile.PROJECT_PREFIX
 SERVICES = (*pilot.SERVICES, 'postgres', 'migrations', 'api', 'provider', 'loadgen')
 ACTIVE = tuple(name for name in SERVICES if name != 'migrations')
 COMMAND_SECONDS = 15
@@ -49,11 +50,13 @@ def invoke(compose, args, *, timeout=COMMAND_SECONDS, retain_partial=False):
         if not retain_partial:
             raise
         partial = error.stdout or b''
-        return partial.decode('utf-8') if isinstance(partial, bytes) else partial
+        if len(partial) > 65_536:
+            raise ValueError('partial_client_size')
+        return (partial.decode('utf-8') if isinstance(partial, bytes) else partial), False
     if retain_partial:
         if len(result.stdout.encode()) > 65_536:
             raise ValueError('partial_client_size')
-        return result.stdout
+        return result.stdout, result.returncode == 0
     if result.returncode or len(result.stdout.encode()) > 1_048_576:
         raise RuntimeError('resource_command_failed')
     return result.stdout
@@ -103,7 +106,12 @@ def wait_ready(compose):
 
 def client(compose, action, *, timeout=PHASE_SECONDS):
     raw = invoke(compose, ['exec', '-T', 'loadgen', 'node', '/resource/client.mjs', action, '/private/token.json'], timeout=timeout, retain_partial=action == 'load')
-    return parse_phase(raw) if action == 'load' else json.loads(raw)
+    if action != 'load':
+        return json.loads(raw)
+    text, clean = raw
+    result = parse_phase(text)
+    result['client_completed'] = result['client_completed'] and clean
+    return result
 
 
 def valid_sample(value):
@@ -313,6 +321,10 @@ def worker(output):
             version = invoke(compose, ['run', '--rm', '--no-deps', 'migrations', 'node', '--version']).strip()
             if version.removeprefix('v') != (ROOT / '.node-version').read_text().strip().removeprefix('v'):
                 raise ValueError('backend_node_mismatch')
+            foundation_version=invoke(compose,['run','--rm','--no-deps','postgres','postgres','--version']).strip()
+            if foundation_version!='postgres (PostgreSQL) 18.4':
+                raise ValueError('foundation_postgres_version')
+            proof['runtime_identity']={'backend_release':'v1','backend_source':pins['source'],'node':version,'postgres':foundation_version}
             stage = 'acquisition'
             invoke(compose, ['up', '-d', *pilot.SERVICES, 'postgres', 'provider', 'loadgen'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
             wait_ready(compose)
@@ -359,13 +371,13 @@ def worker(output):
                     observation = json.loads(invoke(compose, ['exec','-T','loadgen','node','/resource/client.mjs','metric','/query/key']))
                     result['modes'][mode]['sdk_observation'] = sdk_observation(observation, phase_started, mode)
                     binding.write(output / 'resource-proof.json', {**proof, 'partial_pair':result})
-                result['p95_overhead_percent'] = {label: measurements.overhead(result['modes']['off']['samples'], result['modes']['on']['samples'], label) if all(result['modes'][switch]['sdk_observation']['matches_configured_mode'] is True for switch in ('off','on')) else None for label in resource_profile.LABELS}
+                result['p95_overhead_percent'] = {label: measurements.overhead(result['modes']['off']['samples'], result['modes']['on']['samples'], label) if all(result['modes'][switch]['sdk_observation']['matches_configured_mode'] is True and result['modes'][switch]['client_completed'] and len(result['modes'][switch]['warmup_samples']) == 20 and all(sample['outcome'] == 'ok' for sample in result['modes'][switch]['warmup_samples']) for switch in ('off','on')) else None for label in resource_profile.LABELS}
                 proof['pairs'].append(result)
                 binding.write(output / 'resource-proof.json', proof)
             proof['state'] = 'completed_short_profile' if all(mode['lifecycle_coherent'] and mode['sdk_observation']['matches_configured_mode'] is True and mode['client_completed'] and not mode['counter_errors']
                 and all(sample['outcome'] == 'ok' for sample in mode['samples'] + mode['warmup_samples'])
                 and all(counter['cpu_seconds'] is not None and counter['memory_sampled_max_charged_bytes'] is not None
-                        and counter['io_read_operations_delta'] is not None for counter in mode['counter_summary'].values()) for pair in proof['pairs'] for mode in pair['modes'].values()) else 'partial'
+                        and counter['memory_missing_samples'] == 0 and counter['io_read_operations_delta'] is not None for counter in mode['counter_summary'].values()) for pair in proof['pairs'] for mode in pair['modes'].values()) else 'partial'
             binding.write(output / 'resource-proof.json', proof)
             evidence = json.loads((output / 'evidence.json').read_text())
             evidence.update({'resource_profile':manifest['profile'], 'status':proof['state'] + '; full resource acceptance pending'})
@@ -421,9 +433,16 @@ def main():
         if result.get('down') == 'passed' and result.get('residue') == 'passed':
             cleanup_private(output, acquired=True)
         return result
-    if not args.images or args.images.is_symlink() or args.images.stat().st_size > 4096:
+    if not args.images:
         raise ValueError('private_cache_manifest_required')
-    cache = json.loads(args.images.read_text())
+    descriptor=os.open(args.images,os.O_RDONLY|os.O_NOFOLLOW)
+    with os.fdopen(descriptor,'rb') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError('private_cache_manifest_regular_file')
+        encoded=stream.read(4097)
+    if len(encoded)>4096:
+        raise ValueError('private_cache_manifest_size')
+    cache = json.loads(encoded)
     resource_profile.load()
     acquired = False
     def prepare_owned(path):

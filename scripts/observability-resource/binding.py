@@ -26,7 +26,7 @@ def inputs():
         ROOT / 'apps/backend/Dockerfile', ROOT / 'apps/backend/src/infrastructure/observability/technical-telemetry.ts',
         ROOT / 'apps/backend/src/infrastructure/observability/technical-telemetry-runtime.ts',
         ROOT / 'apps/backend/src/config/platform-config.ts', ROOT / 'packages/runtime-identity/index.mjs',
-        ROOT / 'pnpm-lock.yaml', ROOT / '.node-version'))))
+        ROOT / 'pnpm-lock.yaml', ROOT / '.node-version', ROOT / '.github/workflows/ci.yml'))))
 
 
 def write(path, value):

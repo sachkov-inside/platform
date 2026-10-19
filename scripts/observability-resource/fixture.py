@@ -43,7 +43,7 @@ source scripts/production-runtime-configuration.sh
 write_disposable_runtime_configuration
 '''
     result = subprocess.run(['bash', '-c', shell, 'resource-config', str(runtime), source],
-                            cwd=ROOT, capture_output=True, timeout=5)
+                            cwd=ROOT, capture_output=True, timeout=5, env={'PATH':os.defpath,'LC_ALL':'C'})
     if result.returncode:
         raise RuntimeError('private_configuration_failed')
     password = secrets.token_hex(24)

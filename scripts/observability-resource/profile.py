@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / 'infra/observability/resource/profile.json'
+PROJECT_PREFIX = 'inside-observability-resource-'
 LABELS = ('public_index', 'protected_account')
 PATHS = ('/library/site-index', '/accounts/current')
 

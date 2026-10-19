@@ -234,6 +234,36 @@ export async function schedule(
   return (clock.now() - start) / 1000;
 }
 
+/** @param {number} status @param {unknown} body */
+export function metricResult(status, body) {
+  const unknown = { state: "unknown", latest_seconds: null };
+  if (
+    status !== 200 ||
+    !record(body) ||
+    body["status"] !== "success" ||
+    !record(body["data"]) ||
+    body["data"]["resultType"] !== "vector" ||
+    !Array.isArray(body["data"]["result"])
+  )
+    return unknown;
+  const rows = body["data"]["result"];
+  if (rows.length === 0) return { state: "known", latest_seconds: null };
+  /** @type {unknown} */
+  const row = rows[0];
+  if (
+    rows.length !== 1 ||
+    !record(row) ||
+    !Array.isArray(row["value"]) ||
+    row["value"].length !== 2 ||
+    typeof row["value"][1] !== "string"
+  )
+    return unknown;
+  const latest = Number(row["value"][1]);
+  return Number.isFinite(latest) && latest > 0
+    ? { state: "known", latest_seconds: latest }
+    : unknown;
+}
+
 /** @param {string} filename @returns {Promise<{state:string,latest_seconds:number|null}>} */
 async function metric(filename) {
   const key = readFileSync(filename, "utf8").trim();
@@ -275,37 +305,8 @@ async function metric(filename) {
             /** @type {unknown} */ const body = JSON.parse(
               Buffer.concat(chunks).toString("utf8"),
             );
-            if (
-              res.statusCode !== 200 ||
-              !record(body) ||
-              body["status"] !== "success" ||
-              !record(body["data"]) ||
-              !Array.isArray(body["data"]["result"])
-            ) {
-              finish("unknown", null);
-              return;
-            }
-            const rows = body["data"]["result"];
-            if (rows.length === 0) {
-              finish("known", null);
-              return;
-            }
-            /** @type {unknown} */
-            const row = rows[0];
-            if (
-              rows.length !== 1 ||
-              !record(row) ||
-              !Array.isArray(row["value"]) ||
-              typeof row["value"][1] !== "string"
-            ) {
-              finish("unknown", null);
-              return;
-            }
-            const latest = Number(row["value"][1]);
-            finish(
-              Number.isFinite(latest) && latest > 0 ? "known" : "unknown",
-              Number.isFinite(latest) && latest > 0 ? latest : null,
-            );
+            const value = metricResult(res.statusCode ?? 0, body);
+            finish(value.state, value.latest_seconds);
           } catch {
             finish("unknown", null);
           }

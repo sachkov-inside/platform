@@ -6,7 +6,8 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { sample, schedule, serve } from "./client.mjs";
+import { connect } from "node:net";
+import { sample, schedule, serve, metricResult } from "./client.mjs";
 
 const PUBLIC = {
   items: [],
@@ -212,6 +213,117 @@ test("private resource identity signs real ES384 tokens with the existing five-m
     assert.doesNotMatch(String(body), /private|inside_verified_email|token/u);
   } finally {
     await handle.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("SDK query parser keeps missing and nonfinite counters UNKNOWN", () => {
+  for (const body of [
+    null,
+    {},
+    {
+      status: "success",
+      data: { resultType: "vector", result: [{ value: [1, "NaN"] }] },
+    },
+    {
+      status: "success",
+      data: { resultType: "vector", result: [{ value: [1, "Infinity"] }] },
+    },
+  ])
+    assert.equal(metricResult(200, body).state, "unknown");
+  assert.deepEqual(
+    metricResult(200, {
+      status: "success",
+      data: { resultType: "vector", result: [] },
+    }),
+    { state: "known", latest_seconds: null },
+  );
+  assert.deepEqual(
+    metricResult(200, {
+      status: "success",
+      data: { resultType: "vector", result: [{ value: [123, "120"] }] },
+    }),
+    { state: "known", latest_seconds: 120 },
+  );
+});
+
+// deterministic-test-allow unit-io: owned provider sockets and private temp token; incomplete headers expire and finally closes every socket/server/file.
+test("provider recovers bounded connection slots after idle headers", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-resource-headers-"));
+  const handle = await serve(join(directory, "token.json"), {
+    host: "127.0.0.1",
+    port: 0,
+  });
+  const address = handle.server.address();
+  assert.ok(address && typeof address !== "string");
+  /** @type {import("node:net").Socket[]} */ const sockets = [];
+  try {
+    const closed = [];
+    for (let index = 0; index < 4; index++) {
+      const socket = connect(address.port, "127.0.0.1");
+      sockets.push(socket);
+      closed.push(
+        new Promise((resolve) =>
+          socket.once("close", () => resolve(undefined)),
+        ),
+      );
+      socket.on("error", () => {});
+      socket.resume();
+      await new Promise((resolve) =>
+        socket.once("connect", () => resolve(undefined)),
+      );
+      socket.write("GET /oidc/jwks HTTP/1.1\r\nHost: owned\r\n");
+    }
+    // deterministic-test-allow duration-wait: bound actual header-slot release; finally destroys sockets and awaits provider close.
+    const timer = setTimeout(() => {
+      for (const socket of sockets) socket.destroy();
+    }, 4000);
+    const started = performance.now();
+    try {
+      await Promise.all(closed);
+      assert.ok(performance.now() - started < 3500);
+    } finally {
+      clearTimeout(timer);
+    }
+    /** @type {Promise<number|undefined>} */
+    const pending = new Promise((resolve) => {
+      const req = get(
+        { host: "127.0.0.1", port: address.port, path: "/oidc/jwks" },
+        (res) => {
+          res.resume();
+          res.on("end", () => resolve(res.statusCode));
+        },
+      );
+      req.on("error", () => resolve(0));
+      req.setTimeout(1000, () => req.destroy());
+    });
+    assert.equal(await pending, 200);
+  } finally {
+    for (const socket of sockets) socket.destroy();
+    await handle.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: occupied owned ephemeral port proves failed provider startup releases its refresh timer; outer process owner also bounds the fixture group.
+test("failed provider acquisition does not keep an orphan refresh process alive", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-resource-startup-"));
+  const blocker = createServer();
+  await new Promise((resolve) =>
+    blocker.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  const address = blocker.address();
+  assert.ok(address && typeof address !== "string");
+  try {
+    await assert.rejects(
+      serve(join(directory, "token.json"), {
+        host: "127.0.0.1",
+        port: address.port,
+      }),
+      /startup failed/u,
+    );
+  } finally {
+    await new Promise((resolve) => blocker.close(resolve));
     await rm(directory, { recursive: true, force: true });
   }
 });

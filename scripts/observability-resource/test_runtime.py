@@ -53,7 +53,7 @@ class Lifecycle(unittest.TestCase):
     def test_stdout_partial_on_timeout_never_retries_mutating_commands(self):
         with patch.object(runtime.pilot,'assert_docker_identity'), \
                 patch.object(runtime.subprocess,'run',side_effect=runtime.subprocess.TimeoutExpired('fixed',1,output=b'{"kind":"sample"}\n')) as command:
-            self.assertEqual(runtime.invoke([],['fixed'],retain_partial=True),'{"kind":"sample"}\n')
+            self.assertEqual(runtime.invoke([],['fixed'],retain_partial=True),('{"kind":"sample"}\n',False))
             self.assertEqual(command.call_count,1)
 
     def test_malformed_container_shapes_fail_closed(self):
