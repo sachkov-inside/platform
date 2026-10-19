@@ -325,10 +325,10 @@ test("product programme appends a real composition and restores Reader return po
     await expect(
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
-    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
-    await page
-      .getByRole("button", { name: "Показать ещё уроки" })
-      .scrollIntoViewIfNeeded();
+    // Early reveal can already append row 13 and remove the fallback button. Row 12 remains
+    // mounted in either state, so approaching it must reveal the rest without clicking a button.
+    const loadedBoundary = page.locator('[data-series-ordinal="12"]:visible');
+    await loadedBoundary.scrollIntoViewIfNeeded();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
     await expect(
       page.getByRole("navigation", { name: "Страницы маршрута" }),
@@ -371,7 +371,8 @@ test("product programme appends a real composition and restores Reader return po
     const sections = page.getByRole("navigation", { name: "Разделы продукта" });
     await sections.getByRole("button", { name: /^Материалы/u }).click();
     await sections.getByRole("button", { name: /^Программа/u }).click();
-    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
+    await loadedBoundary.scrollIntoViewIfNeeded();
+    await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
     await prepareEvidenceDirectory("issue-529");
     await screenshotWholePage(page, {
       path: resolve(
