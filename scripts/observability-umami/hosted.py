@@ -21,7 +21,7 @@ def source_inputs():
         ROOT / 'scripts/observability-pilot/storage_policy.py', ROOT / 'infra/observability/pilot/probe.lock.json',
         runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json', runtime.CONFIG / 'schema-fixture.sql',
         ROOT / '.github/workflows/observability-umami.yml', ROOT / '.node-version',
-        ROOT / 'scripts/observability-umami-retention.pg.test.mjs', ROOT / 'scripts/observability-umami.test.mjs', ROOT / 'scripts/observability-umami-process.test.mjs',
+        ROOT / 'scripts/observability-umami-startup.pg.test.mjs', ROOT / 'scripts/observability-umami-retention.pg.test.mjs', ROOT / 'scripts/observability-umami.test.mjs', ROOT / 'scripts/observability-umami-process.test.mjs',
         ROOT / 'scripts/process-group-signal.mjs',
     )
 

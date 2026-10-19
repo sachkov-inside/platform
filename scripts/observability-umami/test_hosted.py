@@ -47,6 +47,6 @@ class HostedBoundaries(unittest.TestCase):
                          'scripts/observability-pilot/storage_policy.py', 'scripts/observability-pilot/native_cpu.py', 'infra/observability/umami/mcp/package-lock.json',
                          'scripts/observability-umami/retention.sql', 'scripts/observability-umami/retention-corpus.sql',
                          'scripts/observability-umami/retention-proof.sql', 'infra/observability/umami/schema-fixture.sql',
-                         'scripts/observability-umami-retention.pg.test.mjs',
+                         'scripts/observability-umami-startup.pg.test.mjs', 'scripts/observability-umami-retention.pg.test.mjs',
                          '.github/workflows/observability-umami.yml'} <= names)
         self.assertTrue(all(path.is_file() for path in hosted.source_inputs()))

@@ -66,7 +66,7 @@ def await_database(compose):
         if remaining <= 0:
             raise RuntimeError('owned database readiness deadline')
         try:
-            invoke(compose, ['exec', '-T', 'db', 'pg_isready', '-U', 'pilot_bootstrap', '-d', 'postgres'], timeout=min(pilot.COMMAND_TIMEOUT_SECONDS, remaining))
+            invoke(compose, ['exec', '-T', 'db', *prepare.DATABASE_READY_COMMAND], timeout=min(pilot.COMMAND_TIMEOUT_SECONDS, remaining))
             return
         except FixtureCommandFailed:
             if time.monotonic() >= deadline:

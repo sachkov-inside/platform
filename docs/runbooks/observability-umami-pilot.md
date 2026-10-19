@@ -253,3 +253,34 @@ Restore проверяется в отдельной закрытой базе: 
 удаления и drain cleanup, проверить corpus и только затем разрешить подключения читателям.
 Нельзя сначала поднять открытый Umami на старой копии. pgBackRest wiring, isolated restore
 и source-bound runtime evidence остаются частью #1566; этот срез не объявляет их готовыми.
+
+
+### PostgreSQL startup readiness
+
+Linux run `39303668904` остановился на `database_role`: `FixtureCommandFailed`, DB
+`running / health starting`, monitor не отказал, cleanup прошёл. Точная причина этого
+исторического запуска неизвестна: закрытая ошибка не содержит SQL stderr.
+
+Отдельный реальный contract с закреплённым PostgreSQL `16.13-alpine` воспроизводит дефект
+старой проверки: удерживает официальный entrypoint в init script, когда временный сервер
+уже принимает Unix socket, но ещё не слушает TCP. Старый runner принимал это за готовность;
+завершение init прерывает активный SQL connection. После запуска постоянного сервера исходный
+private `init.sql` успешно создаёт отдельную базу и роль с ограниченными правами за один вызов.
+Это доказательство класса startup race, а не установленная причина run `39303668904`.
+
+Runner и Compose healthcheck теперь используют один фиксированный probe:
+`pg_isready -h 127.0.0.1 -p 5432 -t 1 -U pilot_bootstrap -d postgres`.
+Он отклоняет временный init server и принимает постоянный. Срок runner остаётся 60 секунд;
+каждый вызов сохраняет fresh-daemon identity check и общий deadline, stdout/stderr закрыты.
+Повторяется только readiness probe, не DDL. SQL и пароль передаются через private stdin;
+при отказе готовности создание роли не начинается. Published ports и права не расширяются.
+
+```sh
+bash scripts/heavy-check.sh node --test scripts/observability-umami-startup.pg.test.mjs
+```
+
+Contract запускает только собственный disposable PostgreSQL через Testcontainers; Umami app
+не запускается. Он проверяет init barrier, Unix/TCP различие, обрыв активного SQL при restart,
+готовность persistent server, исходный role SQL и удаление owned container/volume.
+Новый полный supervised Umami run после исправления остаётся pending до immutable review
+и запуска координатором. Этот contract не доказывает runtime retention или restore.
