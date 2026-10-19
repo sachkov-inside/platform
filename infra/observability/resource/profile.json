@@ -3,7 +3,10 @@
   "profile": "short-sdk-pair-v1",
   "status": "proposed-synthetic-not-accepted-production-load",
   "comparison": "sdk-only-collector-present-both",
-  "pairs": [["off", "on"], ["on", "off"]],
+  "pairs": [
+    ["off", "on"],
+    ["on", "off"]
+  ],
   "warmup_seconds": 2,
   "measurement_seconds": 10,
   "requests_per_second": 10,
@@ -14,7 +17,17 @@
   "material_count": 0,
   "sample_ratio": 1,
   "operations": [
-    {"label": "public_index", "method": "GET", "path": "/library/site-index", "expected_status": 200},
-    {"label": "protected_account", "method": "GET", "path": "/accounts/current", "expected_status": 200}
+    {
+      "label": "public_index",
+      "method": "GET",
+      "path": "/library/site-index",
+      "expected_status": 200
+    },
+    {
+      "label": "protected_account",
+      "method": "GET",
+      "path": "/accounts/current",
+      "expected_status": 200
+    }
   ]
 }
