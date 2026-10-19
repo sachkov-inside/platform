@@ -432,7 +432,7 @@ function SeriesMaterialRow({
         {ordinal === undefined ? null : (
           <span
             aria-hidden="true"
-            className="w-4 shrink-0 text-left text-sm font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-xl sm:leading-6"
+            className="w-4 shrink-0 text-left text-xs font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-lg sm:leading-6"
             data-series-preview
           >
             {ordinal}
