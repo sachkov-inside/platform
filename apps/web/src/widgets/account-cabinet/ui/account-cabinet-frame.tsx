@@ -17,7 +17,7 @@ export async function AccountCabinetFrame({
         result.kind === "ready" ? result.offers : [],
       )}
     >
-      {/* Кабинету подвал с документами не нужен (решение владельца 09.10.2026). */}
+      {/* Documents are available inline in the cabinet. */}
       <HidePublicFooter />
       {children}
     </AccountCabinet>

@@ -18,6 +18,21 @@ const paymentOption = {
   archived: false,
 };
 async function stubBilling(page: Page, billing: unknown, status = 200) {
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      status,
+      json: {
+        profile: { kind: "missing" },
+        telegramMembership: {
+          link: { kind: "linked" },
+          membership: { kind: "stale" },
+        },
+      },
+    }),
+  );
+  await page.route("**/api/account/billing/enrollments", (route) =>
+    route.fulfill({ json: { ok: true, value: { items: [] } } }),
+  );
   await page.route("**/api/account/billing", (route) =>
     route.fulfill({ json: billing, status }),
   );
@@ -260,7 +275,9 @@ test("раздел подписки просит войти без действ�
   const response = await page.goto("/account/subscription");
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Личный кабинет",
+  );
   await expect(
     page
       .locator("[data-application-content]")
@@ -318,9 +335,9 @@ test("раздел подписки показывает оплаченный с
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),
   ).toBeEnabled();
-  // Основания доступа и способ оплаты — задача раздела «Покупки».
+  // Financial details remain collapsed until the owner opens purchases.
   await expect(page.getByText("Оплаченный доступ")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Способ оплаты" }),
-  ).toHaveCount(0);
+  ).not.toBeVisible();
 });

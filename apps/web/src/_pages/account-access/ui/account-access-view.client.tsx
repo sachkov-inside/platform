@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 import {
   AccountTelegramPanel,
   type AccountTelegramMembership,
@@ -8,24 +9,26 @@ import {
   type AcceptedDocumentsPanelProps,
 } from "@/features/accepted-documents";
 import { Button } from "@/shared/ui/button";
-import { AccountSectionHeader } from "@/widgets/account-cabinet";
 
 export interface AccountAccessViewProps {
   readonly acceptedDocuments: AcceptedDocumentsPanelProps;
   readonly link: AccountTelegramMembership["link"] | null;
+  readonly email?: string | undefined;
+  readonly billingSlot?: ReactNode;
+  readonly continuationSlot?: ReactNode;
   readonly loading?: boolean;
   readonly sessionExpired?: boolean;
   readonly unavailable?: boolean;
   readonly onTelegramRefresh: () => Promise<void>;
 }
 
-/**
- * Раздел «Аккаунт»: принятые документы, связь с Telegram и выход. Что открыто и до какого срока
- * объясняет раздел «Покупки» — здесь этот вопрос не решается.
- */
+/** One cabinet for essential account actions; private profile data stays stored. */
 export function AccountAccessView({
   acceptedDocuments,
   link,
+  email,
+  billingSlot,
+  continuationSlot,
   loading = false,
   sessionExpired = false,
   unavailable = false,
@@ -33,56 +36,70 @@ export function AccountAccessView({
 }: AccountAccessViewProps) {
   return (
     <div>
-      <AccountSectionHeader section="access" />
-      {loading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Загружаем состояние аккаунта…
-        </p>
-      ) : sessionExpired ? (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+            Личный кабинет
+          </h1>
+          {email === undefined ? null : (
+            <p className="mt-3 break-all text-sm text-muted-foreground">
+              {email}
+            </p>
+          )}
+        </div>
+        {sessionExpired ? null : (
+          <form action="/auth/sign-out" method="post">
+            <Button className="min-h-11 px-3" type="submit" variant="ghost">
+              Выйти из аккаунта
+            </Button>
+          </form>
+        )}
+      </header>
+      {sessionExpired ? (
+        <div className="py-4">
           <p className="text-sm leading-6">
-            Войдите, чтобы управлять связью с Telegram.
+            Войдите, чтобы открыть личный кабинет.
           </p>
           <form action="/auth/sign-in" className="mt-4" method="post">
-            <input name="returnTo" type="hidden" value="/account/access" />
+            <input name="returnTo" type="hidden" value="/account" />
             <Button className="min-h-11 px-4" type="submit">
               Войти
             </Button>
           </form>
         </div>
-      ) : unavailable || link === null ? (
-        // Состояние без связи читать нечего: это та же недоступность, названная прямо.
-        <div
-          className="rounded-2xl border border-border bg-card p-6 shadow-card"
-          role="alert"
-        >
-          <p className="text-sm leading-6">
-            Состояние аккаунта сейчас недоступно. Данные не менялись — мы
-            перечитаем их сами.
-          </p>
-        </div>
       ) : (
-        <div className="grid gap-6">
-          <AcceptedDocumentsPanel {...acceptedDocuments} />
-          <AccountTelegramPanel link={link} onRefresh={onTelegramRefresh} />
-          <section
-            aria-labelledby="account-session"
-            className="rounded-2xl border border-border bg-card p-6 shadow-card"
-          >
-            <h2 className="text-xl font-semibold" id="account-session">
-              Выход
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              Выход завершает сессию в этом браузере. Права доступа и покупки
-              остаются на месте.
+        <>
+          {loading ? (
+            <p className="py-4 text-sm text-muted-foreground" role="status">
+              Загружаем состояние аккаунта…
             </p>
-            <form action="/auth/sign-out" className="mt-4" method="post">
-              <Button className="min-h-11 px-4" type="submit" variant="outline">
-                Выйти из аккаунта
-              </Button>
-            </form>
-          </section>
-        </div>
+          ) : unavailable || link === null ? (
+            <div className="py-4 text-sm" role="alert">
+              <p>Состояние аккаунта сейчас недоступно.</p>
+              <button
+                className="mt-2 min-h-11 underline underline-offset-4"
+                onClick={() => {
+                  void onTelegramRefresh();
+                }}
+                type="button"
+              >
+                Попробовать снова
+              </button>
+            </div>
+          ) : (
+            <AccountTelegramPanel link={link} onRefresh={onTelegramRefresh} />
+          )}
+          <div className="mt-4">{billingSlot}</div>
+          <details className="border-b border-border py-5" id="documents">
+            <summary className="min-h-11 cursor-pointer content-center text-lg font-semibold">
+              Документы
+            </summary>
+            <div className="pt-3">
+              <AcceptedDocumentsPanel {...acceptedDocuments} />
+            </div>
+          </details>
+          {continuationSlot}
+        </>
       )}
     </div>
   );

@@ -235,7 +235,7 @@ test("background Profile failure retains data but lost authorization removes it"
   );
   await page.goto("/account/access");
   await expect(
-    page.getByRole("heading", { name: "Аккаунт", exact: true }),
+    page.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Выйти из аккаунта" }),
