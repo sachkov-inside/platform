@@ -79,5 +79,24 @@
       "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/scripts/telemetry/route.ts",
       "sha256": "b6bad64f42b0101e10d77af22704c3f35e30b358297fba798e6eb9ed1827f2f6"
     }
-  ]
+  ],
+  "postgres_runtime": {
+    "uid": 70,
+    "gid": 70,
+    "pgdata": "/var/lib/postgresql/data",
+    "pgdata_image_mode": "1777",
+    "socket_image_mode": "3777",
+    "proof": [
+      {
+        "architecture": "amd64",
+        "manifest": "sha256:4941ef97aaa2633ce9808f7766f8b8d746dd039ce8c51ca6da185c3dc63ab579",
+        "config": "sha256:667495ca2ac33180ad3690178da1bf274f481d0c43849d4c1941f0176983bd2e"
+      },
+      {
+        "architecture": "arm64",
+        "manifest": "sha256:37aed91079f77c15ec9b60ff6e60553f15a2f36ab7f0a2338b48498cd345c288",
+        "config": "sha256:d394728dee24b7791f1969c683f8b8410fe57450713a1db2aff5a500f0f98ab0"
+      }
+    ]
+  }
 }

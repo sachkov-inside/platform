@@ -1,5 +1,6 @@
 """Local file boundary contracts for hosted evidence; no Docker or live providers."""
 
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -14,9 +15,90 @@ from unittest.mock import patch
 import ci
 
 FIXTURE_LEADER_EXIT_BUDGET_SECONDS = 2
+LINUX_IDENTITY = {'platform': 'linux', 'context': 'default', 'endpoint': 'unix:///fixture/docker.sock',
+                  'daemon_id': 'owned', 'storage': '/var/lib/docker', 'socket_device': 1, 'socket_inode': 2}
+MAC_IDENTITY = {'context': 'orbstack', 'endpoint': 'unix:///fixture/docker.sock',
+                'daemon_id': 'owned', 'storage': '/var/lib/docker', 'socket_device': 1, 'socket_inode': 2,
+                'backing': {'path': '/fixture/data.img.raw', 'device': 1, 'inode': 3}}
 
 
 class HostedEvidenceTest(unittest.TestCase):
+    def setUp(self):
+        frozen = patch.multiple(ci.pilot, FROZEN_DOCKER_ENDPOINT=None, FROZEN_DOCKER_IDENTITY=None)
+        frozen.start()
+        self.addCleanup(frozen.stop)
+
+    def test_recovery_requires_one_well_formed_daemon_identity_before_cleanup(self):
+        invalid = [{}, {'daemon': None, 'orbstack': None}]
+        for name in ('daemon', 'orbstack'):
+            invalid.extend({name: value} for value in (None, False, '', [], {}, {'platform': 'other'}))
+        invalid.extend(({'daemon': LINUX_IDENTITY, 'orbstack': MAC_IDENTITY},
+                        {'daemon': MAC_IDENTITY}, {'orbstack': LINUX_IDENTITY}))
+        for name, identity in (('daemon', LINUX_IDENTITY), ('orbstack', MAC_IDENTITY)):
+            other = 'daemon' if name == 'orbstack' else 'orbstack'
+            for value in (False, '', [], {}):
+                invalid.append({name: identity, other: value})
+            for key in identity:
+                missing = copy.deepcopy(identity)
+                del missing[key]
+                invalid.append({name: missing})
+                malformed = copy.deepcopy(identity)
+                malformed[key] = False
+                invalid.append({name: malformed})
+            for key, value in (('context', ''), ('daemon_id', 'bad\nrecord'),
+                               ('endpoint', 'tcp://foreign:2375'), ('storage', 'relative'),
+                               ('socket_inode', 0), ('socket_device', -1)):
+                invalid.append({name: {**identity, key: value}})
+        for key, value in (('path', 'relative'), ('device', False), ('inode', 0)):
+            invalid.append({'orbstack': {**MAC_IDENTITY, 'backing': {**MAC_IDENTITY['backing'], key: value}}})
+        for records in invalid:
+            with self.subTest(records=records), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory)
+                (output / 'owner.json').write_text(json.dumps({
+                    'project': 'inside-observability-pilot-012345abcdef', 'cwd': str(ci.ROOT), **records,
+                }))
+                (output / 'worker.json').write_text(json.dumps({'pid': 12345, 'group': 12345}))
+                (output / 'compose.json').write_text('{}')
+                with patch('ci.os.kill', side_effect=ProcessLookupError), \
+                        patch('ci.os.killpg', side_effect=ProcessLookupError), \
+                        patch('ci.cleanup_project', return_value={'down': 'passed', 'residue': 'passed'}) as cleanup, \
+                        patch.multiple(ci.pilot, FROZEN_DOCKER_ENDPOINT=LINUX_IDENTITY['endpoint'],
+                                       FROZEN_DOCKER_IDENTITY=LINUX_IDENTITY), \
+                        patch.object(ci.pilot.daemon, 'identify', side_effect=AssertionError('invalid identity reached Docker')), \
+                        patch.object(ci.pilot.orbstack, 'identify', side_effect=AssertionError('invalid identity reached Docker')):
+                    with self.assertRaisesRegex(ValueError, 'recorded Docker identity'):
+                        ci.recover(output)
+                    cleanup.assert_not_called()
+
+    def test_recovery_requires_a_fresh_same_daemon_for_each_valid_variant(self):
+        for name, identity in (('daemon', LINUX_IDENTITY), ('orbstack', MAC_IDENTITY)):
+            other = 'daemon' if name == 'orbstack' else 'orbstack'
+            identifier = ci.pilot.daemon if name == 'daemon' else ci.pilot.orbstack
+            for unused in ({}, {other: None}):
+                for changed in (False, True):
+                    with self.subTest(name=name, unused=unused, changed=changed), tempfile.TemporaryDirectory() as directory:
+                        output = Path(directory)
+                        (output / 'owner.json').write_text(json.dumps({
+                            'project': 'inside-observability-pilot-012345abcdef', 'cwd': str(ci.ROOT),
+                            name: identity, **unused,
+                        }))
+                        (output / 'worker.json').write_text(json.dumps({'pid': 12345, 'group': 12345}))
+                        (output / 'compose.json').write_text('{}')
+                        fresh = {**identity, 'daemon_id': 'replacement'} if changed else identity
+                        with patch('ci.os.kill', side_effect=ProcessLookupError), \
+                                patch('ci.os.killpg', side_effect=ProcessLookupError), \
+                                patch.object(identifier, 'identify', return_value=fresh), \
+                                patch('ci.cleanup_project', return_value={'down': 'passed', 'residue': 'passed'}) as cleanup:
+                            if changed:
+                                with self.assertRaisesRegex(RuntimeError, 'recovery identity changed'):
+                                    ci.recover(output)
+                                cleanup.assert_not_called()
+                            else:
+                                self.assertEqual(ci.recover(output), {'down': 'passed', 'residue': 'passed'})
+                                self.assertEqual(ci.pilot.FROZEN_DOCKER_IDENTITY, identity)
+                                self.assertEqual(ci.pilot.FROZEN_DOCKER_ENDPOINT, identity['endpoint'])
+                                cleanup.assert_called_once()
+
     def test_artifact_collection_excludes_keys_binaries_and_raw_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -57,10 +139,11 @@ class HostedEvidenceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             (output / "owner.json").write_text(json.dumps({
-                "project": "inside-observability-pilot-012345abcdef", "cwd": str(ci.ROOT),
+                "project": "inside-observability-pilot-012345abcdef", "cwd": str(ci.ROOT), "daemon": LINUX_IDENTITY,
             }))
             (output / "worker.json").write_text(json.dumps({"pid": os.getpid(), "group": os.getpid()}))
-            with self.assertRaisesRegex(ValueError, "registered worker still exists"):
+            with patch.object(ci.pilot.daemon, "identify", return_value=LINUX_IDENTITY), \
+                    self.assertRaisesRegex(ValueError, "registered worker still exists"):
                 ci.recover(output)
 
     def test_admission_refuses_empty_or_relative_docker_root_without_measuring_checkout(self):
@@ -90,11 +173,12 @@ class HostedEvidenceTest(unittest.TestCase):
             try:
                 self.assertEqual(leader.wait(timeout=FIXTURE_LEADER_EXIT_BUDGET_SECONDS), 0)
                 (output / "owner.json").write_text(json.dumps({
-                    "project": "inside-observability-pilot-012345abcdef", "cwd": str(ci.ROOT),
+                    "project": "inside-observability-pilot-012345abcdef", "cwd": str(ci.ROOT), "daemon": LINUX_IDENTITY,
                 }))
                 (output / "worker.json").write_text(json.dumps({"pid": leader.pid, "group": leader.pid}))
                 (output / "compose.json").write_text("{}")
-                with patch("ci.subprocess.run", side_effect=AssertionError("Docker cleanup must not run")):
+                with patch.object(ci.pilot.daemon, "identify", return_value=LINUX_IDENTITY), \
+                        patch("ci.subprocess.run", side_effect=AssertionError("Docker cleanup must not run")):
                     with self.assertRaisesRegex(ValueError, "registered worker process group still exists"):
                         ci.recover(output)
             finally:
