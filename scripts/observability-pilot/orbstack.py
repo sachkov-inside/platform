@@ -28,6 +28,7 @@ class VmBudget:
     def __init__(self):
         self.identity = None
         self.initial_free = None
+        self.initial_unavailable = None
         self.last_at = None
         self.latest_counters = None
 
@@ -44,21 +45,26 @@ class VmBudget:
         # statfs f_blocks is a capacity counter; it does not identify a filesystem.
         identity = (fsid, block, kind)
         free = available * block
+        unavailable = (total - available) * block
         counters = {'block_bytes':block, 'total_bytes':block * total, 'free_bytes':free}
         if self.identity is None:
             if free < MINIMUM_FREE_BYTES:
                 raise RuntimeError('VM filesystem requires 16 GiB free')
             self.identity, self.initial_free = identity, free
+            self.initial_unavailable = unavailable
         elif identity != self.identity:
             changed = [name for name, before, after in zip(
                 ('filesystem_id', 'block_bytes', 'filesystem_type'), self.identity, identity)
                 if before != after]
             raise VmIdentityChanged(changed, self.latest_counters, counters)
         assert_budget(self.initial_free, free)
+        if unavailable - self.initial_unavailable >= GROWTH_BYTES - STOP_MARGIN_BYTES:
+            raise RuntimeError('pilot storage budget exceeded')
         self.last_at = now
         self.latest_counters = counters
         return {'filesystem_id': fsid, 'filesystem_type': kind, 'block_bytes': block,
-                'total_bytes': block * total, 'free_bytes': free}
+                'total_bytes': block * total, 'free_bytes': free,
+                'initial_unavailable_bytes':self.initial_unavailable, 'unavailable_bytes':unavailable}
 
     def assert_fresh(self, *, now):
         if self.last_at is None or now - self.last_at > PROBE_HEARTBEAT_TIMEOUT_SECONDS:

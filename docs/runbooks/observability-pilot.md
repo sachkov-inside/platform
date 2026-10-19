@@ -185,6 +185,12 @@ VM identity закрепляет filesystem ID, размер блока и ти�
 замену filesystem. Каждый sample по-прежнему требует положительной ограниченной ёмкости,
 `0 <= available <= total`, прежнего 10GiB floor и прежнего 4GiB growth cap от initial free.
 Рост total не сбрасывает initial free и не компенсирует нарушение свободного места.
+Дополнительно рост `(total - available) * block` относительно первого VM sample ограничен
+тем же 4GiB cap с прежним stop margin 256MiB: увеличение ёмкости не может скрыть рост
+недоступного места при неизменном free. В snapshot сохраняются initial/current unavailable
+bytes. Этот консервативный счётчик включает зарезервированные блоки и чужую нагрузку;
+его нельзя выдавать за фактический объём записей пилота. Прежний контроль потери free
+сохраняется, в том числе при уменьшении ёмкости или изменении reserved blocks.
 
 Каждый foreground `exec` остаётся в группе worker. Public supervisor останавливает всю эту
 группу перед `down --volumes --remove-orphans`; diagnostics, down и residue checks независимы

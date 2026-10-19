@@ -14,10 +14,34 @@ MONITOR_FAILURE_BUDGET_SECONDS = 1
 MONITOR_FIXTURE_INTERVAL_SECONDS = .001
 
 class OrbStackAdmissionTest(unittest.TestCase):
+    def test_vm_capacity_growth_cannot_mask_unavailable_growth_budget(self):
+        from storage_policy import GROWTH_BYTES, STOP_MARGIN_BYTES
+        baseline = f'abcd 1024 {80*1024**2} {20*1024**2} UNKNOWN'
+        budget = orbstack.VmBudget()
+        budget.accept(baseline, now=0)
+        with self.assertRaisesRegex(RuntimeError, 'budget'):
+            budget.accept(f'abcd 1024 {90*1024**2} {20*1024**2} UNKNOWN', now=1)
+        self.assertEqual(budget.last_at, 0)
+        proportional = budget.accept(f'abcd 1024 {90*1024**2} {30*1024**2} UNKNOWN', now=2)
+        self.assertEqual(proportional['initial_unavailable_bytes'], 60*GIB)
+        self.assertEqual(proportional['unavailable_bytes'], 60*GIB)
+        bound = GROWTH_BYTES - STOP_MARGIN_BYTES
+        for growth, allowed in ((bound-1024, True), (bound, False)):
+            with self.subTest(growth=growth):
+                budget = orbstack.VmBudget()
+                budget.accept(baseline, now=0)
+                # Free space increases; only unavailable growth can detect this boundary.
+                sample = f'abcd 1024 {90*1024**2} {30*1024**2-growth//1024} UNKNOWN'
+                if allowed:
+                    self.assertEqual(budget.accept(sample, now=1)['unavailable_bytes'], 60*GIB+growth)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'budget'):
+                        budget.accept(sample, now=1)
+
     def test_vm_capacity_counter_changes_keep_identity_and_enforce_original_free_space_budgets(self):
         budget = orbstack.VmBudget()
         budget.accept(f'abcd 1024 {80*1024**2} {20*1024**2} UNKNOWN', now=0)
-        grown = budget.accept(f'abcd 1024 {90*1024**2} {19*1024**2} UNKNOWN', now=1)
+        grown = budget.accept(f'abcd 1024 {90*1024**2} {30*1024**2} UNKNOWN', now=1)
         shrunk = budget.accept(f'abcd 1024 {70*1024**2} {18*1024**2} UNKNOWN', now=2)
         self.assertEqual(grown['total_bytes'], 90*GIB)
         self.assertEqual(shrunk['total_bytes'], 70*GIB)
