@@ -1,3 +1,4 @@
+import { paidGrantSourceRef } from "../../domain/paid-grant-source-ref.js";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../account-rights/index.js";
@@ -100,7 +101,7 @@ export class PaymentDiagnostics {
         return snapshot?.success === true
           ? snapshot.data.offer.benefits.map((capability) => ({
               accountId: row.accountId,
-              sourceRef: `${row.id}:${capability}`,
+              sourceRef: paidGrantSourceRef(row.id, capability),
             }))
           : [];
       });
@@ -140,7 +141,10 @@ export class PaymentDiagnostics {
           snapshot?.success === true
             ? snapshot.data.offer.benefits.map((capability) => {
                 const fact = byKey.get(
-                  JSON.stringify([row.accountId, `${row.id}:${capability}`]),
+                  JSON.stringify([
+                    row.accountId,
+                    paidGrantSourceRef(row.id, capability),
+                  ]),
                 );
                 const state = rightsUnavailable
                   ? "unknown"
