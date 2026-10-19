@@ -102,7 +102,7 @@ beforeAll(async () => {
   await app.getHttpAdapter().getInstance().ready();
 });
 beforeEach(async () => {
-  await sql`truncate communication_broadcasts, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, platform_links, link_transactions cascade`.execute(
+  await sql`truncate communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, platform_links, link_transactions cascade`.execute(
     database,
   );
   intakeId = randomUUID();
