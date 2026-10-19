@@ -157,7 +157,13 @@ PostgreSQL and RabbitMQ. It tests confirm failure/retry, SIGKILL after confirm, 
 receipt before ACK, duplicate delivery and per-batch process restart; 27 synthetic audience Accounts
 span a durable checkpoint. Other cases cover authorization, parallel HTTP context isolation,
 transaction rollback, NULL/replay/concurrency rules, untrusted AMQP field tables, default-OFF and
-collector-503 behavior. No email, Telegram, bank or external provider is invoked. Migration tests
+collector-503 behavior. The 503 receiver requests immediate retries with a fixed past `Retry-After`
+HTTP-date, exercising the pinned OTLP transport within its unchanged one-second export deadline.
+Wire requests can repeat a whole export payload. The contract compares complete repeated payloads,
+requires retries to occur, and checks four distinct trace/span identities (HTTP publication plus
+publish, receipt and audience), their roles and parent chain, and one durable outbox/inbox business
+row. Transport attempts must not be counted as additional business operations. No email, Telegram,
+bank or external provider is invoked. Migration tests
 exercise a populated pre-carrier database, bounded lock refusal, upgrade/replay and legacy field-set
 writers with full-registry readiness. A compatible rollback must retain the **full applied migration
 registry**; a short old registry remains rejected. This contract does not publish a rollback image or

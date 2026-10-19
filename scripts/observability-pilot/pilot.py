@@ -498,9 +498,18 @@ def smoke(token, output, compose):
     counters = await_fact(lambda: request(counter_path, token=token),
         collector_privacy.accepted_counter, probe='collector_safe_acceptance_counter', output=output)
     collector_privacy.assert_clean(counters[1])
+    # Pin every configured exporter and signal; a different/unknown exporter cannot satisfy proof.
+    for kind, suffix in (('traces', 'spans'), ('logs', 'log_records'), ('metrics', 'metric_points')):
+        exported_path = '/metrics/api/v1/query?'+urllib.parse.urlencode({
+            'query': 'sum({__name__=~"otelcol_exporter_sent_'+suffix+'(_total)?",'
+                     'job="platform-collector",exporter="otlp_http/otelcol.exporter.otlphttp.'+kind+'"})'})
+        exported = await_fact(lambda p=exported_path: request(p, token=token),
+            collector_privacy.accepted_counter, probe='collector_safe_exported_'+kind, output=output)
+        collector_privacy.assert_clean(exported[1])
     write_json(output/'collector-privacy.json', {'accessible_field_sentinel':'passed',
         'safe_link_correlation':'passed', 'safe_collector_health':'passed',
         'safe_collector_acceptance_counter':'passed',
+        'safe_collector_export_counters':{'traces':'passed','logs':'passed','metrics':'passed'},
         'collector_raw_diagnostics':'discarded by Docker logging none; not collected',
         'untrusted_link_metadata':'unsupported; no production/general-source acceptance',
         'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})
