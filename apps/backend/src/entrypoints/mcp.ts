@@ -1,3 +1,4 @@
+import { SalesFunnel } from "../modules/sales-funnel/index.js";
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { VIDEOS, type Videos } from "../modules/videos/index.js";
 import {
@@ -64,6 +65,7 @@ async function bootstrap(): Promise<void> {
     communications: application.get(Communications),
     billing: application.get(BillingOperations),
     diagnostics: application.get(PaymentDiagnostics),
+    funnel: application.get(SalesFunnel),
     telemetry: application.get(WebTelemetry),
     config: mcpConfig,
     identityIssuer: config.identity.issuer,

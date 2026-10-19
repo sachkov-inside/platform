@@ -1,3 +1,4 @@
+import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -141,6 +142,7 @@ describe("delegated Material authoring over MCP", () => {
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
       diagnostics: application.get(PaymentDiagnostics),
+      funnel: application.get(SalesFunnel),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

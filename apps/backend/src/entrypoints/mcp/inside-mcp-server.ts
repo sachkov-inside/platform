@@ -1,4 +1,8 @@
 import {
+  registerFunnelDiagnosticsTool,
+  type SalesFunnel,
+} from "../../modules/sales-funnel/index.js";
+import {
   registerWebTelemetryTool,
   type WebTelemetry,
 } from "../../modules/web-telemetry/index.js";
@@ -25,6 +29,7 @@ import {
 
 export interface InsideMcpToolDependencies {
   readonly accountId: string;
+  readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
@@ -49,6 +54,10 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
+  });
+  registerFunnelDiagnosticsTool(server, {
+    accountId,
+    funnel: dependencies.funnel,
   });
   registerPaymentDiagnosticsTool(server, {
     accountId,
