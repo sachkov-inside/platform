@@ -1,4 +1,5 @@
 import { ChevronDown } from "lucide-react";
+import type { ReactNode } from "react";
 
 import type { ProductChapter } from "@/features/library-discovery";
 
@@ -13,8 +14,7 @@ export function PreparingChapter({
   return (
     <details className="course-preparing-chapter">
       <summary>
-        <div className="programme-chapter-heading">
-          <span className="programme-chapter-progress" aria-hidden="true" />
+        <div className="min-w-0">
           <h3
             className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
             id={`chapter-${chapter.id}`}
@@ -38,12 +38,14 @@ export function ChapterSummary({
   summary,
   showOutcome = true,
   expanded = false,
+  progress,
 }: Pick<ProductChapter, "name" | "summary"> & {
   readonly showOutcome?: boolean;
   readonly expanded?: boolean;
+  readonly progress?: ReactNode;
 }) {
   const [outcome, ...sections] = summary.trim().split(/\n\s*\n/u);
-  if (outcome === undefined || outcome === "") return null;
+  if (outcome === undefined || outcome === "") return progress ?? null;
   const content = (
     <div className="course-chapter-content">
       {sections.map((section, index) => {
@@ -63,7 +65,9 @@ export function ChapterSummary({
   return (
     <div className="course-chapter-summary">
       {showOutcome ? <p className="course-chapter-outcome">{outcome}</p> : null}
-      {sections.length === 0 ? null : expanded ? (
+      {sections.length === 0 ? (
+        progress
+      ) : expanded ? (
         <>
           <p className="course-chapter-topics-label">Темы и практика</p>
           {content}
@@ -71,6 +75,7 @@ export function ChapterSummary({
       ) : (
         <details className="course-chapter-details">
           <summary>
+            {progress}
             Темы и практика<span className="sr-only"> главы «{name}»</span>
             <ChevronDown aria-hidden="true" />
           </summary>

@@ -216,11 +216,7 @@ function journeyRun(
                   <PreparingChapter chapter={run.chapter} />
                 ) : (
                   <>
-                    <div className="programme-chapter-heading">
-                      <ChapterReadingProgress
-                        materialIds={run.chapter.materialIds}
-                        name={run.chapter.name}
-                      />
+                    <div className="min-w-0">
                       <h3
                         className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
                         id={`chapter-${run.chapter.id}`}
@@ -229,6 +225,12 @@ function journeyRun(
                       </h3>
                     </div>
                     <ChapterSummary
+                      progress={
+                        <ChapterReadingProgress
+                          materialIds={run.chapter.materialIds}
+                          name={run.chapter.name}
+                        />
+                      }
                       name={run.chapter.name}
                       summary={run.chapter.summary}
                       showOutcome={run.chapter.materialIds.length === 0}
