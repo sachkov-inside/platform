@@ -115,6 +115,7 @@ export async function runOwnedProcess(command, args, options = {}) {
   /** @type {NodeJS.Timeout | undefined} */
   let timer;
   let cleanupAttempted = false;
+  // deterministic-test-allow process-cleanup: this function owns stopGroup in finally; real process contracts verify descendant and socket closure after exit, timeout and signals.
   const worker = spawn(command, args, {
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],

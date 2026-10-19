@@ -41,7 +41,15 @@ import {
   type LearningTasks,
 } from "../modules/product-tasks/index.js";
 import { createMcpApplication } from "./create-mcp-application.js";
-import { createMcpHttpServer } from "./mcp/mcp-http-server.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../infrastructure/runtime-identity.js";
+import { technicalTelemetryFromEnvironment } from "../infrastructure/observability/technical-telemetry-runtime.js";
+import {
+  createMcpHttpServer,
+  type McpHttpServer,
+} from "./mcp/mcp-http-server.js";
 
 void bootstrap().catch((error: unknown) => reportProcessFailure("mcp", error));
 
@@ -50,34 +58,42 @@ async function bootstrap(): Promise<void> {
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const mcpConfig = parseMcpConfig(process.env, config.mode);
   const shutdown = listenForProcessShutdown();
-  const server = createMcpHttpServer({
-    accounts: application.get<Accounts>(ACCOUNTS),
-    learning: {
-      reader: application.get<PublishedMaterialReader>(
-        PUBLISHED_MATERIAL_READER,
-      ),
-      contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
-      videos: application.get<Videos>(VIDEOS),
-      tasks: application.get<LearningTasks>(LEARNING_TASKS),
-    },
-    authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
-    videos: application.get<Videos>(VIDEOS),
-    communications: application.get(Communications),
-    billing: application.get(BillingOperations),
-    diagnostics: application.get(PaymentDiagnostics),
-    funnel: application.get(SalesFunnel),
-    telemetry: application.get(WebTelemetry),
-    config: mcpConfig,
-    identityIssuer: config.identity.issuer,
-    readiness: application.get(OperationalReadiness),
-    tokenVerifier: application.get<LogtoAccessTokenVerifier>(
-      LOGTO_ACCESS_TOKEN_VERIFIER,
-    ),
-    onError: (error) =>
-      writeLog("error", "request_failed", { error: describeError(error) }),
+  const technicalTelemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-mcp",
+    mode: config.mode,
+    identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
-
+  let server: McpHttpServer | undefined;
   try {
+    server = createMcpHttpServer({
+      technicalTelemetry,
+      accounts: application.get<Accounts>(ACCOUNTS),
+      learning: {
+        reader: application.get<PublishedMaterialReader>(
+          PUBLISHED_MATERIAL_READER,
+        ),
+        contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
+        videos: application.get<Videos>(VIDEOS),
+        tasks: application.get<LearningTasks>(LEARNING_TASKS),
+      },
+      authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
+      videos: application.get<Videos>(VIDEOS),
+      communications: application.get(Communications),
+      billing: application.get(BillingOperations),
+      diagnostics: application.get(PaymentDiagnostics),
+      funnel: application.get(SalesFunnel),
+      telemetry: application.get(WebTelemetry),
+      config: mcpConfig,
+      identityIssuer: config.identity.issuer,
+      readiness: application.get(OperationalReadiness),
+      tokenVerifier: application.get<LogtoAccessTokenVerifier>(
+        LOGTO_ACCESS_TOKEN_VERIFIER,
+      ),
+      onError: (error) =>
+        writeLog("error", "request_failed", { error: describeError(error) }),
+    });
+
     writeLog("info", "process_ready", {
       ...(await application.get(OperationalReadiness).check("mcp")),
     });
@@ -89,7 +105,11 @@ async function bootstrap(): Promise<void> {
     await shutdown.received;
   } finally {
     shutdown.dispose();
-    await server.close();
-    await application.close();
+    try {
+      await server?.close();
+    } finally {
+      await technicalTelemetry.shutdown();
+      await application.close();
+    }
   }
 }

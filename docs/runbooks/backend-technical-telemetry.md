@@ -1,13 +1,13 @@
 # Backend HTTP technical telemetry
 
-The API has opt-in manual OpenTelemetry instrumentation. It exports registered route templates,
+The API and MCP have opt-in manual OpenTelemetry instrumentation. It exports registered route templates,
 HTTP methods, response statuses and durations. HTTP counters and duration histograms include
 successful health requests and failed requests independently of trace sampling. Unmatched routes
 use `unmatched`; arbitrary HTTP methods use `_OTHER`. Aborts and timeouts finish once,
 with fixed `http.request.outcome` / `error.type` values and no invented HTTP status when no response
 was completed. `http.server.active_requests` reports the current total, including unsampled work.
 
-The API runtime reads these settings:
+Both process runtimes read these settings:
 
 | Variable | Meaning |
 | --- | --- |
@@ -16,7 +16,7 @@ The API runtime reads these settings:
 | `INSIDE_OTEL_SAMPLE_RATIO` | Trace ratio between 0 and 1; default 1 for the initial pilot. It does not sample HTTP metrics. |
 
 The existing runtime identity supplies the release, and Platform mode supplies the environment.
-Service identity is `platform-api`. Invalid telemetry configuration emits a fixed warning and
+Service identity is `platform-api` or `platform-mcp`, selected by its entrypoint. Invalid telemetry configuration emits a fixed warning and
 leaves the application running with export disabled. No production configuration is enabled by
 this change.
 
@@ -41,12 +41,34 @@ with SDK overflow aggregation marked by `otel.metric.overflow=true`; totals rema
 route/status detail in that series is unavailable. Metric batches are bounded to 128 data points. Export failure counters
 are `telemetry.trace.export.failures` and `telemetry.metric.export.failures`; the runtime also emits
 fixed `telemetry_export_failed` warnings with only service and signal. Export failures do not alter
-HTTP outcomes. Shutdown flushes the SDK through the Fastify close lifecycle.
+HTTP outcomes. Shutdown flushes the SDK after requests drain: through Fastify close for API, and
+after the Node HTTP server closes for MCP.
 
-This is one implementation slice of #1566. MCP, workers, durable propagation, dependency spans,
-Telegram and collector-side privacy controls are not covered by this API instrumentation. The
+MCP observes known health, OAuth metadata and MCP route paths; unknown paths become `unmatched`.
+Host/origin rejections are counted too. Node request/response emitters are explicitly bound through
+public OpenTelemetry context APIs, so asynchronous body callbacks retain trace and log request IDs.
+The shared socket is never bound to one request. Terminal completion removes its per-request timeout
+listener; completed bodies remain active until response completion.
+
+Enabled runtimes share one process-owned `AsyncLocalStorageContextManager`. Repeated shutdown is
+idempotent; the last runtime releases only its own manager. A pre-existing or replacement foreign
+manager is preserved. If acquisition or SDK construction fails, the runtime emits the fixed
+`telemetry_context_unavailable` event and keeps telemetry disabled without stopping the application.
+Disabled telemetry does not register a context manager. No global tracer or meter provider is installed.
+HTTP spans start from `ROOT_CONTEXT`; library spans can inherit their active context, while incoming
+HTTP trace headers and baggage are ignored. Trace/log correlation follows an active library child span
+and restores the parent after its asynchronous completion or error.
+
+This is one implementation slice of #1566. Workers, durable propagation, dependency spans,
+Telegram and collector-side privacy controls are not covered by this HTTP instrumentation. The
 owned loopback test proves actual SDK OTLP traces and metrics reach its receiver; it does not prove
 production collector retention, resource capacity, or full business trace chains.
 
 SDK configuration follows the [official JavaScript exporter documentation](https://opentelemetry.io/docs/languages/js/exporters/).
 Dependencies are pinned in `apps/backend/package.json` and `pnpm-lock.yaml`.
+
+The pinned pg-boss 12.36 telemetry implementation already owns persisted `trace_context` and retry/
+consumer links. It uses the global context API even with injected providers. Its default error capture
+records exception and status messages, and its default propagator can carry baggage. Queue telemetry
+has not been enabled by this HTTP slice: it needs an explicit W3C trace-only propagator, exporter privacy
+controls and real PostgreSQL restart/retry/cross-process proofs before wiring existing workers.

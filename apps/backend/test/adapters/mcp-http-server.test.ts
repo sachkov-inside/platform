@@ -1,3 +1,11 @@
+import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
+import {
+  InMemoryMetricExporter,
+  AggregationTemporality,
+} from "@opentelemetry/sdk-metrics";
+import { z } from "zod";
+import { createTechnicalTelemetry } from "../../src/infrastructure/observability/technical-telemetry.js";
+import { writeLog } from "../../src/infrastructure/observability/log.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
@@ -6,7 +14,7 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from "@modelcontextprotocol/client";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import {
   createMcpHttpServer,
@@ -351,3 +359,135 @@ function currentTime(): number {
   // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
   return Math.floor(Date.now() / 1_000);
 }
+
+describe("MCP technical HTTP telemetry", () => {
+  test("counts health, denied and unknown routes with safe templates and async log context", async () => {
+    const spans = new InMemorySpanExporter();
+    const metrics = new InMemoryMetricExporter(
+      AggregationTemporality.CUMULATIVE,
+    );
+    const technicalTelemetry = createTechnicalTelemetry({
+      enabled: true,
+      service: "platform-mcp",
+      environment: "test",
+      release: "test",
+      sampleRatio: 1,
+      exporters: { spans, metrics },
+    });
+    let server: McpHttpServer | undefined;
+    const logs = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      server = createMcpHttpServer({
+        ...refusingMcpToolDependencies(),
+        accounts: fakeAccounts(),
+        learning: refusingLearnerMcpDependencies(),
+        config: {
+          host: "127.0.0.1",
+          port: 0,
+          serverUrl: "http://127.0.0.1:0/mcp",
+        },
+        identityIssuer: issuer,
+        readiness: {
+          ...fakeReadiness(),
+          check: async () => {
+            await Promise.resolve();
+            writeLog("info", "mcp_readiness_checked");
+            throw new Error("token=sentinel-private");
+          },
+        },
+        tokenVerifier: createLogtoAccessTokenVerifier({
+          issuer,
+          audience,
+          jwks: { keys: [] },
+        }),
+        technicalTelemetry,
+      });
+      const endpoint = await server.listen();
+      const responses = await Promise.all([
+        fetch(new URL("/_health/live", endpoint)),
+        fetch(new URL("/_health/ready", endpoint)),
+        fetch(new URL("/mcp?token=sentinel-query", endpoint), {
+          method: "POST",
+          headers: {
+            authorization: "Bearer sentinel-token",
+            baggage: "private=sentinel-baggage",
+            traceparent:
+              "00-11111111111111111111111111111111-1111111111111111-01",
+          },
+          body: "{}",
+        }),
+        fetch(new URL("/sentinel-path", endpoint)),
+        fetch(endpoint, {
+          headers: { origin: "https://sentinel-origin.invalid" },
+        }),
+      ]);
+      expect(responses.map((response) => response.status)).toEqual([
+        200, 503, 401, 404, 403,
+      ]);
+      await technicalTelemetry.flush();
+      const finished = spans.getFinishedSpans();
+      expect(finished).toHaveLength(5);
+      expect(
+        finished.map((span) => span.attributes["http.route"]).sort(),
+      ).toEqual(
+        ["/_health/live", "/_health/ready", "/mcp", "/mcp", "unmatched"].sort(),
+      );
+      expect(
+        new Set(finished.map((span) => span.spanContext().traceId)).size,
+      ).toBe(5);
+      expect(
+        finished.some(
+          (span) =>
+            span.spanContext().traceId === "11111111111111111111111111111111",
+        ),
+      ).toBe(false);
+      const log = logs.mock.calls.find((call) =>
+        String(call[0]).includes("mcp_readiness_checked"),
+      );
+      const correlation = z
+        .object({
+          traceId: z.string(),
+          spanId: z.string(),
+          requestId: z.string(),
+          service: z.literal("platform-mcp"),
+        })
+        .parse(JSON.parse(String(log?.[0])));
+      expect(
+        finished
+          .find((span) => span.attributes["http.route"] === "/_health/ready")
+          ?.spanContext().traceId,
+      ).toBe(correlation.traceId);
+      const exported = metrics
+        .getMetrics()
+        .flatMap((batch) =>
+          batch.scopeMetrics.flatMap((scope) => scope.metrics),
+        );
+      const counts = exported.find(
+        (metric) => metric.descriptor.name === "http.server.request.count",
+      );
+      expect(
+        counts?.dataPoints.reduce((sum, point) => sum + Number(point.value), 0),
+      ).toBe(5);
+      expect(
+        JSON.stringify({
+          spans: finished.map((span) => ({
+            name: span.name,
+            attributes: span.attributes,
+            status: span.status,
+            events: span.events,
+          })),
+          metrics: exported,
+          logs: logs.mock.calls,
+        }),
+      ).not.toContain("sentinel-");
+    } finally {
+      await server?.close();
+      await technicalTelemetry.shutdown();
+      logs.mockRestore();
+      errors.mockRestore();
+    }
+  });
+});
