@@ -365,6 +365,45 @@ class LinkStorageOwnershipError(RuntimeError):
     """An ownership failure stops this corpus, including its remaining ingest/query calls."""
 
 
+def verify_trace_store_logging(output, compose):
+    """Unsafe OTLP requires actual owned VT logging=none, not just the intended Compose input."""
+    deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
+    proof = {'outcome':'failed','ownership':'unverified','driver':'unverified'}
+    def read(args):
+        remaining = deadline-time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('trace logging inspection deadline')
+        return command(args, timeout=remaining)
+    try:
+        if (not FROZEN_DOCKER_ENDPOINT or not isinstance(FROZEN_DOCKER_IDENTITY, dict) or
+                FROZEN_DOCKER_IDENTITY.get('endpoint') != FROZEN_DOCKER_ENDPOINT or
+                not isinstance(compose, list) or len(compose) != 6 or
+                compose[:3] != ['docker','compose','-p'] or compose[4] != '-f' or
+                not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', compose[3]) or
+                not Path(compose[5]).is_absolute() or Path(compose[5]).name != 'compose.json'):
+            raise ValueError('unregistered logging inspection')
+        assert_docker_identity(deadline=deadline)
+        container = read(compose+['ps','-q','traces']).strip()
+        if not re.fullmatch(r'[0-9a-f]{64}', container):
+            raise ValueError('missing or ambiguous trace store')
+        # Evaluate on the daemon side. No raw inspect fields/labels/driver names reach stdout.
+        template = ('{{if and (eq (index .Config.Labels "com.docker.compose.project") '+
+            json.dumps(compose[3])+') (eq (index .Config.Labels "com.docker.compose.service") "traces") '
+            '.State.Running}}owned{{else}}unowned{{end}}|'
+            '{{if eq .HostConfig.LogConfig.Type "none"}}none{{else}}unverified{{end}}')
+        observed = read(['docker','inspect','--format',template,container]).strip()
+        assert_docker_identity(deadline=deadline)
+        if observed != 'owned|none':
+            raise ValueError('owned trace store logging is not none')
+        proof = {'outcome':'passed','ownership':'passed','driver':'none'}
+    except (OSError, ValueError, TypeError, RuntimeError, subprocess.SubprocessError):
+        # Never chain raw CLI stderr/inspect data into the worker or supervisor diagnostics.
+        pass
+    write_json(output/'trace-store-logging.json',proof)
+    if proof['outcome'] != 'passed':
+        raise RuntimeError('trace store logging execution condition unproved; unsafe OTLP refused')
+
+
 def link_storage_row(compose, transport):
     """Read only fixed synthetic traces internally; never extend vmauth/MCP query authority.
 
@@ -416,6 +455,7 @@ def link_storage_row(compose, transport):
 def link_privacy_corpus(output, compose):
     """Require clean full stored links without losing any fixture causality."""
     import link_privacy
+    verify_trace_store_logging(output, compose)
     fixtures = (('json', link_privacy.json_fixture), ('protobuf', link_privacy.protobuf_fixture))
     cases = [{'transport': transport, 'privacy': 'unknown', 'stage': 'not_attempted'}
              for transport, _ in fixtures]
@@ -530,6 +570,8 @@ def await_stored_trace(token, trace_id, *, port=18427, output=None):
 
 
 def smoke(token, output, compose):
+    # Gate the original accessible-field sentinel corpus too, before its first unsafe POST.
+    verify_trace_store_logging(output, compose)
     query = "/metrics/api/v1/query?" + urllib.parse.urlencode({"query": "1"})
     await_fact(lambda: request(query, token=token), lambda response: response[0] == 200,
                probe="metrics_query", output=output)

@@ -123,7 +123,13 @@ Alloy и VictoriaTraces используют Docker logging driver `none`, чт�
 [index queue failure](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtinsert/insertutil/trace_processor.go)
 тоже может вывести исходные fields. Поэтому одного header недостаточно. Это явная потеря сырых
 diagnostics, а не их полноценная очистка или сбор. Остальные services сохраняют прежние ограниченные
-logging settings. Новые logging settings VT требуют фактического подтверждения на том же source.
+logging settings. До первого unsafe OTLP, включая исходный accessible-field corpus, supervisor worker
+проверяет фактический owned/running контейнер `traces` и строгое равенство
+`HostConfig.LogConfig.Type=none`. До и после bounded inspection проверяется frozen endpoint/socket/daemon.
+Недоступный inspect, потеря ownership или любой другой driver прекращают ingest.
+`trace-store-logging.json` сохраняет только фиксированные outcome/ownership/driver verdicts;
+container IDs, labels, пути и raw inspect не публикуются. Новая execution condition требует
+фактического подтверждения на том же source, а не только unit PASS.
 
 Вместо raw VT logs подготовлен ограниченный self-scrape `platform-trace-store`: `up`,
 `vt_http_requests_total`, `vt_http_errors_total`, `vt_rows_ingested_total`, `vt_rows_dropped_total`

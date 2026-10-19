@@ -132,10 +132,11 @@ class HostedEvidenceTest(unittest.TestCase):
             metadata.mkdir()
             (metadata / "source.json").write_text('{"checkout_sha":"fixture"}')
             (output / "evidence.json").write_text('{"status":"failed"}')
-            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable"):
+            (output / "trace-store-logging.json").write_text('{"outcome":"passed","ownership":"passed","driver":"none"}')
+            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json"):
                 (output / forbidden).write_text("sentinel-secret")
             ci.collect(output, metadata, public)
-            self.assertEqual(sorted(path.name for path in public.iterdir()), ["evidence.json", "source.json"])
+            self.assertEqual(sorted(path.name for path in public.iterdir()), ["evidence.json", "source.json", "trace-store-logging.json"])
             self.assertNotIn("sentinel-secret", "".join(path.read_text() for path in public.iterdir()))
 
     def test_recovery_refuses_foreign_project_instead_of_executing_owner_argv(self):

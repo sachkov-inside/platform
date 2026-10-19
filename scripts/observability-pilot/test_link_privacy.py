@@ -200,6 +200,7 @@ class LinkPrivacyContract(unittest.TestCase):
             row['link:link_attr:private:0'] = link_privacy.SENTINEL
             return json.dumps(row)
         with tempfile.TemporaryDirectory() as directory, \
+             patch('pilot.verify_trace_store_logging'), \
              patch('pilot.request', return_value=(200, '')) as post, \
              patch('pilot.link_storage_row', side_effect=stored) as read:
             with self.assertRaisesRegex(RuntimeError, 'link metadata privacy unproved'):
@@ -218,6 +219,7 @@ class LinkPrivacyContract(unittest.TestCase):
             row['trace_id'] = 'e'*31+('1' if transport == 'json' else '2')
             return json.dumps(row)
         with tempfile.TemporaryDirectory() as directory, \
+             patch('pilot.verify_trace_store_logging'), \
              patch('pilot.request', return_value=(200, '')), \
              patch('pilot.link_storage_row', side_effect=stored):
             pilot.link_privacy_corpus(Path(directory), ['owned-compose'])
@@ -227,6 +229,7 @@ class LinkPrivacyContract(unittest.TestCase):
     def test_ingest_or_storage_failure_is_unknown_and_does_not_skip_other_transport(self):
         for status in (400, 200):
             with tempfile.TemporaryDirectory() as directory, \
+                 patch('pilot.verify_trace_store_logging'), \
                  patch('pilot.request', return_value=(status, link_privacy.SENTINEL)) as post, \
                  patch('pilot.link_storage_row', side_effect=RuntimeError(link_privacy.SENTINEL)):
                 with self.assertRaises(RuntimeError) as caught:
@@ -238,6 +241,7 @@ class LinkPrivacyContract(unittest.TestCase):
 
     def test_identity_drift_stops_remaining_ingest_and_reads(self):
         with tempfile.TemporaryDirectory() as directory, \
+             patch('pilot.verify_trace_store_logging'), \
              patch('pilot.assert_docker_identity', side_effect=RuntimeError(link_privacy.SENTINEL)), \
              patch('pilot.request') as post, patch('pilot.link_storage_row') as read:
             with self.assertRaises(RuntimeError) as caught:
