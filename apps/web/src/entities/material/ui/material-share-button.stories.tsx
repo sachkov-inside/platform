@@ -23,7 +23,16 @@ function replaceShare(value: Navigator["share"] | undefined) {
   };
 }
 
-export const Default: Story = {};
+export const Default: Story = {
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole("button", {
+      name: "Поделиться материалом «Первый материал»",
+    });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveTextContent("");
+    await expect(button).toHaveAttribute("title", "Поделиться");
+  },
+};
 
 export const CopyLink: Story = {
   beforeEach: () => replaceShare(undefined),
@@ -34,7 +43,12 @@ export const CopyLink: Story = {
       await userEvent.click(canvas.getByRole("button"));
       await expect(
         canvas.findByText("Ссылка скопирована"),
-      ).resolves.toBeVisible();
+      ).resolves.toBeInTheDocument();
+      await expect(canvas.getByRole("button")).toHaveAttribute(
+        "title",
+        "Ссылка скопирована",
+      );
+      await expect(canvas.getByRole("button")).toHaveTextContent("");
       await expect(copy).toHaveBeenCalledWith(
         `${window.location.origin}/materials/first-material`,
       );
