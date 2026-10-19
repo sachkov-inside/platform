@@ -17,7 +17,7 @@ import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { materialReaderHref } from "@/shared/routing/material-reader";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
-import { ChapterSummary } from "./course-programme-overview";
+import { ChapterSummary, PreparingChapter } from "./course-programme-overview";
 
 import { formatStepCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
@@ -138,10 +138,6 @@ export function SeriesJourney({
   return (
     <SeriesJourneyControls
       currentHref={currentHref}
-      {...(process.env.NODE_ENV !== "production" &&
-      result.reference.slug === "ai-engineering"
-        ? { prototypeChapters: result.chapters }
-        : {})}
       offersAccessRecheck={
         !accessPending &&
         items.some((item) => item.availability === "unavailable")
@@ -216,32 +212,33 @@ function journeyRun(
                 className="programme-chapter-head"
                 key={`head-${run.chapter.id}`}
               >
-                {/* Счётчик и метка «Материалы готовятся» стоят сразу за названием главы, мелко (референс
-                    владельца 09.10.2026). */}
-                <div className="min-w-0">
-                  <h3
-                    className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
-                    id={`chapter-${run.chapter.id}`}
-                  >
-                    {run.chapter.name}
-                  </h3>
-                  {preparing ? (
-                    <span className="programme-chapter-soon ml-2 align-[2px]">
-                      Материалы готовятся
-                    </span>
-                  ) : run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
-                    <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                      {formatStepCount(
-                        run.chapter.materialIds.length + tasks.length,
-                      )}
-                    </span>
-                  ) : null}
-                </div>
-                <ChapterSummary
-                  name={run.chapter.name}
-                  summary={run.chapter.summary}
-                  showOutcome={run.chapter.materialIds.length === 0}
-                />
+                {preparing ? (
+                  <PreparingChapter chapter={run.chapter} />
+                ) : (
+                  <>
+                    <div className="min-w-0">
+                      <h3
+                        className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
+                        id={`chapter-${run.chapter.id}`}
+                      >
+                        {run.chapter.name}
+                      </h3>
+                      {run.chapter.materialIds.length > 0 ||
+                      tasks.length > 0 ? (
+                        <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                          {formatStepCount(
+                            run.chapter.materialIds.length + tasks.length,
+                          )}
+                        </span>
+                      ) : null}
+                    </div>
+                    <ChapterSummary
+                      name={run.chapter.name}
+                      summary={run.chapter.summary}
+                      showOutcome={run.chapter.materialIds.length === 0}
+                    />
+                  </>
+                )}
               </header>
             ),
             id: run.chapter.id,

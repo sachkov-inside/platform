@@ -17,11 +17,7 @@ import {
   SeriesContinuationProvider,
   type MaterialPreview,
 } from "@/entities/material";
-import {
-  formatMaterialCount,
-  type ProductChapter,
-} from "@/features/library-discovery";
-import { ProgrammePrototype } from "./programme-prototype.client";
+import { formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/lib/utils";
 import {
@@ -104,13 +100,11 @@ export function SeriesJourneyControls({
   currentHref,
   offersAccessRecheck,
   parts: suppliedParts,
-  prototypeChapters,
 }: {
   readonly currentHref: Route;
   /** Доступ к части уроков не проверился: читателю предлагается перепроверить его. */
   readonly offersAccessRecheck: boolean;
   readonly parts: readonly JourneyPart[];
-  readonly prototypeChapters?: readonly ProductChapter[];
 }) {
   const onboarding = useProductOnboardingPresentation();
   const parts: readonly JourneyPart[] =
@@ -314,9 +308,7 @@ export function SeriesJourneyControls({
                 Программа готовится. Здесь появятся главы и уроки продукта.
               </p>
             ) : null}
-            {visible.length > SERIES_BATCH_SIZE &&
-            (prototypeChapters === undefined ||
-              search.get("variant") === "original") ? (
+            {visible.length > SERIES_BATCH_SIZE ? (
               <p
                 aria-live="polite"
                 className="mt-6 text-sm tabular-nums text-muted-foreground"
@@ -342,108 +334,97 @@ export function SeriesJourneyControls({
                 learning.kind === "loading" || learning.kind === "unavailable"
               }
             >
-              <ProgrammePrototype
-                enabled={
-                  prototypeChapters !== undefined && part?.id === "programme"
-                }
-                chapters={prototypeChapters ?? []}
-                runs={part?.kind === "materials" ? part.runs : []}
-              >
-                <div className="mt-5 grid gap-6">
-                  {(part?.kind === "materials" ? part.runs : []).map((run) => {
-                    const rows = run.rows.slice(
-                      0,
-                      Math.max(0, count - run.offset),
-                    );
-                    return (
-                      <section
-                        aria-labelledby={
-                          run.chapter === null
-                            ? undefined
-                            : `chapter-${run.chapter.id}`
-                        }
-                        className={
-                          run.chapter === null ? undefined : "programme-chapter"
-                        }
-                        data-chapter-state={
-                          run.chapter === null
-                            ? undefined
-                            : run.rows.length === 0
-                              ? "preparing"
-                              : "open"
-                        }
-                        key={run.chapter?.id ?? `open-${String(run.offset)}`}
-                      >
-                        {run.chapter?.header ?? null}
-                        {run.leading ?? null}
-                        {rows.length === 0 ? null : (
-                          <ol
-                            aria-label={
-                              run.chapter === null
-                                ? "Материалы продукта"
-                                : `Материалы главы «${run.chapter.name}»`
-                            }
-                            className={cn(
-                              "grid gap-2",
-                              run.chapter === null ? "" : "mt-3",
-                            )}
-                            data-series-order
-                            start={run.offset + 1}
-                          >
-                            {rows.map((row) => (
-                              <li
-                                onClickCapture={(event) => {
-                                  if (
-                                    event.button !== 0 ||
-                                    event.metaKey ||
-                                    event.ctrlKey ||
-                                    event.shiftKey ||
-                                    event.altKey ||
-                                    !(event.target instanceof Element) ||
-                                    event.target.closest("a") === null
-                                  )
-                                    return;
-                                  if (
-                                    window.location.pathname ===
-                                    new URL(currentHref, window.location.origin)
-                                      .pathname
-                                  )
-                                    window.history.replaceState(
-                                      window.history.state,
-                                      "",
-                                      row.returnHref,
-                                    );
-                                }}
-                                aria-current={
-                                  next?.slug === row.slug ? "step" : undefined
-                                }
-                                className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
-                                data-route-material={row.slug}
-                                data-programme-placement={row.id}
-                                data-series-ordinal={row.ordinal}
-                                key={row.id ?? row.slug}
-                                tabIndex={-1}
-                              >
-                                {row.card}
-                                {row.after ?? null}
-                              </li>
-                            ))}
-                          </ol>
-                        )}
-                        {run.supplementary ?? null}
-                      </section>
-                    );
-                  })}
-                </div>
-              </ProgrammePrototype>
+              <div className="mt-5 grid gap-6">
+                {(part?.kind === "materials" ? part.runs : []).map((run) => {
+                  const rows = run.rows.slice(
+                    0,
+                    Math.max(0, count - run.offset),
+                  );
+                  return (
+                    <section
+                      aria-labelledby={
+                        run.chapter === null
+                          ? undefined
+                          : `chapter-${run.chapter.id}`
+                      }
+                      className={
+                        run.chapter === null ? undefined : "programme-chapter"
+                      }
+                      data-chapter-state={
+                        run.chapter === null
+                          ? undefined
+                          : run.rows.length === 0
+                            ? "preparing"
+                            : "open"
+                      }
+                      key={run.chapter?.id ?? `open-${String(run.offset)}`}
+                    >
+                      {run.chapter?.header ?? null}
+                      {run.leading ?? null}
+                      {rows.length === 0 ? null : (
+                        <ol
+                          aria-label={
+                            run.chapter === null
+                              ? "Материалы продукта"
+                              : `Материалы главы «${run.chapter.name}»`
+                          }
+                          className={cn(
+                            "grid gap-2",
+                            run.chapter === null ? "" : "mt-3",
+                          )}
+                          data-series-order
+                          start={run.offset + 1}
+                        >
+                          {rows.map((row) => (
+                            <li
+                              onClickCapture={(event) => {
+                                if (
+                                  event.button !== 0 ||
+                                  event.metaKey ||
+                                  event.ctrlKey ||
+                                  event.shiftKey ||
+                                  event.altKey ||
+                                  !(event.target instanceof Element) ||
+                                  event.target.closest("a") === null
+                                )
+                                  return;
+                                if (
+                                  window.location.pathname ===
+                                  new URL(currentHref, window.location.origin)
+                                    .pathname
+                                )
+                                  window.history.replaceState(
+                                    window.history.state,
+                                    "",
+                                    row.returnHref,
+                                  );
+                              }}
+                              aria-current={
+                                next?.slug === row.slug ? "step" : undefined
+                              }
+                              className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
+                              data-route-material={row.slug}
+                              data-programme-placement={row.id}
+                              data-series-ordinal={row.ordinal}
+                              key={row.id ?? row.slug}
+                              tabIndex={-1}
+                            >
+                              {row.card}
+                              {row.after ?? null}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                      {run.supplementary ?? null}
+                    </section>
+                  );
+                })}
+              </div>
             </SeriesContinuationProvider>
           </>
         )}
       </div>
-      {part?.kind === "materials" &&
-      hasMore &&
-      (prototypeChapters === undefined ||
-        search.get("variant") === "original") ? (
+      {part?.kind === "materials" && hasMore ? (
         <div className="mt-6 flex justify-center" ref={sentinel}>
           <Button
             onClick={() => {
