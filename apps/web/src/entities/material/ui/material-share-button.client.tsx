@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Upload } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, useSyncExternalStore } from "react";
 
 import { cn } from "@/shared/lib/utils";
 import { materialPath } from "@/shared/routing/public-page-path";
@@ -19,6 +19,8 @@ export interface MaterialShareButtonProps {
 /** Shares only the canonical material address, never the reader's private route context. */
 export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
   const fieldId = useId();
+  // Server HTML must not accept a click before this component owns its handler.
+  const ready = useSyncExternalStore(subscribeToNothing, always, never);
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{
     readonly slug: string;
@@ -66,7 +68,7 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
         variant="ghost"
         size="icon"
         className="size-11 text-muted-foreground"
-        disabled={pending}
+        disabled={!ready || pending}
         aria-label={`Поделиться материалом «${title}»`}
         title={current?.copied === true ? "Ссылка скопирована" : "Поделиться"}
         onClick={() => void share()}
@@ -103,4 +105,14 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
       ) : null}
     </div>
   );
+}
+
+function subscribeToNothing(): () => void {
+  return () => undefined;
+}
+function always(): boolean {
+  return true;
+}
+function never(): boolean {
+  return false;
 }

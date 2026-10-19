@@ -35,6 +35,30 @@ class LinuxDaemonBoundary(unittest.TestCase):
             finally:
                 listener.close()
 
+    def test_identity_preflight_spends_one_absolute_deadline_before_any_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'docker.sock'
+            listener = socket.socket(socket.AF_UNIX)
+            listener.bind(str(path))
+            timeouts = []
+            def read(args, *, timeout):
+                timeouts.append(timeout)
+                if args[-1] == 'show':
+                    return 'owned'
+                if 'inspect' in args:
+                    return 'unix://' + str(path)
+                raise AssertionError('expired preflight reached another command')
+            try:
+                with patch.dict(os.environ, {}, clear=True), \
+                        patch.object(pilot, 'FROZEN_DOCKER_IDENTITY', {'platform': 'linux'}), \
+                        patch.object(pilot.time, 'monotonic', side_effect=[100, 101.75, 103]), \
+                        patch.object(pilot, '_raw_command', side_effect=read):
+                    with self.assertRaises(TimeoutError):
+                        pilot.assert_docker_identity(deadline=102)
+                self.assertEqual(timeouts, [0.5, 0.25])
+            finally:
+                listener.close()
+
     def test_remote_or_overridden_endpoint_is_not_admitted(self):
         with patch.dict(os.environ, {'DOCKER_HOST':'tcp://foreign:2375'}, clear=True):
             with self.assertRaises(RuntimeError):

@@ -21,6 +21,7 @@ import pilot
 import ci as core_ci
 import prepare
 import fixture
+import retention_fixture
 
 SERVICES = ('db', 'umami', 'query')
 PROJECT_PREFIX = 'inside-observability-umami-'
@@ -38,9 +39,13 @@ class FixtureCommandFailed(RuntimeError):
 
 def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS, fixture_phase=None):
     """Private fixture input uses stdin, never argv or public diagnostics."""
-    pilot.assert_docker_identity()
+    deadline = time.monotonic() + timeout
+    pilot.assert_docker_identity(deadline=deadline)
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError('fixture command deadline exhausted before execution')
     result = subprocess.run(pilot.docker_args(compose + args), input=payload,
-                            capture_output=True, text=True, timeout=timeout)
+                            capture_output=True, text=True, timeout=remaining)
     if result.returncode:
         diagnostic = None
         if fixture_phase == 'seed' and len(result.stderr.encode()) <= fixture.FAILURE_REPORT_BYTES:
@@ -61,7 +66,7 @@ def await_database(compose):
         if remaining <= 0:
             raise RuntimeError('owned database readiness deadline')
         try:
-            invoke(compose, ['exec', '-T', 'db', 'pg_isready', '-U', 'pilot_bootstrap', '-d', 'postgres'], timeout=min(pilot.COMMAND_TIMEOUT_SECONDS, remaining))
+            invoke(compose, ['exec', '-T', 'db', *prepare.DATABASE_READY_COMMAND], timeout=min(pilot.COMMAND_TIMEOUT_SECONDS, remaining))
             return
         except FixtureCommandFailed:
             if time.monotonic() >= deadline:
@@ -166,9 +171,16 @@ def smoke(output, compose):
         native = pilot.stdio_probe(node, {'PATH':os.environ.get('PATH', ''), 'NODE_USE_ENV_PROXY':'0', 'UMAMI_URL':'http://127.0.0.1:13301', 'UMAMI_API_TOKEN':state['key']},
                                    'get_website_stats', arguments, state['site'], argv=[node, str(executable)], validate_result=lambda result: native_result(result, state['site']))
         native.update({'version':'0.2.0', 'transport':'stdio', 'host_os':platform.system()})
+        stage = 'retention_compatibility'
+        def maintenance(sql, *, timeout):
+            return invoke(compose, ['exec', '-T', 'db', 'psql', '-X', '-qAt', '-U', 'umami', '-d', 'umami', '-v', 'ON_ERROR_STOP=1'], payload=sql, timeout=timeout)
+        retention_fixture.exercise(maintenance,
+            lambda: invoke(compose, ['exec', '-T', 'query', 'python', '/pilot/fixture.py', 'retention'], payload=json.dumps(state)),
+            state['site'], lambda evidence: pilot.write_json(output / 'umami-retention.json', evidence))
         stage = 'api_privacy_readonly_revocation'
         proof = fixture_proof(json.loads(invoke(compose, ['exec', '-T', 'query', 'python', '/pilot/fixture.py', 'verify'], payload=json.dumps(state))))
         proof['native_stdio_mcp'] = native
+        proof['retention_history_runtime'] = 'passed_synthetic_only'
         proof['retention_restore_runtime'] = 'pending'
         pilot.write_json(output / 'umami-proof.json', proof)
         pilot.write_json(output / 'readiness.json', {'stage': 'completed', 'state': 'passed'})
@@ -209,8 +221,8 @@ def main():
     else:
         try:
             pilot.run(output, prepare_inputs=prepare.prepare, worker_script=Path(__file__).resolve(), ports=(13301,),
-                      project_prefix=PROJECT_PREFIX, services=SERVICES, scope='synthetic Umami API/MCP compatibility only',
-                      missing=['PostgreSQL TTL corpus/physical cleanup/restore/pgBackRest', 'browser consent/identity integration',
+                      project_prefix=PROJECT_PREFIX, services=SERVICES, scope='synthetic Umami API/MCP and retention compatibility only',
+                      missing=['PostgreSQL retention scheduling/isolated restore/deletion replay/pgBackRest', 'browser consent/identity integration',
                                'complete analytics catalog', 'resource acceptance', 'production and seven days'])
         finally:
             (output / 'reader.key').unlink(missing_ok=True)

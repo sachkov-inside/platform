@@ -1,5 +1,6 @@
 """Internal synthetic fixture. Seed stdout is SECRET; verify stdout is curated evidence."""
 import argparse
+from datetime import datetime
 import json
 import secrets
 import sys
@@ -9,7 +10,7 @@ import urllib.parse
 import urllib.request
 import uuid
 from credentials import credential, native_key
-from gateway import NoRedirect
+from gateway import NoRedirect, DAY_MS, HISTORY_MS
 
 APP = 'http://umami:3000'
 QUERY = 'http://query:3001'
@@ -196,6 +197,39 @@ def load_state(raw):
     return raw
 
 
+def retention_query(state):
+    """Prove the approved query boundary hides old rows BEFORE physical cleanup."""
+    now = int(time.time() * 1000)
+    cutoff = now - HISTORY_MS
+    site = state['site']
+    for route in (
+        f'/api/websites/{site}/events?startAt={cutoff - DAY_MS}&endAt={cutoff}',
+        f'/api/websites/{site}/stats?startAt={cutoff - DAY_MS}&endAt={cutoff}',
+        f'/api/websites/{site}/stats?startAt={cutoff + 3_600_000}&endAt={cutoff + 10_800_000}',
+        f'/api/websites/{site}/events', f'/api/websites/{site}/stats',
+        f'/api/websites/{site}/sessions', f'/api/websites/{site}/sessions/00000000-0000-4000-8000-000000000001',
+        f'/api/websites/{site}/event-data',
+    ):
+        call(QUERY, route, token=state['key'], expected=403)
+    start = now - 2 * DAY_MS
+    route = f'/api/websites/{site}/events?' + urllib.parse.urlencode({'startAt': start, 'endAt': now, 'page': 1, 'pageSize': 100})
+    result = call(QUERY, route, token=state['key'])
+    rows = result.get('data')
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 100:
+        raise ValueError('retention_event_rows')
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get('createdAt'), str) or len(row['createdAt']) > 40:
+            raise ValueError('retention_event_time')
+        created = datetime.fromisoformat(row['createdAt'].replace('Z', '+00:00'))
+        if created.tzinfo is None or not start <= int(created.timestamp() * 1000) <= now:
+            raise ValueError('retention_event_horizon')
+    if (not any(row.get('eventName') == 'ttl_recent' for row in rows)
+            or any(row.get('eventName') in ('ttl_expired', 'ttl_null') for row in rows)):
+        raise ValueError('retention_event_fixture')
+    return {'history_window_denied': True, 'windowless_detail_denied': True,
+            'recent_events_visible_before_cleanup': True}
+
+
 def verify(state):
     path, stats = await_stats(state['site'], state['key'])
     for method, route, body in [
@@ -221,10 +255,10 @@ def verify(state):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('phase', choices=['seed', 'verify'])
+    parser.add_argument('phase', choices=['seed', 'verify', 'retention'])
     args = parser.parse_args()
     try:
-        result = seed() if args.phase == 'seed' else verify(load_state(json.load(sys.stdin)))
+        result = seed() if args.phase == 'seed' else (retention_query if args.phase == 'retention' else verify)(load_state(json.load(sys.stdin)))
         print(json.dumps(result, separators=(',', ':')))
     except (OSError, ValueError, KeyError, RuntimeError) as error:
         # Exception text/bodies may contain credentials or private provider output.

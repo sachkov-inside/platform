@@ -11,17 +11,17 @@ import runtime
 
 ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'recovery.json',
              'container-states.json', 'readiness.json', 'storage-host.json', 'storage-vm.json',
-             'monitor-failure.json', 'umami-proof.json')
+             'monitor-failure.json', 'umami-proof.json', 'umami-retention.json')
 
 
 def source_inputs():
-    return tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + (
+    return tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + tuple(sorted(runtime.SCRIPTS.glob('*.sql'))) + (
         ROOT / 'scripts/observability-pilot/pilot.py', ROOT / 'scripts/observability-pilot/native_cpu.py', ROOT / 'scripts/observability-pilot/ci.py',
         ROOT / 'scripts/observability-pilot/daemon.py', ROOT / 'scripts/observability-pilot/orbstack.py',
         ROOT / 'scripts/observability-pilot/storage_policy.py', ROOT / 'infra/observability/pilot/probe.lock.json',
-        runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json',
+        runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json', runtime.CONFIG / 'schema-fixture.sql',
         ROOT / '.github/workflows/observability-umami.yml', ROOT / '.node-version',
-        ROOT / 'scripts/observability-umami.test.mjs', ROOT / 'scripts/observability-umami-process.test.mjs',
+        ROOT / 'scripts/observability-umami-startup.pg.test.mjs', ROOT / 'scripts/observability-umami-retention.pg.test.mjs', ROOT / 'scripts/observability-umami.test.mjs', ROOT / 'scripts/observability-umami-process.test.mjs',
         ROOT / 'scripts/process-group-signal.mjs',
     )
 

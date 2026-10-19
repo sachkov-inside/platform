@@ -124,11 +124,11 @@ class PilotPreparationTest(unittest.TestCase):
     def test_fixture_has_one_trace_with_distinct_retry_and_worker_attempts(self):
         fixture = pilot.corpus(now_ns=1_790_000_000_000_000_000, sequence=7)
         spans = fixture["traces"]["resourceSpans"][0]["scopeSpans"][0]["spans"]
-        self.assertEqual([span["name"] for span in spans], [
+        self.assertEqual([span["name"] for span in spans[:5]], [
             "HTTP GET /pilot", "queue.publish", "worker.attempt", "worker.retry", "dependency.http",
         ])
         self.assertEqual(len({span["traceId"] for span in spans}), 1)
-        self.assertEqual(len({span["spanId"] for span in spans}), 5)
+        self.assertEqual(len({span["spanId"] for span in spans}), 6)
         self.assertEqual(spans[-1]["parentSpanId"], spans[-2]["spanId"])
 
     def test_only_loopback_published_services_join_the_owned_ingress_bridge(self):
