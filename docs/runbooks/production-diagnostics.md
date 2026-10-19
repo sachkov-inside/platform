@@ -125,18 +125,87 @@ protected-resource metadata и делегированного bearer token оп�
 Не складывайте повторяющийся `total` разных страниц. При продолжении передавайте неизменённый
 `nextCursor` и те же границы, Product и главу; `nextCursor=null` завершает текущий обход.
 
-Ограничение касается и исходных чтений. Внутри каждого владельца сначала читается не более
-2001 строк каждой исходной таблицы. При превышении 2000 строк полная агрегация этого источника
-не запускается, ответ — `source_budget_exceeded` с `coverage=unknown`, без нулевых или усечённых
-итогов. Проверка и агрегация работают в одной транзакции RepeatableRead владельца; statement
-ограничен 2 секундами, транзакция — 5 секундами, ожидание её соединения — 1 секундой.
-Ошибка/таймаут источника возвращает `dependency_unavailable` и неизвестное покрытие.
+Чтения ограничены релевантными кандидатами, а не размером целой исторической таблицы.
+SalesFunnel выбирает контакты с **первым** входом в окне. Для Product владельцы ReadingActivity
+и Billing сначала возвращают Accounts с первым соответствующим шагом в окне. Их объединение
+с Accounts bot-когорты ограничено 2000 уникальными Accounts. Затем владельцы возвращают полные
+первые даты и достигнутые шаги этих кандидатов за всю историю; текущий Telegram owner выдаёт
+необходимые текущие identities. SalesFunnel дочитывает полные первые входы, первое согласие и
+последнюю сообщённую связь только релевантных контактов. Запомненный Account связи сохраняет приоритет;
+связь без Account разрешается по текущему verified owner, неоднозначность не превращается в связь.
+Более ранний вход другого контакта того же Account исключает его из текущей bot-когорты.
+Первый Product-шаг до окна также исключает Account без bot-входа из `outside_bot`.
+Более поздние шаги вошедшей когорты считаются достигнутыми, даже если лежат после конца окна.
 
-Лимит консервативный: он применяется ко всей таблице владельца, включая историю и данные
-других продуктов. Короткое окно запроса не снимает его. На большой production-истории возможен
-только неизвестный результат; полезность полного отчёта в таком workload этой поставкой не
-доказана. Требуются отдельная проверка обычных запросов и, при необходимости, дальнейшие
-ограниченные агрегатные интерфейсы владельцев. Нельзя обходить отказ годовым raw scan.
+Каждая карта первых фактов и полная выборка релевантных контактов ограничены 2000 результатами:
+SQL возвращает максимум 2001, переполнение даёт `source_budget_exceeded` с `coverage=unknown`,
+без усечённых или нулевых итогов. Независимые источники не читают чужие схемы. Каталог по-прежнему
+содержит все current Products (существующий предел 200), а его composition prerequisites
+ограничены 2000 строками каждого вида **для этих Products**; архив и посторонние Materials
+не заполняют этот бюджет. Сохраняется контракт ReadingActivity: не более 1000 Material IDs.
+Фильтры Product/material/account/identity и последние receipts поддержаны индексами владельцев.
+Это ограничение результата и времени вычисления, не утверждение «прочитано максимум 2000
+физических строк PostgreSQL»: aggregate может обработать больше строк через отфильтрованный индекс.
+
+`surveyRespondents` имеет собственную семантику #818 и не является bot-когортой:
+`uploaded`/`issued` — полные глобальные scalar counts владельца основания, `paid` — distinct
+респонденты с подтверждённой оплатой выбранного Product по личной ссылке в окне платежа.
+Исторические основания/оплаты не отсекаются row cap; нельзя складывать эти числа с bot sources
+или трактовать их как список связанных Accounts. Значение `null` сохраняет отсутствие основания
+или неизмеряемую покупку без выбранного Product. Source rows и `total` относятся ко всей
+вычисленной entry cohort, не только видимой странице; source counts не включают исторические
+контакты, дочитанные лишь для исключения/атрибуции Account.
+
+Каждое bounded owner-чтение использует RepeatableRead; statement ограничен 2 секундами,
+транзакция — 5 секундами, ожидание соединения — 1 секундой. Candidate discovery и последующее
+чтение полных фактов — отдельные owner snapshots. Ошибка/таймаут возвращает
+`dependency_unavailable` и неизвестное покрытие. Большая релевантная cohort или медленный aggregate
+по-прежнему могут дать отказ; полезность всех production workloads не предполагается по
+одному успешному fixture.
+
+Индексы поставляются append-only migrations 0100–0104: Product coverage JSON GIN, current
+catalog, Material first facts, journal account/identity/receipt и verified Telegram identity.
+Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;
+стоимость, запас места и допустимое окно требуют отдельной проверки при порученном deployment.
+Fixture с тысячами строк не измеряет этот production lock.
+
+После применения 0100–0104 прежний application image запускать нельзя: его короткая migration
+registry отвергает новый ledger как не являющийся exact prefix, поэтому readiness/worker startup
+не пройдут. Нужен отдельный **rollback build** от принятого нового source: откатить диагностическую
+реализацию вместе с соответствующим public tool description, сохранив полную новую registry,
+все ранее зарегистрированные migration files и их байтовые checksums.
+
+Для отката именно candidate implementation commit `bcb6a0723` на отдельной ветке шаблон такой
+(значения в угловых скобках заменяются проверенными SHA принятой поставки):
+
+```bash
+git switch -c rollback/funnel-diagnostics <accepted-release-sha>
+git revert --no-commit bcb6a0723
+git restore --source bcb6a0723^ -- \
+  apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/register-funnel-diagnostics-tool.ts
+git restore --source <accepted-release-sha> -- \
+  apps/backend/src/migrations/index.ts \
+  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0100-funnel-diagnostic-candidates.ts \
+  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0101-billing-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0102-reading-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0103-telegram-funnel-diagnostic-identities.ts \
+  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0104-funnel-diagnostic-current-products.ts \
+  apps/backend/test/integration/migrations.test.ts
+```
+
+При конфликтах требуется review собранного результата; более поздние изменения других features
+этот шаблон не разрешает удалять. Public description должен соответствовать возвращённой реализации,
+а не оставаться описанием новых scoped candidates. Сохранение migration tests предотвращает возврат
+старого ожидаемого ledger. Проверка
+[funnel-diagnostics-rollback.test.ts](../../apps/backend/test/unit/funnel-diagnostics-rollback.test.ts)
+исполняет настоящий `assertAppliedMigrations`: ledger с checksums индексов, закреплёнными от reviewed `bd524e53`, отвергается прежней registry,
+принимается полностью сохранённой новой и снова отвергается при изменении SQL/checksum.
+
+Это проверка совместимости registry, не испытание production rollback. До публикации rollback build
+нужны обычные build/checks/review и exact-source CI; migration verification/readiness должны видеть
+ту же полную registry принятой БД. Развёртывание поручается отдельно. Ledger, доменные данные и
+добавочные индексы сохраняются; автоматическое удаление ledger rows или `DROP INDEX` не является
+частью отката. Уже зарегистрированные файлы и checksums не переписываются.
 
 Между владельцами нет общей атомарной копии: `independent_owner_snapshots`, обход живой.
 Каждый запрос продолжения заново читает ограниченные источники и не удерживает транзакцию
