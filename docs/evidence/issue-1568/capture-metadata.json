@@ -1,0 +1,29 @@
+{
+  "issue": 1568,
+  "sourceSha": "dd48b535f10e18146f7d39a8d05f4ba7be91f89f",
+  "sourceTree": "d48fb3118104b2b683ed268699cca31c19fd2f98",
+  "capturedAt": "2026-10-19T16:36:55Z",
+  "browser": "Chromium via playwright-cli platform-1568",
+  "widths": [
+    1440,
+    390
+  ],
+  "viewportHeight": 2000,
+  "reducedMotion": "reduce",
+  "horizontalOverflow": false,
+  "capture": "locator screenshot; unmodified PNGs",
+  "checksums": {
+    "live-guest-hero-desktop.png": "d89b2babf00556a259355e9d643eb7a984ba861cc3f82ec845a4f60f66d3dd50",
+    "live-guest-hero-mobile.png": "0bba0d17eb85578c8edfcd4f885342620532eb9c00bd0d500728c819427f91e2",
+    "live-guest-lower-desktop.png": "93c4862092796594c202a3c04713d49bcbb598f91cfa6ad3f3ccf54bd64e2505",
+    "live-guest-lower-mobile.png": "b5804f841485ec1b8cdf296b374c986e96e72f388f0c04063de14c18b4930d16",
+    "live-confirmed-hero-desktop.png": "d52098a043b79a7f48be8b90e64dae96b0841d21b218bacb46349107255134ca",
+    "live-confirmed-hero-mobile.png": "c82bf901774f99202b84a122c9270764a1a9cd668e9514669c378e48cc48f5fd",
+    "live-confirmed-lower-desktop.png": "1d5b5dc48bcf1e61df595bd97c458317b79206da8eb89ce1d3bf6b7161cede65",
+    "live-confirmed-lower-mobile.png": "6e6f728a0ae7215c1af3de3ab56a89d9b4e454b6a55c12f594099ab3fe1b69bd",
+    "live-demand-component-desktop.png": "990757cb08ca20e69b46fdadd52770ecd2c8555a867216c5f9b5630b6773dee8",
+    "live-demand-component-mobile.png": "a9f55085d3a62c0ab5cec2ec8f351bc3b18720953e98fe549356b2b54233b95f",
+    "storybook-demand-component-desktop.png": "9f3feea29ad0fc25e5982a6b37adcf0a8e3e7340eda0cc958d83fcb26338115f",
+    "storybook-demand-component-mobile.png": "bd8c8c030acca93cf28a81ee7b7f2f97950ec5c7df596ddcb4ed47117e3430c9"
+  }
+}
