@@ -3,6 +3,7 @@ export { CLOSED_SECTIONS, OPEN_SECTIONS } from "./model/indexing-rules";
 export {
   hiddenPageMetadata,
   publicPageMetadata,
+  SITE_NAME,
   SITE_TAGLINE,
   siteLinkPreview,
   unavailablePageMetadata,
@@ -14,3 +15,4 @@ export {
   SOCIAL_CARD_SIZE,
   type SocialCardContent,
 } from "./model/social-card-content";
+export { SocialCardArtwork } from "./ui/social-card-artwork";

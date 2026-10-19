@@ -86,6 +86,9 @@ export const EmptyNewDraft: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
+      canvas.getAllByLabelText("Название", { exact: false }),
+    ).toHaveLength(1);
+    await expect(
       canvas.getByRole("heading", { name: "Новый материал" }),
     ).toBeInTheDocument();
     await expect(canvas.getByLabelText("Название")).toHaveValue("");

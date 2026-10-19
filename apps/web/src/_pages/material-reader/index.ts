@@ -23,3 +23,4 @@ export {
   type LearnerMcpConnection,
 } from "./model/practice-review-setup";
 export { agentChoiceComparison } from "./model/agent-choice-comparison";
+export { materialArticleJsonLd } from "./model/material-structured-data";

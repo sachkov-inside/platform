@@ -186,6 +186,7 @@ export type MaterialDraftField =
   "access" | "difficulty" | "formatId" | "summary" | "title" | "topicId";
 
 export interface MaterialAuthoringActions {
+  readonly onGetPublicUrl?: () => Promise<string | null>;
   readonly onBack: () => void;
   /** Автор оставляет материал в купленных продуктах: снятие отменяется. */
   readonly onCancelProductRemoval: () => void;

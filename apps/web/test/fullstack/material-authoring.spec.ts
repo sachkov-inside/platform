@@ -1546,6 +1546,64 @@ test("full-state Save is live and a stale editor preserves local input through l
   ).toBeVisible();
 });
 
+test("автор получает ссылку сразу после первой публикации; гость и участник не читают авторский endpoint", async ({
+  browser,
+  context,
+  page,
+  request,
+}) => {
+  const title = `Link preview ${randomUUID()}`;
+  await signInFullStack(context, "OWNER");
+  await page.goto("/authoring/materials/new");
+  await fillPublishableDraft(page, title);
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+  await waitMaterialSaved(page);
+  const materialId = z
+    .uuid()
+    .parse(new URL(page.url()).pathname.split("/").at(-1));
+  const path = `/api/authoring/materials/${materialId}/link`;
+  const draft = await fullStackBrowserRequest(page, path);
+  expect(draft.status()).toBe(200);
+  expect(await draft.json()).toEqual({ url: null });
+  const guest = await request.get(path);
+  expect(guest.status()).toBe(401);
+  expect(guest.headers()["cache-control"]).toContain("no-store");
+  const member = await browser.newContext();
+  try {
+    await signInFullStack(member, "MEMBER");
+    const memberPage = await member.newPage();
+    await memberPage.goto("/account");
+    expect((await fullStackBrowserRequest(memberPage, path)).status()).toBe(
+      403,
+    );
+  } finally {
+    await member.close();
+  }
+  await page.getByRole("button", { name: "Опубликовать", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Снять с публикации", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Скопировать ссылку", exact: true })
+    .click();
+  const address = page.getByRole("textbox", { name: "Адрес материала" });
+  await expect(address).toHaveValue(/\/materials\/link-preview-/u);
+  const published = await request.get(await address.inputValue(), {
+    headers: { "user-agent": "TelegramBot (like TwitterBot)" },
+  });
+  const html = await published.text();
+  expect(html).toContain('type="application/ld+json"');
+  expect(html).toContain(title);
+  await page
+    .getByRole("button", { name: "Снять с публикации", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Опубликовать", exact: true }),
+  ).toBeVisible();
+  const removed = await fullStackBrowserRequest(page, path);
+  expect(await removed.json()).toEqual({ url: null });
+});
+
 test("trusted author publishes and unpublishes the same full state from the Materials list", async ({
   context,
   page,
