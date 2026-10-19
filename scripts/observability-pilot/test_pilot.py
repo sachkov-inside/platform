@@ -13,6 +13,7 @@ import pilot
 
 WORKER_FAILURE_BUDGET_SECONDS = 1
 SERVER_SHUTDOWN_BUDGET_SECONDS = 2
+DESCENDANT_PROBE_TIMEOUT_SECONDS = .1
 
 
 class PilotPreparationTest(unittest.TestCase):
@@ -78,10 +79,13 @@ class PilotPreparationTest(unittest.TestCase):
                 if mode == "descendant":
                     def descendant_socket_closed():
                         with socket.socket(socket.AF_UNIX) as probe:
+                            probe.settimeout(DESCENDANT_PROBE_TIMEOUT_SECONDS)
                             try:
                                 probe.connect(str(output / "child.sock"))
-                            except ConnectionRefusedError:
+                            except (ConnectionRefusedError, FileNotFoundError):
                                 return True
+                            except socket.timeout:
+                                return False
                             return False
                     pilot.await_fact(descendant_socket_closed, bool,
                                      budget=WORKER_FAILURE_BUDGET_SECONDS)
