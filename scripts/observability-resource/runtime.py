@@ -30,6 +30,7 @@ SERVICES = (*pilot.SERVICES, 'postgres', 'migrations', 'api', 'provider', 'loadg
 ACTIVE = tuple(name for name in SERVICES if name != 'migrations')
 COMMAND_SECONDS = 15
 ENGINE_SECONDS = 8
+LATENCY_COMMAND_SECONDS = 10
 PHASE_SECONDS = 40
 SAMPLER_STOP_SECONDS = 12
 MAX_ROUNDS = 20
@@ -161,7 +162,7 @@ def begin_sdk_probe(output, compose, records, *, pair, started):
             or type(started) not in (int,float) or not 0 < started <= sdk_diagnostics.MAX_SAFE_INTEGER or not math.isfinite(started)):
         raise ValueError('closed_sdk_diagnostic_phase')
     record = {'pair':pair,'mode':'on','phase_started_seconds':started,'state':'before_pending',
-              'before':None,'after':None,'original':None,'facts':None}
+              'before':None,'after':None,'original':None,'facts':None,'latency':None}
     records.append(record)
     write_sdk_probes(output, records)
     try:
@@ -185,6 +186,20 @@ def finish_sdk_probe(output, compose, records, record, original):
     observation = {key:checked[key] for key in ('state','latest_seconds')}
     record.update({'after':after,'original':observation,'state':'observed',
         'facts':sdk_diagnostics.facts(record['before'],after,observation,started=record['phase_started_seconds'])})
+    record.update({'state':'latency_pending','latency':{'state':'pending','attempts':[]}})
+    write_sdk_probes(output, records)
+    try:
+        raw = invoke(compose, ['exec','-T','loadgen','node','/resource/client.mjs','metric-latency-probe','/query/key',str(record['phase_started_seconds'])], timeout=LATENCY_COMMAND_SECONDS)
+        try:
+            value = json.loads(raw)
+        except ValueError:
+            value = None
+        record['latency'] = sdk_diagnostics.parse_latency(value,now=time.time(),started=record['phase_started_seconds'])
+        record['state'] = 'observed'
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        record.update({'state':'latency_failed','latency':{'state':'command_failed','attempts':[]}})
+        write_sdk_probes(output, records)
+        raise
     write_sdk_probes(output, records)
 
 

@@ -17,6 +17,7 @@ import {
   metricResult,
   aggregateResult,
   metricProbe,
+  latencyProbe,
 } from "./client.mjs";
 
 /** @param {string} directory */
@@ -738,5 +739,179 @@ test("counter probes preserve exact decimal precision before safe-integer classi
       server.close(() => resolve(undefined));
       server.closeAllConnections();
     });
+  }
+});
+
+// deterministic-test-allow unit-io: fixed scalar queries use an owned loopback server; finally closes every socket and outer owner bounds polling.
+test("paired latency probe isolates the fixed query override and bounds delayed visibility", async () => {
+  /** @type {URL[]} */
+  const seen = [];
+  const started = Date.now() / 1000 - 1;
+  let mode = "hidden";
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://owned");
+    seen.push(url);
+    const immediate = url.searchParams.get("latency_offset") === "0";
+    const value = mode === "hidden" && immediate ? String(started + 0.5) : null;
+    res.end(
+      JSON.stringify({
+        status: "success",
+        data: {
+          resultType: "vector",
+          result:
+            value === null ? [] : [{ metric: {}, value: [started + 1, value] }],
+        },
+      }),
+    );
+  });
+  await new Promise((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  try {
+    const result = await latencyProbe("a".repeat(43), started, {
+      host: "127.0.0.1",
+      port: address.port,
+      timeoutMs: 100,
+    });
+    assert.equal(result.attempts.length, 1);
+    assert.deepEqual(result.attempts[0]?.default, {
+      state: "known",
+      value: null,
+    });
+    assert.deepEqual(result.attempts[0]?.immediate, {
+      state: "known",
+      value: started + 0.5,
+    });
+    assert.equal(seen.length, 2);
+    assert.deepEqual(
+      seen.map((url) => url.pathname),
+      ["/metrics/api/v1/query", "/metrics/api/v1/query"],
+    );
+    assert.equal(
+      seen[0]?.searchParams.get("time"),
+      seen[1]?.searchParams.get("time"),
+    );
+    assert.equal(seen[0]?.searchParams.get("latency_offset"), null);
+    assert.equal(seen[1]?.searchParams.get("latency_offset"), "0");
+    assert.equal(
+      seen[0]?.searchParams.get("query"),
+      'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?","service.name"="platform-api"}))',
+    );
+    mode = "absent";
+    const absent = await latencyProbe("a".repeat(43), started, {
+      host: "127.0.0.1",
+      port: address.port,
+      timeoutMs: 100,
+    });
+    assert.deepEqual(absent.attempts[0]?.immediate, {
+      state: "known",
+      value: null,
+    });
+    assert.equal(absent.attempts.length, 1);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+// deterministic-test-allow unit-io: real loopback pairs exercise delayed publication, malformed replies and slow-drip deadlines; owned sockets close in finally.
+test("latency polling keeps delayed, missing and failed reads distinct without leaking replies", async () => {
+  let count = 0;
+  let mode = "delayed";
+  const started = Date.now() / 1000 - 1;
+  const server = createServer((req, res) => {
+    count++;
+    if (mode === "drip") {
+      res.write("{");
+      const timer = setInterval(() => res.write(" "), 5);
+      res.once("close", () => clearInterval(timer));
+      return;
+    }
+    if (mode === "malformed") {
+      res.end("private-sentinel");
+      return;
+    }
+    const immediate =
+      new URL(req.url ?? "/", "http://owned").searchParams.get(
+        "latency_offset",
+      ) === "0";
+    const value =
+      mode === "delayed" && count > 2 && immediate
+        ? String(started + 0.5)
+        : null;
+    res.end(
+      JSON.stringify({
+        status: "success",
+        data: {
+          resultType: "vector",
+          result:
+            value === null
+              ? []
+              : [
+                  {
+                    metric: { private: "sentinel" },
+                    value: [started + 1, value],
+                  },
+                ],
+        },
+      }),
+    );
+  });
+  await new Promise((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const transport = { host: "127.0.0.1", port: address.port, timeoutMs: 3000 };
+  try {
+    const delayed = await latencyProbe("a".repeat(43), started, transport);
+    assert.equal(delayed.attempts.length, 2);
+    assert.equal(count, 4);
+    assert.deepEqual(delayed.attempts[0]?.immediate, {
+      state: "known",
+      value: null,
+    });
+    assert.deepEqual(delayed.attempts[1]?.immediate, {
+      state: "known",
+      value: started + 0.5,
+    });
+    assert.doesNotMatch(JSON.stringify(delayed), /private|sentinel/u);
+    mode = "absent";
+    count = 0;
+    const absent = await latencyProbe("a".repeat(43), started, {
+      ...transport,
+      timeoutMs: 8000,
+    });
+    assert.equal(absent.attempts.length, 3);
+    assert.equal(count, 6);
+    assert.ok(
+      absent.attempts.every(
+        (pair) => pair.default.value === null && pair.immediate.value === null,
+      ),
+    );
+    for (const failure of ["malformed", "drip"]) {
+      mode = failure;
+      const before = performance.now();
+      const failed = await latencyProbe("a".repeat(43), started, {
+        ...transport,
+        timeoutMs: 75,
+      });
+      assert.ok(performance.now() - before < 1000);
+      assert.equal(failed.attempts.length, 1);
+      assert.deepEqual(failed.attempts[0]?.default, {
+        state: "unknown",
+        value: null,
+      });
+      assert.deepEqual(failed.attempts[0]?.immediate, {
+        state: "unknown",
+        value: null,
+      });
+      assert.doesNotMatch(JSON.stringify(failed), /private|sentinel/u);
+    }
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
   }
 });

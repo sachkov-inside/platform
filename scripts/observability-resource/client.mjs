@@ -358,8 +358,14 @@ function queryKey(filename) {
   return key;
 }
 
-/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @param {boolean} [counter] @returns {Promise<{state:string,value:number|null}>} */
-async function metricQuery(key, query, transport, counter = false) {
+/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @param {boolean} [counter] @param {string} [fixedSuffix] @returns {Promise<{state:string,value:number|null}>} */
+async function metricQuery(
+  key,
+  query,
+  transport,
+  counter = false,
+  fixedSuffix = "",
+) {
   return await new Promise((resolve) => {
     let settled = false;
     /** @param {string} state @param {number|null} value */
@@ -373,7 +379,10 @@ async function metricQuery(key, query, transport, counter = false) {
       {
         host: transport.host,
         port: transport.port,
-        path: "/metrics/api/v1/query?query=" + encodeURIComponent(query),
+        path:
+          "/metrics/api/v1/query?query=" +
+          encodeURIComponent(query) +
+          fixedSuffix,
         agent: false,
         headers: { authorization: "Bearer " + key },
       },
@@ -472,6 +481,61 @@ export async function metricProbe(key, transport = QUERY_TRANSPORT) {
   return { schema: 1, queries };
 }
 
+const LATENCY_POLL_MS = 2_000;
+const LATENCY_ATTEMPTS = 3;
+
+/** Fixed post-measurement read pairs only. No result changes SDK acceptance.
+ * @param {string} key
+ * @param {number} started
+ * @param {{host:string,port:number,timeoutMs:number}} [transport]
+ */
+export async function latencyProbe(key, started, transport = QUERY_TRANSPORT) {
+  if (
+    !/^[A-Za-z0-9_-]{43}$/u.test(key) ||
+    !Number.isFinite(started) ||
+    started <= 0 ||
+    started > Date.now() / 1000 + 2 ||
+    !Number.isFinite(transport.timeoutMs) ||
+    transport.timeoutMs <= 0 ||
+    transport.timeoutMs > QUERY_BATCH_MS
+  )
+    throw new Error("closed latency probe");
+  const deadline = performance.now() + transport.timeoutMs;
+  const attempts = [];
+  for (let index = 0; index < LATENCY_ATTEMPTS; index++) {
+    const evaluated = Date.now() / 1000;
+    const pair = {
+      evaluated_seconds: evaluated,
+      default: { state: "unknown", value: /** @type {number|null} */ (null) },
+      immediate: { state: "unknown", value: /** @type {number|null} */ (null) },
+    };
+    for (const name of /** @type {const} */ (["default", "immediate"])) {
+      const remaining = deadline - performance.now();
+      if (remaining <= MIN_QUERY_REMAINING_MS) continue;
+      pair[name] = await metricQuery(
+        key,
+        PROBE_QUERIES.dotted_service,
+        { ...transport, timeoutMs: remaining },
+        false,
+        "&time=" +
+          String(evaluated) +
+          (name === "immediate" ? "&latency_offset=0" : ""),
+      );
+    }
+    attempts.push(pair);
+    if (
+      pair.immediate.state === "known" &&
+      pair.immediate.value !== null &&
+      pair.immediate.value >= started &&
+      pair.immediate.value <= evaluated + 2
+    )
+      break;
+    if (deadline - performance.now() <= LATENCY_POLL_MS) break;
+    await delay(LATENCY_POLL_MS);
+  }
+  return { schema: 1, attempts };
+}
+
 async function main() {
   const action = process.argv[2];
   const filename = process.argv[3];
@@ -484,6 +548,14 @@ async function main() {
     };
     process.once("SIGTERM", stop);
     process.once("SIGINT", stop);
+    return;
+  }
+  if (action === "metric-latency-probe") {
+    process.stdout.write(
+      JSON.stringify(
+        await latencyProbe(queryKey(filename), Number(process.argv[4])),
+      ),
+    );
     return;
   }
   if (action === "metric-probe") {

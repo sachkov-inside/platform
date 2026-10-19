@@ -103,6 +103,26 @@ class Lifecycle(unittest.TestCase):
                 runtime.begin_sdk_probe(output,[],records,pair=2,started=100)
             command.assert_not_called()
 
+    def test_latency_diagnostic_runs_after_original_and_keeps_phase_and_failure_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);records=[]
+            probe={'schema':1,'queries':{name:{'state':'known','value':None} for name in runtime.sdk_diagnostics.NAMES}}
+            latency={'schema':1,'attempts':[{'evaluated_seconds':120,'default':{'state':'known','value':90},'immediate':{'state':'known','value':115}}]}
+            with patch.object(runtime,'invoke',side_effect=[json.dumps(probe),json.dumps(probe),json.dumps(latency)]) as command,patch.object(runtime.time,'time',return_value=121):
+                record=runtime.begin_sdk_probe(output,[],records,pair=1,started=100)
+                runtime.finish_sdk_probe(output,[],records,record,{'state':'known','latest_seconds':None})
+            self.assertEqual(record['latency']['attempts'][0]['fresh'],{'default':False,'immediate':True})
+            self.assertEqual(record['pair'],1)
+            self.assertEqual(record['original'],{'state':'known','latest_seconds':None})
+            self.assertEqual(command.call_args.args[1],['exec','-T','loadgen','node','/resource/client.mjs','metric-latency-probe','/query/key','100'])
+            self.assertEqual(command.call_args.kwargs,{'timeout':10})
+            with patch.object(runtime,'invoke',side_effect=[json.dumps(probe),RuntimeError('private-sentinel')]),patch.object(runtime.time,'time',return_value=121):
+                with self.assertRaises(RuntimeError):runtime.finish_sdk_probe(output,[],records,record,{'state':'known','latest_seconds':None})
+            result=json.loads((output/'resource-sdk-diagnostics.json').read_text())['phases'][0]
+            self.assertEqual(result['state'],'latency_failed')
+            self.assertEqual(result['latency'],{'state':'command_failed','attempts':[]})
+            self.assertNotIn('private-sentinel',str(result))
+
     def test_sdk_probe_command_failure_keeps_closed_partial_state_and_propagates(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory);records=[]
