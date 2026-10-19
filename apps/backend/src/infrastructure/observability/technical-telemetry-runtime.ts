@@ -7,6 +7,7 @@ import { writeLog } from "./log.js";
 import {
   createTechnicalTelemetry,
   type TechnicalTelemetry,
+  type TechnicalService,
 } from "./technical-telemetry.js";
 
 import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
@@ -28,8 +29,7 @@ const runtimeSchema = z.object({
 /** Opt-in only. Invalid telemetry configuration cannot stop the application. */
 export function technicalTelemetryFromEnvironment(input: {
   readonly environment: NodeJS.ProcessEnv;
-  readonly service:
-    "platform-api" | "platform-mcp" | "platform-material-assets-worker";
+  readonly service: TechnicalService;
   readonly mode: "development" | "test" | "production";
   readonly identity: RuntimeIdentity;
 }): TechnicalTelemetry {

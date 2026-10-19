@@ -14,6 +14,11 @@ import {
   reportProcessFailure,
   reportQueueFailure,
 } from "../infrastructure/observability/index.js";
+import { technicalTelemetryFromEnvironment } from "../infrastructure/observability/technical-telemetry-runtime.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../infrastructure/runtime-identity.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
@@ -44,46 +49,61 @@ async function bootstrap(): Promise<void> {
     PROFILE_AVATAR_MAINTENANCE,
   );
   const readiness = application.get(OperationalReadiness);
-  const jobs = new PgBoss({
-    connectionString: config.database.url,
-    createSchema: false,
-    migrate: false,
-    schema: "pgboss",
+  const technicalTelemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-profile-avatars-worker",
+    mode: config.mode,
+    identity: application.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
-  jobs.on("error", (error: unknown) =>
-    reportQueueFailure("profile-avatars-worker", error),
-  );
-  await runWorker({
-    application,
-    databaseUrl: config.database.url,
-    jobs,
-    process: "profile-avatars-worker",
-    readiness,
-    async registerJobs() {
-      await jobs.createQueue(CLEANUP_QUEUE, {
-        deleteAfterSeconds: CLEANUP_JOB_RETENTION_SECONDS,
-        expireInSeconds: CLEANUP_JOB_TIMEOUT_SECONDS,
-        retryBackoff: true,
-        retryDelay: CLEANUP_RETRY_INITIAL_DELAY_SECONDS,
-        retryDelayMax: CLEANUP_RETRY_MAX_DELAY_SECONDS,
-        retryLimit: CLEANUP_RETRY_LIMIT,
-      });
-      await jobs.schedule(CLEANUP_QUEUE, "23 * * * *", {});
-      await jobs.send(
-        CLEANUP_QUEUE,
-        {},
-        {
-          singletonSeconds: CLEANUP_SINGLETON_SECONDS,
-        },
-      );
-      await jobs.work(
-        CLEANUP_QUEUE,
-        observeJob("profile-avatars-worker", CLEANUP_QUEUE, async () =>
-          maintenance.cleanup({
-            graceMs: config.objectStorage.profileAvatarOrphanGraceMs,
-          }),
-        ),
-      );
-    },
-  });
+  try {
+    const jobs = new PgBoss({
+      openTelemetry: technicalTelemetry.pgBoss([CLEANUP_QUEUE]),
+      connectionString: config.database.url,
+      createSchema: false,
+      migrate: false,
+      schema: "pgboss",
+    });
+    jobs.on("error", (error: unknown) =>
+      reportQueueFailure("profile-avatars-worker", error),
+    );
+    await runWorker({
+      application,
+      databaseUrl: config.database.url,
+      jobs,
+      process: "profile-avatars-worker",
+      readiness,
+      async registerJobs() {
+        await jobs.createQueue(CLEANUP_QUEUE, {
+          deleteAfterSeconds: CLEANUP_JOB_RETENTION_SECONDS,
+          expireInSeconds: CLEANUP_JOB_TIMEOUT_SECONDS,
+          retryBackoff: true,
+          retryDelay: CLEANUP_RETRY_INITIAL_DELAY_SECONDS,
+          retryDelayMax: CLEANUP_RETRY_MAX_DELAY_SECONDS,
+          retryLimit: CLEANUP_RETRY_LIMIT,
+        });
+        await jobs.schedule(CLEANUP_QUEUE, "23 * * * *", {});
+        await jobs.send(
+          CLEANUP_QUEUE,
+          {},
+          {
+            singletonSeconds: CLEANUP_SINGLETON_SECONDS,
+          },
+        );
+        await jobs.work(
+          CLEANUP_QUEUE,
+          observeJob(
+            "profile-avatars-worker",
+            CLEANUP_QUEUE,
+            async () =>
+              maintenance.cleanup({
+                graceMs: config.objectStorage.profileAvatarOrphanGraceMs,
+              }),
+            technicalTelemetry,
+          ),
+        );
+      },
+    });
+  } finally {
+    await technicalTelemetry.shutdown();
+  }
 }

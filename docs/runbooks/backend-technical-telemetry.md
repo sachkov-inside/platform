@@ -7,7 +7,7 @@ use `unmatched`; arbitrary HTTP methods use `_OTHER`. Aborts and timeouts finish
 with fixed `http.request.outcome` / `error.type` values and no invented HTTP status when no response
 was completed. `http.server.active_requests` reports the current total, including unsampled work.
 
-The API, MCP and material-assets-worker runtimes read these settings:
+The API, MCP and all four pg-boss worker runtimes read these settings:
 
 | Variable | Meaning |
 | --- | --- |
@@ -16,7 +16,9 @@ The API, MCP and material-assets-worker runtimes read these settings:
 | `INSIDE_OTEL_SAMPLE_RATIO` | Trace ratio between 0 and 1; default 1 for the initial pilot. It does not sample HTTP metrics. |
 
 The existing runtime identity supplies the release, and Platform mode supplies the environment.
-Service identity is `platform-api`, `platform-mcp` or `platform-material-assets-worker`, selected by its entrypoint. Invalid telemetry configuration emits a fixed warning and
+Service identity is selected by its entrypoint: `platform-api`, `platform-mcp`,
+`platform-material-assets-worker`, `platform-profile-avatars-worker`,
+`platform-video-deletions-worker` or `platform-billing-worker`. Invalid telemetry configuration emits a fixed warning and
 leaves the application running with export disabled. No production configuration is enabled by
 this change.
 
@@ -59,10 +61,12 @@ HTTP spans start from `ROOT_CONTEXT`; library spans can inherit their active con
 HTTP trace headers and baggage are ignored. Trace/log correlation follows an active library child span
 and restores the parent after its asynchronous completion or error.
 
-The material-assets worker now passes explicit `openTelemetry` options to pinned pg-boss 12.36.
+All four pg-boss workers pass explicit `openTelemetry` options to pinned pg-boss 12.36.
 The SDK exposes this named adapter, not the underlying SDK providers, and never replaces global tracer
 or meter providers. Disabled/invalid runtime configuration explicitly disables pg-boss telemetry too.
-Its existing startup `send`, scheduled cleanup and handler are the real producer/consumer paths.
+Their existing startup `send`, scheduling and handlers are the real producer/consumer paths.
+Each process owns one SDK, with only its canonical `jobQueues` values admitted; billing includes
+its conditional community-delivery queue without changing when that queue is registered.
 No queue name, business payload, retention, retry, singleton or job identity options change.
 SDK shutdown follows `runWorker` draining and closing the application, including startup failure.
 
@@ -103,8 +107,14 @@ second and expiration two seconds; production timing is unchanged. It also check
 payload and final completed state, and log request IDs/release. A synthetic HTTP root in that fixture
 is an SDK propagation test, not an existing product API-to-queue producer path.
 
-This remains a bounded implementation slice of #1566. Billing, profile-avatar and video-deletion
-workers are not yet wired. The fifth production worker, notifications, uses AMQP and remains outside
+A separate isolated PostgreSQL contract starts the actual profile-avatar, video-deletion and billing
+entrypoints against empty synthetic databases. Enabled, disabled and collector-503 cases verify
+completed startup jobs, unchanged queue policies/schedules, ready → draining → stopped order,
+release identity, final process exit and shutdown exports. No external payment, object-storage,
+Telegram or video-provider operation is invoked by those empty-database cases.
+
+This remains a bounded implementation slice of #1566. The fifth production worker, notifications,
+uses AMQP and remains outside
 this pg-boss slice. The other pg-boss producers currently live in their own startup/scheduling paths;
 the API does not send these pg-boss maintenance jobs. HTTP-to-outbox/AMQP linkage, dependency spans,
 Telegram, queue-age/lag metrics and collector-side privacy controls remain separate work. The

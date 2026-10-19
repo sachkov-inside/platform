@@ -1,0 +1,219 @@
+import { once } from "node:events";
+import { access } from "node:fs/promises";
+import { createServer } from "node:http";
+import { PgBoss } from "pg-boss";
+import { expect, test } from "vitest";
+import { z } from "zod";
+import { WORKER_READINESS_PATH } from "../../src/infrastructure/worker-runtime.js";
+import { migrateRuntimeDatabase } from "../../src/migrations/migrate.js";
+import { createMigratedTestDatabase } from "./setup/test-database.js";
+import { eventually } from "./setup/eventually.js";
+import {
+  boundedProcessFact,
+  finishFixtureCleanup,
+  launchQueueTelemetryProcess,
+  type QueueTelemetryProcess,
+} from "./setup/queue-telemetry-process.js";
+
+const WORKER_FACT_BUDGET_MS = 20_000;
+const cases = [
+  { worker: "profile-avatars-worker", queues: ["profile-avatars.cleanup"] },
+  { worker: "video-deletions-worker", queues: ["videos.deletions"] },
+  {
+    worker: "billing-worker",
+    queues: [
+      "web-telemetry.retention",
+      "billing.payment-recovery",
+      "billing.subscription-renewal",
+      "billing.subscription-notices",
+      "tribute.source-reconciliation",
+    ],
+  },
+] as const;
+const workerMessage = z.object({
+  kind: z.literal("worker"),
+  pid: z.number().int().positive(),
+});
+const log = z
+  .object({
+    event: z.string(),
+    release: z.object({ release: z.string() }).loose().optional(),
+  })
+  .loose();
+
+for (const { worker, queues } of cases) {
+  for (const mode of ["enabled", "off", "export-failure"] as const) {
+    test(`${worker} preserves completed jobs and drain with technical telemetry ${mode}`, async () => {
+      await expect(access(WORKER_READINESS_PATH)).rejects.toThrow();
+      const database = await createMigratedTestDatabase();
+      const captured: string[] = [];
+      const receiver = createServer((request, response) => {
+        let body = "";
+        request.setEncoding("utf8");
+        request.on("data", (chunk: string) => {
+          body += chunk;
+        });
+        request.on("end", () => {
+          captured.push(body);
+          response.writeHead(mode === "export-failure" ? 503 : 200, {
+            "content-type": "application/json",
+          });
+          response.end(
+            mode === "export-failure" ? "private-export-error-sentinel" : "{}",
+          );
+        });
+      });
+      const inspector = new PgBoss({
+        connectionString: database.url,
+        openTelemetry: { enabled: false },
+        createSchema: false,
+        migrate: false,
+      });
+      let child: QueueTelemetryProcess | undefined;
+      let workerPid: number | undefined;
+      let signalled = false;
+      const stopWorker = async () => {
+        if (child === undefined) return;
+        if (
+          workerPid !== undefined &&
+          !signalled &&
+          child.child.exitCode === null
+        ) {
+          signalled = true;
+          try {
+            process.kill(workerPid, "SIGTERM");
+          } catch (error) {
+            if (!(
+              error instanceof Error &&
+              "code" in error &&
+              error.code === "ESRCH"
+            ))
+              throw error;
+          }
+        }
+        try {
+          await boundedProcessFact(child.exited);
+        } finally {
+          await child.stop();
+        }
+      };
+      try {
+        await migrateRuntimeDatabase(database.url);
+        receiver.listen(0, "127.0.0.1");
+        await once(receiver, "listening");
+        const address = receiver.address();
+        if (address === null || typeof address === "string")
+          throw new Error("receiver address unavailable");
+        await inspector.start();
+        child = launchQueueTelemetryProcess({
+          databaseUrl: database.url,
+          endpoint: `http://127.0.0.1:${address.port}`,
+          mode: "worker",
+          worker,
+          enabled: mode !== "off",
+        });
+        workerPid = workerMessage.parse(
+          await boundedProcessFact(child.firstMessage),
+        ).pid;
+        const processOutput = child.output;
+        await eventually(async () => {
+          expect(
+            processOutput.some(
+              (line) => log.parse(JSON.parse(line)).event === "worker_ready",
+            ),
+          ).toBe(true);
+          for (const queue of queues) {
+            const jobs = (await inspector.findJobs(queue)).filter(
+              (job) => job.state === "completed",
+            );
+            expect(jobs.length).toBeGreaterThan(0);
+            expect(jobs.every((job) => JSON.stringify(job.data) === "{}")).toBe(
+              true,
+            );
+          }
+        }, WORKER_FACT_BUDGET_MS);
+        const completedIds: string[] = [];
+        for (const queue of queues) {
+          const policy = await inspector.getQueue(queue);
+          expect(policy).toMatchObject({
+            deleteAfterSeconds:
+              queue === "web-telemetry.retention" ? 172_800 : 86_400,
+            expireInSeconds: 300,
+            retryLimit: worker === "billing-worker" ? 0 : 5,
+            ...(worker === "billing-worker"
+              ? {}
+              : { retryBackoff: true, retryDelay: 30, retryDelayMax: 300 }),
+          });
+          const schedules = await inspector.getSchedules(queue);
+          expect(schedules).toHaveLength(1);
+          expect(schedules[0]).toMatchObject({
+            cron:
+              queue === "profile-avatars.cleanup"
+                ? "23 * * * *"
+                : queue === "web-telemetry.retention"
+                  ? "0 3 * * *"
+                  : "* * * * *",
+            data: {},
+          });
+          if (queue === "web-telemetry.retention")
+            expect(schedules[0]?.timezone).toBe("Etc/UTC");
+          const jobs = await inspector.findJobs(queue);
+          expect(
+            jobs.every(
+              (job) => job.state === "completed" && job.retryCount === 0,
+            ),
+          ).toBe(true);
+          completedIds.push(...jobs.map((job) => job.id));
+        }
+        expect(
+          await inspector.getQueue("community.entitlement-delivery"),
+        ).toBeNull();
+        await stopWorker();
+        expect(await child.exited).toEqual([0, null]);
+        const logs = processOutput.map((line) => log.parse(JSON.parse(line)));
+        const lifecycle = logs.filter((record) =>
+          ["worker_ready", "worker_draining", "worker_stopped"].includes(
+            record.event,
+          ),
+        );
+        expect(lifecycle.map((record) => record.event)).toEqual([
+          "worker_ready",
+          "worker_draining",
+          "worker_stopped",
+        ]);
+        expect(
+          lifecycle.every((record) => record.release?.release === "test"),
+        ).toBe(true);
+        await expect(access(WORKER_READINESS_PATH)).rejects.toThrow();
+        if (mode === "off") expect(captured).toHaveLength(0);
+        else {
+          const wire = captured.join("\n");
+          expect(wire).toContain(`platform-${worker}`);
+          for (const queue of queues)
+            expect(wire).toContain(`process ${queue}`);
+          for (const id of completedIds) expect(wire).toContain(id);
+          expect(wire).toContain("resourceMetrics");
+          expect(wire).not.toContain("private-export-error-sentinel");
+          if (mode === "export-failure") {
+            expect(
+              logs.some((record) => record.event === "telemetry_export_failed"),
+            ).toBe(true);
+            expect(processOutput.join("")).not.toContain(
+              "private-export-error-sentinel",
+            );
+          }
+        }
+      } finally {
+        await finishFixtureCleanup([
+          stopWorker,
+          () => inspector.stop({ close: true, graceful: false }),
+          () =>
+            new Promise<void>((resolve, reject) =>
+              receiver.close((error) => (error ? reject(error) : resolve())),
+            ),
+          () => database.dispose(),
+        ]);
+      }
+    });
+  }
+}
