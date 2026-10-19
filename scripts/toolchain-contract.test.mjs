@@ -1,14 +1,16 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { isDeepStrictEqual } from "node:util";
-import { dirname, matchesGlob, relative, resolve } from "node:path";
+import { dirname, join, matchesGlob, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { z } from "zod";
 
 import { readPackageManifest } from "./package-manifest.mjs";
+import { runOwnedProcess } from "./observability-umami/process-owner.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** @param {string} path */
@@ -886,7 +888,8 @@ describe("supported toolchain contract", () => {
     );
   });
 
-  it("configures purchase email decryption in the production notification worker", () => {
+  // deterministic-test-allow unit-io: execute only the real caller writer function in a private temporary directory; external owner bounds its complete process group, and finally removes every fixture file.
+  it("configures purchase email decryption in the production notification worker", async () => {
     /** @param {string} path */
     const terminal = (path) =>
       read(path).match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1];
@@ -900,25 +903,128 @@ describe("supported toolchain contract", () => {
       apiTerminal,
       "purchase notification email must use the same terminal binding key as the API",
     );
-    const smokeFilter = read("scripts/production-compose-smoke.sh").match(
-      /grep -E '([^']+)' "\$runtime_config_dir\/api.env"\n\s+\} >"\$runtime_config_dir\/notifications-worker.env"/u,
-    )?.[1];
+    const smoke = read("scripts/production-compose-smoke.sh");
+    const caller = smoke.match(
+      /^write_runtime_configuration\(\) \{\n {2}source scripts\/production-runtime-configuration\.sh\n {2}write_disposable_runtime_configuration\n\}/mu,
+    )?.[0];
     assert.ok(
-      smokeFilter,
-      "the production smoke must derive its worker configuration",
+      caller,
+      "the public smoke writer must source and invoke the shared writer",
     );
-    const generated = spawnSync("grep", ["-E", smokeFilter], {
-      input: read("config/compose/production/api.env.example"),
-      encoding: "utf8",
-      timeout: 5_000,
-      killSignal: "SIGKILL",
-    });
-    assert.equal(generated.status, 0);
-    assert.equal(
-      generated.stdout.match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1],
-      apiTerminal,
-      "the generated production smoke worker must also decrypt purchase email",
+    assert.match(
+      smoke,
+      /^write_runtime_configuration$/mu,
+      "the smoke must call its writer",
     );
+    const directory = mkdtempSync(join(tmpdir(), "inside-toolchain-runtime-"));
+    try {
+      const generated = await runOwnedProcess(
+        "/usr/bin/env",
+        [
+          "-i",
+          "PATH=/usr/bin:/bin",
+          "LC_ALL=C",
+          "/bin/bash",
+          "-c",
+          `set -euo pipefail
+umask 077
+cd "$2"
+runtime_config_dir="$1"
+source_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+release_version=v1
+smoke_encryption_key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+broker_url() { printf 'amqps://%s:synthetic-password@rabbitmq:5671/synthetic' "$1"; }
+${caller}
+write_runtime_configuration`,
+          "toolchain-runtime",
+          directory,
+          repositoryRoot,
+        ],
+        { timeoutMs: 5000 },
+      );
+      assert.equal(generated.reason, "exit");
+      assert.equal(generated.code, 0, "the actual shared writer must complete");
+      const api = readFileSync(join(directory, "api.env"), "utf8");
+      const worker = readFileSync(
+        join(directory, "notifications-worker.env"),
+        "utf8",
+      );
+      const generatedTerminal = api.match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1];
+      assert.ok(
+        generatedTerminal,
+        "the actual API writer must declare its terminal",
+      );
+      assert.equal(
+        z
+          .object({
+            bindingEncryptionKey: z.literal(
+              "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            ),
+          })
+          .passthrough()
+          .safeParse(JSON.parse(generatedTerminal)).success,
+        true,
+        "the actual generated terminal must retain its binding encryption key",
+      );
+      assert.equal(
+        worker.match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1],
+        generatedTerminal,
+        "the generated smoke worker must share the API terminal binding key",
+      );
+      const billing = (/** @type {string} */ value) =>
+        value
+          .split("\n")
+          .filter((line) => line.startsWith("BILLING_CONTACT_"))
+          .sort();
+      assert.ok(billing(api).length > 0);
+      assert.deepEqual(
+        billing(worker),
+        billing(api),
+        "the actual writer must retain purchase email encryption and SMTP configuration",
+      );
+      assert.deepEqual(
+        worker
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => line.split("=", 1)[0])
+          .sort(),
+        [
+          "NODE_ENV",
+          "DATABASE_URL",
+          "NOTIFICATIONS_BROKER_URLS",
+          "NOTIFICATIONS_BROKER_CA_FILE",
+          "NOTIFICATIONS_PREFETCH",
+          "NOTIFICATIONS_QUARANTINE_CAPACITY",
+          "NOTIFICATIONS_PLATFORM_ORIGIN",
+          "NOTIFICATIONS_TELEGRAM_SECRET",
+          "TBANK_CONFIG_JSON",
+          "BILLING_CONTACT_ENCRYPTION_KEY",
+          "BILLING_CONTACT_SMTP_HOST",
+          "BILLING_CONTACT_SMTP_PORT",
+          "BILLING_CONTACT_FROM",
+        ].sort(),
+        "the notification worker receives only its owned fields",
+      );
+      for (const forbidden of [
+        "KINESCOPE_API_TOKEN",
+        "OBJECT_STORAGE_SECRET_ACCESS_KEY",
+        "TELEGRAM_LINKING_SECRET",
+        "TRIBUTE_API_KEY",
+        "API_HOST",
+        "API_PORT",
+      ]) {
+        assert.ok(
+          api.split("\n").some((line) => line.startsWith(forbidden + "=")),
+          "the source API configuration contains the negative fixture field",
+        );
+        assert.ok(
+          !worker.split("\n").some((line) => line.startsWith(forbidden + "=")),
+          "unrelated API credentials must not reach the notification worker",
+        );
+      }
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it("keeps the local sale on the stand contour", () => {
