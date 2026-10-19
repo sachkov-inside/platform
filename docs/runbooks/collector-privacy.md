@@ -91,7 +91,24 @@ Generator связывает фактический Alloy config с закрыт
 устаревшую генерацию, ложный health verdict, сохранённый sentinel и неподдерживаемые links. Они
 не исполняют OTTL. Отдельно выполнен `validate` закреплённого Alloy в собственном no-network,
 read-only, non-root контейнере с 512MiB/0.25 CPU/64 pids; контейнер удалён. Это проверка синтаксиса,
-не runtime sanitizer proof.
+не runtime sanitizer proof. `validate` не инициализировал OTTL: actual запуск исходного
+`fe89f406` завершился exit 1 из-за недопустимого `\.` внутри строк OTTL для
+`service.version` и имён span. Запись `[.]` сохраняет тот же literal-dot regex без
+недопустимого строкового escape. Детерминированный contract проверяет quoted literals и
+положительные/отрицательные значения; он не подменяет настоящий запуск.
+
+На подготовленном исправлении отдельно выполнен bounded actual RUN закреплённого Alloy:
+исходный config дал exit 1, исправленный — readiness 200. Это историческое доказательство
+устранения ошибки инициализации, не текущая самостоятельная команда проверки. Временный
+Docker helper удалён: его in-process cleanup не обеспечивал удаление daemon-контейнера при
+SIGKILL вызывающего процесса (COLFIX-ST01). Собственные контейнеры после проверки удалены.
+
+Настоящая проверка actual RUN, ingest и очистки перед storage выполняется существующим
+публичным supervisor из [основного runbook](observability-pilot.md). Он сохраняет внешнее
+владение процессами и cleanup. Новый lifecycle runner не вводится. `validate` и обычные
+unit contracts этого runtime proof не заменяют; raw startup diagnostics не становятся
+новым каналом сбора ошибок или payload. Исторический startup/health GREEN не доказывает
+очистку перед storage, protobuf wire path или ошибки exporter.
 
 После independent review координатор запускает прежний публичный supervisor с теми же admission,
 identity, floor/growth и cleanup. Синтетический corpus помещает фиксированный sentinel в resource,

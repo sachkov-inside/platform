@@ -36,7 +36,7 @@ otelcol.processor.transform "privacy" {
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
       `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
-      `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$")`,
+      `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")`,
     ]
   }
   trace_statements {
@@ -53,7 +53,7 @@ otelcol.processor.transform "privacy" {
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
       `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
-      `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$")`,
+      `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")`,
     ]
   }
   metric_statements {
@@ -70,7 +70,7 @@ otelcol.processor.transform "privacy" {
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
       `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
-      `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4})$")`,
+      `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")`,
     ]
   }
   log_statements {
@@ -101,7 +101,7 @@ otelcol.processor.transform "privacy" {
       `set(trace_state, "")`,
       `set(status.message, "")`,
       `set(events, nil)`,
-      `set(name, "operation") where not IsMatch(name, "^(HTTP GET /pilot|queue\.publish|worker\.attempt|worker\.retry|dependency\.http)$")`,
+      `set(name, "operation") where not IsMatch(name, "^(HTTP GET /pilot|queue[.]publish|worker[.]attempt|worker[.]retry|dependency[.]http)$")`,
       `set(name, Concat([attributes["http.request.method"], attributes["http.route"]], " ")) where attributes["http.request.method"] != nil and attributes["http.route"] != nil`,
       `set(name, Concat([attributes["messaging.operation.name"], attributes["messaging.destination.name"]], " ")) where attributes["messaging.operation.name"] != nil and attributes["messaging.destination.name"] != nil`,
     ]
