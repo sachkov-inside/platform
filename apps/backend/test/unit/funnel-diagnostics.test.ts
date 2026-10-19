@@ -127,3 +127,13 @@ it("does not accept an actor, permission or source-budget override in public inp
       await funnel.readDiagnostics(actor, { ...input, ...override }),
     ).toEqual({ ok: false, error: { code: "invalid_request" } });
 });
+
+it("returns an empty source page without continuation even when the requested limit is positive", async () => {
+  const { prisma } = funnelDiagnosticDatabase();
+  expect(
+    await assembleTestFunnel(prisma).readDiagnostics(actor, {
+      ...input,
+      limit: 50,
+    }),
+  ).toMatchObject({ ok: true, value: { rows: [], nextCursor: null } });
+});

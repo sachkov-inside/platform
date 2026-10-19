@@ -1,3 +1,4 @@
+import { projectFunnelDiagnosticPage } from "./funnel-diagnostics-view.js";
 import { z } from "zod";
 import {
   funnelSourceSchema,
@@ -109,26 +110,7 @@ export async function readFunnelDiagnostics(
         : null;
     return {
       ok: true as const,
-      value: {
-        ...report.value,
-        rows,
-        nextCursor,
-        timezone: "Europe/Moscow",
-        totalScope: "bounded_cohort",
-        coverageScope: "stored_bounded_sources",
-        consistency: "independent_owner_snapshots",
-        traversal: "live_source",
-        coverage:
-          report.value.lastBotEventReceivedAt === null
-            ? "partial"
-            : nextCursor === null
-              ? "complete"
-              : "paginated",
-        freshness: {
-          status: "not_proven",
-          lastBotEventReceivedAt: report.value.lastBotEventReceivedAt,
-        },
-      },
+      value: projectFunnelDiagnosticPage(report.value, { rows, nextCursor }),
     };
   } catch (error) {
     return dependencyFailure(
