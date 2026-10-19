@@ -12,7 +12,7 @@ from test_retention import batch
 
 
 class CorpusCallbackContinuity(unittest.TestCase):
-    def run_corpus(self, failure=None, *, whole_controller=False):
+    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all'):
         project = recovery.PROJECT_PREFIX + 'a' * 12
         image = json.loads(recovery.CACHE_LOCK.read_text())['image']
         with tempfile.TemporaryDirectory() as directory:
@@ -30,7 +30,10 @@ class CorpusCallbackContinuity(unittest.TestCase):
             def execute(base, args, *, payload=None, timeout=60, fixture_phase=None):
                 calls.append(args)
                 self.assertLess(len(calls), 160, 'bounded fake command budget exhausted')
-                if args == ['create', '--no-deps', 'restore']:
+                if args[0] == 'create' and (reject_create_service == 'all' or args[-1] == reject_create_service):
+                    if '--no-deps' in args:
+                        raise runner.runtime.FixtureCommandFailed(returncode=1)
+                if args[0] == 'create' and args[-1] == 'restore':
                     if failure == 'create':
                         raise subprocess.CalledProcessError(7, ['private-sentinel'], stderr='private-sentinel')
                     if failure == 'timeout':
@@ -131,6 +134,21 @@ class CorpusCallbackContinuity(unittest.TestCase):
 
     def test_pg_diag_01_diagnostic_callback_survives_stanza_check_backup_restore_and_sql_actors(self):
         self.run_corpus()
+
+    def test_create_services_use_supported_cli_contract_without_dependencies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'owned'
+            runner.prepare_bound_inputs(output)
+            plan = json.loads((output / 'compose.json').read_text())
+            self.assertTrue(all('depends_on' not in service for service in plan['services'].values()))
+        for service in ('restore', 'recovered', 'read-db'):
+            with self.subTest(service=service):
+                report, calls = self.run_corpus(whole_controller=True, reject_create_service=service)
+                self.assertEqual(report['state'], 'passed')
+                self.assertEqual([args for args in calls if args[0] == 'create'],
+                    [['create', 'restore'], ['create', 'recovered'], ['create', 'read-db']])
+                created_reader = calls.index(['create', 'read-db'])
+                self.assertIn(['stop', '--timeout', str(runner.STOP_SECONDS), 'recovered'], calls[:created_reader])
 
     def test_completed_controller_retains_repo_init_comparison_after_all_later_operations(self):
         report, _ = self.run_corpus(whole_controller=True)
