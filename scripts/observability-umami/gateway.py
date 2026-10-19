@@ -4,18 +4,26 @@ import hmac
 import http.client
 import http.server
 import json
+import os
+import signal
 import pathlib
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from credentials import native_key
 
 DAY_MS = 86_400_000
 HISTORY_MS = 365 * DAY_MS
 QUERY_WINDOW_MS = 31 * DAY_MS
 RESPONSE_BYTES = 1_048_576
 QUERY_TIMEOUT_SECONDS = 10
+REAPER_INTERVAL_SECONDS = 0.02
+MAX_REQUEST_WORKERS = 4
+ACCEPT_BACKLOG = 8
+KEY_FILE_BYTES = 128
+WORKER_CLEANUP_SECONDS = 1
 
 
 def read_path(method, target, now_ms):
@@ -96,11 +104,15 @@ def handler(upstream, key_path):
                 return
             # Read on every request: local key replacement takes effect without restart.
             try:
-                key = key_path.read_text().strip()
-            except (OSError, UnicodeError):
+                with key_path.open('rb') as source:
+                    encoded = source.read(KEY_FILE_BYTES + 1)
+                if len(encoded) > KEY_FILE_BYTES:
+                    raise ValueError('key_file_size')
+                key = native_key(encoded.decode('ascii').strip())
+            except (OSError, ValueError):
                 self.respond(503, b'{"error":"credentials_unavailable"}')
                 return
-            if not key.startswith('umami_') or not hmac.compare_digest(self.headers.get('Authorization', '').encode('utf-8'), ('Bearer ' + key).encode('utf-8')):
+            if not hmac.compare_digest(self.headers.get('Authorization', '').encode('utf-8'), ('Bearer ' + key).encode('utf-8')):
                 self.respond(401, b'{"error":"unauthorized"}')
                 return
             request = urllib.request.Request(upstream + path, headers={'Authorization': 'Bearer ' + key})
@@ -126,13 +138,96 @@ def handler(upstream, key_path):
     return QueryHandler
 
 
+
+class DeadlineHTTPServer(http.server.HTTPServer):
+    """Single acceptor, at most four owned request processes, absolute lifetime bound.
+
+    The acceptor never parses headers or contacts upstream. A monotonic deadline
+    kills a worker regardless of DNS, connect, header/body drip or client writes.
+    SIGALRM is an independent child-lifetime backstop if the acceptor is lost.
+    """
+    request_queue_size = ACCEPT_BACKLOG
+
+    def __init__(self, address, request_handler, *, request_budget_seconds=QUERY_TIMEOUT_SECONDS):
+        if isinstance(request_budget_seconds, bool) or not 0 < request_budget_seconds <= QUERY_TIMEOUT_SECONDS:
+            raise ValueError('request_budget')
+        self.request_budget_seconds = request_budget_seconds
+        self.workers = {}
+        super().__init__(address, request_handler)
+
+    def handle_error(self, request, client_address):
+        pass  # No provider/request exception text reaches collector diagnostics.
+
+    def process_request(self, request, client_address):
+        self.service_actions()
+        if len(self.workers) >= MAX_REQUEST_WORKERS:
+            self.shutdown_request(request)
+            return
+        deadline = time.monotonic() + self.request_budget_seconds
+        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
+        try:
+            pid = os.fork()
+        except OSError:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+            self.shutdown_request(request)
+            return
+        if pid:
+            try:
+                self.workers[pid] = deadline
+                self.close_request(request)
+            finally:
+                signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+            return
+        try:
+            self.socket.close()
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            signal.signal(signal.SIGINT, signal.SIG_DFL)
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+            signal.setitimer(signal.ITIMER_REAL, self.request_budget_seconds)
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+            try:
+                self.finish_request(request, client_address)
+            except BaseException:
+                self.handle_error(request, client_address)
+            finally:
+                self.shutdown_request(request)
+        finally:
+            os._exit(0)
+
+    def service_actions(self):
+        for pid, deadline in list(self.workers.items()):
+            reaped, _ = os.waitpid(pid, os.WNOHANG)
+            if reaped:
+                del self.workers[pid]
+            elif time.monotonic() >= deadline:
+                os.kill(pid, signal.SIGKILL)
+
+    def server_close(self):
+        super().server_close()
+        for pid in self.workers:
+            os.kill(pid, signal.SIGKILL)
+        deadline = time.monotonic() + WORKER_CLEANUP_SECONDS
+        while self.workers:
+            self.service_actions()
+            if self.workers and time.monotonic() >= deadline:
+                raise RuntimeError('request_worker_cleanup_timeout')
+            if self.workers:
+                time.sleep(REAPER_INTERVAL_SECONDS)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--key-file', type=pathlib.Path, required=True)
     args = parser.parse_args()
     # Deployment is fixed to the isolated service DNS, not an arbitrary user URL.
-    server = http.server.HTTPServer(('0.0.0.0', 3001), handler('http://umami:3000', args.key_file))
-    server.serve_forever()
+    def stop(*args):
+        raise SystemExit(0)
+    signal.signal(signal.SIGTERM, stop)
+    server = DeadlineHTTPServer(('0.0.0.0', 3001), handler('http://umami:3000', args.key_file))
+    try:
+        server.serve_forever(poll_interval=REAPER_INTERVAL_SECONDS)
+    finally:
+        server.server_close()
 
 
 if __name__ == '__main__':

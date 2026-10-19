@@ -1,6 +1,7 @@
 -- Umami 3.4.0, schema at ec0ff50388c264ed8ce46f00967e92f7e71476ae.
 -- Run only against the dedicated analytics database as its maintenance owner.
--- One transaction, <=500 rows per table; repeat until expired_rows_remaining=false.
+-- One transaction, <=500 rows per table. This script does not report exhaustion;
+-- the runtime drainer and its verified completion/lag query are still pending.
 -- Migrations/restore are offline. Never enable reads before draining this cleanup.
 BEGIN;
 SET LOCAL statement_timeout = '5s';

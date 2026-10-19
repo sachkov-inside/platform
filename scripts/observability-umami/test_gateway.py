@@ -75,7 +75,7 @@ class LoopbackBoundary(unittest.TestCase):
                 self.wfile.write(b'{"secret":"sentinel-private-provider"}')
         with tempfile.TemporaryDirectory() as directory:
             key = pathlib.Path(directory) / 'reader.key'
-            key.write_text('umami_fixture')
+            key.write_text('umami_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
             upstream = http.server.HTTPServer(('127.0.0.1', 0), Provider)
             server = http.server.HTTPServer(('127.0.0.1', 0), gateway.handler(f'http://127.0.0.1:{upstream.server_port}', key))
             threads = [threading.Thread(target=item.serve_forever) for item in (upstream, server)]
@@ -83,7 +83,7 @@ class LoopbackBoundary(unittest.TestCase):
                 thread.start()
             try:
                 for _ in range(2):
-                    request = urllib.request.Request(f'http://127.0.0.1:{server.server_port}/api/websites', headers={'Authorization': 'Bearer umami_fixture'})
+                    request = urllib.request.Request(f'http://127.0.0.1:{server.server_port}/api/websites', headers={'Authorization': 'Bearer umami_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'})
                     with self.assertRaises(urllib.error.HTTPError) as result:
                         urllib.request.urlopen(request, timeout=2)
                     with result.exception as error:

@@ -24,3 +24,8 @@ class Capture(unittest.TestCase):
         state = {'site': '../users', 'reader': '00000000-0000-4000-8000-000000000001', 'team': '00000000-0000-4000-8000-000000000001', 'key_id': '00000000-0000-4000-8000-000000000001', 'key': 'umami_x', 'session': 'secret\r\nheader'}
         with self.assertRaises(ValueError):
             fixture.load_state(state)
+
+    def test_used_response_fields_are_validated_before_header_or_path_use(self):
+        for record, fields in [({'token': {}}, {'token': 'credential'}), ({'token': 'header\x00control'}, {'token': 'credential'}), ({'id': '../users'}, {'id': 'uuid'}), ({'key': 'umami_x\r\nsecret'}, {'key': 'api-key'}), ({'id': True}, {'id': 'uuid'})]:
+            with self.subTest(record=record), self.assertRaises(ValueError):
+                fixture.response_fields(record, fields)

@@ -50,8 +50,15 @@ published ports. Gateway допускает только GET `/api/websites` и 
 Окно запроса ограничено 31 сутками, история — 365 сутками по event time. Для stats учитывается
 также implicit previous-period comparison; если она вышла бы за историю, запрос отклоняется.
 Events сохраняют native pagination, pageSize ≤100, page ≤1000. Неизвестные query-параметры,
-дубликаты, методы и пути запрещены. Ответ ограничен 1 MiB, provider timeout — 10 секунд.
-Сбой источника становится HTTP 502, недоступный локальный ключ — 503, отзыв — 401;
+дубликаты, методы и пути запрещены. Ответ ограничен 1 MiB. На принятый запрос даётся 10 секунд целиком: чтение client headers,
+DNS/connect, upstream headers/body и запись ответа. Отдельный процесс-владелец принимает
+соединения и по monotonic deadline завершает запрос; проверка выполняется каждые 20 ms.
+Одновременно работают не более четырёх request processes, backlog — 8; при заполнении
+новое соединение закрывается. Медленная передача байтов не продлевает срок. При shutdown
+владелец завершает и reap-ит только собственные процессы; child alarm ограничивает их
+жизнь также при потере владельца. Это Unix/Linux boundary; resource measurements ещё pending.
+Обычный сбой источника становится HTTP 502; исчерпание абсолютного срока закрывает
+соединение. Недоступный локальный ключ даёт 503, отзыв — 401;
 это не нулевые показатели. URL, ключи, body и provider exceptions не журналируются gateway.
 
 В этом срезе gateway намеренно не пропускает embedded `/mcp`: тот вызывает внутренний API и
@@ -69,7 +76,11 @@ bash scripts/heavy-check.sh node --test scripts/observability-umami.test.mjs
 python3 scripts/observability-umami/prepare.py /absolute/task-owned/new-private-directory
 ```
 
-`prepare.py` требует несуществующий каталог, создаёт его с mode 0700, файлы с mode 0600.
+`prepare.py` сначала валидирует bounded JSON lock целиком: schema/revisions, exact image
+repositories с digest, даты и source proofs. Дубликаты JSON keys запрещены. При отказе выходной
+каталог не создаётся. Затем требуется несуществующий каталог: mode 0700, файлы mode 0600.
+Ответы fixture API проверяют используемые UUID и bounded non-control credentials до передачи
+в URL/headers; это относится также к private state и локальному reader key.
 Compose plan содержит случайные fixture secrets: **не публиковать весь каталог**. Он создаёт
 отдельную базу/роль `umami`, connection limit 8, pool limit 5, statement timeout 5 секунд и
 idle-in-transaction timeout 10 секунд. Это отдельный disposable PostgreSQL, не production

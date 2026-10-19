@@ -26,3 +26,24 @@ class IsolatedInputs(unittest.TestCase):
             self.assertTrue(all('@sha256:' in item['image'] for item in plan['services'].values()))
             with self.assertRaises(FileExistsError):
                 prepare.prepare(output)
+
+    def test_invalid_lock_has_no_output_side_effects(self):
+        import copy
+        with tempfile.TemporaryDirectory() as parent:
+            root = pathlib.Path(parent)
+            valid = json.loads(prepare.LOCK.read_text())
+            invalid = []
+            for field, value in [('schema', True), ('images', []), ('upstream_commit', '../bad'), ('sources', [{'path': '../bad', 'url': 'https://invalid', 'sha256': '0'*64}])]:
+                candidate = copy.deepcopy(valid)
+                candidate[field] = value
+                invalid.append(candidate)
+            candidate = copy.deepcopy(valid)
+            candidate['images']['umami'] = 'arbitrary/image:latest\nsecret'
+            invalid.append(candidate)
+            for number, candidate in enumerate(invalid):
+                lock = root / f'lock-{number}.json'
+                lock.write_text(json.dumps(candidate))
+                output = root / f'output-{number}'
+                with self.subTest(number=number), self.assertRaises(ValueError):
+                    prepare.prepare(output, lock_path=lock)
+                self.assertFalse(output.exists())

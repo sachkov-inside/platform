@@ -8,11 +8,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
+from credentials import credential, native_key
 
 APP = 'http://umami:3000'
 QUERY = 'http://query:3001'
 RESPONSE_BYTES = 1_048_576
 BARRIER_SECONDS = 60
+PROVIDER_TIMEOUT_SECONDS = 10
+POLL_INTERVAL_SECONDS = 0.25
 
 
 def capture(raw, website):
@@ -28,13 +31,26 @@ def capture(raw, website):
     return {'type': 'event', 'payload': payload}
 
 
-def call(base, path, *, token=None, body=None, method=None, expected=200):
+
+def response_fields(raw, fields):
+    if not isinstance(raw, dict):
+        raise ValueError('response_shape')
+    for field, kind in fields.items():
+        value = raw.get(field)
+        credential(value)
+        if kind == 'uuid' and str(uuid.UUID(value)) != value:
+            raise ValueError('response_uuid')
+        if kind == 'api-key':
+            native_key(value)
+    return raw
+
+def call(base, path, *, token=None, body=None, method=None, expected=200, fields=None):
     headers = {'Content-Type': 'application/json'}
     if token:
         headers['Authorization'] = 'Bearer ' + token
     request = urllib.request.Request(base + path, data=json.dumps(body).encode() if body is not None else None, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=PROVIDER_TIMEOUT_SECONDS) as response:
             status = response.status
             raw = response.read(RESPONSE_BYTES + 1)
     except urllib.error.HTTPError as error:
@@ -44,9 +60,7 @@ def call(base, path, *, token=None, body=None, method=None, expected=200):
     if status != expected or len(raw) > RESPONSE_BYTES:
         raise RuntimeError(f'http_{status}_expected_{expected}')
     parsed = json.loads(raw)
-    if not isinstance(parsed, dict):
-        raise ValueError('response_shape')
-    return parsed
+    return response_fields(parsed, fields or {})
 
 
 def await_stats(site, key):
@@ -55,11 +69,13 @@ def await_stats(site, key):
     deadline = time.monotonic() + BARRIER_SECONDS
     while True:
         result = call(QUERY, path, token=key)
-        if result.get('pageviews') == 1:
+        if type(result.get('pageviews')) is not int or result['pageviews'] < 0:
+            raise ValueError('stats_count')
+        if result['pageviews'] == 1:
             return path, result
         if time.monotonic() >= deadline:
             raise RuntimeError('stored_pageview_barrier')
-        time.sleep(0.25)
+        time.sleep(POLL_INTERVAL_SECONDS)
 
 
 def seed():
@@ -71,21 +87,21 @@ def seed():
         except (OSError, RuntimeError):
             if time.monotonic() >= deadline:
                 raise RuntimeError('heartbeat_barrier') from None
-            time.sleep(0.25)
+            time.sleep(POLL_INTERVAL_SECONDS)
     config = call(APP, '/api/config')
     if any(config.get(key) is not True for key in ('privateMode', 'telemetryDisabled', 'updatesDisabled')):
         raise RuntimeError('privacy_configuration')
-    admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': 'umami'})['token']
+    admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': 'umami'}, fields={'token': 'credential'})['token']
     admin_password = secrets.token_hex(24)
     call(APP, '/api/me/password', token=admin, body={'currentPassword': 'umami', 'newPassword': admin_password})
-    admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': admin_password})['token']
+    admin = call(APP, '/api/auth/login', body={'username': 'admin', 'password': admin_password}, fields={'token': 'credential'})['token']
     password = secrets.token_hex(24)
-    reader = call(APP, '/api/users', token=admin, body={'username': 'fixture-reader', 'password': password, 'role': 'view-only'})
-    team = call(APP, '/api/teams', token=admin, body={'name': 'fixture-team'})
+    reader = call(APP, '/api/users', token=admin, body={'username': 'fixture-reader', 'password': password, 'role': 'view-only'}, fields={'id': 'uuid'})
+    team = call(APP, '/api/teams', token=admin, body={'name': 'fixture-team'}, fields={'id': 'uuid'})
     call(APP, f'/api/teams/{team["id"]}/users', token=admin, body={'userId': reader['id'], 'role': 'team-view-only'})
-    site = call(APP, '/api/websites', token=admin, body={'name': 'fixture', 'domain': 'fixture.invalid', 'teamId': team['id']})
-    session = call(APP, '/api/auth/login', body={'username': 'fixture-reader', 'password': password})['token']
-    key = call(APP, '/api/me/api-keys', token=session, body={'name': 'fixture-diagnostic'})
+    site = call(APP, '/api/websites', token=admin, body={'name': 'fixture', 'domain': 'fixture.invalid', 'teamId': team['id']}, fields={'id': 'uuid'})
+    session = call(APP, '/api/auth/login', body={'username': 'fixture-reader', 'password': password}, fields={'token': 'credential'})['token']
+    key = call(APP, '/api/me/api-keys', token=session, body={'name': 'fixture-diagnostic'}, fields={'key': 'api-key', 'id': 'uuid'})
     call(APP, '/api/send', body=capture({'route': 'material', 'url': '/private?email=sentinel@example.invalid#secret', 'title': 'sentinel-private-title', 'referrer': 'https://private.invalid/person', 'data': {'secret': 'sentinel-private-data'}}, site['id']))
     # Private stdout must be captured into a mode-0600 fixture file, never CI logs/artifacts.
     return {'site': site['id'], 'reader': reader['id'], 'key': key['key'], 'key_id': key['id'], 'session': session, 'team': team['id']}
@@ -95,13 +111,7 @@ def load_state(raw):
     fields = {'site', 'reader', 'team', 'key_id', 'key', 'session'}
     if not isinstance(raw, dict) or set(raw) != fields:
         raise ValueError('state_shape')
-    if any(not isinstance(value, str) or not value or len(value) > 8192 or '\r' in value or '\n' in value for value in raw.values()):
-        raise ValueError('state_value')
-    for key in ('site', 'reader', 'team', 'key_id'):
-        if str(uuid.UUID(raw[key])) != raw[key]:
-            raise ValueError('state_uuid')
-    if not raw['key'].startswith('umami_'):
-        raise ValueError('state_key')
+    response_fields(raw, {field: 'uuid' if field in ('site', 'reader', 'team', 'key_id') else 'api-key' if field == 'key' else 'credential' for field in fields})
     return raw
 
 
