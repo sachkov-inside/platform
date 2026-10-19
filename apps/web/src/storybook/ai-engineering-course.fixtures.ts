@@ -44,7 +44,7 @@ export const aiEngineeringCoursePage: ProductPage = {
         },
         {
           title: "Эфиры и разборы",
-          text: "Эфиры с разбором решений учеников. Записи остаются в курсе.",
+          text: "Эфиры с разбором тем, проектов и практик.",
           detailLabel: "",
           detail: "",
         },
