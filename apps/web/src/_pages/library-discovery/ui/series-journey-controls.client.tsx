@@ -187,7 +187,7 @@ export function SeriesJourneyControls({
     ),
   );
   const hasMore = count < visible.length;
-  const sentinel = useRef<HTMLDivElement>(null);
+  const lastLesson = useRef<HTMLLIElement>(null);
   const next = parts
     .flatMap(partRows)
     .find((row) => row.slug === continuation?.materialSlug && row.available);
@@ -211,29 +211,85 @@ export function SeriesJourneyControls({
       : { materialSlug: next.slug, label: "Продолжить" };
 
   useEffect(() => {
-    const node = sentinel.current;
+    const node = lastLesson.current;
     if (
       !hasMore ||
       node === null ||
       typeof IntersectionObserver === "undefined"
     )
       return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        setReveal({
-          source,
-          count: Math.min(visible.length, count + SERIES_BATCH_SIZE),
-        });
-      },
-      { rootMargin: "0px 0px 240px 0px" },
-    );
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
+    const revealAheadPixels = 600;
+    let observer: IntersectionObserver | undefined;
+    let scrollTarget: Element | Document = node.ownerDocument;
+    let frame: number | undefined;
+    let revealed = false;
+    const revealNextBatch = () => {
+      if (revealed) return;
+      revealed = true;
+      observer?.disconnect();
+      setReveal({
+        source,
+        count: Math.min(visible.length, count + SERIES_BATCH_SIZE),
+      });
     };
-  }, [count, hasMore, source, visible.length]);
+    const checkReachedBoundary = () => {
+      frame = undefined;
+      if (node.getClientRects().length === 0) return;
+      const bottom =
+        scrollTarget instanceof Element
+          ? scrollTarget.getBoundingClientRect().bottom
+          : window.innerHeight;
+      if (node.getBoundingClientRect().top <= bottom + revealAheadPixels) {
+        revealNextBatch();
+      }
+    };
+    const scheduleBoundaryCheck = () => {
+      if (frame === undefined && !revealed)
+        frame = requestAnimationFrame(checkReachedBoundary);
+    };
+    const observeLastLesson = () => {
+      observer?.disconnect();
+      scrollTarget.removeEventListener("scroll", scheduleBoundaryCheck);
+      // Desktop scrolls the shell's main; phones scroll the document. Resolve again
+      // on resize because the shell changes its scroll owner at the breakpoint.
+      let root = node.parentElement;
+      while (
+        root !== null &&
+        !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
+      ) {
+        root = root.parentElement;
+      }
+      scrollTarget = root ?? node.ownerDocument;
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) revealNextBatch();
+        },
+        {
+          root: scrollTarget,
+          rootMargin: `0px 0px ${String(revealAheadPixels)}px 0px`,
+        },
+      );
+      observer.observe(node);
+      // End/scrollbar jumps can skip the entire intersection region between frames.
+      // Reached or already passed boundaries must still advance without another scroll.
+      scrollTarget.addEventListener("scroll", scheduleBoundaryCheck, {
+        passive: true,
+      });
+      if (count > initialCount) scheduleBoundaryCheck();
+    };
+    const onResize = () => {
+      observeLastLesson();
+      scheduleBoundaryCheck();
+    };
+    observeLastLesson();
+    window.addEventListener("resize", onResize);
+    return () => {
+      observer?.disconnect();
+      scrollTarget.removeEventListener("scroll", scheduleBoundaryCheck);
+      window.removeEventListener("resize", onResize);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [count, hasMore, initialCount, source, visible.length]);
 
   const returnSlug = selection.explicit
     ? undefined
@@ -257,7 +313,7 @@ export function SeriesJourneyControls({
   /** Выбор раздела из нижней панели: раздел открывается с начала, как новая вкладка приложения. */
   function openPart(id: JourneyPart["id"]) {
     // Новый раздел открывается с самого верха страницы, вместе с шапкой продукта (решение
-    // владельца 09.10.2026). Сбрасываем реальную оболочку до появления sentinel нового раздела.
+    // владельца 09.10.2026). Сбрасываем реальную оболочку до появления lastLesson нового раздела.
     window.scrollTo({ top: 0 });
     routeRef.current
       ?.closest<HTMLElement>("[data-application-content]")
@@ -367,7 +423,7 @@ export function SeriesJourneyControls({
                           data-series-order
                           start={run.offset + 1}
                         >
-                          {rows.map((row) => (
+                          {rows.map((row, index) => (
                             <li
                               onClickCapture={(event) => {
                                 if (
@@ -399,6 +455,13 @@ export function SeriesJourneyControls({
                               data-programme-placement={row.id}
                               data-series-ordinal={row.ordinal}
                               key={row.id ?? row.slug}
+                              // Future chapter headers may extend far beyond this batch.
+                              // Observe its last lesson rather than the page-bottom button.
+                              ref={
+                                hasMore && run.offset + index === count - 1
+                                  ? lastLesson
+                                  : undefined
+                              }
                               tabIndex={-1}
                             >
                               {row.card}
@@ -417,7 +480,7 @@ export function SeriesJourneyControls({
         )}
       </div>
       {part?.kind === "materials" && hasMore ? (
-        <div className="mt-6 flex justify-center" ref={sentinel}>
+        <div className="mt-6 flex justify-center">
           <Button
             onClick={() => {
               setReveal({
