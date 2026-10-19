@@ -34,7 +34,7 @@ export const WithSubscription: Story = {
       await canvas.findByRole("button", { name: "Отменить продление" }),
     ).toBeEnabled();
     await expect(
-      canvas.queryByRole("textbox", { name: "Имя", exact: true }),
+      canvas.queryByRole("textbox", { name: "Имя" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -51,7 +51,7 @@ export const WithoutPurchases: Story = {
     const canvas = within(canvasElement);
     await expect(await canvas.findByText("Telegram подключён")).toBeVisible();
     await expect(
-      canvas.queryByRole("heading", { name: "Подписка", exact: true }),
+      canvas.queryByRole("heading", { name: "Подписка" }),
     ).not.toBeInTheDocument();
   },
 };

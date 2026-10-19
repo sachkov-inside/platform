@@ -177,6 +177,27 @@ test("сбой Telegram не прячет документы и выход", asy
   ).toBeVisible();
 });
 
+test("сбой представления Telegram не блокирует управление подпиской", async ({
+  page,
+}) => {
+  await stubAccount(page, {
+    subscription: activeSubscription,
+    grounds: [paidGround],
+  });
+  await page.route("**/api/account", (route) => route.fulfill({ status: 503 }));
+  await page.goto("/account");
+  await expect(
+    page.getByText("Состояние аккаунта сейчас недоступно."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Отменить продление" }),
+  ).toBeEnabled();
+  await page.getByText("Покупки и оплаты", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Привязать другую карту" }),
+  ).toBeEnabled();
+});
+
 test("завершённая подписка остаётся в истории без блока управления", async ({
   page,
 }) => {

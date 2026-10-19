@@ -26,12 +26,13 @@ export function AccountAccessPage({
   const presentation =
     query.data?.kind === "ready" ? query.data.presentation : null;
 
+  const showPrivateSections =
+    !query.isPending && query.data?.kind !== "unauthorized";
+
   return (
     <AccountAccessView
-      billingSlot={query.data?.kind === "ready" ? <AccountBilling /> : null}
-      continuationSlot={
-        query.data?.kind === "ready" ? <LearningContinuation /> : null
-      }
+      billingSlot={showPrivateSections ? <AccountBilling /> : null}
+      continuationSlot={showPrivateSections ? <LearningContinuation /> : null}
       email={
         query.data?.kind === "ready" && contact.data?.ok === true
           ? contact.data.initialEmail
