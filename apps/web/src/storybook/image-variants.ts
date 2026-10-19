@@ -53,6 +53,7 @@ export async function expectVariantDiagram(
         "src",
         expect.stringContaining(variant),
       );
+      await expect(image).toHaveAttribute("srcset", /\d+w/u);
       await expect(image).toHaveProperty("complete", true);
       await expect(image).not.toHaveProperty("naturalWidth", 0);
       const composition = image.closest('[data-image-composition="variants"]');

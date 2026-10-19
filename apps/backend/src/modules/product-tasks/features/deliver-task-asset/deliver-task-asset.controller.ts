@@ -1,8 +1,9 @@
-import { Controller, Get, Inject, Param } from "@nestjs/common";
+import { Controller, Get, Inject, Param, Query } from "@nestjs/common";
 import {
   ApiFoundResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -39,6 +40,11 @@ export class DeliverTaskAssetController {
   @ApiParam({ name: "slug", schema: { type: "string" } })
   @ApiParam({ name: "code", schema: { type: "string" } })
   @ApiParam({ name: "assetId", schema: { type: "string", format: "uuid" } })
+  @ApiQuery({
+    name: "width",
+    required: false,
+    schema: { type: "integer", minimum: 1, maximum: 9999 },
+  })
   @ApiFoundResponse({
     description: "Protected asset redirect",
     headers: { Location: { schema: { type: "string", format: "uri" } } },
@@ -66,12 +72,16 @@ export class DeliverTaskAssetController {
     @Param("slug") productSlug: string,
     @Param("code") code: string,
     @Param("assetId") assetId: string,
+    @Query("width") width: string | undefined,
   ) {
+    if (width !== undefined && !/^[1-9]\d{0,3}$/u.test(width))
+      throw problemException(404, "asset_not_found", "Task asset unavailable");
     const result = await this.delivery.deliver({
       subject: learnerSubject(account),
       productSlug,
       code,
       assetId,
+      ...(width === undefined ? {} : { variantWidth: Number(width) }),
     });
     if (!result.ok)
       throw problemException(

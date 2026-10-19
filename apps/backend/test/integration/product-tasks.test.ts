@@ -2338,6 +2338,35 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         assetId: randomUUID(),
       }),
     ).toEqual({ ok: false, error: { code: "asset_not_found" } });
+
+    const sized = await deliverTaskAsset(dependencies, {
+      subject,
+      productSlug,
+      code: body.code,
+      assetId: imageId,
+      variantWidth: 16,
+    });
+    expect(sized).toMatchObject({
+      ok: true,
+      value: { kind: "redirect", cacheScope: "private-no-store" },
+    });
+    if (!sized.ok) throw new Error("Missing sized delivery");
+    expect(sized.value.location).toContain("image-16.webp");
+    for (const [assetId, variantWidth] of [
+      [imageId, 480],
+      [imageId, 0],
+      [imageId, 1.5],
+      [fileId, 16],
+    ] as const)
+      expect(
+        await deliverTaskAsset(dependencies, {
+          subject,
+          productSlug,
+          code: body.code,
+          assetId,
+          variantWidth,
+        }),
+      ).toEqual({ ok: false, error: { code: "asset_not_found" } });
     const read = await readAll(tasksWithAssets, subject, body.code);
     expect(JSON.parse(read.context)).toMatchObject({
       payload: {
@@ -2365,6 +2394,16 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       },
     });
     await revoke(grantId);
+    expect(
+      await deliverTaskAsset(dependencies, {
+        subject,
+        productSlug,
+        code: body.code,
+        assetId: imageId,
+        variantWidth: 16,
+      }),
+    ).toEqual({ ok: false, error: { code: "asset_not_found" } });
+
     expect(
       await deliverTaskAsset(dependencies, {
         subject,

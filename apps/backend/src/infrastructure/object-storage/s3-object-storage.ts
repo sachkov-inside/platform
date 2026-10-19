@@ -11,7 +11,10 @@ import {
   assertPresignedGetTtl,
   type ObjectStorage,
   type ObjectStorageNamespace,
+  type StoredObject,
 } from "./object-storage.js";
+
+import { createPublicImageCache } from "./public-image-cache.js";
 
 export interface S3ObjectStorageConfig {
   readonly buckets: Readonly<Record<ObjectStorageNamespace, string>>;
@@ -60,6 +63,7 @@ export function createS3ObjectStorage(
     overrides.send ?? ((command) => client.send(command));
   const sign = overrides.sign ?? getSignedUrl;
 
+  const publicImages = createPublicImageCache();
   const storage: ObjectStorage = {
     async putImmutable(input) {
       assertObjectKey(input.key);
@@ -88,35 +92,43 @@ export function createS3ObjectStorage(
 
     async read(namespace, key) {
       assertObjectKey(key);
-      try {
-        const response = await send(
-          new GetObjectCommand({ Bucket: config.buckets[namespace], Key: key }),
-        );
-        if (!isStoredObjectResponse(response)) {
-          throw new TypeError("Stored object metadata is incomplete");
+      const load = async (): Promise<StoredObject | null> => {
+        try {
+          const response = await send(
+            new GetObjectCommand({
+              Bucket: config.buckets[namespace],
+              Key: key,
+            }),
+          );
+          if (!isStoredObjectResponse(response)) {
+            throw new TypeError("Stored object metadata is incomplete");
+          }
+          return {
+            body: await response.Body.transformToByteArray(),
+            checksumSha256: response.Metadata.sha256,
+            contentLength: response.ContentLength,
+            contentType: response.ContentType,
+          };
+        } catch (error) {
+          if (isMissingObject(error)) {
+            return null;
+          }
+          throw error;
         }
-        return {
-          body: await response.Body.transformToByteArray(),
-          checksumSha256: response.Metadata.sha256,
-          contentLength: response.ContentLength,
-          contentType: response.ContentType,
-        };
-      } catch (error) {
-        if (isMissingObject(error)) {
-          return null;
-        }
-        throw error;
-      }
+      };
+      return namespace === "public" ? publicImages.read(key, load) : load();
     },
 
     async delete(namespace, key) {
       assertObjectKey(key);
+      if (namespace === "public") publicImages.invalidate(key);
       await send(
         new DeleteObjectCommand({
           Bucket: config.buckets[namespace],
           Key: key,
         }),
       );
+      if (namespace === "public") publicImages.invalidate(key);
     },
 
     async signGet(input) {

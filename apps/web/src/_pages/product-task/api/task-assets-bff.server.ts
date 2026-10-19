@@ -15,11 +15,15 @@ export async function proxyProductTaskAssetDelivery(
     readonly assetId: string;
   },
 ): Promise<Response> {
+  const width = new URL(request.url).searchParams.get("width");
+  if (width !== null && !/^[1-9]\d{0,3}$/u.test(width))
+    return backendProxyProblem(404, "asset_not_found", "Task asset not found");
   try {
     const accessToken = await getOptionalPlatformAccessToken(request);
     return copyBackendResponse(
       await requestProductTaskAssetDelivery({
         ...input,
+        ...(width === null ? {} : { variantWidth: Number(width) }),
         ...(accessToken === undefined ? {} : { accessToken }),
         signal: request.signal,
       }),

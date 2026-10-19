@@ -23,6 +23,7 @@ export interface TaskAssetDelivery {
     productSlug: string;
     code: string;
     assetId: string;
+    variantWidth?: number;
   }): ReturnType<typeof deliverTaskAsset>;
 }
 
@@ -36,6 +37,7 @@ export async function deliverTaskAsset(
     productSlug: string;
     code: string;
     assetId: string;
+    variantWidth?: number;
   },
 ) {
   const notFound = () => ({
@@ -43,6 +45,11 @@ export async function deliverTaskAsset(
     error: { code: "asset_not_found" as const },
   });
   if (!z.uuid().safeParse(input.assetId).success) return notFound();
+  if (
+    input.variantWidth !== undefined &&
+    (!Number.isSafeInteger(input.variantWidth) || input.variantWidth < 1)
+  )
+    return notFound();
   try {
     const task = await findCurrentTask(dependencies.prisma, input.code);
     if (task?.page === null || task === null) return notFound();
@@ -83,9 +90,18 @@ export async function deliverTaskAsset(
       };
     const assetPresentation = presentation.value[0];
     if (assetPresentation === undefined) return notFound();
+    if (
+      input.variantWidth !== undefined &&
+      (assetPresentation.kind !== "image" ||
+        !assetPresentation.variants.some(
+          (item) => item.width === input.variantWidth,
+        ))
+    )
+      return notFound();
     const variantWidth =
       assetPresentation.kind === "image"
-        ? Math.max(...assetPresentation.variants.map((item) => item.width))
+        ? (input.variantWidth ??
+          Math.max(...assetPresentation.variants.map((item) => item.width)))
         : undefined;
     const loaded = await dependencies.assets.loadDelivery({
       ...reference,

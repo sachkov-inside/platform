@@ -1,7 +1,7 @@
 "use client";
 
 import type { ImageVariants } from "@inside/material-blocks";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 
 import styles from "./material-responsive-image.module.css";
 
@@ -37,7 +37,9 @@ export function MaterialResponsiveImage({
   const [choice, setChoice] = useState<
     keyof ImageVariants<MaterialImageSource> | undefined
   >(undefined);
-  useEffect(() => {
+  // The composition depends on the actual column and inherited local theme. Select it before
+  // the first hydrated paint, without downloading an incorrect server-side default first.
+  useLayoutEffect(() => {
     const element = container.current;
     if (element === null || imageVariants === undefined) return;
     const update = () => {

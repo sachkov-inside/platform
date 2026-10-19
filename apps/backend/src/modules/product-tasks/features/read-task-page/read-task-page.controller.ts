@@ -60,7 +60,22 @@ export const taskPageHttpSchema = z.discriminatedUnion("access", [
               summary: z.string(),
               body: renderedMaterialBodySchema,
               cover: z
-                .object({ assetId: z.uuid(), alt: z.string() })
+                .object({
+                  assetId: z.uuid(),
+                  alt: z.string(),
+                  width: z.number().int().positive().optional(),
+                  height: z.number().int().positive().optional(),
+                  variants: z
+                    .array(
+                      z
+                        .object({
+                          width: z.number().int().positive(),
+                          height: z.number().int().positive(),
+                        })
+                        .strict(),
+                    )
+                    .optional(),
+                })
                 .strict()
                 .nullable(),
               artifacts: z.array(
@@ -271,7 +286,26 @@ function taskPageHttp(
               title: page.task.page.title,
               summary: page.task.page.summary,
               body: page.task.page.body,
-              cover: page.task.page.cover,
+              cover:
+                page.task.page.cover === null
+                  ? null
+                  : {
+                      assetId: page.task.page.cover.assetId,
+                      alt: page.task.page.cover.alt,
+                      ...(page.task.page.cover.width === undefined
+                        ? {}
+                        : { width: page.task.page.cover.width }),
+                      ...(page.task.page.cover.height === undefined
+                        ? {}
+                        : { height: page.task.page.cover.height }),
+                      ...(page.task.page.cover.variants === undefined
+                        ? {}
+                        : {
+                            variants: page.task.page.cover.variants.map(
+                              ({ width, height }) => ({ width, height }),
+                            ),
+                          }),
+                    },
               artifacts: page.task.page.artifacts.map((item) => ({
                 sourceId: item.sourceId,
                 title: item.title,

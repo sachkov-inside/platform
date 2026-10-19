@@ -39,8 +39,9 @@ export function TaskPageBody({
   readonly code: string;
   readonly version: number;
 }) {
-  const assetHref = (assetId: string) =>
-    `/api/products/${encodeURIComponent(productSlug)}/tasks/${encodeURIComponent(code)}/assets/${encodeURIComponent(assetId)}`;
+  const assetHref = (assetId: string, width?: number) =>
+    `/api/products/${encodeURIComponent(productSlug)}/tasks/${encodeURIComponent(code)}/assets/${encodeURIComponent(assetId)}${width === undefined ? "" : `?width=${String(width)}`}`;
+  const cover = page.cover;
   const blockOrder = taskRelatedSectionOrder(page.body.blocks);
   const relatedSection = taskRelatedSectionRange(page.body.blocks);
   const body = (
@@ -101,15 +102,25 @@ export function TaskPageBody({
   );
   return (
     <>
-      {page.cover === null ? null : (
+      {cover === null ? null : (
         <figure className="mb-8 overflow-hidden rounded-xl">
           {/* The Task route authorizes this cover with the reader's session. */}
           {/* oxlint-disable-next-line next/no-img-element -- Task-authorized delivery uses the viewer session. */}
           <img
             className="h-auto w-full"
-            alt={page.cover.alt}
-            src={assetHref(page.cover.assetId)}
-            loading="lazy"
+            alt={cover.alt}
+            src={assetHref(cover.assetId, cover.variants?.at(-1)?.width)}
+            srcSet={(cover.variants ?? [])
+              .map(
+                (variant) =>
+                  `${assetHref(cover.assetId, variant.width)} ${String(variant.width)}w`,
+              )
+              .join(", ")}
+            sizes="(max-width: 48rem) calc(100vw - 2.5rem), 70ch"
+            width={cover.width}
+            height={cover.height}
+            loading="eager"
+            fetchPriority="high"
             decoding="async"
           />
         </figure>
@@ -141,7 +152,7 @@ function TaskImage({
   assetHref,
 }: {
   readonly block: Extract<RenderedBlock, { kind: "image" }>;
-  readonly assetHref: (assetId: string) => string;
+  readonly assetHref: (assetId: string, width?: number) => string;
 }) {
   const width = block.width;
   const height = block.height;
@@ -151,15 +162,26 @@ function TaskImage({
     readonly assetId: string;
     readonly width?: number | undefined;
     readonly height?: number | undefined;
+    readonly variants?:
+      | readonly { readonly width: number; readonly height: number }[]
+      | undefined;
   }): MaterialImageSource | undefined =>
     asset.width === undefined || asset.height === undefined
       ? undefined
       : {
           width: asset.width,
           height: asset.height,
-          src: assetHref(asset.assetId),
-          srcSet: "",
-          viewerSize: { width: asset.width, height: asset.height },
+          src: assetHref(asset.assetId, asset.variants?.at(-1)?.width),
+          srcSet: (asset.variants ?? [])
+            .map(
+              (variant) =>
+                `${assetHref(asset.assetId, variant.width)} ${String(variant.width)}w`,
+            )
+            .join(", "),
+          viewerSize: asset.variants?.at(-1) ?? {
+            width: asset.width,
+            height: asset.height,
+          },
         };
   const wideLight =
     block.imageVariants === undefined
@@ -194,13 +216,14 @@ function TaskImage({
       <MaterialResponsiveImage
         alt={block.alt}
         caption={block.caption}
-        image={{
-          width,
-          height,
-          src: assetHref(block.assetId),
-          srcSet: "",
-          viewerSize: { width, height },
-        }}
+        image={
+          source(block) ?? {
+            width,
+            height,
+            src: assetHref(block.assetId),
+            srcSet: "",
+          }
+        }
         imageVariants={imageVariants}
         preview={false}
       />
