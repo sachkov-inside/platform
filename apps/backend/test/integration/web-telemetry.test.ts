@@ -92,6 +92,9 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
         "0102_reading_funnel_diagnostic_sources",
         "0103_telegram_funnel_diagnostic_identities",
         "0104_funnel_diagnostic_current_products",
+        "0105_learning_activity_provenance",
+        "0106_bookmark_activity_provenance",
+        "0107_submission_activity_period",
       ],
     });
     expect(await existing.summary("owner", 30)).toMatchObject({

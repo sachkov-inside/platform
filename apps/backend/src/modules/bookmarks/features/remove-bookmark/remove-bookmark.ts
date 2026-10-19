@@ -1,6 +1,11 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  Prisma,
+  lockBookmarkPair,
+  type BookmarksPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import type {
   RemoveBookmarkCommand,
   RemoveBookmarkResult,
@@ -19,13 +24,25 @@ export async function removeBookmark(
   const account = parsed.data.accountId.toLowerCase();
   const material = parsed.data.materialId.toLowerCase();
   try {
-    await prisma.bookmarkedMaterial.deleteMany({
-      where: { accountId: account, materialId: material },
+    return await prisma.$transaction(async (transaction) => {
+      await lockBookmarkPair(transaction, account, material);
+      const changed = await transaction.bookmarkedMaterial.deleteMany({
+        where: { accountId: account, materialId: material },
+      });
+      if (changed.count > 0)
+        await transaction.$executeRaw(Prisma.sql`
+        insert into bookmarks.activity_events (event_id, account_id, material_id, event_type, occurred_at)
+        values (${randomUUID()}::uuid, ${account}::uuid, ${material}::uuid, 'bookmark_removed', ${new Date()})
+      `);
+      return {
+        ok: true as const,
+        value: {
+          materialId: material,
+          bookmarked: false as const,
+          bookmarkedAt: null,
+        },
+      };
     });
-    return {
-      ok: true,
-      value: { materialId: material, bookmarked: false, bookmarkedAt: null },
-    };
   } catch (error) {
     return dependencyFailure(
       { module: "bookmarks", operation: "removeBookmark" },

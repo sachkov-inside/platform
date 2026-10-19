@@ -271,6 +271,9 @@ describe("Platform migrations", () => {
         "0102_reading_funnel_diagnostic_sources",
         "0103_telegram_funnel_diagnostic_identities",
         "0104_funnel_diagnostic_current_products",
+        "0105_learning_activity_provenance",
+        "0106_bookmark_activity_provenance",
+        "0107_submission_activity_period",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -287,12 +290,16 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "reading_activity", [
       "commands",
       "events",
+      "learning_started_events",
       "material_states",
       "material_visits",
       "product_learning_started",
       "reader_preferences",
     ]);
-    await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
+    await expectTables(testDatabase, "bookmarks", [
+      "bookmarked_materials",
+      "activity_events",
+    ]);
     await expectTables(testDatabase, "sales_funnel", ["bot_events"]);
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
@@ -968,6 +975,9 @@ describe("Platform migrations", () => {
           "0102_reading_funnel_diagnostic_sources",
           "0103_telegram_funnel_diagnostic_identities",
           "0104_funnel_diagnostic_current_products",
+          "0105_learning_activity_provenance",
+          "0106_bookmark_activity_provenance",
+          "0107_submission_activity_period",
         ],
       });
 
