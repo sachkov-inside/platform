@@ -1,3 +1,4 @@
+import { ProductWaitlists } from "../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../src/modules/web-telemetry/index.js";
 import {
   LEARNING_TASKS,
@@ -720,6 +721,77 @@ try {
   await controlCall({ advanceSeconds: 60, marketingEnabled: false });
   assert.equal((await state()).sent.length, beforeDisable);
   pass("feature disable prevents new marketing dispatch");
+  // The new audience crosses the real callback HTTP seam even while sales are closed.
+  const waitlistProductId = randomUUID();
+  const waitlistIntakeId = randomUUID();
+  await prisma.product.create({
+    data: {
+      id: waitlistProductId,
+      slug: "waitlist-conformance",
+      name: "Synthetic waitlist product",
+      summary: "",
+    },
+  });
+  await prisma.productWaitlistIntake.create({
+    data: {
+      id: waitlistIntakeId,
+      productId: waitlistProductId,
+      name: "Synthetic intake",
+      accepting: true,
+    },
+  });
+  const ownerAccountId = accounts.get("owner");
+  assert(ownerAccountId !== undefined);
+  assert(
+    (
+      await app.get(ProductWaitlists).join(ownerAccountId, {
+        intakeId: waitlistIntakeId,
+        operationId: randomUUID(),
+        source: null,
+      })
+    ).ok,
+  );
+  const waitlistBroadcastId = randomUUID();
+  const waitlistPart = {
+    partId: randomUUID(),
+    content: {
+      ...text("Открыт предзаказ. Ссылка на актуальную покупку."),
+      buttons: [
+        {
+          text: "Перейти к покупке",
+          url: `${origin}/products/waitlist-conformance/buy`,
+        },
+      ],
+    },
+  };
+  await ok(
+    command("broadcasts.save", {
+      broadcastId: waitlistBroadcastId,
+      audience: { kind: "waitlist", intakeId: waitlistIntakeId },
+      scheduledAt: null,
+      parts: [waitlistPart],
+    }),
+    "mcp",
+  );
+  const waitlistPreview = await ok(
+    command("broadcasts.preview", { broadcastId: waitlistBroadcastId }, 1),
+    "mcp",
+  );
+  assert("waitlistPreview" in waitlistPreview);
+  assert.equal(waitlistPreview.waitlistPreview.active, 1);
+  assert.equal(waitlistPreview.waitlistPreview.eligible, 0);
+  assert.equal(waitlistPreview.waitlistPreview.saleOpen, false);
+  const beforeWaitlist = (await state()).sent.length;
+  const closedWaitlist = await execute(
+    command("broadcasts.launch", { broadcastId: waitlistBroadcastId }, 1),
+  );
+  assert(!closedWaitlist.ok);
+  assert.equal(closedWaitlist.error.code, "revision_conflict");
+  await controlCall({ advanceSeconds: 60, marketingEnabled: false });
+  assert.equal((await state()).sent.length, beforeWaitlist);
+  pass(
+    "waitlist MCP preview derives active membership through authenticated callback; closed sale refuses launch without transport",
+  );
   const snapshot = await deliveries(draft.funnelId);
   assert(snapshot.length > 0);
   const providerState = await state();

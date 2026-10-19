@@ -40,6 +40,77 @@ operation-specific `payload`. Unknown fields and versions return `400 malformed`
   `404 not_found`, `400 malformed`, `422 unsupported_content`, `409 revision_conflict|operation_conflict`,
   `503 authorization_unavailable`, and `501 not_implemented`.
 
+## Explicit intake opening notification
+
+`broadcasts.save` also accepts `{ kind: "waitlist", intakeId }`. Platform owns this immutable
+intake identity and its active Account memberships; Telegram never substitutes all bot contacts,
+marketing entrants or group membership for it. This bounded first version accepts one immediate
+message with the current Product purchase URL in a button. The owner authors preorder-opening
+copy, not a training-start announcement, discount or place guarantee.
+
+The existing authorized management/MCP path prepares this draft. `broadcasts.preview` reads its
+expected revision and returns `waitlistPreview`: current active memberships, currently contactable
+eligible recipients, purchase URL and whether Billing currently admits a public purchase. These
+are separate facts. Draft save and preview have no sends. `broadcasts.launch` is a separate explicit
+author operation; a closed sale or missing current purchase button refuses launch. Publishing an
+Offer and deploying code never launch a notification.
+
+The service-authenticated Platform endpoint
+`POST /integrations/telegram/v1/communications/waitlist` uses the existing author authorization
+secret. Telegram derives its address beside the configured author authorization endpoint.
+The production Caddy allowlist publishes exactly this POST to the Platform API on both API
+hostnames. Missing service credentials receive the API's 401; other methods and unknown subpaths
+remain unpublished with 404. This uses the existing communications credential and endpoint origin,
+without a new environment variable or credential. The shared `waitlistAudienceRequest/Response` definitions own its closed envelope. Platform checks the
+current author binding and `communications:manage`, obtains active memberships from ProductWaitlists,
+resolves current unambiguous bindings, and reads sale availability through Billing and the canonical
+Product slug through Materials. A recipient check can only narrow that audience. No delegated
+management input accepts an arbitrary recipient array. Complete audience composition is bounded at
+10,000 active memberships; a larger intake fails explicitly rather than truncating.
+
+The explicit launch fixes a recipient snapshot. A durable `(bot, intake)` opening receipt rejects
+a second broadcast for the same intake, including after cancellation or completion. Each recipient
+uses the existing unique broadcast/contact delivery key. Before claiming each part, the worker
+rechecks the snapshot's Account/identity against Telegram's current verified link and asks Platform
+for current active membership, author authority, sale and purchase URL. After the local claim commits, the worker performs a fresh, uncached Platform check before transport.
+After that final read, the worker rechecks the live local contact/link, broadcast state and priority
+service backlog, then reserves shared transport slots immediately before sending. Scheduler, contact
+and transport admission use nonblocking advisory locks; the link row uses `FOR SHARE NOWAIT`.
+Admission statements have a 25 ms lock timeout and 100 ms statement timeout. A fixed 250 ms monotonic
+budget includes pool acquisition, local admission and commit, with a final check immediately before
+the provider call. Expiry inside admission rolls back any reserved capacity. Busy locks, capacity or
+an expired budget release the unsent claim to pending with five-second backpressure; the next cycle
+must obtain a new Platform answer. Cleanup may wait but cannot send. Unknown leases never become pending.
+These bounds remove deliberate waiting on an earlier approval; they do not make the Platform
+withdrawal and Telegram send atomic across services. A change after the final Platform answer can
+race with an already admitted provider call, which cannot be recalled. External Platform reads run
+outside database transactions. Unavailable final eligibility releases the unsent claim with no
+invented transport attempt; withdrawal, a changed link, revoked authority or a closed/changed
+purchase target cancels it.
+
+This one-time, explicitly launched audience uses the existing transport slots and delivery ledger
+with `TELEGRAM_DELIVERY_MODE=live` even when `TELEGRAM_MARKETING_ENABLED=false`. The disabled
+marketing flag still excludes ordinary broadcasts, intro, funnel steps and marketing replies from
+this worker's claims and scheduled launches. No setting, funnel enrollment or explicit stop
+preference is changed. Current stop, contact unavailability and Telegram 403 retain existing
+suppression behavior. Unknown attempts remain unknown across restarts and do not retry automatically;
+only the existing explicit operator resolution can accept duplicate risk.
+
+`broadcasts.read` reports immutable audience snapshot size and `waitlistAudience` with launch-time
+active, eligible and excluded counts. Excluded contacts remain visible in that launch result even
+when their link, preference or membership changes later; no transport attempt is invented for them. `statistics.read` and `deliveries.read`
+retain delivery-part outcomes and attempt history. With this single-part notification, confirmed sent
+parts correspond to notified recipients. Active waitlist stock, snapshot audience, confirmed delivery,
+failed/unknown outcomes and purchases remain separate measures. This adds no Web page; the historical
+Web communications routes continue returning 404.
+
+Migrations `033-waitlist-notifications` and `034-waitlist-audience-result` are additive. Code rollback
+may leave their tables and columns in place;
+preserve opening receipts and delivery history after a launch, because deleting them destroys the
+one-opening deduplication guarantee. No real recipient data, messages or product settings are seeded.
+Real sample text, recipient and send authorization belong to #1570; bulk sending remains a separate
+owner command.
+
 ## Funnel operations and runtime
 
 `funnels.save/read/list/publish/lifecycle/rollback`, `intro.save/read`, `deliveries.read` and
@@ -67,7 +138,7 @@ author copy are seeded by migrations. The current owner direction is one common 
 owner-authored content; multiple funnels exist only in synthetic tests for the runtime contract.
 
 `TELEGRAM_MARKETING_ENABLED=false` is independent of service delivery and is the default.
-Before starting enabled workers, the application requires an intro and an available published
+When marketing is enabled, worker startup requires an intro and an available published
 default funnel. Marketing dispatch additionally uses `TELEGRAM_DELIVERY_MODE=live`; its production
 transport is otherwise disabled. The release gate is still separate, until
 Platform convergence completes. Defining or publishing a draft never changes this configuration.

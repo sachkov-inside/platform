@@ -69,6 +69,24 @@ export class SalesFunnelService {
       openedChapter: number | null;
       paid: number | null;
     };
+    waitlist: {
+      active: number;
+      intakeId: string;
+      joined: number;
+      name: string;
+      sources: Array<{
+        active: number;
+        joined: number;
+        source: string | null;
+        withdrawn: number;
+      }>;
+      weeks: Array<{
+        from: string;
+        joined: number;
+        withdrawn: number;
+      }>;
+      withdrawn: number;
+    } | null;
   }> {
     return this.httpRequest.request({
       method: 'GET',

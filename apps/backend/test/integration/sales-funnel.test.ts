@@ -603,6 +603,38 @@ describe("Sales funnel report on PostgreSQL", () => {
     ).toEqual({ accountId: linkedAccount });
   });
 
+  test("owner sees persistent waitlist demand separately from bot funnel and cannot confuse an empty intake with missing data", async () => {
+    const intakeId = randomUUID();
+    await db.prisma.productWaitlistIntake.create({
+      data: {
+        id: intakeId,
+        productId,
+        name: "Следующий набор",
+        accepting: true,
+      },
+    });
+    const report = await funnel.readReport(owner, { from, to, productId });
+    expect(report).toMatchObject({
+      ok: true,
+      value: {
+        waitlist: {
+          intakeId,
+          active: 0,
+          joined: 0,
+          withdrawn: 0,
+          sources: [],
+          weeks: [],
+        },
+      },
+    });
+    const without = await funnel.readReport(owner, {
+      from,
+      to,
+      productId: otherProductId,
+    });
+    expect(without).toMatchObject({ ok: true, value: { waitlist: null } });
+  });
+
   test("answers only the owner and rejects an unknown selection or an empty period", async () => {
     const stranger = await account();
     expect(await funnel.readReport(stranger, { from, to })).toEqual({

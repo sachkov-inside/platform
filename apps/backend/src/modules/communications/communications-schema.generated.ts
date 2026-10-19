@@ -88,6 +88,10 @@ z.strictObject({
 z.strictObject({
   "kind": z.literal("funnels"),
   "funnelIds": z.array(z.guid()).min(1).max(100),
+}),
+z.strictObject({
+  "kind": z.literal("waitlist"),
+  "intakeId": z.guid(),
 })
 ]);
 
@@ -393,6 +397,16 @@ z.strictObject({
   "payload": z.strictObject({
   "cursor": z.string().min(1).max(128).optional(),
 }),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "operation": z.literal("broadcasts.preview"),
+  "operationId": z.guid(),
+  "actor": actorSchema,
+  "expectedRevision": z.number().int().min(0).max(2147483647),
+  "payload": z.strictObject({
+  "broadcastId": z.guid(),
+}),
 })
 ]);
 
@@ -466,6 +480,12 @@ export const publishPreviewSchema = z.strictObject({
 })).min(0).max(100),
 });
 
+export const waitlistLaunchAudienceSchema = z.strictObject({
+  "active": z.number().int().min(0).max(10000),
+  "eligible": z.number().int().min(0).max(10000),
+  "excluded": z.number().int().min(0).max(10000),
+});
+
 export const broadcastSchema = z.strictObject({
   "broadcastId": z.guid(),
   "revision": z.number().int().min(0).max(2147483647),
@@ -475,6 +495,7 @@ export const broadcastSchema = z.strictObject({
   "scheduledAt": z.union([z.iso.datetime({ offset: true }), z.null()]),
   "audienceSnapshotId": z.union([z.guid(), z.null()]),
   "snapshotSize": z.number().int().min(0).max(2147483647),
+  "waitlistAudience": waitlistLaunchAudienceSchema.optional(),
 });
 
 export const countsSchema = z.strictObject({
@@ -548,6 +569,15 @@ export const deliverySchema = z.strictObject({
   "parts": z.array(deliveryPartSchema).max(100),
   "cancelRequested": z.boolean(),
   "completedAt": z.union([z.iso.datetime({ offset: true }), z.null()]),
+});
+
+export const waitlistPreviewSchema = z.strictObject({
+  "active": z.number().int().min(0).max(10000),
+  "eligible": z.number().int().min(0).max(10000),
+  "saleOpen": z.boolean(),
+  "purchaseUrl": z.url().max(2048),
+  "broadcastId": z.guid(),
+  "revision": z.number().int().min(0).max(2147483647),
 });
 
 export const responseSchema = z.union([
@@ -640,6 +670,11 @@ z.strictObject({
   "status": z.literal("ok"),
   "nextCursor": z.union([z.string().max(128), z.null()]),
   "templates": z.array(templateSchema).min(0).max(100),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "status": z.literal("ok"),
+  "waitlistPreview": waitlistPreviewSchema,
 })
 ]);
 
@@ -685,3 +720,26 @@ z.strictObject({
   "status": z.literal("denied"),
 })
 ]);
+
+export const waitlistMemberSchema = z.strictObject({
+  "accountRef": z.string().min(1).max(256),
+  "telegramIdentityRef": z.string().min(1).max(256),
+});
+
+export const waitlistAudienceRequestSchema = z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "actorAccountRef": z.string().min(1).max(256),
+  "intakeId": z.guid(),
+  "recipient": waitlistMemberSchema.optional(),
+});
+
+export const waitlistAudienceResponseSchema = z.strictObject({
+  "contractVersion": z.literal("inside-communications-v1"),
+  "requestId": z.guid(),
+  "status": z.literal("ok"),
+  "saleOpen": z.boolean(),
+  "purchaseUrl": z.url().max(2048),
+  "active": z.number().int().min(0).max(10000),
+  "members": z.array(waitlistMemberSchema).max(10000),
+});

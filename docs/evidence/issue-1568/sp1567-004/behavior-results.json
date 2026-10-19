@@ -1,0 +1,61 @@
+{
+  "sourceSha": "c143cdf67701f348cdc72cd61dcf4c9b42e734d4",
+  "compositionRegression": {
+    "red": {
+      "failed": 2,
+      "passed": 1
+    },
+    "green": {
+      "passed": 3
+    }
+  },
+  "moduleAuthBffAndComposition": {
+    "passed": 24
+  },
+  "courseStorybook": {
+    "passed": 22
+  },
+  "productionWebBuild": "passed",
+  "webTypecheck": "passed",
+  "lint": "passed",
+  "docsCheck": "passed",
+  "webArchitectureAndNegativeGuardrails": "passed",
+  "deterministicTestGuard": "passed",
+  "browser": {
+    "learning": {
+      "bothWithdrawalControls": 2,
+      "newSignupCTA": 0,
+      "continuedIntentSaved": true,
+      "forcedFailureKeepsActive": true,
+      "keyboardRetryPersistsInactive": true,
+      "reloadInactive": true,
+      "wcagViolations": 0
+    },
+    "offer": {
+      "bothWithdrawalControls": 2,
+      "continuedIntentSaved": true,
+      "purchasePreserved": true,
+      "keyboardWithdrawalPersistsInactive": true,
+      "secondTabSynchronized": true,
+      "reloadInactive": true,
+      "wcagViolations": 0
+    },
+    "accountSwitch": {
+      "oldAccountWithdrawFailureHeldUntilNextAccountJoined": true,
+      "nextAccountIntentJoinsIndependently": true,
+      "lateOldErrorCannotCreateNewAccountRetry": true,
+      "membershipAlerts": 0,
+      "bothNewAccountControls": 2,
+      "withdrawalsPersistIndependently": true
+    }
+  },
+  "harnessCorrections": [
+    "Earlier global alert assertion also counted an empty framework live announcer; final assertion scopes errors to the membership UI.",
+    "Earlier observations using Playwright APIRequestContext returned guest after SDK renewal created Secure loopback cookies. Existing full-stack-session helper documents this distinction. Final Account observations use browser fetch with same-origin credentials.",
+    "Final Account handoff waits for the next Accounts actual join response rather than a pre-existing button or transient notice."
+  ],
+  "limitations": [
+    "Synthetic external identity boundary and signed ready intent fixture; no live SDK/Telegram owner authentication claimed.",
+    "No final-source provider CI result or owner production visual acceptance is claimed."
+  ]
+}

@@ -64,6 +64,7 @@ Before an agent runs repository Compose commands from any worktree, it must read
 - Speak to the user in their language. In Russian, prefer ordinary Russian words over optional
   English terms. Keep code, commands, exact product or API names, and established project terms
   unchanged. Do not invent abbreviations.
+- Use periods, commas or parentheses instead of em dashes in replies and new human-facing copy.
 - Lead with what happened or what must be decided and why it matters. Use short, natural sentences
   with one idea each. Remove filler, but keep normal grammar.
 - Use an unfamiliar specialist term only when it is needed for the current decision. Explain it in

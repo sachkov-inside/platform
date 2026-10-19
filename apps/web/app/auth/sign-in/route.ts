@@ -1,3 +1,7 @@
+import {
+  beginWaitlistSignIn,
+  discardWaitlistSignIn,
+} from "@/features/product-waitlist.sign-in.server";
 import { Prompt } from "@logto/next";
 import LogtoClient from "@logto/next/server-actions";
 import { authNavigationResponse } from "@/shared/auth/auth-navigation-response.server";
@@ -20,6 +24,7 @@ export async function POST(request: Request): Promise<Response> {
       await readReturnTo(request),
       config.baseUrl,
     );
+    await beginWaitlistSignIn(postRedirectUri);
     const { url } = await client.handleSignIn({
       redirectUri: `${config.baseUrl}/callback`,
       // Account establishment needs a fresh email or Telegram verification after a failed callback.
@@ -29,6 +34,7 @@ export async function POST(request: Request): Promise<Response> {
     });
     return redirect(url);
   } catch {
+    await discardWaitlistSignIn();
     return redirect(`${config.baseUrl}/?authentication=unavailable`);
   }
 }

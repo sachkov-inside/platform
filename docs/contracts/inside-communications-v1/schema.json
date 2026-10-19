@@ -267,6 +267,20 @@
             }
           },
           "required": ["kind", "funnelIds"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": ["waitlist"]
+            },
+            "intakeId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": ["kind", "intakeId"]
         }
       ]
     },
@@ -1509,6 +1523,49 @@
             "expectedRevision",
             "payload"
           ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "enum": ["inside-communications-v1"]
+            },
+            "operation": {
+              "enum": ["broadcasts.preview"]
+            },
+            "operationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "actor": {
+              "$ref": "#/definitions/actor"
+            },
+            "expectedRevision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "broadcastId": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "required": ["broadcastId"]
+            }
+          },
+          "required": [
+            "contractVersion",
+            "operation",
+            "operationId",
+            "actor",
+            "expectedRevision",
+            "payload"
+          ]
         }
       ]
     },
@@ -1866,6 +1923,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 2147483647
+        },
+        "waitlistAudience": {
+          "$ref": "#/definitions/waitlistLaunchAudience"
         }
       },
       "required": [
@@ -2385,6 +2445,22 @@
             }
           },
           "required": ["contractVersion", "status", "templates", "nextCursor"]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "contractVersion": {
+              "enum": ["inside-communications-v1"]
+            },
+            "status": {
+              "enum": ["ok"]
+            },
+            "waitlistPreview": {
+              "$ref": "#/definitions/waitlistPreview"
+            }
+          },
+          "required": ["contractVersion", "status", "waitlistPreview"]
         }
       ]
     },
@@ -2766,6 +2842,162 @@
         }
       },
       "required": ["partId", "content"]
+    },
+    "waitlistMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "accountRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "telegramIdentityRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": ["accountRef", "telegramIdentityRef"]
+    },
+    "waitlistAudienceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": {
+          "enum": ["inside-communications-v1"]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "actorAccountRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "intakeId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "recipient": {
+          "$ref": "#/definitions/waitlistMember"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestId",
+        "actorAccountRef",
+        "intakeId"
+      ]
+    },
+    "waitlistAudienceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": {
+          "enum": ["inside-communications-v1"]
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "enum": ["ok"]
+        },
+        "saleOpen": {
+          "type": "boolean"
+        },
+        "purchaseUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "active": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/waitlistMember"
+          },
+          "maxItems": 10000
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestId",
+        "status",
+        "saleOpen",
+        "purchaseUrl",
+        "active",
+        "members"
+      ]
+    },
+    "waitlistPreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "eligible": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "saleOpen": {
+          "type": "boolean"
+        },
+        "purchaseUrl": {
+          "type": "string",
+          "format": "uri",
+          "maxLength": 2048
+        },
+        "broadcastId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "active",
+        "eligible",
+        "saleOpen",
+        "purchaseUrl",
+        "broadcastId",
+        "revision"
+      ]
+    },
+    "waitlistLaunchAudience": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "eligible": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "excluded": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      },
+      "required": ["active", "eligible", "excluded"]
     }
   },
   "oneOf": [

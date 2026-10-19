@@ -73,6 +73,30 @@ export const funnelReportSchema = z.strictObject({
   total: funnelCountsSchema,
   /** `null` until the owner uploads the survey list: the basis is missing, not zero buyers. */
   surveyRespondents: surveyRespondentsSchema.nullable(),
+  waitlist: z
+    .strictObject({
+      intakeId: z.uuid(),
+      name: z.string(),
+      active: countSchema,
+      joined: countSchema,
+      withdrawn: countSchema,
+      sources: z.array(
+        z.strictObject({
+          source: z.string().nullable(),
+          active: countSchema,
+          joined: countSchema,
+          withdrawn: countSchema,
+        }),
+      ),
+      weeks: z.array(
+        z.strictObject({
+          from: z.iso.date(),
+          joined: countSchema,
+          withdrawn: countSchema,
+        }),
+      ),
+    })
+    .nullable(),
 });
 export type FunnelReport = z.infer<typeof funnelReportSchema>;
 

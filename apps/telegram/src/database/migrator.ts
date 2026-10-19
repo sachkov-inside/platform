@@ -1,3 +1,5 @@
+import { waitlistAudienceResultMigration } from "./migrations/034-waitlist-audience-result.js";
+import { waitlistNotificationsMigration } from "./migrations/033-waitlist-notifications.js";
 import { learnerActivationMigration } from "./migrations/031-learner-activation.js";
 import { activationAnnouncementMigration } from "./migrations/032-activation-announcement.js";
 import { isTruthy } from "../shared/truthiness.js";
@@ -42,6 +44,8 @@ import { communicationsTemplatesMigration } from "./migrations/010-communication
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
 
 const migrations = {
+  "034-waitlist-audience-result": waitlistAudienceResultMigration,
+  "033-waitlist-notifications": waitlistNotificationsMigration,
   "031-learner-activation": learnerActivationMigration,
   "032-activation-announcement": activationAnnouncementMigration,
   "030-invitation-redemptions": invitationRedemptionsMigration,

@@ -1,3 +1,4 @@
+import { ProductWaitlists } from "../../facets/product-waitlists/product-waitlists.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -24,7 +25,10 @@ import {
 export type ReadFunnelReportDependencies = {
   readonly prisma: SalesFunnelPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
-  readonly links: Pick<TelegramAccountLinks, "findCurrentAccounts">;
+  readonly links: Pick<
+    TelegramAccountLinks,
+    "findCurrentAccounts" | "readBinding"
+  >;
   readonly outlines: Pick<ProductOutlines, "list">;
   readonly firstOpens: Pick<MaterialFirstOpens, "list">;
   readonly sales: Pick<BillingProductSales, "list">;
@@ -115,6 +119,15 @@ export async function readFunnelReport(
   if (parsed.data.chapterId !== undefined && chapter === undefined)
     return failure("chapter_not_found");
 
+  const waitlist =
+    product === undefined
+      ? { ok: true as const, value: null }
+      : await new ProductWaitlists(dependencies).demand({
+          productId: product.id,
+          from,
+          to,
+        });
+  if (!waitlist.ok) return failure("dependency_unavailable");
   const [journal, surveyRespondents] = await Promise.all([
     readJournal(dependencies.prisma),
     dependencies.surveyRespondents.read({
@@ -237,6 +250,7 @@ export async function readFunnelReport(
       paid: total("paid", measured.paid),
     },
     surveyRespondents: surveyRespondents.value,
+    waitlist: waitlist.value,
   };
   return { ok: true, value: report };
 }
@@ -314,7 +328,7 @@ async function readJournal(prisma: SalesFunnelPrismaClient) {
  * contact without an entry gives no source.
  */
 async function attributeAccounts(
-  links: Pick<TelegramAccountLinks, "findCurrentAccounts">,
+  links: Pick<TelegramAccountLinks, "findCurrentAccounts" | "readBinding">,
   contacts: readonly ContactRow[],
 ): Promise<
   | ReadonlyMap<string, { readonly key: SourceKey; readonly enteredAt: Date }>

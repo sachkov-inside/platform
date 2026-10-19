@@ -913,6 +913,15 @@ assert_public_status POST /internal/billing-dispatch/authorize 401
 assert_public_status POST /internal/notifications/dispatch/authorize 401
 assert_public_status POST /integrations/telegram/v1/communications/authorize 401
 assert_public_status POST /integrations/telegram/v1/communications/validate-content 401
+# The private waitlist service route is published only as exact POST on either API hostname.
+# Missing credentials reach the API rejection; other methods and subpaths stay at the edge's 404.
+for host in sachkov.dev inside.sachkov.dev; do
+  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host"
+  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host" \
+    --header 'Authorization: Bearer synthetic-wrong-waitlist-service-credential'
+  assert_public_status GET /integrations/telegram/v1/communications/waitlist 404 "$host"
+  assert_public_status POST /integrations/telegram/v1/communications/waitlist/unknown 404 "$host"
+done
 assert_public_status GET /integrations/telegram/v1/communications/authorize 404
 assert_public_status GET /integrations/tribute/v1/webhook 404
 assert_public_status GET /integrations/telegram/v1/subscription-activation/binding 404

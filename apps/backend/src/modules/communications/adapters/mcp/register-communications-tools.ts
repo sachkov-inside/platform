@@ -14,6 +14,7 @@ const readOperations = new Set([
   "funnels.list",
   "funnels.preview",
   "broadcasts.read",
+  "broadcasts.preview",
   "broadcasts.list",
   "entries.read",
   "intro.read",

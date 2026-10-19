@@ -2,6 +2,7 @@ import LogtoClient from "@logto/node/edge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
+  cookies: new Map<string, string>(),
   connection: vi.fn(() => Promise.resolve()),
   config: {
     endpoint: "https://identity.example.test",
@@ -35,6 +36,26 @@ const fakes = vi.hoisted(() => ({
   ),
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: () =>
+    Promise.resolve({
+      get: (key: string) => {
+        const value = fakes.cookies.get(key);
+        return value === undefined ? undefined : { value };
+      },
+      set: (key: string, value: string) => {
+        fakes.cookies.set(key, value);
+      },
+      delete: (key: string) => {
+        fakes.cookies.delete(key);
+      },
+    }),
+}));
+import {
+  signWaitlistIntent,
+  verifyWaitlistIntent,
+  WAITLIST_INTENT_COOKIE,
+} from "@/features/product-waitlist/model/product-waitlist-intent";
 // Обработчики держат ответ вне сборки через `connection()`, а у неё вне запроса Next.js нет области.
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -102,8 +123,17 @@ import { GET as authStatus } from "../../app/auth/status/route";
 import { GET as callback } from "../../app/callback/route";
 
 describe("Logto BFF route orchestration", () => {
-  beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.restoreAllMocks());
+  const authInstant = "2030-03-01T12:00:00Z";
+  beforeEach(() => {
+    vi.clearAllMocks();
+    fakes.cookies.clear();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(authInstant));
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
 
   it("starts a same-origin official Logto flow without a custom attempt cookie", async () => {
     const response = await signIn(
@@ -360,5 +390,91 @@ describe("Logto BFF route orchestration", () => {
       "https://inside.example.test/?authentication=logout-incomplete",
     );
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
+  });
+
+  it("only the matching successful SDK callback enables the explicit guest waitlist continuation", async () => {
+    const token = signWaitlistIntent(
+      {
+        productId: "10000000-0000-4000-8000-000000000001",
+        intakeId: "10000000-0000-4000-8000-000000000002",
+        source: "youtube",
+        accountId: null,
+      },
+      fakes.config.cookieSecret,
+      new Date(authInstant),
+    );
+    const pending = verifyWaitlistIntent(
+      token,
+      fakes.config.cookieSecret,
+      new Date(authInstant),
+    );
+    if (pending === null) throw new Error("Synthetic intent required");
+    fakes.cookies.set(WAITLIST_INTENT_COOKIE, token);
+    const returnTo = `/products/ai-engineering?waitlist=${pending.operationId}`;
+    await signIn(
+      new Request("https://inside.example.test/auth/sign-in", {
+        method: "POST",
+        headers: {
+          origin: "https://inside.example.test",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ returnTo }),
+      }),
+    );
+    expect(
+      verifyWaitlistIntent(
+        fakes.cookies.get(WAITLIST_INTENT_COOKIE),
+        fakes.config.cookieSecret,
+        new Date(authInstant),
+      ),
+    ).toMatchObject({
+      phase: "signing-in",
+      accountId: null,
+      source: "youtube",
+    });
+    fakes.handleSignInCallback.mockResolvedValueOnce(
+      `https://inside.example.test${returnTo}`,
+    );
+    await callback(
+      new Request(
+        "https://inside.example.test/callback?code=synthetic&state=synthetic",
+      ),
+    );
+    expect(
+      verifyWaitlistIntent(
+        fakes.cookies.get(WAITLIST_INTENT_COOKIE),
+        fakes.config.cookieSecret,
+        new Date(authInstant),
+      ),
+    ).toMatchObject({
+      phase: "ready",
+      accountId: "72000000-0000-4000-8000-000000000001",
+      source: "youtube",
+      operationId: pending.operationId,
+    });
+  });
+  it("failed SDK callback discards waitlist intent, so ordinary later sign-in cannot use it", async () => {
+    fakes.cookies.set(
+      WAITLIST_INTENT_COOKIE,
+      signWaitlistIntent(
+        {
+          productId: "10000000-0000-4000-8000-000000000001",
+          intakeId: "10000000-0000-4000-8000-000000000002",
+          source: "youtube",
+          accountId: null,
+        },
+        fakes.config.cookieSecret,
+        new Date(authInstant),
+      ),
+    );
+    fakes.handleSignInCallback.mockRejectedValueOnce(
+      new Error("Synthetic callback failure"),
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    await callback(
+      new Request("https://inside.example.test/callback?error=access_denied"),
+    );
+    expect(fakes.cookies.has(WAITLIST_INTENT_COOKIE)).toBe(false);
+    log.mockRestore();
   });
 });

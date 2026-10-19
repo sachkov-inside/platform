@@ -46,6 +46,7 @@ export const contentSchema = z.discriminatedUnion("type", [
 ]);
 export const partSchema = z.object({ partId: id, content: contentSchema });
 export const audienceSchema = z.union([
+  z.object({ kind: z.literal("waitlist"), intakeId: id }),
   z.object({ kind: z.literal("all") }),
   z.object({
     kind: z.literal("funnels"),

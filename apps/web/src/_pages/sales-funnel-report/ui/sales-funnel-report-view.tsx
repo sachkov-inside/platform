@@ -1,3 +1,4 @@
+import { WaitlistDemandView } from "./waitlist-demand-view";
 import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
@@ -188,6 +189,14 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
         )}
       </section>
 
+      {view.waitlist === null ? null : (
+        <WaitlistDemandView
+          data={view.waitlist}
+          productName={product?.name ?? "Продукт"}
+          from={view.from}
+          to={view.to}
+        />
+      )}
       <SurveyRespondents respondents={view.surveyRespondents} />
 
       <section aria-labelledby="sales-funnel-rules" className={cardClass}>
