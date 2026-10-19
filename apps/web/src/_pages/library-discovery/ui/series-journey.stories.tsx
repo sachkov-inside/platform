@@ -244,9 +244,14 @@ export const Guest: Story = {
     const canvas = within(canvasElement);
     // Открытость показывает замок у закрытых уроков, метки «Бесплатно» в строках нет.
     await expect(canvas.queryAllByText("Бесплатно")).toHaveLength(0);
-    await expect(
-      canvasElement.querySelectorAll('[data-material-availability="locked"]'),
-    ).toHaveLength(9);
+    const cards = canvasElement.querySelectorAll("[data-series-ordinal]");
+    const locked = canvasElement.querySelectorAll(
+      '[data-material-availability="locked"]',
+    );
+    // Every rendered lesson after the three open lessons retains its access gate,
+    // including any batch already revealed by the early buffer.
+    await expect(locked.length).toBeGreaterThanOrEqual(9);
+    await expect(locked).toHaveLength(cards.length - 3);
     await expect(
       canvas.getByRole("link", { name: "Модель предметной области" }),
     ).toBeVisible();
@@ -1445,6 +1450,18 @@ export const InfiniteScroll: Story = {
 
 /** The continuation must follow loaded lessons, even with future chapters below them. */
 export const EarlyLessonReveal: Story = {
+  parameters: {
+    viewport: {
+      options: {
+        shortDesktop: {
+          name: "Desktop 1440 × 400",
+          styles: { width: "1440px", height: "400px" },
+          type: "desktop",
+        },
+      },
+    },
+  },
+  globals: { viewport: { value: "shortDesktop", isRotated: false } },
   args: {
     result: {
       ...result,
@@ -1469,7 +1486,7 @@ export const EarlyLessonReveal: Story = {
               item.materialId === undefined ? [] : [item.materialId],
             ),
         },
-        ...Array.from({ length: 6 }, (_, index) => ({
+        ...Array.from({ length: 16 }, (_, index) => ({
           id: `future-${String(index)}`,
           name: `Будущая глава ${String(index + 3)}`,
           summary:
@@ -1511,7 +1528,43 @@ export const EarlyLessonReveal: Story = {
 
 export const EarlyLessonRevealMobile: Story = {
   ...EarlyLessonReveal,
-  globals: { viewport: { value: "mobile390", isRotated: false } },
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+
+export const FastLessonReveal: Story = {
+  ...EarlyLessonReveal,
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelectorAll("[data-series-ordinal]"),
+    ).toHaveLength(12);
+    const main = canvasElement.querySelector<HTMLElement>("main");
+    if (main === null) throw new Error("Missing application scroll container");
+    const initialLast = canvasElement.querySelector<HTMLElement>(
+      '[data-series-ordinal="12"]',
+    );
+    if (initialLast === null) throw new Error("Missing initial last lesson");
+    await expect(initialLast.getBoundingClientRect().top).toBeGreaterThan(
+      window.innerHeight + 600,
+    );
+    if (getComputedStyle(main).overflowY === "auto")
+      main.scrollTop = main.scrollHeight;
+    else window.scrollTo(0, document.documentElement.scrollHeight);
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-series-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing last loaded lesson");
+    await expect(last.getBoundingClientRect().bottom).toBeLessThan(0);
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelectorAll("[data-series-ordinal]"),
+      ).toHaveLength(24);
+    });
+  },
+};
+
+export const FastLessonRevealMobile: Story = {
+  ...FastLessonReveal,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
 };
 
 export const PartSwitchClearsContinuationPosition: Story = {

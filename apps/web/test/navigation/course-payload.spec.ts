@@ -145,6 +145,12 @@ test("programme reveals the next batch before the last loaded lesson reaches the
     });
     await expect(rows).toHaveCount(loaded + 12);
     await expect(first).toHaveAttribute("data-retained-lesson", "true");
+    if (loaded === 24) {
+      const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
+      await page.setViewportSize(
+        desktop ? { width: 390, height: 844 } : { width: 1440, height: 1024 },
+      );
+    }
   }
   expect(
     await rows.evaluateAll((nodes) =>

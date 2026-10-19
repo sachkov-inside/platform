@@ -218,9 +218,38 @@ export function SeriesJourneyControls({
       typeof IntersectionObserver === "undefined"
     )
       return;
+    const revealAheadPixels = 600;
     let observer: IntersectionObserver | undefined;
+    let scrollTarget: Element | Document = node.ownerDocument;
+    let frame: number | undefined;
+    let revealed = false;
+    const revealNextBatch = () => {
+      if (revealed) return;
+      revealed = true;
+      observer?.disconnect();
+      setReveal({
+        source,
+        count: Math.min(visible.length, count + SERIES_BATCH_SIZE),
+      });
+    };
+    const checkReachedBoundary = () => {
+      frame = undefined;
+      if (node.getClientRects().length === 0) return;
+      const bottom =
+        scrollTarget instanceof Element
+          ? scrollTarget.getBoundingClientRect().bottom
+          : window.innerHeight;
+      if (node.getBoundingClientRect().top <= bottom + revealAheadPixels) {
+        revealNextBatch();
+      }
+    };
+    const scheduleBoundaryCheck = () => {
+      if (frame === undefined && !revealed)
+        frame = requestAnimationFrame(checkReachedBoundary);
+    };
     const observeLastLesson = () => {
       observer?.disconnect();
+      scrollTarget.removeEventListener("scroll", scheduleBoundaryCheck);
       // Desktop scrolls the shell's main; phones scroll the document. Resolve again
       // on resize because the shell changes its scroll owner at the breakpoint.
       let root = node.parentElement;
@@ -230,26 +259,37 @@ export function SeriesJourneyControls({
       ) {
         root = root.parentElement;
       }
+      scrollTarget = root ?? node.ownerDocument;
       observer = new IntersectionObserver(
         (entries) => {
-          if (!entries.some((entry) => entry.isIntersecting)) return;
-          observer?.disconnect();
-          setReveal({
-            source,
-            count: Math.min(visible.length, count + SERIES_BATCH_SIZE),
-          });
+          if (entries.some((entry) => entry.isIntersecting)) revealNextBatch();
         },
-        { root: root ?? node.ownerDocument, rootMargin: "0px 0px 600px 0px" },
+        {
+          root: scrollTarget,
+          rootMargin: `0px 0px ${String(revealAheadPixels)}px 0px`,
+        },
       );
       observer.observe(node);
+      // End/scrollbar jumps can skip the entire intersection region between frames.
+      // Reached or already passed boundaries must still advance without another scroll.
+      scrollTarget.addEventListener("scroll", scheduleBoundaryCheck, {
+        passive: true,
+      });
+      if (count > initialCount) scheduleBoundaryCheck();
+    };
+    const onResize = () => {
+      observeLastLesson();
+      scheduleBoundaryCheck();
     };
     observeLastLesson();
-    window.addEventListener("resize", observeLastLesson);
+    window.addEventListener("resize", onResize);
     return () => {
       observer?.disconnect();
-      window.removeEventListener("resize", observeLastLesson);
+      scrollTarget.removeEventListener("scroll", scheduleBoundaryCheck);
+      window.removeEventListener("resize", onResize);
+      if (frame !== undefined) cancelAnimationFrame(frame);
     };
-  }, [count, hasMore, source, visible.length]);
+  }, [count, hasMore, initialCount, source, visible.length]);
 
   const returnSlug = selection.explicit
     ? undefined
