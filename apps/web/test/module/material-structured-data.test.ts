@@ -38,8 +38,8 @@ describe("Разметка открытой статьи", () => {
       summary: title,
     });
     expect(json).not.toContain("<");
-    expect(article(json).headline).toBe(title);
-    expect(article(json).description).toBe(title);
+    expect(article(json)["headline"]).toBe(title);
+    expect(article(json)["description"]).toBe(title);
   });
   it("использует настоящую обложку с абсолютным адресом", () => {
     const json = materialArticleJsonLd(new URL("https://inside.example.test"), {
@@ -49,7 +49,7 @@ describe("Разметка открытой статьи", () => {
         renditions: [{ width: 1280, height: 720 }],
       },
     });
-    expect(article(json).image).toEqual([
+    expect(article(json)["image"]).toEqual([
       "https://inside.example.test/api/content-covers/72000000-0000-4000-8000-000000000021/1280",
     ]);
   });
