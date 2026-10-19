@@ -151,7 +151,7 @@ export class BackgroundWorkers
       for (const loop of updates) loop.wake();
     });
 
-    if (this.config.deliveryMode === "live" && this.config.marketingEnabled) {
+    if (this.config.deliveryMode === "live") {
       add(
         "marketing",
         BACKGROUND,

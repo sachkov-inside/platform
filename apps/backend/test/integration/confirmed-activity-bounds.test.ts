@@ -146,7 +146,7 @@ it("upgrades a genuine pre-journal database without manufacturing activity from 
   const legacy = await createTestDatabase();
   try {
     const firstNew = platformMigrations.findIndex(
-      (migration) => migration.name === "0105_learning_activity_provenance",
+      (migration) => migration.name === "0106_learning_activity_provenance",
     );
     await runMigrationsToLatest(
       legacy.url,

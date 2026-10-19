@@ -1,4 +1,5 @@
 import "server-only";
+import { ProductWaitlistSlot } from "./waitlist-provider.client";
 import { connection } from "next/server";
 
 import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
@@ -51,34 +52,50 @@ export async function PersonalCohortCall({
   ) {
     const progress = await getSeriesContinuation(slug, accessToken);
     return (
-      <CohortCallView
-        call={{
-          banner: null,
-          action: courseLearningAction(
-            slug,
-            progress.kind === "ready"
-              ? (progress.continuation?.materialSlug ?? null)
-              : null,
-          ),
-        }}
-      />
+      <>
+        <CohortCallView
+          call={{
+            banner: null,
+            action: courseLearningAction(
+              slug,
+              progress.kind === "ready"
+                ? (progress.continuation?.materialSlug ?? null)
+                : null,
+            ),
+          }}
+        />
+        {slug === "ai-engineering" ? (
+          <ProductWaitlistSlot existingOnly />
+        ) : null}
+      </>
     );
   }
   const sale = await (accessToken === undefined
     ? readGuestProductSale(productId)
     : readViewerProductSale(productId, accessToken));
-  if (sale.kind === "unavailable" || !sale.cohortKnown)
-    return <PendingCohortCall slug={slug} />;
+  if (
+    slug === "ai-engineering" &&
+    sale.kind !== "unavailable" &&
+    sale.offers.length === 0
+  )
+    return <ProductWaitlistSlot />;
   return (
-    <CohortCallView
-      call={cohortCall({
-        cohort: sale.cohort,
-        offer: sale.offers[0] ?? null,
-        productAccess: sale.access,
-        signedIn: sale.signedIn,
-        slug,
-      })}
-    />
+    <>
+      {sale.kind === "unavailable" || !sale.cohortKnown ? (
+        <PendingCohortCall slug={slug} />
+      ) : (
+        <CohortCallView
+          call={cohortCall({
+            cohort: sale.cohort,
+            offer: sale.offers[0] ?? null,
+            productAccess: sale.access,
+            signedIn: sale.signedIn,
+            slug,
+          })}
+        />
+      )}
+      {slug === "ai-engineering" ? <ProductWaitlistSlot existingOnly /> : null}
+    </>
   );
 }
 
@@ -98,14 +115,28 @@ export async function PersonalCohortStatus({
   const sale = await (accessToken === undefined
     ? readGuestProductSale(productId)
     : readViewerProductSale(productId, accessToken));
-  if (sale.kind === "unavailable" || !sale.cohortKnown) return null;
-  const status = cohortStatus({
-    cohort: sale.cohort,
-    offer: sale.offers[0] ?? null,
-    productAccess: sale.access,
-    slug,
-  });
-  return status === null ? null : <CohortStatusView status={status} />;
+  if (
+    slug === "ai-engineering" &&
+    sale.kind !== "unavailable" &&
+    sale.access !== "open" &&
+    sale.offers.length === 0
+  )
+    return <ProductWaitlistSlot lower />;
+  const status =
+    sale.kind === "unavailable" || !sale.cohortKnown
+      ? null
+      : cohortStatus({
+          cohort: sale.cohort,
+          offer: sale.offers[0] ?? null,
+          productAccess: sale.access,
+          slug,
+        });
+  return (
+    <>
+      {status === null ? null : <CohortStatusView status={status} />}
+      {slug === "ai-engineering" ? <ProductWaitlistSlot existingOnly /> : null}
+    </>
+  );
 }
 
 /**

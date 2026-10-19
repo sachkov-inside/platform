@@ -1,4 +1,4 @@
-export const name = "0106_bookmark_activity_provenance";
+export const name = "0107_bookmark_activity_provenance";
 export const statement = `
 CREATE TABLE bookmarks.activity_events (
   event_id uuid PRIMARY KEY,

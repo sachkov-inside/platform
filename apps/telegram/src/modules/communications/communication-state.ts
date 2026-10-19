@@ -19,6 +19,18 @@ export async function schedulerLock(
 ): Promise<void> {
   await communicationLock(tx, `communications-scheduler:${bot}`);
 }
+/** Dispatch admission never queues behind authority-changing work. */
+export async function trySchedulerLock(
+  tx: Transaction<DatabaseSchema>,
+  bot: string,
+): Promise<boolean> {
+  const result = await sql<{
+    locked: boolean;
+  }>`select pg_try_advisory_xact_lock(hashtextextended(${`communications-scheduler:${bot}`}, 0)) as locked`.execute(
+    tx,
+  );
+  return aggregateRow(result).locked;
+}
 // One BotContact's communication state: /start, stop/resume, contactability, entry, an operator
 // decision on its delivery, and the dispatch claim, result and stale-claim recovery. It never
 // serializes other contacts.

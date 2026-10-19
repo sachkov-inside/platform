@@ -1,4 +1,4 @@
-export const name = "0101_billing_funnel_diagnostic_sources";
+export const name = "0102_billing_funnel_diagnostic_sources";
 
 export const statement = `
 create index price_quotes_product_coverage on billing.price_quotes using gin ((snapshot -> 'offer' -> 'coverage' -> 'productIds'));

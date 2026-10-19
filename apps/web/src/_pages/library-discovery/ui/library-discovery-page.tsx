@@ -1,3 +1,4 @@
+import { WaitlistProvider } from "./waitlist-provider.client";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -84,7 +85,7 @@ export async function PublishedSeriesPage({
     publicArtifactsOf(result),
     publicOfferTermsOf(result),
   ]);
-  return (
+  const view = (
     <LibraryDiscoveryView
       artifacts={artifacts}
       // Действие обучения участника или поток и кнопка продаж — личная часть страницы продукта. Её рисует
@@ -108,6 +109,12 @@ export async function PublishedSeriesPage({
       result={result}
       returnTarget={parseMaterialReaderReturnTarget(query.from)}
     />
+  );
+  return result.reference.slug === "ai-engineering" &&
+    result.reference.id !== undefined ? (
+    <WaitlistProvider productId={result.reference.id}>{view}</WaitlistProvider>
+  ) : (
+    view
   );
 }
 

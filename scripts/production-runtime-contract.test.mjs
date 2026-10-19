@@ -42,6 +42,11 @@ const callbackRoutes = [
     "/integrations/telegram/v1/communications/authorize",
   ],
   [
+    "communications_waitlist",
+    "POST",
+    "/integrations/telegram/v1/communications/waitlist",
+  ],
+  [
     "communications_validate",
     "POST",
     "/integrations/telegram/v1/communications/validate-content",
@@ -218,6 +223,18 @@ describe("production runtime architecture contract", () => {
         route,
       );
     }
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            /\t\t@communications_waitlist \{[^}]+\}\n\t\treverse_proxy @communications_waitlist [^\n]+\n/u,
+            "",
+          ),
+        }),
+      unpublished,
+      "the waitlist audience service callback",
+    );
     assert.throws(
       () =>
         assertExternalRoutesPublished({

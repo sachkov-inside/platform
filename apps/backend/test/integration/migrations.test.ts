@@ -266,14 +266,15 @@ describe("Platform migrations", () => {
         "0097_task_submission_review_run",
         "0098_material_task",
         "0099_chapter_supplementary_materials",
-        "0100_funnel_diagnostic_candidates",
-        "0101_billing_funnel_diagnostic_sources",
-        "0102_reading_funnel_diagnostic_sources",
-        "0103_telegram_funnel_diagnostic_identities",
-        "0104_funnel_diagnostic_current_products",
-        "0105_learning_activity_provenance",
-        "0106_bookmark_activity_provenance",
-        "0107_submission_activity_period",
+        "0100_product_waitlists",
+        "0101_funnel_diagnostic_candidates",
+        "0102_billing_funnel_diagnostic_sources",
+        "0103_reading_funnel_diagnostic_sources",
+        "0104_telegram_funnel_diagnostic_identities",
+        "0105_funnel_diagnostic_current_products",
+        "0106_learning_activity_provenance",
+        "0107_bookmark_activity_provenance",
+        "0108_submission_activity_period",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -300,7 +301,13 @@ describe("Platform migrations", () => {
       "bookmarked_materials",
       "activity_events",
     ]);
-    await expectTables(testDatabase, "sales_funnel", ["bot_events"]);
+    await expectTables(testDatabase, "sales_funnel", [
+      "bot_events",
+      "product_waitlist_intakes",
+      "product_waitlist_memberships",
+      "product_waitlist_events",
+      "product_waitlist_operations",
+    ]);
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
@@ -970,14 +977,15 @@ describe("Platform migrations", () => {
           "0097_task_submission_review_run",
           "0098_material_task",
           "0099_chapter_supplementary_materials",
-          "0100_funnel_diagnostic_candidates",
-          "0101_billing_funnel_diagnostic_sources",
-          "0102_reading_funnel_diagnostic_sources",
-          "0103_telegram_funnel_diagnostic_identities",
-          "0104_funnel_diagnostic_current_products",
-          "0105_learning_activity_provenance",
-          "0106_bookmark_activity_provenance",
-          "0107_submission_activity_period",
+          "0100_product_waitlists",
+          "0101_funnel_diagnostic_candidates",
+          "0102_billing_funnel_diagnostic_sources",
+          "0103_reading_funnel_diagnostic_sources",
+          "0104_telegram_funnel_diagnostic_identities",
+          "0105_funnel_diagnostic_current_products",
+          "0106_learning_activity_provenance",
+          "0107_bookmark_activity_provenance",
+          "0108_submission_activity_period",
         ],
       });
 

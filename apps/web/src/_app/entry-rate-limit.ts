@@ -44,6 +44,7 @@ const clientReportPaths = ["/api/web-vitals", "/api/render-errors"] as const;
 /** Все пути, которые ограничитель различает; `proxy.ts` обязан сопоставлять ровно их. */
 export const entryRoutePaths = [
   "/auth/sign-in",
+  "/api/product-waitlist/intent",
   "/callback",
   "/communications/visit",
   "/payment/links/:path*",
@@ -59,7 +60,12 @@ export function classifyEntryRoute(
   method: string,
   pathname: string,
 ): EntryRouteKind | undefined {
-  if (method === "POST" && pathname === "/auth/sign-in") return "sign-in";
+  if (
+    method === "POST" &&
+    (pathname === "/auth/sign-in" ||
+      pathname === "/api/product-waitlist/intent")
+  )
+    return "sign-in";
   if (method === "GET" && pathname === "/callback") return "sign-in";
   if (method === "POST" && billingCommands.has(pathname))
     return "billing-command";

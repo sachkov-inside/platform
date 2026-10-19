@@ -391,28 +391,34 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
         <div className={styles["settingsColumn"]}>
           <fieldset className={styles["audience"]}>
             <legend className={styles["sectionTitle"]}>Аудитория</legend>
-            <label className={styles["choice"]}>
-              <input
-                type="radio"
-                name={`${editorId}-audience`}
-                checked={audience.kind === "all"}
-                onChange={() => {
-                  setAudience({ kind: "all" });
-                }}
-              />{" "}
-              Все контакты
-            </label>
-            <label className={styles["choice"]}>
-              <input
-                type="radio"
-                name={`${editorId}-audience`}
-                checked={audience.kind === "funnels"}
-                onChange={() => {
-                  setAudience({ kind: "funnels", funnelIds: [] });
-                }}
-              />{" "}
-              Участники выбранных воронок
-            </label>
+            {audience.kind === "waitlist" ? (
+              <p>Список ожидания выбранного набора</p>
+            ) : (
+              <>
+                <label className={styles["choice"]}>
+                  <input
+                    type="radio"
+                    name={`${editorId}-audience`}
+                    checked={audience.kind === "all"}
+                    onChange={() => {
+                      setAudience({ kind: "all" });
+                    }}
+                  />{" "}
+                  Все контакты
+                </label>
+                <label className={styles["choice"]}>
+                  <input
+                    type="radio"
+                    name={`${editorId}-audience`}
+                    checked={audience.kind === "funnels"}
+                    onChange={() => {
+                      setAudience({ kind: "funnels", funnelIds: [] });
+                    }}
+                  />{" "}
+                  Участники выбранных воронок
+                </label>
+              </>
+            )}
             {audience.kind === "funnels" ? (
               <div className="space-y-2 pl-4">
                 {funnels.length > 0 ? (
@@ -452,6 +458,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               <input
                 className={fieldClass}
                 type="datetime-local"
+                disabled={audience.kind === "waitlist"}
                 value={scheduled}
                 onChange={(event) => {
                   setScheduled(event.target.value);

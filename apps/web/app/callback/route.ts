@@ -1,3 +1,7 @@
+import {
+  finishWaitlistSignIn,
+  discardWaitlistSignIn,
+} from "@/features/product-waitlist.sign-in.server";
 import { getAccessToken } from "@logto/next/server-actions";
 import { connection, NextResponse } from "next/server";
 
@@ -26,9 +30,12 @@ export async function GET(request: Request): Promise<Response> {
     // the exchange is audience-bound. Read that exact fresh token before later resource refreshes.
     const accessToken = await getAccessToken(config);
     const outcome = await completePlatformSignIn(accessToken);
-    if (outcome === "retryable")
+    if (outcome === "retryable") {
+      await discardWaitlistSignIn();
       return localRedirect(config.baseUrl, "retryable");
+    }
     const returnUri = safePostSignInReturnUri(postRedirectUri, config.baseUrl);
+    await finishWaitlistSignIn(returnUri, accessToken);
     // Until the terms of use in force are accepted, every sign-in lands on the first sign-in screen.
     const gate = await readTermsGate(accessToken);
     if (gate.kind === "required") {
@@ -49,6 +56,7 @@ export async function GET(request: Request): Promise<Response> {
     writeStructuredLog("error", "authentication_failed", {
       errorName: error instanceof Error ? error.name : "unknown",
     });
+    await discardWaitlistSignIn();
     await clearLogtoSessionCookie(config);
     return localRedirect(config.baseUrl, "failed");
   }

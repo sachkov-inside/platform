@@ -163,13 +163,22 @@ SQL возвращает максимум 2001, переполнение даё�
 по-прежнему могут дать отказ; полезность всех production workloads не предполагается по
 одному успешному fixture.
 
-Индексы поставляются append-only migrations 0100–0104: Product coverage JSON GIN, current
+Canonical `main` сохраняет `0100_product_waitlists` без изменения SQL/checksum/позиции.
+Восемь observability migrations, ранее имевших номера 0100–0107, никогда не применялись
+вне уничтоженных disposable test databases. После коллизии с main они перенумерованы в
+0101–0108 до поставки, без изменения SQL. Исторические commits и их evidence сохраняют
+прежние номера; существующие ledgers не редактируются. Проверка
+[observability-main-upgrade.test.ts](../../apps/backend/test/integration/observability-main-upgrade.test.ts)
+фиксирует digest точной registry main `67e3495e` через 0100, применяет восемь новых migrations,
+сверяет canonical checksums/positions, повторный запуск, отказ старой registry и совместимый rollback.
+
+Индексы поставляются append-only migrations 0101–0105: Product coverage JSON GIN, current
 catalog, Material first facts, journal account/identity/receipt и verified Telegram identity.
 Production здесь не меняется. Обычный `CREATE INDEX` может блокировать записи на время построения;
 стоимость, запас места и допустимое окно требуют отдельной проверки при порученном deployment.
 Fixture с тысячами строк не измеряет этот production lock.
 
-После применения 0100–0104 прежний application image запускать нельзя: его короткая migration
+После применения 0101–0105 прежний application image запускать нельзя: его короткая migration
 registry отвергает новый ledger как не являющийся exact prefix, поэтому readiness/worker startup
 не пройдут. Нужен отдельный **rollback build** от принятого нового source: откатить диагностическую
 реализацию вместе с соответствующим public tool description, сохранив полную новую registry,
@@ -185,11 +194,11 @@ git restore --source bcb6a0723^ -- \
   apps/backend/src/modules/sales-funnel/features/read-funnel-diagnostics/register-funnel-diagnostics-tool.ts
 git restore --source <accepted-release-sha> -- \
   apps/backend/src/migrations/index.ts \
-  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0100-funnel-diagnostic-candidates.ts \
-  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0101-billing-funnel-diagnostic-sources.ts \
-  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0102-reading-funnel-diagnostic-sources.ts \
-  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0103-telegram-funnel-diagnostic-identities.ts \
-  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0104-funnel-diagnostic-current-products.ts \
+  apps/backend/src/modules/sales-funnel/infrastructure/postgres/migrations/0101-funnel-diagnostic-candidates.ts \
+  apps/backend/src/modules/billing/infrastructure/postgres/migrations/0102-billing-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/reading-activity/infrastructure/postgres/migrations/0103-reading-funnel-diagnostic-sources.ts \
+  apps/backend/src/modules/telegram-membership/infrastructure/postgres/migrations/0104-telegram-funnel-diagnostic-identities.ts \
+  apps/backend/src/modules/materials/infrastructure/postgres/migrations/0105-funnel-diagnostic-current-products.ts \
   apps/backend/test/integration/migrations.test.ts
 ```
 
@@ -302,7 +311,7 @@ Unread/removal сохранены отдельно; решение об их в�
 `coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
 нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
 непрерывность rollout. После rollback на старый writer возможен gap сбора; compatible rollback build
-должен сохранить полную применённую registry, включая 0105–0107 и неизменные checksums. Старый image
+должен сохранить полную применённую registry, включая 0106–0108 и неизменные checksums. Старый image
 с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
 нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
 

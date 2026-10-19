@@ -80,6 +80,13 @@ sachkov.dev, inside.sachkov.dev {
 		}
 		reverse_proxy @communications_authorize {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		# Активная аудитория списка ожидания: тот же отдельный bearer communications.
+		@communications_waitlist {
+			method POST
+			path /integrations/telegram/v1/communications/waitlist
+		}
+		reverse_proxy @communications_waitlist {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		@communications_validate {
 			method POST
 			path /integrations/telegram/v1/communications/validate-content
