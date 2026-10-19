@@ -2,6 +2,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { z } from "zod";
 
+import { technicalLogCorrelation } from "./technical-telemetry.js";
+
 import type { BackendProcess } from "../../config/platform-config.js";
 
 /**
@@ -41,6 +43,7 @@ export function writeLog(
     level,
     event,
     ...contexts.getStore(),
+    ...technicalLogCorrelation(),
     ...fields,
   });
   if (level === "error") console.error(line);
