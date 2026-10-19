@@ -5,6 +5,7 @@ from pathlib import Path
 import signal
 import socket
 import subprocess
+import json
 import sys
 
 role, directory, mode, *args = sys.argv[1:]
@@ -36,7 +37,10 @@ if role == "compose":
     if args[0] == "ps":
         if mode == "diagnostics-failure" and "--format" in args:
             sys.exit(9)
-        if owned.exists():
+        if "--format" in args:
+            print(json.dumps([{"Service": "metrics", "State": "running", "Health": "", "ExitCode": 0}]
+                             if owned.exists() else []))
+        elif owned.exists():
             print("owned-pilot-container")
     if args[0] == "down":
         owned.unlink(missing_ok=True)

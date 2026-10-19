@@ -11,6 +11,8 @@ import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch
 import zipfile
+import json
+import urllib.error
 
 from pilot import check_disk
 import pilot
@@ -21,6 +23,52 @@ DESCENDANT_PROBE_TIMEOUT_SECONDS = .1
 
 
 class PilotPreparationTest(unittest.TestCase):
+    def test_startup_timeout_records_stage_status_without_response_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with patch("pilot.time.monotonic", side_effect=[0, 0, 2]), patch("pilot.time.sleep"):
+                with self.assertRaisesRegex(RuntimeError, "metrics_query"):
+                    pilot.await_fact(lambda: (503, "sentinel-secret-response"),
+                                     lambda response: response[0] == 200, budget=1,
+                                     probe="metrics_query", output=output)
+            diagnostic = (output / "readiness.json").read_text()
+            self.assertNotIn("sentinel-secret", diagnostic)
+            self.assertEqual(json.loads(diagnostic), [{
+                "probe": "metrics_query", "attempts": 1, "outcome": "timed_out",
+                "last_http_status": 503, "last_transport_error_type": None,
+            }])
+
+    def test_container_diagnostics_select_known_status_fields_without_raw_details(self):
+        raw = [{"Service": "metrics", "State": "exited", "Health": "", "ExitCode": 2,
+                "Command": "--key=sentinel-secret", "Status": "sentinel-secret-error"}]
+        self.assertEqual(pilot.container_states(json.dumps(raw)), [{
+            "service": "metrics", "state": "exited", "health": "", "exit_code": 2,
+        }])
+
+    def test_transport_diagnostics_keep_only_error_type(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            def unavailable():
+                raise urllib.error.URLError("sentinel-secret-url")
+            with patch("pilot.time.monotonic", side_effect=[0, 0, 2]), patch("pilot.time.sleep"):
+                with self.assertRaises(RuntimeError):
+                    pilot.await_fact(unavailable, bool, budget=1, probe="alloy_otlp", output=output)
+            self.assertEqual(json.loads((output / "readiness.json").read_text())[0]["last_transport_error_type"], "URLError")
+            self.assertNotIn("sentinel-secret", (output / "readiness.json").read_text())
+
+    def test_first_container_snapshot_survives_recovery_after_shutdown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output / "owned-resource").write_text("owned")
+            fixture = Path(__file__).parent / "fixtures/process.py"
+            compose = [sys.executable, str(fixture), "compose", directory, "normal"]
+            docker = [sys.executable, str(fixture), "docker", directory, "normal"]
+            pilot.cleanup_project(compose, output, "inside-observability-pilot-fixture", docker=docker)
+            first = (output / "container-states.json").read_text()
+            pilot.cleanup_project(compose, output, "inside-observability-pilot-fixture", docker=docker)
+            self.assertEqual((output / "container-states.json").read_text(), first)
+            self.assertEqual(json.loads(first)[0]["state"], "running")
+
     def test_published_size_asset_above_64_mib_is_accepted_with_exact_size_and_digest(self):
         # v0.33.1 ZIP published size; deterministic bytes replace the external provider.
         payload = b"f" * 79_389_151
