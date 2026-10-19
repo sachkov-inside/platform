@@ -87,7 +87,14 @@
     "sharp": "0.35.5",
     "undici": "8.11.2",
     "zod": "4.6.5",
-    "@inside/contracts": "workspace:*"
+    "@inside/contracts": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/sdk-trace-base": "2.12.0",
+    "@opentelemetry/sdk-metrics": "2.12.0",
+    "@opentelemetry/resources": "2.12.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.223.0",
+    "@opentelemetry/core": "2.12.0"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.0",
