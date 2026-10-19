@@ -379,3 +379,141 @@ Evidence находится в `.reports/observability-pilot-*/evidence.json` в
 - Независимые review/security/checks; отдельно порученный production rollout и семь суток наблюдений.
 
 Ни этот документ, ни зелёные preparation tests не закрывают #1566.
+
+### Короткое сравнение реального API с SDK OFF/ON
+
+Первый resource runner находится в [runtime.py](../../scripts/observability-resource/runtime.py).
+Это подготовленный исполняемый эксперимент. Первый запуск `3a501dca` завершился до измерений: API вышел с кодом 1, очистка собственного project прошла. Измерительных результатов пока нет.
+Профиль [short-sdk-pair-v1](../../infra/observability/resource/profile.json) предложен для
+синтетической проверки и не является принятой производственной нагрузкой.
+
+Один случайный Compose project содержит текущие семь observability services, отдельный
+PostgreSQL 18 foundation, одноразовые migrations, API, локальный JWKS double и генератор.
+API/provider/loadgen доступны только во внутренней сети, без опубликованного API порта и
+маршрута к внешним провайдерам. Коллектор присутствует в обоих режимах. Сравнение относится
+к переключению SDK, не к цене всей observability stack. Web, workers, broker, Umami и MCP
+в этот workload не входят. Production smoke и full-stack reset helpers runner не запускает.
+Shared private env writer извлечён без изменения содержимого production configuration.
+
+Локальный JWKS double использует HTTPS. Production API отвергает HTTP `LOGTO_JWKS_URL`
+до открытия порта; исходная конфигурация `3a501dca` воспроизводимо нарушала это требование
+при проверке настоящим `parsePlatformConfig`. Сохранённого stderr того запуска нет,
+поэтому наличие дополнительных причин отказа не исключено.
+Следующий запуск `fbbc4ebe` подтвердил работающий API, но также завершился до измерений;
+прежний общий `api_off` не различал readiness, создание Account и protected GET.
+Воспроизводимый contract test с настоящими `parsePlatformConfig`, remote JWT verifier
+(HTTPS/fetch, generated CA, issuer и audience) и `accountResponseSchema` выявил отдельное
+расхождение клиента: API возвращает `account.accountId`, а клиент ожидал `account.id`.
+Тест проходил проверку JWT и получал `unexpected_response` на успешной форме POST `201`;
+после исправления принимает POST `201` и GET `200`. Это тест реального verifier и схемы
+через собственный loopback transport, без полноценного Nest application и PostgreSQL.
+Исторические HTTP status/outcome запуска `fbbc4ebe` не сохранены, поэтому этот дефект
+не объявляется единственной причиной фактического отказа.
+Теперь `readiness.json` различает public readiness, establish и protected readiness
+для каждого SDK mode. Отдельный `startup-client.json` сохраняет только закрытые stage/state,
+фиксированный тип command failure либо проверенные label/outcome/HTTP status/elapsed time.
+Token, Account ID, URL, request/response body и exception text/stack в него не попадают.
+Файл записывается до cleanup и входит в whitelist public artifacts; неизвестная форма
+sample отвергается без сохранения её содержимого. POST создания Account не повторяется.
+
+Перед запуском требуется host `openssl`: стандартная команда создаёт отдельный однодневный
+сертификат с единственным SAN `DNS:provider`, deadline 5 секунд. Ошибка генерации закрытая,
+без вывода stderr. Свежий EC P-384 private key имеет mode `0600` и доступен только provider.
+Публичный сертификат монтируется read-only только в API и подключается через
+`NODE_EXTRA_CA_CERTS`; mode `0444` позволяет production пользователю `node` прочитать CA.
+Host trust store, production HTTPS guards и проверка имени сервера не меняются.
+TLS handshake ограничен 1 секундой, HTTP headers 1 секундой и request 2 секундами;
+неполные соединения освобождают ограниченные четыре slots.
+TLS private files исключены из public artifacts. После `down` и `residue=passed`
+runner удаляет только известные TLS files; при неудачной очистке сохраняет их для recovery.
+Следующий фактический запуск требует образа с новым точным Source SHA, отдельного review
+этого исправления и coordinator-owned public supervisor. Старый образ не переименовывается
+в образ нового source.
+
+Профиль фиксирует две пары (`off,on`, затем `on,off`), прогрев 2 секунды и измерение 10 секунд
+на режим, 10 запланированных запросов в секунду, один активный запрос и sample ratio 1.
+Каждый режим содержит 100 measurement slots, по 50 на public `/library/site-index` и
+protected `/accounts/current`. Один Account создаётся через настоящий API по локально
+подписанному ES384 token с обычным сроком 300 секунд. Material corpus пустой. Это не проверка
+поиска на 10 000 Material, очередей или принятой representative workload.
+После медленного запроса generator отмечает пропущенные slots, не догоняет их всплеском.
+Прогрев и measurement имеют отдельные samples. Перезапуск API, порядок и прогрев известны;
+DB/cache/storage между режимами не сбрасываются, поэтому влияние предшествующей пары остаётся.
+
+Для будущего reviewed запуска координатор готовит собственные cache images. Runtime принимает
+только immutable image IDs, сверяет их с двумя тегами собственного cache owner, не строит и
+не скачивает images. Backend `release-identity.json` должен содержать `release=v1` и точный
+Source SHA текущего checkout; Node должен совпадать с `.node-version`. Foundation image ID
+фиксируется отдельно, его source provenance не выводится из backend identity.
+Пример формы private cache manifest (значения заменяются фактическими):
+
+```json
+{
+  "schema": 1,
+  "source": "<current full 40-character commit>",
+  "owner": "inside-platform-production-smoke-cache-resource",
+  "backend": "sha256:<64 lowercase hexadecimal characters>",
+  "foundation": "sha256:<64 different lowercase hexadecimal characters>"
+}
+```
+
+Теги должны быть `<owner>-backend:v1` и `<owner>-foundation:local`.
+После independent review и подготовки cache images публичные команды такие:
+
+```sh
+bash scripts/heavy-check.sh python3 scripts/observability-resource/runtime.py run --output "$RESOURCE_OUTPUT" --images "$RESOURCE_IMAGE_MANIFEST"
+python3 scripts/observability-resource/runtime.py recover --output "$RESOURCE_OUTPUT"
+python3 scripts/observability-resource/hosted.py --output "$RESOURCE_OUTPUT" --public "$RESOURCE_PUBLIC_OUTPUT"
+```
+
+`RESOURCE_OUTPUT` должен быть новым каталогом своего запуска. Используется существующий внешний
+supervisor с deadline 600 секунд, host/VM admission, growth/floor guards и cleanup ровно одного
+проекта. Дополнительные ports и полномочия query gateway не появляются. Все новые mutations и
+reads проверяют frozen daemon identity. Worker дополнительно проверяет project prefix, checkout,
+зарегистрированные PID/group и внешний parent. Если daemon сменился, автоматический cleanup
+отказывает, требуется осмотр ownership records. Чужой `inside-platform` не останавливается.
+
+JSON сохраняет статус и измеренную конечную latency каждого начатого запроса, включая ошибки,
+тайм-ауты и oversize. Общий HTTP deadline 1200 ms покрывает connect/headers/body даже при
+постоянном поступлении bytes. При обрыве процесса сохраняется завершённый NDJSON prefix;
+остальные slots получают `phase_aborted` без выдуманной latency. При SIGKILL всего worker
+может остаться только внешний worker outcome; незавершённое окно не считается измеренным.
+p95 считается nearest rank по фактическим samples. Парный overhead вычисляется отдельно для
+каждого маршрута и пары, только при полном успешном прогреве/measurement и подтверждающем
+post-phase SDK observation. Percentiles между парами не усредняются.
+
+SDK observation делает один ограниченный read через прежний gateway. Проверяется timestamp
+API request counter, с учётом [OTLP mapping VictoriaMetrics](https://docs.victoriametrics.com/victoriametrics/integrations/opentelemetry/).
+Новый sample в ON подтверждает активность экспорта; отсутствие нового sample в OFF относится
+только к этому наблюдению. Это не доказательство отсутствия позднего экспорта или no-loss ledger.
+Неизвестный/недостоверный результат не разрешает overhead claim.
+
+Raw Engine sampling хранит charged memory, file/active/inactive cache, working-set estimate,
+накопленные CPU nanoseconds и guest online CPU count раздельно. Используется
+[Engine API v1.51](https://docs.docker.com/reference/api/engine/version/v1.51/),
+не отформатированные `docker stats` строки. Per-container read windows имеют monotonic bounds;
+CPU interval uncertainty сохраняется. Sampled memory maximum является нижней границей пика.
+Счётчики операций читаются только из собственного private-cgroup
+[io.stat](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html), без privileged mounts.
+Изменение device set, замеченный reset, отсутствие/недоступность/nonfinite counter дают UNKNOWN
+(JSON `null`), не ноль. Engine byte totals не выдаются за IOPS. CPU и IO windows включают одинаковый
+прогрев; IO дополнительно охватывает сбор snapshot. Это не точный CPU-only interval HTTP workload.
+
+CPU load generator представлен своим cgroup и process CPU; process CPU является частью cgroup,
+их нельзя складывать. Host helper CPU включает sampler thread, child CPU CLI учитывается отдельно.
+Guest vCPU не является physical Mac/Timeweb denominator. Нормализованный whole-host overhead,
+полный app memory/disk reserve, volume/inode accounting, lag/loss ledger, steady/spike/query/restart,
+retention/restore и thresholds остаются pending. Даже `completed_short_profile` не означает
+resource acceptance #1566; недостающие counter/latency данные сохраняются как partial/UNKNOWN.
+
+Source proof связывает commit/tree, manifest и hashes executable/shared inputs с image IDs.
+Публичный сборщик копирует только whitelist bounded JSON, не более 1 MiB на файл. Compose,
+env files, JWT/query keys и сырые Engine bodies остаются private. После подтверждённых down/residue
+удаляются только известные private input files своего запуска. При failed down env files остаются
+для корректного recovery. Refused preexisting output не очищается. Архивировать весь output нельзя.
+
+Лёгкие contracts без Docker запускаются отдельно:
+
+```sh
+bash scripts/heavy-check.sh node --test scripts/observability-resource.test.mjs
+```
