@@ -56,7 +56,9 @@ export function ChapterSummary({
         return lines.every((line) => line.startsWith("- ")) ? (
           <ul key={index}>
             {lines.map((line, itemIndex) => (
-              <li key={itemIndex}>{line.slice(2)}</li>
+              <li key={itemIndex}>
+                <ChapterTopic text={line.slice(2)} />
+              </li>
             ))}
           </ul>
         ) : (
@@ -85,10 +87,25 @@ export function ChapterSummary({
               </span>
               <ChevronDown aria-hidden="true" />
             </summary>
+            {!showOutcome ? (
+              <p className="course-chapter-outcome">{outcome}</p>
+            ) : null}
             {content}
           </details>
         </div>
       )}
     </div>
+  );
+}
+
+/** Only a leading authored label is emphasized; all content stays escaped React text. */
+function ChapterTopic({ text }: { readonly text: string }) {
+  const label = /^\*\*([^*]+)\*\*\s*(.*)$/u.exec(text);
+  return label === null ? (
+    text
+  ) : (
+    <>
+      <strong>{label[1]}</strong> {label[2]}
+    </>
   );
 }

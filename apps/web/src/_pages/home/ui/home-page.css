@@ -507,20 +507,67 @@
   }
 }
 
-/* Карточка курса AI Engineering: первый экран страницы курса в светлой рамке. */
 .home-product-course {
-  padding: 2.25rem;
-  border: 1px solid var(--border);
-  border-radius: 1.5rem;
-  background: var(--card);
+  max-width: 42rem;
+  margin-inline: auto;
   color: var(--foreground);
 }
-/* Телефон: карточка курса без рамки и отступов — первый экран курса получает всю ширину. */
+.home-course-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.home-course-heading h2 {
+  min-width: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+.home-course-heading h2 a {
+  text-decoration: none;
+}
+.home-course-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.home-course-open svg {
+  width: 1rem;
+  height: 1rem;
+}
+.home-course-open:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.home-course-film {
+  display: block;
+  border-radius: 1.25rem;
+}
+.home-course-film .aie-film {
+  aspect-ratio: 3 / 2;
+  box-shadow: none;
+}
+.home-course-call .aie-hero-action {
+  min-height: 2.75rem;
+  margin-top: 0;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+}
 @media (max-width: 47.999rem) {
-  .home-product-course {
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+  .home-course-heading {
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .home-product-course + .home-feed {
+    margin-top: 1.5rem;
   }
 }

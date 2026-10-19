@@ -6,8 +6,7 @@ import type { ReactNode } from "react";
 
 import { useMaterialReading } from "@/entities/material";
 import type { ProductPresentation } from "@/entities/product-page";
-import { StartCountdownBadge } from "@/entities/subscription";
-import { CourseHero } from "@/features/ai-engineering-course";
+import { CourseFilm } from "@/features/ai-engineering-course";
 import { AiFirstProcessArtwork } from "@/features/ai-first-product";
 import { formatMaterialCount } from "@/features/library-discovery";
 import {
@@ -44,10 +43,7 @@ export function FeaturedProduct({
   return <Card series={series} courseCall={courseCall} />;
 }
 
-/**
- * Карточка курса AI Engineering повторяет первый экран страницы курса: тот же модуль, те же тексты
- * из описания продукта и та же анимация. Без первого экрана в описании — общий вид карточки.
- */
+/** Compact course introduction leaves the library feed visible on the first screen. */
 function AiEngineeringFeaturedProduct({
   series,
   courseCall,
@@ -56,37 +52,32 @@ function AiEngineeringFeaturedProduct({
   readonly courseCall?: ReactNode;
 }) {
   if (series.hero === null) return <DefaultFeaturedProduct series={series} />;
-  // Сроки предложения в текстах уже подставлены сервером Главной.
-  const hero = series.hero;
-  const open =
-    series.card === null || series.card.action === ""
-      ? "Открыть курс"
-      : series.card.action;
+  const href = collectionDiscoveryHref("series", series.slug, "/");
   return (
     <section
       aria-labelledby="featured-title"
       className="home-product-course"
       data-product-presentation="ai-engineering-course"
     >
-      <CourseHero
-        call={courseCall}
-        action={{
-          href: collectionDiscoveryHref("series", series.slug, "/"),
-          label: open,
-        }}
-        badge={hero.badge}
-        heading="h2"
-        headingId="featured-title"
-        highlights={hero.highlights}
-        lead={hero.lead}
-        name={series.name}
-        filmBadge={
-          series.startCountdown === undefined ||
-          series.startCountdown === null ? null : (
-            <StartCountdownBadge text={series.startCountdown} />
-          )
-        }
-      />
+      <div className="home-course-heading">
+        <h2 id="featured-title">
+          <IntentPrefetchLink href={href}>{series.name}</IntentPrefetchLink>
+        </h2>
+        <div className="home-course-call">
+          {courseCall ?? (
+            <IntentPrefetchLink href={href} className="home-course-open">
+              Открыть <ArrowRight aria-hidden="true" />
+            </IntentPrefetchLink>
+          )}
+        </div>
+      </div>
+      <IntentPrefetchLink
+        href={href}
+        className="home-course-film"
+        aria-label="Открыть курс AI Engineering"
+      >
+        <CourseFilm />
+      </IntentPrefetchLink>
     </section>
   );
 }

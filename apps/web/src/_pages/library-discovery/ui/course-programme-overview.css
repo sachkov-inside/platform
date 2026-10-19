@@ -1,13 +1,13 @@
 .course-chapter-summary {
   color: var(--muted-foreground);
-  font-size: 1rem;
-  line-height: 1.7;
+  font-size: 0.9375rem;
+  line-height: 1.65;
   overflow-wrap: anywhere;
 }
 
 .course-chapter-summary {
   margin-top: 0.5rem;
-  max-width: 70ch;
+  max-width: 64ch;
 }
 
 .course-chapter-details {
@@ -55,18 +55,30 @@
 
 .course-chapter-content {
   display: grid;
-  gap: 0.75rem;
-  padding-block: 0.25rem 0.75rem;
+  gap: 1rem;
+  max-width: 64ch;
+  padding-block: 0.75rem 1rem;
   white-space: pre-line;
 }
 
 .course-chapter-content ul {
-  padding-left: 1.25rem;
-  list-style: disc;
+  padding-left: 0;
+  list-style: none;
 }
 
 .course-chapter-content li + li {
-  margin-top: 0.5rem;
+  margin-top: 1rem;
+}
+.course-chapter-content strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.course-chapter-outcome {
+  max-width: 64ch;
+  color: var(--foreground);
+}
+.course-chapter-details[open] > .course-chapter-outcome {
+  margin-top: 0.75rem;
 }
 
 .course-preparing-chapter > summary {

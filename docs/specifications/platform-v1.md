@@ -667,22 +667,22 @@ Account без права получают «не найдено». `ContentAcce
 странице программы: туда ведут кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
 над ней стоит плашка потока, а сама она ведёт по этапу продаж
 ([поток продукта](subscription-billing-v1.md#поток-продукта-814), #814). Глава без опубликованных уроков показывает там своё описание и
-пометку «Материалы готовятся»; с первым уроком она становится обычной главой. Большая карточка курса на
-Главной повторяет первый экран страницы курса тем же модулем, вместе с анимацией: ответ Главной отдаёт
-для закреплённого продукта `hero` (метка, вводная фраза, пункты) из того же сохранённого описания.
+пометку «Материалы готовятся»; с первым уроком она становится обычной главой. Компактная карточка курса на Главной показывает название,
+анимацию и переход к курсу, чтобы фильтры и начало библиотеки были видны на первом экране.
+Описание и преимущества остаются на лендинге. Личное действие участника сохраняется.
 
-The course landing page links to the dedicated programme page without repeating its chapter
-overview (owner decision, 2026-10-18). The programme uses actual Product chapters; Storybook
-fixtures never supply production copy. There is no separate cross-cutting development practice section.
-The first paragraph of a chapter's `summary` is visible only when the chapter has no published
-materials. Remaining paragraphs and plain `- ` bullet lists appear in a native disclosure labelled
-«Темы и практика» for both available and preparing chapters. A single-paragraph summary does not
-create an empty disclosure. Preparing chapters retain «Материалы готовятся». No lesson list, role
-matrix, release action or delivery date is invented for a planned chapter.
-All chapter headings remain visible while lesson rows are progressively revealed; pagination must
-not hide the future course roadmap or mark a populated chapter as preparing.
-Chapter counters consistently show the total number of steps: published Material entries plus standalone
-Tasks. Embedded Tasks are already represented by their Material entry and are not counted again.
+The course landing links to the dedicated programme without repeating its chapter overview.
+The programme uses actual Product chapters; fixtures never supply production copy. Published
+chapters show their lesson list and a native «Темы и практика» disclosure; the reading counter
+sits at the right of that disclosure row. Future chapters start collapsed. Their preparation
+notice appears only inside the expanded chapter, followed by its description and topics.
+Chapter summaries start with a short outcome paragraph, followed by spaced topic entries with
+optional leading `**bold labels**`. Labels are rendered as escaped text, without general Markdown
+or HTML support. Published chapters show the outcome inside their topics disclosure. A
+single-paragraph summary does not create an empty disclosure. No lesson list, release action or
+delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
+rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
+
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
 «Открыть программу». После первого открытия урока кнопка становится «Продолжить обучение» и
