@@ -437,7 +437,6 @@ def worker(output):
                 for mode in order:
                     stage = 'api_' + mode
                     fixture.mode(output / 'compose.json', mode)
-                    phase_started = time.time()
                     invoke(compose, ['up', '-d', '--force-recreate', '--no-deps', 'api'], timeout=60)
                     stage = startup_stage('ready', mode)
                     deadline = time.monotonic() + 60
@@ -458,6 +457,8 @@ def worker(output):
                     stage = startup_stage('protected-ready', mode)
                     if startup_client(output, compose, 'protected-ready', mode).get('outcome') != 'ok':
                         raise RuntimeError('protected_fixture_readiness')
+                    # Start the sample-timestamp window after replacement and readiness.
+                    phase_started = time.time()
                     diagnostic_record = None
                     if mode == 'on':
                         stage = 'sdk_diagnostics_before_on'
