@@ -27,7 +27,9 @@ class CorpusCallbackContinuity(unittest.TestCase):
             backup_commands = []
             calls = []
             batches = iter([batch(1), batch(0)])
+            recovery_checks = 0
             def execute(base, args, *, payload=None, timeout=60, fixture_phase=None):
+                nonlocal recovery_checks
                 calls.append(args)
                 self.assertLess(len(calls), 160, 'bounded fake command budget exhausted')
                 if args[0] == 'create' and (reject_create_service == 'all' or args[-1] == reject_create_service):
@@ -38,10 +40,33 @@ class CorpusCallbackContinuity(unittest.TestCase):
                         raise subprocess.CalledProcessError(7, ['private-sentinel'], stderr='private-sentinel')
                     if failure == 'timeout':
                         raise subprocess.TimeoutExpired(['private-sentinel'], 90)
+                if args == ['create', 'recovered'] and failure == 'postmaster_create':
+                    raise subprocess.CalledProcessError(11, ['private-sentinel'], stderr='private-sentinel')
+                if args == ['start', 'recovered'] and failure == 'postmaster_start':
+                    raise runner.runtime.FixtureCommandFailed(returncode=17)
+                if 'pg_isready' in args and 'recovered' in args and failure == 'postmaster_ready_timeout':
+                    raise subprocess.TimeoutExpired(['private-sentinel'], timeout)
                 if args[:2] == ['image', 'inspect']:
                     return json.dumps({'id': image, 'architecture': 'arm64', 'os': 'linux'})
                 if args[:2] == ['volume', 'ls']:
                     return ''
+                if payload is not None and 'recovered' in args:
+                    if "'recovery_ended'" in payload:
+                        recovery_checks += 1
+                        if failure == 'postmaster_ready_json' and recovery_checks == 1:
+                            return 'private-sentinel'
+                        if failure == 'postmaster_recovery_ended' and recovery_checks == 2:
+                            return json.dumps({'recovery_ended': False})
+                    for key, condition in (('postmaster_cluster', "'version_num'"),
+                            ('postmaster_platform', "'platform_rows'"), ('postmaster_role', "'bounded_role'"),
+                            ('postmaster_events', "'deleted_event_reappeared'")):
+                        if failure == key and condition in payload:
+                            return 'private-sentinel'
+                    if failure == 'postmaster_lineage' and "'version_num'" in payload:
+                        return json.dumps({'version_num': 180004, 'system_identifier': '9999999999999999999',
+                            'archive_mode': 'off', 'archive_command': 'pgbackrest --stanza=production archive-push %p'})
+                    if failure == 'postmaster_later' and "'remaining'" in payload:
+                        return 'private-sentinel'
                 if payload is not None:
                     if 'SELECT 1/0' in payload:
                         raise runner.runtime.FixtureCommandFailed(returncode=1)
@@ -88,20 +113,28 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     self.assertEqual(states[services[args[-1]] if base == ['docker'] else args[-1]], 'exited')
                     return '0\n'
                 if args[:3] == ['ps', '--all', '-q']:
+                    if args == ['ps', '--all', '-q', 'recovered'] and failure == 'postmaster_identity':
+                        return 'private-sentinel'
+                    if failure == 'postmaster_readers' and 'recovered' in states and recovery_checks >= 2 and args[-3:] == ['read-db', 'reader', 'ingest']:
+                        return 'private-sentinel'
                     if args[-1] == 'restore' and failure == 'identity':
                         return 'private-sentinel'
                     return '\n'.join(identifiers[name] for name in args[3:] if name in states)
                 if args[0] == 'inspect':
                     service = services[args[1]]
                     state = states[service]
+                    if service == 'recovered' and failure == 'postmaster_inspect':
+                        return 'private-sentinel'
+                    if service == 'recovered' and failure == 'postmaster_stopped':
+                        state = 'running'
                     if service == 'restore' and failure == 'inspect_command':
                         raise runner.runtime.FixtureCommandFailed(returncode=17)
                     if service == 'restore' and failure == 'inspect':
                         return 'private-sentinel'
-                    return json.dumps({'id': args[1], 'image': image, 'labels': {'com.docker.compose.project': 'foreign' if service == 'restore' and failure == 'owner' else project,
+                    return json.dumps({'id': args[1], 'image': image, 'labels': {'com.docker.compose.project': 'foreign' if (service == 'restore' and failure == 'owner') or (service == 'recovered' and failure == 'postmaster_owner') else project,
                         'com.docker.compose.service': service}, 'ports': None,
-                        'network': project + '_private' if service == 'read-db' or service == 'restore' and failure == 'offline' else 'none',
-                        'mounts': [{'Type': 'volume', 'Name': project + '_database' if service == 'restore' and failure == 'mounts' else destination, 'Destination': '/var/lib/postgresql', 'RW': True},
+                        'network': project + '_private' if service == 'read-db' or (service == 'restore' and failure == 'offline') or (service == 'recovered' and failure == 'postmaster_offline') else 'none',
+                        'mounts': [{'Type': 'volume', 'Name': project + '_database' if (service == 'restore' and failure == 'mounts') or (service == 'recovered' and failure == 'postmaster_mount') else destination, 'Destination': '/var/lib/postgresql', 'RW': True},
                                    {'Type': 'volume', 'Name': project + '_repository', 'Destination': '/backup', 'RW': False}],
                         'state': {'status': state, 'running': state == 'running',
                             'pid': 42 if state == 'running' else 0, 'exit_code': 0}})
@@ -159,6 +192,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
             'engine': {'outcome': 'passed', 'returncode': 0, 'container_exit_code': 0},
             'same_owned_id_exited_zero': True})
         self.assertEqual(report['destination_operation']['outcome'], 'passed')
+        self.assertEqual(report['recovered_postmaster']['outcome'], 'passed')
+        self.assertEqual(report['recovered_postmaster']['step'], 'readers_absent')
 
     def test_each_destination_failure_is_closed_and_preserves_initial_comparison_before_restore(self):
         cases = [('create', 'create', 'command_failed', 7), ('timeout', 'create', 'timeout', None),
@@ -185,3 +220,47 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     ('restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))
                 self.assertNotIn('private-sentinel', json.dumps(report))
                 self.assertLess(len(json.dumps(report['destination_operation']).encode()), 1024)
+
+    def test_each_recovered_postmaster_failure_keeps_reader_gate_closed_after_successful_restore(self):
+        cases = [('create', 'create', 'command_failed', 11),
+            ('identity', 'container_identity', 'invalid_identity', None),
+            ('inspect', 'container_inspect', 'invalid_json', None),
+            ('owner', 'container_inspect', 'inspection_mismatch', None),
+            ('stopped', 'stopped', 'stopped_mismatch', None),
+            ('mount', 'mount', 'mount_mismatch', None),
+            ('offline', 'offline', 'offline_mismatch', None),
+            ('start', 'start', 'command_failed', 17),
+            ('ready_timeout', 'sql_ready', 'timeout', None),
+            ('ready_json', 'sql_ready', 'invalid_json', None),
+            ('recovery_ended', 'recovery_ended', 'proof_mismatch', None),
+            ('cluster', 'cluster', 'invalid_json', None),
+            ('lineage', 'lineage', 'lineage_mismatch', None),
+            ('platform', 'platform', 'invalid_json', None),
+            ('role', 'role', 'invalid_json', None),
+            ('events', 'events', 'invalid_json', None),
+            ('readers', 'readers_absent', 'readers_present', None)]
+        for failure, step, category, code in cases:
+            with self.subTest(failure=failure):
+                report, calls = self.run_corpus('postmaster_' + failure, whole_controller=True)
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['stage'], 'offline_restore')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertEqual(report['operation']['service'], 'restore')
+                self.assertEqual(report['operation']['outcome'], 'passed')
+                self.assertTrue(report['repo_init_wait_comparison']['same_owned_id_exited_zero'])
+                self.assertEqual(report['recovered_postmaster'], {'schema': 1, 'step': step,
+                    'outcome': 'failed', 'error': category, 'returncode': code})
+                self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
+                    ('read-db', 'reader', 'ingest') for args in calls))
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertLess(len(json.dumps(report['recovered_postmaster']).encode()), 1024)
+
+    def test_recovered_postmaster_proof_survives_later_maintenance_failure(self):
+        report, calls = self.run_corpus('postmaster_later', whole_controller=True)
+        self.assertEqual(report['state'], 'failed')
+        self.assertEqual(report['stage'], 'current_replay_and_ttl')
+        self.assertEqual(report['reader_gate'], 'closed')
+        self.assertEqual(report['recovered_postmaster'], {'schema': 1, 'step': 'readers_absent',
+            'outcome': 'passed', 'error': None, 'returncode': 0})
+        self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
+            ('read-db', 'reader', 'ingest') for args in calls))

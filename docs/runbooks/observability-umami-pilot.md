@@ -402,6 +402,22 @@ schema, фиксированные step/outcome/error и проверенный 
 mounts и offline-состояния обязательны. Исторический точный отказ на `restore_destination`
 остаётся неизвестным до получения нового доказательства.
 
+После успешного restore поле `recovered_postmaster` показывает последний подэтап:
+`create`, `container_identity`, `container_inspect`, `stopped`, `mount`, `offline`,
+`start`, `sql_ready`, `recovery_ended`, `cluster`, `lineage`, `platform`, `role`,
+`events` или `readers_absent`. `sql_ready` включает существующее ожидание SQL readiness
+и окончания recovery с прежним deadline. Успех фиксируется только после всех проверок.
+Поле содержит только schema, фиксированные step/outcome/error и проверенный числовой
+returncode либо `null`, занимает меньше 1 KiB и перезаписывается без истории.
+SQL, строки результатов, исключения, ID, paths и secrets туда не записываются.
+Поле сохраняется после последующих maintenance-операций. Его отказ оставляет reader gate
+закрытым; readers и ingest не создаются. Порядок команд, проверки и deadlines прежние.
+
+В запуске `4ff1c1b2` destination и restore прошли, `recovered` к моменту cleanup работал,
+reader gate остался закрытым. Точный подэтап отказа после restore и успешные SQL-проверки
+не установлены. Новая диагностика нужна для следующего доказательства и сама по себе
+не определяет историческую причину.
+
 Создание контейнеров `restore`, `recovered` и `read-db` использует только
 `docker compose create SERVICE`. Generated plan не объявляет `depends_on`; скрытых
 зависимостей у этих сервисов нет. `create` не запускает контейнеры. Проверки offline,
