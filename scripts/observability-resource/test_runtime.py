@@ -1,4 +1,5 @@
 """Lifecycle seam delegates one exact project to the existing external supervisor."""
+from contextlib import ExitStack, nullcontext
 import json
 from pathlib import Path
 import tempfile
@@ -210,3 +211,80 @@ class Lifecycle(unittest.TestCase):
                 result=runtime.sdk_observation({'state':'unknown','latest_seconds':None},90,mode)
                 self.assertIsNone(result['fresh_sample_observed'])
                 self.assertIsNone(result['matches_configured_mode'])
+
+    def worker_replacement_observation(self, off_latest):
+        """Exercise the owning worker with a final old-ON point during replacement."""
+        with tempfile.TemporaryDirectory() as directory, ExitStack() as stack:
+            output = Path(directory)
+            project = runtime.PROJECT_PREFIX + 'a' * 12
+            (output/'owner.json').write_text(json.dumps({
+                'supervisor_pid':runtime.os.getppid(), 'cwd':str(runtime.ROOT), 'project':project}))
+            (output/'resource-images.json').write_text(json.dumps({'source':'a' * 40}))
+            (output/'evidence.json').write_text('{}')
+            clock = {'now':100, 'mode':None}
+            events = []
+            def configure(path, mode):
+                clock.update(now=100 if mode == 'on' else 200, mode=mode)
+            def invoke(compose, args, **kwargs):
+                if args[-1].startswith('process.stdout.write'):
+                    return json.dumps({'release':'v1','sourceSha':'a' * 40})
+                if args[-1] == '--version':
+                    return 'v26.10.0' if 'node' in args else 'postgres (PostgreSQL) 18.4'
+                if '--force-recreate' in args:
+                    clock['now'] += 5
+                    events.append(('replaced',clock['mode'],clock['now']))
+                if 'metric' in args:
+                    return json.dumps({'state':'known','latest_seconds':150 if clock['mode']=='on' else off_latest})
+                return ''
+            def ready(output, compose, action, mode, **kwargs):
+                clock['now'] += 10
+                events.append((action,mode,clock['now']))
+                return {'outcome':'ok'}
+            def probe(*args, **kwargs):
+                events.append(('probe',clock['mode'],kwargs['started']))
+                return None
+            def measure(*args):
+                events.append(('measure',clock['mode'],clock['now']))
+                clock['now'] += 40
+                samples = [{'label':label,'outcome':'ok','status':200,'elapsed_ms':10}
+                           for label in runtime.resource_profile.LABELS]
+                return {'samples':samples,'warmup_samples':samples * 10,
+                        'client_completed':True,'lifecycle_coherent':False}
+            for target, name, replacement in (
+                    (runtime,'registration',lambda output:None),
+                    (runtime.pilot,'worker_storage_guard',lambda *args:nullcontext()),
+                    (runtime.pilot,'install_plugin',lambda output:None),
+                    (runtime.resource_profile,'load',lambda:{'pairs':[['on','off']],'profile':'owned-test'}),
+                    (runtime.fixture,'mode',configure),
+                    (runtime,'invoke',invoke),
+                    (runtime,'wait_ready',lambda compose:None),
+                    (runtime,'startup_client',ready),
+                    (runtime,'measure',measure),
+                    (runtime,'begin_sdk_probe',probe),
+                    (runtime.time,'time',lambda:clock['now'])):
+                stack.enter_context(patch.object(target,name,replacement))
+            runtime.worker(output)
+            return json.loads((output/'resource-proof.json').read_text()), events
+
+    def test_worker_excludes_old_on_shutdown_point_after_next_api_readiness(self):
+        proof, events = self.worker_replacement_observation(205.325)
+        pair = proof['pairs'][0]
+        off = pair['modes']['off']['sdk_observation']
+        self.assertEqual(events[-2:], [('protected-ready','off',225),('measure','off',225)])
+        self.assertIn(('probe','on',135),events)
+        self.assertEqual(off['phase_started_seconds'],225)
+        self.assertFalse(off['fresh_sample_observed'])
+        self.assertTrue(off['matches_configured_mode'])
+        self.assertEqual(pair['p95_overhead_percent'], {'public_index':0,'protected_account':0})
+
+    def test_worker_still_rejects_fresh_off_point_after_readiness_boundary(self):
+        for latest in (225,240):
+            with self.subTest(latest=latest):
+                proof, _ = self.worker_replacement_observation(latest)
+                pair = proof['pairs'][0]
+                off = pair['modes']['off']['sdk_observation']
+                self.assertEqual(off['phase_started_seconds'],225)
+                self.assertTrue(off['fresh_sample_observed'])
+                self.assertFalse(off['matches_configured_mode'])
+                self.assertEqual(pair['p95_overhead_percent'], {'public_index':None,'protected_account':None})
+                self.assertEqual(proof['acceptance'],'pending')

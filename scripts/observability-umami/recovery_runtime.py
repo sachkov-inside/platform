@@ -373,13 +373,23 @@ CLUSTER_SQL = """SELECT json_build_object('version_num',current_setting('server_
 'archive_mode',current_setting('archive_mode'),'archive_command',current_setting('archive_command'));"""
 
 
-def _cluster(encoded):
+def _cluster(encoded, *, offline=False, invalid=None):
     raw = json.loads(encoded)
-    if (not isinstance(raw, dict) or set(raw) != {'version_num', 'system_identifier', 'archive_mode', 'archive_command'}
-            or type(raw['version_num']) is not int or not 100000 <= raw['version_num'] < 1000000
-            or not isinstance(raw['system_identifier'], str) or not re.fullmatch(r'[1-9][0-9]{0,19}', raw['system_identifier'])
-            or raw['archive_mode'] not in ('on', 'off')
-            or raw['archive_command'] != 'pgbackrest --stanza=production archive-push %p'):
+    field = None
+    if not isinstance(raw, dict) or set(raw) != {'version_num', 'system_identifier', 'archive_mode', 'archive_command'}:
+        field = 'shape'
+    elif type(raw['version_num']) is not int or not 100000 <= raw['version_num'] < 1000000:
+        field = 'version_num'
+    elif not isinstance(raw['system_identifier'], str) or not re.fullmatch(r'[1-9][0-9]{0,19}', raw['system_identifier']):
+        field = 'system_identifier'
+    elif raw['archive_mode'] != ('off' if offline else 'on'):
+        field = 'archive_mode'
+    # PG18 current_setting uses show_archive_command, not the raw configured value.
+    elif raw['archive_command'] != ('(disabled)' if offline else 'pgbackrest --stanza=production archive-push %p'):
+        field = 'archive_command'
+    if field is not None:
+        if invalid is not None:
+            invalid({'schema': 1, 'invalid_field': field})
         raise ValueError('unexpected_cluster_metadata')
     return raw
 
@@ -482,7 +492,12 @@ def _confirm_recovered_postmaster(compose, project, name, source, sql, execute, 
         _expect(sql('recovered', "SELECT json_build_object('recovery_ended',NOT pg_is_in_recovery());",
                     role='pilot_bootstrap', database='postgres'), {'recovery_ended': True})
         progress('cluster')
-        restored = _cluster(sql('recovered', CLUSTER_SQL, role='pilot_bootstrap', database='postgres'))
+        def invalid_cluster(value):
+            diagnostic['cluster_validation'] = value
+            report['recovered_postmaster'] = dict(diagnostic)
+            record()
+        restored = _cluster(sql('recovered', CLUSTER_SQL, role='pilot_bootstrap', database='postgres'),
+                            offline=True, invalid=invalid_cluster)
         progress('lineage')
         if (restored['system_identifier'] != source['system_identifier'] or restored['version_num'] != 180004
                 or restored['archive_mode'] != 'off'):

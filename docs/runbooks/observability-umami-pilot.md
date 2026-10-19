@@ -422,6 +422,46 @@ SQL, строки результатов, исключения, ID, paths и sec
 Последнее известное `recovery_ended` описывает ранее прочитанный факт, а не текущую
 готовность после последующего отказа. Callback необязателен; polling и deadlines прежние.
 
+Если JSON metadata прочитан, но прежняя строгая проверка кластера не пройдена,
+`recovered_postmaster.cluster_validation` содержит только `schema: 1` и
+`invalid_field`: `shape`, `version_num`, `system_identifier`, `archive_mode` или
+`archive_command`. Указывается первая непройденная проверка в этом порядке.
+Значения полей, дополнительные ключи и сырой ответ не сохраняются. Неправильный JSON
+по-прежнему отмечается `error: invalid_json` без `cluster_validation`. Проверки SQL,
+версии, system identifier, archive command, lineage и reader gate не ослаблены.
+
+В запуске `435a5806` restore завершился с кодом 0, postmaster принимал соединения,
+recovery закончилось, затем строгая проверка metadata отказала на шаге `cluster`.
+Конкретное поле не установлено, reader gate остался закрытым. Инициализация задаёт
+archive command через `ALTER SYSTEM` в `init-production-databases.sh`.
+[Исходник pgBackRest 2.57.0](https://github.com/pgbackrest/pgbackrest/blob/release/2.57.0/src/command/restore/restore.c#L1494-L1590)
+сохраняет прежние настройки `postgresql.auto.conf`, исключая заменяемые recovery target
+settings; `--archive-mode=off` добавляет `archive_mode=off`. Штатная очистка archive
+command этим исходником не подтверждена. SHA-256 проверенного `restore.c`:
+`b95cd8cb00c58fe0fa3eb7d9e4a912d13db128bb1f4586b54a48c9e9f153dc60`.
+Новая диагностика различает поля следующего отказа, но не устанавливает историческую причину.
+
+В запуске `9dd535a5` новая диагностика установила `invalid_field: archive_command`.
+[PostgreSQL 18.4 `show_archive_command`](https://github.com/postgres/postgres/blob/REL_18_4/src/backend/access/transam/xlog.c#L4530-L4540)
+возвращает `(disabled)` при `archive_mode=off`, даже когда настроенная команда сохранена.
+[`current_setting`](https://github.com/postgres/postgres/blob/REL_18_4/src/include/catalog/pg_proc.dat#L6495-L6501)
+вызывает [`show_config_by_name`](https://github.com/postgres/postgres/blob/REL_18_4/src/backend/utils/misc/guc_funcs.c#L752-L767),
+затем [`GetConfigOptionByName` и string show hook](https://github.com/postgres/postgres/blob/REL_18_4/src/backend/utils/misc/guc.c#L5438-L5553).
+[Регистрация archive command](https://github.com/postgres/postgres/blob/REL_18_4/src/backend/utils/misc/guc_tables.c#L4170-L4180)
+использует этот hook; [`XLogArchivingActive`](https://github.com/postgres/postgres/blob/REL_18_4/src/include/access/xlog.h#L98-L103)
+при отключённом archiving ложен. SHA-256 проверенных файлов: `xlog.c`
+`cdd9ba6adc4e109d3a2581c94151104095f97c2d905142dbe3d857d8e35cf7ab`, `guc.c`
+`3021d40bb4e920a56fbc5e9452e32903a7364d7ce0aece65be70aa3c34c1274e`.
+
+Контроллер теперь различает строгие контракты: исходная база требует `archive_mode=on`
+и точную команду `pgbackrest --stanza=production archive-push %p`, offline-база требует
+`archive_mode=off` и точное отображение `(disabled)`. Пустая строка, произвольная команда
+или значение другого режима отклоняются. Offline-отображение не доказывает исходное
+значение команды в конфигурации. Активная команда проверяется до backup. Версия,
+system identifier, lineage, offline mounts, read-only repository, отсутствие readers
+до replay и TTL-проверок остаются обязательными. Исправление следует pinned source;
+прохождение реального restore с этим контрактом требует нового отдельного запуска.
+
 В запуске `4ff1c1b2` destination и restore прошли, `recovered` к моменту cleanup работал,
 reader gate остался закрытым. Точный подэтап отказа после restore и успешные SQL-проверки
 не установлены. Новая диагностика нужна для следующего доказательства и сама по себе
