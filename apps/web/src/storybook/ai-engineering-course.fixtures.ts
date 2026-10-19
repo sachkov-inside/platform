@@ -38,7 +38,7 @@ export const aiEngineeringCoursePage: ProductPage = {
         },
         {
           title: "Помощь с заданиями",
-          text: "Объясняем непонятное и подсказываем, куда двигаться дальше.",
+          text: "Объясняю непонятное и подсказываю, куда двигаться дальше.",
           detailLabel: "",
           detail: "",
         },
