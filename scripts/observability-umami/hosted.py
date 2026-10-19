@@ -16,7 +16,7 @@ ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'recovery.j
 
 def source_inputs():
     return tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + tuple(sorted(runtime.SCRIPTS.glob('*.sql'))) + (
-        ROOT / 'scripts/observability-pilot/pilot.py', ROOT / 'scripts/observability-pilot/ci.py',
+        ROOT / 'scripts/observability-pilot/pilot.py', ROOT / 'scripts/observability-pilot/native_cpu.py', ROOT / 'scripts/observability-pilot/ci.py',
         ROOT / 'scripts/observability-pilot/daemon.py', ROOT / 'scripts/observability-pilot/orbstack.py',
         ROOT / 'scripts/observability-pilot/storage_policy.py', ROOT / 'infra/observability/pilot/probe.lock.json',
         runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json', runtime.CONFIG / 'schema-fixture.sql',

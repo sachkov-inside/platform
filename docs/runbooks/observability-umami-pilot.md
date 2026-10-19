@@ -6,6 +6,11 @@ privacy/read-only/revocation подтверждены на Mac и Linux для �
 Retention runner подготовлен; его новый полный supervised corpus, полный каталог аналитики,
 restore и resource acceptance ещё требуют отдельного доказательства.
 
+Общий с core stdlib helper записывает отдельный kernel CPU record для единственного native
+Umami MCP. Он включает native child и kernel-accounted/reaped descendants, исключая параллельные
+verification команды. Неизвестные или незавершённые измерения не становятся нулём и не заменяют
+полный resource corpus; правила закрытого канала и cleanup описаны в [core runbook](observability-pilot.md).
+
 ## Закреплённый комплект и проверенные defaults
 
 [inputs.lock.json](../../infra/observability/umami/inputs.lock.json) закрепляет Umami 3.4.0,

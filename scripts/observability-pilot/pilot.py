@@ -9,7 +9,6 @@ import math
 import os
 from pathlib import Path
 import platform
-import resource
 import secrets
 import select
 import shutil
@@ -27,6 +26,7 @@ import uuid
 import zipfile
 import orbstack
 import daemon
+import native_cpu
 from storage_policy import admission as check_disk, assert_budget
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -175,42 +175,40 @@ def downloaded_asset(asset):
 
 def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None):
     """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
-    # Stay in the owned worker group so its external supervisor also catches a killed worker.
-    process = subprocess.Popen(argv or [str(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL, env=environment)
-    buffered = b""
+    # The helper and native process stay in the externally supervised worker group.
+    with native_cpu.measured_process(argv or [str(executable)], environment) as (process, measurement):
+        buffered = b""
 
-    def rpc(identifier, method, params):
-        nonlocal buffered
-        message = {"jsonrpc": "2.0", "method": method, "params": params}
-        if identifier is not None:
-            message["id"] = identifier
-        process.stdin.write((json.dumps(message) + "\n").encode())
-        process.stdin.flush()
-        if identifier is None:
-            return None
-        deadline = time.monotonic() + MCP_RESPONSE_TIMEOUT_SECONDS
-        while time.monotonic() < deadline:
-            while b"\n" in buffered:
-                line, buffered = buffered.split(b"\n", 1)
-                response = json.loads(line)
-                if not isinstance(response, dict):
-                    raise RuntimeError("MCP response must be an object")
-                if response.get("id") == identifier:
-                    if "error" in response:
-                        raise RuntimeError("native MCP rejected request")
-                    return response.get("result")
-            readable, _, _ = select.select([process.stdout], [], [], max(0, deadline - time.monotonic()))
-            if readable:
-                chunk = os.read(process.stdout.fileno(), 65_536)
-                if not chunk:
-                    raise RuntimeError("native MCP exited before response")
-                buffered += chunk
-                if len(buffered) > 1_048_576:
-                    raise RuntimeError("native MCP response exceeds pilot budget")
-        raise RuntimeError("native MCP response deadline exceeded")
+        def rpc(identifier, method, params):
+            nonlocal buffered
+            message = {"jsonrpc": "2.0", "method": method, "params": params}
+            if identifier is not None:
+                message["id"] = identifier
+            process.stdin.write((json.dumps(message) + "\n").encode())
+            process.stdin.flush()
+            if identifier is None:
+                return None
+            deadline = time.monotonic() + MCP_RESPONSE_TIMEOUT_SECONDS
+            while time.monotonic() < deadline:
+                while b"\n" in buffered:
+                    line, buffered = buffered.split(b"\n", 1)
+                    response = json.loads(line)
+                    if not isinstance(response, dict):
+                        raise RuntimeError("MCP response must be an object")
+                    if response.get("id") == identifier:
+                        if "error" in response:
+                            raise RuntimeError("native MCP rejected request")
+                        return response.get("result")
+                readable, _, _ = select.select([process.stdout], [], [], max(0, deadline - time.monotonic()))
+                if readable:
+                    chunk = os.read(process.stdout.fileno(), 65_536)
+                    if not chunk:
+                        raise RuntimeError("native MCP exited before response")
+                    buffered += chunk
+                    if len(buffered) > 1_048_576:
+                        raise RuntimeError("native MCP response exceeds pilot budget")
+            raise RuntimeError("native MCP response deadline exceeded")
 
-    try:
         rpc(1, "initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
                              "clientInfo": {"name": "platform-pilot", "version": "1"}})
         rpc(None, "notifications/initialized", {})
@@ -225,22 +223,8 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
             raise RuntimeError("native MCP failed to return known fixture")
         if validate_result is not None:
             validate_result(result)
-        return {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
-    finally:
-        try:
-            process.stdin.close()
-        except BrokenPipeError:
-            pass
-        try:
-            process.terminate()
-        except ProcessLookupError:
-            pass
-        try:
-            process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
-        process.stdout.close()
+        proof = {"discovered_tools": names, "query": tool, "known_fixture": "passed"}
+    return {**proof, **measurement}
 
 
 def native_probes(token, output):
@@ -269,14 +253,7 @@ def native_probes(token, output):
         environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(output), "MCP_SERVER_MODE": "stdio",
                        f"{prefix}_INSTANCE_ENTRYPOINT": f"http://127.0.0.1:18427/{route}",
                        f"{prefix}_INSTANCE_BEARER_TOKEN": token, "VM_INSTANCE_TYPE": "single"}
-        before = resource.getrusage(resource.RUSAGE_CHILDREN) if system == 'Linux' else None
         results[name] = stdio_probe(executable, environment, tool, arguments, marker)
-        if system == 'Linux':
-            after = resource.getrusage(resource.RUSAGE_CHILDREN)
-            results[name]['cpu_seconds'] = after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime
-        else:
-            results[name]['cpu_seconds'] = None
-            results[name]['cpu_measurement'] = 'unavailable: concurrent verification subprocesses; per-MCP measurement pending'
         results[name]["host_os"] = system
         executable.unlink()
     return results
@@ -786,6 +763,8 @@ def run_worker(output):
         evidence.update(result)
         if mac:
             evidence['missing'].remove('Mac native MCP execution')
+            if native_cpu.has_measurements(result.get('native_mcp'), ('mcp-victoriametrics', 'mcp-victorialogs', 'mcp-victoriatraces')):
+                evidence['missing'].remove('Mac native MCP CPU measurement')
         evidence["status"] = "core smoke passed; full pilot acceptance pending"
         write_json(output / "evidence.json", evidence)
 
