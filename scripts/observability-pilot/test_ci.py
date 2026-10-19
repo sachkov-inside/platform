@@ -99,6 +99,29 @@ class HostedEvidenceTest(unittest.TestCase):
                                 self.assertEqual(ci.pilot.FROZEN_DOCKER_ENDPOINT, identity['endpoint'])
                                 cleanup.assert_called_once()
 
+    def test_source_binding_includes_the_exact_native_cpu_helper(self):
+        import io
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            metadata = root / 'metadata'
+            def command(args):
+                if args[-1] == 'HEAD':
+                    return 'a' * 40
+                if args[-1] == '--porcelain':
+                    return ''
+                if args[-1] == 'HEAD^{tree}':
+                    return 'b' * 40
+                return str(root)
+            with patch.object(ci, 'read_command', side_effect=command), \
+                    patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), \
+                    patch.object(ci.shutil, 'disk_usage', return_value=SimpleNamespace(total=200 * 1024**3, free=100 * 1024**3)), \
+                    patch('sys.stdout', new=io.StringIO()):
+                self.assertEqual(ci.admission(metadata), 0)
+            proof = json.loads((metadata / 'source.json').read_text())
+            helper = ci.ROOT / 'scripts/observability-pilot/native_cpu.py'
+            self.assertEqual(proof['inputs']['scripts/observability-pilot/native_cpu.py'], hashlib.sha256(helper.read_bytes()).hexdigest())
+
     def test_artifact_collection_excludes_keys_binaries_and_raw_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

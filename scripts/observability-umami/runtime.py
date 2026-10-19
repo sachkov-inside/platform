@@ -165,7 +165,7 @@ def smoke(output, compose):
         stage = 'native_mcp_query'
         native = pilot.stdio_probe(node, {'PATH':os.environ.get('PATH', ''), 'NODE_USE_ENV_PROXY':'0', 'UMAMI_URL':'http://127.0.0.1:13301', 'UMAMI_API_TOKEN':state['key']},
                                    'get_website_stats', arguments, state['site'], argv=[node, str(executable)], validate_result=lambda result: native_result(result, state['site']))
-        native.update({'version':'0.2.0', 'transport':'stdio', 'host_os':platform.system(), 'cpu_measurement':'pending isolated native MCP measurement'})
+        native.update({'version':'0.2.0', 'transport':'stdio', 'host_os':platform.system()})
         stage = 'api_privacy_readonly_revocation'
         proof = fixture_proof(json.loads(invoke(compose, ['exec', '-T', 'query', 'python', '/pilot/fixture.py', 'verify'], payload=json.dumps(state))))
         proof['native_stdio_mcp'] = native
@@ -191,6 +191,8 @@ def run_worker(output):
         result = smoke(output, compose)
         evidence = json.loads((output / 'evidence.json').read_text())
         evidence.update(result)
+        if pilot.native_cpu.has_measurements({'umami': result['umami']['native_stdio_mcp']}, ('umami',)):
+            evidence['missing'] = [item for item in evidence['missing'] if item != 'Mac native MCP CPU measurement']
         pilot.write_json(output / 'evidence.json', evidence)
 
 
