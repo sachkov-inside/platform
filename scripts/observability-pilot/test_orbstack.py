@@ -73,24 +73,11 @@ class OrbStackAdmissionTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'identity'):
             orbstack.check_host(initial, {**initial, 'filesystems':{}})
 
-    def test_probe_stream_reads_numeric_sample_and_refuses_missing_or_excess_output(self):
-        import os
-        import time
-        read, write = os.pipe()
-        try:
-            os.write(write, b'abcd 4096 10000000 5000000 ext2/ext3\n')
-            self.assertEqual(orbstack.ProbeStream(read).sample(), 'abcd 4096 10000000 5000000 ext2/ext3')
-            os.write(write, b'x' * 300)
-            with self.assertRaisesRegex(RuntimeError, 'oversized'):
-                orbstack.ProbeStream(read).sample()
-        finally:
-            os.close(read); os.close(write)
-        read, write = os.pipe(); os.close(write)
-        try:
-            with self.assertRaisesRegex(RuntimeError, 'closed'):
-                orbstack.ProbeStream(read).sample()
-        finally:
-            os.close(read)
+    def test_fresh_stat_rejects_buffered_sample_from_previous_request(self):
+        def stale(args, **kwargs):
+            return 'old-nonce abcd 4096 10000000 5000000 ext2/ext3\n'
+        with self.assertRaisesRegex(RuntimeError, 'freshness'):
+            orbstack.fresh_sample(['compose'], stale)
 
     def test_all_runtime_docker_commands_use_frozen_socket(self):
         import pilot
@@ -99,11 +86,7 @@ class OrbStackAdmissionTest(unittest.TestCase):
             pilot.command(['docker', 'compose', 'down'])
             self.assertEqual(run.call_args.args[0], ['docker','--host','unix:///owned/docker.sock','compose','down'])
 
-    def test_vm_bootstrap_opens_full_workload_only_after_sample_and_reaps_logger(self):
-        import os
-        import sys
-        import pilot
-        fixture = Path(__file__).parent / 'fixtures/process.py'
+    def test_vm_bootstrap_opens_full_workload_only_after_challenged_stat(self):
         lock = json.loads((Path(__file__).parents[2]/'infra/observability/pilot/probe.lock.json').read_text())
         for outcome in ('success', 'body-failure', 'invalid'):
             with self.subTest(outcome=outcome), tempfile.TemporaryDirectory() as directory:
@@ -111,12 +94,12 @@ class OrbStackAdmissionTest(unittest.TestCase):
                 calls = []
                 def command(args, **kwargs):
                     calls.append(args)
+                    if 'exec' in args:
+                        return 'oldnonce stale' if outcome == 'invalid' else args[-1]+' abcd 4096 10000000 5000000 ext2/ext3\n'
                     return ''
-                def execute(_args):
-                    return [sys.executable, str(fixture), 'probe', directory, outcome]
                 with patch('orbstack.verify_probe'):
                     try:
-                        with orbstack.vm_budget(['fake-compose'], lock, command, output, docker_args=execute):
+                        with orbstack.vm_budget(['fake-compose'], lock, command, output, docker_args=lambda args:args):
                             self.assertTrue((output/'storage-vm.json').is_file())
                             self.assertNotEqual(outcome, 'invalid')
                             if outcome == 'body-failure':
@@ -128,9 +111,7 @@ class OrbStackAdmissionTest(unittest.TestCase):
                 self.assertEqual(calls[0][-1], lock['image'])
                 self.assertNotIn('--context', calls[0])
                 self.assertEqual(calls[1], ['fake-compose','up','-d','--no-deps','storage-probe'])
-                pid = int((output/'probe-pid').read_text())
-                with self.assertRaises(ProcessLookupError):
-                    os.kill(pid, 0)
+                self.assertFalse(any('logs' in call for call in calls))
 
     def test_publisher_verifier_checks_gzip_expansion_digest_and_platform_before_pull(self):
         import gzip
@@ -183,17 +164,9 @@ class OrbStackAdmissionTest(unittest.TestCase):
                 self.assertFalse((output/'owned-core').exists())
                 self.assertFalse((output/'owned-probe').exists())
                 self.assertTrue((state/'foreign-resource').exists())
-                def closed():
-                    with socket.socket(socket.AF_UNIX) as probe:
-                        probe.settimeout(SOCKET_PROBE_BUDGET_SECONDS)
-                        try:
-                            probe.connect(str(output/'probe.sock'))
-                        except (ConnectionRefusedError, FileNotFoundError):
-                            return True
-                        except socket.timeout:
-                            return False
-                        return False
-                pilot.await_fact(closed, bool, budget=DESCENDANT_CLOSED_BUDGET_SECONDS)
+                requests = (output/'fresh-requests').read_text().splitlines()
+                self.assertGreaterEqual(len(requests),2)
+                self.assertEqual(len(requests),len(set(requests)))
 
     def test_identity_rejects_non_object_daemon_metadata_before_bootstrap(self):
         import socket
@@ -225,17 +198,112 @@ class OrbStackAdmissionTest(unittest.TestCase):
         self.assertEqual(signal.getsignal(signal.SIGUSR1), previous)
         self.assertEqual({thread.ident for thread in threading.enumerate()}, threads)
 
-    def test_probe_stream_bounds_each_record_when_transport_batches_valid_samples(self):
+    def test_registry_token_rejects_non_string_control_and_oversized_values(self):
+        for value in (None, {}, 42, '', 'a\rb', 'a\nb', 'a b', 'x'*40000):
+            with self.subTest(value_type=type(value).__name__), self.assertRaises(RuntimeError):
+                orbstack.registry_token({'token':value})
+        self.assertEqual(orbstack.registry_token({'token':'opaque.valid-token_123'}), 'opaque.valid-token_123')
+
+    def test_monitor_signals_during_down_latch_failure_without_skipping_residue(self):
         import os
-        read, write = os.pipe()
-        try:
-            line = 'abcd 4096 10000000 5000000 ext2/ext3'
-            os.write(write, ((line+'\n')*8).encode())
-            stream = orbstack.ProbeStream(read)
-            self.assertEqual(stream.sample(), line)
-            self.assertEqual(stream.sample(), line)
-        finally:
-            os.close(read); os.close(write)
+        import signal
+        import sys
+        import pilot
+        fixture = Path(__file__).parent/'fixtures/process.py'
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            compose = [sys.executable,str(fixture),'compose',directory,'normal']
+            docker = [sys.executable,str(fixture),'docker',directory,'normal']
+            original = pilot.command
+            def command(args, **kwargs):
+                if 'down' in args:
+                    os.kill(os.getpid(), signal.SIGUSR1)
+                    os.kill(os.getpid(), signal.SIGUSR1)
+                return original(args, **kwargs)
+            with orbstack.sampled_budget(lambda:20*GIB,lambda free:None), \
+                 orbstack.sampled_budget(lambda:20*GIB,lambda free:None), patch('pilot.command',side_effect=command):
+                status = pilot.supervise_worker([sys.executable,str(fixture),'worker',directory,'success'],
+                    compose,output,'inside-observability-pilot-fixture',docker=docker)
+            self.assertNotEqual(status,0)
+            outcome = json.loads((output/'worker-outcome.json').read_text())
+            self.assertNotEqual(outcome['exit_code'],0)
+            self.assertEqual(outcome['cleanup']['down'],'passed')
+            self.assertEqual(outcome['cleanup']['residue'],'passed')
+
+    def test_identity_replacement_after_diagnostics_refuses_down_on_replacement(self):
+        import pilot
+        identity = {'daemon_id':'owned'}
+        replacement = {'daemon_id':'replacement'}
+        calls = []
+        checks = [0]
+        def identify(*args, **kwargs):
+            checks[0] += 1
+            return identity if checks[0] <= 2 else replacement
+        def raw(args, **kwargs):
+            calls.append(args)
+            return '[]'
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(pilot, 'FROZEN_DOCKER_IDENTITY', identity), \
+             patch('orbstack.identify',side_effect=identify), patch('pilot._raw_command',side_effect=raw):
+            result = pilot.cleanup_project(['docker','compose'],Path(directory),'inside-observability-pilot-fixture')
+        self.assertIn('failed',result['down'])
+        self.assertIn('failed',result['residue'])
+        self.assertFalse(any('down' in args for args in calls))
+
+    def test_replacement_daemon_cleanup_preserves_owner_and_failed_worker_outcome(self):
+        import pilot
+        import sys
+        fixture = Path(__file__).parent/'fixtures/process.py'
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            (output/'owner.json').write_text('{"owner":"preserve"}')
+            (output/'foreign-resource').write_text('replacement daemon volume')
+            compose = [sys.executable,str(fixture),'compose',directory,'normal']
+            docker = [sys.executable,str(fixture),'docker',directory,'normal']
+            with patch.object(pilot,'FROZEN_DOCKER_IDENTITY',{'daemon_id':'owned'}), \
+                 patch('orbstack.identify',return_value={'daemon_id':'replacement'}):
+                with self.assertRaisesRegex(RuntimeError,'cleanup failed'):
+                    pilot.supervise_worker([sys.executable,str(fixture),'worker',directory,'success'],
+                                           compose,output,'inside-observability-pilot-fixture',docker=docker)
+            outcome = json.loads((output/'worker-outcome.json').read_text())
+            self.assertNotEqual(outcome['exit_code'],0)
+            self.assertTrue((output/'owner.json').exists())
+            self.assertTrue((output/'foreign-resource').exists())
+            self.assertFalse((output/'commands').exists())
+
+    def test_stalled_real_producer_with_buffered_records_cannot_admit_vm(self):
+        import subprocess
+        import sys
+        import os
+        fixture = Path(__file__).parent/'fixtures/process.py'
+        with tempfile.TemporaryDirectory() as directory:
+            def command(args, **kwargs):
+                return subprocess.run([sys.executable,str(fixture),'stale-probe',directory,args[-1]],
+                                      capture_output=True,text=True,check=True,timeout=kwargs['timeout']).stdout
+            with self.assertRaises(subprocess.TimeoutExpired):
+                orbstack.fresh_sample(['compose'],command)
+            pid = int((Path(directory)/'probe-pid').read_text())
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid,0)
+
+    def test_mac_native_cpu_never_attributes_other_verification_children(self):
+        import io
+        import tarfile
+        import pilot
+        data = io.BytesIO()
+        with tarfile.open(fileobj=data,mode='w:gz') as archive:
+            for name in ('mcp-victoriametrics','mcp-victorialogs','mcp-victoriatraces'):
+                entry = tarfile.TarInfo(name);entry.size=1
+                archive.addfile(entry,io.BytesIO(b'x'))
+        with tempfile.TemporaryDirectory() as directory, patch('pilot.platform.system',return_value='Darwin'), \
+             patch('pilot.platform.machine',return_value='arm64'), \
+             patch('pilot.downloaded_asset',return_value=data.getvalue()), \
+             patch('pilot.stdio_probe',return_value={'known_fixture':'passed'}), \
+             patch('pilot.resource.getrusage',side_effect=AssertionError('cumulative CPU unavailable')):
+            result = pilot.native_probes('fixture',Path(directory))
+        for probe in result.values():
+            self.assertIsNone(probe['cpu_seconds'])
+            self.assertIn('unavailable',probe['cpu_measurement'])
 
 if __name__ == '__main__':
     unittest.main()

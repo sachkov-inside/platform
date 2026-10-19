@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import signal
+import subprocess
 import sys
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -27,6 +28,12 @@ def command(args, **kwargs):
         return 'orbstack'
     if args[1:3] == ['compose','ls']:
         return '[]'
+    if 'exec' in args:
+        with (output/'fresh-requests').open('a') as requests:
+            requests.write(args[-1]+'\n')
+        return subprocess.run([sys.executable,str(Path(__file__).with_name('process.py')),
+                               'fresh-stat',str(output),args[-1]], check=True,capture_output=True,
+                               text=True,timeout=kwargs['timeout']).stdout
     if 'pull' in args:
         return ''
     if 'up' in args:
@@ -58,13 +65,10 @@ def supervise(execute, compose, output, project):
     return original_supervise([sys.executable,__file__,'worker',directory,mode], compose, output, project,
                               deadline_seconds=WORKER_FIXTURE_BUDGET_SECONDS)
 
-def probe_execute(args):
-    return [sys.executable,str(Path(__file__).with_name('process.py')),'probe',str(output),'success']
-
 with patch.object(pilot.platform,'system',return_value='Darwin'), patch.object(pilot.platform,'machine',return_value='arm64'), \
      patch.object(orbstack,'identify',return_value=identity), patch.object(pilot,'command',side_effect=command), \
      patch.object(pilot,'supervise_worker',side_effect=supervise), patch.object(orbstack,'verify_probe'), \
-     patch.object(pilot,'docker_args',side_effect=probe_execute), patch.object(pilot,'install_plugin'), \
+     patch.object(pilot,'install_plugin'), \
      patch.object(pilot,'smoke',side_effect=smoke):
     try:
         if role == 'parent':

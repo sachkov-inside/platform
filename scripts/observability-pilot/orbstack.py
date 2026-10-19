@@ -10,11 +10,8 @@ from pathlib import Path
 import shutil
 import stat
 
-GIB = 1024**3
-STOP_MARGIN_BYTES = 256 * 1024**2
-MINIMUM_FREE_BYTES = 16 * GIB
-FLOOR_BYTES = 10 * GIB
-GROWTH_BYTES = 4 * GIB
+from storage_policy import (GIB, STOP_MARGIN_BYTES, MINIMUM_FREE_BYTES,
+                            GROWTH_BYTES, assert_budget)
 
 
 class VmBudget:
@@ -50,11 +47,6 @@ class VmBudget:
     def assert_fresh(self, *, now):
         if self.last_at is None or now - self.last_at > PROBE_HEARTBEAT_TIMEOUT_SECONDS:
             raise RuntimeError('VM filesystem heartbeat lost')
-
-
-def assert_budget(initial, free):
-    if free <= FLOOR_BYTES + STOP_MARGIN_BYTES or initial - free >= GROWTH_BYTES - STOP_MARGIN_BYTES:
-        raise RuntimeError('pilot storage budget exceeded')
 
 
 def backing_identity(open_files):
@@ -96,7 +88,7 @@ def probe_service(lock, storage):
         raise RuntimeError('probe bootstrap metadata exceeds bounded contract')
     return {'image': lock['image'], 'platform':'linux/arm64', 'pull_policy':'never',
             'entrypoint':['/bin/sh'],
-            'command':['-c', 'while :; do stat -f -c "%i %S %b %a %T" /probe || exit; sleep 0.25; done'],
+            'command':['-c', f'while :; do sleep {PROBE_SAMPLE_INTERVAL_SECONDS}; done'],
             'user':'65534:65534', 'network_mode':'none', 'read_only':True,
             'cap_drop':['ALL'], 'security_opt':['no-new-privileges:true'],
             'mem_limit':'16m', 'cpus':.05, 'pids_limit':8,
@@ -153,6 +145,17 @@ def check_host(initial, current, *, bootstrap=False):
         raise RuntimeError('OrbStack allocated image growth budget exceeded')
 
 
+REGISTRY_AUTH_RESPONSE_LIMIT_BYTES = 32768
+REGISTRY_TOKEN_LIMIT_BYTES = 16384
+
+
+def registry_token(value):
+    token = value.get('token') if isinstance(value, dict) else None
+    if not isinstance(token, str) or not 0 < len(token) <= REGISTRY_TOKEN_LIMIT_BYTES or any(not 33 <= ord(char) <= 126 for char in token):
+        raise RuntimeError('invalid registry authentication token')
+    return token
+
+
 def verify_probe(lock):
     """Read bounded publisher objects before asking Docker to acquire the pinned manifest."""
     import gzip
@@ -169,7 +172,7 @@ def verify_probe(lock):
         if len(content) > limit:
             raise RuntimeError('probe publisher object exceeds bootstrap limit')
         return content
-    token = json.loads(read('https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/busybox:pull', 32768))['token']
+    token = registry_token(json.loads(read('https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/busybox:pull', REGISTRY_AUTH_RESPONSE_LIMIT_BYTES)))
     headers = {'Authorization':'Bearer '+token, 'Accept':'application/vnd.oci.image.manifest.v1+json'}
     def blob(kind, descriptor):
         size = descriptor['size']
@@ -198,34 +201,29 @@ def verify_probe(lock):
         raise RuntimeError('probe unpacked payload exceeds pinned bootstrap contract')
 
 
-class ProbeStream:
-    def __init__(self, descriptor):
-        self.descriptor = descriptor
-        self.pending = b''
+PROBE_REQUEST_TIMEOUT_SECONDS = 1
 
-    def sample(self):
-        import select
-        import time
-        deadline = time.monotonic() + PROBE_HEARTBEAT_TIMEOUT_SECONDS
-        while b'\n' not in self.pending:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0 or not select.select([self.descriptor], [], [], remaining)[0]:
-                raise RuntimeError('VM filesystem heartbeat lost')
-            chunk = os.read(self.descriptor, 257)
-            if not chunk:
-                raise RuntimeError('VM filesystem probe stream closed')
-            self.pending += chunk
-            end = self.pending.find(b'\n')
-            if end > 256 or end < 0 and len(self.pending) > 256:
-                raise RuntimeError('VM filesystem sample oversized')
-        line, self.pending = self.pending.split(b'\n', 1)
-        return line.decode('ascii')
+
+def fresh_sample(compose, command):
+    """One fresh stat process per unpredictable challenge; never consume historical logs."""
+    import secrets
+    nonce = secrets.token_hex(16)
+    started = time.monotonic()
+    raw = command(compose + ['exec', '-T', 'storage-probe', '/bin/sh', '-c',
+                             'printf "%s " "$1"; exec stat -f -c "%i %S %b %a %T" /probe',
+                             'probe', nonce], timeout=PROBE_REQUEST_TIMEOUT_SECONDS)
+    elapsed = time.monotonic() - started
+    if not 0 <= elapsed <= PROBE_REQUEST_TIMEOUT_SECONDS or len(raw) > 256:
+        raise RuntimeError('VM filesystem response exceeded freshness bound')
+    response = raw.strip().split(' ', 1)
+    if len(response) != 2 or response[0] != nonce:
+        raise RuntimeError('VM filesystem freshness challenge mismatch')
+    return response[1]
 
 
 HOST_SAMPLE_INTERVAL_SECONDS = .25
 IDENTITY_SAMPLE_INTERVAL_SECONDS = 1
 MONITOR_JOIN_SECONDS = PROBE_HEARTBEAT_TIMEOUT_SECONDS + 1
-PROBE_SHUTDOWN_SECONDS = 2
 IDENTITY_COMMAND_TIMEOUT_SECONDS = .5
 
 
@@ -299,28 +297,25 @@ def vm_budget(compose, lock, command, output, *, docker_args):
     command(['docker', 'pull', '--platform', 'linux/arm64', lock['image']],
             timeout=PROBE_BOOTSTRAP_TIMEOUT_SECONDS)
     command(compose + ['up', '-d', '--no-deps', 'storage-probe'], timeout=PROBE_BOOTSTRAP_TIMEOUT_SECONDS)
-    process = subprocess.Popen(docker_args(compose + ['logs', '--no-log-prefix', '--no-color', '--follow', 'storage-probe']),
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    first = None
-    latest = [None]
+    budget = VmBudget()
+    started = time.monotonic()
+    first = budget.accept(fresh_sample(compose, command), now=time.monotonic())
+    latest = [first]
+    measurements = {'requests':1, 'request_wall_seconds':time.monotonic()-started,
+                    'cpu_seconds':None, 'cpu_measurement':'unavailable: concurrent children; isolated measurement pending'}
+    (output / 'storage-vm.json').write_text(json.dumps({'admission':first}) + '\n')
+    def sample():
+        started = time.monotonic()
+        result = fresh_sample(compose, command)
+        measurements['requests'] += 1
+        measurements['request_wall_seconds'] += time.monotonic() - started
+        return result
+    def accept(line):
+        latest[0] = budget.accept(line, now=time.monotonic())
     try:
-        stream = ProbeStream(process.stdout.fileno())
-        budget = VmBudget()
-        first = budget.accept(stream.sample(), now=time.monotonic())
-        latest[0] = first
-        # Private output, fixed numeric projection, no raw collector/container errors.
-        (output / 'storage-vm.json').write_text(json.dumps(first) + '\n')
-        def accept(line):
-            latest[0] = budget.accept(line, now=time.monotonic())
-        with sampled_budget(stream.sample, accept):
+        with sampled_budget(sample, accept, interval=PROBE_SAMPLE_INTERVAL_SECONDS):
             yield
     finally:
-        process.terminate()
-        try:
-            process.wait(timeout=PROBE_SHUTDOWN_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=PROBE_SHUTDOWN_SECONDS)
-        process.stdout.close()
-        if first is not None:
-            (output / 'storage-vm.json').write_text(json.dumps({'admission':first,'latest':latest[0]})+'\n')
+        (output / 'storage-vm.json').write_text(json.dumps({'admission':first,'latest':latest[0],
+                    'verification_requests':measurements,
+                    'scope':'fresh-stat verification overhead; not workload resource acceptance'})+'\n')

@@ -63,6 +63,7 @@ def recover(output):
         if current != owner['orbstack']:
             raise ValueError('OrbStack recovery identity changed; manual owner inspection required')
         pilot.FROZEN_DOCKER_ENDPOINT = current['endpoint']
+        pilot.FROZEN_DOCKER_IDENTITY = current
     worker_path = output / "worker.json"
     if not worker_path.is_file() or worker_path.is_symlink():
         raise ValueError("worker registration missing; disposable runner teardown required")
@@ -108,7 +109,7 @@ def admission(metadata):
         raise ValueError("checkout SHA does not match provider execution SHA")
     inputs = (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "Caddyfile",
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
-              Path(__file__).with_name("pilot.py"), Path(__file__).with_name('orbstack.py'),
+              Path(__file__).with_name("pilot.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
               ROOT / ".github/workflows/observability-pilot.yml")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,

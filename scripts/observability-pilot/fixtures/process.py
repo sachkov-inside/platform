@@ -11,15 +11,13 @@ import sys
 role, directory, mode, *args = sys.argv[1:]
 state = Path(directory)
 owned = state / "owned-resource"
-if role == 'probe':
+if role == 'stale-probe':
     (state / 'probe-pid').write_text(str(os.getpid()))
-    sample = 'bad sample' if mode == 'invalid' else 'abcd 4096 10000000 5000000 ext2/ext3'
-    with socket.socket(socket.AF_UNIX) as listener:
-        listener.bind(str(state / 'probe.sock'))
-        listener.listen(1)
-        print(sample, flush=True)
-        print(sample, flush=True)
-        signal.pause()
+    print(('old-nonce abcd 4096 10000000 5000000 ext2/ext3\n') * 32, flush=True)
+    signal.pause()
+if role == 'fresh-stat':
+    print(mode+' abcd 4096 10000000 5000000 ext2/ext3',flush=True)
+    sys.exit(0)
 if role == "descendant":
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
     with socket.socket(socket.AF_UNIX) as listener:

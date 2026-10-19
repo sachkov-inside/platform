@@ -113,9 +113,10 @@ auth/method/mutation/encoded traversal, перезапускает Alloy, дож
 
 Три native Victoria MCP скачиваются с проверкой SHA256 и запускаются по stdio на платформе runner
 (Linux либо Darwin arm64 для OrbStack):
-initialize → tools/list → query известного fixture. Tools discovery и CPU seconds дочернего
-процесса сохраняются; stderr не сохраняется. Выполнение на Mac и его отдельный расход CPU
-остаются обязательной последующей проверкой. Umami MCP ещё не подготовлен.
+initialize → tools/list → query известного fixture. Tools discovery сохраняется; stderr не сохраняется. На Linux сохраняются CPU seconds
+дочернего процесса. На Mac эта величина явно `null/unavailable`: параллельные verification exec
+загрязняют общий `RUSAGE_CHILDREN`. Отдельный per-MCP CPU замер остаётся обязательным;
+общую сумму дочерних процессов нельзя выдавать за расход одного MCP. Umami MCP ещё не подготовлен.
 
 ## Admission для Mac/OrbStack
 
@@ -152,18 +153,29 @@ Bootstrap acquisition имеет timeout 60s; public worker deadline остаё�
 До pull регистрируется тот же случайный Compose project и внешний supervisor. Probe service
 `storage-probe` входит в этот собственный project. Он non-root, read-only, без сети,
 capabilities, Docker socket и privileged mode, с 16MiB memory / 0.05 CPU / 8 pids. Единственный
-read-only bind — подтверждённый daemon DockerRootDir; missing path не создаётся. Фиксированная
-команда `stat -f` передаёт только filesystem ID/type, fundamental block size и counters каждые
-250ms. Первый корректный VM sample должен подтвердить те же 16GiB перед установкой plugin
-или стартом остальных services. Дальше identity, floor и growth VM контролируются отдельно
-от host. Нет sample в течение 3s, malformed/oversized output, отказ probe или смена identity —
-прерывание с cleanup. Прочитать чужие контейнеры через `exec` runner не пытается.
+read-only bind — подтверждённый daemon DockerRootDir; missing path не создаётся. Фиксированная команда `stat -f` выполняется отдельным `compose exec -T` только в собственном
+probe каждые 250ms. Каждый запрос несёт новый случайный challenge, который должен вернуться
+в единственном ответе с filesystem ID/type, fundamental block size и counters. Старые или
+буферизованные logs не читаются. На ответ от нового процесса отводится максимум 1s,
+проверяемая также host monotonic clock; отрицательная/слишком большая длительность либо
+несовпавший challenge отвергаются. Сравнение wall clocks Mac и VM не требуется. Первый такой
+свежий VM sample должен подтвердить те же 16GiB перед установкой plugin или стартом остальных
+services. Identity, floor и growth VM далее контролируются отдельно от host. Потеря ответа,
+malformed/oversized output, отказ probe или смена identity приводят к cleanup. Чужой `exec`
+не используется. Время/число verification requests учитываются отдельно; их CPU пока явно
+unavailable и не выдаётся за CPU native MCP или resource acceptance.
 
-Probe stream process остаётся в группе worker. Public supervisor останавливает всю эту группу
-перед `down --volumes --remove-orphans`; diagnostics, down и residue checks независимы и
-охватывают probe вместе с core. Тесты с настоящими локальными процессами и Docker doubles
-проверяют success, failure, timeout, SIGTERM и SIGKILL, включая прекращение probe и сохранность
-foreign resource. Это не Docker/OrbStack runtime evidence. Полная потеря supervisor/host
+Каждый foreground `exec` остаётся в группе worker. Public supervisor останавливает всю эту
+группу перед `down --volumes --remove-orphans`; diagnostics, down и residue checks независимы
+и охватывают probe вместе с core. Сигналы обоих host monitors только фиксируют failure в
+supervisor: bounded wait loop прекращает acquisition, а mandatory cleanup/outcome не
+прерываются этими сигналами. Ошибка monitor или cleanup сохраняет ненулевой exit status.
+Перед каждым cleanup step и каждой Docker mutation сверяются socket/backing/daemon identity.
+При несовпадении мутации запрещены: replacement daemon/volumes не трогаются, owner record и
+failed outcome сохраняются для ручного восстановления исходного окружения. Тесты с настоящими локальными процессами и Docker doubles
+проверяют success, failure, timeout, SIGTERM и SIGKILL, fresh challenge requests, завершение
+зависшего процесса ответа и сохранность foreign resource. Отдельные регрессии проверяют
+monitor signals внутри down и replacement identity между diagnostics и down. Это не Docker/OrbStack runtime evidence. Полная потеря supervisor/host
 сохраняет прежнее ограничение ручного exact-owner recovery. Recovery также сверяет OrbStack
 identity и использует закреплённый socket; при несовпадении отказывает.
 
