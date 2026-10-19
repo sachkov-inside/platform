@@ -1,5 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
+import { FileText } from "lucide-react";
+import { AccountDisclosure } from "./account-disclosure.client";
 import {
   AccountTelegramPanel,
   type AccountTelegramMembership,
@@ -69,6 +71,7 @@ export function AccountAccessView({
         </div>
       ) : (
         <>
+          {continuationSlot}
           {loading ? (
             <p className="py-4 text-sm text-muted-foreground" role="status">
               Загружаем состояние аккаунта…
@@ -90,15 +93,14 @@ export function AccountAccessView({
             <AccountTelegramPanel link={link} onRefresh={onTelegramRefresh} />
           )}
           <div className="mt-4">{billingSlot}</div>
-          <details className="border-b border-border py-5" id="documents">
-            <summary className="min-h-11 cursor-pointer content-center text-lg font-semibold">
-              Документы
-            </summary>
-            <div className="pt-3">
-              <AcceptedDocumentsPanel {...acceptedDocuments} />
-            </div>
-          </details>
-          {continuationSlot}
+          <AccountDisclosure
+            description="Условия использования и обработка данных"
+            icon={FileText}
+            id="documents"
+            title="Документы"
+          >
+            <AcceptedDocumentsPanel {...acceptedDocuments} />
+          </AccountDisclosure>
         </>
       )}
     </div>

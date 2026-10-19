@@ -203,6 +203,22 @@ export const WithLearning: Story = {
       canvas.getByRole("link", { name: "Продолжить продукт AI Engineering" }),
     ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(canvas.queryByRole("textbox")).not.toBeInTheDocument();
+    const learning = canvas.getByRole("region", {
+      name: "Продолжить обучение",
+    });
+    const telegram = canvas.getByRole("region", {
+      name: /^Telegram$/,
+    });
+    await expect(learning.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      telegram.getBoundingClientRect().top,
+    );
+    await expect(getComputedStyle(learning).position).toBe("static");
+    const documents = canvas.getByRole("button", { name: /Документы/ });
+    documents.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(documents).toHaveAttribute("aria-expanded", "true");
+    await userEvent.keyboard(" ");
+    await expect(documents).toHaveAttribute("aria-expanded", "false");
   },
 };
 

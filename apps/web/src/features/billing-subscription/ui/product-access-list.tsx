@@ -1,3 +1,4 @@
+import { BillingDisclosure } from "./billing-disclosure.client";
 import { productCapability } from "@inside/access-capabilities";
 import Link from "next/link";
 import { Button } from "@/shared/ui/button";
@@ -77,10 +78,7 @@ export function ProductAccessList({
                   .
                 </p>
               )}
-              <details className="mt-4 text-sm leading-6">
-                <summary className="min-h-11 cursor-pointer">
-                  Доступ и сроки
-                </summary>
+              <BillingDisclosure title="Доступ и сроки">
                 <ul className="grid gap-2">
                   {bases.map((ground, index) => (
                     <li key={index}>
@@ -97,7 +95,7 @@ export function ProductAccessList({
                     </li>
                   ))}
                 </ul>
-              </details>
+              </BillingDisclosure>
             </li>
           );
         })}

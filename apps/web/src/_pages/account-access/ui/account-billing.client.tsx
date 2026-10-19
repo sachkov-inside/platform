@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { ReceiptText } from "lucide-react";
+import { AccountDisclosure } from "./account-disclosure.client";
 
 import { LegalDocumentLinks } from "@/entities/legal-document";
 import { useBillingContact } from "@/features/billing-contact";
@@ -27,19 +28,6 @@ export function AccountBilling() {
     (value?.grounds.length ?? 0) > 0 ||
     (value?.payments.length ?? 0) > 0 ||
     (value?.notices.length ?? 0) > 0;
-
-  const purchases = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const revealPurchases = () => {
-      if (window.location.hash === "#purchases" && purchases.current !== null)
-        purchases.current.open = true;
-    };
-    revealPurchases();
-    window.addEventListener("hashchange", revealPurchases);
-    return () => {
-      window.removeEventListener("hashchange", revealPurchases);
-    };
-  }, [hasPurchases, billing.isPending]);
 
   if (billing.data?.ok === false && billing.data.code === "unauthorized")
     return (
@@ -81,18 +69,14 @@ export function AccountBilling() {
       {failure}
       {hasSubscription ? <AccountSubscription /> : null}
       {hasPurchases ? (
-        <details
-          ref={purchases}
-          className="border-b border-border py-5"
+        <AccountDisclosure
+          description="История покупок, платежей и чеков"
+          icon={ReceiptText}
           id="purchases"
+          title="Покупки и оплаты"
         >
-          <summary className="min-h-11 cursor-pointer content-center text-lg font-semibold">
-            Покупки и оплаты
-          </summary>
-          <div className="pt-4">
-            <PurchasesPanel />
-          </div>
-        </details>
+          <PurchasesPanel />
+        </AccountDisclosure>
       ) : null}
     </>
   );

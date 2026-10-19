@@ -1,3 +1,4 @@
+import { BillingDisclosure } from "./billing-disclosure.client";
 import Link from "next/link";
 import { Button } from "@/shared/ui/button";
 import {
@@ -108,10 +109,7 @@ export function ProductPurchases({
                 })}
               </ul>
               {payment.snapshot === undefined ? null : (
-                <details className="mt-4 text-sm leading-6">
-                  <summary className="min-h-11 cursor-pointer">
-                    Условия этой покупки
-                  </summary>
+                <BillingDisclosure title="Условия этой покупки">
                   <ul className="grid gap-1">
                     {payment.snapshot.offer.benefitPeriods?.map((term) => (
                       <li key={term.capability}>
@@ -127,7 +125,7 @@ export function ProductPurchases({
                       </li>
                     ))}
                   </ul>
-                </details>
+                </BillingDisclosure>
               )}
             </li>
           );

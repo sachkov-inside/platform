@@ -55,9 +55,9 @@ export function LearningContinuationView({
   const { series, video } = continuation;
   if (series === undefined && video === undefined) return null;
   return (
-    <div className="h-48" data-learning-continuation>
+    <div className="mb-8" data-learning-continuation>
       <section
-        className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom)+var(--storage-notice-space,0px))] z-30 mx-auto max-h-[50svh] max-w-2xl overflow-y-auto rounded-2xl bg-primary px-5 py-3 text-primary-foreground shadow-lg sm:px-6"
+        className="rounded-2xl bg-primary px-5 py-4 text-primary-foreground sm:px-6"
         aria-labelledby="account-learning"
       >
         <h2

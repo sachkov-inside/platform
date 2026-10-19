@@ -1,4 +1,5 @@
 "use client";
+import { BillingDisclosure } from "./billing-disclosure.client";
 import { legalSeller } from "@inside/legal";
 import type { Route } from "next";
 import type { ReactNode } from "react";
@@ -89,12 +90,9 @@ export function PurchasesSectionView({
           subscription={subscription}
         />
       )}
-      <details className="text-sm">
-        <summary className="min-h-11 cursor-pointer font-semibold">
-          История оплат, чеки и возвраты
-        </summary>
+      <BillingDisclosure title="История оплат, чеки и возвраты">
         <BillingHistory notices={notices} payments={payments} />
-      </details>
+      </BillingDisclosure>
       <p className="text-sm text-muted-foreground">
         Для возврата обратитесь к продавцу:{" "}
         <a className="underline" href={`mailto:${legalSeller.email}`}>
