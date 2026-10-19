@@ -434,6 +434,10 @@ step metadata. Public cards do not display separate step labels or counts; autho
 Reader outside checked programme context keeps its existing collection return controls. Available
 Materials show matching return, bookmark and study panels before the title and after the text.
 The article has no automatic contents disclosure. Both panels share saved state, pending commands and failure handling.
+Standalone panels align bookmark and study actions to the right on desktop and phones. When the
+source is Home, the header omits the redundant Home breadcrumb. A locked Material with a known
+Product membership links «Получить доступ» to that Product landing, including before an offer
+is available; purchase availability remains owned by the landing and checkout.
 Within a checked Product,
 Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
 The Material's bottom actions follow any practice workspace and precede course navigation.
@@ -667,22 +671,28 @@ Account без права получают «не найдено». `ContentAcce
 странице программы: туда ведут кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
 над ней стоит плашка потока, а сама она ведёт по этапу продаж
 ([поток продукта](subscription-billing-v1.md#поток-продукта-814), #814). Глава без опубликованных уроков показывает там своё описание и
-пометку «Материалы готовятся»; с первым уроком она становится обычной главой. Большая карточка курса на
-Главной повторяет первый экран страницы курса тем же модулем, вместе с анимацией: ответ Главной отдаёт
-для закреплённого продукта `hero` (метка, вводная фраза, пункты) из того же сохранённого описания.
+пометку «Материалы готовятся»; с первым уроком она становится обычной главой. Компактная карточка курса на Главной показывает название,
+анимацию и переход к курсу, чтобы фильтры и начало библиотеки были видны на первом экране.
+На компьютере короткое описание находится слева, а уменьшенная анимация справа.
+На телефоне описание скрыто, название находится над анимацией, а кнопка — внизу
+общего тёмного блока под ней. Действие участника остаётся персональным.
+Описание и преимущества остаются на лендинге. Личное действие участника сохраняется.
+Home feed filters show «Все» and the available topic names in a horizontally scrollable row.
+Formats remain in the product catalogue; legacy Home format parameters are cleared so that
+no invisible format filter restricts the feed. Selecting a topic again, or «Все», clears it.
 
-The course landing page links to the dedicated programme page without repeating its chapter
-overview (owner decision, 2026-10-18). The programme uses actual Product chapters; Storybook
-fixtures never supply production copy. There is no separate cross-cutting development practice section.
-The first paragraph of a chapter's `summary` is visible only when the chapter has no published
-materials. Remaining paragraphs and plain `- ` bullet lists appear in a native disclosure labelled
-«Темы и практика» for both available and preparing chapters. A single-paragraph summary does not
-create an empty disclosure. Preparing chapters retain «Материалы готовятся». No lesson list, role
-matrix, release action or delivery date is invented for a planned chapter.
-All chapter headings remain visible while lesson rows are progressively revealed; pagination must
-not hide the future course roadmap or mark a populated chapter as preparing.
-Chapter counters consistently show the total number of steps: published Material entries plus standalone
-Tasks. Embedded Tasks are already represented by their Material entry and are not counted again.
+The course landing links to the dedicated programme without repeating its chapter overview.
+The programme uses actual Product chapters; fixtures never supply production copy. Published
+chapters show their lesson list and a native «Темы и практика» disclosure; the reading counter
+sits at the right of that disclosure row. Future chapters start collapsed. Their preparation
+notice appears only inside the expanded chapter, followed by its description and topics.
+Chapter summaries start with a short outcome paragraph, followed by spaced topic entries with
+optional leading `**bold labels**`. Labels are rendered as escaped text, without general Markdown
+or HTML support. Published chapters show the outcome inside their topics disclosure. A
+single-paragraph summary does not create an empty disclosure. No lesson list, release action or
+delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
+rows are progressively revealed. Ordinal lesson numbers are smaller than chapter headings.
+
 
 Участник с действующим доступом к курсу на Главной и первом экране страницы курса видит
 «Открыть программу». После первого открытия урока кнопка становится «Продолжить обучение» и
@@ -1254,24 +1264,27 @@ The following bullets describe the **authoring** surface:
   Дата обновления не выдумывается. Закрытые, draft и unpublished материалы не получают Article;
   разметка всегда строится из гостевого чтения и не содержит body или защищённых ресурсов.
 
-- home, Topic, Series, Roadmap, public cards и free Materials имеют stable canonical URLs,
+- home, Series, Roadmap, public cards и free Materials имеют stable canonical URLs,
+
   server-rendered content/metadata, sitemap и crawlable internal links; Library сохраняет stable
   canonical URL и server-rendered metadata, но browser-owned catalog загружает через BFF;
 - canonical адрес продукта — `/products/<slug>` (решение владельца 30.09.2026, #808); прежние
   `/products/<slug>` и `/series/<slug>` со всеми вложенными адресами отвечают постоянным
   перенаправлением на `/products/`, поэтому старые ссылки и закладки работают, а в sitemap остаётся
   один адрес;
-- home, Material, Product и Topic отдают полную карточку ссылки: `openGraph`, `twitter`, canonical и
+- home, Material и Product отдают полную карточку ссылки: `openGraph`, `twitter`, canonical и
   `og:locale`. `metadataBase` читается из среды выполнения, поэтому перенос домена не требует
   пересборки. Library, Roadmap и витрина подписки сохраняют server-rendered заголовок, но пока
   не отдают карточку ссылки и canonical: для них нужен request-time рендер;
-- картинка карточки — обложка материала, руководства или темы, а без обложки — сгенерированная
+- картинка карточки — обложка материала или руководства, а без обложки — сгенерированная
   карточка с названием страницы. Пустого предпросмотра не бывает; адрес доставки обложек открыт
   в `robots.txt` отдельным правилом;
-- sitemap перечисляет руководства и темы через фасеты каталога материалов, поэтому коллекция без
-  опубликованных материалов остаётся доступной по своему адресу, но в карту сайта не попадает.
+- sitemap перечисляет руководства через фасеты каталога материалов, поэтому продукт без
+  опубликованных материалов остаётся доступным по своему адресу, но в карту сайта не попадает.
+  Темы — фильтры Главной `/?topic=<slug>`, без отдельных страниц, metadata и записей sitemap;
+  прежние `/topics/<slug>` постоянно перенаправляются на отфильтрованную Главную.
   `/sitemap.xml` перечисляет части `/sitemaps/[id].xml`; каждая часть содержит не больше 50 000
-  адресов суммарно для постоянных страниц, продуктов, тем и материалов. Обход каталога продолжается
+  адресов суммарно для постоянных страниц, продуктов и материалов. Обход каталога продолжается
   до конца; повторившийся курсор — ошибка ответа, а недоступность сохраняет постоянные адреса;
 - временная недоступность зависимости не отвечает `noindex`: опубликованный адрес не покидает
   поиск из-за сбоя;

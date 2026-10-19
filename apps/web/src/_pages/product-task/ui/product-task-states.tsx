@@ -32,15 +32,6 @@ export function ProductTaskLoading() {
       <div className="mt-4" data-task-header>
         <span className="block h-5 w-64 max-w-full rounded-full bg-placeholder/25" />
         <span className="mt-4 block h-8 w-4/5 rounded-full bg-placeholder/35" />
-        <span className="mt-4 block h-8 w-40 rounded-full bg-placeholder/20" />
-        <span className="mt-5 flex flex-wrap gap-2">
-          {[0, 1, 2, 3, 4].map((item) => (
-            <span
-              className="h-9 w-24 rounded-full bg-placeholder/15"
-              key={item}
-            />
-          ))}
-        </span>
       </div>
       <div className="mt-10 grid gap-10">
         {[0, 1, 2].map((item) => (

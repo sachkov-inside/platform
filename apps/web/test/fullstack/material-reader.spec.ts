@@ -102,16 +102,18 @@ test("Home filters public products and preserves the reader return", async ({
     return (
       url.pathname === "/api/home/materials" &&
       url.searchParams.get("q") === null &&
-      url.searchParams.get("format") === "guide" &&
+      url.searchParams.get("topic") === "platform" &&
       response.status() === 200
     );
   });
-  await page.getByRole("button", { name: "Гайды", exact: true }).click();
+  await page.getByRole("button", { name: "Platform", exact: true }).click();
   await productResponse;
   await expect(feed.getByRole("article").first()).toBeVisible();
   await expect(
-    feed.getByRole("article").filter({ hasNot: page.getByText(/^Гайд ·/u) }),
-  ).toHaveCount(0);
+    page
+      .getByRole("group", { name: "Тема", exact: true })
+      .getByRole("button", { name: "Platform", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(
     0,
   );
@@ -121,16 +123,16 @@ test("Home filters public products and preserves the reader return", async ({
   const material = feed.getByRole("heading").first().getByRole("link");
   await expect(material).toHaveAttribute(
     "href",
-    /\?from=%2F%3Fformat%3Dguide$/u,
+    /\?from=%2F%3Ftopic%3Dplatform$/u,
   );
   await material.click();
   await page
-    .getByRole("main")
-    .getByRole("link", { name: "Главная", exact: true })
+    .getByRole("navigation", { name: "Действия материала" })
+    .getByRole("link", { name: "Назад", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/\?format=guide$/u);
+  await expect(page).toHaveURL(/\/\?topic=platform$/u);
   await expect(
-    page.getByRole("button", { name: "Гайды", exact: true }),
+    page.getByRole("button", { name: "Platform", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
@@ -219,7 +221,7 @@ test("loads successive PostgreSQL feed pages without exposing protected text", a
   await expectNoSeriousAccessibilityFindings(page);
 });
 
-test("Home ignores old search links and keeps its format filter across reload, history and sharing", async ({
+test("Home ignores old search links and keeps its topic filter across reload, history and sharing", async ({
   page,
   request,
 }) => {
@@ -256,11 +258,14 @@ test("Home ignores old search links and keeps its format filter across reload, h
     return (
       url.pathname === "/api/home/materials" &&
       url.searchParams.get("q") === null &&
-      url.searchParams.get("format") === "guide" &&
+      url.searchParams.get("topic") === "platform" &&
       response.status() === 200
     );
   });
-  const formatFilter = page.getByRole("button", { name: "Гайды", exact: true });
+  const formatFilter = page.getByRole("button", {
+    name: "Platform",
+    exact: true,
+  });
   await formatFilter.focus();
   await page.keyboard.press("Space");
   await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
@@ -268,9 +273,11 @@ test("Home ignores old search links and keeps its format filter across reload, h
   const articles = page
     .getByRole("region", { name: "Материалы", exact: true })
     .getByRole("article");
-  await expect(articles.first()).toContainText("Гайд ·");
+  await expect(articles.first()).toBeVisible();
   expect(documentRequestCount).toBe(documentsBeforeFilter);
-  expect(new URL(page.url()).searchParams.getAll("format")).toEqual(["guide"]);
+  expect(new URL(page.url()).searchParams.getAll("topic")).toEqual([
+    "platform",
+  ]);
   const sharedUrl = page.url();
 
   await page.reload();
@@ -278,10 +285,10 @@ test("Home ignores old search links and keeps its format filter across reload, h
   await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
 
   const notesFilter = page.getByRole("button", {
-    name: "Заметки",
+    name: "Все",
     exact: true,
   });
-  await page.goto("/?format=note");
+  await page.goto("/");
   await expect(notesFilter).toHaveAttribute("aria-pressed", "true");
   await page.goBack();
   await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
@@ -409,8 +416,8 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   ).toBeVisible();
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Dev");
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Главная" }).first(),
-  ).toBeVisible();
+    page.getByRole("main").getByRole("link", { name: "Главная" }),
+  ).toHaveCount(0);
   await expect(page.getByRole("main")).toContainText(
     "PostgreSQL хранит current Material",
   );
@@ -591,7 +598,7 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   } else {
     await expect(purchase).toHaveAttribute(
       "href",
-      /^\/(?:subscription(?:\?from=[^"]+)?|products\/[a-z0-9-]+\/buy)$/u,
+      /^\/(?:subscription(?:\?from=[^"]+)?|products\/[a-z0-9-]+(?:\/buy)?)$/u,
     );
     expect(await purchase.getAttribute("target")).toBeNull();
   }
@@ -678,8 +685,11 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
     0,
   );
 
-  // Closed cards belong to Topic/Product discovery, including for an authenticated owner.
-  await page.goto("/topics/platform");
+  // Closed cards remain in the product catalog; the public Home feed only lists free materials.
+  await page.goto("/products/platform-inside/programme?part=materials");
+  await page
+    .getByRole("searchbox", { name: "Поиск по материалам курса" })
+    .fill("Developer Pipeline без потери контекста");
   const membershipCard = page.getByRole("article").filter({
     has: page.getByRole("link", {
       name: "Developer Pipeline без потери контекста",
@@ -771,62 +781,21 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   page,
   request,
 }, testInfo) => {
-  const topicDocument = await request.get("/topics/platform");
-  const topicHtml = await topicDocument.text();
-  expect(topicDocument.status()).toBe(200);
-  expect(topicHtml).toContain("Создание Platform Inside");
-  expect(topicHtml).toContain("Загружаем материалы темы");
-  expect(topicHtml).not.toContain("Закрытое содержимое для участников");
-
-  await page.goto("/topics/platform?from=%2F");
-  const membershipCard = page
-    .getByRole("article")
-    .filter({ hasText: "Developer Pipeline без потери контекста" });
+  const retiredTopic = await request.get("/topics/platform", {
+    maxRedirects: 0,
+  });
+  expect(retiredTopic.status()).toBe(308);
+  expect(retiredTopic.headers()["location"]).toBe("/?topic=platform");
+  await page.goto("/topics/platform");
+  await expect(page).toHaveURL(/\/\?topic=platform$/u);
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Главная" }),
-  ).toHaveAttribute("href", "/");
-  await expect(
-    page.getByRole("heading", { level: 1, name: "Platform" }),
-  ).toBeVisible();
-  await expect(page).toHaveTitle("Platform — тема · Sachkov Dev");
-  await expectLibraryNavigationActive(page, testInfo);
-  await expect(
-    membershipCard.locator('[data-access-cover="locked"]'),
-  ).toBeVisible();
-  const topicMaterialHref = await page
-    .locator("[data-material-grid]")
-    .getByRole("link", {
-      name: "Developer Pipeline без потери контекста",
-      exact: true,
-    })
-    .getAttribute("href");
-  expect(
-    new URL(topicMaterialHref ?? "", "http://127.0.0.1:3000").searchParams.get(
-      "from",
-    ),
-  ).toBe("/topics/platform?from=%2F");
+    page
+      .getByRole("group", { name: "Тема", exact: true })
+      .getByRole("button", { name: "Platform", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expectNoSeriousAccessibilityFindings(page);
   await expectNoHorizontalOverflow(page);
-  await captureIssue93Evidence(page, testInfo, "topic");
-  await captureIssue195Evidence(page, testInfo, "topic");
-  await captureIssue271Evidence(page, testInfo, "topic");
-
-  const seriesLink = page.locator("[data-playlist-card]").filter({
-    hasText: "Создание Platform Inside",
-  });
-  await expect(seriesLink).toHaveAttribute(
-    "href",
-    "/products/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F",
-  );
-  await seriesLink.focus();
-  await expect(seriesLink).toBeFocused();
-  await seriesLink.press("Enter");
-  await expect(page).toHaveURL(
-    /\/products\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F$/u,
-  );
-  await expect(
-    page.getByRole("link", { name: "Назад к теме" }),
-  ).toHaveAttribute("href", "/topics/platform?from=%2F");
+  await page.goto("/products/platform-inside?from=%2F%3Ftopic%3Dplatform");
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
@@ -907,8 +876,8 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   ).toHaveCount(0);
   await expect(
     page
-      .locator("[data-reader-header]")
-      .getByRole("link", { name: "Platform", exact: true }),
+      .getByRole("navigation", { name: "Хлебные крошки", exact: true })
+      .getByRole("link", { name: "Создание Platform Inside", exact: true }),
   ).toHaveCount(1);
 
   await expect(page).toHaveTitle("Как устроен Inside Platform · Sachkov Dev");
@@ -989,8 +958,8 @@ test("uses the selected Series order for a shared Material and leaves standalone
     page.getByRole("navigation", { name: "Уроки продукта", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("main").getByRole("link", { name: "Главная" }).first(),
-  ).toBeVisible();
+    page.getByRole("main").getByRole("link", { name: "Главная" }),
+  ).toHaveCount(0);
 });
 
 function readerNextLink(page: Page) {
@@ -1012,7 +981,7 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   });
   await expect(home).toHaveCount(1);
   await expect(home).toBeHidden();
-  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("href", /^\/(?:\?topic=platform)?$/u);
   await expect(home).toHaveAttribute("aria-current", "true");
 
   const product = page.locator(
@@ -1026,13 +995,9 @@ async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {
   });
   await expect(breadcrumb).toHaveCount(1);
   await expect(breadcrumb).toBeVisible();
-  const back = product.getByRole("link", {
-    name: "Назад к теме",
-    exact: true,
-  });
-  await expect(back).toHaveCount(1);
-  await expect(back).toBeVisible();
-  await expect(back).toHaveAttribute("href", "/topics/platform?from=%2F");
+  await expect(
+    product.getByRole("link", { name: "Назад к теме", exact: true }),
+  ).toHaveCount(0);
   const current = breadcrumb.getByText("Создание Platform Inside", {
     exact: true,
   });
@@ -1059,7 +1024,7 @@ async function expectLibraryNavigationActive(page: Page, testInfo: TestInfo) {
     .getByRole("link", { name: "Главная", exact: true });
   await expect(home).toHaveCount(1);
   await expect(home).toBeVisible();
-  await expect(home).toHaveAttribute("href", "/");
+  await expect(home).toHaveAttribute("href", /^\/(?:\?topic=platform)?$/u);
   await expect(home).toHaveAttribute("aria-current", "true");
 }
 
@@ -1141,10 +1106,7 @@ async function captureIssue271Evidence(
 test("renders missing Topic and Series as controlled noindex states", async ({
   page,
 }) => {
-  for (const path of [
-    "/topics/not-published",
-    "/series/not-published",
-  ] as const) {
+  for (const path of ["/series/not-published"] as const) {
     await page.goto(path);
     await expect(page.locator('head meta[name="robots"]')).toHaveAttribute(
       "content",

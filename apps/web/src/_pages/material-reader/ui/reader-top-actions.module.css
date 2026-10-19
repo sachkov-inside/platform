@@ -1,6 +1,36 @@
 .panel {
+  --reader-control-size: 2.25rem;
+  /* Absolute insets start at the padding box, inside the two 1px borders. */
+  --reader-hit-inset: min(0px, calc((var(--reader-control-size) - 46px) / 2));
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 2.75rem;
+}
+.panel :is(a, button) {
+  position: relative;
+  height: var(--reader-control-size);
+  min-height: var(--reader-control-size);
+}
+.panel :is(a, button)::after {
+  content: "";
+  position: absolute;
+  inset: var(--reader-hit-inset) 0;
+  width: auto;
+  height: auto;
+  transform: none;
+}
+.panel svg {
+  width: 1rem;
+  height: 1rem;
+}
+.panel button[aria-label] {
+  width: var(--reader-control-size);
+  padding-inline: 0;
+}
+.panel button[aria-label]::after,
+.forward a::after {
+  inset: var(--reader-hit-inset);
 }
 .lessonPanel {
   display: grid;
@@ -13,7 +43,7 @@
 .bookmark {
   display: flex;
   align-items: center;
-  min-height: 2.25rem;
+  min-height: var(--reader-control-size);
   min-width: 0;
 }
 .previous,
@@ -42,40 +72,91 @@
 .next {
   grid-column: 5;
 }
-@media (width >= 40rem) {
-  .previous,
-  .next,
-  .programme,
-  .reading,
-  .bookmark {
-    min-height: 2.75rem;
-  }
+.forward {
+  display: flex;
+  align-items: center;
+  margin-inline-start: auto;
+  padding-inline: 0.125rem;
 }
-/* Enlarged text reflows instead of clipping the reading action. */
-@container reader-actions (width < 17rem) {
+.return {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-inline: 0.5rem;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 0;
+  margin-inline: auto;
+}
+.standalonePanel .controls {
+  margin-inline: auto 0.5rem;
+  justify-self: end;
+}
+@media (width < 40rem) {
+  .panel {
+    --reader-control-size: 2rem;
+    min-height: 2.375rem;
+  }
   .panel:not(.lessonPanel) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(2.25rem, auto) minmax(2.25rem, auto);
-    row-gap: 0.5rem;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
   }
+  .return {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .return > a,
+  .forward a {
+    width: var(--reader-control-size);
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .return > a::after {
+    inset: var(--reader-hit-inset);
+  }
+  .return > a > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .controls {
+    gap: 0;
+  }
+}
+/* Respect enlarged text without clipping controls or collapsing their accessible names. */
+@container reader-actions (width < 17rem) {
+  .panel:not(.lessonPanel),
   .lessonPanel {
     grid-template-columns: auto minmax(0, 1fr) auto;
     row-gap: 0.5rem;
   }
   .previous,
   .programme,
-  .next {
+  .next,
+  .return,
+  .forward {
     grid-row: 1;
   }
   .programme {
     justify-content: center;
   }
-  .next {
+  .return {
+    grid-column: 1;
+  }
+  .next,
+  .forward {
     grid-column: 3;
   }
   .reading,
-  .bookmark {
+  .bookmark,
+  .controls {
     grid-row: 2;
   }
   .reading {
@@ -84,39 +165,11 @@
   .bookmark {
     grid-column: 3;
   }
-}
-/* Compact visible controls retain a 44 px clickable height. */
-@media (width < 40rem) {
-  .panel :is(a, button) {
-    position: relative;
-    height: 2.25rem;
-    min-height: 2.25rem;
+  .controls {
+    grid-column: 1 / -1;
+    justify-self: center;
   }
-  .panel :is(a, button)::after {
-    content: "";
-    position: absolute;
-    inset: -5px 0;
-    width: auto;
-    height: auto;
-    transform: none;
+  .standalonePanel .controls {
+    justify-self: end;
   }
-}
-.lessonPanel :is(a, button) {
-  position: relative;
-}
-.lessonPanel
-  :is(a, button)[data-size="default"]:has(> svg):not(:has(> span))::after {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  width: auto;
-  height: auto;
-  transform: none;
-}
-
-.forward {
-  display: flex;
-  align-items: center;
-  margin-inline-start: auto;
-  padding-inline: 0.125rem;
 }

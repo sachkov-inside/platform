@@ -6,6 +6,7 @@ import {
 import type { Route } from "next";
 
 import { internalRoute } from "./internal-route";
+import { homeTopicHref } from "./library-route";
 
 /**
  * Канонические адреса публичных страниц. Продукт живёт по `/products/<slug>` (решение владельца
@@ -42,7 +43,7 @@ export function productPath(slug: string): Route {
 }
 
 export function topicPath(slug: string): Route {
-  return internalRoute(`/topics/${encodeURIComponent(slug)}`);
+  return homeTopicHref(slug);
 }
 
 /**

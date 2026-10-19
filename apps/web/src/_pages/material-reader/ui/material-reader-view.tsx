@@ -103,7 +103,7 @@ export function MaterialReaderView({
         className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
       >
         <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-        {origin.kind === "task" ? "К заданию" : "К уроку"}
+        <span>{origin.kind === "task" ? "К заданию" : "К уроку"}</span>
       </ReaderOriginLink>
     );
   const nextStep =
@@ -112,6 +112,7 @@ export function MaterialReaderView({
       : seriesContext?.programme?.next;
   const topActions = (
     <ReaderTopActions
+      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       returnAction={returnAction}
       nextStep={nextStep}
@@ -197,6 +198,7 @@ export function MaterialReaderView({
           )}
           <div className="mt-5" data-material-actions data-reader-footer>
             <ReaderTopActions
+              alignControls={seriesContext === null ? "end" : "center"}
               position="bottom"
               context={seriesContext?.programme == null ? seriesContext : null}
               returnAction={returnAction}
@@ -380,6 +382,7 @@ export function MaterialReaderFooter({
   return (
     <footer className="mt-5" data-reader-footer>
       <ReaderTopActions
+        alignControls="center"
         position="bottom"
         context={seriesContext}
         format={format}
@@ -479,13 +482,15 @@ export function MaterialReaderBreadcrumbs({
   readonly material: MaterialReaderMetadata;
   readonly target: MaterialReaderReturnTarget;
 }) {
+  if (target.kind === "home") return null;
   const course = material.seriesMemberships.find(
     (item) => item.series.slug === target.seriesSlug,
   )?.series;
   return (
     <Breadcrumbs
+      compact
       items={[
-        { label: "Главная", href: target.kind === "home" ? target.href : "/" },
+        { label: "Главная", href: "/" },
         ...(target.kind === "series" && target.seriesSlug !== undefined
           ? [
               {

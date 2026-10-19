@@ -89,6 +89,7 @@ const actionLabels: Readonly<Record<string, string>> = {
   "read-product-a": "Product A",
   "read-product-b": "Product B",
   "read-free-practice": "Бесплатная практика",
+  "read-retired-practice": "Снятая с публикации практика",
   "manage-materials": "Materials",
   "manage-billing": "Billing",
 };
@@ -97,11 +98,13 @@ const actionLabels: Readonly<Record<string, string>> = {
 export function passCellCheck(id: string): string {
   const { action, surface, transport } = passCellParts(id);
   const check =
-    action === "read-free-practice" &&
-    surface === "practice" &&
-    transport === "learner-mcp"
-      ? "все закреплённые части через learning_practice_read, SHA-256 и END_CONTEXT"
-      : surfaceChecks[`${surface}@${transport}`];
+    action === "read-retired-practice"
+      ? "learning_practice_read не отдаёт контекст старой практики"
+      : action === "read-free-practice" &&
+          surface === "practice" &&
+          transport === "learner-mcp"
+        ? "все закреплённые части через learning_practice_read, SHA-256 и END_CONTEXT"
+        : surfaceChecks[`${surface}@${transport}`];
   if (check === undefined) throw new Error(`No check for pass cell ${id}`);
   return `${actionLabels[action] ?? action}: ${check}`;
 }

@@ -23,10 +23,9 @@ const desktop = { viewport: { isRotated: false, value: "desktop1440" } };
 const mobile = { viewport: { isRotated: false, value: "mobile390" } };
 
 /**
- * Скелет главной ещё не знает закрепа и места под продукт не держит: лента открывает каркас
- * вплотную к его верху.
+ * Скелет главной резервирует компактную карточку курса и начало ленты под ней.
  */
-async function homeSkeletonReservesNoProduct({
+async function homeSkeletonReservesCourse({
   canvasElement,
 }: {
   readonly canvasElement: HTMLElement;
@@ -38,19 +37,21 @@ async function homeSkeletonReservesNoProduct({
   });
   await expect(materials).toHaveAttribute("aria-busy", "true");
   await expect(materials.parentElement).toBe(frame);
-  await expect(frame.querySelector(":scope > :not(h1, .home-feed)")).toBeNull();
-  await expect(
-    materials.getBoundingClientRect().top - frame.getBoundingClientRect().top,
-  ).toBe(Number.parseFloat(getComputedStyle(materials).marginTop));
+  const course = frame.querySelector<HTMLElement>(".home-product-course");
+  await expect(course).not.toBeNull();
+  if (course === null) throw new Error("Missing featured course reservation");
+  await expect(materials.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    course.getBoundingClientRect().bottom,
+  );
 }
 
 export const Home: Story = {
   globals: desktop,
-  play: homeSkeletonReservesNoProduct,
+  play: homeSkeletonReservesCourse,
 };
 export const HomeMobile: Story = {
   globals: mobile,
-  play: homeSkeletonReservesNoProduct,
+  play: homeSkeletonReservesCourse,
 };
 export const AccountMobile: Story = {
   args: { href: "/account" },

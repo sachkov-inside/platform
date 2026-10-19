@@ -110,7 +110,9 @@ export function MaterialCard({
   const link = video
     ? undefined
     : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
-  const cover = (
+  const hasCover =
+    material.cover != null && material.cover.renditions.length > 0;
+  const cover = hasCover ? (
     <AccessCover material={material}>
       <ContentCoverImage
         alt=""
@@ -120,13 +122,13 @@ export function MaterialCard({
           video ? "video" : material.formatSlug === "note" ? "note" : "material"
         }
         fallbackSeed={material.slug}
-        sizes="(min-width: 768px) 28rem, 100vw"
+        sizes="(min-width: 768px) 38rem, 100vw"
       />
     </AccessCover>
-  );
+  ) : null;
   return (
     <article
-      className="home-feed-post min-w-0"
+      className="home-feed-post relative min-w-0"
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="feed"
@@ -163,16 +165,49 @@ export function MaterialCard({
           на телефоне как в программе, на широком экране на ступень крупнее. */}
       <Heading className="mt-3 text-[0.9375rem] font-semibold leading-snug tracking-[-0.02em] sm:mt-4 sm:text-[1.0625rem]">
         <IntentPrefetchLink
-          className="no-underline hover:text-action"
+          className="no-underline hover:text-action after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
           href={readerHref}
         >
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      <p className="home-feed-post-copy mt-2 text-sm text-body-muted sm:mt-3 sm:text-[0.9375rem]">
-        {excerpt?.text ?? material.summary}
-      </p>
-      {link === undefined ? (
+      {!hasCover && material.availability !== "available" ? (
+        <IntentPrefetchLink
+          className="relative mt-3 flex min-h-24 items-center overflow-hidden rounded-xl p-3 no-underline"
+          href={readerHref}
+          aria-label={`Открыть: ${material.title}. ${materialAccessLabel(material)}`}
+          data-access-text-preview={material.availability}
+        >
+          {/* Only the public summary is used here; protected bodies never enter a feed card. */}
+          <span
+            aria-hidden="true"
+            className="home-feed-post-copy block select-none text-sm text-body-muted blur-[4px] sm:text-[0.9375rem]"
+          >
+            {material.summary}
+          </span>
+          <span className="absolute inset-0 grid place-items-center">
+            <MaterialAccessBadge material={material} />
+          </span>
+        </IntentPrefetchLink>
+      ) : (
+        <p className="home-feed-post-copy mt-2 text-sm text-body-muted sm:mt-3 sm:text-[0.9375rem]">
+          {excerpt?.text ?? material.summary}
+        </p>
+      )}
+      {!hasCover ? (
+        link === undefined ? null : (
+          <a
+            className="home-feed-link-domain relative z-10 no-underline hover:text-foreground"
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Открыть ${link.label} в новой вкладке`}
+          >
+            <Link2 aria-hidden="true" className="size-4 shrink-0" />
+            {link.label}
+          </a>
+        )
+      ) : link === undefined ? (
         <IntentPrefetchLink
           className="home-feed-artwork"
           href={readerHref}
@@ -196,7 +231,7 @@ export function MaterialCard({
         </IntentPrefetchLink>
       ) : (
         <a
-          className="home-feed-artwork home-feed-link-preview"
+          className="home-feed-artwork home-feed-link-preview z-10"
           href={link.href}
           target="_blank"
           rel="noopener noreferrer"
@@ -209,20 +244,17 @@ export function MaterialCard({
           </span>
         </a>
       )}
-      <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <IntentPrefetchLink
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
-          href={readerHref}
-        >
-          {video
-            ? "Смотреть видео"
-            : excerpt === undefined || excerpt.truncated
-              ? "Читать дальше"
-              : "Открыть заметку"}
-          <ChevronRight aria-hidden="true" className="size-4" />
-        </IntentPrefetchLink>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {readingStatus}
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
+        {!hasCover && duration !== undefined ? (
+          <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+            <Clock3 aria-hidden="true" className="size-3.5" />
+            {duration}
+          </span>
+        ) : null}
+        {readingStatus === undefined ? null : (
+          <div className="relative z-10">{readingStatus}</div>
+        )}
+        <div className="relative z-10">
           <MaterialShareButton slug={material.slug} title={material.title} />
         </div>
       </div>
@@ -314,7 +346,7 @@ function MaterialRow({
           </span>
         ) : null}
         {readingStatus !== undefined ? (
-          <span className="mt-2 flex min-h-6 items-center">
+          <span className="relative z-10 mt-2 flex min-h-6 items-center">
             {readingStatus}
           </span>
         ) : null}
@@ -394,7 +426,7 @@ function SeriesMaterialRow({
         {ordinal === undefined ? null : (
           <span
             aria-hidden="true"
-            className="w-4 shrink-0 text-left text-sm font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-xl sm:leading-6"
+            className="w-4 shrink-0 text-left text-xs font-semibold leading-5 tabular-nums text-foreground sm:w-7 sm:text-center sm:text-lg sm:leading-6"
             data-series-preview
           >
             {ordinal}
@@ -475,20 +507,32 @@ function AccessCover({
     >
       <span className="block scale-[1.04] blur-[4px]">{children}</span>
       <span className="absolute inset-0 grid place-items-center bg-white/20">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full bg-white/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
-            compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
-          )}
-        >
-          <LockKeyhole aria-hidden="true" className="size-4 text-accent" />
-          {compact ? (
-            <span className="sr-only">{materialAccessLabel(material)}</span>
-          ) : (
-            materialAccessLabel(material)
-          )}
-        </span>
+        <MaterialAccessBadge compact={compact} material={material} />
       </span>
+    </span>
+  );
+}
+
+function MaterialAccessBadge({
+  compact = false,
+  material,
+}: {
+  readonly compact?: boolean;
+  readonly material: MaterialPreview;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full bg-white/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
+        compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
+      )}
+    >
+      <LockKeyhole aria-hidden="true" className="size-4 text-accent" />
+      {compact ? (
+        <span className="sr-only">{materialAccessLabel(material)}</span>
+      ) : (
+        materialAccessLabel(material)
+      )}
     </span>
   );
 }

@@ -1,7 +1,10 @@
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { MaterialReaderPending } from "@/_pages/material-reader/ui/material-reader-states";
+import {
+  MaterialReaderPending,
+  MaterialReaderAccess,
+} from "@/_pages/material-reader/ui/material-reader-states";
 import { MaterialReaderView } from "@/_pages/material-reader/ui/material-reader-view";
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -82,5 +85,52 @@ describe("Reader history activation boundary", () => {
       path: "/materials/aie-product-brief",
       originHref: "/products/ai-engineering/tasks/aie-ch1-onboarding",
     });
+  });
+});
+
+describe("Locked material course entry", () => {
+  it("links to the course landing even before a purchase offer exists", () => {
+    const returnTarget = parseMaterialReaderReturnTarget(
+      "/products/ai-engineering/programme",
+    );
+    const seriesContext = resolveSeriesReaderContext({
+      currentMaterialSlug: material.slug,
+      returnTarget,
+      series: {
+        ...courseSource,
+        chapters: courseSource.chapters.map((chapter) => ({
+          ...chapter,
+          summary: "",
+        })),
+      },
+      anchor: { kind: "task", code: "aie-ch1-onboarding" },
+    });
+    const html = renderToStaticMarkup(
+      createElement(MaterialReaderAccess, {
+        material: {
+          ...material,
+          access: "closed",
+          seriesMemberships: [
+            {
+              ordinal: 1,
+              series: {
+                id: "course",
+                name: "AI Engineering",
+                slug: "ai-engineering",
+              },
+            },
+          ],
+        },
+        returnTarget: parseMaterialReaderReturnTarget(
+          "/products/ai-engineering/programme",
+        ),
+        seriesContext,
+        invitation: null,
+      }),
+    );
+    expect(html).toMatch(
+      /href="\/products\/ai-engineering"[^>]*>Получить доступ/u,
+    );
+    expect(html).not.toContain("Купить доступ сейчас нельзя");
   });
 });

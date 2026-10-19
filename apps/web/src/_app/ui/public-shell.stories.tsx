@@ -188,9 +188,10 @@ export const MobileTopNavigation: Story = {
     ]);
     const signIn = within(navigation).getByRole("button", { name: "Войти" });
     await expect(signIn).toBeVisible();
-    await expect(signIn.getBoundingClientRect().height).toBeGreaterThanOrEqual(
-      44,
-    );
+    await expect(signIn.getBoundingClientRect().height).toBe(36);
+    await expect(
+      parseFloat(getComputedStyle(signIn, "::before").height),
+    ).toBeGreaterThanOrEqual(44);
     await expect(
       links.every((link) => link.getBoundingClientRect().height >= 44),
     ).toBe(true);

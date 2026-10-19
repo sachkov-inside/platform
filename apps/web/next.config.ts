@@ -129,6 +129,17 @@ const nextConfig: NextConfig = {
         destination: "/account/purchases",
         permanent: true,
       },
+      // Темы живут в фильтре главной; прежние публичные страницы больше не обслуживаются.
+      {
+        source: "/topics/:slug",
+        destination: "/?topic=:slug",
+        permanent: true,
+      },
+      {
+        source: "/topics/:slug/social-card",
+        destination: "/social-card",
+        permanent: true,
+      },
       // Продукт переехал на `/products` (platform#808): старые ссылки и закладки не теряются.
       {
         source: "/guides/:path*",

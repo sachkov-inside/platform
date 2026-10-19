@@ -65,7 +65,11 @@ export function CohortCallView({ call }: { readonly call: CohortCall }) {
       ) : (
         <div className="aie-cohort-banner">
           <p className="aie-cohort-text">
-            <span className="aie-cohort-label">{banner.label}</span>{" "}
+            {banner.label === "" ? null : (
+              <>
+                <span className="aie-cohort-label">{banner.label}</span>{" "}
+              </>
+            )}
             {banner.text}
           </p>
           {banner.detail === "" ? null : (

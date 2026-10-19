@@ -9,8 +9,8 @@ export async function expectImmediateMobileNavigation(page: Page) {
     await held;
     await route.continue().catch(() => undefined);
   });
-  // Поиска на Главной нет: готовность ленты видна по её фильтру формата.
-  const formats = page.getByRole("group", { name: "Формат материала" });
+  // Поиска на Главной нет: готовность ленты видна по её фильтру темы.
+  const formats = page.getByRole("group", { name: "Тема" });
   await page.goto("/");
   await expect(formats).toBeVisible();
   try {

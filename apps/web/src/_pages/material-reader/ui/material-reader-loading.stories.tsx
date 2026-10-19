@@ -245,7 +245,7 @@ function loadsInPlace(
 
         sequence.deliverPersonalPart();
         if (outcome === "opened") await canvas.findByText(/^Абзац 1\./u);
-        else await canvas.findByRole("link", { name: /Купить продукт/u });
+        else await canvas.findByRole("link", { name: /Получить доступ/u });
         const ready = measure(canvasElement);
 
         // The unknown route skeleton cannot know a checked Product. Known course layers reserve the same frame.

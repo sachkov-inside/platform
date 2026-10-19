@@ -243,6 +243,14 @@ the [Series contract](../../docs/specifications/platform-v1.md#series-step-seque
 representative states in the production Library discovery stories. Earlier card experiments do
 not define a second layout or terminology.
 
+Feed cards on Home and in a Product’s Material catalog show a cover only when one is assigned.
+Without a cover, the title and public summary lead. For locked or unavailable Materials, the public
+summary is blurred beneath the access badge; protected lesson bodies are never used as teasers.
+Available Materials keep their summary readable.
+
+The full feed card opens the Material through its native title link. Explicit secondary links and
+reading controls keep their own targets and remain above the stretched link.
+
 ### Discovery Copy
 
 Композицию главной и поведение её иллюстрации описывает

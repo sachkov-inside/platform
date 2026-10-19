@@ -37,7 +37,6 @@ export const telemetryRouteTemplates = [
   "/products/[slug]/buy",
   "/products/[slug]/programme",
   "/products/[slug]/tasks/[code]",
-  "/topics/[slug]",
 ] as const;
 
 export function normalizeTelemetryRoute(route: string): string {

@@ -121,7 +121,7 @@ test("карта сайта перечисляет опубликованные 
   expect(body).toContain(
     `<loc>${String(baseURL)}/products/platform-inside</loc>`,
   );
-  expect(body).toContain(`<loc>${String(baseURL)}/topics/platform</loc>`);
+  expect(body).not.toContain("/topics/");
   expect(body).toContain(
     `<loc>${String(baseURL)}/materials/kak-ustroen-inside-platform</loc>`,
   );

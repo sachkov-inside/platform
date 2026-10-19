@@ -62,6 +62,7 @@ export function ReaderTopActions({
   nextStep,
   format = "guide",
   position = "top",
+  alignControls = "center",
 }: {
   readonly context: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
@@ -72,6 +73,7 @@ export function ReaderTopActions({
     Pick<SeriesReaderContextItem, "href" | "title"> | null | undefined;
   readonly format?: string;
   readonly position?: "top" | "bottom";
+  readonly alignControls?: "center" | "end";
 }) {
   if (
     context === null &&
@@ -111,6 +113,7 @@ export function ReaderTopActions({
         }
         className={cn(
           styles["panel"],
+          alignControls === "end" && styles["standalonePanel"],
           context !== null && styles["lessonPanel"],
           "items-center rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm",
         )}
@@ -118,10 +121,8 @@ export function ReaderTopActions({
       >
         {context === null ? (
           <>
-            <div className="flex min-h-9 min-w-0 items-center px-2 sm:min-h-11">
-              {returnAction}
-            </div>
-            <div className="flex max-w-full flex-wrap items-start gap-1">
+            <div className={styles["return"]}>{returnAction}</div>
+            <div className={styles["controls"]}>
               {bookmark}
               <div
                 role="group"
@@ -135,13 +136,14 @@ export function ReaderTopActions({
               <div className={styles["forward"]}>
                 <Button
                   asChild
-                  className="h-9 gap-1.5 rounded-full px-3 sm:h-11"
+                  className="h-9 gap-1.5 rounded-full bg-accent px-3 text-accent-foreground hover:bg-accent-hover sm:h-10"
                 >
                   <IntentPrefetchLink
                     href={nextStep.href}
                     title={nextStep.title}
                   >
-                    Дальше <ArrowRight aria-hidden="true" className="size-4" />
+                    <span className="max-sm:sr-only">Дальше</span>{" "}
+                    <ArrowRight aria-hidden="true" className="size-4" />
                   </IntentPrefetchLink>
                 </Button>
               </div>

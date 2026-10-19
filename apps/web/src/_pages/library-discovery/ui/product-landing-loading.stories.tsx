@@ -17,6 +17,11 @@ import {
 } from "@/storybook/loads-in-place";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
+import {
+  aiEngineeringCoursePage,
+  aiEngineeringCourseChapters,
+} from "@/storybook/ai-engineering-course.fixtures";
+
 import { ProductLandingView } from "./product-landing-view";
 import { ProductLandingLoading } from "./library-discovery-loading";
 
@@ -30,23 +35,14 @@ const product = {
   discoveryKind: "series",
   relatedSeries: [],
   topics: [],
-  chapters: [
-    {
-      id: "product-chapter-1",
-      materialIds: [],
-      name: "Основа продукта",
-      summary: "С чего начинается работа.",
-    },
-  ],
+  chapters: aiEngineeringCourseChapters,
   reference: {
-    name: "Создание Platform Inside",
-    slug: "platform-inside",
-    summary: "От продуктовой идеи до работающего приложения.",
-    introduction: {
-      audience: "Разработчикам, которые собирают продукт с агентами.",
-      outcome: "Работающее приложение и процесс.",
-      prerequisites: "Базовый опыт разработки.",
-      scope: "Без найма и маркетинга.",
+    name: "AI Engineering",
+    slug: "ai-engineering",
+    summary: "",
+    productPage: {
+      presentation: "ai-engineering-course",
+      page: aiEngineeringCoursePage,
     },
   },
 } satisfies ResolvedSeries;
@@ -87,7 +83,7 @@ const frameOf = (canvasElement: HTMLElement) => ({
   hero: originOf(boxOf(canvasElement, "[data-product-part='hero']")),
 });
 
-const environment = publicPageEnvironment("/products/platform-inside");
+const environment = publicPageEnvironment("/products/ai-engineering");
 const meta = {
   ...environment,
   component: ProductLandingView,
@@ -128,7 +124,7 @@ function loadsInPlace(
       stagedLoadingOf(loaded).deliverSharedPart();
       await canvas.findByRole("heading", {
         level: 1,
-        name: result.reference.name,
+        name: new RegExp(`^${result.reference.name}`, "u"),
       });
       await expect(canvas.queryByLabelText("Продукт загружается")).toBeNull();
 

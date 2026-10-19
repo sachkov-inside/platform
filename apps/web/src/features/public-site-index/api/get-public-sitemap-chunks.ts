@@ -16,7 +16,6 @@ import {
   legalDocumentPath,
   MAP_PATH,
   materialPath,
-  topicPath,
 } from "@/shared/routing/public-page-path";
 
 import { partitionPublicSitemap } from "../model/sitemap-chunks";
@@ -41,9 +40,6 @@ export const getPublicSitemapChunks = cache(
       ...alwaysPublic,
       ...index.productSlugs.map((slug) => ({
         url: publicPageUrl(origin, productPath(slug)),
-      })),
-      ...index.topicSlugs.map((slug) => ({
-        url: publicPageUrl(origin, topicPath(slug)),
       })),
       ...index.materials.map(({ publishedAt, slug }) => ({
         lastModified: publishedAt,

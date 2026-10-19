@@ -33,7 +33,6 @@ export function cohortCall({
   cohort,
   offer,
   productAccess,
-  signedIn,
   slug,
   continuationMaterialSlug = null,
 }: {
@@ -72,25 +71,8 @@ export function cohortCall({
   switch (cohort.stage) {
     case "announcement":
       return {
-        banner: {
-          kind: "card",
-          label,
-          text: `Старт ${date}. Предзаказ откроется скоро`,
-          detail: signedIn
-            ? "Читай первую главу бесплатно, пока ждёшь старта"
-            : "Войди через Telegram и читай первую главу бесплатно, пока ждёшь старта",
-        },
-        action: signedIn
-          ? {
-              kind: "programme",
-              href: programme,
-              label: "Читать главу 1 бесплатно",
-            }
-          : {
-              kind: "sign-in",
-              returnTo: programme,
-              label: "Читать главу 1 бесплатно",
-            },
+        banner: null,
+        action: openProgramme,
       };
     case "preorder":
       // Первый экран только сообщает о наборе и ведёт к цене внизу страницы; предзаказ

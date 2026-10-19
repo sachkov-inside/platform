@@ -18,7 +18,6 @@ import type { PublishedSeriesResult } from "@/features/library-discovery";
 import {
   loadPublishedSeries,
   readPublicSeries,
-  readPublicTopic,
 } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -56,30 +55,6 @@ const noArtifacts: ReaderProductArtifactsResult = {
   artifacts: [],
   kind: "ready",
 };
-
-/**
- * Тема целиком общая: справка и связанные продукты одинаковы для всех, а материалы темы читает
- * браузер. Страница рисуется из гостевого кеша и личной части не имеет (ADR 0027).
- */
-export async function PublishedTopicPage({
-  params,
-  searchParams,
-}: DiscoveryRouteProps) {
-  const [{ slug }, query] = await Promise.all([params, searchParams]);
-  const result = await readPublicTopic(slug);
-  if (result.kind === "not-found") {
-    notFound();
-  }
-  if (result.kind === "unavailable") {
-    return <LibraryDiscoveryUnavailable />;
-  }
-  return (
-    <LibraryDiscoveryView
-      result={result}
-      returnTarget={parseMaterialReaderReturnTarget(query.from)}
-    />
-  );
-}
 
 /**
  * Страница продукта рассказывает о нём: состав, главы и артефакты как обещание результата приходят

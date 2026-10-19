@@ -47,19 +47,18 @@ for (const size of [1, 10, 100]) {
       await expect(
         page.locator('[data-material-reader-state="access-required"]'),
       ).toBeVisible();
+      // A known course is the next step even before sales open. Ambiguous membership
+      // retains the bounded sale-admission choice rather than inventing a primary course.
+      const knownCourse = size === 1 || scenario === "explicit";
       const invitation = page.getByRole("link", {
-        name: "Купить продукт",
+        name: knownCourse ? "Получить доступ" : "Купить продукт",
         exact: true,
       });
-      if (
-        scenario === "sole" ||
-        scenario === "explicit" ||
-        (scenario === "multiple" && size === 1)
-      ) {
+      if (knownCourse || scenario === "sole") {
         await expect(invitation).toBeVisible();
         await expect(invitation).toHaveAttribute(
           "href",
-          `/products/${scenario === "multiple" ? `reader-sale-product-${variant}${String(size)}-${scenario}-1` : productSlug}/buy`,
+          `/products/${productSlug}${knownCourse ? "" : "/buy"}`,
         );
       } else {
         await expect(invitation).toHaveCount(0);

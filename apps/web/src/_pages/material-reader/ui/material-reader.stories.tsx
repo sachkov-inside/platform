@@ -677,7 +677,7 @@ export const Mobile: Story = {
       {
         if (mark === null) throw new Error("Bottom study action missing");
         await expect(getComputedStyle(mark).fontSize).toBe("12px");
-        await expect(mark.getBoundingClientRect().height).toBe(36);
+        await expect(mark.getBoundingClientRect().height).toBe(32);
         await expect(
           parseFloat(getComputedStyle(mark, "::after").height),
         ).toBeGreaterThanOrEqual(44);
@@ -769,10 +769,10 @@ export const Desktop: Story = {
       canvas.queryByRole("navigation", { name: "В этом материале" }),
     ).toBeNull();
     await expect(
-      within(canvas.getByRole("main")).getAllByRole("link", {
+      within(canvas.getByRole("main")).queryByRole("link", {
         name: "Главная",
       }),
-    ).toHaveLength(1);
+    ).toBeNull();
     await expect(
       canvas.getByRole("region", { name: "Таблица в материале" }),
     ).toBeInTheDocument();
@@ -1123,7 +1123,7 @@ export const AccessRequired: Story = {
     // Покупка начинается внутри платформы: внешнего адреса и новой вкладки здесь больше нет.
     await expect(membershipLink).toHaveAttribute(
       "href",
-      "/payment/checkout?from=%2Fmaterials%2Fagent-first-skills",
+      "/products/platform-inside",
     );
     await expect(membershipLink).not.toHaveAttribute("target");
     await expect(
@@ -1164,11 +1164,11 @@ export const AccessProductPurchase: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Продолжение входит в продукт" }),
+      canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("link", { name: "Купить продукт" }),
-    ).toHaveAttribute("href", "/products/platform-inside/buy");
+      canvas.getByRole("link", { name: "Получить доступ" }),
+    ).toHaveAttribute("href", "/products/platform-inside");
   },
 };
 
@@ -1185,13 +1185,11 @@ export const AccessNotOffered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText(
-        "Купить доступ сейчас нельзя, но материал останется здесь.",
-      ),
+      canvas.getByText("Этот материал доступен участникам курса."),
     ).toBeVisible();
     await expect(
-      canvas.queryByRole("link", { name: "Получить доступ" }),
-    ).not.toBeInTheDocument();
+      canvas.getByRole("link", { name: "Получить доступ" }),
+    ).toHaveAttribute("href", "/products/platform-inside");
     await expect(
       canvas.queryByRole("link", { name: "Купить продукт" }),
     ).not.toBeInTheDocument();
@@ -1242,8 +1240,8 @@ export const ShortMaterial: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      within(canvas.getByRole("main")).getByRole("link", { name: "Главная" }),
-    ).toBeVisible();
+      within(canvas.getByRole("main")).queryByRole("link", { name: "Главная" }),
+    ).toBeNull();
     await expect(
       canvasElement.querySelector('[data-reader-return="bottom"]'),
     ).toBeNull();

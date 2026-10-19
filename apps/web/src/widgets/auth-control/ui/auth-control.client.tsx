@@ -19,7 +19,7 @@ interface AuthControlStateProps {
 }
 
 const triggerClass =
-  "inline-flex min-h-11 w-[6.5rem] items-center justify-center gap-2 rounded-full bg-primary px-3 text-[0.8125rem] font-semibold text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none";
+  "relative inline-flex min-h-9 w-20 items-center justify-center gap-1.5 rounded-full bg-primary px-2.5 text-xs before:absolute before:inset-x-0 before:-inset-y-1 before:content-[''] font-semibold text-primary-foreground transition-colors hover:bg-primary/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none";
 const menuItemClass =
   "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium no-underline outline-none hover:bg-muted focus:bg-muted data-[highlighted]:bg-muted";
 
@@ -27,12 +27,16 @@ const menuItemClass =
 export function HeaderAuthControl({ state, avatar }: AuthControlStateProps) {
   if (state === "guest")
     return (
-      <form action="/auth/sign-in" method="post">
+      <form
+        action="/auth/sign-in"
+        method="post"
+        className="flex min-h-11 items-center"
+      >
         <button type="submit" className={triggerClass}>
           Войти
           <LogIn
             aria-hidden="true"
-            className="hidden size-4 shrink-0 sm:block"
+            className="hidden size-3.5 shrink-0 sm:block"
           />
         </button>
       </form>

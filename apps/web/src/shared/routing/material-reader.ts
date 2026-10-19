@@ -1,7 +1,7 @@
 import type { Route } from "next";
 
 import { internalRoute } from "./internal-route";
-import { readCanonicalLibraryRouteHref } from "./library-route";
+import { homeTopicHref, readCanonicalLibraryRouteHref } from "./library-route";
 
 export type MaterialReaderReturnKind = "home" | "profile" | "series" | "topic";
 
@@ -33,7 +33,9 @@ export function materialReaderOriginHref(
   slug: string,
 ): Route {
   assertSlug(slug);
-  return internalRoute(`/${kind === "series" ? "products" : "topics"}/${slug}`);
+  return kind === "topic"
+    ? homeTopicHref(slug)
+    : internalRoute(`/products/${slug}`);
 }
 
 export function materialReaderHref(
@@ -63,11 +65,13 @@ export function collectionDiscoveryHref(
   returnHref?: Route,
 ): Route {
   assertSlug(slug);
-  const pathname = `/${kind === "series" ? "products" : "topics"}/${slug}`;
-  if (returnHref === undefined) return internalRoute(pathname);
+  const pathname = `/products/${slug}`;
+  if (returnHref === undefined)
+    return kind === "topic" ? homeTopicHref(slug) : internalRoute(pathname);
   if (readReturnTarget(returnHref) === undefined) {
     throw new TypeError("Expected a supported discovery return route");
   }
+  if (kind === "topic") return homeTopicHref(slug);
   return internalRoute(
     `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}`,
   );
@@ -169,7 +173,7 @@ function readReturnTarget(
       seriesSlug: slug,
     };
   }
-  return { href, kind: "topic", label: "Назад к теме" };
+  return { ...homeMaterialReaderReturnTarget, href: homeTopicHref(slug) };
 }
 
 function singleSearchValue(

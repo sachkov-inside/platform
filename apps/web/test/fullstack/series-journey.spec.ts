@@ -356,7 +356,7 @@ test("product programme appends a real composition and restores Reader return po
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
     await expect(
       page.locator("p:visible", { hasText: "Показано 13 из 13 материалов" }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await row.getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     await page.goBack();

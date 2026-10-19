@@ -49,6 +49,16 @@ export function libraryRouteHref(state: LibraryRouteState): Route {
   return internalRoute(search.length === 0 ? "/" : `/?${search}`);
 }
 
+/** Topics are filters on Home, not separate discovery pages. */
+export function homeTopicHref(slug: string): Route {
+  return libraryRouteHref({
+    q: "",
+    formatSlug: null,
+    sort: "newest",
+    topicSlug: slug,
+  });
+}
+
 export function readCanonicalLibraryRouteHref(url: URL): Route | undefined {
   if (url.pathname !== "/" || url.hash.length > 0) return undefined;
   const state = parseLibraryRouteSearch(url.searchParams);

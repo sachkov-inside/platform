@@ -46,12 +46,12 @@ describe("Material Reader navigation", () => {
 
   it("round-trips Home feed, Playlist, Topic and Profile origins", () => {
     expect(collectionDiscoveryHref("topic", "platform", "/")).toBe(
-      "/topics/platform?from=%2F",
+      "/?topic=platform",
     );
     const topicHref = materialReaderOriginHref("topic", "platform");
     expect(
       collectionDiscoveryHref("series", "platform-inside", topicHref),
-    ).toBe("/products/platform-inside?from=%2Ftopics%2Fplatform");
+    ).toBe("/products/platform-inside?from=%2F%3Ftopic%3Dplatform");
     const seriesHref = materialReaderOriginHref("series", "platform-inside");
     expect(materialReaderHref("inside-platform-overview", seriesHref)).toBe(
       "/materials/inside-platform-overview?from=%2Fproducts%2Fplatform-inside",
@@ -64,9 +64,9 @@ describe("Material Reader navigation", () => {
     });
 
     expect(parseMaterialReaderReturnTarget("/topics/platform")).toEqual({
-      href: "/topics/platform",
-      kind: "topic",
-      label: "Назад к теме",
+      href: "/?topic=platform",
+      kind: "home",
+      label: "Главная",
     });
 
     expect(parseMaterialReaderReturnTarget("/")).toEqual({
@@ -95,9 +95,7 @@ describe("Material Reader navigation", () => {
     );
     expect(
       collectionDiscoveryHref("series", "platform-inside", nestedTopic),
-    ).toBe(
-      "/products/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F%253Fq%253Dplatform%2526format%253Dvideo%2526sort%253Dtitle",
-    );
+    ).toBe("/products/platform-inside?from=%2F%3Ftopic%3Dplatform");
   });
 
   it("falls back to Home for direct, external and malformed origins", () => {
