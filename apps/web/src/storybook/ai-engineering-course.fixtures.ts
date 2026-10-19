@@ -20,7 +20,7 @@ export const aiEngineeringCoursePage: ProductPage = {
       highlights: [
         "Гайды, видео и задания",
         "Менторинг автора",
-        "Свой агент, стек и темп",
+        "Практика на реальном проекте",
       ],
     },
     {
