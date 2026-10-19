@@ -351,6 +351,15 @@ bash scripts/heavy-check.sh python3 scripts/observability-umami/recovery_runtime
   --output .reports/umami-recovery-01
 ```
 
+В `recovery-proof.json` поле `operation` показывает последний one-shot этап:
+`up`/`start`, `wait`, `identity`, `inspect`, `state` или `exit`. При отказе сохраняются
+только фиксированная категория, проверенный числовой return code (иначе `null`) и форма
+ID: количество (`none`/`one`/`multiple`), длина единственного значения и признак hex.
+Диагностика одной операции занимает меньше 1 KiB и перезаписывается, не накапливается.
+Она не содержит ID, raw stdout/stderr, SQL, config или текстов исключений. Она уточняет
+место следующего отказа, но сама по себе не устанавливает причину исторического запуска,
+в котором `repo-init` завершился с кодом 0, а проверка остановилась на `repository_initialize`.
+
 Проверяются `recovery-proof.json`, `recovery-inputs.json`, `evidence.json`,
 `worker-outcome.json`, `cleanup.json` и storage evidence. Успешный SQL-result без успешного
 cleanup не является успешным запуском. `compose.json` содержит credentials, остаётся

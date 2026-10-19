@@ -32,9 +32,10 @@ NATIVE_SETUP_SECONDS = 240
 
 
 class FixtureCommandFailed(RuntimeError):
-    def __init__(self, diagnostic=None):
+    def __init__(self, diagnostic=None, *, returncode=None):
         super().__init__('owned fixture command failed')
         self.diagnostic = diagnostic
+        self.returncode = returncode if type(returncode) is int and -128 <= returncode <= 255 else None
 
 
 def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS, fixture_phase=None):
@@ -53,7 +54,7 @@ def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS
                 diagnostic = fixture.failure_report(json.loads(result.stderr))
             except (ValueError, TypeError):
                 pass
-        raise FixtureCommandFailed(diagnostic)
+        raise FixtureCommandFailed(diagnostic, returncode=result.returncode)
     if len(result.stdout.encode()) > FIXTURE_BYTES:
         raise RuntimeError('owned fixture response exceeds budget')
     return result.stdout

@@ -65,6 +65,9 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
               'stage': 'cache_admission', 'reader_gate': 'closed', 'production_deletion_authority': 'unknown'}
     def record():
         pilot.write_json(output / 'recovery-proof.json', report)
+    def operation(value):
+        report['operation'] = value
+        record()
     record()
     try:
         cache = recovery.validate_cache(json.loads(recovery.CACHE_LOCK.read_text()))
@@ -90,7 +93,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
             raise RuntimeError('recovery_destination_already_exists')
         report['stage'] = 'repository_initialize'
         record()
-        _one_shot(compose, project, 'repo-init', execute)
+        _one_shot(compose, project, 'repo-init', execute, record=operation)
         report['stage'] = 'source_database'
         record()
         execute(compose, ['up', '-d', '--no-deps', 'db'])
@@ -100,7 +103,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         record()
         if cluster['version_num'] != 180004 or cluster['archive_mode'] != 'on':
             raise RuntimeError('unexpected_source_database_version_or_archiving')
-        return _database_corpus(output, compose, project, plan, cluster, report, record, execute)
+        return _database_corpus(output, compose, project, plan, cluster, report, record, execute, operation)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         report['state'] = 'failed'
         record()
@@ -116,10 +119,19 @@ SQL_READY_SECONDS = 60
 SQL_POLL_SECONDS = .25
 
 
-def _inspect_service(compose, project, service, execute):
+def _inspect_service(compose, project, service, execute, *, progress=None):
+    if progress is not None:
+        progress('identity')
     identity = execute(compose, ['ps', '--all', '-q', service]).strip()
+    if progress is not None:
+        lines = identity.splitlines()
+        progress('identity', {'count': 'none' if not lines else 'one' if len(lines) == 1 else 'multiple',
+            'single_width': len(identity) if len(lines) == 1 and len(identity) <= runtime.FIXTURE_BYTES else None,
+            'single_hex': bool(re.fullmatch(r'[a-f0-9]+', identity)) if len(lines) == 1 else None})
     if not re.fullmatch(r'[a-f0-9]{64}', identity):
         raise ValueError('owned_service_identity')
+    if progress is not None:
+        progress('inspect')
     actual = json.loads(execute(['docker'], ['inspect', identity, '--format', CONTAINER_INSPECT]))
     if (not isinstance(actual, dict) or not isinstance(actual.get('labels'), dict)
             or actual['labels'].get('com.docker.compose.project') != project
@@ -136,13 +148,55 @@ def _require_stopped(actual):
         raise RuntimeError('postmaster_not_confirmed_stopped')
 
 
-def _one_shot(compose, project, service, execute, *, already_created=False):
-    execute(compose, ['start', service] if already_created else ['up', '-d', '--no-deps', service])
-    execute(compose, ['wait', service], timeout=OPERATION_SECONDS)
-    actual = _inspect_service(compose, project, service, execute)
-    _require_stopped(actual)
-    if actual['state'].get('status') != 'exited' or type(actual['state'].get('exit_code')) is not int or actual['state']['exit_code'] != 0:
-        raise RuntimeError('owned_operation_failed')
+def _one_shot(compose, project, service, execute, *, already_created=False, record=None):
+    diagnostic = {'schema': 1, 'service': service if service in recovery.SERVICES else 'unknown',
+        'step': 'start' if already_created else 'up', 'outcome': 'running', 'error': None,
+        'returncode': None, 'identity': None, 'container_exit_code': None}
+    def publish():
+        if record is not None:
+            record(dict(diagnostic))
+    def progress(step, shape=None):
+        diagnostic['step'] = step
+        diagnostic['returncode'] = 0 if shape is not None else None
+        if shape is not None:
+            diagnostic['identity'] = shape
+        publish()
+    publish()
+    try:
+        execute(compose, ['start', service] if already_created else ['up', '-d', '--no-deps', service])
+        progress('wait')
+        execute(compose, ['wait', service], timeout=OPERATION_SECONDS)
+        actual = _inspect_service(compose, project, service, execute, progress=progress)
+        diagnostic['returncode'] = 0
+        progress('state')
+        _require_stopped(actual)
+        progress('exit')
+        code = actual['state'].get('exit_code')
+        diagnostic['container_exit_code'] = code if type(code) is int and 0 <= code <= 255 else None
+        if actual['state'].get('status') != 'exited' or type(code) is not int or code != 0:
+            raise RuntimeError('owned_operation_failed')
+        diagnostic.update(outcome='passed', returncode=0)
+        publish()
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        code = getattr(error, 'returncode', None)
+        diagnostic['returncode'] = code if type(code) is int and -128 <= code <= 255 else None
+        if isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+            category = 'timeout'
+        elif isinstance(error, (runtime.FixtureCommandFailed, subprocess.CalledProcessError)):
+            category = 'command_failed'
+        elif isinstance(error, json.JSONDecodeError):
+            category = 'invalid_inspect_json'
+        elif isinstance(error, ValueError):
+            category = 'invalid_identity' if diagnostic['step'] == 'identity' else 'inspection_mismatch'
+        elif diagnostic['step'] == 'state':
+            category = 'invalid_state'
+        elif diagnostic['step'] == 'exit':
+            category = 'invalid_exit_code'
+        else:
+            category = 'io_failure' if isinstance(error, OSError) else 'runtime_failure'
+        diagnostic.update(outcome='failed', error=category)
+        publish()
+        raise
 
 
 def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12):
@@ -199,7 +253,7 @@ def _data_mount(actual, name):
         raise ValueError('recovery_database_mount')
 
 
-def open_sql_actors(compose, project, name, *, execute=runtime.invoke):
+def open_sql_actors(compose, project, name, *, execute=runtime.invoke, record=None):
     """Stop and observe the offline postmaster before starting its private successor."""
     execute(compose, ['stop', '--timeout', str(STOP_SECONDS), 'recovered'])
     _require_stopped(_inspect_service(compose, project, 'recovered', execute))
@@ -211,10 +265,10 @@ def open_sql_actors(compose, project, name, *, execute=runtime.invoke):
         raise ValueError('reader_database_not_private')
     execute(compose, ['start', 'read-db'])
     _await_sql(compose, 'read-db', execute=execute, tcp=True)
-    _one_shot(compose, project, 'reader', execute)
+    _one_shot(compose, project, 'reader', execute, record=record)
     reader = execute(compose, ['logs', '--no-log-prefix', 'reader'])
     _expect(reader, {'reader_rows': 2, 'blocked_rows': 0})
-    _one_shot(compose, project, 'ingest', execute)
+    _one_shot(compose, project, 'ingest', execute, record=record)
     ingest = execute(compose, ['logs', '--no-log-prefix', 'ingest'])
     _expect(ingest, {'ingest_rows': 1})
 
@@ -259,7 +313,7 @@ def _no_readers(compose, execute):
         raise RuntimeError('readers_or_ingestion_exist_before_gate')
 
 
-def _database_corpus(output, compose, project, plan, source, report, record, execute):
+def _database_corpus(output, compose, project, plan, source, report, record, execute, operation):
     import retention_fixture
     def stage(value):
         report['stage'] = value
@@ -294,7 +348,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     stage('encrypted_backup')
     for operation in ('stanza-create', 'check'):
         execute(compose, ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', operation], timeout=OPERATION_SECONDS)
-    _one_shot(compose, project, 'backup', execute)
+    _one_shot(compose, project, 'backup', execute, record=operation)
     info_args = ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', '--output=json']
     label = recovery.backup_label(execute(compose, [*info_args, 'info']))
     backup = recovery.backup_proof(execute(compose, [*info_args, '--set=' + label, 'info']))
@@ -322,7 +376,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     report['destination'] = recovery.confirm_destination(project, name, plan['services']['db']['image'], volume, restore,
                                                          absent_before_acquisition=True)
     stage('offline_restore')
-    _one_shot(compose, project, 'restore', execute, already_created=True)
+    _one_shot(compose, project, 'restore', execute, already_created=True, record=operation)
     execute(compose, ['create', '--no-deps', 'recovered'])
     offline = _inspect_service(compose, project, 'recovered', execute)
     _require_stopped(offline)
@@ -368,7 +422,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
         _no_readers(compose, execute)
         report['reader_gate'] = 'transitioning_after_replay_and_current_ttl'
         record()
-        open_sql_actors(compose, project, name, execute=execute)
+        open_sql_actors(compose, project, name, execute=execute, record=operation)
     def record_gate(value):
         report['maintenance'] = value
         report['reader_gate'] = value['reader_gate']
