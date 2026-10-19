@@ -70,9 +70,9 @@ for (const width of [320, 768])
     const filtered = page.waitForResponse(
       (response) =>
         response.url().includes("/api/home/materials?") &&
-        response.url().includes("format=note"),
+        response.url().includes("topic=platform"),
     );
-    await page.getByRole("button", { name: "Заметки", exact: true }).click();
+    await page.getByRole("button", { name: "Platform", exact: true }).click();
     await filtered;
     const note = page.getByRole("article").first();
     // The response resolves before React swaps the cards, so the first card can detach mid-scroll.

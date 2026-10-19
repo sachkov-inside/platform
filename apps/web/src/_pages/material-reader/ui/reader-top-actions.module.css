@@ -1,6 +1,7 @@
 .panel {
   --reader-control-size: 2.25rem;
-  --reader-hit-inset: min(0px, calc((var(--reader-control-size) - 44px) / 2));
+  /* Absolute insets start at the padding box, inside the two 1px borders. */
+  --reader-hit-inset: min(0px, calc((var(--reader-control-size) - 46px) / 2));
   display: flex;
   flex-wrap: nowrap;
   align-items: center;

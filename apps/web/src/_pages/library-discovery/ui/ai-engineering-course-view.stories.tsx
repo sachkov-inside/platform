@@ -394,7 +394,9 @@ export const CohortAnnouncement: Story = {
     await expect(
       within(hero).getByRole("link", { name: "Открыть программу" }),
     ).toHaveAttribute("href", "/products/ai-engineering/programme");
-    await expect(canvas.queryByRole("button")).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: /^Оплатить/u }),
+    ).toBeNull();
     await expect(canvas.queryByText(/главу бесплатно/u)).toBeNull();
     await expect(canvas.queryByRole("link", { name: /^Оплатить/u })).toBeNull();
   },

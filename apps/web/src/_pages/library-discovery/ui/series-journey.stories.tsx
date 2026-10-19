@@ -210,9 +210,7 @@ export const InProgress: Story = {
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
-    await expect(
-      canvas.getByText("Показано 24 из 24 материалов"),
-    ).toBeVisible();
+    await expect(canvas.queryByText(/Показано .* материалов/u)).toBeNull();
     await expect(
       canvasElement.querySelector('[data-series-ordinal="13"]'),
     ).toHaveAttribute("aria-current", "step");
@@ -414,7 +412,15 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Что дальше" }),
     ).toBeVisible();
-    await expect(canvas.getByText("Материалы готовятся")).toBeVisible();
+    const future = canvasElement.querySelector<HTMLElement>(
+      ".course-preparing-chapter",
+    );
+    if (future === null) throw new Error("Missing future chapter");
+    await expect(future).not.toHaveAttribute("open");
+    await userEvent.click(within(future).getByText("Что дальше"));
+    await expect(
+      within(future).getByText(/Материалы этой главы готовятся/u),
+    ).toBeVisible();
   },
 };
 export const ChaptersMobile: Story = {
@@ -499,7 +505,10 @@ export const ChapterTasks: Story = {
       .getByRole("heading", { level: 3, name: "Основа продукта" })
       .closest("header");
     if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
-    await expect(within(chapterHeader).getByText("8 шагов")).toBeVisible();
+    await expect(within(chapterHeader).queryByText("8 шагов")).toBeNull();
+    await expect(
+      chapterHeader.querySelector(".programme-chapter-progress"),
+    ).toBeVisible();
     const unavailable = canvasElement.querySelector(
       '[data-programme-task="access-unavailable"]',
     );
@@ -712,9 +721,7 @@ export const PartSwitchStartsAtBeginning: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать ещё уроки" }),
     );
-    await expect(
-      canvas.getByText("Показано 23 из 23 материалов"),
-    ).toBeVisible();
+    await expect(canvas.queryByText(/Показано .* материалов/u)).toBeNull();
     await openPart(canvasElement, /^Материалы/u);
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
@@ -728,9 +735,7 @@ export const PartSwitchStartsAtBeginning: Story = {
       ).getAllByRole("listitem"),
     ).toHaveLength(1);
     await openPart(canvasElement, /Программа/u);
-    await expect(
-      canvas.getByText("Показано 12 из 23 материалов"),
-    ).toBeVisible();
+    await expect(canvas.queryByText(/Показано .* материалов/u)).toBeNull();
   },
 };
 
@@ -748,7 +753,9 @@ export const OnlyPlannedChapters: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getAllByText("Материалы готовятся")).toHaveLength(5);
+    await expect(
+      canvasElement.querySelectorAll(".course-preparing-chapter:not([open])"),
+    ).toHaveLength(5);
     await expect(
       canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
     ).toBeVisible();

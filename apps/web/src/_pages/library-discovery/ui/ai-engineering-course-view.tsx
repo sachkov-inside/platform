@@ -99,9 +99,11 @@ export function AiEngineeringCourseView({
       data-product-landing={reference.slug}
     >
       <HideMobileNavigation />
-      <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
+      <div data-product-part="back">
+        <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
+      </div>
 
-      <header className="aie-course-hero">
+      <header className="aie-course-hero" data-product-part="hero">
         <CourseHero
           badge={hero?.badge ?? ""}
           call={heroCall}

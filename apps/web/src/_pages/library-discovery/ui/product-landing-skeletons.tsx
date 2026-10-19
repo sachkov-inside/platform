@@ -14,7 +14,7 @@ export function ProductLandingSkeleton() {
       data-route-skeleton="product-landing"
     >
       <HideMobileNavigation />
-      <div className="pt-4" data-product-part="back">
+      <div data-product-part="back">
         <div className={`h-11 w-32 rounded-lg bg-muted ${pulse}`} />
       </div>
       <div className="landing-skeleton-hero" data-product-part="hero">

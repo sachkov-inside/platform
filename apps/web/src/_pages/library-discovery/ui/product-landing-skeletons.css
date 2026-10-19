@@ -5,6 +5,11 @@
   gap: 2.5rem;
   margin-top: 1.75rem;
 }
+@media (max-width: 63.999rem) {
+  .landing-skeleton-hero {
+    margin-top: 0;
+  }
+}
 @media (max-width: 47.999rem) {
   .landing-skeleton-hero {
     grid-template-columns: minmax(0, 1fr);

@@ -252,7 +252,7 @@ test("reading progress reconciles stale windows and account changes without relo
   }
 });
 
-test("reading progress appears on Home and Topic for video and other formats", async ({
+test("reading progress appears on Home and the topic filter for video and other formats", async ({
   page,
   context,
 }) => {
@@ -311,8 +311,8 @@ test("reading progress appears on Home and Topic for video and other formats", a
     try {
       const catalogRead = topic.waitForResponse(
         (response) =>
-          new URL(response.url()).pathname ===
-            "/api/library/topics/platform/materials" && response.ok(),
+          new URL(response.url()).pathname === "/api/home/materials" &&
+          response.ok(),
       );
       await topic.goto("/topics/platform");
       await catalogRead;
@@ -321,20 +321,13 @@ test("reading progress appears on Home and Topic for video and other formats", a
         topic.getByRole("button", { name: "Подключить Telegram", exact: true }),
       ).toBeVisible();
       await expect(topic.getByRole("dialog")).toHaveCount(0);
-      const search = topic.getByRole("searchbox");
-      const filteredCatalog = topic.waitForResponse((response) => {
-        const url = new URL(response.url());
-        return (
-          url.pathname === "/api/library/topics/platform/materials" &&
-          url.searchParams.get("q") === material.title &&
-          response.ok()
-        );
-      });
-      await search.click();
-      await search.fill(material.title);
-      await expect(search).toHaveValue(material.title);
-      await filteredCatalog;
-      await expect(cardOn(topic)).toHaveCount(1);
+      await expect(
+        topic
+          .getByRole("group", { name: "Тема", exact: true })
+          .getByRole("button", { name: "Platform", exact: true }),
+      ).toHaveAttribute("aria-pressed", "true");
+      const marked = await homeFeedCard(topic, material.title);
+      await expect(marked).toHaveCount(1);
       await expect(
         cardOn(topic).locator("[data-material-reading-status]"),
       ).toHaveText(material.label);

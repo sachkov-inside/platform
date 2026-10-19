@@ -45,12 +45,14 @@ export const Desktop: Story = {
         name: /Разработка с агентами через весь курс/u,
       }),
     ).not.toBeInTheDocument();
-    await expect(canvas.getAllByText("Материалы готовятся")).toHaveLength(8);
+    await expect(
+      canvasElement.querySelectorAll(".course-preparing-chapter:not([open])"),
+    ).toHaveLength(8);
     await expect(
       canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
     ).toBeVisible();
     const details = canvasElement.querySelector<HTMLDetailsElement>(
-      ".course-chapter-details",
+      ".course-preparing-chapter",
     );
     const summary = details?.querySelector("summary");
     if (details === null || summary === null || summary === undefined)
@@ -106,10 +108,10 @@ export const WithPublishedLessons: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.queryByText(/Показано .* материалов/u)).toBeNull();
     await expect(
-      canvas.getByText("Показано 12 из 15 материалов"),
-    ).toBeVisible();
-    await expect(canvas.getAllByText("Материалы готовятся")).toHaveLength(6);
+      canvasElement.querySelectorAll(".course-preparing-chapter:not([open])"),
+    ).toHaveLength(6);
     await expect(
       canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
     ).toBeVisible();
@@ -119,10 +121,19 @@ export const WithPublishedLessons: Story = {
     const chapters = canvasElement.querySelectorAll(".programme-chapter");
     await expect(
       chapters[0]?.querySelector(".course-chapter-outcome"),
-    ).toBeNull();
+    ).not.toBeVisible();
     await expect(
       chapters[1]?.querySelector(".course-chapter-outcome"),
-    ).toBeNull();
+    ).not.toBeVisible();
+    await expect(
+      chapters[2]?.querySelector(".course-chapter-outcome"),
+    ).not.toBeVisible();
+    const future = chapters[2]?.querySelector("summary");
+    if (future == null) throw new Error("Missing future chapter disclosure");
+    await userEvent.click(future);
+    await expect(
+      chapters[2]?.querySelector(".course-chapter-preparing-notice"),
+    ).toBeVisible();
     await expect(
       chapters[2]?.querySelector(".course-chapter-outcome"),
     ).toBeVisible();

@@ -4,7 +4,19 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const catalog = {
   kind: "ready",
-  facets: { formats: [], series: [], topics: [] },
+  facets: {
+    formats: [],
+    series: [],
+    topics: [
+      {
+        id: "platform",
+        slug: "platform",
+        name: "Platform",
+        count: 18,
+        summary: null,
+      },
+    ],
+  },
   items: Array.from({ length: 18 }, (_, index) => ({
     access: "free",
     availability: "available",
@@ -47,9 +59,9 @@ async function tap(page: Page, link: Locator) {
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
-function formatChip(page: Page, name: string) {
+function topicChip(page: Page, name: string) {
   return page
-    .getByRole("group", { name: "Формат материала" })
+    .getByRole("group", { name: "Тема" })
     .getByRole("button", { name, exact: true });
 }
 
@@ -73,12 +85,12 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     requests++;
     return route.fulfill({ json: catalog });
   });
-  // Поиска на Главной нет: состояние ленты, которое помнит вкладка, — выбранный формат.
-  await page.goto("/?format=guide");
+  // Поиска на Главной нет: состояние ленты, которое помнит вкладка, — выбранная тема.
+  await page.goto("/?topic=platform");
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
-  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -100,9 +112,9 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
   ).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   const loadedRequests = requests;
-  await expect(homeLink(page)).toHaveAttribute("href", /format=guide/u);
+  await expect(homeLink(page)).toHaveAttribute("href", /topic=platform/u);
   await homeLink(page).click();
-  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -118,7 +130,7 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
     navigation(page).getByRole("link", { name: "Закладки" }),
   ).toHaveAttribute("aria-current", "page");
   await page.goForward();
-  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -148,7 +160,7 @@ test("fast repeated navigation remains clickable during the transition", async (
     route.fulfill({ json: catalog }),
   );
   await page.goto("/");
-  await expect(formatChip(page, "Все")).toBeVisible();
+  await expect(topicChip(page, "Все")).toBeVisible();
   // Real pointer input bypasses Playwright's animation-stability wait, as a quick user tap does.
   await tap(page, navigation(page).getByRole("link", { name: "Закладки" }));
   await expect(page).toHaveURL(/\/bookmarks$/u);
@@ -168,7 +180,7 @@ test("public canvas, navigation geometry and reduced motion are consistent", asy
     await page.setViewportSize({ width, height: 844 });
     const before = await header(page).boundingBox();
     await homeLink(page).click();
-    await expect(formatChip(page, "Все")).toBeVisible();
+    await expect(topicChip(page, "Все")).toBeVisible();
     const after = await header(page).boundingBox();
     expect(after?.width).toBe(before?.width);
     expect(after?.y).toBe(before?.y);
@@ -266,8 +278,8 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
-  await formatChip(page, "Видео").click();
-  await expect(page).toHaveURL(/format=video/u);
+  await topicChip(page, "Platform").click();
+  await expect(page).toHaveURL(/topic=platform/u);
   // Позицию ленты приложение записывает по событию scroll, а браузер доставляет его в следующем кадре:
   // «Назад» в том же кадре уносит несохранённую позицию (#735). Событие рассылается всем обработчикам
   // целиком до следующей команды теста.
@@ -288,7 +300,7 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
   await page.goBack();
   await expect(page).toHaveURL(/\/account$/u);
   await homeLink(page).click();
-  await expect(formatChip(page, "Видео")).toHaveAttribute(
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -314,7 +326,7 @@ test("a newer tab selection wins over an unfinished route request", async ({
   try {
     // Register before entry: Next.js may prefetch both RSC segments immediately.
     await page.goto("/");
-    await expect(formatChip(page, "Все")).toBeVisible();
+    await expect(topicChip(page, "Все")).toBeVisible();
     await navigation(page).getByRole("link", { name: "Закладки" }).click();
     await expect.poll(() => started).toBe(true);
     await expect(page).toHaveURL(/\/$/u);
@@ -368,8 +380,8 @@ test("changing account identity clears remembered tabs and the old Profile form"
       },
     }),
   );
-  await page.goto("/?format=guide");
-  await expect(formatChip(page, "Гайды")).toHaveAttribute(
+  await page.goto("/?topic=platform");
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -377,7 +389,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
   await page.getByRole("menuitem", { name: "Профиль" }).click();
   const name = page.getByRole("textbox", { name: "Имя", exact: true });
   await name.fill("Старый аккаунт");
-  await expect(homeLink(page)).toHaveAttribute("href", /format=guide/u);
+  await expect(homeLink(page)).toHaveAttribute("href", /topic=platform/u);
   const before = accountRequests;
   accountId = "22222222-2222-4222-8222-222222222222";
   await page.evaluate(() => {
@@ -387,7 +399,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
   await expect(name).toHaveValue("");
   await expect(homeLink(page)).toHaveAttribute("href", "/");
   await homeLink(page).click();
-  await expect(formatChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
+  await expect(topicChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
 });
 
 test("a cold tab shows its destination immediately while the route response is still pending", async ({
@@ -399,37 +411,37 @@ test("a cold tab shows its destination immediately while the route response is s
   await expectImmediateMobileNavigation(page);
 });
 
-test("external Home query changes update the selected format and results", async ({
+test("external Home query changes update the selected topic and remove retired format filters", async ({
   page,
 }) => {
   await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
-  // Текст поиска из старой ссылки Главная не применяет и убирает из адреса (решение владельца 09.10.2026).
-  await page.goto("/?format=note&q=навигация");
-  // SSR already exposes the selected button; loaded API content proves client navigation is mounted.
+  await page.goto("/?topic=platform&format=note&q=навигация");
   await expect(
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
-  const notes = page.getByRole("button", { name: "Заметки", exact: true });
-  await expect(notes).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("searchbox")).toHaveCount(0);
-  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBeNull();
-  // Native history integration uses the same search-parameter notification as an App Router link.
-  await page.evaluate(() => {
-    window.history.pushState(null, "", "/?format=guide");
-  });
-  await expect(
-    page.getByRole("button", { name: "Гайды", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.goBack();
-  await expect(notes).toHaveAttribute("aria-pressed", "true");
-  await formatChip(page, "Видео").click();
-  await expect(formatChip(page, "Видео")).toHaveAttribute(
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
+  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBeNull();
   await expect
     .poll(() => new URL(page.url()).searchParams.get("format"))
-    .toBe("video");
+    .toBeNull();
+  await page.evaluate(() => {
+    window.history.pushState(null, "", "/");
+  });
+  await expect(topicChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
+  await page.goBack();
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await topicChip(page, "Все").click();
+  await expect(topicChip(page, "Все")).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("topic"))
+    .toBeNull();
 });

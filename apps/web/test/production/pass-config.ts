@@ -31,8 +31,11 @@ export const productA = {
   taskCode: "aie-ch2-accounts-design",
 } as const;
 
-/** Бесплатная опубликованная практика: решение владельца 06.10.2026 в #938. */
+/** Retired by the owner's current-course-only cleanup (#1540); never republish as a test fixture. */
 export const freePracticeId = "inside-content:aie-github-app";
+/** Owner removed the only free practice in #1540; resume when the owner publishes a current one. */
+export const freePracticeDeferred =
+  "отложено до публикации владельцем актуальной бесплатной практики (#1540)";
 
 /**
  * Срок ручного AccessGrant identity `expired` (отчёт #905). До него клетки `expired` получают «не
@@ -114,6 +117,11 @@ export const passCells = [
   cell(
     "account-without-entitlement/read-free-practice/practice@learner-mcp",
     "allowed",
+    freePracticeDeferred,
+  ),
+  cell(
+    "account-without-entitlement/read-retired-practice/practice@learner-mcp",
+    "denied",
   ),
 
   cell("learner-product-a/read-product-a/body@browser", "allowed"),

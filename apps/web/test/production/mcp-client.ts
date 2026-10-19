@@ -36,6 +36,28 @@ export interface McpToolCall {
   readonly payload: McpToolPayload | null;
 }
 
+/** A denial must carry only its error, including all transport content blocks. */
+export function assertMcpDenial(raw: string, code: string): void {
+  const denial = z.strictObject({
+    ok: z.literal(false),
+    error: z.strictObject({ code: z.literal(code) }),
+  });
+  const message = z
+    .strictObject({
+      jsonrpc: z.literal("2.0"),
+      id: z.union([z.string(), z.number()]),
+      result: z.strictObject({
+        content: z.tuple([
+          z.strictObject({ type: z.literal("text"), text: z.string() }),
+        ]),
+        isError: z.boolean().optional(),
+        structuredContent: denial.optional(),
+      }),
+    })
+    .parse(rpcMessage(raw));
+  denial.parse(JSON.parse(message.result.content[0].text) as unknown);
+}
+
 /**
  * Вызов read-only tool учебного или владельческого MCP. Каждый запрос проходит allowlist прохода;
  * `accessToken: null` — вызов без Account.

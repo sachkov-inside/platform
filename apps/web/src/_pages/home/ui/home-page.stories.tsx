@@ -300,7 +300,7 @@ export const AiEngineeringCourse: Story = {
       }),
     ).toBeVisible();
     await expect(
-      within(card).getByRole("link", { name: /Открыть курс/u }),
+      within(card).getAllByRole("link", { name: /Открыть курс/u })[0],
     ).toHaveAttribute(
       "href",
       expect.stringContaining("/products/ai-engineering"),
@@ -499,6 +499,9 @@ export const AiFirstProductLoadsInPlaceMobile: Story = {
 
 /** Shared feed cards omit missing covers on Home and in the product Material catalog. */
 export const FeedWithoutCovers: Story = {
+  beforeEach: () => {
+    getQueryClient().clear();
+  },
   args: {
     result: { kind: "ready", value: home },
     feed: feed({

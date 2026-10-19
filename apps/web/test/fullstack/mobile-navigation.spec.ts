@@ -5,7 +5,7 @@ test("mobile navigation keeps real catalog context and public canvas", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.startsWith("mobile"));
-  await page.goto("/?format=guide");
+  await page.goto("/?topic=platform");
   await expect(
     page.getByRole("list", { name: "Материалы, страница 1" }),
   ).toBeVisible();
@@ -35,10 +35,10 @@ test("mobile navigation keeps real catalog context and public canvas", async ({
     .locator("[data-mobile-header]")
     .getByRole("link", { name: "Главная", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/\?format=guide$/u);
+  await expect(page).toHaveURL(/\/\?topic=platform$/u);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
   await expect(
-    page.getByRole("button", { name: "Гайды", exact: true }),
+    page.getByRole("button", { name: "Platform", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   expect(
     await page.evaluate(() => getComputedStyle(document.body).backgroundColor),
@@ -108,13 +108,13 @@ test("mobile navigation stays mounted without fading the document during tab cha
   expect(await observation).toEqual([]);
 });
 
-test("home notes are readable posts with dates and a format filter", async ({
+test("home notes are readable posts with dates and a topic filter", async ({
   page,
 }, testInfo) => {
-  await page.goto("/?format=note");
+  await page.goto("/?topic=platform");
   const notes = page.getByRole("region", { name: "Материалы", exact: true });
   await expect(
-    page.getByRole("button", { name: "Заметки", exact: true }),
+    page.getByRole("button", { name: "Platform", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(notes.locator("time").first()).toHaveAttribute("datetime", /T/u);
   await expect(notes.locator("[inert]")).toHaveCount(0);
