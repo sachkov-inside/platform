@@ -547,6 +547,10 @@ Owner billing tools `billing_<operation>` are described in
 [owner billing operations](#owner-billing-operations); they check `billing:manage`, not
 `materials:manage`.
 
+The prepared admin payment/access diagnostic is described in
+[the diagnostics runbook](production-diagnostics.md); its separate `platform:admin` check and
+rollout limitations do not change the existing authoring permissions.
+
 The complete exposed tool set is the generated snapshot `apps/backend/mcp/tool-surface.json`;
 `pnpm mcp:check` fails when the registered tools and that snapshot disagree, and `pnpm mcp:generate`
 rewrites it. Materials authoring exposes the `material_*`, `content_collection_*`, `product_*` and

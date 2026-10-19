@@ -38,7 +38,10 @@ import {
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../src/modules/materials/index.js";
-import { BillingOperations } from "../src/modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../src/modules/billing/index.js";
 import { Communications } from "../src/modules/communications/index.js";
 import { TrackingVisits } from "../src/modules/communications/facets/tracking-visits/tracking-visits.js";
 import {
@@ -145,6 +148,7 @@ const mcp = createMcpHttpServer({
   videos: app.get<Videos>(VIDEOS),
   communications: app.get(Communications),
   billing: app.get(BillingOperations),
+  diagnostics: app.get(PaymentDiagnostics),
   telemetry: app.get(WebTelemetry),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),
   identityIssuer: issuer,

@@ -1,3 +1,4 @@
+import { paidGrantSourceRef } from "../../domain/paid-grant-source-ref.js";
 import { accessCapabilitySchema } from "@inside/access-capabilities";
 import { productIdFromCapability } from "@inside/access-capabilities";
 import { productCapability } from "@inside/access-capabilities";
@@ -1627,7 +1628,7 @@ export class BillingPayments {
             if (capability === undefined) throw new Error("Empty paid benefit");
             const command = {
               eventRef: grantEventRef,
-              periodRef: `${row.id}:${capability}`,
+              periodRef: paidGrantSourceRef(row.id, capability),
               accountId: row.accountId,
               revision: 1,
               revoked: false,

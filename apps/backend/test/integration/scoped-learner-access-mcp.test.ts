@@ -30,7 +30,10 @@ import {
   type LogtoAccessTokenVerifier,
 } from "../../src/modules/accounts/index.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { BillingOperations } from "../../src/modules/billing/index.js";
+import {
+  BillingOperations,
+  PaymentDiagnostics,
+} from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
 import {
   CONTENT_ACCESS,
@@ -131,6 +134,7 @@ describe("scoped learner access over the learner MCP transport", () => {
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
       billing: application.get(BillingOperations),
+      diagnostics: application.get(PaymentDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

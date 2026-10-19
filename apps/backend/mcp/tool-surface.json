@@ -81,6 +81,7 @@
   "material_load",
   "material_preview",
   "material_save",
+  "payment_access_diagnostics",
   "playlist_load_composition",
   "playlist_save_composition",
   "product_load_composition",
