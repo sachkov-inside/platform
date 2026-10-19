@@ -455,11 +455,7 @@ function SeriesMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
-        <MaterialShareButton
-          compact
-          slug={material.slug}
-          title={material.title}
-        />
+        <MaterialShareButton slug={material.slug} title={material.title} />
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
             <span className="tabular-nums max-sm:hidden" data-series-duration>

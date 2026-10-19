@@ -1,6 +1,6 @@
 "use client";
 
-import { Share2 } from "lucide-react";
+import { Check, Upload } from "lucide-react";
 import { useId, useState } from "react";
 
 import { cn } from "@/shared/lib/utils";
@@ -14,15 +14,10 @@ import { Button } from "@/shared/ui/button";
 export interface MaterialShareButtonProps {
   readonly slug: string;
   readonly title: string;
-  readonly compact?: boolean;
 }
 
 /** Shares only the canonical material address, never the reader's private route context. */
-export function MaterialShareButton({
-  slug,
-  title,
-  compact = false,
-}: MaterialShareButtonProps) {
+export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
   const fieldId = useId();
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{
@@ -62,26 +57,27 @@ export function MaterialShareButton({
   return (
     <div
       className={cn(
-        "relative z-10 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
-        compact && (current === null ? "shrink-0" : "basis-full"),
+        "relative z-10 flex min-w-0 flex-wrap items-center gap-y-1",
+        current?.copied === false ? "basis-full" : "shrink-0",
       )}
     >
       <Button
         type="button"
         variant="ghost"
-        size="sm"
-        className={cn(
-          "min-h-11 gap-1.5 text-muted-foreground",
-          compact && "min-w-11 px-2",
-        )}
+        size="icon"
+        className="size-11 text-muted-foreground"
         disabled={pending}
         aria-label={`Поделиться материалом «${title}»`}
+        title={current?.copied === true ? "Ссылка скопирована" : "Поделиться"}
         onClick={() => void share()}
       >
-        <Share2 aria-hidden="true" className="size-4 shrink-0" />
-        <span className={compact ? "sr-only" : undefined}>Поделиться</span>
+        {current?.copied === true ? (
+          <Check aria-hidden="true" className="size-4" />
+        ) : (
+          <Upload aria-hidden="true" className="size-4" />
+        )}
       </Button>
-      <span aria-live="polite" className="text-xs text-muted-foreground">
+      <span aria-live="polite" className="sr-only">
         {current === null
           ? null
           : current.copied
@@ -90,9 +86,7 @@ export function MaterialShareButton({
       </span>
       {current?.copied === false ? (
         <div className="basis-full min-w-0 text-xs text-muted-foreground">
-          <label htmlFor={fieldId}>
-            Не удалось скопировать автоматически. Скопируйте ссылку:
-          </label>
+          <label htmlFor={fieldId}>Скопируйте ссылку:</label>
           <input
             id={fieldId}
             className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-base text-foreground sm:text-sm"
