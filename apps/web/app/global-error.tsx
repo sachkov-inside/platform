@@ -21,7 +21,7 @@ export default function GlobalError({
   return (
     <html lang="ru">
       <body>
-        <title>Страница недоступна · Sachkov Inside</title>
+        <title>Страница недоступна · Sachkov Dev</title>
         <StandalonePageError onRetry={retry} />
       </body>
     </html>

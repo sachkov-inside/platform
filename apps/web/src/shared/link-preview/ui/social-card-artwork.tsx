@@ -45,30 +45,27 @@ export function SocialCardArtwork({
             backgroundColor: PAPER,
             borderRadius: length(16),
             display: "flex",
-            flexDirection: "column",
             height: length(56),
             justifyContent: "center",
             width: length(56),
           }}
         >
-          <div
-            style={{
-              backgroundColor: ACCENT,
-              borderRadius: length(3),
-              display: "flex",
-              height: length(10),
-              width: length(10),
-            }}
-          />
-          <div
-            style={{
-              backgroundColor: INK,
-              display: "flex",
-              height: length(20),
-              marginTop: length(5),
-              width: length(10),
-            }}
-          />
+          <svg height={length(48)} viewBox="0 0 48 48" width={length(48)}>
+            <path
+              d="M33 14H23a10 10 0 0 0 0 20h10"
+              fill="none"
+              stroke={INK}
+              strokeLinecap="round"
+              strokeWidth="6"
+            />
+            <path
+              d="M28 14h5"
+              fill="none"
+              stroke={ACCENT}
+              strokeLinecap="round"
+              strokeWidth="6"
+            />
+          </svg>
         </div>
         <div
           style={{

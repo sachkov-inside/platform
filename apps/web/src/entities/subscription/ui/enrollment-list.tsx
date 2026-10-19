@@ -98,7 +98,7 @@ export function EnrollmentList({
                       ? "Входит в тариф"
                       : "Не входит в тариф"}
                   </dd>
-                  <dt>Списания Inside</dt>
+                  <dt>Списания Sachkov Dev</dt>
                   <dd>
                     {item.origin === "platform_payment"
                       ? "Условия оплаты — в разделе «Покупки»"

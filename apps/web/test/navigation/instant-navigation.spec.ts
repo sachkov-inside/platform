@@ -227,7 +227,7 @@ async function installProbe(page: Page) {
         // скрыт (решение владельца 09.10.2026): у скрытого подвала нет положения, и он не считается.
         const footer =
           document
-            .querySelector("main nav[aria-label='Документы Inside']")
+            .querySelector("main nav[aria-label='Документы Sachkov Dev']")
             ?.closest("footer") ?? null;
         if (footer !== null && footer.getClientRects().length > 0) {
           const position =

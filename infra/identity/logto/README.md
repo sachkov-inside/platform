@@ -73,7 +73,7 @@ Fork revision `inside.2` replaces exactly four upstream Experience files and app
   Platform light surfaces;
 - `containers/VerificationCode/use-sign-in-flow-code-verification.ts` turns a verified unknown
   email into a registration without the redundant provider confirmation;
-- `utils/sign-in-experience.ts` replaces the provider fallback title with `Sachkov Inside`.
+- `utils/sign-in-experience.ts` replaces the provider fallback title with the public website name (`Sachkov Dev`).
 
 The issue #116 patch keeps recipient throttling inside Logto. It makes the existing 10-send,
 600-second normalized-recipient guard atomic, retains reservations across ambiguous SMTP failures,

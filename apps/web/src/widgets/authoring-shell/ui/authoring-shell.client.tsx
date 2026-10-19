@@ -69,7 +69,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
             </span>
             <span>
               <span className="block text-sm font-semibold">
-                Редактор Inside
+                Редактор Sachkov Dev
               </span>
               <span className="block font-mono text-xs text-sidebar-foreground/60">
                 рабочее пространство

@@ -819,7 +819,7 @@ fi
 
 data_before="$(application_data_digest)"
 home_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --fail --noproxy '*' --resolve "sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent "https://sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}/")"
-if [[ "$home_response" != *"Sachkov Inside"* ]]; then
+if [[ "$home_response" != *"Sachkov Dev"* ]]; then
   echo "Caddy did not serve the Platform home" >&2
   exit 1
 fi

@@ -38,7 +38,7 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
       }
     } catch { /* An invalid link is never an actionable control. */ }
   }
-  return `<div class="inside-telegram-brand" aria-label="Sachkov Inside">sachkov<span>inside</span></div>
+  return `<div class="inside-telegram-brand" aria-label="Sachkov Dev">sachkov<span>dev</span></div>
     <div class="inside-telegram-content">
       <div class="inside-telegram-symbol" aria-hidden="true">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="m21 3-7.1 18-4-7-7-4L21 3Zm0 0L9.9 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -76,7 +76,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 `;
 
 export function renderTelegramSignInPage(view: InsideTelegramView): string {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram — Inside</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram — Sachkov Dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
 }
 
 export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }).replace('</body>', '<script src="/api/inside-telegram/script"></script></body>');
