@@ -122,4 +122,3 @@ WEB_BASE_URL=https://sachkov.dev
 LEARNER_MCP_URL=https://inside.sachkov.dev/mcp/learning
 EOF
 }
-

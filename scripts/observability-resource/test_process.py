@@ -1,0 +1,77 @@
+"""Real owned process groups and Unix sockets. No Docker or external providers."""
+import json
+from pathlib import Path
+import socket
+import socketserver
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from unittest.mock import patch
+import runtime
+
+PROCESS_FAILURE_SECONDS = .25
+SOCKET_PROBE_SECONDS = .1
+
+
+class Processes(unittest.TestCase):
+    def test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome(self):
+        fixture = runtime.ROOT / 'scripts/observability-pilot/fixtures/process.py'
+        for mode, expected in (('success',0),('failure',7),('timeout',124),('sigterm',143),('sigkill',137),('descendant',0)):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                output=Path(directory)
+                (output/'foreign-resource').write_text('preserve')
+                compose=[sys.executable,str(fixture),'compose',directory,'normal']
+                docker=[sys.executable,str(fixture),'docker',directory,'normal']
+                status=runtime.pilot.supervise_worker([sys.executable,str(fixture),'worker',directory,mode],compose,output,
+                    runtime.PROJECT_PREFIX+'012345abcdef',docker=docker,deadline_seconds=PROCESS_FAILURE_SECONDS,cleanup_services=runtime.SERVICES)
+                self.assertEqual(status,expected)
+                self.assertEqual((output/'foreign-resource').read_text(),'preserve')
+                self.assertFalse((output/'owned-resource').exists())
+                self.assertEqual(json.loads((output/'cleanup.json').read_text())['residue'],'passed')
+                if mode=='descendant':
+                    with socket.socket(socket.AF_UNIX) as probe:
+                        probe.settimeout(SOCKET_PROBE_SECONDS)
+                        with self.assertRaises((FileNotFoundError,ConnectionRefusedError)):
+                            probe.connect(str(output/'child.sock'))
+
+    def test_stats_slow_drip_is_bounded_by_external_reader_process_deadline(self):
+        class Handler(socketserver.StreamRequestHandler):
+            def handle(self):
+                try:
+                    while self.rfile.readline(4096).strip():
+                        pass
+                    self.wfile.write(b'HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n{')
+                    self.wfile.flush()
+                    for _ in range(999):
+                        time.sleep(.02)
+                        self.wfile.write(b' ')
+                        self.wfile.flush()
+                except (BrokenPipeError,ConnectionResetError):
+                    pass
+        with tempfile.TemporaryDirectory() as directory:
+            endpoint=Path(directory)/'engine.sock'
+            server=socketserver.ThreadingUnixStreamServer(str(endpoint),Handler)
+            server.daemon_threads=True
+            thread=threading.Thread(target=lambda:server.serve_forever(poll_interval=.01))
+            thread.start()
+            try:
+                command=[sys.executable,'-c','import sys;sys.path.insert(0,sys.argv[1]);import engine;engine.fetch(sys.argv[2],"a"*64)',str(runtime.SCRIPTS),'unix://'+str(endpoint)]
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    subprocess.run(command,capture_output=True,timeout=PROCESS_FAILURE_SECONDS)
+            finally:
+                server.shutdown();server.server_close();thread.join(1)
+                self.assertFalse(thread.is_alive())
+
+    def test_failed_down_preserves_private_env_for_registered_recovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            private=output/'runtime';private.mkdir();env=private/'api.env';env.write_text('private')
+            (output/'cleanup.json').write_text(json.dumps({'down':'failed','residue':'failed'}))
+            runtime.cleanup_private(output,acquired=True)
+            self.assertTrue(env.exists())
+            (output/'cleanup.json').write_text(json.dumps({'down':'passed','residue':'passed'}))
+            runtime.cleanup_private(output,acquired=True)
+            self.assertFalse(env.exists())

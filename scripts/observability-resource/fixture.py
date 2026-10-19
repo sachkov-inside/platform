@@ -100,6 +100,11 @@ def prepare(output, cache):
     plan['services']['api']['environment'] = {'INSIDE_OTEL_ENABLED': 'false', 'INSIDE_OTEL_ENDPOINT': 'http://alloy:4318', 'INSIDE_OTEL_SAMPLE_RATIO': '1'}
     private = output / 'provider'
     private.mkdir(mode=0o700)
+    query = json.loads((output / 'auth.json').read_text())['users'][0]['bearer_token']
+    query_directory = output / 'query'
+    query_directory.mkdir(mode=0o700)
+    (query_directory / 'key').write_text(query)
+    os.chmod(query_directory / 'key', 0o600)
     for name in ('provider', 'loadgen'):
         plan['services'][name] = {**shared, 'user': uid, 'mem_limit': '96m', 'cpus': '0.25',
             'volumes': [str(Path(__file__).with_name('client.mjs')) + ':/resource/client.mjs:ro',
@@ -107,6 +112,7 @@ def prepare(output, cache):
                         str(private) + ':/private:' + ('rw' if name == 'provider' else 'ro')],
             'command': ['node', '/resource/client.mjs', 'provider', '/private/token.json'] if name == 'provider'
                 else ['node', '-e', 'setInterval(()=>{},1000)']}
+    plan['services']['loadgen']['volumes'].append(str(query_directory) + ':/query:ro')
     # Core and application images must already exist locally; the prepared run cannot pull candidates.
     for item in plan['services'].values():
         item['pull_policy'] = 'never'

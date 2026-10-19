@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import socket
 import sys
+import time
 import measurements
 
 MAX_BYTES = 1_048_576
@@ -15,6 +16,7 @@ SOCKET_SECONDS = 1
 def fetch(endpoint, container):
     if not endpoint.startswith('unix:///') or not re.fullmatch(r'[a-f0-9]{64}', container):
         raise ValueError('closed_engine_read')
+    started = time.monotonic()
     connection = http.client.HTTPConnection('localhost', timeout=SOCKET_SECONDS)
     connection.sock = socket.socket(socket.AF_UNIX)
     connection.sock.settimeout(SOCKET_SECONDS)
@@ -27,7 +29,7 @@ def fetch(endpoint, container):
         body = response.read(MAX_BYTES + 1)
         if len(body) > MAX_BYTES:
             raise ValueError('engine_size')
-        return measurements.engine(json.loads(body))
+        return {'counters': measurements.engine(json.loads(body)), 'started': started, 'finished': time.monotonic()}
     finally:
         connection.close()
 
@@ -41,7 +43,7 @@ def main(output, ids):
         raise RuntimeError('engine_child_requires_registered_worker')
     # Current identity must match the recorded one before any Engine access.
     pilot.restore_daemon(owner)
-    if not isinstance(ids, list) or not 1 <= len(ids) <= 12 or len(set(ids)) != len(ids):
+    if not isinstance(ids, list) or not 1 <= len(ids) <= 12 or any(not isinstance(value,str) or not re.fullmatch(r'[a-f0-9]{64}',value) for value in ids) or len(set(ids)) != len(ids):
         raise ValueError('engine_container_set')
     endpoint = pilot.FROZEN_DOCKER_ENDPOINT
     result = {}

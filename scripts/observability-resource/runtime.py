@@ -5,6 +5,7 @@ import math
 import os
 from pathlib import Path
 import re
+import resource
 import signal
 import subprocess
 import sys
@@ -31,17 +32,27 @@ SAMPLER_STOP_SECONDS = 12
 MAX_ROUNDS = 20
 MISSING = ['accepted representative workload', 'Web/workers/broker/Umami/full MCP process corpus',
            'long steady/spike/concurrent storage queries/restart/loss ledger', 'all volume/log/temp bytes and inodes',
-           'physical-host/Timeweb baseline and reserve', 'full retention/deletion/isolated restore/pgBackRest',
+           'physical-host/Timeweb baseline and reserve', 'normalized whole-host CPU overhead and acceptance thresholds', 'full retention/deletion/isolated restore/pgBackRest',
            'production and seven days']
 
 
-def invoke(compose, args, *, timeout=COMMAND_SECONDS):
+def invoke(compose, args, *, timeout=COMMAND_SECONDS, retain_partial=False):
     deadline = time.monotonic() + timeout
     pilot.assert_docker_identity(deadline=deadline)
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError('resource_command_deadline')
-    result = subprocess.run(pilot.docker_args(compose + args), capture_output=True, text=True, timeout=remaining)
+    try:
+        result = subprocess.run(pilot.docker_args(compose + args), capture_output=True, text=True, timeout=remaining)
+    except subprocess.TimeoutExpired as error:
+        if not retain_partial:
+            raise
+        partial = error.stdout or b''
+        return partial.decode('utf-8') if isinstance(partial, bytes) else partial
+    if retain_partial:
+        if len(result.stdout.encode()) > 65_536:
+            raise ValueError('partial_client_size')
+        return result.stdout
     if result.returncode or len(result.stdout.encode()) > 1_048_576:
         raise RuntimeError('resource_command_failed')
     return result.stdout
@@ -52,7 +63,10 @@ def owned(rows, project):
         raise ValueError('owned_container_set')
     result = {}
     for row in rows:
-        labels = row.get('Config', {}).get('Labels', {})
+        if (not isinstance(row, dict) or any(not isinstance(row.get(key), dict) for key in ('Config','HostConfig','State'))
+                or not isinstance(row['Config'].get('Labels'), dict)):
+            raise ValueError('container_record_shape')
+        labels = row['Config']['Labels']
         name, container = labels.get('com.docker.compose.service'), row.get('Id')
         if (labels.get('com.docker.compose.project') != project or name not in (*SERVICES, 'storage-probe')
                 or name in result or not isinstance(container, str) or not re.fullmatch(r'[a-f0-9]{64}', container)):
@@ -87,35 +101,56 @@ def wait_ready(compose):
 
 
 def client(compose, action, *, timeout=PHASE_SECONDS):
-    raw = invoke(compose, ['exec', '-T', 'loadgen', 'node', '/resource/client.mjs', action, '/private/token.json'], timeout=timeout)
-    return json.loads(raw)
+    raw = invoke(compose, ['exec', '-T', 'loadgen', 'node', '/resource/client.mjs', action, '/private/token.json'], timeout=timeout, retain_partial=action == 'load')
+    return parse_phase(raw) if action == 'load' else json.loads(raw)
 
 
 def valid_sample(value):
     if (not isinstance(value, dict) or set(value) != {'label', 'outcome', 'status', 'elapsed_ms'}
             or value['label'] not in resource_profile.LABELS
-            or value['outcome'] not in ('ok', 'timeout', 'oversize', 'transport_error', 'unexpected_response', 'schedule_missed')
+            or value['outcome'] not in ('ok', 'timeout', 'oversize', 'transport_error', 'unexpected_response', 'schedule_missed', 'phase_aborted')
             or value['status'] is not None and (type(value['status']) is not int or not 100 <= value['status'] <= 599)
             or value['elapsed_ms'] is not None and (type(value['elapsed_ms']) not in (int, float) or not math.isfinite(value['elapsed_ms']) or not 0 <= value['elapsed_ms'] <= PHASE_SECONDS * 1000)
-            or (value['outcome'] == 'schedule_missed') != (value['elapsed_ms'] is None)
+            or (value['outcome'] in ('schedule_missed', 'phase_aborted')) != (value['elapsed_ms'] is None)
             or value['outcome'] == 'ok' and value['status'] != 200):
         raise ValueError('closed_latency_sample')
     return value
 
 
-def phase_result(raw):
-    if not isinstance(raw, dict) or set(raw) != {'samples', 'elapsed_seconds', 'client_cpu_seconds'}:
-        raise ValueError('closed_phase_fields')
-    if not isinstance(raw['samples'], list) or len(raw['samples']) != 100:
-        raise ValueError('closed_phase_samples')
-    for index, sample in enumerate(raw['samples']):
-        valid_sample(sample)
-        if sample['label'] != resource_profile.LABELS[index % 2]:
-            raise ValueError('closed_schedule')
-    for key in ('elapsed_seconds', 'client_cpu_seconds'):
-        if type(raw[key]) not in (int, float) or not math.isfinite(raw[key]) or not 0 <= raw[key] <= PHASE_SECONDS:
-            raise ValueError('closed_phase_counter')
-    return raw
+def parse_phase(text):
+    if not isinstance(text, str) or len(text.encode()) > 65_536:
+        raise ValueError('phase_size')
+    samples, warmup, completed = [], [], None
+    for line in text.splitlines(keepends=True):
+        if not line.endswith('\n'):
+            break  # interrupted final write has no acknowledged complete record
+        value = json.loads(line)
+        if not isinstance(value, dict):
+            raise ValueError('phase_record')
+        if value.get('kind') == 'warmup' and set(value) == {'kind','samples'} and not warmup and not samples:
+            if not isinstance(value['samples'], list) or len(value['samples']) != 20:
+                raise ValueError('warmup_shape')
+            warmup = [valid_sample(sample) for sample in value['samples']]
+        elif value.get('kind') == 'sample' and set(value) == {'kind','index','label','outcome','status','elapsed_ms'} and warmup and completed is None:
+            if type(value['index']) is not int or value['index'] != len(samples) or len(samples) >= 100:
+                raise ValueError('phase_index')
+            sample = valid_sample({key: value[key] for key in ('label','outcome','status','elapsed_ms')})
+            if sample['label'] != resource_profile.LABELS[len(samples) % 2]:
+                raise ValueError('phase_schedule')
+            samples.append(sample)
+        elif value.get('kind') == 'completed' and set(value) == {'kind','elapsed_seconds','client_cpu_seconds'} and len(samples) == 100 and completed is None:
+            for key in ('elapsed_seconds','client_cpu_seconds'):
+                if type(value[key]) not in (int,float) or not math.isfinite(value[key]) or not 0 <= value[key] <= PHASE_SECONDS:
+                    raise ValueError('phase_counter')
+            completed = value
+        else:
+            raise ValueError('closed_phase_record')
+    received = len(samples)
+    while len(samples) < 100:
+        samples.append({'label':resource_profile.LABELS[len(samples) % 2], 'outcome':'phase_aborted', 'status':None, 'elapsed_ms':None})
+    return {'samples':samples,'warmup_samples':warmup,'received_samples':received,'client_completed':completed is not None,
+            'elapsed_seconds':completed['elapsed_seconds'] if completed else None,
+            'client_cpu_seconds':completed['client_cpu_seconds'] if completed else None}
 
 
 def raw_round(output, states):
@@ -129,20 +164,23 @@ def raw_round(output, states):
     pilot.assert_docker_identity(deadline=deadline)
     if result.returncode or len(result.stdout.encode()) > 65_536:
         return {}
-    return json.loads(result.stdout)
+    value = json.loads(result.stdout)
+    if not isinstance(value,dict) or set(value) != {states[name]['container'] for name in ACTIVE}:
+        raise ValueError('closed_counter_container_set')
+    return value
 
 
 def operations(compose, states):
     result = {}
     for name in ACTIVE:
         if not states[name]['cgroup_private']:
-            result[name] = (None, None)
+            result[name] = None
             continue
         try:
             # Fixed read from each verified owned private cgroup, no host namespace or privileged mount.
-            result[name] = measurements.io_stat(invoke(compose, ['exec', '-T', name, 'cat', '/sys/fs/cgroup/io.stat'], timeout=3))
+            result[name] = measurements.io_devices(invoke(compose, ['exec', '-T', name, 'cat', '/sys/fs/cgroup/io.stat'], timeout=3))
         except (OSError, RuntimeError, subprocess.SubprocessError):
-            result[name] = (None, None)
+            result[name] = None
     return result
 
 
@@ -153,6 +191,8 @@ def measure(output, compose, project):
     before_io = operations(compose, states)
     samples, stop, failure = [], threading.Event(), []
     start = time.monotonic()
+    host_cpu = resource.getrusage(resource.RUSAGE_SELF)
+    child_cpu = resource.getrusage(resource.RUSAGE_CHILDREN)
     cpu = [0.0]
     def sample_loop():
         thread_start = time.thread_time()
@@ -163,10 +203,21 @@ def measure(output, compose, project):
                 rows = {}
                 for name in ACTIVE:
                     container = states[name]['container']
-                    data = raw.get(container, measurements.engine({}))
+                    reading = raw.get(container)
+                    data = measurements.engine({})
+                    finished, collection = time.monotonic(), None
+                    if reading is not None:
+                        if not isinstance(reading, dict) or set(reading) != {'counters','started','finished'}:
+                            raise ValueError('raw_reading_shape')
+                        begin, end = reading['started'], reading['finished']
+                        if (type(begin) not in (int,float) or type(end) not in (int,float) or not math.isfinite(begin)
+                                or not math.isfinite(end) or not start <= begin <= end <= time.monotonic()):
+                            raise ValueError('raw_reading_clock')
+                        data, finished, collection = reading['counters'], end, end-begin
                     if not isinstance(data, dict) or set(data) != set(measurements.engine({})) or any(value is not None and measurements.counter(value) is None for value in data.values()):
                         raise ValueError('closed_raw_counters')
-                    rows[name] = {'container':container, 'at_seconds':at, **data}
+                    rows[name] = {'container':container,'at_seconds':finished-start,'collection_seconds':collection,**data}
+
                 samples.append(rows)
                 stop.wait(resource_profile.load()['sample_interval_seconds'])
         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
@@ -176,7 +227,7 @@ def measure(output, compose, project):
     monitor = threading.Thread(target=sample_loop, name='owned-resource-sampler')
     monitor.start()
     try:
-        measured = phase_result(client(compose, 'load'))
+        measured = client(compose, 'load')
     finally:
         stop.set()
         monitor.join(SAMPLER_STOP_SECONDS)
@@ -191,15 +242,18 @@ def measure(output, compose, project):
     for name in ACTIVE:
         first, last = (samples[0][name], samples[-1][name]) if len(samples) >= 2 else ({}, {})
         elapsed = last.get('at_seconds', 0) - first.get('at_seconds', 0)
-        ns = measurements.delta(first, last, 'cpu_total_ns') if coherent else None
-        counts = []
-        for a, b in zip(before_io[name], after_io[name]):
-            counts.append(b - a if coherent and a is not None and b is not None and b >= a else None)
+        ns = measurements.series_delta([row[name] for row in samples], 'cpu_total_ns') if coherent else None
+        counts = measurements.io_delta(before_io[name], after_io[name]) if coherent else (None,None)
         counters[name] = {'cpu_seconds': ns / 1e9 if ns is not None else None,
             'cpu_interval_seconds': elapsed if ns is not None else None,
+            'cpu_interval_uncertainty_seconds': first['collection_seconds'] + last['collection_seconds'] if ns is not None and first.get('collection_seconds') is not None and last.get('collection_seconds') is not None else None,
             'io_read_operations_delta': counts[0], 'io_write_operations_delta': counts[1],
-            'memory_peak_charged_bytes': max((row[name]['memory_charged_bytes'] for row in samples if row[name]['memory_charged_bytes'] is not None), default=None)}
-    return {**measured, 'raw_samples':samples, 'counter_summary':counters, 'counter_errors':failure,
+            'memory_missing_samples': sum(row[name]['memory_charged_bytes'] is None for row in samples),
+            'memory_sampled_max_charged_bytes': max((row[name]['memory_charged_bytes'] for row in samples if row[name]['memory_charged_bytes'] is not None), default=None)}
+    current_cpu = resource.getrusage(resource.RUSAGE_SELF)
+    current_child_cpu = resource.getrusage(resource.RUSAGE_CHILDREN)
+    return {**measured, 'helper_host_cpu_seconds': current_cpu.ru_utime+current_cpu.ru_stime-host_cpu.ru_utime-host_cpu.ru_stime,
+            'helper_child_cpu_seconds':current_child_cpu.ru_utime+current_child_cpu.ru_stime-child_cpu.ru_utime-child_cpu.ru_stime, 'raw_samples':samples, 'counter_summary':counters, 'counter_errors':failure,
             'lifecycle_coherent':coherent, 'sampler_thread_cpu_seconds':cpu[0],
             'counter_window':'phase includes equal warmup; io brackets entire phase and sampling', 'state_before':states, 'state_after':final}
 
@@ -227,6 +281,18 @@ def worker(output):
             stage = 'acquisition'
             invoke(compose, ['up', '-d', *pilot.SERVICES, 'postgres', 'provider', 'loadgen'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
             wait_ready(compose)
+            stage = 'provider_readiness'
+            deadline = time.monotonic() + 60
+            while True:
+                try:
+                    invoke(compose, ['exec','-T','provider','node','-e',
+                        "const value=JSON.parse(require('node:fs').readFileSync('/private/token.json','utf8'));if(typeof value.token!=='string')process.exit(1)"],
+                        timeout=min(5,max(.01,deadline-time.monotonic())))
+                    break
+                except RuntimeError:
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError('provider_readiness_deadline') from None
+                    time.sleep(.25)
             stage = 'migrations'
             invoke(compose, ['run', '--rm', 'migrations'], timeout=60)
             for pair, order in enumerate(manifest['pairs']):
@@ -234,10 +300,14 @@ def worker(output):
                 for mode in order:
                     stage = 'api_' + mode
                     fixture.mode(output / 'compose.json', mode)
+                    phase_started = time.time()
                     invoke(compose, ['up', '-d', '--force-recreate', '--no-deps', 'api'], timeout=60)
                     deadline = time.monotonic() + 60
                     while True:
-                        ready = client(compose, 'ready', timeout=min(5, max(.01, deadline - time.monotonic())))
+                        try:
+                            ready = client(compose, 'ready', timeout=min(5, max(.01, deadline - time.monotonic())))
+                        except RuntimeError:
+                            ready = {'outcome':'not_ready'}
                         if ready.get('outcome') == 'ok':
                             break
                         if time.monotonic() >= deadline:
@@ -246,13 +316,20 @@ def worker(output):
                     if not proof['pairs'] and not result['modes']:
                         if client(compose, 'establish').get('outcome') != 'ok':
                             raise RuntimeError('owned_account_seed')
+                    if client(compose, 'protected-ready').get('outcome') != 'ok':
+                        raise RuntimeError('protected_fixture_readiness')
                     stage = 'measure_' + mode
                     result['modes'][mode] = measure(output, compose, owner['project'])
+                    observation = json.loads(invoke(compose, ['exec','-T','loadgen','node','/resource/client.mjs','metric','/query/key']))
+                    result['modes'][mode]['sdk_observation'] = sdk_observation(observation, phase_started, mode)
                     pilot.write_json(output / 'resource-proof.json', {**proof, 'partial_pair':result})
-                result['p95_overhead_percent'] = {label: measurements.overhead(result['modes']['off']['samples'], result['modes']['on']['samples'], label) for label in resource_profile.LABELS}
+                result['p95_overhead_percent'] = {label: measurements.overhead(result['modes']['off']['samples'], result['modes']['on']['samples'], label) if all(result['modes'][switch]['sdk_observation']['matches_configured_mode'] is True for switch in ('off','on')) else None for label in resource_profile.LABELS}
                 proof['pairs'].append(result)
                 pilot.write_json(output / 'resource-proof.json', proof)
-            proof['state'] = 'completed_short_profile' if all(mode['lifecycle_coherent'] and all(sample['outcome'] == 'ok' for sample in mode['samples']) for pair in proof['pairs'] for mode in pair['modes'].values()) else 'partial'
+            proof['state'] = 'completed_short_profile' if all(mode['lifecycle_coherent'] and mode['sdk_observation']['matches_configured_mode'] is True and mode['client_completed'] and not mode['counter_errors']
+                and all(sample['outcome'] == 'ok' for sample in mode['samples'] + mode['warmup_samples'])
+                and all(counter['cpu_seconds'] is not None and counter['memory_sampled_max_charged_bytes'] is not None
+                        and counter['io_read_operations_delta'] is not None for counter in mode['counter_summary'].values()) for pair in proof['pairs'] for mode in pair['modes'].values()) else 'partial'
             pilot.write_json(output / 'resource-proof.json', proof)
             evidence = json.loads((output / 'evidence.json').read_text())
             evidence.update({'resource_profile':manifest['profile'], 'status':proof['state'] + '; full resource acceptance pending'})
@@ -260,6 +337,37 @@ def worker(output):
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         pilot.write_json(output / 'readiness.json', {'stage':stage, 'state':'failed', 'error_type':type(error).__name__})
         raise RuntimeError('resource_phase_failed') from None
+
+
+def sdk_observation(value, started, mode):
+    if not isinstance(value,dict) or set(value)!={'state','latest_seconds'} or value['state'] not in ('known','unknown'):
+        raise ValueError('closed_sdk_observation')
+    latest=value['latest_seconds']
+    if latest is not None and (type(latest) not in (int,float) or not math.isfinite(latest) or not 0 < latest <= time.time()+2):
+        raise ValueError('sdk_observation_time')
+    fresh=latest is not None and latest >= started if value['state']=='known' else None
+    return {**value,'phase_started_seconds':started,'fresh_sample_observed':fresh,
+            'matches_configured_mode':fresh == (mode=='on') if fresh is not None else None,
+            'scope':'one bounded post-phase query, not an absence or no-loss guarantee'}
+
+
+def cleanup_private(output, *, acquired=False):
+    # Never touch a preexisting/refused output, or break env_file recovery after failed down.
+    if acquired is not True or not (output / 'cleanup.json').is_file() or (output / 'cleanup.json').is_symlink():
+        return
+    cleanup = json.loads((output / 'cleanup.json').read_text())
+    if not isinstance(cleanup, dict) or cleanup.get('down') != 'passed' or cleanup.get('residue') != 'passed':
+        return
+    names = {'runtime':('runtime.env','api.env','mcp.env','migrations.env','material-assets-worker.env',
+                        'profile-avatars-worker.env','video-deletions-worker.env','billing-worker.env','notifications-worker.env','web.env'),
+             'provider':('token.json','token.json.new'), 'query':('key',)}
+    for directory, files in names.items():
+        private = output / directory
+        if private.is_dir() and not private.is_symlink():
+            for name in files:
+                path = private / name
+                if path.is_file() and not path.is_symlink():
+                    path.unlink()
 
 
 def main():
@@ -272,23 +380,26 @@ def main():
     if args.action == 'worker':
         return worker(output)
     if args.action == 'recover':
-        return ci.recover(output, project_prefix=PROJECT_PREFIX, services=SERVICES)
-    # WIP checkpoint: never run incomplete measurement semantics.
+        result = ci.recover(output, project_prefix=PROJECT_PREFIX, services=SERVICES)
+        if result.get('down') == 'passed' and result.get('residue') == 'passed':
+            cleanup_private(output, acquired=True)
+        return result
+    # Unreviewed checkpoint. Resume notes list missing contracts/bindings before enabling run.
     raise RuntimeError('resource_runner_incomplete_no_runtime')
     if not args.images or args.images.is_symlink() or args.images.stat().st_size > 4096:
         raise ValueError('private_cache_manifest_required')
     cache = json.loads(args.images.read_text())
     resource_profile.load()
+    acquired = False
+    def prepare_owned(path):
+        nonlocal acquired
+        fixture.prepare(path, cache)
+        acquired = True
     try:
-        return pilot.run(output, prepare_inputs=lambda path: fixture.prepare(path, cache), worker_script=Path(__file__).resolve(),
+        return pilot.run(output, prepare_inputs=prepare_owned, worker_script=Path(__file__).resolve(),
                          project_prefix=PROJECT_PREFIX, services=SERVICES, scope='short proposed real API SDK-only resource experiment', missing=MISSING.copy())
     finally:
-        for directory in ('runtime', 'provider'):
-            private = output / directory
-            if private.is_dir() and not private.is_symlink():
-                for path in private.iterdir():
-                    if path.is_file() and not path.is_symlink():
-                        path.unlink()
+        cleanup_private(output, acquired=acquired)
 
 
 if __name__ == '__main__':

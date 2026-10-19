@@ -73,4 +73,38 @@ def overhead(off, on, label):
     before, after = (percentile([sample['elapsed_ms'] for sample in samples], .95) for samples in (a, b))
     if before is None or before <= 0 or after is None:
         return None
-    return (after / before - 1) * 100
+    value = (after / before - 1) * 100
+    return value if math.isfinite(value) else None
+
+
+def io_devices(text):
+    """Preserve device identity, so a replacement cannot hide a per-device counter reset."""
+    if io_stat(text) == (None, None):
+        return None
+    result = {}
+    for line in text.splitlines():
+        fields = line.split()
+        values = dict(field.split('=') for field in fields[1:])
+        result[fields[0]] = [int(values['rios']), int(values['wios'])]
+    return result
+
+
+def io_delta(before, after):
+    if before is None or after is None or set(before) != set(after):
+        return None, None
+    result = [0, 0]
+    for device in before:
+        for index in range(2):
+            a, b = before[device][index], after[device][index]
+            if b < a:
+                return None, None
+            result[index] += b - a
+    return tuple(result)
+
+
+
+def series_delta(samples, key):
+    if len(samples) < 2:
+        return None
+    values = [delta(a,b,key) for a,b in zip(samples,samples[1:])]
+    return sum(values) if all(value is not None for value in values) else None

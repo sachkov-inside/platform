@@ -48,3 +48,10 @@ class Counters(unittest.TestCase):
         self.assertAlmostEqual(measurements.overhead(off, on, 'public_index'), 10)
         self.assertIsNone(measurements.overhead(off, [{**sample, 'outcome': 'timeout'}], 'public_index'))
         self.assertIsNone(measurements.overhead(off, on[:-1], 'public_index'))
+
+    def test_device_replacement_or_individual_reset_cannot_hide_in_totals(self):
+        first = measurements.io_devices('8:0 rios=10 wios=10\n8:1 rios=2 wios=2')
+        later = measurements.io_devices('8:0 rios=1 wios=1\n8:1 rios=100 wios=100')
+        self.assertEqual(measurements.io_delta(first,later),(None,None))
+        self.assertEqual(measurements.io_delta(first,measurements.io_devices('8:2 rios=20 wios=20')),(None,None))
+        self.assertEqual(measurements.io_delta(first,measurements.io_devices('8:0 rios=12 wios=13\n8:1 rios=2 wios=2')),(2,3))
