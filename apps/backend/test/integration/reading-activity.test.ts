@@ -1,3 +1,4 @@
+import { activityTestClock } from "./setup/activity-test-clock.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
@@ -872,6 +873,8 @@ describe("ReadingActivity on PostgreSQL", () => {
     });
   });
   test("reads genuine learning-start and manual transition events without reconstructing legacy opens", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
     const product = await series();
     const id = await material([product]);
     const account = randomUUID();
@@ -943,10 +946,9 @@ describe("ReadingActivity on PostgreSQL", () => {
       expectedVersion: 1,
       isRead: false,
     });
-    const report = await new ReadingActivityFacts(database.prisma).read({
-      from: "2026-10-01T00:00:00Z",
-      to: "2026-10-31T00:00:00Z",
-    });
+    const report = await new ReadingActivityFacts(database.prisma).read(
+      clock.window,
+    );
     if (!report.ok) throw new Error(report.error.code);
     expect(
       report.value.rows
@@ -962,7 +964,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       data: {
         accountId: legacy,
         productId: product,
-        startedAt: new Date("2026-10-05T00:00:00Z"),
+        startedAt: clock.at,
       },
     });
     await home.recordOpen({
@@ -1004,10 +1006,9 @@ describe("ReadingActivity on PostgreSQL", () => {
         Prisma.sql`alter table reading_activity.learning_started_events drop constraint fail_fixture`,
       );
     }
-    const after = await new ReadingActivityFacts(database.prisma).read({
-      from: "2026-10-01T00:00:00Z",
-      to: "2026-10-31T00:00:00Z",
-    });
+    const after = await new ReadingActivityFacts(database.prisma).read(
+      clock.window,
+    );
     if (!after.ok) throw new Error(after.error.code);
     expect(after.value.rows.some((row) => row.accountId === legacy)).toBe(
       false,

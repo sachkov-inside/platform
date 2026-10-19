@@ -1,7 +1,8 @@
+import { activityTestClock } from "./setup/activity-test-clock.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   Prisma,
   createPrismaClient,
@@ -430,6 +431,8 @@ describe("Bookmarks on PostgreSQL", () => {
     ).toEqual({ ok: false, error: { code: "invalid_request" } });
   });
   test("records only actual bookmark transitions under concurrent duplicate delivery", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
     const materialId = await material();
     const accountId = randomUUID();
     const facts = new BookmarkActivityFacts(database.prisma);
@@ -442,10 +445,7 @@ describe("Bookmarks on PostgreSQL", () => {
       bookmarks.removeBookmark(command),
       bookmarks.removeBookmark(command),
     ]);
-    const report = await facts.read({
-      from: "2026-10-01T00:00:00Z",
-      to: "2026-10-31T00:00:00Z",
-    });
+    const report = await facts.read(clock.window);
     if (!report.ok) throw new Error(report.error.code);
     expect(
       report.value.rows
@@ -466,6 +466,8 @@ describe("Bookmarks on PostgreSQL", () => {
     });
   });
   test("journal failure rolls back bookmark state and legacy state is not backfilled as activity", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
     const materialId = await material();
     const accountId = randomUUID();
     const command = { accountId, materialId };
@@ -489,14 +491,13 @@ describe("Bookmarks on PostgreSQL", () => {
       data: {
         accountId,
         materialId,
-        bookmarkedAt: new Date("2026-10-02T00:00:00Z"),
+        bookmarkedAt: clock.at,
       },
     });
     await bookmarks.addBookmark(command);
-    const report = await new BookmarkActivityFacts(database.prisma).read({
-      from: "2026-10-01T00:00:00Z",
-      to: "2026-10-31T00:00:00Z",
-    });
+    const report = await new BookmarkActivityFacts(database.prisma).read(
+      clock.window,
+    );
     if (!report.ok) throw new Error(report.error.code);
     expect(report.value.rows.some((row) => row.accountId === accountId)).toBe(
       false,
