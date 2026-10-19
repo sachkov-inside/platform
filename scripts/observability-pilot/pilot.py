@@ -43,7 +43,7 @@ COMPRESSED_ASSET_MEMORY_BUDGET_BYTES = 128 * 1024**2
 PLUGIN_UNPACKED_BUDGET_BYTES = 256 * 1024**2
 
 
-def compose_plan(source, output, images):
+def compose_plan(source, output, images, *, credential_owner):
     """Only loopback fixture ingress, query ingress and human Grafana are published."""
     services = {}
     budgets = {"metrics": (768, .4), "logs": (768, .4), "traces": (768, .4),
@@ -63,10 +63,13 @@ def compose_plan(source, output, images):
     services["alloy"].update({"command": ["run", "/etc/alloy/config.alloy", "--storage.path=/tmp/alloy"],
         "ports": ["127.0.0.1:14318:4318"],
         "volumes": [f"{source / 'config.alloy'}:/etc/alloy/config.alloy:ro"]})
-    services["vmauth"].update({"command": ["-auth.config=/config/auth.json", "-maxConcurrentRequests=4",
+    # The private auth bind mount is mode 0600; its owner can read it without DAC_OVERRIDE.
+    services["vmauth"].update({"user": f"{credential_owner[0]}:{credential_owner[1]}",
+        "command": ["-auth.config=/config/auth.json", "-maxConcurrentRequests=4",
         "-maxConcurrentPerUserRequests=2", "-maxQueueDuration=1s", "-httpListenAddr=:8427"],
         "volumes": [f"{output / 'auth.json'}:/config/auth.json:ro"]})
-    services["gateway"].update({"ports": ["127.0.0.1:18427:8080"],
+    # The pinned vendor binary has effective NET_BIND_SERVICE file capability; dropping it prevents exec.
+    services["gateway"].update({"cap_add": ["NET_BIND_SERVICE"], "ports": ["127.0.0.1:18427:8080"],
         "volumes": [f"{source / 'Caddyfile'}:/etc/caddy/Caddyfile:ro"],
         "environment": {"XDG_CONFIG_HOME": "/tmp/config", "XDG_DATA_HOME": "/tmp/data"}})
     services["grafana"].update({"ports": ["127.0.0.1:13000:3000"],
@@ -292,7 +295,9 @@ def prepare(output):
     token = secrets.token_urlsafe(32)
     write_json(output / "auth.json", auth_config(token))
     os.chmod(output / "auth.json", 0o600)
-    write_json(output / "compose.json", compose_plan(CONFIG, output, lock["images"]))
+    auth_owner = (output / "auth.json").stat()
+    write_json(output / "compose.json", compose_plan(CONFIG, output, lock["images"],
+        credential_owner=(auth_owner.st_uid, auth_owner.st_gid)))
     datasources = [
         {"name": "Pilot metrics", "uid": "pilot-metrics", "type": "prometheus",
          "url": "http://gateway:8080/metrics", "access": "proxy", "editable": False},
