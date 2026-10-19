@@ -17,6 +17,7 @@ async function verifyDiagram(
   const figure = page.locator("figure").filter({ has: image });
   const loaded = async (id: string) => {
     await expect(image).toHaveAttribute("src", new RegExp(id, "u"));
+    await expect(image).toHaveAttribute("srcset", /\d+w/u);
     await image.scrollIntoViewIfNeeded();
     await expect
       .poll(() =>

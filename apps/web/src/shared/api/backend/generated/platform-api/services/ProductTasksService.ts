@@ -204,6 +204,12 @@ export class ProductTasksService {
         cover: {
           alt: string;
           assetId: string;
+          height?: number;
+          variants?: Array<{
+            height: number;
+            width: number;
+          }>;
+          width?: number;
         } | null;
         summary: string;
         title: string;
@@ -321,6 +327,12 @@ export class ProductTasksService {
         cover: {
           alt: string;
           assetId: string;
+          height?: number;
+          variants?: Array<{
+            height: number;
+            width: number;
+          }>;
+          width?: number;
         } | null;
         summary: string;
         title: string;

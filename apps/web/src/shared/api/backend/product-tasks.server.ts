@@ -147,19 +147,22 @@ export function requestProductTaskAssetDelivery(input: {
   readonly productSlug: string;
   readonly code: string;
   readonly assetId: string;
+  readonly variantWidth?: number;
   readonly accessToken?: string;
   readonly signal: AbortSignal;
 }): Promise<Response> {
-  return fetch(
+  const url = new URL(
     `${readBackendBaseUrl()}/library/products/${encodeURIComponent(input.productSlug)}/tasks/${encodeURIComponent(input.code)}/assets/${encodeURIComponent(input.assetId)}`,
-    {
-      cache: "no-store",
-      redirect: "manual",
-      headers:
-        input.accessToken === undefined
-          ? {}
-          : { authorization: `Bearer ${input.accessToken}` },
-      signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
-    },
   );
+  if (input.variantWidth !== undefined)
+    url.searchParams.set("width", String(input.variantWidth));
+  return fetch(url, {
+    cache: "no-store",
+    redirect: "manual",
+    headers:
+      input.accessToken === undefined
+        ? {}
+        : { authorization: `Bearer ${input.accessToken}` },
+    signal: AbortSignal.any([input.signal, AbortSignal.timeout(10_000)]),
+  });
 }

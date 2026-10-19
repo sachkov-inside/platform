@@ -25,11 +25,12 @@ export function ProfileAvatar({
         ? "size-11 shrink-0 text-sm"
         : "size-12 shrink-0 text-sm";
   // Аватар видит только владелец профиля, поэтому картинка идёт через его собственный адрес.
-  const imageUrl =
+  const imageBase =
     avatar === null
       ? null
-      : `/api/account/profile/avatar/${encodeURIComponent(avatar.avatarId)}/320`;
+      : `/api/account/profile/avatar/${encodeURIComponent(avatar.avatarId)}`;
 
+  const imageUrl = imageBase === null ? null : `${imageBase}/320`;
   if (shouldUseAvatarImage(imageUrl, failedImageUrl)) {
     return (
       /* eslint-disable-next-line next/no-img-element -- the protected route requires the viewer's session and cannot pass through the Next optimizer */
@@ -41,7 +42,20 @@ export function ProfileAvatar({
         onError={() => {
           setFailedImageUrl(imageUrl);
         }}
+        sizes={
+          size === "large"
+            ? "(min-width: 640px) 96px, 80px"
+            : size === "header"
+              ? "44px"
+              : "48px"
+        }
         src={imageUrl}
+        srcSet={[160, 320, 640]
+          .map(
+            (pixels) =>
+              `${imageBase ?? ""}/${String(pixels)} ${String(pixels)}w`,
+          )
+          .join(", ")}
         width={320}
       />
     );

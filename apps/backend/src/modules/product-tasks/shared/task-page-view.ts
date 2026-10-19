@@ -17,7 +17,16 @@ export interface TaskPageView {
   readonly title: string;
   readonly summary: string;
   readonly body: RenderedMaterialBody;
-  readonly cover: { readonly assetId: string; readonly alt: string } | null;
+  readonly cover: {
+    readonly assetId: string;
+    readonly alt: string;
+    readonly width?: number;
+    readonly height?: number;
+    readonly variants?: readonly {
+      readonly width: number;
+      readonly height: number;
+    }[];
+  } | null;
   readonly artifacts: readonly {
     readonly sourceId: string;
     readonly title: string;
@@ -102,6 +111,9 @@ export async function taskPageView(
     if (!loaded.ok) return loaded;
     presentations = loaded.value;
   }
+  const coverPresentation = presentations.find(
+    (asset) => asset.assetId === cover?.assetId,
+  );
   return {
     ok: true,
     value: {
@@ -113,7 +125,17 @@ export async function taskPageView(
         cover:
           cover === undefined
             ? null
-            : { assetId: cover.assetId, alt: page.source.coverAlt ?? "" },
+            : {
+                assetId: cover.assetId,
+                alt: page.source.coverAlt ?? "",
+                ...(coverPresentation?.kind === "image"
+                  ? {
+                      width: coverPresentation.width,
+                      height: coverPresentation.height,
+                      variants: coverPresentation.variants,
+                    }
+                  : {}),
+              },
         artifacts: (page.source.artifacts ?? []).flatMap((artifact) => {
           const asset =
             page.resolvedImages[`artifact:${artifact.sourceId}`] ??

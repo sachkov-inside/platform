@@ -148,4 +148,55 @@ describe("S3 object storage adapter", () => {
     });
     expect(hosts).toEqual(["127.0.0.1:9000"]);
   });
+  test("caches only public image bytes and invalidates them on delete", async () => {
+    let deleted = false;
+    const send = vi.fn(
+      (command: DeleteObjectCommand | GetObjectCommand | PutObjectCommand) => {
+        if (command.constructor.name === "DeleteObjectCommand") {
+          deleted = true;
+          return Promise.resolve({});
+        }
+        if (deleted)
+          return Promise.reject(
+            Object.assign(new Error("Missing object"), { name: "NoSuchKey" }),
+          );
+        return Promise.resolve({
+          Body: {
+            transformToByteArray: () =>
+              Promise.resolve(new Uint8Array([1, 2, 3])),
+          },
+          Metadata: { sha256: "hash" },
+          ContentLength: 3,
+          ContentType: "image/webp",
+        });
+      },
+    );
+    const storage = createS3ObjectStorage(
+      {
+        buckets: {
+          public: "public",
+          protected: "protected",
+          quarantine: "quarantine",
+        },
+        credentials: { accessKeyId: "access", secretAccessKey: "secret" },
+        endpoint: "https://storage.yandexcloud.net",
+        forcePathStyle: false,
+        region: "ru-central1",
+      },
+      { send },
+    );
+    for (let i = 0; i < 20; i++)
+      await storage.read("public", "assets/image.webp");
+    expect(send).toHaveBeenCalledTimes(1);
+    for (const namespace of ["protected", "quarantine"] as const) {
+      await storage.read(namespace, "assets/image.webp");
+      await storage.read(namespace, "assets/image.webp");
+    }
+    expect(send).toHaveBeenCalledTimes(5);
+    await storage.delete("public", "assets/image.webp");
+    await expect(
+      storage.read("public", "assets/image.webp"),
+    ).resolves.toBeNull();
+    expect(send).toHaveBeenCalledTimes(7);
+  });
 });

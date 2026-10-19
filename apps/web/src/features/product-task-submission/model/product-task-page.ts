@@ -62,7 +62,22 @@ export const productTaskPageSchema = z.discriminatedUnion("access", [
               summary: z.string(),
               body: renderedMaterialBodySchema,
               cover: z
-                .object({ assetId: z.string(), alt: z.string() })
+                .object({
+                  assetId: z.string(),
+                  alt: z.string(),
+                  width: z.number().int().positive().optional(),
+                  height: z.number().int().positive().optional(),
+                  variants: z
+                    .array(
+                      z
+                        .object({
+                          width: z.number().int().positive(),
+                          height: z.number().int().positive(),
+                        })
+                        .strict(),
+                    )
+                    .optional(),
+                })
                 .strict()
                 .nullable(),
               artifacts: z.array(

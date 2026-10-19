@@ -15,10 +15,12 @@ export class ProductTaskAssetsService {
     assetId,
     code,
     slug,
+    width,
   }: {
     assetId: string,
     code: string,
     slug: string,
+    width?: number,
   }): CancelablePromise<void> {
     return this.httpRequest.request({
       method: 'GET',
@@ -27,6 +29,9 @@ export class ProductTaskAssetsService {
         'assetId': assetId,
         'code': code,
         'slug': slug,
+      },
+      query: {
+        'width': width,
       },
       errors: {
         302: `Protected asset redirect`,

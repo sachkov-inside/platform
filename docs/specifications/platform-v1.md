@@ -1049,7 +1049,10 @@ landing-page promises retain their current owners. Prices and access contracts r
 2. Один narrow S3-compatible port обслуживает Yandex Object Storage production adapter и тот же
    conformance contract для RustFS integration. Public, protected и quarantine — разные private
    buckets/namespaces; provider SDK types, storage keys и signed URLs не входят в MaterialBody или
-   browser state.
+   browser state. API caches only immutable public WebP bytes in a process-local LRU (up to 16 MiB
+   and 128 entries, 60 seconds); concurrent reads of one key share one provider request. Authorization,
+   content-version and current-reference checks still run before delivery. Protected/quarantine reads,
+   missing objects, failed reads and non-image files are not retained; deletion invalidates the key.
 3. Image finalize безопасно decode-ит AVIF/JPEG/PNG/WebP с bounded pixels, применяет orientation,
    удаляет EXIF, хранит normalized original только protected и создаёт public/protected WebP
    variants до 480/960/1600 px. File bytes сохраняются immutable в public и protected namespace.
