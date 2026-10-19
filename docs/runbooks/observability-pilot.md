@@ -529,7 +529,8 @@ receiver/exporter counters `18`, но timestamp на 10,53 секунды ста
 Дополнительная подготовленная проверка выполняется только после исходного observation и
 шести after queries, до переключения режима. Она сравнивает две фиксированные scalar queries
 `max(timestamp(...))` для dotted metric с quoted `"service.name"="platform-api"`: без override
-и с `latency_offset=0`. У пары одинаковый `time`, но запросы последовательны и не имеют общего
+и с `latency_offset=1ms`. Поле `immediate` означает минимальную поддерживаемую задержку 1 мс,
+а не нулевую. У пары одинаковый `time`, но запросы последовательны и не имеют общего
 storage snapshot. До трёх пар с интервалом 2 секунды используют один абсолютный deadline
 8 секунд. Polling прекращается при свежем immediate sample; command вместе с проверкой
 identity ограничен 10 секундами. Максимум добавляется шесть GET на ON-фазу, двенадцать на
@@ -549,8 +550,14 @@ scalar строки и признаки свежести относительн�
 задаёт `search.latencyOffset=30s`, читает per-query `latency_offset` и сдвигает instant-query
 evaluation time вблизи текущего времени (строки 36–38, 835–846, 1110–1114).
 [Официальное описание query latency](https://docs.victoriametrics.com/victoriametrics/keyconcepts/#query-latency)
-также предупреждает: даже с нулевым offset недавно принятые buffered samples могут ещё не
-быть видимыми. Это source-backed гипотеза для коротких фаз, не установленная runtime RCA.
+также предупреждает, что недавно принятые buffered samples могут ещё не быть видимыми.
+Однако pinned [GetDuration](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/httputil/duration.go)
+после перевода в миллисекунды отклоняет `msecs <= 0` (строки 19–31), поэтому `0` и `0s`
+недопустимы, а минимум равен `1ms`. SHA256 проверенного файла:
+`7085d337f12acd3cb8de4a5eb3e8719c612f49d5d23044c11bb9f4fb3609551b`.
+Предыдущий аргумент `0` был дефектом запроса. Это не доказывает единственную причину
+исторического UNKNOWN, поскольку HTTP-статус не сохранён. Проверка `1ms` на pinned runtime
+ещё не выполнена. Query latency остаётся source-backed гипотезой для коротких фаз.
 Глобальные flags, ACL, collector и flush не меняются. Новый paired diagnostic ожидает
 review и фактического запуска с точным source-bound образом.
 

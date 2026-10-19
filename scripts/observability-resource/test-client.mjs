@@ -751,7 +751,16 @@ test("paired latency probe isolates the fixed query override and bounds delayed 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://owned");
     seen.push(url);
-    const immediate = url.searchParams.get("latency_offset") === "0";
+    // Pinned v1.154.0 lib/httputil/duration.go:28-31 rejects 0ms; minimum 1ms.
+    // https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/httputil/duration.go
+    // This closed HTTP fixture checks the caller contract, not the real VM parser/runtime.
+    const offset = url.searchParams.get("latency_offset");
+    if (offset !== null && offset !== "1ms") {
+      res.writeHead(400);
+      res.end();
+      return;
+    }
+    const immediate = offset === "1ms";
     const value = mode === "hidden" && immediate ? String(started + 0.5) : null;
     res.end(
       JSON.stringify({
@@ -794,7 +803,7 @@ test("paired latency probe isolates the fixed query override and bounds delayed 
       seen[1]?.searchParams.get("time"),
     );
     assert.equal(seen[0]?.searchParams.get("latency_offset"), null);
-    assert.equal(seen[1]?.searchParams.get("latency_offset"), "0");
+    assert.equal(seen[1]?.searchParams.get("latency_offset"), "1ms");
     assert.equal(
       seen[0]?.searchParams.get("query"),
       'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?","service.name"="platform-api"}))',
@@ -836,7 +845,7 @@ test("latency polling keeps delayed, missing and failed reads distinct without l
     const immediate =
       new URL(req.url ?? "/", "http://owned").searchParams.get(
         "latency_offset",
-      ) === "0";
+      ) === "1ms";
     const value =
       mode === "delayed" && count > 2 && immediate
         ? String(started + 0.5)
