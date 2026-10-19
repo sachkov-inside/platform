@@ -254,7 +254,7 @@
   }
 }
 .home-feed {
-  max-width: 42rem;
+  max-width: 38rem;
   margin: 2.5rem auto 0;
   scroll-margin-top: 2rem;
 }
@@ -347,8 +347,8 @@
 .home-feed-artwork {
   position: relative;
   display: block;
-  width: min(28rem, 100%);
-  margin: 1rem auto 0;
+  width: 100%;
+  margin: 1rem 0 0;
   text-decoration: none;
 }
 .home-feed-link-domain {

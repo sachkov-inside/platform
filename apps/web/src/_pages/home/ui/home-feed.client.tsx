@@ -286,7 +286,6 @@ function FeedSkeleton() {
               className={`aspect-video w-full rounded-xl ${skeletonBlock}`}
             />
           </div>
-          <div className="mt-4 min-h-11" />
         </div>
       ))}
     </div>
@@ -297,7 +296,16 @@ function FeedSkeleton() {
 export function HomeFeedLoading() {
   return (
     <section className="home-feed" aria-busy="true" aria-label="Материалы">
-      <div className="home-feed-toolbar" aria-hidden="true" />
+      <div className="home-feed-toolbar" aria-hidden="true">
+        <div className="home-feed-filters">
+          {["w-14", "w-16", "w-16", "w-20"].map((width, index) => (
+            <div
+              key={index}
+              className={`h-9 shrink-0 rounded-full sm:h-11 ${width} ${skeletonBlock}`}
+            />
+          ))}
+        </div>
+      </div>
       <p className="sr-only" role="status">
         Загружаем материалы…
       </p>

@@ -121,7 +121,7 @@ export function MaterialCard({
           video ? "video" : material.formatSlug === "note" ? "note" : "material"
         }
         fallbackSeed={material.slug}
-        sizes="(min-width: 768px) 28rem, 100vw"
+        sizes="(min-width: 768px) 38rem, 100vw"
       />
     </AccessCover>
   ) : null;
@@ -243,18 +243,7 @@ export function MaterialCard({
           </span>
         </a>
       )}
-      <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <IntentPrefetchLink
-          className="relative z-10 inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
-          href={readerHref}
-        >
-          {video
-            ? "Смотреть видео"
-            : excerpt === undefined || excerpt.truncated
-              ? "Читать дальше"
-              : "Открыть заметку"}
-          <ChevronRight aria-hidden="true" className="size-4" />
-        </IntentPrefetchLink>
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
         {!hasCover && duration !== undefined ? (
           <span className="inline-flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
             <Clock3 aria-hidden="true" className="size-3.5" />
