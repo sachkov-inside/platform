@@ -12,7 +12,7 @@ from test_retention import batch
 
 
 class CorpusCallbackContinuity(unittest.TestCase):
-    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None):
+    def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None, source_cluster=None):
         project = recovery.PROJECT_PREFIX + 'a' * 12
         image = json.loads(recovery.CACHE_LOCK.read_text())['image']
         with tempfile.TemporaryDirectory() as directory:
@@ -50,6 +50,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     return json.dumps({'id': image, 'architecture': 'arm64', 'os': 'linux'})
                 if args[:2] == ['volume', 'ls']:
                     return ''
+                if payload is not None and 'db' in args and source_cluster is not None and "'version_num'" in payload:
+                    return json.dumps(source_cluster)
                 if payload is not None and 'recovered' in args:
                     if recovered_cluster is not None and "'version_num'" in payload:
                         return json.dumps(recovered_cluster)
@@ -66,7 +68,7 @@ class CorpusCallbackContinuity(unittest.TestCase):
                             return 'private-sentinel'
                     if failure == 'postmaster_lineage' and "'version_num'" in payload:
                         return json.dumps({'version_num': 180004, 'system_identifier': '9999999999999999999',
-                            'archive_mode': 'off', 'archive_command': 'pgbackrest --stanza=production archive-push %p'})
+                            'archive_mode': 'off', 'archive_command': '(disabled)'})
                     if failure == 'postmaster_later' and "'remaining'" in payload:
                         return 'private-sentinel'
                 if payload is not None:
@@ -80,7 +82,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
                             'logto_connect_denied': True, 'no_role_membership': True, 'own_database': True})
                     if "'version_num'" in payload:
                         return json.dumps({'version_num': 180004, 'system_identifier': '1234567890123456789',
-                            'archive_mode': 'on' if 'recovered' not in states else 'off', 'archive_command': 'pgbackrest --stanza=production archive-push %p'})
+                            'archive_mode': 'on' if 'recovered' not in states else 'off',
+                            'archive_command': 'pgbackrest --stanza=production archive-push %p' if 'recovered' not in states else '(disabled)'})
                     if "'deleted_event_reappeared'" in payload:
                         return json.dumps({'deleted_event_reappeared': 1, 'expired_events_reappeared': 502})
                     if "'recovery_ended'" in payload:
@@ -166,6 +169,39 @@ class CorpusCallbackContinuity(unittest.TestCase):
                              ['backup', 'restore', 'reader', 'ingest'])
             self.assertEqual(result['state'], 'passed')
             self.assertEqual(result['reader_gate'], 'opened_after_replay_and_current_ttl')
+
+    def test_pg18_offline_archive_display_reaches_replay_before_opening_readers(self):
+        report, _calls = self.run_corpus(whole_controller=True)
+        self.assertEqual(report['state'], 'passed')
+        self.assertEqual(report['recovered_postmaster']['outcome'], 'passed')
+        self.assertEqual(report['restored_platform'], {'platform_rows': 1, 'platform_untouched': True})
+        self.assertEqual(report['reader_gate'], 'opened_after_replay_and_current_ttl')
+
+    def test_source_and_offline_archive_views_reject_crossed_or_arbitrary_values(self):
+        metadata = {'version_num': 180004, 'system_identifier': '1234567890123456789'}
+        command = 'pgbackrest --stanza=production archive-push %p'
+        cases = [('source', 'on', '(disabled)'), ('source', 'off', '(disabled)'),
+            ('source', 'off', command), ('source', 'on', ''),
+            ('source', 'on', 'private-sentinel'), ('source', 'always', command),
+            ('recovered', 'off', command), ('recovered', 'on', '(disabled)'),
+            ('recovered', 'on', command), ('recovered', 'off', ''),
+            ('recovered', 'off', 'private-sentinel'), ('recovered', 'always', '(disabled)')]
+        for index, (actor, mode, displayed) in enumerate(cases):
+            with self.subTest(case=index, actor=actor):
+                values = {**metadata, 'archive_mode': mode, 'archive_command': displayed}
+                report, calls = self.run_corpus('archive_view', whole_controller=True,
+                    **{('source_cluster' if actor == 'source' else 'recovered_cluster'): values})
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                forbidden = ('backup', 'restore', 'recovered', 'read-db', 'reader', 'ingest') if actor == 'source' else ('read-db', 'reader', 'ingest')
+                self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in forbidden for args in calls))
+                if actor == 'source':
+                    self.assertEqual(report['stage'], 'source_database')
+                else:
+                    self.assertEqual(report['recovered_postmaster']['step'], 'cluster')
+                    self.assertEqual(report['recovered_postmaster']['cluster_validation'],
+                        {'schema': 1, 'invalid_field': 'archive_mode' if mode != 'off' else 'archive_command'})
 
     def test_pg_diag_01_diagnostic_callback_survives_stanza_check_backup_restore_and_sql_actors(self):
         self.run_corpus()
@@ -267,7 +303,7 @@ class CorpusCallbackContinuity(unittest.TestCase):
 
     def test_recovered_metadata_rejection_identifies_only_the_invalid_field(self):
         valid = {'version_num': 180004, 'system_identifier': '1234567890123456789',
-            'archive_mode': 'off', 'archive_command': 'pgbackrest --stanza=production archive-push %p'}
+            'archive_mode': 'off', 'archive_command': '(disabled)'}
         cases = [('shape', []), ('shape', {'private-sentinel': 'private-sentinel'}),
             ('shape', {**valid, 'private-sentinel': 'private-sentinel'})]
         for field, values in (
