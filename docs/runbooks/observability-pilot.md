@@ -211,7 +211,9 @@ failed outcome сохраняются для ручного восстановл
 зависшего процесса ответа и сохранность foreign resource. Отдельные регрессии проверяют
 monitor signals внутри down и replacement identity между diagnostics и down. Это не Docker/OrbStack runtime evidence. Полная потеря supervisor/host
 сохраняет прежнее ограничение ручного exact-owner recovery. Recovery также сверяет OrbStack
-identity и использует закреплённый socket; при несовпадении отказывает.
+identity и использует закреплённый socket; при несовпадении отказывает. Для recovery нужна ровно
+одна полная запись Linux или OrbStack identity. Отсутствующая, пустая, повреждённая или
+неоднозначная запись запрещает cleanup до обращения к Docker; fallback на текущий daemon нет.
 
 `storage-host.json` и `storage-vm.json` содержат только начальные/последние числовые измерения
 и filesystem identity, без backing path, socket, env, argv или raw errors. Они включены

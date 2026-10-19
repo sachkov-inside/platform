@@ -631,17 +631,54 @@ def supervise_worker(execute, compose, output, project, *, docker=("docker",),
     return status
 
 
-def restore_daemon(owner):
-    """Never trust a recorded endpoint as authority to mutate a daemon."""
-    global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
-    identity = owner.get('orbstack') or owner.get('daemon')
-    if identity:
-        if not isinstance(identity, dict):
+def validate_recorded_daemon_identity(identity, *, linux):
+    """Validate the current ownership-record format without consulting Docker."""
+    common = {'context', 'endpoint', 'daemon_id', 'storage', 'socket_device', 'socket_inode'}
+    expected = common | ({'platform'} if linux else {'backing'})
+    if not isinstance(identity, dict) or set(identity) != expected:
+        raise ValueError('invalid recorded Docker identity')
+    for key in ('context', 'endpoint', 'daemon_id', 'storage'):
+        value = identity[key]
+        if (not isinstance(value, str) or not 0 < len(value) <= 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in value)):
             raise ValueError('invalid recorded Docker identity')
-        current = daemon.identify(command) if identity.get('platform') == 'linux' else orbstack.identify(command, home=Path.home())
-        if current != identity:
-            raise RuntimeError('Docker recovery identity changed; manual owner inspection required')
-        FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY = current['endpoint'], current
+    if (not identity['endpoint'].startswith('unix:///')
+            or not Path(identity['storage']).is_absolute()
+            or type(identity['socket_device']) is not int or identity['socket_device'] < 0
+            or type(identity['socket_inode']) is not int or identity['socket_inode'] <= 0):
+        raise ValueError('invalid recorded Docker identity')
+    if linux:
+        if identity['platform'] != 'linux':
+            raise ValueError('invalid recorded Docker identity')
+    else:
+        backing = identity['backing']
+        if (identity['context'] != 'orbstack' or identity['storage'] != '/var/lib/docker'
+                or not isinstance(backing, dict) or set(backing) != {'path', 'device', 'inode'}
+                or not isinstance(backing['path'], str) or not 0 < len(backing['path']) <= 4096
+                or any(ord(char) < 32 or ord(char) == 127 for char in backing['path'])
+                or not Path(backing['path']).is_absolute()
+                or type(backing['device']) is not int or backing['device'] < 0
+                or type(backing['inode']) is not int or backing['inode'] <= 0):
+            raise ValueError('invalid recorded Docker identity')
+
+
+def restore_daemon(owner):
+    """Require one valid, freshly matched identity before permitting mutation."""
+    global FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY
+    if not isinstance(owner, dict):
+        raise ValueError('invalid recorded Docker identity')
+    # The unused platform is absent or null; other falsey values are malformed.
+    records = [(name, owner[name]) for name in ('orbstack', 'daemon')
+               if name in owner and owner[name] is not None]
+    if len(records) != 1:
+        raise ValueError('invalid recorded Docker identity: exactly one variant required')
+    name, identity = records[0]
+    linux = name == 'daemon'
+    validate_recorded_daemon_identity(identity, linux=linux)
+    current = daemon.identify(command) if linux else orbstack.identify(command, home=Path.home())
+    if current != identity:
+        raise RuntimeError('Docker recovery identity changed; manual owner inspection required')
+    FROZEN_DOCKER_ENDPOINT, FROZEN_DOCKER_IDENTITY = current['endpoint'], current
 
 
 def worker_storage_guard(owner, compose, output):

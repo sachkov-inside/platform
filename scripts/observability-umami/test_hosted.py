@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('umami_hosted', Path(__file__).with_name('hosted.py'))
 hosted = importlib.util.module_from_spec(spec)
@@ -29,9 +30,14 @@ class HostedBoundaries(unittest.TestCase):
     def test_live_worker_is_not_recovered_by_another_owner(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
-            (output/'owner.json').write_text(json.dumps({'project':hosted.runtime.PROJECT_PREFIX+'0123456789ab','cwd':str(hosted.ROOT)}))
+            (output/'owner.json').write_text(json.dumps({'project':hosted.runtime.PROJECT_PREFIX+'0123456789ab','cwd':str(hosted.ROOT), 'daemon': {'platform':'linux','context':'default',
+                'endpoint':'unix:///fixture/docker.sock','daemon_id':'owned','storage':'/var/lib/docker',
+                'socket_device':1,'socket_inode':2}}))
             (output/'worker.json').write_text(json.dumps({'pid':os.getpid(),'group':os.getpid()}))
-            with self.assertRaisesRegex(ValueError, 'worker still exists'):
+            identity = json.loads((output/'owner.json').read_text())['daemon']
+            with patch.object(hosted.ci.pilot.daemon, 'identify', return_value=identity), \
+                    patch.multiple(hosted.ci.pilot, FROZEN_DOCKER_ENDPOINT=None, FROZEN_DOCKER_IDENTITY=None), \
+                    self.assertRaisesRegex(ValueError, 'worker still exists'):
                 hosted.ci.recover(output, project_prefix=hosted.runtime.PROJECT_PREFIX, services=hosted.runtime.SERVICES)
 
     def test_source_binding_includes_the_shared_supervisor_and_native_lock(self):

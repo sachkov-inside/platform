@@ -19,7 +19,7 @@ backing = state / 'data.img.raw'
 if role == 'parent':
     backing.write_bytes(b'backing')
 identity = {'context':'orbstack','endpoint':'unix:///fixture/docker.sock','daemon_id':'fixture',
-            'storage':'/var/lib/docker','backing':orbstack.backing_identity('n'+str(backing))}
+            'storage':'/var/lib/docker','socket_device':1,'socket_inode':2,'backing':orbstack.backing_identity('n'+str(backing))}
 
 def command(args, **kwargs):
     if args[:2] == ['git','-C']:
