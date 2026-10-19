@@ -926,11 +926,12 @@ test("latency polling keeps delayed, missing and failed reads distinct without l
   }
 });
 
-// deterministic-test-allow unit-io: original observation reads its private key and one fixed scalar through an owned loopback server; finally removes files and closes every socket.
-test("post-phase SDK observation queries the observed raw service contract with minimum latency", async () => {
+// deterministic-test-allow unit-io: original observation reads its private key and one fixed scalar through an owned loopback server; test cleanup hooks remove files and close every socket, including setup failures.
+test("post-phase SDK observation queries the observed raw service contract with minimum latency", async (t) => {
   const directory = await mkdtemp(
     join(tmpdir(), "inside-resource-observation-"),
   );
+  t.after(() => rm(directory, { recursive: true, force: true }));
   const filename = join(directory, "query.key");
   await writeFile(filename, "A".repeat(43), { mode: 0o600 });
   /** @type {URL[]} */ const seen = [];
@@ -966,47 +967,45 @@ test("post-phase SDK observation queries the observed raw service contract with 
       }),
     );
   });
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
   await new Promise((resolve) =>
     server.listen(0, "127.0.0.1", () => resolve(undefined)),
   );
   const address = server.address();
   assert.ok(address && typeof address !== "string");
   const transport = { host: "127.0.0.1", port: address.port, timeoutMs: 100 };
-  try {
-    assert.deepEqual(await metric(filename, transport), {
-      state: "known",
-      latest_seconds: 95,
-    });
-    assert.equal(seen.length, 1);
-    assert.equal(seen[0]?.pathname, "/metrics/api/v1/query");
-    assert.deepEqual(
-      [...(seen[0]?.searchParams.keys() ?? [])],
-      ["query", "latency_offset"],
-    );
-    timestamp = "89";
-    assert.deepEqual(await metric(filename, transport), {
-      state: "known",
-      latest_seconds: 89,
-    });
-    timestamp = null;
-    assert.deepEqual(await metric(filename, transport), {
-      state: "known",
-      latest_seconds: null,
-    });
-    failed = true;
-    assert.deepEqual(await metric(filename, transport), {
-      state: "unknown",
-      latest_seconds: null,
-    });
-    assert.equal(seen.length, 4);
-    await assert.rejects(
-      metric(filename, { ...transport, timeoutMs: 8001 }),
-      /closed query budget/u,
-    );
-    assert.equal(seen.length, 4);
-  } finally {
-    server.closeAllConnections();
-    await new Promise((resolve) => server.close(resolve));
-    await rm(directory, { recursive: true, force: true });
-  }
+  assert.deepEqual(await metric(filename, transport), {
+    state: "known",
+    latest_seconds: 95,
+  });
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0]?.pathname, "/metrics/api/v1/query");
+  assert.deepEqual(
+    [...(seen[0]?.searchParams.keys() ?? [])],
+    ["query", "latency_offset"],
+  );
+  timestamp = "89";
+  assert.deepEqual(await metric(filename, transport), {
+    state: "known",
+    latest_seconds: 89,
+  });
+  timestamp = null;
+  assert.deepEqual(await metric(filename, transport), {
+    state: "known",
+    latest_seconds: null,
+  });
+  failed = true;
+  assert.deepEqual(await metric(filename, transport), {
+    state: "unknown",
+    latest_seconds: null,
+  });
+  assert.equal(seen.length, 4);
+  await assert.rejects(
+    metric(filename, { ...transport, timeoutMs: 8001 }),
+    /closed query budget/u,
+  );
+  assert.equal(seen.length, 4);
 });
