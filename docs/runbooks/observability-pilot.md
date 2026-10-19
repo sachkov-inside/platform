@@ -154,7 +154,8 @@ Bootstrap acquisition имеет timeout 60s; public worker deadline остаё�
 `storage-probe` входит в этот собственный project. Он non-root, read-only, без сети,
 capabilities, Docker socket и privileged mode, с 16MiB memory / 0.05 CPU / 8 pids. Единственный
 read-only bind — подтверждённый daemon DockerRootDir; missing path не создаётся. Фиксированная команда `stat -f` выполняется отдельным `compose exec -T` только в собственном
-probe каждые 250ms. Каждый запрос несёт новый случайный challenge, который должен вернуться
+probe с паузой 250ms после завершённой попытки измерения. Это не гарантированный период опроса 250ms.
+Каждый запрос несёт новый случайный challenge, который должен вернуться
 в единственном ответе с filesystem ID/type, fundamental block size и counters. Старые или
 буферизованные logs не читаются. На ответ от нового процесса отводится максимум 1s,
 проверяемая также host monotonic clock; отрицательная/слишком большая длительность либо
