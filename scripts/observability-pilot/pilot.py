@@ -5,6 +5,7 @@ from contextlib import contextmanager, nullcontext
 import hashlib
 import io
 import json
+import math
 import os
 from pathlib import Path
 import platform
@@ -331,9 +332,18 @@ def _raw_command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
     return subprocess.run(docker_args(args), check=True, capture_output=True, text=True, timeout=timeout).stdout
 
 
-def assert_docker_identity():
+def assert_docker_identity(*, deadline=None):
+    if deadline is not None and (isinstance(deadline, bool) or not isinstance(deadline, (int, float)) or not math.isfinite(deadline)):
+        raise ValueError('invalid Docker identity deadline')
     if FROZEN_DOCKER_IDENTITY is not None:
-        read = lambda args: _raw_command(args, timeout=orbstack.IDENTITY_COMMAND_TIMEOUT_SECONDS)
+        def read(args):
+            timeout = orbstack.IDENTITY_COMMAND_TIMEOUT_SECONDS
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError('Docker identity deadline exhausted')
+                timeout = min(timeout, remaining)
+            return _raw_command(args, timeout=timeout)
         current = daemon.identify(read) if FROZEN_DOCKER_IDENTITY.get('platform') == 'linux' else orbstack.identify(read, home=Path.home())
         if current != FROZEN_DOCKER_IDENTITY:
             raise RuntimeError('Docker identity changed; mutations refused, manual owner recovery required')

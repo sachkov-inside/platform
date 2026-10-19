@@ -12,6 +12,24 @@ SITE = '00000000-0000-4000-8000-000000000001'
 
 
 class GatewayPolicy(unittest.TestCase):
+    def test_exact_utc_horizon_includes_event_boundary_and_bounds_implicit_stats_comparison(self):
+        cutoff = NOW - gateway.HISTORY_MS
+        event = f'/api/websites/{SITE}/events?startAt={cutoff}&endAt={cutoff + gateway.DAY_MS}'
+        self.assertTrue(gateway.read_path('GET', event, NOW).startswith(event))
+        stats = f'/api/websites/{SITE}/stats?startAt={cutoff + gateway.DAY_MS}&endAt={cutoff + 2 * gateway.DAY_MS}'
+        self.assertEqual(gateway.read_path('GET', stats, NOW), stats)
+        for path in (event.replace(str(cutoff), str(cutoff - 1)),
+                     stats.replace(str(cutoff + gateway.DAY_MS), str(cutoff + gateway.DAY_MS - 1))):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                gateway.read_path('GET', path, NOW)
+
+    def test_windowless_discovery_is_metadata_only_other_history_details_are_unsupported(self):
+        self.assertTrue(gateway.read_path('GET', '/api/websites', NOW).startswith('/api/websites?'))
+        for suffix in ('stats', 'events', 'sessions', 'sessions/' + SITE, 'event-data',
+                       'session-data', 'metrics', 'replays', 'heatmaps'):
+            with self.subTest(suffix=suffix), self.assertRaises(ValueError):
+                gateway.read_path('GET', f'/api/websites/{SITE}/{suffix}', NOW)
+
     def test_recent_stats_is_allowed(self):
         self.assertEqual(gateway.read_path('GET', f'/api/websites/{SITE}/stats?startAt=1799996400000&endAt=1800000000000', NOW), f'/api/websites/{SITE}/stats?startAt=1799996400000&endAt=1800000000000')
 

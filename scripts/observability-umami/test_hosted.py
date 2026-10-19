@@ -22,9 +22,10 @@ class HostedBoundaries(unittest.TestCase):
             for name in ('reader.key', 'init.sql', 'compose.json', 'fixture-state.json', 'upstream-errors.log'):
                 (output/name).write_text('{"secret":"sentinel-private-fixture"}')
             (output/'umami-proof.json').write_text('{"query":"passed"}')
+            (output/'umami-retention.json').write_text('{"state":"partial"}')
             (metadata/'source.json').write_text('{"source":"fixture"}')
             hosted.ci.collect(output, metadata, public, artifacts=hosted.ARTIFACTS)
-            self.assertEqual(sorted(path.name for path in public.iterdir()), ['source.json', 'umami-proof.json'])
+            self.assertEqual(sorted(path.name for path in public.iterdir()), ['source.json', 'umami-proof.json', 'umami-retention.json'])
             self.assertNotIn('sentinel-private', ''.join(path.read_text() for path in public.iterdir()))
 
     def test_live_worker_is_not_recovered_by_another_owner(self):
@@ -44,5 +45,8 @@ class HostedBoundaries(unittest.TestCase):
         names = {str(path.relative_to(hosted.ROOT)) for path in hosted.source_inputs()}
         self.assertTrue({'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/pilot.py',
                          'scripts/observability-pilot/storage_policy.py', 'infra/observability/umami/mcp/package-lock.json',
+                         'scripts/observability-umami/retention.sql', 'scripts/observability-umami/retention-corpus.sql',
+                         'scripts/observability-umami/retention-proof.sql', 'infra/observability/umami/schema-fixture.sql',
+                         'scripts/observability-umami-retention.pg.test.mjs',
                          '.github/workflows/observability-umami.yml'} <= names)
         self.assertTrue(all(path.is_file() for path in hosted.source_inputs()))

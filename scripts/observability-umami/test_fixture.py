@@ -87,6 +87,20 @@ class Capture(unittest.TestCase):
                                                  'error': 'http_status', 'http_status': 403})
         self.assertNotIn('sentinel', str(failed.exception))
 
+    def test_retention_query_requires_recent_data_and_denies_old_or_windowless_reads(self):
+        state = {'site': '00000000-0000-4000-8000-000000000001', 'key': 'umami_' + 'a' * 32}
+        calls = []
+        def response(base, path, **kwargs):
+            calls.append((path, kwargs.get('expected', 200)))
+            if kwargs.get('expected') == 403:
+                return {}
+            return {'data': [{'eventName': 'ttl_recent', 'createdAt': '2026-10-19T11:59:00.000Z'}]}
+        with patch.object(fixture.time, 'time', return_value=1792411200), patch.object(fixture, 'call', side_effect=response):
+            result = fixture.retention_query(state)
+        self.assertEqual(result, {'history_window_denied': True, 'windowless_detail_denied': True,
+                                  'recent_events_visible_before_cleanup': True})
+        self.assertGreaterEqual(sum(status == 403 for _, status in calls), 6)
+
     def test_default_page_fields_do_not_enter_capture(self):
         raw = {'route': 'material', 'url': 'https://private.invalid/alice?email=secret#token', 'title': 'private-title', 'referrer': 'https://private.invalid/secret', 'data': {'email': 'private-email'}, 'id': 'private-account'}
         result = fixture.capture(raw, '00000000-0000-4000-8000-000000000001')

@@ -1,25 +1,33 @@
 # Изолированный пилот Umami
 
 Это подготовленный компонент #1566 к спецификации #1565. Он не включает tracker в Platform,
-не меняет legal-редакции и не означает готовность production. Runtime-проверка на Linux,
-полный каталог аналитики, native MCP по stdio на Mac, очистка/restore и измерения ресурсов
-ещё требуют фактического доказательства. Локальные Python contracts не заменяют эти проверки.
+не меняет legal-редакции и не означает готовность production. API/native MCP совместимость,
+privacy/read-only/revocation подтверждены на Mac и Linux для указанного ниже source tree.
+Retention runner подготовлен; его новый полный supervised corpus, полный каталог аналитики,
+restore и resource acceptance ещё требуют отдельного доказательства.
 
 ## Закреплённый комплект и проверенные defaults
 
 [inputs.lock.json](../../infra/observability/umami/inputs.lock.json) закрепляет Umami 3.4.0,
 PostgreSQL 16.13 и Python 3.13.12 OCI index digest. Там же находятся URL и SHA256 прочитанных
 файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Digest подтверждён registry
-manifest. Фактические supervised запуски Mac (`9d38522d`) и Linux CI (`39297716250`, тот же
-source tree) завершились на `synthetic_seed`; monitor не отказал, diagnostics/down/residue прошли,
-собственных ресурсов после cleanup не осталось. Успешная совместимость ещё не доказана.
+manifest. [Compatibility evidence #1566](https://github.com/sachkov-inside/platform/issues/1566#issuecomment-6274005423):
+Mac source `fbb1a9c970edef6648e76496885a551cf4bcca21`, tree
+`c779b356c9b4bf7e99fd93947952d1119c464f11`, explicit Node 26.10.0 — native
+`get_website_stats`, один известный pageview, privacy, mutation denial и key revocation PASS.
+Linux [run 39299627883](https://github.com/sachkov-inside/platform/actions/runs/39299627883),
+checkout `36eb90bb`, имеет тот же tree и SUCCESS. Monitor не отказал; diagnostics/down/residue
+PASS, собственных containers/volumes/networks после cleanup — 0. Это API/MCP compatibility,
+не history TTL, capacity, resource acceptance или pgBackRest proof.
 
 Источник закреплённого [POST /api/teams](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/teams/route.ts)
 возвращает результат [createTeam](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/team.ts)
 как tuple `[Team, TeamUser]`. Прежний seed ошибочно требовал объект. Регрессия воспроизводит
 этот отказ по форме ответа; отдельный adapter проверяет UUID, связь teamId и owner role до
-использования идентификатора. Старые runtime evidence не содержат seed substage, поэтому
-нельзя исключить более ранний сбой. Повторный supervised запуск исправленного source pending.
+использования идентификатора. Исторические Mac `9d38522d` и Linux `39297716250` завершились
+на seed; их закрытые отчёты не определяли substage. Последующие успешные compatibility proofs
+выше заменяют этот отказ как текущий статус. Первая попытка `fbb1a9c9` отказала на host Node
+25.2.1; повтор с явным pinned Node 26.10.0 прошёл без ослабления version guard.
 
 В закреплённом [send handler](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/send/route.ts)
 по умолчанию сохраняются query/hash URL, title, referrer path/query, UTM, click IDs и свойства.
@@ -151,8 +159,10 @@ Query gateway работает с numeric UID/GID владельца private rea
    не echo/tee/upload. Default admin password заменяется случайным до создания данных.
 3. Записать key в существующий inode mode 0600. Через native stdio проверить discovery и
    `get_website_stats`: ожидается правильный website и ровно один fixture pageview.
-4. Запустить API privacy/read-only corpus и отзыв ключа. Опубликовать только проверенную
-   закрытую форму `umami-proof.json`, без дополнительных provider fields.
+4. После native baseline, до отзыва ключа выполнить synthetic retention corpus: проверить
+   gateway при физически ещё сохранённых старых событиях, partial/full drain и idempotent retry.
+   Публиковать закрытый `umami-retention.json`, затем выполнить API privacy/read-only corpus,
+   отзыв ключа и сохранить `umami-proof.json`, без произвольных provider fields.
 5. Source metadata связывает checkout SHA/tree, provider execution/PR head/base, run/attempt
    и hashes shared supervisor/guards, собственного runner/config, npm locks и workflow.
 6. При любом исходе остановить собственный project и volumes, проверить residue. Recovery
@@ -170,22 +180,69 @@ reader key, npm installation, seed output и raw provider errors исключе�
 credentials, response body, exception text или произвольный stderr. Ошибки других команд
 остаются без provider diagnostics. Stage/status/container state следуют общему pilot contract.
 
-## Очистка и восстановление: подготовленный SQL
+## Очистка истории: bounded drainer и proof foundation
 
-[retention.sql](../../scripts/observability-umami/retention.sql) — owned deployment adapter
-именно к закреплённой схеме Umami, не cross-schema чтение доменных таблиц Platform.
-Native website reset удаляет всю историю, поэтому не подходит для rolling retention.
-Один запуск SQL удаляет не более 500 строк каждой таблицы за transaction, с lock/statement
-budgets. Сначала удаляются expired/orphan event properties и revenue, затем события;
-отдельно — session properties, identity links, replay/heatmap и неиспользуемые старые sessions.
-Свежая session, всё ещё нужная сохранённому событию, не удаляется по одному её created_at.
-NULL event times считаются недействительными и подлежат удалению.
+[retention.py](../../scripts/observability-umami/retention.py) управляет
+[retention.sql](../../scripts/observability-umami/retention.sql) только в отдельной базе `umami`
+от роли `umami`. Platform/Telegram migrations, доменные таблицы и общие TTL не меняются.
+Cutoff берётся из DB clock в UTC: `transaction_timestamp() - INTERVAL '365 days'` и фиксируется
+между batches; точная граница сохраняется (`created_at >= cutoff`). NULL event times удаляются.
+Metadata `snapshot_at` — начало REPEATABLE READ transaction; `cutoff_age_seconds` показывает
+отставание фиксированной границы от часов текущего batch. Это не календарный год.
 
-Этот SQL **ещё не проверен на реальном PostgreSQL**. До принятия нужны fixed corpus
-на границе 365 суток, повторные batches, orphan properties/sessions/identifiers, concurrent
-insert, измеренная cleanup lag и проверка ограничений схемы/индексов. Планировщик и proof
-физической очистки в следующие сутки пока не реализованы. Query gateway уже ограничивает
-разрешённое чтение, но это не заменяет физическое удаление.
+Один batch — transaction с nonblocking advisory ownership, statement timeout 1 секунда,
+lock timeout 250 ms, idle transaction timeout 2 секунды, не более 500 строк каждой из девяти
+telemetry tables. Внешний transport deadline — 12 секунд, включая fresh-daemon preflight и SQL subprocess;
+один drain — до 20 batches/30 секунд. Optional absolute deadline только ужесточает preflight: его
+существующий command cap и проверки socket/context/daemon/storage не меняются.
+При исчерпании бюджета возвращается `partial`, при отказе/недостоверном ответе — `error`.
+Повтор продолжает по предикатам, без cursor и изменения миграций. Counts относятся только к
+acknowledged committed batches: потерянный ответ не доказывает отсутствие уже совершённых удалений.
+Открытую транзакцию при обрыве соединения PostgreSQL откатывает; committed batches остаются.
+
+Сначала удаляются expired/orphan event properties и revenue, затем события; отдельно —
+session properties/identity links по собственному времени или отсутствию parent session.
+Старые/NULL sessions удаляются только без оставшихся references. Old session metadata,
+нужная retained событию, сохраняется; fresh orphan session не удаляется мгновенно, чтобы не
+соревноваться с ingest. Replay/heatmap collection остаётся OFF: fixture очищает только
+искусственные historical/restore remnants, включая replay chunk, пересекающий cutoff.
+
+`complete` требует пустого delete pass всех девяти предикатов в одном REPEATABLE READ snapshot
+и нулевого числа expired events при данном cutoff. `remaining_expired_events`,
+`event_cleanup_lag_seconds` и `unknown_event_times` измеряются на этом snapshot. Lag относится
+к известным временам событий; NULL учитываются отдельно. Отдельные orphan rows не получают
+выдуманного event time. Это не hard quota, моментальное освобождение файла БД или обещание
+пустого будущего snapshot. Native Prisma relations для telemetry не создают database FK:
+поздняя запись может потребовать следующего прохода. Полноценный scheduler, проверка очистки
+в следующие сутки и поведение при неограниченном backlog остаются pending.
+
+Отдельный реальный PostgreSQL 16.13 Testcontainers contract прошёл с точными 26 миграциями
+закреплённого upstream; [schema-fixture.sql](../../infra/observability/umami/schema-fixture.sql)
+сохраняет MIT notice, исходные bytes и hashes. Это schema-only proof, без запуска Umami app/API.
+Проверены >500 expired rows, NULL/exact boundary/recent data, orphan properties/identifiers,
+referenced old/fresh orphan sessions, UTC при другом connection timezone, concurrent recent
+insert, rollback при row lock, advisory contention, future-cutoff/foreign database rejection
+и idempotent retry. Команда требует существующих зависимостей repository test environment:
+
+```sh
+bash scripts/heavy-check.sh node --test scripts/observability-umami-retention.pg.test.mjs
+```
+
+Полный supervised runner дополнен corpus после native baseline и до revocation. SQL добавляет
+только synthetic custom events (pageview baseline остаётся 1), затем проверяет query boundary
+до физического удаления, partial/full drain и retry. Новый полный Umami retention run **pending**
+до immutable review и фактического запуска координатором. Schema-only PG и Python doubles
+не подменяют этот source-bound API/cleanup proof.
+
+Разрешённые reads: `/api/websites` возвращает metadata без event history; `/stats` и `/events`
+требуют start/end в пределах 365×24 часов и окна 31 день. Для stats дополнительно ограничен
+неявный previous comparison; upstream [getCompareDate](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/lib/date.ts)
+сдвигает окно на целое число минут, gateway проверяет более строгую полную длительность.
+[Events query](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/sql/events/getWebsiteEvents.ts)
+фильтрует event time перед paging/join. Windowless history, session/detail/property/metric,
+replay/heatmap endpoints не поддержаны и отклоняются до обращения к upstream. Сохранение
+old session metadata не открывает session detail route. Это начальное coverage, не полный
+каталог аналитики. Browser tracker/согласия/production остаются выключены.
 
 Restore проверяется в отдельной закрытой базе: восстановить backup, применить актуальные
 удаления и drain cleanup, проверить corpus и только затем разрешить подключения читателям.

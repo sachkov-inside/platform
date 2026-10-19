@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import unittest
 import tempfile
+import socket
+import os
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -54,6 +56,36 @@ class NativeInputBoundary(unittest.TestCase):
             with self.assertRaises(runtime.FixtureCommandFailed) as failed:
                 runtime.invoke(['docker', 'compose'], ['exec', '-T', 'db', 'psql'])
             self.assertIsNone(failed.exception.diagnostic)
+
+    def test_fixture_deadline_covers_identity_preflight_and_subprocess_together(self):
+        with tempfile.TemporaryDirectory() as directory:
+            endpoint = Path(directory) / 'docker.sock'
+            listener = socket.socket(socket.AF_UNIX)
+            listener.bind(str(endpoint))
+            def metadata(args, **kwargs):
+                if args[-1] == 'show':
+                    return 'owned'
+                if 'inspect' in args:
+                    return 'unix://' + str(endpoint)
+                return json.dumps({'ID': 'owned', 'DockerRootDir': directory})
+            try:
+                with patch.dict(os.environ, {}, clear=True):
+                    identity = runtime.pilot.daemon.identify(metadata)
+                    for finished, expected_timeout in ((104, 6), (111, None)):
+                        with self.subTest(finished=finished), \
+                                patch.object(runtime.pilot, 'FROZEN_DOCKER_IDENTITY', identity), \
+                                patch.object(runtime.pilot, '_raw_command', side_effect=metadata), \
+                                patch.object(runtime.time, 'monotonic', side_effect=[100, 101, 102, 103, finished]), \
+                                patch.object(runtime.subprocess, 'run', return_value=SimpleNamespace(returncode=0, stdout='', stderr='')) as command:
+                            if expected_timeout is None:
+                                with self.assertRaises(TimeoutError):
+                                    runtime.invoke(['docker', 'compose'], ['exec', '-T', 'db', 'psql'], timeout=10)
+                                command.assert_not_called()
+                            else:
+                                runtime.invoke(['docker', 'compose'], ['exec', '-T', 'db', 'psql'], timeout=10)
+                                self.assertEqual(command.call_args.kwargs['timeout'], expected_timeout)
+            finally:
+                listener.close()
 
     def test_wrong_native_lock_is_rejected_before_acquisition(self):
         for value in [None, {'lockfileVersion': 3, 'packages': {'node_modules/@umami/mcp': True}}, {'lockfileVersion': 3, 'packages': {}}]:
