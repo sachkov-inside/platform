@@ -1,7 +1,7 @@
 """Disposable compatibility pilot for #1566. Python standard library only."""
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import hashlib
 import io
 import json
@@ -24,10 +24,12 @@ import urllib.parse
 import urllib.request
 import uuid
 import zipfile
+import orbstack
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "infra/observability/pilot"
 SERVICES = ("metrics", "logs", "traces", "alloy", "vmauth", "gateway", "grafana")
+FROZEN_DOCKER_ENDPOINT = None
 COMMAND_TIMEOUT_SECONDS = 60
 ACQUISITION_TIMEOUT_SECONDS = 240
 CLEANUP_TIMEOUT_SECONDS = 90
@@ -309,9 +311,15 @@ def prepare(output):
     return token
 
 
+def docker_args(args):
+    if args and args[0] == 'docker' and FROZEN_DOCKER_ENDPOINT and '--context' not in args and args[1:2] != ['context']:
+        return ['docker', '--host', FROZEN_DOCKER_ENDPOINT, *args[1:]]
+    return args
+
+
 def command(args, *, timeout=COMMAND_TIMEOUT_SECONDS):
     # The repository heavy-check supervisor owns the foreground CLI process tree.
-    return subprocess.run(args, check=True, capture_output=True, text=True, timeout=timeout).stdout
+    return subprocess.run(docker_args(args), check=True, capture_output=True, text=True, timeout=timeout).stdout
 
 
 def request(path, *, token=None, body=None, method="GET", port=18427):
@@ -490,11 +498,11 @@ def container_states(raw):
         rows = [json.loads(line) for line in raw.splitlines() if line.strip()]
     if isinstance(rows, dict):
         rows = [rows]
-    if not isinstance(rows, list) or len(rows) > len(SERVICES):
+    if not isinstance(rows, list) or len(rows) > len(SERVICES) + 1:
         raise ValueError("unexpected owned container status collection")
     result = []
     for row in rows:
-        if not isinstance(row, dict) or row.get("Service") not in SERVICES:
+        if not isinstance(row, dict) or row.get("Service") not in (*SERVICES, "storage-probe"):
             raise ValueError("unexpected owned container service")
         state = row.get("State")
         health = row.get("Health")
@@ -579,22 +587,34 @@ def run(output):
     if command(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
         raise RuntimeError("commit pilot inputs before running; evidence must identify immutable source")
     context = command(["docker", "context", "show"]).strip()
-    if platform.system() != "Linux":
-        raise RuntimeError(f"Docker storage identification unsupported on {platform.system()}/{context}; use isolated Linux Engine for core smoke, Mac native probes separately")
-    storage = Path(command(["docker", "info", "--format", "{{.DockerRootDir}}"]).strip())
-    if not storage.is_absolute() or not storage.is_dir():
-        raise RuntimeError("cannot identify Docker storage filesystem")
+    global FROZEN_DOCKER_ENDPOINT
+    mac = None
+    if platform.system() == 'Darwin' and platform.machine() == 'arm64':
+        mac = orbstack.identify(command, home=Path.home())
+        FROZEN_DOCKER_ENDPOINT = mac['endpoint']
+        storage = Path(mac['backing']['path'])
+    elif platform.system() == 'Linux':
+        storage = Path(command(['docker', 'info', '--format', '{{.DockerRootDir}}']).strip())
+    else:
+        raise RuntimeError('Docker storage identification unsupported on this platform/context')
+    if not storage.is_absolute() or not storage.is_file() and not storage.is_dir():
+        raise RuntimeError('cannot identify Docker storage filesystem')
     disk = shutil.disk_usage(storage)
     admission = check_disk(total=disk.total, free=disk.free)
-    print(json.dumps({"disk_admission": admission}), flush=True)
-    if not admission["ready"]:
-        raise RuntimeError(admission["reason"])
+    print(json.dumps({'disk_admission': admission}), flush=True)
+    if not admission['ready']:
+        raise RuntimeError(admission['reason'])
     # Record shared workload but never mutate its services, networks or volumes.
     existing = json.loads(command(["docker", "compose", "ls", "--format", "json"]))
     for port in (18427, 14318, 13000):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", port))
     prepare(output)
+    if mac:
+        lock = json.loads((CONFIG / 'probe.lock.json').read_text())
+        plan = json.loads((output / 'compose.json').read_text())
+        plan['services']['storage-probe'] = orbstack.probe_service(lock, mac['storage'])
+        write_json(output / 'compose.json', plan)
     project = "inside-observability-pilot-" + uuid.uuid4().hex[:12]
     compose = ["docker", "compose", "-p", project, "-f", str(output / "compose.json")]
     evidence = {"source": command(["git", "-C", str(ROOT), "rev-parse", "HEAD"]).strip(),
@@ -604,12 +624,14 @@ def run(output):
                 "missing": ["Mac native MCP execution", "full accepted resource corpus", "SDK propagation",
                             "PII/sentinel", "retention/cleanup/restore", "Umami", "production and seven days"]}
     write_json(output / "owner.json", {"project": project, "cwd": str(ROOT), "supervisor_pid": os.getpid(),
-                                    "docker_storage": str(storage),
+                                    "docker_storage": str(storage), "orbstack": mac,
                                     "cleanup": compose + ["down", "--volumes", "--remove-orphans"]})
     write_json(output / "evidence.json", evidence)
     try:
-        status = supervise_worker([sys.executable, str(Path(__file__).resolve()), "worker", "--output", str(output)],
-                                  compose, output, project)
+        guard = orbstack.host_budget(mac, output, command) if mac else nullcontext()
+        with guard:
+            status = supervise_worker([sys.executable, str(Path(__file__).resolve()), "worker", "--output", str(output)],
+                                      compose, output, project)
         evidence = json.loads((output / "evidence.json").read_text())
         evidence["worker_exit_code"] = status
         if status:
@@ -629,13 +651,23 @@ def run_worker(output):
         raise RuntimeError("pilot worker requires its registered external supervisor")
     compose = ["docker", "compose", "-p", owner["project"], "-f", str(output / "compose.json")]
     token = json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"]
-    with disk_budget(Path(owner["docker_storage"])):
+    global FROZEN_DOCKER_ENDPOINT
+    mac = owner.get('orbstack')
+    if mac:
+        FROZEN_DOCKER_ENDPOINT = mac['endpoint']
+        lock = json.loads((CONFIG / 'probe.lock.json').read_text())
+        guard = orbstack.vm_budget(compose, lock, command, output, docker_args=docker_args)
+    else:
+        guard = disk_budget(Path(owner['docker_storage']))
+    with guard:
         install_plugin(output)
         command(compose + ["config", "--quiet"])
         command(compose + ["up", "-d"], timeout=ACQUISITION_TIMEOUT_SECONDS)
         result = smoke(token, output, compose)
         evidence = json.loads((output / "evidence.json").read_text())
         evidence.update(result)
+        if mac:
+            evidence['missing'].remove('Mac native MCP execution')
         evidence["status"] = "core smoke passed; full pilot acceptance pending"
         write_json(output / "evidence.json", evidence)
 

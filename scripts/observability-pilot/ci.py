@@ -9,6 +9,8 @@ import re
 import shutil
 import subprocess
 import sys
+import pilot
+import orbstack
 
 from pilot import CONFIG, ROOT, check_disk, cleanup_project, write_json
 
@@ -17,7 +19,7 @@ PUBLIC_ARTIFACT_MAX_BYTES = 1024 * 1024
 PILOT_ARTIFACTS = (
     "evidence.json", "cleanup.json", "worker-outcome.json", "native-mcp.json",
     "query-timings.json", "negative-failures.json", "recovery.json",
-    "container-states.json", "readiness.json",
+    "container-states.json", "readiness.json", "storage-host.json", "storage-vm.json",
     "phase-idle.json", "phase-steady.json", "phase-spike.json",
     "stats-idle.jsonl", "stats-steady.jsonl", "stats-spike.jsonl",
 )
@@ -56,6 +58,11 @@ def recover(output):
             or not re.fullmatch(r"inside-observability-pilot-[0-9a-f]{12}", owner["project"])
             or owner.get("cwd") != str(ROOT)):
         raise ValueError("recovery requires the owned random pilot project and checkout")
+    if owner.get('orbstack') is not None:
+        current = orbstack.identify(lambda args: read_command(args), home=Path.home())
+        if current != owner['orbstack']:
+            raise ValueError('OrbStack recovery identity changed; manual owner inspection required')
+        pilot.FROZEN_DOCKER_ENDPOINT = current['endpoint']
     worker_path = output / "worker.json"
     if not worker_path.is_file() or worker_path.is_symlink():
         raise ValueError("worker registration missing; disposable runner teardown required")
@@ -100,7 +107,8 @@ def admission(metadata):
     if sha != os.environ.get("GITHUB_SHA"):
         raise ValueError("checkout SHA does not match provider execution SHA")
     inputs = (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "Caddyfile",
-              CONFIG / "vmauth.routes.json", Path(__file__), Path(__file__).with_name("pilot.py"),
+              CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
+              Path(__file__).with_name("pilot.py"), Path(__file__).with_name('orbstack.py'),
               ROOT / ".github/workflows/observability-pilot.yml")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,
