@@ -240,6 +240,8 @@ test("background Profile failure retains data but lost authorization removes it"
   await expect(
     page.getByRole("button", { name: "Выйти из аккаунта" }),
   ).toBeVisible();
+  // The session button is available while loading; Telegram confirms the initial successful read.
+  await expect(page.getByText("Telegram подключён")).toBeVisible();
   for (const status of [503, 401]) {
     accountStatus = status;
     const before = requests;
@@ -258,7 +260,7 @@ test("background Profile failure retains data but lost authorization removes it"
       ).toHaveCount(0);
     } else {
       await expect(
-        page.getByText("Войдите, чтобы управлять связью с Telegram."),
+        page.getByText("Войдите, чтобы открыть личный кабинет."),
       ).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Выйти из аккаунта" }),

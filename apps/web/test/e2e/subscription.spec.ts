@@ -336,7 +336,7 @@ test("раздел подписки показывает оплаченный с
     page.getByRole("button", { name: "Отменить продление" }),
   ).toBeEnabled();
   // Financial details remain collapsed until the owner opens purchases.
-  await expect(page.getByText("Оплаченный доступ")).toHaveCount(0);
+  await expect(page.getByText("Оплаченный доступ")).not.toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Способ оплаты" }),
   ).not.toBeVisible();
