@@ -171,6 +171,10 @@ export class FunnelScheduler {
           if (eligibility.status === "unavailable") break;
           continue;
         }
+        if (!(await this.admitWaitlistTransport(claimed))) {
+          await this.releaseUnsentClaim(claimed, true);
+          break;
+        }
       }
       let result: TelegramDeliveryResult;
       try {
@@ -517,14 +521,16 @@ export class FunnelScheduler {
         }
       }
     }
-    const admission = await admitTelegramSlot(
-      tx,
-      this.config.botIdentity,
-      delivery.private_chat_id,
-      now,
-    );
-    if (admission === "bot_busy") return { kind: "capacity_busy" };
-    if (admission === "chat_busy") return { kind: "released" };
+    if (waitlistQuery === undefined) {
+      const admission = await admitTelegramSlot(
+        tx,
+        this.config.botIdentity,
+        delivery.private_chat_id,
+        now,
+      );
+      if (admission === "bot_busy") return { kind: "capacity_busy" };
+      if (admission === "chat_busy") return { kind: "released" };
+    }
     const attemptId = randomUUID();
     const parts = delivery.parts;
     // nextPart returns the element of delivery.parts, so this marks the persisted part.
@@ -561,6 +567,90 @@ export class FunnelScheduler {
         ),
       },
     };
+  }
+  /** Reserve immediately before transport, after all potentially slow Platform reads. */
+  private async admitWaitlistTransport(claim: Claim): Promise<boolean> {
+    return this.database.transaction().execute(async (tx) => {
+      await schedulerLock(tx, this.config.botIdentity);
+      await lockDeliveryContact(
+        tx,
+        this.config.botIdentity,
+        claim.delivery.delivery_id,
+      );
+      const delivery = await tx
+        .selectFrom("communication_deliveries as d")
+        .innerJoin(
+          "communication_contacts as c",
+          "c.contact_id",
+          "d.contact_id",
+        )
+        .innerJoin(botContactRows(tx).as("b"), (join) =>
+          join
+            .onRef("b.bot_identity", "=", "c.bot_identity")
+            .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
+        )
+        .selectAll("d")
+        .select([
+          "c.telegram_user_id",
+          "c.marketing_enabled",
+          "b.contactability",
+          "b.private_chat_id",
+        ])
+        .where("d.bot_identity", "=", this.config.botIdentity)
+        .where("d.delivery_id", "=", claim.delivery.delivery_id)
+        .executeTakeFirst();
+      if (
+        !delivery ||
+        delivery.attempt_id !== claim.attemptId ||
+        !delivery.parts.some((part) => part.state === "in_flight")
+      )
+        return false;
+      const now = this.clock.now();
+      const query = claim.waitlist;
+      if (query === undefined) return false;
+      const binding = await findPlatformLink(
+        tx,
+        {
+          botIdentity: this.config.botIdentity,
+          telegramUserId: delivery.telegram_user_id,
+          accountRef: query.recipient.accountRef,
+        },
+        "share",
+      );
+      if (
+        delivery.cancel_requested ||
+        !delivery.marketing_enabled ||
+        delivery.contactability !== "reachable" ||
+        binding?.telegramIdentityRef !== query.recipient.telegramIdentityRef
+      ) {
+        await cancelDelivery(tx, delivery, now, "waitlist_ineligible");
+        return false;
+      }
+      const broadcast = await tx
+        .selectFrom("communication_broadcasts")
+        .select("state")
+        .where("broadcast_id", "=", claim.delivery.broadcast_id)
+        .executeTakeFirst();
+      if (broadcast?.state !== "running") return false;
+      if (
+        await hasDueReply(
+          tx,
+          this.config.botIdentity,
+          now,
+          this.config.signInEnabled === true,
+          this.replyEligibility,
+        )
+      )
+        return false;
+      return (
+        (await admitTelegramSlot(
+          tx,
+          this.config.botIdentity,
+          delivery.private_chat_id,
+          now,
+        )) === "reserved"
+      );
+    });
   }
   /** No provider call occurred. Keep outage retries distinct from unknown transport attempts. */
   private async releaseUnsentClaim(

@@ -1,3 +1,4 @@
+import { reserveTelegramSlot } from "../../src/modules/outbound/telegram-transport-slots.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { SIGN_IN_REPLY_ELIGIBILITY } from "../../src/modules/outbound/sign-in-reply-eligibility.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
@@ -553,6 +554,64 @@ test("final eligibility outage releases an unsent claim without unknown delivery
     members: [member],
   });
   currentTime = new Date("2030-01-01T00:00:06Z");
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(transport.send).toHaveBeenCalledTimes(1);
+});
+
+test("slow final Platform preflight respects a service sender's current transport slot", async () => {
+  const broadcastId = await prepared();
+  expect(
+    (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+  ).toBe(200);
+  let finalReadEntered = false;
+  let release: () => void = () => {};
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let first = true;
+  waitlist.read.mockImplementation(async () => {
+    if (first) first = false;
+    else {
+      finalReadEntered = true;
+      await released;
+    }
+    return {
+      status: "ok",
+      saleOpen: true,
+      purchaseUrl,
+      active: 1,
+      members: [member],
+    };
+  });
+  const processing = app.get(FunnelScheduler).processAvailable();
+  let processed: number | undefined;
+  try {
+    await vi.waitFor(
+      () => {
+        expect(finalReadEntered).toBe(true);
+      },
+      { timeout: 2000, interval: 5 },
+    );
+    currentTime = new Date("2030-01-01T00:00:02Z");
+    expect(
+      await database
+        .transaction()
+        .execute((tx) => reserveTelegramSlot(tx, "inside", "42", clock.now())),
+    ).toBe(true);
+  } finally {
+    release();
+    processed = await processing;
+  }
+  expect(processed).toBe(0);
+  expect(transport.send).not.toHaveBeenCalled();
+  waitlist.read.mockResolvedValue({
+    status: "ok",
+    saleOpen: true,
+    purchaseUrl,
+    active: 1,
+    members: [member],
+  });
+  currentTime = new Date("2030-01-01T00:00:08Z");
   expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
   expect(transport.send).toHaveBeenCalledTimes(1);
 });

@@ -70,6 +70,9 @@ a second broadcast for the same intake, including after cancellation or completi
 uses the existing unique broadcast/contact delivery key. Before claiming each part, the worker
 rechecks the snapshot's Account/identity against Telegram's current verified link and asks Platform
 for current active membership, author authority, sale and purchase URL. After the local claim commits, the worker performs a fresh, uncached Platform check before transport.
+After that final read, the worker rechecks the live local contact/link, broadcast state and priority
+service backlog, then reserves shared transport slots immediately before sending. A busy slot
+releases the unsent claim to pending with backpressure; unknown leases never become pending.
 A withdrawal committed before the local claim therefore suppresses the delivery even when the
 pre-claim answer became stale during a lock wait. The committed claim is the dispatch cutoff;
 a transport already admitted after it cannot be recalled. External reads run outside database
