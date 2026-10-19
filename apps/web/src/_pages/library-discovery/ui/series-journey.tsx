@@ -138,6 +138,10 @@ export function SeriesJourney({
   return (
     <SeriesJourneyControls
       currentHref={currentHref}
+      {...(process.env.NODE_ENV !== "production" &&
+      result.reference.slug === "ai-engineering"
+        ? { prototypeChapters: result.chapters }
+        : {})}
       offersAccessRecheck={
         !accessPending &&
         items.some((item) => item.availability === "unavailable")
