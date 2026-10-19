@@ -72,7 +72,7 @@ export function cohortCall({
     case "announcement":
       return {
         banner: null,
-        action: null,
+        action: openProgramme,
       };
     case "preorder":
       // Первый экран только сообщает о наборе и ведёт к цене внизу страницы; предзаказ

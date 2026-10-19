@@ -370,7 +370,7 @@ export const CourseParticipantContinuingMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-/** Анонс: денег не принимают, гость входит через Telegram и читает главу 1. */
+/** Анонс: тёмная кнопка ведёт в программу, обещания бесплатных глав нет. */
 export const CohortAnnouncement: Story = {
   args: {
     heroCall: (
@@ -388,6 +388,12 @@ export const CohortAnnouncement: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText(/Старт 20 октября/u)).toBeNull();
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).getByRole("link", { name: "Открыть программу" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expect(canvas.queryByRole("button")).toBeNull();
     await expect(canvas.queryByText(/главу бесплатно/u)).toBeNull();
     await expect(canvas.queryByRole("link", { name: /^Оплатить/u })).toBeNull();

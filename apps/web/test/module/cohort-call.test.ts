@@ -72,10 +72,14 @@ describe("first screen call of a product cohort", () => {
       signedIn: false,
     });
     expect(guest.banner).toBeNull();
-    expect(guest.action).toBeNull();
+    expect(guest.action).toEqual({
+      kind: "programme",
+      href: "/products/ai-engineering/programme",
+      label: "Открыть программу",
+    });
     expect(
       call({ cohort: { ...cohort, stage: "announcement" } }).action,
-    ).toBeNull();
+    ).toEqual(guest.action);
   });
 
   it("only announces the pre-order on the first screen and asks to pay with the price while running", () => {
