@@ -9,6 +9,7 @@ import math
 import os
 from pathlib import Path
 import platform
+import re
 import secrets
 import select
 import shutil
@@ -340,8 +341,9 @@ def request(path, *, token=None, body=None, method="GET", port=18427):
     if token:
         headers["Authorization"] = "Bearer " + token
     if body is not None:
-        headers["Content-Type"] = "application/json"
-        body = json.dumps(body).encode()
+        headers["Content-Type"] = "application/x-protobuf" if isinstance(body, bytes) else "application/json"
+        if not isinstance(body, bytes):
+            body = json.dumps(body).encode()
     req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", data=body, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req, timeout=QUERY_TIMEOUT_SECONDS) as response:
@@ -354,6 +356,93 @@ def request(path, *, token=None, body=None, method="GET", port=18427):
         status = error.code
         error.close()
         return status, ""
+
+
+class LinkStorageOwnershipError(RuntimeError):
+    """An ownership failure stops this corpus, including its remaining ingest/query calls."""
+
+
+def link_storage_row(compose, transport):
+    """Read only fixed synthetic traces internally; never extend vmauth/MCP query authority.
+
+    The existing external pilot supervisor owns the exec client/process tree and project.
+    No response/stderr is logged; head bounds capture before it enters Python memory.
+    """
+    import link_privacy
+    deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
+    stage = 'ownership'
+    def read(args):
+        remaining = deadline-time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('storage read deadline')
+        return command(args, timeout=remaining)
+    try:
+        if (not FROZEN_DOCKER_ENDPOINT or not FROZEN_DOCKER_IDENTITY or
+                not isinstance(compose, list) or len(compose) != 6 or
+                compose[:3] != ['docker','compose','-p'] or compose[4] != '-f' or
+                not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', compose[3]) or
+                not Path(compose[5]).is_absolute() or Path(compose[5]).name != 'compose.json'):
+            raise ValueError('unregistered storage reader')
+        trace_id = link_privacy.TRACE_IDS[transport]
+        assert_docker_identity(deadline=deadline)
+        container = read(compose+['ps','-q','gateway']).strip()
+        if not re.fullmatch(r'[0-9a-f]{64}', container):
+            raise ValueError('ambiguous gateway')
+        labels = read(['docker','inspect','--format',
+            '{{index .Config.Labels "com.docker.compose.project"}}|'
+            '{{index .Config.Labels "com.docker.compose.service"}}|{{.State.Running}}', container]).strip()
+        if labels != compose[3]+'|gateway|true':
+            raise ValueError('foreign gateway')
+        assert_docker_identity(deadline=deadline)
+        stage = 'query'
+        # VT0.12 logsql.ProcessQueryRequest emits every stored column by default.
+        # No fields/delete/pack pipe, no user query, and two rows expose accidental duplicates.
+        query = urllib.parse.urlencode({'query':'trace_id:="'+trace_id+'"', 'limit':2, 'timeout':'2s'})
+        url = 'http://traces:10428/select/logsql/query?'+query
+        raw = read(['docker','exec',container,'sh','-euc',
+                    "set -o pipefail; wget -q -T 3 -O - '"+url+"' | head -c 1048577"])
+        if len(raw.encode()) > link_privacy.MAX_RESPONSE_BYTES:
+            raise ValueError('storage read too large')
+        return raw
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError, UnicodeError):
+        if stage == 'ownership':
+            raise LinkStorageOwnershipError('link storage ownership unproved; raw diagnostics withheld') from None
+        raise RuntimeError('fixed link storage read unavailable; raw diagnostics withheld') from None
+
+
+def link_privacy_corpus(output, compose):
+    """A deliberately failing RED gate until full stored link metadata is actually absent."""
+    import link_privacy
+    fixtures = (('json', link_privacy.json_fixture), ('protobuf', link_privacy.protobuf_fixture))
+    cases = [{'transport': transport, 'privacy': 'unknown', 'stage': 'not_attempted'}
+             for transport, _ in fixtures]
+    for index, (transport, fixture) in enumerate(fixtures):
+        case = {'transport': transport, 'privacy': 'unknown', 'stage': 'ingest'}
+        try:
+            try:
+                assert_docker_identity()
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                raise LinkStorageOwnershipError('link ingest ownership unproved') from None
+            status, _ = request('/v1/traces', body=fixture(time.time_ns()), method='POST', port=14318)
+            if status == 200:
+                case['stage'] = 'storage'
+                projected = await_fact(lambda: link_privacy.project(link_storage_row(compose, transport), transport),
+                    bool, probe='collector_link_storage_'+transport, output=output)
+                case = {**projected, 'privacy': 'failed' if
+                        projected['metadata_present'] or projected['sentinel_present'] else 'passed'}
+        except LinkStorageOwnershipError:
+            case['stage'] = 'ownership'
+            cases[index] = case
+            break
+        except (RuntimeError, OSError, ValueError):
+            # Unknown is not a clean result. Continue so JSON cannot hide the protobuf result.
+            pass
+        cases[index] = case
+    write_json(output/'collector-link-privacy.json', {
+        'scope': 'two small external OTLP traces; full stored fields, not SDK or raw-error coverage',
+        'cases': cases})
+    if any(case['privacy'] != 'passed' for case in cases):
+        raise RuntimeError('external OTLP link metadata privacy unproved; see closed verdicts')
 
 
 def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, output=None):
@@ -513,6 +602,7 @@ def smoke(token, output, compose):
         'collector_raw_diagnostics':'discarded by Docker logging none; not collected',
         'untrusted_link_metadata':'unsupported; no production/general-source acceptance',
         'source':'synthetic SDK-shaped links; actual SDK wire path is separate evidence'})
+    link_privacy_corpus(output, compose)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)
     post_path = "/metrics/api/v1/query"

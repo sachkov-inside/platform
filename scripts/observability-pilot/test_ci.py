@@ -99,7 +99,7 @@ class HostedEvidenceTest(unittest.TestCase):
                                 self.assertEqual(ci.pilot.FROZEN_DOCKER_ENDPOINT, identity['endpoint'])
                                 cleanup.assert_called_once()
 
-    def test_source_binding_includes_the_exact_native_cpu_helper(self):
+    def test_source_binding_includes_native_cpu_and_link_wire_corpus(self):
         import io
         import hashlib
         with tempfile.TemporaryDirectory() as directory:
@@ -119,8 +119,10 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            helper = ci.ROOT / 'scripts/observability-pilot/native_cpu.py'
-            self.assertEqual(proof['inputs']['scripts/observability-pilot/native_cpu.py'], hashlib.sha256(helper.read_bytes()).hexdigest())
+            for name in ('native_cpu.py', 'link_privacy.py'):
+                relative = 'scripts/observability-pilot/'+name
+                helper = ci.ROOT / relative
+                self.assertEqual(proof['inputs'][relative], hashlib.sha256(helper.read_bytes()).hexdigest())
 
     def test_artifact_collection_excludes_keys_binaries_and_raw_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:

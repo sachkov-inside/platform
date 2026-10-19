@@ -46,6 +46,33 @@ tracestate и attributes. Поэтому произвольный OTLP исто�
 отвергает unsafe fixture; это не enforcement на collector endpoint и не успешная проверка очистки
 такого входящего payload. Полная задача остаётся незавершённой, пока эта граница не решена и проверена.
 
+Подготовлен отдельный adversarial corpus для существующего публичного supervisor. Два небольших
+внешних trace payload поступают через OTLP HTTP JSON и отдельно закодированный protobuf по
+[schema v1.5](https://github.com/open-telemetry/opentelemetry-proto/blob/v1.5.0/opentelemetry/proto/trace/v1/trace.proto).
+Каждый содержит три link с известными IDs, tracestate и scalar/nested/array/binary attributes.
+К ним намеренно не применяется SDK-only `require_supported_links`. Это подготовка RED-проверки,
+не исправление фильтра и не доказательство её прохождения. Header/Alloy config и logging VictoriaTraces
+в этом срезе не меняются. Oversized/error corpus пока не запускается: raw VT diagnostics остаются gap.
+
+Проверка читает полные сохранённые поля по двум фиксированным trace IDs через внутренний
+`/select/logsql/query`. [Закреплённый handler](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtselect/logsql/logsql.go)
+возвращает все columns как NDJSON, если query не содержит `fields` pipe;
+[storage decoder](https://github.com/VictoriaMetrics/VictoriaTraces/blob/v0.12.0/app/vtinsert/opentelemetry/pb.go)
+разделяет link IDs, tracestate и attributes. Проверка требует одну строку, точные trace/span/parent IDs
+и все три пары link IDs. Jaeger/MCP projection не подменяет этот storage read.
+Read-only exec разрешён только в собственном gateway после проверки frozen daemon/socket identity,
+Compose project/service и running state. Query, размер ответа и время ограничены; vmauth/MCP routes
+не расширяются. Raw ответ и stderr остаются только в памяти, не попадают в logs или artifacts.
+
+`collector-link-privacy.json` содержит только фиксированные verdicts, counts и booleans.
+Сохранённые metadata или sentinel дают FAIL; недоступный query, неполная schema или потеря связей
+дают UNKNOWN и FAIL. Проверяются оба transport перед общим отказом. На неподготовленном storage
+ожидается реальный RED. Потеря ownership немедленно прекращает оставшиеся ingest/query calls,
+включая второй transport. После обычного privacy RED
+текущий smoke остановится до native MCP/restart/revocation.
+Их прежние проверки сохранены для будущего GREEN. Сам runtime этого нового корпуса ещё не выполнен;
+production/general-source acceptance, raw-error retention и actual SDK wire proof остаются открыты.
+
 ## Metadata и закреплённые реализации
 
 Alloy 1.21 использует contrib OTTL 0.162. Первичные источники:
