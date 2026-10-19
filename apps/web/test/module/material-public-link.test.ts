@@ -22,12 +22,10 @@ describe("Постоянная ссылка для автора", () => {
   }
   for (const status of [401, 403, 404, 503]) {
     it(`сохраняет отказ backend ${String(status)}`, async () => {
-      const load = vi
-        .fn()
-        .mockResolvedValue({
-          ok: false,
-          response: new Response(null, { status }),
-        });
+      const load = vi.fn().mockResolvedValue({
+        ok: false,
+        response: new Response(null, { status }),
+      });
       await expect(
         getMaterialPublicLink(materialId, "author-token", load),
       ).resolves.toEqual({ kind: "rejected", status });
