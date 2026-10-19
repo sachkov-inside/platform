@@ -102,7 +102,7 @@ export function MaterialReaderView({
         className="inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
       >
         <ArrowLeft aria-hidden="true" className="size-4 shrink-0" />
-        {origin.kind === "task" ? "К заданию" : "К уроку"}
+        <span>{origin.kind === "task" ? "К заданию" : "К уроку"}</span>
       </ReaderOriginLink>
     );
   const nextStep =
@@ -480,6 +480,7 @@ export function MaterialReaderBreadcrumbs({
   )?.series;
   return (
     <Breadcrumbs
+      compact
       items={[
         { label: "Главная", href: target.kind === "home" ? target.href : "/" },
         ...(target.kind === "series" && target.seriesSlug !== undefined

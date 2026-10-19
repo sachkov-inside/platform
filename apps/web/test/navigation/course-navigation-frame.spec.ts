@@ -70,3 +70,58 @@ test("the course sidebar stays mounted while only the material changes", async (
     await request.post(control, { data: { delayMs: 0 } });
   }
 });
+
+test("mobile material actions and breadcrumbs fit one row", async ({
+  page,
+}) => {
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(
+      `/materials/reference-lesson-5?from=${encodeURIComponent(programme)}`,
+    );
+    const panel = page.getByRole("navigation", {
+      name: "Действия материала",
+      exact: true,
+    });
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => {
+          const frame = element.getBoundingClientRect();
+          return (
+            frame.height <= 50 &&
+            [...element.querySelectorAll("a,button")].every((control) => {
+              const box = control.getBoundingClientRect();
+              return (
+                box.left >= frame.left &&
+                box.right <= frame.right &&
+                box.top >= frame.top &&
+                box.bottom <= frame.bottom
+              );
+            })
+          );
+        }),
+      )
+      .toBe(true);
+    const next = panel.getByRole("link", { name: "Дальше", exact: true });
+    await expect(next).toBeVisible();
+    expect(
+      await next.evaluate((element) => {
+        const probe = document.createElement("span");
+        probe.style.backgroundColor = "var(--accent)";
+        element.append(probe);
+        const expected = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        return getComputedStyle(element).backgroundColor === expected;
+      }),
+    ).toBe(true);
+    const breadcrumbs = page
+      .getByRole("navigation", { name: "Хлебные крошки" })
+      .first();
+    expect(
+      await breadcrumbs.evaluate(
+        (element) => element.getBoundingClientRect().height,
+      ),
+    ).toBeLessThanOrEqual(44);
+  }
+});

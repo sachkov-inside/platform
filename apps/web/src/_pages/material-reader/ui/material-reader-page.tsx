@@ -416,6 +416,7 @@ async function ResolvedMaterialReader({
       <MaterialReaderAccess
         readingAction={
           <SavedReadingAction
+            compact
             key={result.material.materialId}
             materialId={result.material.materialId}
             format={result.material.format.slug}

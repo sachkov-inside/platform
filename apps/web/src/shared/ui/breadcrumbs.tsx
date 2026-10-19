@@ -1,6 +1,7 @@
 import type { Route } from "next";
 import { ChevronRight } from "lucide-react";
 import { IntentPrefetchLink } from "./intent-prefetch-link.client";
+import { cn } from "@/shared/lib/utils";
 import { ReaderOriginLink } from "./reader-history.client";
 
 export interface BreadcrumbItem {
@@ -13,12 +14,22 @@ export interface BreadcrumbItem {
 /** Logical location, independent of the browser's chronological Back history. */
 export function Breadcrumbs({
   items,
+  compact = false,
 }: {
   readonly items: readonly BreadcrumbItem[];
+  /** Reader already renders the current title immediately below the location. */
+  readonly compact?: boolean;
 }) {
   return (
     <nav aria-label="Хлебные крошки" className="min-w-0">
-      <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-6 text-muted-foreground">
+      <ol
+        className={cn(
+          "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm leading-6 text-muted-foreground",
+          compact &&
+            items.length > 1 &&
+            "max-sm:flex-nowrap max-sm:gap-x-1 max-sm:[&>li:last-child]:sr-only",
+        )}
+      >
         {items.map((item, index) => {
           const Link =
             item.restoreOrigin === true ? ReaderOriginLink : IntentPrefetchLink;
