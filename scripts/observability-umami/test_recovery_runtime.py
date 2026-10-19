@@ -69,7 +69,7 @@ class ReaderTransition(unittest.TestCase):
             if args[:3] == ['ps', '--all', '-q']:
                 return 'a' * 64
             if args[:1] == ['inspect']:
-                return json.dumps({'image': 'unused', 'labels': {'com.docker.compose.project': project,
+                return json.dumps({'id': args[1], 'image': 'unused', 'labels': {'com.docker.compose.project': project,
                     'com.docker.compose.service': 'recovered'},
                     'state': {'status': 'running', 'running': True, 'pid': 42}})
             self.fail('second postmaster or SQL actor started before stop was confirmed')
@@ -113,11 +113,11 @@ class ReaderTransition(unittest.TestCase):
                 if args[:2] == ['volume', 'ls']:
                     return ''
                 if args[:1] in (['up'], ['wait']):
-                    return ''
+                    return '0\n' if base == ['docker'] and args[0] == 'wait' else ''
                 if args[:3] == ['ps', '--all', '-q']:
                     return 'a' * 64
                 if args[:1] == ['inspect']:
-                    return json.dumps({'labels': {'com.docker.compose.project': project,
+                    return json.dumps({'id': args[1], 'labels': {'com.docker.compose.project': project,
                         'com.docker.compose.service': 'repo-init'},
                         'state': {'status': 'exited', 'running': False, 'pid': 0, 'exit_code': 0}})
                 if 'pg_isready' in args:

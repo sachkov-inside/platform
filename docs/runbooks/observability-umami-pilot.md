@@ -352,13 +352,37 @@ bash scripts/heavy-check.sh python3 scripts/observability-umami/recovery_runtime
 ```
 
 В `recovery-proof.json` поле `operation` показывает последний one-shot этап:
-`up`/`start`, `wait`, `identity`, `inspect`, `state` или `exit`. При отказе сохраняются
+`up`/`start`, `identity`, `inspect`, `state`, `wait`, `exit` или `comparison`. При отказе сохраняются
 только фиксированная категория, проверенный числовой return code (иначе `null`) и форма
 ID: количество (`none`/`one`/`multiple`), длина единственного значения и признак hex.
 Диагностика одной операции занимает меньше 1 KiB и перезаписывается, не накапливается.
 Она не содержит ID, raw stdout/stderr, SQL, config или текстов исключений. Она уточняет
 место следующего отказа, но сама по себе не устанавливает причину исторического запуска,
 в котором `repo-init` завершился с кодом 0, а проверка остановилась на `repository_initialize`.
+
+После `up`/`start` контроллер проверяет полный 64-символьный ID и project/service labels,
+затем вызывает Engine `docker wait` по этому ID с прежним пределом 90 секунд.
+Числовой результат должен совпасть с exit code 0 при повторной проверке того же ID,
+владельца и остановленного состояния. Смена ID, владельца, неизвестное состояние,
+неправильный результат или timeout закрывают допуск к следующим этапам.
+
+Только после подтверждённого exit 0 собственного `repo-init` выполняется read-only
+сравнение Compose wait и Engine wait по тому же проверенному ID. На всё сравнение
+выделено 10 секунд внутри общего лимита 600 секунд. Принимается только успех Compose
+либо код 1 с точным ограниченным сообщением об отсутствии контейнеров собственного
+project. Неизвестные ошибки останавливают проверку. Между вызовами повторно проверяются
+ID, владелец и exit 0. `operation.compatibility` сохраняет только фиксированные исходы,
+проверенные коды и признак неизменного собственного ID. Это диагностика после основного
+допуска, она не повторяет операцию и не заменяет проверку успеха.
+
+В среде неуспешного запуска установлен Compose `v2.40.3-desktop.1` (read-only metadata).
+В upstream [Compose v2.40.3 wait.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/wait.go)
+выбор контейнеров передаёт `all=false`; [containers.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/containers.go)
+передаёт это значение Engine ContainerList. Быстро завершившийся контейнер поэтому может
+не попасть в выборку. [Engine wait](https://docs.docker.com/reference/cli/docker/container/wait/)
+поддерживает уже остановленный контейнер. Это подтверждает гипотезу совместимости,
+но не устанавливает исключительную причину исторического отказа: исходный код именно
+Desktop-сборки и фактическое сравнение в новом публичном запуске пока не подтверждены.
 
 Проверяются `recovery-proof.json`, `recovery-inputs.json`, `evidence.json`,
 `worker-outcome.json`, `cleanup.json` и storage evidence. Успешный SQL-result без успешного

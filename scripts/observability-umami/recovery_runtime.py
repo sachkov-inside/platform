@@ -110,7 +110,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         raise RuntimeError('owned_recovery_failed; inspect curated recovery-proof.json') from None
 
 
-CONTAINER_INSPECT = ('{"image":{{json .Image}},"labels":{{json .Config.Labels}},"mounts":{{json .Mounts}},'
+CONTAINER_INSPECT = ('{"id":{{json .Id}},"image":{{json .Image}},"labels":{{json .Config.Labels}},"mounts":{{json .Mounts}},'
     '"network":{{json .HostConfig.NetworkMode}},"ports":{{json .HostConfig.PortBindings}},'
     '"state":{"status":{{json .State.Status}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"exit_code":{{json .State.ExitCode}}}}')
 OPERATION_SECONDS = 90
@@ -119,7 +119,7 @@ SQL_READY_SECONDS = 60
 SQL_POLL_SECONDS = .25
 
 
-def _inspect_service(compose, project, service, execute, *, progress=None):
+def _inspect_service(compose, project, service, execute, *, progress=None, expected_identity=None):
     if progress is not None:
         progress('identity')
     identity = execute(compose, ['ps', '--all', '-q', service]).strip()
@@ -128,12 +128,12 @@ def _inspect_service(compose, project, service, execute, *, progress=None):
         progress('identity', {'count': 'none' if not lines else 'one' if len(lines) == 1 else 'multiple',
             'single_width': len(identity) if len(lines) == 1 and len(identity) <= runtime.FIXTURE_BYTES else None,
             'single_hex': bool(re.fullmatch(r'[a-f0-9]+', identity)) if len(lines) == 1 else None})
-    if not re.fullmatch(r'[a-f0-9]{64}', identity):
+    if not re.fullmatch(r'[a-f0-9]{64}', identity) or expected_identity is not None and identity != expected_identity:
         raise ValueError('owned_service_identity')
     if progress is not None:
         progress('inspect')
     actual = json.loads(execute(['docker'], ['inspect', identity, '--format', CONTAINER_INSPECT]))
-    if (not isinstance(actual, dict) or not isinstance(actual.get('labels'), dict)
+    if (not isinstance(actual, dict) or actual.get('id') != identity or not isinstance(actual.get('labels'), dict)
             or actual['labels'].get('com.docker.compose.project') != project
             or actual['labels'].get('com.docker.compose.service') != service
             or not isinstance(actual.get('state'), dict)):
@@ -164,18 +164,25 @@ def _one_shot(compose, project, service, execute, *, already_created=False, reco
     publish()
     try:
         execute(compose, ['start', service] if already_created else ['up', '-d', '--no-deps', service])
-        progress('wait')
-        execute(compose, ['wait', service], timeout=OPERATION_SECONDS)
         actual = _inspect_service(compose, project, service, execute, progress=progress)
+        identity = actual['id']
+        progress('state')
+        _require_waitable(actual)
+        progress('wait')
+        waited_code = _wait_exit_code(execute(['docker'], ['wait', identity], timeout=OPERATION_SECONDS))
+        actual = _inspect_service(compose, project, service, execute, progress=progress, expected_identity=identity)
         diagnostic['returncode'] = 0
         progress('state')
         _require_stopped(actual)
         progress('exit')
         code = actual['state'].get('exit_code')
         diagnostic['container_exit_code'] = code if type(code) is int and 0 <= code <= 255 else None
-        if actual['state'].get('status') != 'exited' or type(code) is not int or code != 0:
+        if actual['state'].get('status') != 'exited' or type(code) is not int or code != waited_code or code != 0:
             raise RuntimeError('owned_operation_failed')
-        diagnostic.update(outcome='passed', returncode=0)
+        if service == 'repo-init':
+            progress('comparison')
+            diagnostic['compatibility'] = _compare_completed_waits(compose, project, service, identity, execute)
+        diagnostic.update(step='exit', outcome='passed', returncode=0)
         publish()
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         code = getattr(error, 'returncode', None)
@@ -187,7 +194,8 @@ def _one_shot(compose, project, service, execute, *, already_created=False, reco
         elif isinstance(error, json.JSONDecodeError):
             category = 'invalid_inspect_json'
         elif isinstance(error, ValueError):
-            category = 'invalid_identity' if diagnostic['step'] == 'identity' else 'inspection_mismatch'
+            category = ('invalid_identity' if diagnostic['step'] == 'identity' else
+                        'invalid_wait_output' if diagnostic['step'] == 'wait' else 'inspection_mismatch')
         elif diagnostic['step'] == 'state':
             category = 'invalid_state'
         elif diagnostic['step'] == 'exit':
@@ -197,6 +205,62 @@ def _one_shot(compose, project, service, execute, *, already_created=False, reco
         diagnostic.update(outcome='failed', error=category)
         publish()
         raise
+
+
+def _require_waitable(actual):
+    state = actual['state']
+    if state.get('status') == 'running':
+        if state.get('running') is True and type(state.get('pid')) is int and state['pid'] > 0:
+            return
+    elif state.get('status') == 'exited':
+        _require_stopped(actual)
+        if type(state.get('exit_code')) is int and 0 <= state['exit_code'] <= 255:
+            return
+    raise RuntimeError('owned_operation_not_waitable')
+
+
+def _wait_exit_code(encoded):
+    if not isinstance(encoded, str) or len(encoded) > 4 or not re.fullmatch(r'(0|[1-9][0-9]{0,2})\n?', encoded):
+        raise ValueError('invalid_engine_wait_output')
+    value = int(encoded)
+    if value > 255:
+        raise ValueError('invalid_engine_wait_output')
+    return value
+
+
+WAIT_COMPARISON_SECONDS = 10
+
+
+def _compare_completed_waits(compose, project, service, identity, execute):
+    """Read-only diagnostic after the real gate; never converts unknown failures to success."""
+    import time
+    deadline = time.monotonic() + WAIT_COMPARISON_SECONDS
+    def bounded(base, args, **kwargs):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('wait_comparison_deadline')
+        kwargs['timeout'] = min(kwargs.get('timeout', WAIT_COMPARISON_SECONDS), remaining)
+        return execute(base, args, **kwargs)
+    def confirmed():
+        actual = _inspect_service(compose, project, service, bounded, expected_identity=identity)
+        _require_stopped(actual)
+        if actual['state'].get('status') != 'exited' or type(actual['state'].get('exit_code')) is not int or actual['state']['exit_code'] != 0:
+            raise RuntimeError('wait_comparison_state_changed')
+    confirmed()
+    try:
+        bounded(compose, ['wait', service], fixture_phase='compose_wait_probe')
+        compose_result = {'outcome': 'passed', 'returncode': 0}
+    except runtime.FixtureCommandFailed as error:
+        if (error.returncode != 1 or error.diagnostic != {'phase': 'compose_wait_probe', 'error': 'no_running_containers'}):
+            raise
+        compose_result = {'outcome': 'no_running_containers', 'returncode': 1}
+    confirmed()
+    code = _wait_exit_code(bounded(['docker'], ['wait', identity]))
+    if code != 0:
+        raise RuntimeError('wait_comparison_nonzero_exit')
+    confirmed()
+    return {'compose': compose_result, 'engine': {'outcome': 'passed', 'returncode': 0, 'container_exit_code': 0},
+            'same_owned_id_exited_zero': True}
 
 
 def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12):

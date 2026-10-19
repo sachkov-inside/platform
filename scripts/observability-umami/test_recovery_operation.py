@@ -13,7 +13,7 @@ IDENTITY = 'b' * 64
 class OperationDiagnostics(unittest.TestCase):
     def invoke(self, *, identity=IDENTITY, inspect=None, failed=None):
         if inspect is None:
-            inspect = json.dumps({'labels': {'com.docker.compose.project': PROJECT,
+            inspect = json.dumps({'id': IDENTITY, 'labels': {'com.docker.compose.project': PROJECT,
                 'com.docker.compose.service': 'repo-init'},
                 'state': {'status': 'exited', 'running': False, 'pid': 0, 'exit_code': 0}})
         records = []
@@ -26,7 +26,7 @@ class OperationDiagnostics(unittest.TestCase):
                 return identity
             if args[0] == 'inspect':
                 return inspect
-            return ''
+            return '0\n' if base == ['docker'] and args[0] == 'wait' else ''
         error = None
         try:
             runner._one_shot(['docker', 'compose'], PROJECT, 'repo-init', execute,
@@ -38,7 +38,8 @@ class OperationDiagnostics(unittest.TestCase):
     def test_valid_full_identity_and_successful_container_exit_are_explicitly_passed(self):
         records, calls, error = self.invoke()
         self.assertIsNone(error)
-        self.assertEqual(calls, ['up', 'wait', 'ps', 'inspect'])
+        self.assertEqual(calls[:4], ['up', 'ps', 'inspect', 'wait'])
+        self.assertEqual(calls.count('wait'), 3)
         self.assertEqual(records[-1]['step'], 'exit')
         self.assertEqual(records[-1]['outcome'], 'passed')
         self.assertEqual(records[-1]['container_exit_code'], 0)
@@ -56,7 +57,7 @@ class OperationDiagnostics(unittest.TestCase):
                 self.assertNotIn(value, json.dumps(records))
 
     def test_malformed_inspect_and_unknown_state_have_distinct_closed_failures(self):
-        bad_state = json.dumps({'labels': {'com.docker.compose.project': PROJECT,
+        bad_state = json.dumps({'id': IDENTITY, 'labels': {'com.docker.compose.project': PROJECT,
             'com.docker.compose.service': 'repo-init'},
             'state': {'status': 'private-sentinel', 'running': False, 'pid': 0, 'exit_code': 0}})
         for value, step, category in (('private-sentinel', 'inspect', 'invalid_inspect_json'),

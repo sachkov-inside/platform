@@ -72,14 +72,14 @@ class CorpusCallbackContinuity(unittest.TestCase):
                         or service in ('backup', 'restore', 'reader', 'ingest') else 'running')
                     return ''
                 if args[0] == 'wait':
-                    self.assertEqual(states[args[-1]], 'exited')
-                    return ''
+                    self.assertEqual(states[services[args[-1]]], 'exited')
+                    return '0\n'
                 if args[:3] == ['ps', '--all', '-q']:
                     return '\n'.join(identifiers[name] for name in args[3:] if name in states)
                 if args[0] == 'inspect':
                     service = services[args[1]]
                     state = states[service]
-                    return json.dumps({'image': image, 'labels': {'com.docker.compose.project': project,
+                    return json.dumps({'id': args[1], 'image': image, 'labels': {'com.docker.compose.project': project,
                         'com.docker.compose.service': service}, 'ports': None,
                         'network': project + '_private' if service == 'read-db' else 'none',
                         'mounts': [{'Type': 'volume', 'Name': destination, 'Destination': '/var/lib/postgresql', 'RW': True},
