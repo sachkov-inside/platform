@@ -57,8 +57,11 @@ Offer and deploying code never launch a notification.
 
 The service-authenticated Platform endpoint
 `POST /integrations/telegram/v1/communications/waitlist` uses the existing author authorization
-secret. Telegram derives its address beside the configured author authorization endpoint. The
-shared `waitlistAudienceRequest/Response` definitions own its closed envelope. Platform checks the
+secret. Telegram derives its address beside the configured author authorization endpoint.
+The production Caddy allowlist publishes exactly this POST to the Platform API on both API
+hostnames. Missing service credentials receive the API's 401; other methods and unknown subpaths
+remain unpublished with 404. This uses the existing communications credential and endpoint origin,
+without a new environment variable or credential. The shared `waitlistAudienceRequest/Response` definitions own its closed envelope. Platform checks the
 current author binding and `communications:manage`, obtains active memberships from ProductWaitlists,
 resolves current unambiguous bindings, and reads sale availability through Billing and the canonical
 Product slug through Materials. A recipient check can only narrow that audience. No delegated
