@@ -11,7 +11,9 @@ const image = (size = 4): StoredObject => ({
 
 test("repeated and simultaneous reads share one provider request, with isolated bytes", async () => {
   const cache = createPublicImageCache();
-  const load = vi.fn(() => Promise.resolve(image()));
+  const load = vi.fn(() =>
+    Promise.resolve({ ...image(), body: Buffer.from([7, 7, 7, 7]) }),
+  );
   const [first, second] = await Promise.all([
     cache.read("image", load),
     cache.read("image", load),

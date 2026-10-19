@@ -74,5 +74,7 @@ export function createPublicImageCache({
 function copy(object: StoredObject): StoredObject;
 function copy(object: StoredObject | null): StoredObject | null;
 function copy(object: StoredObject | null): StoredObject | null {
-  return object === null ? null : { ...object, body: object.body.slice() };
+  return object === null
+    ? null
+    : { ...object, body: new Uint8Array(object.body) };
 }
