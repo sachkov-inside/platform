@@ -149,3 +149,9 @@ export const CardsMobile: Story = {
   ...Cards,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+export const CompactManualCopy: Story = {
+  ...ManualCopy,
+  render: () => <MaterialCard material={material} variant="series" />,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};

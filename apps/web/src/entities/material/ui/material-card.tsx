@@ -390,7 +390,7 @@ function SeriesMaterialRow({
     >
       {/* Строка в одну линию: номер, тип словом, название, статус. Открытость показывает замок у
           закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
             aria-hidden="true"
@@ -423,6 +423,11 @@ function SeriesMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
+        <MaterialShareButton
+          compact
+          slug={material.slug}
+          title={material.title}
+        />
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
             <span className="tabular-nums max-sm:hidden" data-series-duration>
@@ -447,7 +452,6 @@ function SeriesMaterialRow({
           )}
         </span>
       </div>
-      <MaterialShareButton slug={material.slug} title={material.title} />
       <SeriesContinuationAction href={readerHref} slug={material.slug} />
     </SeriesRowArticle>
   );

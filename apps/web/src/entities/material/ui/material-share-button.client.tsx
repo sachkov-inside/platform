@@ -3,6 +3,7 @@
 import { Share2 } from "lucide-react";
 import { useId, useState } from "react";
 
+import { cn } from "@/shared/lib/utils";
 import { materialPath } from "@/shared/routing/public-page-path";
 import { Button } from "@/shared/ui/button";
 
@@ -13,10 +14,15 @@ import { Button } from "@/shared/ui/button";
 export interface MaterialShareButtonProps {
   readonly slug: string;
   readonly title: string;
+  readonly compact?: boolean;
 }
 
 /** Shares only the canonical material address, never the reader's private route context. */
-export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
+export function MaterialShareButton({
+  slug,
+  title,
+  compact = false,
+}: MaterialShareButtonProps) {
   const fieldId = useId();
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<{
@@ -54,18 +60,26 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
   }
 
   return (
-    <div className="relative z-10 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    <div
+      className={cn(
+        "relative z-10 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
+        compact && (current === null ? "shrink-0" : "basis-full"),
+      )}
+    >
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="min-h-11 gap-1.5 text-muted-foreground"
+        className={cn(
+          "min-h-11 gap-1.5 text-muted-foreground",
+          compact && "min-w-11 px-2",
+        )}
         disabled={pending}
         aria-label={`Поделиться материалом «${title}»`}
         onClick={() => void share()}
       >
         <Share2 aria-hidden="true" className="size-4 shrink-0" />
-        Поделиться
+        <span className={compact ? "sr-only" : undefined}>Поделиться</span>
       </Button>
       <span aria-live="polite" className="text-xs text-muted-foreground">
         {current === null
