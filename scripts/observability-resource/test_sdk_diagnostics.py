@@ -58,3 +58,23 @@ class Diagnostics(unittest.TestCase):
         self.assertTrue(all(value is None for value in facts['fresh'].values()))
         self.assertIsNone(facts['counters']['receiver']['delta'])
         self.assertIsNone(facts['current_fresh_after_original_missing_or_stale'])
+
+    def test_latency_pair_attributes_only_fresh_finite_points_to_the_current_phase(self):
+        def value(default, immediate):
+            return {'schema':1,'attempts':[{'evaluated_seconds':120,'default':{'state':'known','value':default},'immediate':{'state':'known','value':immediate}}]}
+        hidden=sdk_diagnostics.parse_latency(value(None,115),now=121,started=100)
+        self.assertEqual(hidden['state'],'valid')
+        self.assertEqual(hidden['attempts'][0]['fresh'],{'default':False,'immediate':True})
+        self.assertTrue(hidden['attempts'][0]['immediate_fresh_default_missing_or_stale'])
+        stale=sdk_diagnostics.parse_latency(value(90,90),now=121,started=100)
+        self.assertEqual(stale['attempts'][0]['fresh'],{'default':False,'immediate':False})
+        self.assertFalse(stale['attempts'][0]['immediate_fresh_default_missing_or_stale'])
+        absent=sdk_diagnostics.parse_latency(value(None,None),now=121,started=100)
+        self.assertEqual(absent['attempts'][0]['fresh'],{'default':False,'immediate':False})
+        unknown=value(None,None);unknown['attempts'][0]['immediate']['state']='unknown'
+        parsed=sdk_diagnostics.parse_latency(unknown,now=121,started=100)
+        self.assertIsNone(parsed['attempts'][0]['immediate_fresh_default_missing_or_stale'])
+        for bad in (None,{},value(None,math.nan),value(None,True),value(None,123),{**value(None,115),'private':'secret'}):
+            result=sdk_diagnostics.parse_latency(bad,now=121,started=100)
+            self.assertEqual(result,{'state':'invalid_response','attempts':[]})
+        self.assertEqual(sdk_diagnostics.parse_latency(value(None,115),now=121,started=130),{'state':'invalid_response','attempts':[]})

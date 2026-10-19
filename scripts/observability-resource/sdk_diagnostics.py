@@ -59,3 +59,36 @@ def facts(before, after, original, *, started):
     return {'interpretation':'observations_only','fresh':fresh,
             'current_fresh_after_original_missing_or_stale':None if previous is None or fresh['current'] is None else previous is False and fresh['current'] is True,
             'counters':{name:counter_delta(before['queries'][name],after['queries'][name]) for name in COUNTERS}}
+
+
+def parse_latency(value, *, now, started):
+    """Fixed same-evaluation-time read pairs. Visibility differences are observations, not causes."""
+    invalid = {'state':'invalid_response','attempts':[]}
+    def timestamp(number):
+        return type(number) in (int,float) and 0 < number <= MAX_SAFE_INTEGER and math.isfinite(number)
+    if (not timestamp(now) or not timestamp(started) or started > now
+            or not isinstance(value,dict) or set(value) != {'schema','attempts'}
+            or type(value['schema']) is not int or value['schema'] != 1
+            or not isinstance(value['attempts'],list) or not 1 <= len(value['attempts']) <= 3):
+        return invalid
+    attempts = []
+    previous = started
+    for attempt in value['attempts']:
+        if not isinstance(attempt,dict) or set(attempt) != {'evaluated_seconds','default','immediate'}:
+            return invalid
+        evaluated = attempt['evaluated_seconds']
+        if not timestamp(evaluated) or not previous <= evaluated <= now + 2:
+            return invalid
+        previous = evaluated
+        rows = {}
+        for name in ('default','immediate'):
+            row = attempt[name]
+            if (not isinstance(row,dict) or set(row) != {'state','value'} or row['state'] not in ('known','unknown')
+                    or row['state'] == 'unknown' and row['value'] is not None
+                    or row['value'] is not None and (not timestamp(row['value']) or row['value'] > evaluated + 2)):
+                return invalid
+            rows[name] = {'state':row['state'],'value':row['value']}
+        fresh = {name:freshness(row,started) for name,row in rows.items()}
+        attempts.append({'evaluated_seconds':evaluated,**rows,'fresh':fresh,
+            'immediate_fresh_default_missing_or_stale':None if any(item is None for item in fresh.values()) else fresh['immediate'] and not fresh['default']})
+    return {'state':'valid','attempts':attempts}

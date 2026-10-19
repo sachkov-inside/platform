@@ -521,7 +521,36 @@ Receiver/exporter deltas показывают только прогресс об
 без отнесения к конкретному producer и без доказательства отсутствия потерь или resets
 между двумя наблюдениями. Нулевые/отсутствующие deltas не доказывают выключенный SDK.
 Диагностика остаётся `observations_only` и не разрешает p95 при неуспешном прежнем observation.
-Новый фактический запуск этой диагностики ожидает review и точного source-bound образа.
+Фактический запуск `9dcbb763` также завершил 400 HTTP samples с HTTP 200 и сохранил partial.
+Второй after snapshot содержит dotted/dotted_service timestamp `1792448230.232` и collector
+receiver/exporter counters `18`, но timestamp на 10,53 секунды старше начала этой ON-фазы.
+Это не подтверждает свежую активность текущей фазы или причину исходного пустого selector.
+
+Дополнительная подготовленная проверка выполняется только после исходного observation и
+шести after queries, до переключения режима. Она сравнивает две фиксированные scalar queries
+`max(timestamp(...))` для dotted metric с quoted `"service.name"="platform-api"`: без override
+и с `latency_offset=0`. У пары одинаковый `time`, но запросы последовательны и не имеют общего
+storage snapshot. До трёх пар с интервалом 2 секунды используют один абсолютный deadline
+8 секунд. Polling прекращается при свежем immediate sample; command вместе с проверкой
+identity ограничен 10 секундами. Максимум добавляется шесть GET на ON-фазу, двенадцать на
+запуск, всего с прежними snapshot не более 36 diagnostic GET. Response/output limits,
+600-секундный supervisor, исходный selector, profile и acceptance gates не меняются.
+
+Поле `latency` того же ограниченного artifact сохраняет evaluation time, две закрытые
+scalar строки и признаки свежести относительно начала текущей ON-фазы. Неизвестные,
+nonfinite/future timestamp и sample предыдущей фазы не подтверждают свежесть. Отсутствие
+данных не становится доказательством выключенного SDK. Partial/command failure сохраняются,
+а identity/transport command failure останавливает worker. Эти результаты не разрешают p95.
+
+В image lock закреплён VictoriaMetrics `v1.154.0` с digest. Его
+[исходник prometheus.go](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/app/vmselect/prometheus/prometheus.go)
+задаёт `search.latencyOffset=30s`, читает per-query `latency_offset` и сдвигает instant-query
+evaluation time вблизи текущего времени (строки 36–38, 835–846, 1110–1114).
+[Официальное описание query latency](https://docs.victoriametrics.com/victoriametrics/keyconcepts/#query-latency)
+также предупреждает: даже с нулевым offset недавно принятые buffered samples могут ещё не
+быть видимыми. Это source-backed гипотеза для коротких фаз, не установленная runtime RCA.
+Глобальные flags, ACL, collector и flush не меняются. Новый paired diagnostic ожидает
+review и фактического запуска с точным source-bound образом.
 
 Raw Engine sampling хранит charged memory, file/active/inactive cache, working-set estimate,
 накопленные CPU nanoseconds и guest online CPU count раздельно. Используется
