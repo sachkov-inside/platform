@@ -14,12 +14,22 @@ from storage_policy import (GIB, STOP_MARGIN_BYTES, MINIMUM_FREE_BYTES,
                             GROWTH_BYTES, assert_budget)
 
 
+class VmIdentityChanged(RuntimeError):
+    """A validated rejected sample exposes only field names and numerical counters."""
+    def __init__(self, changed_fields, previous, rejected):
+        super().__init__('VM filesystem identity changed')
+        self.changed_fields = changed_fields
+        self.previous_counters = previous
+        self.rejected_counters = rejected
+
+
 class VmBudget:
     """The probe's statfs identity and available blocks belong to the daemon filesystem."""
     def __init__(self):
         self.identity = None
         self.initial_free = None
         self.last_at = None
+        self.latest_counters = None
 
     def accept(self, line, *, now):
         values = line.split()
@@ -29,18 +39,24 @@ class VmBudget:
         if not all(value.isdecimal() for value in (block, total, available)):
             raise RuntimeError('invalid VM filesystem counters')
         block, total, available = map(int, (block, total, available))
-        if not 0 < block <= GIB or not 0 <= available <= total or total * block <= 0:
+        if not 0 < block <= GIB or not 0 <= available <= total or not 0 < total * block <= 2**64 - 1:
             raise RuntimeError('invalid VM filesystem bounds')
-        identity = (fsid, block, total, kind)
+        # statfs f_blocks is a capacity counter; it does not identify a filesystem.
+        identity = (fsid, block, kind)
         free = available * block
+        counters = {'block_bytes':block, 'total_bytes':block * total, 'free_bytes':free}
         if self.identity is None:
             if free < MINIMUM_FREE_BYTES:
                 raise RuntimeError('VM filesystem requires 16 GiB free')
             self.identity, self.initial_free = identity, free
         elif identity != self.identity:
-            raise RuntimeError('VM filesystem identity changed')
+            changed = [name for name, before, after in zip(
+                ('filesystem_id', 'block_bytes', 'filesystem_type'), self.identity, identity)
+                if before != after]
+            raise VmIdentityChanged(changed, self.latest_counters, counters)
         assert_budget(self.initial_free, free)
         self.last_at = now
+        self.latest_counters = counters
         return {'filesystem_id': fsid, 'filesystem_type': kind, 'block_bytes': block,
                 'total_bytes': block * total, 'free_bytes': free}
 
@@ -249,7 +265,12 @@ def monitor_failure(source, error):
                   'probe bootstrap host growth budget exceeded':'bootstrap_budget_exceeded',
                   'OrbStack allocated image growth budget exceeded':'allocated_image_budget_exceeded'
                   }.get(str(error), 'invalid_sample')
-    return {'source':source, 'exception_class':category, 'reason':reason}
+    result = {'source':source, 'exception_class':category, 'reason':reason}
+    if source == 'vm' and isinstance(error, VmIdentityChanged):
+        result.update({'changed_fields':error.changed_fields,
+                       'previous_counters':error.previous_counters,
+                       'rejected_counters':error.rejected_counters})
+    return result
 
 
 def retain_monitor_failure(output, failure):
