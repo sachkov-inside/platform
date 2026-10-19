@@ -76,7 +76,25 @@ gap и не добавлен в pipeline. Target-specific ingestion filtering т
 
 Взамен подготовлен self-scrape: фиксированные `up`, accepted/refused/sent/send_failed/queue counters,
 закрытые component labels и фиксированные job/instance. Публичный smoke требует точного `up=1` и
-положительного accepted-spans counter. Refused/exporter-error coverage и корректность всех drop
+положительного accepted-spans counter. Pinned Alloy создаёт OTel component ID через
+`NewIDWithName(factory.Type(), opts.ID)`: закрытые receiver/exporter allowlists учитывают
+`otlp/otelcol.receiver.otlp.pilot` и три `otlp_http/otelcol.exporter.otlphttp.{metrics,logs,traces}`.
+[Receiver source](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/otelcol/receiver/receiver.go#L139-L140)
+и [exporter source](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/otelcol/exporter/exporter.go#L169-L170)
+закреплены тем же release. Upstream [factory metadata](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/otlphttpexporter/metadata.yaml)
+задаёт type `otlp_http`, хотя Alloy component называется `otlphttp`; полные exporter IDs
+подтверждены source, а их actual counters ещё должен подтвердить следующий reviewed runtime. Smoke требует
+отдельный положительный sent counter для каждого из трёх точных exporter IDs и signal family,
+прежде чем записать `safe_collector_export_counters` как passed. На actual `4da87e1d` receiver counter имел положительное значение,
+но прежний relabel-фильтр отвергал полный typed ID. Поэтому `up` и данные smoke проходили,
+а обязательный accepted-spans counter отсутствовал в storage. Добавлены только эти фиксированные
+component IDs; произвольные labels по-прежнему не разрешены. Predicate продолжает требовать
+реальный конечный положительный счётчик, а не подстроку или пустой ответ.
+Для queue metrics сохраняется только закрытый `data_type` из `traces`, `metrics`, `logs`:
+[upstream queue source](https://github.com/open-telemetry/opentelemetry-collector/blob/v0.162.0/exporter/exporterhelper/internal/queue/obs_queue.go#L40-L50)
+использует exporter ID и signal как совместный ключ. Без signal девять очередей трёх
+component instances сливались бы в три серии после labelkeep. Это сохранение идентичности,
+а не доказательство поведения очередей при outage или полноты drop counters. Refused/exporter-error coverage и корректность всех drop
 counters под отказами этим не подтверждаются; missing counter не объявляется нулём или здоровьем.
 
 ## Проверка и доказательства
