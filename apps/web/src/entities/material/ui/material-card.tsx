@@ -172,7 +172,7 @@ export function MaterialCard({
       </Heading>
       {!hasCover && material.availability !== "available" ? (
         <IntentPrefetchLink
-          className="relative mt-3 flex min-h-24 items-center overflow-hidden rounded-xl no-underline"
+          className="relative mt-3 flex min-h-24 items-center overflow-hidden rounded-xl p-3 no-underline"
           href={readerHref}
           aria-label={`Открыть: ${material.title}. ${materialAccessLabel(material)}`}
           data-access-text-preview={material.availability}
