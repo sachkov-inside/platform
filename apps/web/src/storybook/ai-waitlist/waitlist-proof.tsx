@@ -241,7 +241,7 @@ export function WaitlistProof({
                   ? "Сообщу об открытии набора в Telegram."
                   : state === "enrolled"
                     ? "Откройте программу или продолжите обучение."
-                    : "Оставьте заявку — сообщу в Telegram, когда откроется набор."}
+                    : "Оставьте заявку. Сообщу в Telegram, когда откроется набор."}
               </p>
               {action(true)}
             </div>
@@ -297,11 +297,6 @@ function WaitlistAction({
         )
       ) : (
         <>
-          {lower ? null : (
-            <p className="waitlist-invitation">
-              Набор будет ограничен. Узнайте об открытии первыми — в Telegram.
-            </p>
-          )}
           <button
             className={lower ? "aie-status-button" : "aie-hero-action"}
             disabled={state === "saving"}
@@ -314,7 +309,7 @@ function WaitlistAction({
               </>
             ) : (
               <>
-                Жду набор <ArrowRight aria-hidden="true" />
+                Вступить в список ожидания <ArrowRight aria-hidden="true" />
               </>
             )}
           </button>
@@ -325,23 +320,27 @@ function WaitlistAction({
           ) : null}
         </>
       )}
-      <div className="waitlist-secondary-actions">
-        <Link
-          className="waitlist-secondary"
-          href="/products/ai-engineering/programme"
-        >
-          Программа и бесплатные материалы <ArrowRight aria-hidden="true" />
-        </Link>
-        {saved ? (
-          <button
-            className="waitlist-secondary waitlist-withdraw"
-            type="button"
-            onClick={onWithdraw}
-          >
-            Отказаться от ожидания
-          </button>
-        ) : null}
-      </div>
+      {lower || saved ? (
+        <div className="waitlist-secondary-actions">
+          {lower ? (
+            <Link
+              className="waitlist-secondary"
+              href="/products/ai-engineering/programme"
+            >
+              Программа и бесплатные материалы <ArrowRight aria-hidden="true" />
+            </Link>
+          ) : null}
+          {saved ? (
+            <button
+              className="waitlist-secondary waitlist-withdraw"
+              type="button"
+              onClick={onWithdraw}
+            >
+              Отказаться от ожидания
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
