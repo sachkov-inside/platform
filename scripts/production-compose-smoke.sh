@@ -917,6 +917,8 @@ assert_public_status POST /integrations/telegram/v1/communications/validate-cont
 # Missing credentials reach the API rejection; other methods and subpaths stay at the edge's 404.
 for host in sachkov.dev inside.sachkov.dev; do
   assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host"
+  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host" \
+    --header 'Authorization: Bearer synthetic-wrong-waitlist-service-credential'
   assert_public_status GET /integrations/telegram/v1/communications/waitlist 404 "$host"
   assert_public_status POST /integrations/telegram/v1/communications/waitlist/unknown 404 "$host"
 done
