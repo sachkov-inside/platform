@@ -123,11 +123,12 @@ import { GET as authStatus } from "../../app/auth/status/route";
 import { GET as callback } from "../../app/callback/route";
 
 describe("Logto BFF route orchestration", () => {
+  const authInstant = "2030-03-01T12:00:00Z";
   beforeEach(() => {
     vi.clearAllMocks();
     fakes.cookies.clear();
     vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+    vi.setSystemTime(new Date(authInstant));
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -400,12 +401,12 @@ describe("Logto BFF route orchestration", () => {
         accountId: null,
       },
       fakes.config.cookieSecret,
-      new Date(),
+      new Date(authInstant),
     );
     const pending = verifyWaitlistIntent(
       token,
       fakes.config.cookieSecret,
-      new Date(),
+      new Date(authInstant),
     );
     if (pending === null) throw new Error("Synthetic intent required");
     fakes.cookies.set(WAITLIST_INTENT_COOKIE, token);
@@ -424,7 +425,7 @@ describe("Logto BFF route orchestration", () => {
       verifyWaitlistIntent(
         fakes.cookies.get(WAITLIST_INTENT_COOKIE),
         fakes.config.cookieSecret,
-        new Date(),
+        new Date(authInstant),
       ),
     ).toMatchObject({
       phase: "signing-in",
@@ -443,7 +444,7 @@ describe("Logto BFF route orchestration", () => {
       verifyWaitlistIntent(
         fakes.cookies.get(WAITLIST_INTENT_COOKIE),
         fakes.config.cookieSecret,
-        new Date(),
+        new Date(authInstant),
       ),
     ).toMatchObject({
       phase: "ready",
@@ -463,7 +464,7 @@ describe("Logto BFF route orchestration", () => {
           accountId: null,
         },
         fakes.config.cookieSecret,
-        new Date(),
+        new Date(authInstant),
       ),
     );
     fakes.handleSignInCallback.mockRejectedValueOnce(
