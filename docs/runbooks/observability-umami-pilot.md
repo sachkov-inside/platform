@@ -298,3 +298,133 @@ Contract запускает только собственный disposable Postg
 После исправления supervised Umami retention запуски на Mac `fe89f406` и Linux source
 `4da87e1d` прошли, как указано выше. Сам этот schema-only contract не доказывает runtime
 retention или restore; доказательство bounded runtime retention относится к указанным supervised запускам.
+
+### Изолированная проверка PG18 и закрытого SQL-восстановления
+
+`scripts/observability-umami/recovery_runtime.py` является отдельным кандидатом на проверку
+настоящего backup/restore. Обычный Umami pilot его не вызывает. Реальный запуск этого
+кандидата пока не выполнен. Локальные Python-тесты проверяют подготовку, входные данные,
+закрытый допуск и ошибки контроллера, без Docker и без доказательства SQL-восстановления.
+
+Контроллер использует публичный pilot supervisor с прежним deadline 600 секунд,
+проверкой daemon/storage и обязательным shutdown/residue check. Все ресурсы входят в один
+собственный случайный Compose project. Host ports отсутствуют. Backup, restore и offline
+PostgreSQL выделены в профиль `maintenance-only`, SQL-читатель и запись, в
+`readers-after-replay`. Контроллер регистрирует оба профиля также для cleanup/recovery.
+Нельзя запускать эти профили вручную вместо контроллера.
+
+`infra/observability/umami/recovery-cache.lock.json` закрепляет существующий локальный ARM64
+foundation cache и хеши Dockerfile/init/restore/config. Runtime требует точного image ID,
+соответствия собственного cache tag и архитектуры. Нет fallback build или pull.
+На Mac ожидаемый Compose hash заранее включает только точное добавление `storage-probe`
+публичным supervisor. Оно вычисляется из frozen daemon identity, закреплённого probe lock
+и того же владельца service/serializer. Worker сравнивает итоговые байты, не удаляет probe
+из проверки и не нормализует неожиданные правки. Изменения другого service, mount,
+параметров probe, private config или первоначального `init.sql` останавливают вход до
+Docker I/O. Это исправление PG-BIND-1, обнаруженного до первого runtime-запуска кандидата.
+
+Контроллер также проверяет фактические PostgreSQL 18.4 и pgBackRest 2.57.0. Несоответствие
+версии останавливает проверку. Production Dockerfile, WAL и backup конфигурация не меняются.
+Частная конфигурация использует собственный POSIX repository и новый случайный cipher pass.
+
+В одном исходном кластере создаются синтетические Platform и Umami базы. Umami сохраняет
+ограничения существующего pilot: connection limit 8, statement timeout 5s, idle transaction
+timeout 10s и отсутствие административных прав. Собственный fixture запрещает Umami
+CONNECT в Platform/Logto. Это не изменение production grants и не доказательство размера
+Prisma pool. Схема Umami берётся из существующего точного fixture 26 закреплённых миграций.
+
+Контроллер выполняет stanza-create/check/full backup с archiving, выбирает точный label
+и требует обе базы в его manifest. Новый синтетический manifest удалений записывается
+вне базы после backup. Исходный сервер останавливается. Перед очисткой PGDATA требуются
+предварительное отсутствие recovery volume, его фактические Compose labels, local driver
+без внешних options и правильный mount ещё не запущенного restore-контейнера. Одного
+имени volume недостаточно. Исходный data volume не используется как назначение restore.
+
+Восстановленная копия запускается без сети, с выключенным archiving и repository read-only.
+Контроллер ждёт завершения recovery, сверяет lineage и обе базы. Настоящая ошибочная SQL
+операция проверяет, что внешние SQL-акторы отсутствуют. Затем повторяются текущий синтетический
+manifest и TTL с новым cutoff по времени БД. Ошибка или неполная очистка не вызывает допуск.
+Перед запуском private `read-db` контроллер останавливает offline postmaster и требует
+через inspect нулевой PID и отсутствие работающего процесса. После этого SQL-читатель
+проверяет сохранённые свежие строки и отсутствие запрещённых, а запись создаёт только
+синтетическое событие. Это SQL-акторы, не Umami HTTP-приложение или native MCP.
+
+После immutable review, координации общего runtime и при наличии закреплённого cache
+запуск из чистого checkout с новым private output directory:
+
+```bash
+bash scripts/heavy-check.sh python3 scripts/observability-umami/recovery_runtime.py run \
+  --output .reports/umami-recovery-01
+```
+
+Для аварийного cleanup только этого зарегистрированного project, после завершения его
+worker и process group:
+
+```bash
+bash scripts/heavy-check.sh python3 scripts/observability-umami/recovery_runtime.py recover \
+  --output .reports/umami-recovery-01
+```
+
+В `recovery-proof.json` поле `operation` показывает последний one-shot этап:
+`up`/`start`, `identity`, `inspect`, `state`, `wait`, `exit` или `comparison`. При отказе сохраняются
+только фиксированная категория, проверенный числовой return code (иначе `null`) и форма
+ID: количество (`none`/`one`/`multiple`), длина единственного значения и признак hex.
+Диагностика одной операции занимает меньше 1 KiB и перезаписывается, не накапливается.
+Она не содержит ID, raw stdout/stderr, SQL, config или текстов исключений. Она уточняет
+место следующего отказа, но сама по себе не устанавливает причину исторического запуска,
+в котором `repo-init` завершился с кодом 0, а проверка остановилась на `repository_initialize`.
+
+После `up`/`start` контроллер проверяет полный 64-символьный ID и project/service labels,
+затем вызывает Engine `docker wait` по этому ID с прежним пределом 90 секунд.
+Числовой результат должен совпасть с exit code 0 при повторной проверке того же ID,
+владельца и остановленного состояния. Смена ID, владельца, неизвестное состояние,
+неправильный результат или timeout закрывают допуск к следующим этапам.
+
+Только после подтверждённого exit 0 собственного `repo-init` выполняется read-only
+сравнение Compose wait и Engine wait по тому же проверенному ID. На всё сравнение
+выделено 10 секунд внутри общего лимита 600 секунд. Принимается только успех Compose
+либо код 1 с точным ограниченным сообщением об отсутствии контейнеров собственного
+project. Неизвестные ошибки останавливают проверку. Между вызовами повторно проверяются
+ID, владелец и exit 0. `operation.compatibility` сохраняет только фиксированные исходы,
+проверенные коды и признак неизменного собственного ID. Это диагностика после основного
+допуска, она не повторяет операцию и не заменяет проверку успеха.
+
+Успешное сравнение сохраняется отдельно в `repo_init_wait_comparison` и остаётся
+доступным после backup, restore или последующего отказа. Последнее поле `operation`
+по-прежнему перезаписывается следующей one-shot операцией.
+
+До запуска restore поле `destination_operation` показывает последний подэтап:
+`create`, `volume_inspect`, `container_identity`, `container_inspect`, `offline` или
+`ownership_mounts`. Это одно перезаписываемое поле размером меньше 1 KiB. В нём только
+schema, фиксированные step/outcome/error и проверенный числовой returncode либо `null`.
+Оно не сохраняет ID, имена volumes, paths, inspect, stderr, SQL или тексты исключений.
+Отказ сохраняет закрытый reader gate и запрещает запуск restore. Проверки владельца,
+mounts и offline-состояния обязательны. Исторический точный отказ на `restore_destination`
+остаётся неизвестным до получения нового доказательства.
+
+В среде неуспешного запуска установлен Compose `v2.40.3-desktop.1` (read-only metadata).
+В upstream [Compose v2.40.3 wait.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/wait.go)
+выбор контейнеров передаёт `all=false`; [containers.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/containers.go)
+передаёт это значение Engine ContainerList. Быстро завершившийся контейнер поэтому может
+не попасть в выборку. [Engine wait](https://docs.docker.com/reference/cli/docker/container/wait/)
+поддерживает уже остановленный контейнер. Это подтверждает гипотезу совместимости,
+но не устанавливает исключительную причину исторического отказа: исходный код именно
+Desktop-сборки и фактическое сравнение в новом публичном запуске пока не подтверждены.
+
+Проверяются `recovery-proof.json`, `recovery-inputs.json`, `evidence.json`,
+`worker-outcome.json`, `cleanup.json` и storage evidence. Успешный SQL-result без успешного
+cleanup не является успешным запуском. `compose.json` содержит credentials, остаётся
+mode 0600 в private mode 0700 directory и нужен для cleanup. Его нельзя публиковать,
+как и весь private output directory. Копировать можно только перечисленные curated artifacts.
+
+Источник актуальных production-удалений остаётся неизвестным. Синтетический manifest
+доказывает лишь механизм повтора и порядок допуска. Плановая очистка в следующие сутки,
+Umami HTTP/native MCP restore, production S3 recovery, ресурсные критерии и семь суток
+наблюдений остаются отдельными непроверенными требованиями #1565/#1566.
+
+Production encryption отдельно блокирует #1579. [Официальное сообщение pgBackRest
+от 4 октября 2026](https://pgbackrest.org/news.html) указывает: до 2.59.3 ошибка получения
+случайных данных OpenSSL могла остаться незамеченной и ослабить subkeys/salts. В этом
+срезе 2.57 сохранён только для синтетической совместимости. Его запуск не доказывает
+пригодность production-шифрования. Обновление binary само по себе не заменяет старые
+stanza subkeys. Дальнейшая работа с foundation и существующим repository относится к #1579.

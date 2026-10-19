@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "image": "sha256:a13d4f971ff16928bc72feb09e86f893c83463da576b4e8bdba26eee22158ed7",
+  "cache_owner": "inside-platform-production-smoke-cache-1566-resource-3a501dca-foundation:local",
+  "source": "3a501dcafb83b83c8b126147b11f50e484037185",
+  "architecture": "arm64",
+  "inputs": {
+    "infra/production/database/Dockerfile": "a1cc13085c53b0fcd1d3d1a45aac4969c946de09c1953ad2aab81a9b63468c73",
+    "infra/production/database/init-production-databases.sh": "ba954d83eb27a1527833a793fc9b3a2136ff379d4ffe7c4f7cd7c094677ad2d9",
+    "infra/production/database/restore-entrypoint.sh": "a4fd611b9640f26de06c773078cda56f82e3f39d9ab82d292858fd32a2635302",
+    "infra/production/database/pgbackrest.conf": "93fe247c7388b7f7152b3e122103d4d3cf1efe106ae0af86c7b360352db03b56"
+  }
+}

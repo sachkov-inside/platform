@@ -29,12 +29,14 @@ FIXTURE_BYTES = 65_536
 DB_READY_SECONDS = 60
 DB_POLL_SECONDS = .25
 NATIVE_SETUP_SECONDS = 240
+WAIT_PROBE_ERROR_BYTES = 1024
 
 
 class FixtureCommandFailed(RuntimeError):
-    def __init__(self, diagnostic=None):
+    def __init__(self, diagnostic=None, *, returncode=None):
         super().__init__('owned fixture command failed')
         self.diagnostic = diagnostic
+        self.returncode = returncode if type(returncode) is int and -128 <= returncode <= 255 else None
 
 
 def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS, fixture_phase=None):
@@ -53,7 +55,17 @@ def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS
                 diagnostic = fixture.failure_report(json.loads(result.stderr))
             except (ValueError, TypeError):
                 pass
-        raise FixtureCommandFailed(diagnostic)
+        if (fixture_phase == 'compose_wait_probe' and result.returncode == 1
+                and args == ['wait', 'repo-init'] and len(compose) == 6
+                and compose[:3] == ['docker', 'compose', '-p'] and compose[4] == '-f'
+                and len(result.stderr.encode()) <= WAIT_PROBE_ERROR_BYTES):
+            import recovery
+            project = compose[3]
+            if (re.fullmatch(re.escape(recovery.PROJECT_PREFIX) + r'[a-f0-9]{12}', project)
+                    and result.stderr in ('no containers for project "' + project + '"',
+                                          'no containers for project "' + project + '"\n')):
+                diagnostic = {'phase': 'compose_wait_probe', 'error': 'no_running_containers'}
+        raise FixtureCommandFailed(diagnostic, returncode=result.returncode)
     if len(result.stdout.encode()) > FIXTURE_BYTES:
         raise RuntimeError('owned fixture response exceeds budget')
     return result.stdout
