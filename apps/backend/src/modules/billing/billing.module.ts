@@ -1,3 +1,4 @@
+import { PaymentDiagnostics } from "./features/read-payment-diagnostics/payment-diagnostics.js";
 import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
 import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
@@ -59,6 +60,15 @@ const BILLING_BANK = Symbol("BillingBank");
     PaymentLinksController,
   ],
   providers: [
+    {
+      provide: PaymentDiagnostics,
+      inject: [PrismaClientProvider, ACCOUNTS, ACCESS_GRANTS],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        accounts: Accounts,
+        grants: AccessGrants,
+      ) => new PaymentDiagnostics({ prisma, accounts, grants }),
+    },
     {
       provide: BillingProductSales,
       inject: [PrismaClientProvider],
@@ -201,6 +211,7 @@ const BILLING_BANK = Symbol("BillingBank");
     },
   ],
   exports: [
+    PaymentDiagnostics,
     BillingProductSales,
     BillingSurveyRespondentSales,
     TributeConvergence,
