@@ -1,0 +1,78 @@
+[
+  {
+    "mode": "passive-before",
+    "width": 390,
+    "selectedUrl": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/tallLight.png?width=420",
+    "srcSet": "/api/products/synthetic-course/tasks/synthetic-c-task/assets/tallLight.png?width=420 420w",
+    "imageBytes": [
+      {
+        "url": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/tallLight.png?width=420",
+        "requestBodySize": 0,
+        "requestHeadersSize": 538,
+        "responseBodySize": 15350,
+        "responseHeadersSize": 253
+      }
+    ],
+    "layoutShift": 0.0001199796875,
+    "overflow": false,
+    "positionDelta": 0,
+    "heightDelta": 0
+  },
+  {
+    "mode": "passive-before",
+    "width": 1440,
+    "selectedUrl": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/wideLight.png?width=960",
+    "srcSet": "/api/products/synthetic-course/tasks/synthetic-c-task/assets/wideLight.png?width=960 960w",
+    "imageBytes": [
+      {
+        "url": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/wideLight.png?width=960",
+        "requestBodySize": 0,
+        "requestHeadersSize": 538,
+        "responseBodySize": 14158,
+        "responseHeadersSize": 253
+      }
+    ],
+    "layoutShift": 0.00022042939362702544,
+    "overflow": false,
+    "positionDelta": 0,
+    "heightDelta": 0
+  },
+  {
+    "mode": "layout-after",
+    "width": 390,
+    "selectedUrl": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/tallLight.png?width=420",
+    "srcSet": "/api/products/synthetic-course/tasks/synthetic-c-task/assets/tallLight.png?width=420 420w",
+    "imageBytes": [
+      {
+        "url": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/tallLight.png?width=420",
+        "requestBodySize": 0,
+        "requestHeadersSize": 748,
+        "responseBodySize": 15350,
+        "responseHeadersSize": 253
+      }
+    ],
+    "layoutShift": 0.0001199796875,
+    "overflow": false,
+    "positionDelta": 0,
+    "heightDelta": 0
+  },
+  {
+    "mode": "layout-after",
+    "width": 1440,
+    "selectedUrl": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/wideLight.png?width=960",
+    "srcSet": "/api/products/synthetic-course/tasks/synthetic-c-task/assets/wideLight.png?width=960 960w",
+    "imageBytes": [
+      {
+        "url": "http://localhost:6017/api/products/synthetic-course/tasks/synthetic-c-task/assets/wideLight.png?width=960",
+        "requestBodySize": 0,
+        "requestHeadersSize": 748,
+        "responseBodySize": 14158,
+        "responseHeadersSize": 253
+      }
+    ],
+    "layoutShift": 0.00022042939362702544,
+    "overflow": false,
+    "positionDelta": 0,
+    "heightDelta": 0
+  }
+]

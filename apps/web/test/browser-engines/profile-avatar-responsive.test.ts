@@ -44,9 +44,9 @@ test("avatars select existing renditions for the displayed size and screen densi
           await img.evaluate(
             (node: HTMLImageElement) => new URL(node.currentSrc).pathname,
           ),
-        ).toBe(`/api/account/profile/avatar/avatar/${expected}`);
+        ).toBe(`/api/account/profile/avatar/avatar/${String(expected)}`);
         expect(requests).toEqual([
-          `https://images.example.test/api/account/profile/avatar/avatar/${expected}`,
+          `https://images.example.test/api/account/profile/avatar/avatar/${String(expected)}`,
         ]);
       } finally {
         await context.close();
