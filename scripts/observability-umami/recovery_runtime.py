@@ -65,7 +65,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
               'stage': 'cache_admission', 'reader_gate': 'closed', 'production_deletion_authority': 'unknown'}
     def record():
         pilot.write_json(output / 'recovery-proof.json', report)
-    def operation(value):
+    def record_operation(value):
         report['operation'] = value
         record()
     record()
@@ -93,7 +93,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
             raise RuntimeError('recovery_destination_already_exists')
         report['stage'] = 'repository_initialize'
         record()
-        _one_shot(compose, project, 'repo-init', execute, record=operation)
+        _one_shot(compose, project, 'repo-init', execute, record=record_operation)
         report['stage'] = 'source_database'
         record()
         execute(compose, ['up', '-d', '--no-deps', 'db'])
@@ -103,7 +103,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         record()
         if cluster['version_num'] != 180004 or cluster['archive_mode'] != 'on':
             raise RuntimeError('unexpected_source_database_version_or_archiving')
-        return _database_corpus(output, compose, project, plan, cluster, report, record, execute, operation)
+        return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         report['state'] = 'failed'
         record()
@@ -313,7 +313,7 @@ def _no_readers(compose, execute):
         raise RuntimeError('readers_or_ingestion_exist_before_gate')
 
 
-def _database_corpus(output, compose, project, plan, source, report, record, execute, operation):
+def _database_corpus(output, compose, project, plan, source, report, record, execute, record_operation):
     import retention_fixture
     def stage(value):
         report['stage'] = value
@@ -346,9 +346,9 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     report.update(pgbackrest_version='2.57.0', source_fixture_cutoff=source_cutoff,
                   source_system_identifier_sha256=hashlib.sha256(source['system_identifier'].encode()).hexdigest())
     stage('encrypted_backup')
-    for operation in ('stanza-create', 'check'):
-        execute(compose, ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', operation], timeout=OPERATION_SECONDS)
-    _one_shot(compose, project, 'backup', execute, record=operation)
+    for backup_command in ('stanza-create', 'check'):
+        execute(compose, ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', backup_command], timeout=OPERATION_SECONDS)
+    _one_shot(compose, project, 'backup', execute, record=record_operation)
     info_args = ['exec', '-T', '--user', 'postgres', 'db', 'pgbackrest', '--stanza=production', '--output=json']
     label = recovery.backup_label(execute(compose, [*info_args, 'info']))
     backup = recovery.backup_proof(execute(compose, [*info_args, '--set=' + label, 'info']))
@@ -376,7 +376,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     report['destination'] = recovery.confirm_destination(project, name, plan['services']['db']['image'], volume, restore,
                                                          absent_before_acquisition=True)
     stage('offline_restore')
-    _one_shot(compose, project, 'restore', execute, already_created=True, record=operation)
+    _one_shot(compose, project, 'restore', execute, already_created=True, record=record_operation)
     execute(compose, ['create', '--no-deps', 'recovered'])
     offline = _inspect_service(compose, project, 'recovered', execute)
     _require_stopped(offline)
@@ -422,7 +422,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
         _no_readers(compose, execute)
         report['reader_gate'] = 'transitioning_after_replay_and_current_ttl'
         record()
-        open_sql_actors(compose, project, name, execute=execute, record=operation)
+        open_sql_actors(compose, project, name, execute=execute, record=record_operation)
     def record_gate(value):
         report['maintenance'] = value
         report['reader_gate'] = value['reader_gate']
