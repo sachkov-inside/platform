@@ -500,3 +500,72 @@ export const AiFirstProductLoadsInPlaceMobile: Story = {
   args: AiFirstProduct.args,
   ...loadsInPlace(mobile),
 };
+
+/** Shared feed cards omit missing covers on Home and in the product Material catalog. */
+export const FeedWithoutCovers: Story = {
+  args: {
+    result: { kind: "ready", value: home },
+    feed: feed({
+      kind: "ready",
+      facets: { formats: [], series: [], topics: threeTopics },
+      nextCursor: null,
+      totalCount: 3,
+      items: [
+        {
+          ...note,
+          slug: "coverless-locked",
+          cover: null,
+          access: "closed",
+          availability: "locked",
+          title: "Закрытый материал без обложки",
+        },
+        {
+          ...note,
+          slug: "coverless-available",
+          cover: null,
+          access: "free",
+          availability: "available",
+          title: "Открытый материал без обложки",
+        },
+        {
+          ...note,
+          slug: "coverless-unavailable",
+          cover: null,
+          access: "closed",
+          availability: "unavailable",
+          title: "Доступ временно не определён",
+        },
+      ],
+    }),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await canvas.findByRole("heading", {
+      name: "Закрытый материал без обложки",
+    });
+    const locked = canvasElement.querySelector(
+      '[data-material-slug="coverless-locked"]',
+    );
+    const available = canvasElement.querySelector(
+      '[data-material-slug="coverless-available"]',
+    );
+    const unavailable = canvasElement.querySelector(
+      '[data-material-slug="coverless-unavailable"]',
+    );
+    await expect(locked?.querySelector(".public-cover-grid")).toBeNull();
+    await expect(
+      locked?.querySelector('[data-access-text-preview="locked"]'),
+    ).toHaveTextContent("Для участников");
+    await expect(
+      available?.querySelector("[data-access-text-preview]"),
+    ).toBeNull();
+    await expect(available?.querySelector(".public-cover-grid")).toBeNull();
+    await expect(
+      unavailable?.querySelector('[data-access-text-preview="unavailable"]'),
+    ).toHaveTextContent("Недоступно");
+  },
+};
+export const FeedWithoutCoversMobile: Story = {
+  ...FeedWithoutCovers,
+  globals: mobile.globals,
+};
