@@ -1,4 +1,16 @@
 import {
+  name as learningActivityName,
+  statement as learningActivityStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0105-learning-activity-provenance.js";
+import {
+  name as submissionActivityName,
+  statement as submissionActivityStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0107-submission-activity-period.js";
+import {
+  name as bookmarkActivityName,
+  statement as bookmarkActivityStatement,
+} from "../modules/bookmarks/infrastructure/postgres/migrations/0106-bookmark-activity-provenance.js";
+import {
   name as funnelDiagnostic0Name,
   statement as funnelDiagnostic0Statement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-funnel-diagnostic-candidates.js";
@@ -668,6 +680,9 @@ export const platformMigrations = [
   { name: funnelDiagnostic2Name, statement: funnelDiagnostic2Statement },
   { name: funnelDiagnostic3Name, statement: funnelDiagnostic3Statement },
   { name: funnelDiagnostic4Name, statement: funnelDiagnostic4Statement },
+  { name: learningActivityName, statement: learningActivityStatement },
+  { name: bookmarkActivityName, statement: bookmarkActivityStatement },
+  { name: submissionActivityName, statement: submissionActivityStatement },
 ] as const;
 
 export function migrateToLatest(

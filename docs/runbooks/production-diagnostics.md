@@ -260,3 +260,59 @@ scheduled/blocked. `retrying` — незавершённые `created/retry/acti
 email delivery в этом bounded этапе ещё не покрыты; их отсутствие в отчёте не означает отсутствие
 backlog или ошибок. Настройки сбора, entitlement/business semantics и production-конфигурация этим
 инструментом не меняются.
+
+### Provenance подтверждённой Membership activity
+
+Подготовлены внутренние owner-интерфейсы `ReadingActivityFacts.read`, `BookmarkActivityFacts.read`
+и `TaskSubmissionFacts.read` для следующего distinct Account report. Новый MCP/REST-инструмент
+или permission в этом этапе не добавлены. Эти trusted owner-интерфейсы возвращают Account ID;
+потребитель обязан проверить право до их вызова. Их результат не является публичной аналитикой.
+
+Источники фактов:
+
+- `reading_activity.events`: существующие реальные ручные `material_marked_read` и
+  `material_marked_unread`; исходные event ID, command ID и state version сохраняются.
+  No-op, stale/conflicting command и повтор receipt не добавляют переход.
+- `reading_activity.learning_started_events`: только фактическое первое создание Account/Product
+  `product_learning_started` новой версией writer, в той же транзакции с исходным command ID.
+  Конкурентные открытия разных Materials одного Product не создают второй start. Существующая
+  таблица `product_learning_started` содержит backfill из first-open в migration 0093; она не
+  реконструируется как журнал. Повторное открытие после старого backfilled start не новый start.
+- `bookmarks.activity_events`: фактические add/remove под общим owner pair lock, атомарно с
+  изменением bookmark. No-op и параллельные одинаковые add/remove не создают события. Existing
+  bookmarks не backfill. Bookmark contract не имеет command ID: старый add, пришедший после
+  remove, по текущему contract снова меняет состояние. Journal отражает этот реальный переход;
+  причинную дедупликацию переставленных команд без ключа он не обещает.
+- `product_tasks.submissions`: существующий подтверждённый receipt пользовательской сдачи form/MCP
+  с исходными submission ID/key и submitted time. Retry возвращает receipt, не новую сдачу;
+  фоновые review/progress/reconciliation не входят. Payload, note и review text не читаются.
+
+Каждый owner читает только свою schema в отдельном `RepeatableRead READ ONLY`-снимке, с бюджетами
+statement 2 s / transaction 5 s / ожидание соединения 1 s. UTC `[from,to)` имеет длину до 31 дня.
+Фильтр времени применяется к настоящему event/submission time до агрегации. Ответ содержит окно,
+UTC `asOf`, Account/kind, точное число сохранённых фактов и first/last event time этого окна.
+Эти first/last являются границами прочитанных реальных событий, не восстановлением активности
+из mutable visit/state. До 2000 релевантных Account/kind групп возвращаются целиком;
+2001-я означает `source_budget_exceeded / unknown`, без выдачи усечённых distinct totals.
+Потребитель может сузить окно. Cursor и стабильное продолжение между снимками не реализованы;
+объединение результатов разных окон/owners и политика distinct остаются следующим report slice.
+Unread/removal сохранены отдельно; решение об их включении в active participant показатель здесь
+не вводится. Checkout и технические события источниками этих интерфейсов не являются.
+
+`coverage.status=partial`, `collectionStartedAt=null`, `continuity=not_proven` сохраняются и при
+нулевых результатах: migration timestamp и первый полученный event не доказывают дату начала или
+непрерывность rollout. После rollback на старый writer возможен gap сбора; compatible rollback build
+должен сохранить полную применённую registry, включая 0105–0107 и неизменные checksums. Старый image
+с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
+нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
+
+Read horizon — последние 365 дней относительно DB snapshot clock; более раннее начало запроса
+получает `outside_retention / unknown`. Исходные учебные receipts/manual journals и Product state
+не удаляются ради аналитики. Физическая очистка двух новых activity journals **ещё не реализована**:
+365-дневная retention полностью не принята. Для следующего retention slice подготовлен owner index
+`(occurred_at,event_id,...)`: bounded cleanup должен удалять только новые analytics events раньше
+cutoff, страницами по этому ключу, с конечным batch/work budget; отдельно показывать earliest retained
+expired event и cleanup lag, проверять повтор, остановку и restore. Не удалять исходные task receipts
+или читать чужую schema для этого cleanup. Ни cleanup job, ни новые внешние collector/Umami вызовы
+в бизнес-транзакции этим этапом не добавлены. Production migration/rollout требует отдельного допуска;
+новые period indexes существующих journals могут блокировать запись при обычном `CREATE INDEX`.

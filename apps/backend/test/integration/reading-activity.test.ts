@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
+  Prisma,
   createPrismaClient,
   lockReadingPair,
   type PlatformPrisma,
@@ -22,6 +23,7 @@ import { assembleContentAccess } from "../../src/modules/content-access/index.js
 
 import {
   PersonalHome,
+  ReadingActivityFacts,
   ReadingActivity,
 } from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -868,5 +870,147 @@ describe("ReadingActivity on PostgreSQL", () => {
       ok: true,
       value: { changed: true, state: { isRead: true } },
     });
+  });
+  test("reads genuine learning-start and manual transition events without reconstructing legacy opens", async () => {
+    const product = await series();
+    const id = await material([product]);
+    const account = randomUUID();
+    const contentAccess = assembleContentAccess({
+      materialResourceFacts: assembleMaterialResourceFacts(
+        materials.materialContent,
+      ),
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      accountRights: membership,
+    });
+    const home = new PersonalHome({
+      prisma: database.prisma,
+      contentAccess,
+      materialContent: materials.materialContent,
+      composition,
+      reader: materials.publishedMaterialReader,
+      selection: new PublishedMaterialSelection(database.prisma),
+      videos: {
+        loadProgressMany: () => Promise.reject(new Error("not used")),
+        loadReadyDurations: () => Promise.reject(new Error("not used")),
+      },
+    });
+    const facts = await materials.materialContent.findAccessFacts(
+      materialId(id),
+    );
+    if (!facts.ok || facts.value === null)
+      throw new Error("Expected published Material");
+    const open = {
+      accountId: account,
+      materialId: id,
+      commandId: randomUUID(),
+      contentVersion: facts.value.contentVersion,
+    };
+    await Promise.all([home.recordOpen(open), home.recordOpen(open)]);
+    const other = await material([product]);
+    const otherFacts = await materials.materialContent.findAccessFacts(
+      materialId(other),
+    );
+    if (!otherFacts.ok || otherFacts.value === null)
+      throw new Error("Expected second Material");
+    await Promise.all([
+      home.recordOpen({ ...open, commandId: randomUUID() }),
+      home.recordOpen({
+        ...open,
+        materialId: other,
+        contentVersion: otherFacts.value.contentVersion,
+        commandId: randomUUID(),
+      }),
+    ]);
+    const mark = {
+      accountId: account,
+      materialId: id,
+      commandId: randomUUID(),
+      isRead: true,
+      expectedVersion: 0,
+    };
+    await Promise.all([
+      reading.setReadingState(mark),
+      reading.setReadingState(mark),
+    ]);
+    await reading.setReadingState({
+      ...mark,
+      commandId: randomUUID(),
+      expectedVersion: 1,
+    });
+    await reading.setReadingState({
+      ...mark,
+      commandId: randomUUID(),
+      expectedVersion: 1,
+      isRead: false,
+    });
+    const report = await new ReadingActivityFacts(database.prisma).read({
+      from: "2026-10-01T00:00:00Z",
+      to: "2026-10-31T00:00:00Z",
+    });
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === account)
+        .map(({ kind, eventCount }) => ({ kind, eventCount })),
+    ).toEqual([
+      { kind: "learning_started", eventCount: 1 },
+      { kind: "material_marked_read", eventCount: 1 },
+      { kind: "material_marked_unread", eventCount: 1 },
+    ]);
+    const legacy = randomUUID();
+    await database.prisma.productLearningStarted.create({
+      data: {
+        accountId: legacy,
+        productId: product,
+        startedAt: new Date("2026-10-05T00:00:00Z"),
+      },
+    });
+    await home.recordOpen({
+      ...open,
+      accountId: legacy,
+      commandId: randomUUID(),
+    });
+    const failedAccount = randomUUID();
+    await database.prisma.$executeRaw(
+      Prisma.sql`alter table reading_activity.learning_started_events add constraint fail_fixture check (account_id is null) not valid`,
+    );
+    try {
+      expect(
+        await home.recordOpen({
+          ...open,
+          accountId: failedAccount,
+          commandId: randomUUID(),
+        }),
+      ).toMatchObject({ ok: false });
+      expect(
+        await database.prisma.productLearningStarted.findUnique({
+          where: {
+            accountId_productId: {
+              accountId: failedAccount,
+              productId: product,
+            },
+          },
+        }),
+      ).toBeNull();
+      expect(
+        await database.prisma.readingMaterialVisit.findUnique({
+          where: {
+            accountId_materialId: { accountId: failedAccount, materialId: id },
+          },
+        }),
+      ).toBeNull();
+    } finally {
+      await database.prisma.$executeRaw(
+        Prisma.sql`alter table reading_activity.learning_started_events drop constraint fail_fixture`,
+      );
+    }
+    const after = await new ReadingActivityFacts(database.prisma).read({
+      from: "2026-10-01T00:00:00Z",
+      to: "2026-10-31T00:00:00Z",
+    });
+    if (!after.ok) throw new Error(after.error.code);
+    expect(after.value.rows.some((row) => row.accountId === legacy)).toBe(
+      false,
+    );
   });
 });

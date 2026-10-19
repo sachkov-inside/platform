@@ -63,6 +63,9 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0102_reading_funnel_diagnostic_sources",
         "0103_telegram_funnel_diagnostic_identities",
         "0104_funnel_diagnostic_current_products",
+        "0105_learning_activity_provenance",
+        "0106_bookmark_activity_provenance",
+        "0107_submission_activity_period",
       ],
     });
     expect(

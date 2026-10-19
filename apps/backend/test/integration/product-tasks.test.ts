@@ -34,6 +34,7 @@ import {
 import { SUBMISSIONS_PER_HOUR } from "../../src/modules/product-tasks/features/submit-task/submit-task.js";
 import {
   assembleLearningTasks,
+  TaskSubmissionFacts,
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
 import {
@@ -2461,5 +2462,54 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         }),
       ).toMatchObject({ ok: true });
     });
+  });
+  test("reads confirmed task receipts once despite concurrent replay, excluding background reviews", async () => {
+    const task = await imported();
+    const subject = await learner();
+    const tasks = learning();
+    const command = {
+      subject,
+      source: "form" as const,
+      submission: {
+        code: task.code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        note: "Подтверждённая пользовательская сдача.",
+      },
+    };
+    expect(
+      await tasks.updateReview({
+        subject,
+        code: task.code,
+        taskVersion: 1,
+        runKey: randomUUID(),
+        expectedRevision: 0,
+        phase: "reviewing",
+        summary: "Фоновая проверка не сдача.",
+      }),
+    ).toMatchObject({ ok: true });
+    const before = await new TaskSubmissionFacts(db.prisma).read({
+      from: "2026-10-01T00:00:00Z",
+      to: "2026-10-31T00:00:00Z",
+    });
+    if (!before.ok) throw new Error(before.error.code);
+    expect(
+      before.value.rows.some((row) => row.accountId === subject.accountId),
+    ).toBe(false);
+    const receipts = await Promise.all([
+      tasks.submit(command),
+      tasks.submit(command),
+    ]);
+    expect(receipts.every((receipt) => receipt.ok)).toBe(true);
+    const report = await new TaskSubmissionFacts(db.prisma).read({
+      from: "2026-10-01T00:00:00Z",
+      to: "2026-10-31T00:00:00Z",
+    });
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === subject.accountId)
+        .map(({ kind, eventCount }) => ({ kind, eventCount })),
+    ).toEqual([{ kind: "task_submitted", eventCount: 1 }]);
   });
 });

@@ -10,3 +10,5 @@ export {
   learningTaskInstructions,
   registerLearningTaskTools,
 } from "./adapters/mcp/learning-tasks-mcp.js";
+
+export { TaskSubmissionFacts } from "./features/read-confirmed-activity/read-confirmed-activity.js";

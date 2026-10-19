@@ -245,3 +245,15 @@ export async function tryLockBillingMethodFlow(
     );
   return rows[0]?.acquired === true;
 }
+
+/** Serializes actual bookmark add/remove transitions, including an initially absent pair. */
+export async function lockBookmarkPair(
+  transaction: AdvisoryLockTransaction,
+  accountId: string,
+  materialId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `bookmark:${accountId.toLowerCase()}:${materialId.toLowerCase()}`,
+  );
+}
