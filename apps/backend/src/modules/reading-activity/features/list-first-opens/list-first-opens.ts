@@ -1,3 +1,11 @@
+import {
+  DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticSnapshotOptions,
+  diagnosticSourceBudgetFailure,
+  setDiagnosticStatementBudget,
+  type DiagnosticSourceBudgetFailure,
+} from "../../../../infrastructure/diagnostic-read-budget.js";
+import type { ReadingActivityPrisma } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -31,32 +39,71 @@ export type FirstOpensResult =
 export class MaterialFirstOpens {
   constructor(private readonly prisma: ReadingActivityPrismaClient) {}
 
-  async list(materialIds: readonly string[]): Promise<FirstOpensResult> {
-    const parsed = materialIdsSchema.safeParse(materialIds);
-    if (!parsed.success)
+  list(materialIds: readonly string[]): Promise<FirstOpensResult> {
+    return readMaterialFirstOpens(this.prisma, materialIds);
+  }
+
+  async listForDiagnostics(
+    materialIds: readonly string[],
+  ): Promise<FirstOpensResult | DiagnosticSourceBudgetFailure> {
+    if (!materialIdsSchema.safeParse(materialIds).success)
       return { ok: false, error: { code: "invalid_request" } };
-    if (parsed.data.length === 0) return { ok: true, value: new Map() };
+    if (materialIds.length === 0) return { ok: true, value: new Map() };
     try {
-      const rows = rowsSchema.parse(
-        await this.prisma.$queryRaw(Prisma.sql`
+      return await this.prisma.$transaction(async (transaction) => {
+        await setDiagnosticStatementBudget(transaction);
+        const sources = await Promise.all([
+          transaction.readingMaterialVisit.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { materialId: true },
+          }),
+        ]);
+        if (sources.some((rows) => rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT))
+          return diagnosticSourceBudgetFailure;
+        return readMaterialFirstOpens(
+          transaction,
+          materialIds,
+          "listForDiagnostics",
+        );
+      }, diagnosticSnapshotOptions);
+    } catch (error) {
+      return dependencyFailure(
+        { module: "reading-activity", operation: "listForDiagnostics" },
+        error,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
+      );
+    }
+  }
+}
+
+async function readMaterialFirstOpens(
+  prisma: ReadingActivityPrisma,
+  materialIds: readonly string[],
+  operation = "listFirstOpens",
+): Promise<FirstOpensResult> {
+  const parsed = materialIdsSchema.safeParse(materialIds);
+  if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
+  if (parsed.data.length === 0) return { ok: true, value: new Map() };
+  try {
+    const rows = rowsSchema.parse(
+      await prisma.$queryRaw(Prisma.sql`
         select visit.account_id, min(visit.first_opened_at) as first_opened_at
         from reading_activity.material_visits as visit
         where visit.material_id = any(${parsed.data}::uuid[])
         group by visit.account_id
       `),
-      );
-      return {
-        ok: true,
-        value: new Map(
-          rows.map((row) => [row.account_id, row.first_opened_at]),
-        ),
-      };
-    } catch (error) {
-      return dependencyFailure(
-        { module: "reading-activity", operation: "listFirstOpens" },
-        error,
-        { ok: false, error: { code: "dependency_unavailable" } } as const,
-      );
-    }
+    );
+    return {
+      ok: true,
+      value: new Map(rows.map((row) => [row.account_id, row.first_opened_at])),
+    };
+  } catch (error) {
+    return dependencyFailure({ module: "reading-activity", operation }, error, {
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    } as const);
   }
 }

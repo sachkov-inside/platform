@@ -48,6 +48,22 @@ Publisher releases: [Grafana 13.2.4](https://github.com/grafana/grafana/releases
 Сумма compressed/unpacked размеров этого plugin — 303,445,884B, внутри общего growth cap 4GiB;
 расход images и всего workload по-прежнему проверяется самим пилотом.
 
+## Права процессов при запуске
+
+Временный `auth.json` сохраняет режим `0600`. `prepare` читает UID/GID этого файла и задаёт
+их процессу vmauth: иначе root контейнера после `cap_drop: ALL` не может прочитать файл,
+принадлежащий другому UID на Linux. `DAC_OVERRIDE` не добавляется.
+
+У закреплённого vendor binary Caddy есть file capability `cap_net_bind_service=ep`.
+Если убрать её из bounding set контейнера, ядро отказывает в выполнении binary ещё до чтения
+Caddyfile. Поэтому только `gateway` получает `NET_BIND_SERVICE` поверх `cap_drop: ALL`.
+Остальные capabilities остаются сняты; `no-new-privileges`, read-only filesystem, лимиты,
+порт `8080` внутри контейнера и публикация только на loopback сохраняются.
+
+Изолированные проверки закреплённых amd64 images подтвердили чтение конфигурации vmauth
+под владельцем файла и `caddy validate` с этой единственной capability. Это проверка запуска
+отдельных компонентов, а не успешный полный smoke или подтверждение ресурсного запаса.
+
 ## Изолированный запуск
 
 Нужны Linux Engine с локально доступным `DockerRootDir`, Docker Compose, Git, Python 3.9+
