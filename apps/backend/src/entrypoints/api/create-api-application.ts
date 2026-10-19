@@ -16,6 +16,12 @@ import {
   observeHttpRequests,
   StructuredNestLogger,
 } from "../../infrastructure/observability/index.js";
+import {
+  RUNTIME_IDENTITY,
+  type RuntimeIdentity,
+} from "../../infrastructure/runtime-identity.js";
+import { PLATFORM_CONFIG } from "../../config/platform-config.js";
+import { technicalTelemetryFromEnvironment } from "../../infrastructure/observability/technical-telemetry-runtime.js";
 import { ApiModule } from "./api.module.js";
 
 const MAX_HTTP_BODY_BYTES = 2 * 1_024 * 1_024;
@@ -32,7 +38,16 @@ export async function createApiApplication(
     }),
     { logger: new StructuredNestLogger(), ...options, rawBody: true },
   );
-  observeHttpRequests(app.getHttpAdapter().getInstance(), "api");
+  const runtimeConfig = app.get<PlatformConfig>(PLATFORM_CONFIG);
+  const telemetry = technicalTelemetryFromEnvironment({
+    environment: process.env,
+    service: "platform-api",
+    mode: runtimeConfig.mode,
+    identity: app.get<RuntimeIdentity>(RUNTIME_IDENTITY),
+  });
+  const fastify = app.getHttpAdapter().getInstance();
+  observeHttpRequests(fastify, "api", telemetry);
+  fastify.addHook("onClose", async () => telemetry.shutdown());
   await app.register(multipart, {
     limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
   });
