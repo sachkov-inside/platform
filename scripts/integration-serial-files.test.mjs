@@ -23,6 +23,7 @@ const serialMarkers = [
   /setup\/broker\.js/u,
   /\bfork\(/u,
   /\brunWorker\(/u,
+  /\blaunchQueueTelemetryProcess\(/u,
   /\bWORKER_READINESS_PATH\b/u,
 ];
 
@@ -90,5 +91,27 @@ describe("integration serial project", () => {
       misplacedIntegrationFiles(files, ["test/integration/plain.test.ts"]),
       ["test/integration/crash.test.ts", "test/integration/plain.test.ts"],
     );
+  });
+
+  it("requires serial registration for owned queue crash helper calls while keeping plain and import-only files parallel", () => {
+    const crash = "test/integration/queue-crash.test.ts";
+    const plain = "test/integration/plain.test.ts";
+    const importOnly = "test/integration/import-only.test.ts";
+    const files = [
+      {
+        path: crash,
+        source:
+          'import { launchQueueTelemetryProcess } from "./setup/queue-telemetry-process.js"; const owned = launchQueueTelemetryProcess({});',
+      },
+      { path: plain, source: "await createMigratedTestDatabase();" },
+      {
+        path: importOnly,
+        source:
+          'import { launchQueueTelemetryProcess } from "./setup/queue-telemetry-process.js";',
+      },
+    ];
+    assert.deepEqual(misplacedIntegrationFiles(files, [crash]), []);
+    assert.deepEqual(misplacedIntegrationFiles(files, []), [crash]);
+    assert.deepEqual(misplacedIntegrationFiles(files, [crash, plain]), [plain]);
   });
 });
