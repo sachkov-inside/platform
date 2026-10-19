@@ -323,7 +323,7 @@ def open_sql_actors(compose, project, name, *, execute=runtime.invoke, record=No
     """Stop and observe the offline postmaster before starting its private successor."""
     execute(compose, ['stop', '--timeout', str(STOP_SECONDS), 'recovered'])
     _require_stopped(_inspect_service(compose, project, 'recovered', execute))
-    execute(compose, ['create', '--no-deps', 'read-db'])
+    execute(compose, ['create', 'read-db'])
     actual = _inspect_service(compose, project, 'read-db', execute)
     _require_stopped(actual)
     _data_mount(actual, name)
@@ -388,7 +388,7 @@ def _confirm_restore_destination(compose, project, plan, name, execute, report, 
         record()
     progress('create')
     try:
-        execute(compose, ['create', '--no-deps', 'restore'])
+        execute(compose, ['create', 'restore'])
         progress('volume_inspect')
         volume = json.loads(execute(['docker'], ['volume', 'inspect', name, '--format', '{{json .}}']))
         restore = _inspect_service(compose, project, 'restore', execute, progress=progress)
@@ -481,7 +481,7 @@ FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl
     report['destination'] = _confirm_restore_destination(compose, project, plan, name, execute, report, record)
     stage('offline_restore')
     _one_shot(compose, project, 'restore', execute, already_created=True, record=record_operation)
-    execute(compose, ['create', '--no-deps', 'recovered'])
+    execute(compose, ['create', 'recovered'])
     offline = _inspect_service(compose, project, 'recovered', execute)
     _require_stopped(offline)
     _data_mount(offline, name)

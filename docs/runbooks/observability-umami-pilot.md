@@ -388,6 +388,17 @@ schema, фиксированные step/outcome/error и проверенный 
 mounts и offline-состояния обязательны. Исторический точный отказ на `restore_destination`
 остаётся неизвестным до получения нового доказательства.
 
+Создание контейнеров `restore`, `recovered` и `read-db` использует только
+`docker compose create SERVICE`. Generated plan не объявляет `depends_on`; скрытых
+зависимостей у этих сервисов нет. `create` не запускает контейнеры. Проверки offline,
+владельца, mounts и reader gate выполняются перед соответствующим `start`.
+`--no-deps` остаётся только у поддерживающего его `up`: [Compose create](https://docs.docker.com/reference/cli/docker/compose/create/)
+и установленный `v2.40.3-desktop.1 create --help` такой флаг не поддерживают.
+В запуске `3b065615` закрытая диагностика показала отказ `create` с кодом 1;
+отдельный read-only parser probe воспроизвёл `unknown flag: --no-deps` до чтения
+несуществующего compose-файла. Этот вывод относится к текущей команде, он не устанавливает
+исключительную причину более ранних запусков `16839f7e` или `50b0daba`.
+
 В среде неуспешного запуска установлен Compose `v2.40.3-desktop.1` (read-only metadata).
 В upstream [Compose v2.40.3 wait.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/wait.go)
 выбор контейнеров передаёт `all=false`; [containers.go](https://github.com/docker/compose/blob/v2.40.3/pkg/compose/containers.go)
