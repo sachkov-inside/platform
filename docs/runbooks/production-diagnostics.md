@@ -234,7 +234,7 @@ Account. Вход — строго `{}`: нельзя передать друг�
 Девять известных имён имеют один
 [contract с workers](../../apps/backend/src/infrastructure/job-queues.ts); новые очереди автоматически
 не добавляются. Query-путь не вызывает `PgBoss.start`, не создаёт schema/queue/jobs, не выполняет
-retry/cancel/purge и не читает `data`, `output`, job ID или provider payload.
+retry/cancel/purge, не читает `data`, `output` или provider payload и не возвращает сырые job ID.
 
 Один `RepeatableRead READ ONLY`-снимок имеет UTC `asOf`, проверяет точную schema version установленного
 pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
