@@ -381,7 +381,7 @@ test("profile resumes real Video progress and excludes playback end", async ({
   ).toHaveCount(0);
 });
 
-test("cabinet continuation failure preserves Telegram position and excludes denied, prefetched and SSR opens", async ({
+test("cabinet continuation failure keeps Telegram usable and excludes denied, prefetched and SSR opens", async ({
   page,
   context,
 }) => {
@@ -403,8 +403,8 @@ test("cabinet continuation failure preserves Telegram position and excludes deni
   await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0);
   expect(opens).toEqual([]);
-  // Keep the optional continuation read pending, then fail it. Essential account actions stay
-  // in place throughout; loading and an empty history no longer reserve a large placeholder.
+  // Keep the optional continuation read pending, then fail it. Its status now appears above
+  // Telegram in normal flow; essential account actions remain available without a placeholder.
   const initialReadGate = Promise.withResolvers<undefined>();
   const initialReadStarted = Promise.withResolvers<undefined>();
   await page.route(
@@ -423,7 +423,6 @@ test("cabinet continuation failure preserves Telegram position and excludes deni
       exact: true,
     });
     await expect(telegram).toBeVisible();
-    const before = await telegram.boundingBox();
     await initialReadStarted.promise;
     await expect(
       page.getByRole("region", { name: "Продолжить обучение" }),
@@ -438,7 +437,15 @@ test("cabinet continuation failure preserves Telegram position and excludes deni
     await expect(
       page.getByText("Не удалось загрузить продолжение обучения."),
     ).toBeVisible();
-    expect((await telegram.boundingBox())?.y).toBe(before?.y);
+    await expect(telegram).toBeVisible();
+    const status = page.getByText("Не удалось загрузить продолжение обучения.");
+    const statusBox = await status.boundingBox();
+    const telegramBox = await telegram.boundingBox();
+    if (statusBox === null || telegramBox === null)
+      throw new Error(
+        "Continuation status and Telegram must have visible geometry",
+      );
+    expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(telegramBox.y);
     await expect(
       page.getByRole("link", { name: /^Продолжить продукт/u }),
     ).toHaveCount(0);
