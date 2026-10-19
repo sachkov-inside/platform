@@ -1,0 +1,90 @@
+[
+  {
+    "role": "origin",
+    "source": "infra/production/host/Caddyfile",
+    "installed_path": "/etc/caddy/Caddyfile",
+    "source_sha256": "0f0d9c908863352a1c60738304780448a3a65bd33a93fce34e98f2eabada6379",
+    "installed_sha256": "0f0d9c908863352a1c60738304780448a3a65bd33a93fce34e98f2eabada6379",
+    "matches": true
+  },
+  {
+    "role": "origin",
+    "source": "infra/production/entry/haproxy-origin.cfg",
+    "installed_path": "/etc/inside-entry/haproxy.cfg",
+    "source_sha256": "8a86682ad6a121a05d7d298b7f1ddcac6b3b72976f56e1bf80ad562baffe37b1",
+    "installed_sha256": "8a86682ad6a121a05d7d298b7f1ddcac6b3b72976f56e1bf80ad562baffe37b1",
+    "matches": true
+  },
+  {
+    "role": "origin",
+    "source": "infra/production/entry/non-public-clients.lst",
+    "installed_path": "/etc/inside-entry/non-public-clients.lst",
+    "source_sha256": "bc27ee2b8b4c56a20c58b8beb5ef6a0f9e14321ce08288a4a0ae5e4e374c478e",
+    "installed_sha256": "bc27ee2b8b4c56a20c58b8beb5ef6a0f9e14321ce08288a4a0ae5e4e374c478e",
+    "matches": true
+  },
+  {
+    "role": "origin",
+    "source": "infra/production/entry/inside-entry.service",
+    "installed_path": "/etc/systemd/system/inside-entry.service",
+    "source_sha256": "790a00bda37fda273a159c469798ca8bea8f9f5b0a2a4c62f2101eca2d5b463f",
+    "installed_sha256": "790a00bda37fda273a159c469798ca8bea8f9f5b0a2a4c62f2101eca2d5b463f",
+    "matches": true
+  },
+  {
+    "role": "origin",
+    "source": "infra/production/entry/rollback-entry.sh",
+    "installed_path": "/etc/inside-entry/rollback-entry.sh",
+    "source_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
+    "installed_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
+    "matches": true
+  },
+  {
+    "role": "origin",
+    "source": "infra/production/entry/probe.py",
+    "installed_path": "/etc/inside-entry/probe.py",
+    "source_sha256": "c6f941dce5f4d21b8d692d9df771ccc9ccf084e4b89eac8b2922c3a449789355",
+    "installed_sha256": "c6f941dce5f4d21b8d692d9df771ccc9ccf084e4b89eac8b2922c3a449789355",
+    "matches": true
+  },
+  {
+    "role": "edge",
+    "source": "infra/production/entry/haproxy-edge.cfg",
+    "installed_path": "/etc/inside-entry/haproxy.cfg",
+    "source_sha256": "548589a49ce000931ca6c8f05dae11c4743e36f2d1acf72e8e435f9ec5971a37",
+    "installed_sha256": "548589a49ce000931ca6c8f05dae11c4743e36f2d1acf72e8e435f9ec5971a37",
+    "matches": true
+  },
+  {
+    "role": "edge",
+    "source": "infra/production/entry/inside-entry.service",
+    "installed_path": "/etc/systemd/system/inside-entry.service",
+    "source_sha256": "790a00bda37fda273a159c469798ca8bea8f9f5b0a2a4c62f2101eca2d5b463f",
+    "installed_sha256": "790a00bda37fda273a159c469798ca8bea8f9f5b0a2a4c62f2101eca2d5b463f",
+    "matches": true
+  },
+  {
+    "role": "edge",
+    "source": "infra/production/entry/nginx-http.conf",
+    "installed_path": "/etc/nginx/conf.d/inside-entry-http.conf",
+    "source_sha256": "f6461dba71e6ea4c43a4acc5d1d594bc2743075b95abc32ebe3822d98aefe09b",
+    "installed_sha256": "f6461dba71e6ea4c43a4acc5d1d594bc2743075b95abc32ebe3822d98aefe09b",
+    "matches": true
+  },
+  {
+    "role": "edge",
+    "source": "infra/production/entry/rollback-entry.sh",
+    "installed_path": "/etc/inside-entry/rollback-entry.sh",
+    "source_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
+    "installed_sha256": "9a4c280467b88a2a532e3f2a317503264e59fd15b08d018fff19411dab2f5e32",
+    "matches": true
+  },
+  {
+    "role": "edge",
+    "source": "infra/production/entry/probe.py",
+    "installed_path": "/etc/inside-entry/probe.py",
+    "source_sha256": "c6f941dce5f4d21b8d692d9df771ccc9ccf084e4b89eac8b2922c3a449789355",
+    "installed_sha256": "c6f941dce5f4d21b8d692d9df771ccc9ccf084e4b89eac8b2922c3a449789355",
+    "matches": true
+  }
+]

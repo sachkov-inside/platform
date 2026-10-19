@@ -13,22 +13,42 @@ const transport = {
   caddy: read("infra/production/host/Caddyfile"),
 };
 
-/** @param {typeof transport} config */
-function assertTransport(config) {
+/** @param {typeof transport} raw */
+function assertTransport(raw) {
+  /** @param {string} source */
+  const active = (source) =>
+    source
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("#"))
+      .join("\n");
+  const config = {
+    origin: active(raw.origin),
+    edge: active(raw.edge),
+    caddy: active(raw.caddy),
+    clients: active(raw.clients),
+  };
   assert.match(config.origin, /bind 201\.24\.126\.23:8443 accept-proxy/u);
+  const receiver =
+    `\n${config.origin}`
+      .split("\nfrontend inside_edge_receiver\n")[1]
+      ?.split(/\n(?:frontend|backend|listen) /u)[0] ?? "";
+  const backend =
+    `\n${config.origin}`
+      .split("\nbackend caddy_tls\n")[1]
+      ?.split(/\n(?:frontend|backend|listen) /u)[0] ?? "";
   assert.match(
-    config.origin,
-    /tcp-request connection reject unless \{ src 185\.125\.101\.90 \}/u,
+    receiver,
+    /^ {4}tcp-request connection reject unless \{ src 185\.125\.101\.90 \}$/mu,
     "validate the original socket peer in the connection phase",
   );
   assert.match(
-    config.origin,
-    /tcp-request session reject if \{ src -f \/etc\/inside-entry\/non-public-clients\.lst \}/u,
+    receiver,
+    /^ {4}tcp-request session reject if \{ src -f \/etc\/inside-entry\/non-public-clients\.lst \}$/mu,
     "validate decoded client addresses in the session phase",
   );
   assert.match(
-    config.origin,
-    /server caddy 127\.0\.0\.1:443 source 127\.0\.0\.2 send-proxy-v2/u,
+    backend,
+    /^ {4}server caddy 127\.0\.0\.1:443 source 127\.0\.0\.2 send-proxy-v2$/mu,
     "use a fixed backend and a dedicated local source",
   );
   assert.doesNotMatch(config.origin, /\bset-(?:dst|src)(?:-port)?\b/u);
@@ -77,6 +97,19 @@ function assertTransport(config) {
 describe("production TLS entry transport contract", () => {
   it("keeps the original-peer, decoded-client and local-Caddy boundaries", () => {
     assertTransport(transport);
+  });
+  it("rejects commented-out guards and guards moved to another frontend", () => {
+    for (const directive of [
+      "tcp-request connection reject unless { src 185.125.101.90 }",
+      "tcp-request session reject if { src -f /etc/inside-entry/non-public-clients.lst }",
+    ]) {
+      for (const origin of [
+        transport.origin.replace(directive, `# ${directive}`),
+        transport.origin.replace(directive, "") +
+          `\nfrontend unrelated\n    ${directive}\n`,
+      ])
+        assert.throws(() => assertTransport({ ...transport, origin }));
+    }
   });
   for (const [label, key, before, after] of /** @type {const} */ ([
     [

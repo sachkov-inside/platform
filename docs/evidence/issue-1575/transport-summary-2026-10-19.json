@@ -52,7 +52,9 @@
     "origin_original_caddyfile_restored": true,
     "origin_direct_status": 200,
     "reapply_edge_status": 200,
-    "reapply_existing_ip_status": 404
+    "reapply_existing_ip_status": 404,
+    "versioned_rollback_script_rehearsed": true,
+    "nginx_patch_replay_matches_installed_file": true
   },
   "browser": {
     "tool": "playwright-cli isolated Chrome with host-resolver-rules to Aeza",
@@ -91,5 +93,6 @@
     "External samples do not reproduce every affected VPN"
   ],
   "globalping_evidence": "aeza-globalping-2026-10-19.json",
-  "proxy_negative_evidence": "origin-proxy-negative-2026-10-19.jsonl"
+  "proxy_negative_evidence": "origin-proxy-negative-2026-10-19.jsonl",
+  "installed_config_evidence": "installed-config-2026-10-19.json"
 }

@@ -10,6 +10,9 @@ import sys
 import time
 
 
+PROBE_TIMEOUT_SECONDS = 5
+
+
 def proxy_frame(kind, source, destination, destination_port):
     if kind == "none":
         return b""
@@ -45,17 +48,27 @@ def main():
         parser.error("invalid HTTP request target")
     frame = proxy_frame(args.proxy, args.source, args.destination, args.destination_port)
     started = time.monotonic()
+    deadline = started + PROBE_TIMEOUT_SECONDS
+    def remaining():
+        seconds = deadline - time.monotonic()
+        if seconds <= 0:
+            raise TimeoutError("overall probe deadline exceeded")
+        return seconds
     result = {"sni": args.sni, "target": f"{args.host}:{args.port}", "proxy": args.proxy,
               "claimed_source": args.source if args.proxy in ("v1", "v2") else None}
     try:
-        with socket.create_connection((args.host, args.port), timeout=5) as connection:
+        with socket.create_connection((args.host, args.port), timeout=remaining()) as connection:
+            connection.settimeout(remaining())
             connection.sendall(frame)
             context = ssl.create_default_context()
+            connection.settimeout(remaining())
             with context.wrap_socket(connection, server_hostname=args.sni) as tls:
                 result["tls"] = tls.version()
+                tls.settimeout(remaining())
                 tls.sendall(f"GET {args.path} HTTP/1.1\r\nHost: {args.sni}\r\nConnection: close\r\nX-Forwarded-For: 127.0.0.1\r\nX-Real-IP: 127.0.0.1\r\nX-Inside-Production-Verify: entry-probe-1575\r\n\r\n".encode())
                 response = b""
                 while b"\r\n\r\n" not in response and len(response) < 65536:
+                    tls.settimeout(remaining())
                     chunk = tls.recv(4096)
                     if not chunk:
                         break
