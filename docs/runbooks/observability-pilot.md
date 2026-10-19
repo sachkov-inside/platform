@@ -86,6 +86,41 @@ initialize → tools/list → query известного fixture. Tools discover
 процесса сохраняются; stderr не сохраняется. Выполнение на Mac и его отдельный расход CPU
 остаются обязательной последующей проверкой. Umami MCP ещё не подготовлен.
 
+## Проверка на GitHub-hosted Linux
+
+[Observability functional pilot](../../.github/workflows/observability-pilot.yml) запускает
+тот же публичный supervisor на `ubuntu-24.04` при изменениях пилота или его workflow в PR
+к `main`. Это дополнительная функциональная проверка; обязательный `CI Gate` и его покрытие
+не меняются. Workflow не использует secrets, production, self-hosted или larger runners.
+Checkout и upload-artifact закреплены теми же commits, что Application CI; checkout не сохраняет credentials.
+Установка Node.js/pnpm и зависимостей для этого job не нужна.
+
+Сначала выполняются локальные process/loopback contracts, затем записывается фактическое
+свободное место на файловой системе Docker. 16GiB admission сохраняется. GitHub гарантирует
+стандартному Linux runner только [14GB SSD](https://docs.github.com/en/actions/reference/runners/github-hosted-runners);
+наличие 16GiB нельзя предполагать. Недостаток места даёт отказ с artifact, без `prune`, изменения
+порога или покупки другого runner. Это отдельный проверяемый результат, не пропуск ресурсной проверки.
+
+`source.json` различает фактический checkout SHA/tree и provider PR head SHA, а также хранит
+repository, run ID/attempt и SHA256 входов. Для PR checkout обычно является synthetic merge commit;
+его нельзя выдавать за branch head. Из приватного каталога результатов копируются только явно
+перечисленные ограниченные JSON/JSONL: source/admission, итог, cleanup/recovery, native MCP discovery,
+query timings и короткие stats/phase snapshots. Auth/datasources JSON, binaries/plugins и raw collector
+errors не загружаются; symlink под разрешённым именем отклоняется.
+
+После шага запуска `always()` выполняет best-effort recovery только зарегистрированного случайного
+проекта. Значение project/cwd проверяется, команда Compose конструируется заново; argv из owner JSON
+не исполняется. Если worker ещё существует или регистрация неполна, recovery отказывает, чтобы
+не опережать продолжающийся `up`; после завершения job остаётся утилизация disposable VM провайдером.
+Обычные выходы/timeout/signals по-прежнему обслуживает собственный supervisor.
+
+Зелёный hosted smoke подтверждает только проверенный синтетический Linux сценарий этого source.
+Он не доказывает запас Timeweb VPS, работу stdio/CPU на Mac, полный согласованный resource workload,
+аналитическую часть, production rollout или семь суток наблюдений. Первый фактический запуск workflow
+и его artifact должны быть отдельно записаны в #1566.
+
+## Короткие измерения smoke
+
 Для фаз idle/steady/spike сохраняются Docker stats snapshots, длительность короткой серии,
 query latency и состояния контейнеров перед остановкой. Это 0/10/50 цепочек, **не** согласованный
 длительный workload, baseline приложения или расчёт тарифа. Runner не объявляет ресурсные

@@ -1,0 +1,78 @@
+name: Observability functional pilot
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/observability-pilot.yml
+      - infra/observability/pilot/**
+      - scripts/observability-pilot/**
+      - scripts/observability-pilot.test.mjs
+      - scripts/heavy-check.sh
+      - docs/runbooks/observability-pilot.md
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observability-pilot-${{ github.event.pull_request.number }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  functional:
+    name: Isolated observability functional smoke
+    runs-on: ubuntu-24.04
+    # Public supervisor owns a 10-minute worker budget plus bounded preflight/cleanup.
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify preparation and local lifecycle contracts
+        timeout-minutes: 1
+        run: bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-pilot -p 'test_*.py'
+      - name: Record source and measured Docker disk admission
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-pilot/ci.py admission \
+            --output "$RUNNER_TEMP/inside-observability-pilot-private" \
+            --metadata "$RUNNER_TEMP/inside-observability-pilot-metadata" \
+            --public "$RUNNER_TEMP/inside-observability-pilot-public"
+      - name: Run isolated pilot through its public supervisor
+        timeout-minutes: 22
+        run: |
+          bash scripts/heavy-check.sh python3 scripts/observability-pilot/pilot.py run \
+            --output "$RUNNER_TEMP/inside-observability-pilot-private"
+      - name: Recover only the registered disposable project
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          python3 scripts/observability-pilot/ci.py recover \
+            --output "$RUNNER_TEMP/inside-observability-pilot-private" \
+            --metadata "$RUNNER_TEMP/inside-observability-pilot-metadata" \
+            --public "$RUNNER_TEMP/inside-observability-pilot-public"
+      - name: Collect only public source and measurement evidence
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-pilot/ci.py collect \
+            --output "$RUNNER_TEMP/inside-observability-pilot-private" \
+            --metadata "$RUNNER_TEMP/inside-observability-pilot-metadata" \
+            --public "$RUNNER_TEMP/inside-observability-pilot-public"
+      - name: Upload curated functional evidence
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-functional-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/inside-observability-pilot-public
+          if-no-files-found: warn
+          retention-days: 7
