@@ -169,6 +169,14 @@ writers with full-registry readiness. A compatible rollback must retain the **fu
 registry**; a short old registry remains rejected. This contract does not publish a rollback image or
 replace release backup/restore and image verification gates.
 
+The recovery test retains a closed stage name in memory and emits `notification_recovery_failure`
+only through Vitest's failure hook, including body timeouts and cleanup failures. The snapshot contains
+only the current stage and first failed stage, with no request, connection or payload data. Test broker
+administration bounds CLI startup and RPC to five seconds with a one-second kill grace; the owned
+container is always stopped afterward. A real indefinitely blocked Erlang command checks this guard
+and a subsequent command confirms that the broker remains available. This guard does not establish
+the cause of the historical uninstrumented 240-second recovery-test timeout.
+
 This remains a bounded slice of #1566. Material publication now reaches resumed audience processing;
 email command/result carriers, the external provider boundary, Telegram propagation, other business
 HTTP producers, dependency spans and collector retention/capacity acceptance remain separate work.
