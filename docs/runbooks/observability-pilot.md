@@ -3,7 +3,13 @@
 Статус на 19.10.2026: подготовлен исполняемый **кандидат** первого технического smoke
 для [#1566](https://github.com/sachkov-inside/platform/issues/1566) /
 [принятой спецификации #1565](https://github.com/sachkov-inside/platform/issues/1565).
-Совместимость комплекта в runtime ещё не проверена. Production не менялся; аналитика не включалась.
+Функциональный Linux smoke прошёл на sources `a087bb271` и `14faa9904`:
+[run 39288942467](https://github.com/sachkov-inside/platform/actions/runs/39288942467),
+[run 39289463842](https://github.com/sachkov-inside/platform/actions/runs/39289463842).
+На Mac source `507ed39c` три native Victoria MCP прочитали известные fixtures, но весь запуск
+завершился отказом VM identity monitor; diagnostics, down и residue checks прошли.
+Отклонённый sample тогда не сохранялся, поэтому конкретное изменившееся поле неизвестно.
+Production не менялся; аналитика не включалась.
 Этот smoke не является полным ресурсным пилотом или выполнением спецификации.
 Подготовленный доменный отчёт Platform MCP описан в
 [инструкции диагностики](production-diagnostics.md); его наличие не подтверждает rollout всего контура.
@@ -68,8 +74,8 @@ Caddyfile. Поэтому только `gateway` получает `NET_BIND_SERV
 
 Нужны Linux Engine с локально доступным `DockerRootDir` либо Mac arm64 с уже работающим
 OrbStack, Docker Compose, Git, Python 3.9+ и сеть для получения pinned images/artifacts.
-Checkout должен быть чистым и закоммиченным. Поддержка OrbStack подготовлена как кандидат;
-её фактический запуск и native Mac MCP ещё не проверены. Остальные Darwin/context combinations
+Checkout должен быть чистым и закоммиченным. OrbStack остаётся кандидатом полного smoke:
+native Mac MCP проверены, но весь Mac smoke ещё не прошёл. Остальные Darwin/context combinations
 отклоняются до получения images.
 
 ```bash
@@ -173,6 +179,19 @@ malformed/oversized output, отказ probe или смена identity прив
 не используется. Время/число verification requests учитываются отдельно; их CPU пока явно
 unavailable и не выдаётся за CPU native MCP или resource acceptance.
 
+VM identity закрепляет filesystem ID, размер блока и тип. Поле total blocks проверяется
+как текущий счётчик ёмкости, а не identity: [statfs(2)](https://man7.org/linux/man-pages/man2/statfs.2.html)
+описывает `f_fsid` и `f_blocks` отдельно. Рост или уменьшение total сами по себе не означают
+замену filesystem. Каждый sample по-прежнему требует положительной ограниченной ёмкости,
+`0 <= available <= total`, прежнего 10GiB floor и прежнего 4GiB growth cap от initial free.
+Рост total не сбрасывает initial free и не компенсирует нарушение свободного места.
+Дополнительно рост `(total - available) * block` относительно первого VM sample ограничен
+тем же 4GiB cap с прежним stop margin 256MiB: увеличение ёмкости не может скрыть рост
+недоступного места при неизменном free. В snapshot сохраняются initial/current unavailable
+bytes. Этот консервативный счётчик включает зарезервированные блоки и чужую нагрузку;
+его нельзя выдавать за фактический объём записей пилота. Прежний контроль потери free
+сохраняется, в том числе при уменьшении ёмкости или изменении reserved blocks.
+
 Каждый foreground `exec` остаётся в группе worker. Public supervisor останавливает всю эту
 группу перед `down --volumes --remove-orphans`; diagnostics, down и residue checks независимы
 и охватывают probe вместе с core. Сигналы обоих host monitors только фиксируют failure в
@@ -191,6 +210,9 @@ identity и использует закреплённый socket; при нес�
 и filesystem identity, без backing path, socket, env, argv или raw errors. Они включены
 в curated upload allowlist. `monitor-failure.json` сохраняет первую причину отказа до сигнала:
 источник `host` / `identity` / `vm`, фиксированную категорию exception и фиксированный reason.
+При смене VM identity дополнительно сохраняются только фиксированные имена изменившихся полей
+и проверенные числовые counters предыдущего и отклонённого samples. Значения filesystem ID
+и типа в эту диагностику не копируются.
 Сообщения исключений, команды, paths и payload в него не попадают; последующий отказ не
 перезаписывает первый. Если исходный отказ произошёл до этой диагностики, его причина остаётся
 неизвестной. Файл создаётся с режимом `0600` и включён в curated allowlist.

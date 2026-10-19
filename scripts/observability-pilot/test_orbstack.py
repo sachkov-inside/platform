@@ -14,6 +14,67 @@ MONITOR_FAILURE_BUDGET_SECONDS = 1
 MONITOR_FIXTURE_INTERVAL_SECONDS = .001
 
 class OrbStackAdmissionTest(unittest.TestCase):
+    def test_vm_capacity_growth_cannot_mask_unavailable_growth_budget(self):
+        from storage_policy import GROWTH_BYTES, STOP_MARGIN_BYTES
+        baseline = f'abcd 1024 {80*1024**2} {20*1024**2} UNKNOWN'
+        budget = orbstack.VmBudget()
+        budget.accept(baseline, now=0)
+        with self.assertRaisesRegex(RuntimeError, 'budget'):
+            budget.accept(f'abcd 1024 {90*1024**2} {20*1024**2} UNKNOWN', now=1)
+        self.assertEqual(budget.last_at, 0)
+        proportional = budget.accept(f'abcd 1024 {90*1024**2} {30*1024**2} UNKNOWN', now=2)
+        self.assertEqual(proportional['initial_unavailable_bytes'], 60*GIB)
+        self.assertEqual(proportional['unavailable_bytes'], 60*GIB)
+        bound = GROWTH_BYTES - STOP_MARGIN_BYTES
+        for growth, allowed in ((bound-1024, True), (bound, False)):
+            with self.subTest(growth=growth):
+                budget = orbstack.VmBudget()
+                budget.accept(baseline, now=0)
+                # Free space increases; only unavailable growth can detect this boundary.
+                sample = f'abcd 1024 {90*1024**2} {30*1024**2-growth//1024} UNKNOWN'
+                if allowed:
+                    self.assertEqual(budget.accept(sample, now=1)['unavailable_bytes'], 60*GIB+growth)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'budget'):
+                        budget.accept(sample, now=1)
+
+    def test_vm_capacity_counter_changes_keep_identity_and_enforce_original_free_space_budgets(self):
+        budget = orbstack.VmBudget()
+        budget.accept(f'abcd 1024 {80*1024**2} {20*1024**2} UNKNOWN', now=0)
+        grown = budget.accept(f'abcd 1024 {90*1024**2} {30*1024**2} UNKNOWN', now=1)
+        shrunk = budget.accept(f'abcd 1024 {70*1024**2} {18*1024**2} UNKNOWN', now=2)
+        self.assertEqual(grown['total_bytes'], 90*GIB)
+        self.assertEqual(shrunk['total_bytes'], 70*GIB)
+        for free in (15*1024**2, 10*1024**2):
+            with self.assertRaisesRegex(RuntimeError, 'budget'):
+                budget.accept(f'abcd 1024 {100*1024**2} {free} UNKNOWN', now=3)
+        self.assertEqual(budget.last_at, 2)
+        for line in ('abcd 1024 100 101 UNKNOWN', f'abcd 1024 {2**64} 100 UNKNOWN'):
+            with self.assertRaisesRegex(RuntimeError, 'bounds') as caught:
+                budget.accept(line, now=3)
+            self.assertNotIn('rejected_counters', orbstack.monitor_failure('vm', caught.exception))
+
+    def test_vm_rejected_sample_records_changed_fields_without_raw_identity(self):
+        baseline = '1f9faa3bb8e516e9 4096 17612800 15907332 UNKNOWN'
+        variations = (
+            ('filesystem_id', 'SENTINEL_ID 4096 17612800 15217869 UNKNOWN'),
+            ('block_bytes', '1f9faa3bb8e516e9 8192 17612800 15217869 UNKNOWN'),
+            ('filesystem_type', '1f9faa3bb8e516e9 4096 17612800 15217869 SENTINEL_TYPE'),
+        )
+        for field, line in variations:
+            with self.subTest(field=field, line=line):
+                budget = orbstack.VmBudget()
+                before = budget.accept(baseline, now=0)
+                with self.assertRaisesRegex(RuntimeError, 'identity') as caught:
+                    budget.accept(line, now=1)
+                safe = orbstack.monitor_failure('vm', caught.exception)
+                self.assertEqual(safe['changed_fields'], [field])
+                self.assertEqual(safe['previous_counters'], {
+                    name:before[name] for name in ('block_bytes','total_bytes','free_bytes')})
+                self.assertEqual(safe['rejected_counters']['block_bytes'], int(line.split()[1]))
+                self.assertNotIn('SENTINEL_', json.dumps(safe))
+                self.assertEqual(budget.last_at, 0)
+
     def test_retention_io_failure_never_exposes_sample_payload_or_escapes_monitor_thread(self):
         import contextlib
         import errno

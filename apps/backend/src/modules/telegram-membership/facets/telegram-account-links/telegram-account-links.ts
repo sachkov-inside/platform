@@ -188,15 +188,21 @@ export class TelegramAccountLinks {
   async findCurrentAccountsForDiagnostics(
     identityRefs: readonly string[],
   ): Promise<CurrentAccountsResult | DiagnosticSourceBudgetFailure> {
-    if (!identityRefsSchema.safeParse(identityRefs).success)
+    const parsed = identityRefsSchema.safeParse(identityRefs);
+    if (!parsed.success)
       return { ok: false, error: { code: "invalid_request" } };
-    if (identityRefs.length === 0) return { ok: true, accounts: new Map() };
-    if (identityRefs.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+    const identities = [...new Set(parsed.data)];
+    if (identities.length === 0) return { ok: true, accounts: new Map() };
+    if (identities.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
       return diagnosticSourceBudgetFailure;
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await setDiagnosticStatementBudget(transaction);
         const rows = await transaction.telegramAccountLinkState.findMany({
+          where: {
+            identityRef: { in: identities },
+            principalRef: { not: null },
+          },
           take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
           select: { accountId: true },
         });
@@ -204,7 +210,7 @@ export class TelegramAccountLinks {
           return diagnosticSourceBudgetFailure;
         return this.readCurrentAccounts(
           transaction,
-          identityRefs,
+          identities,
           "findCurrentAccountsForDiagnostics",
         );
       }, diagnosticSnapshotOptions);
@@ -213,6 +219,59 @@ export class TelegramAccountLinks {
         {
           module: "telegram-membership",
           operation: "findCurrentAccountsForDiagnostics",
+        },
+        error,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
+      );
+    }
+  }
+
+  /** Current verified identities needed only to find historical bot contacts of bounded Accounts. */
+  async findCurrentIdentitiesForDiagnostics(accountIds: readonly string[]) {
+    const parsed = z.array(z.uuid().toLowerCase()).safeParse(accountIds);
+    if (!parsed.success)
+      return {
+        ok: false as const,
+        error: { code: "invalid_request" as const },
+      };
+    const unique = [...new Set(parsed.data)];
+    if (unique.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+      return diagnosticSourceBudgetFailure;
+    if (unique.length === 0)
+      return { ok: true as const, identityRefs: [] as readonly string[] };
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        await setDiagnosticStatementBudget(transaction);
+        const rows = await transaction.telegramAccountLinkState.findMany({
+          where: {
+            accountId: { in: unique },
+            principalRef: { not: null },
+            identityRef: { not: null },
+          },
+          select: { identityRef: true },
+          take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+        });
+        if (rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+          return diagnosticSourceBudgetFailure;
+        return {
+          ok: true as const,
+          identityRefs: [
+            ...new Set(
+              rows.flatMap((row) =>
+                row.identityRef === null ? [] : [row.identityRef],
+              ),
+            ),
+          ],
+        };
+      }, diagnosticSnapshotOptions);
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "telegram-membership",
+          operation: "findCurrentIdentitiesForDiagnostics",
         },
         error,
         {
