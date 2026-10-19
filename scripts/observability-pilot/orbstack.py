@@ -227,9 +227,8 @@ MONITOR_JOIN_SECONDS = PROBE_HEARTBEAT_TIMEOUT_SECONDS + 1
 IDENTITY_COMMAND_TIMEOUT_SECONDS = .5
 
 
-def retain_monitor_failure(output, source, error):
-    """Retain only the first fixed-category failure, never exception payloads."""
-    import json
+def monitor_failure(source, error):
+    """The only public representation of a sampling exception is fixed categories."""
     if source not in ('host', 'identity', 'vm'):
         raise ValueError('unknown storage monitor source')
     if isinstance(error, subprocess.TimeoutExpired):
@@ -250,12 +249,18 @@ def retain_monitor_failure(output, source, error):
                   'probe bootstrap host growth budget exceeded':'bootstrap_budget_exceeded',
                   'OrbStack allocated image growth budget exceeded':'allocated_image_budget_exceeded'
                   }.get(str(error), 'invalid_sample')
+    return {'source':source, 'exception_class':category, 'reason':reason}
+
+
+def retain_monitor_failure(output, failure):
+    """Retain only the first fixed-category failure, never exception payloads."""
+    import json
     try:
         descriptor = os.open(output/'monitor-failure.json', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
         return
     with os.fdopen(descriptor, 'w') as stream:
-        json.dump({'source':source, 'exception_class':category, 'reason':reason}, stream)
+        json.dump(failure, stream)
         stream.write('\n')
 
 
@@ -263,13 +268,19 @@ def retain_monitor_failure(output, source, error):
 def sampled_budget(sample, accept, *, interval=HOST_SAMPLE_INTERVAL_SECONDS, output=None, source=None):
     """Every missing/invalid sample fails closed in the foreground owner."""
     def retain(error):
+        failure = monitor_failure(source or 'host', error)
+        status = failure['exception_class']
         if output is not None:
-            retain_monitor_failure(output, source, error)
+            try:
+                retain_monitor_failure(output, failure)
+            except OSError:
+                # Retention cannot replace the sampling failure or escape a monitor thread.
+                status += '; evidence retention unavailable: OSError'
+        return status
     try:
         accept(sample())
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        retain(error)
-        raise
+        raise RuntimeError('storage monitor failed: ' + retain(error)) from None
     stop = threading.Event()
     previous = signal.getsignal(signal.SIGUSR1)
     failure = []
@@ -280,12 +291,9 @@ def sampled_budget(sample, accept, *, interval=HOST_SAMPLE_INTERVAL_SECONDS, out
             try:
                 accept(sample())
             except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-                failure.append(type(error).__name__)
-                try:
-                    retain(error)
-                finally:
-                    if not stop.is_set():
-                        os.kill(os.getpid(), signal.SIGUSR1)
+                failure.append(retain(error))
+                if not stop.is_set():
+                    os.kill(os.getpid(), signal.SIGUSR1)
                 break
     signal.signal(signal.SIGUSR1, interrupt)
     thread = threading.Thread(target=monitor, daemon=True)

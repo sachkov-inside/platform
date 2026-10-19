@@ -14,6 +14,43 @@ MONITOR_FAILURE_BUDGET_SECONDS = 1
 MONITOR_FIXTURE_INTERVAL_SECONDS = .001
 
 class OrbStackAdmissionTest(unittest.TestCase):
+    def test_retention_io_failure_never_exposes_sample_payload_or_escapes_monitor_thread(self):
+        import contextlib
+        import errno
+        import io
+        import subprocess
+        import threading
+        import traceback
+        for target, number in (('orbstack.os.open', errno.EACCES), ('json.dump', errno.ENOSPC)):
+            for background in (False, True):
+                with self.subTest(target=target, background=background), tempfile.TemporaryDirectory() as directory:
+                    output = Path(directory)
+                    calls = [0]
+                    unhandled = []
+                    stderr = io.StringIO()
+                    def sample():
+                        calls[0] += 1
+                        if background and calls[0] == 1:
+                            return None
+                        raise subprocess.TimeoutExpired(['SENTINEL_SAMPLE_COMMAND'], .5,
+                                                        output='SENTINEL_SAMPLE_PAYLOAD')
+                    with patch(target, side_effect=OSError(number, 'SENTINEL_RETENTION_PATH')), \
+                         patch('threading.excepthook', side_effect=lambda args: unhandled.append(args)), \
+                         contextlib.redirect_stderr(stderr):
+                        try:
+                            with orbstack.sampled_budget(sample, lambda _: None, output=output,
+                                    source='identity', interval=MONITOR_FIXTURE_INTERVAL_SECONDS):
+                                threading.Event().wait(MONITOR_FAILURE_BUDGET_SECONDS)
+                        except RuntimeError as error:
+                            rendered = ''.join(traceback.format_exception(error))
+                        except BaseException as error:
+                            self.fail('sample failure was replaced by ' + type(error).__name__)
+                        else:
+                            self.fail('storage sampling failure did not fail closed')
+                    self.assertIn('TimeoutExpired', rendered)
+                    self.assertNotIn('SENTINEL_', rendered + stderr.getvalue())
+                    self.assertEqual(unhandled, [])
+
     def test_monitor_timeout_retains_first_safe_cause_before_signal(self):
         import signal
         import subprocess
