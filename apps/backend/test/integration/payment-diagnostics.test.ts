@@ -90,10 +90,23 @@ function capabilities() {
   return { grants, diagnostics };
 }
 async function seedPurchase(id: string, confirmedAt: Date | null) {
+  await database.prisma.billingPriceQuote.create({
+    data: {
+      id,
+      accountId: buyer,
+      operationId: id,
+      fingerprint: id,
+      snapshot,
+      createdAt: now,
+      expiresAt: new Date("2026-10-19T13:00:00Z"),
+    },
+  });
   await database.prisma.billingPurchase.create({
     data: {
       id,
       accountId: buyer,
+      quoteRef: id,
+      lifecycleActive: false,
       kind: "one_time",
       state: confirmedAt === null ? "pending" : "confirmed",
       environment: "test",
