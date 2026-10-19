@@ -6,7 +6,11 @@ import sys
 import tempfile
 import threading
 import socket
+import io
+import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest.mock import patch
+import zipfile
 
 from pilot import check_disk
 import pilot
@@ -17,6 +21,49 @@ DESCENDANT_PROBE_TIMEOUT_SECONDS = .1
 
 
 class PilotPreparationTest(unittest.TestCase):
+    def test_published_size_asset_above_64_mib_is_accepted_with_exact_size_and_digest(self):
+        # v0.33.1 ZIP published size; deterministic bytes replace the external provider.
+        payload = b"f" * 79_389_151
+        asset = {"url": "https://fixture.invalid/plugin.zip", "size_bytes": 79_389_151,
+                 "digest": "sha256:" + hashlib.sha256(payload).hexdigest()}
+        with patch("pilot.urllib.request.urlopen", return_value=io.BytesIO(payload)):
+            result = pilot.downloaded_asset(asset)
+        self.assertEqual(len(result), 79_389_151)
+        self.assertEqual(result[-1:], b"f")
+
+    def test_pinned_download_rejects_truncation_extra_bytes_and_digest_mismatch(self):
+        payload = b"fixture"
+        digest = "sha256:" + hashlib.sha256(payload).hexdigest()
+        for label, delivered, expected_digest in (
+            ("truncated", payload[:-1], digest), ("oversized", payload + b"x", digest),
+            ("digest mismatch", payload, "sha256:" + "0" * 64),
+        ):
+            with self.subTest(label=label):
+                asset = {"url": "https://fixture.invalid/archive", "size_bytes": 7, "digest": expected_digest}
+                with patch("pilot.urllib.request.urlopen", return_value=io.BytesIO(delivered)):
+                    with self.assertRaisesRegex(RuntimeError, "size/digest check"):
+                        pilot.downloaded_asset(asset)
+
+    def test_plugin_rejects_unpacked_size_different_from_the_pinned_total(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr(zipfile.ZipInfo("plugin/data.txt", (2026, 10, 19, 0, 0, 0)), b"data")
+        payload = buffer.getvalue()
+        asset = {"url": "https://fixture.invalid/plugin.zip", "size_bytes": len(payload),
+                 "digest": "sha256:" + hashlib.sha256(payload).hexdigest(), "unpacked_size_bytes": 5}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "output"
+            (output / "plugins").mkdir(parents=True)
+            (root / "inputs.lock.json").write_text(pilot.json.dumps({
+                "artifacts": {"victorialogs-datasource": {"assets": [asset]}},
+            }))
+            with patch("pilot.CONFIG", root), \
+                    patch("pilot.urllib.request.urlopen", return_value=io.BytesIO(payload)):
+                with self.assertRaisesRegex(RuntimeError, "unpacked size"):
+                    pilot.install_plugin(output)
+            self.assertEqual(list((output / "plugins").iterdir()), [])
+
     def test_full_disk_blocks_pilot_without_claiming_measured_capacity(self):
         self.assertEqual(check_disk(total=1000, free=249), {
             "ready": False, "free_bytes": 249, "total_bytes": 1000,
