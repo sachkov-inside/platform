@@ -93,27 +93,6 @@
   border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
   background: var(--background);
 }
-/* Метка будущей главы сразу за её заголовком, в строке текста. */
-.programme-chapter-soon {
-  display: inline-flex;
-  max-width: calc(100% - 0.5rem);
-  white-space: normal;
-  align-items: center;
-  gap: 0.4rem;
-  border-radius: 999px;
-  background: var(--secondary);
-  padding: 0.15rem 0.6rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--muted-foreground);
-}
-.programme-chapter-soon::before {
-  content: "";
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--foreground) 35%, transparent);
-}
 /*
  * Телефон: строки уроков получают всю ширину; точка стоит возле заголовка главы.
  */

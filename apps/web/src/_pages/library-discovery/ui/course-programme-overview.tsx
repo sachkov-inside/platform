@@ -13,19 +13,20 @@ export function PreparingChapter({
   return (
     <details className="course-preparing-chapter">
       <summary>
-        <div className="min-w-0">
+        <div className="programme-chapter-heading">
+          <span className="programme-chapter-progress" aria-hidden="true" />
           <h3
             className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
             id={`chapter-${chapter.id}`}
           >
             {chapter.name}
           </h3>
-          <span className="programme-chapter-soon ml-2 align-[2px]">
-            Материалы готовятся
-          </span>
         </div>
         <ChevronDown aria-hidden="true" />
       </summary>
+      <p className="course-chapter-preparing-notice">
+        Материалы этой главы готовятся и появятся по мере развития потока.
+      </p>
       <ChapterSummary name={chapter.name} summary={chapter.summary} expanded />
     </details>
   );

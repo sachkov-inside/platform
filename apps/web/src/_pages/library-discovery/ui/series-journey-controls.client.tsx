@@ -308,14 +308,6 @@ export function SeriesJourneyControls({
                 Программа готовится. Здесь появятся главы и уроки продукта.
               </p>
             ) : null}
-            {visible.length > SERIES_BATCH_SIZE ? (
-              <p
-                aria-live="polite"
-                className="mt-6 text-sm tabular-nums text-muted-foreground"
-              >
-                Показано {count} из {visible.length} материалов
-              </p>
-            ) : null}
             {offersAccessRecheck ? (
               <Button
                 className="mt-4 h-auto min-h-11 max-w-full whitespace-normal"

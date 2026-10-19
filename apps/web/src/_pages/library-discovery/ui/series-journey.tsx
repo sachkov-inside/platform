@@ -19,7 +19,7 @@ import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
 import { ChapterSummary, PreparingChapter } from "./course-programme-overview";
 
-import { formatStepCount } from "./product-counts";
+import { ChapterReadingProgress } from "./chapter-reading-progress.client";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -216,21 +216,17 @@ function journeyRun(
                   <PreparingChapter chapter={run.chapter} />
                 ) : (
                   <>
-                    <div className="min-w-0">
+                    <div className="programme-chapter-heading">
+                      <ChapterReadingProgress
+                        materialIds={run.chapter.materialIds}
+                        name={run.chapter.name}
+                      />
                       <h3
                         className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
                         id={`chapter-${run.chapter.id}`}
                       >
                         {run.chapter.name}
                       </h3>
-                      {run.chapter.materialIds.length > 0 ||
-                      tasks.length > 0 ? (
-                        <span className="ml-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                          {formatStepCount(
-                            run.chapter.materialIds.length + tasks.length,
-                          )}
-                        </span>
-                      ) : null}
                     </div>
                     <ChapterSummary
                       name={run.chapter.name}
