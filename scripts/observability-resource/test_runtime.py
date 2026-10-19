@@ -77,6 +77,44 @@ class Lifecycle(unittest.TestCase):
                     with self.assertRaises(ValueError):runtime.startup_client(output,[],action,mode)
                 command.assert_not_called()
 
+    def test_sdk_diagnostic_artifact_is_partial_before_measurement_and_confines_bad_response(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);records=[]
+            value={'schema':1,'queries':{name:{'state':'known','value':None} for name in runtime.sdk_diagnostics.NAMES}}
+            with patch.object(runtime,'invoke',return_value=json.dumps(value)) as command,patch.object(runtime.time,'time',return_value=200):
+                record=runtime.begin_sdk_probe(output,[],records,pair=0,started=100)
+                self.assertEqual(command.call_count,1)
+                self.assertIn('metric-probe',command.call_args.args[1])
+                self.assertEqual(json.loads((output/'resource-sdk-diagnostics.json').read_text())['phases'][0]['state'],'before_measurement')
+                self.assertIsNone(record['after'])
+                runtime.finish_sdk_probe(output,[],records,record,{'state':'known','latest_seconds':None})
+            self.assertEqual(record['state'],'observed')
+            self.assertEqual(record['facts']['interpretation'],'observations_only')
+            with patch.object(runtime,'invoke',return_value='private-response-sentinel'),patch.object(runtime.time,'time',return_value=200):
+                bad=runtime.begin_sdk_probe(output,[],records,pair=1,started=100)
+                self.assertEqual(bad['before']['state'],'invalid_response')
+            self.assertNotIn('private-response-sentinel',(output/'resource-sdk-diagnostics.json').read_text())
+            with patch.object(runtime,'invoke',side_effect=RuntimeError('private-identity-sentinel')):
+                with self.assertRaises(RuntimeError):runtime.finish_sdk_probe(output,[],records,bad,{'state':'unknown','latest_seconds':None})
+            self.assertNotIn('private-identity-sentinel',(output/'resource-sdk-diagnostics.json').read_text())
+            self.assertIsNone(bad['after'])
+            self.assertEqual(bad['state'],'after_failed')
+            with patch.object(runtime,'invoke') as command,self.assertRaises(ValueError):
+                runtime.begin_sdk_probe(output,[],records,pair=2,started=100)
+            command.assert_not_called()
+
+    def test_sdk_probe_command_failure_keeps_closed_partial_state_and_propagates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);records=[]
+            with patch.object(runtime,'invoke',side_effect=runtime.subprocess.TimeoutExpired('private-sentinel',1)):
+                with self.assertRaises(runtime.subprocess.TimeoutExpired):
+                    runtime.begin_sdk_probe(output,[],records,pair=0,started=100)
+            value=json.loads((output/'resource-sdk-diagnostics.json').read_text())
+            self.assertEqual(value['phases'][0]['state'],'before_failed')
+            self.assertEqual(value['phases'][0]['error_type'],'command_failed')
+            self.assertIsNone(value['phases'][0]['before'])
+            self.assertNotIn('private-sentinel',json.dumps(value))
+
     def test_stdout_partial_on_timeout_never_retries_mutating_commands(self):
         with patch.object(runtime.pilot,'assert_docker_identity'), \
                 patch.object(runtime.subprocess,'run',side_effect=runtime.subprocess.TimeoutExpired('fixed',1,output=b'{"kind":"sample"}\n')) as command:

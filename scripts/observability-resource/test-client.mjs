@@ -10,7 +10,14 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { connect } from "node:net";
 import { connect as tlsConnect } from "node:tls";
-import { sample, schedule, serve, metricResult } from "./client.mjs";
+import {
+  sample,
+  schedule,
+  serve,
+  metricResult,
+  aggregateResult,
+  metricProbe,
+} from "./client.mjs";
 
 /** @param {string} directory */
 async function providerTls(directory) {
@@ -473,5 +480,166 @@ test("provider expires stalled TLS handshakes without exhausting fresh query slo
     for (const socket of sockets) socket.destroy();
     await handle.close();
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("aggregate diagnostics confine malformed/nonfinite results and preserve zero counters", () => {
+  const body = (/** @type {unknown} */ value) => ({
+    status: "success",
+    data: {
+      resultType: "vector",
+      result: [{ metric: { private: "must-not-escape" }, value: [1, value] }],
+    },
+  });
+  for (const input of [
+    null,
+    {},
+    body("NaN"),
+    body("Infinity"),
+    body("-1"),
+    body(""),
+    body(" "),
+    body("0x10"),
+    body("1e-999"),
+    { status: "success", data: { resultType: "matrix", result: [] } },
+  ]) {
+    assert.deepEqual(aggregateResult(200, input), {
+      state: "unknown",
+      value: null,
+    });
+  }
+  assert.deepEqual(aggregateResult(503, body("1")), {
+    state: "unknown",
+    value: null,
+  });
+  assert.deepEqual(aggregateResult(200, body("0")), {
+    state: "known",
+    value: 0,
+  });
+  assert.deepEqual(aggregateResult(200, body("123.5")), {
+    state: "known",
+    value: 123.5,
+  });
+  assert.deepEqual(
+    aggregateResult(200, {
+      status: "success",
+      data: { resultType: "vector", result: [] },
+    }),
+    { state: "known", value: null },
+  );
+});
+
+// deterministic-test-allow unit-io: fixed diagnostic queries use one owned loopback server; an absolute batch deadline bounds continuous byte progress and finally closes server/sockets.
+test("closed metric probe preserves only aggregates and owns one total query deadline", async () => {
+  let mode = "ok";
+  /** @type {string[]} */ const queries = [];
+  const server = createServer((req, res) => {
+    assert.equal(req.method, "GET");
+    assert.ok(
+      req.headers.authorization === "Bearer " + "A".repeat(43),
+      "fixed private header",
+    );
+    const url = new URL(req.url ?? "", "http://owned");
+    assert.equal(url.pathname, "/metrics/api/v1/query");
+    assert.equal([...url.searchParams.keys()].join(","), "query");
+    const query = url.searchParams.get("query") ?? "";
+    queries.push(query);
+    if (mode === "drip") {
+      res.writeHead(200);
+      res.write("{");
+      const timer = setInterval(() => res.write(" "), 10);
+      res.once("close", () => clearInterval(timer));
+      return;
+    }
+    if (mode === "error") {
+      res.writeHead(503);
+      res.end("private-error-sentinel");
+      return;
+    }
+    if (mode === "oversize") {
+      res.end("x".repeat(65537));
+      return;
+    }
+    const value =
+      mode === "nonfinite"
+        ? "Infinity"
+        : query.includes("receiver_accepted")
+          ? "0"
+          : query.includes("exporter_sent")
+            ? "5"
+            : query.includes("http[.]server")
+              ? "123"
+              : null;
+    res.end(
+      JSON.stringify({
+        status: "success",
+        data: {
+          resultType: "vector",
+          result:
+            value === null
+              ? []
+              : [{ metric: { private: "must-not-escape" }, value: [1, value] }],
+        },
+      }),
+    );
+  });
+  await new Promise((resolve) =>
+    server.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const transport = { host: "127.0.0.1", port: address.port, timeoutMs: 1000 };
+  try {
+    const value = await metricProbe("A".repeat(43), transport);
+    assert.deepEqual(Object.keys(value).sort(), ["queries", "schema"]);
+    assert.equal(value.schema, 1);
+    assert.equal(queries.length, 6);
+    assert.equal(value.queries.receiver.value, 0);
+    assert.equal(value.queries.exporter.value, 5);
+    assert.equal(value.queries.dotted.value, 123);
+    assert.equal(value.queries.dotted_service.value, 123);
+    assert.equal(value.queries.current.value, null);
+    assert.ok(
+      queries.some((query) => query.includes('"service.name"="platform-api"')),
+    );
+    assert.ok(
+      queries.every(
+        (query) =>
+          query.startsWith("max(timestamp(") || query.startsWith("sum("),
+      ),
+    );
+    assert.doesNotMatch(
+      JSON.stringify(value),
+      /must-not-escape|private|Bearer/u,
+    );
+    for (mode of ["nonfinite", "error", "oversize"]) {
+      const result = await metricProbe("A".repeat(43), transport);
+      assert.ok(
+        Object.values(result.queries).every(
+          (row) => row.state === "unknown" && row.value === null,
+        ),
+      );
+    }
+    mode = "drip";
+    queries.length = 0;
+    const started = performance.now();
+    const timed = await metricProbe("A".repeat(43), {
+      ...transport,
+      timeoutMs: 100,
+    });
+    assert.ok(performance.now() - started < 1000);
+    assert.equal(queries.length, 1);
+    assert.ok(
+      Object.values(timed.queries).every((row) => row.state === "unknown"),
+    );
+    await assert.rejects(
+      metricProbe("private-invalid-key", transport),
+      /closed query key/u,
+    );
+  } finally {
+    await new Promise((resolve) => {
+      server.close(() => resolve(undefined));
+      server.closeAllConnections();
+    });
   }
 });

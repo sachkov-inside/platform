@@ -245,8 +245,8 @@ export async function schedule(
 }
 
 /** @param {number} status @param {unknown} body */
-export function metricResult(status, body) {
-  const unknown = { state: "unknown", latest_seconds: null };
+export function aggregateResult(status, body) {
+  const unknown = { state: "unknown", value: null };
   if (
     status !== 200 ||
     !record(body) ||
@@ -257,7 +257,7 @@ export function metricResult(status, body) {
   )
     return unknown;
   const rows = body["data"]["result"];
-  if (rows.length === 0) return { state: "known", latest_seconds: null };
+  if (rows.length === 0) return { state: "known", value: null };
   /** @type {unknown} */
   const row = rows[0];
   if (
@@ -268,32 +268,73 @@ export function metricResult(status, body) {
     typeof row["value"][1] !== "string"
   )
     return unknown;
+  if (
+    !/^(?:0|[1-9][0-9]*)(?:[.][0-9]+)?(?:[eE][+-]?[0-9]+)?$/u.test(
+      row["value"][1],
+    )
+  )
+    return unknown;
   const latest = Number(row["value"][1]);
-  return Number.isFinite(latest) && latest > 0
-    ? { state: "known", latest_seconds: latest }
+  if (latest === 0 && /[1-9]/u.test(row["value"][1].split(/[eE]/u)[0] ?? ""))
+    return unknown;
+  return Number.isFinite(latest) && latest >= 0
+    ? { state: "known", value: latest }
     : unknown;
 }
 
-/** @param {string} filename @returns {Promise<{state:string,latest_seconds:number|null}>} */
-async function metric(filename) {
+/** @param {number} status @param {unknown} body */
+export function metricResult(status, body) {
+  const parsed = aggregateResult(status, body);
+  return parsed.value === 0
+    ? { state: "unknown", latest_seconds: null }
+    : { state: parsed.state, latest_seconds: parsed.value };
+}
+
+const CURRENT_METRIC_QUERY =
+  'max(timestamp({__name__=~"http_server_request_count(_total)?",service_name="platform-api"}))';
+const PROBE_QUERIES = {
+  current: CURRENT_METRIC_QUERY,
+  normalized:
+    'max(timestamp({__name__=~"http_server_request_count(_total)?"}))',
+  dotted:
+    'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?"}))',
+  dotted_service:
+    'max(timestamp({__name__=~"http[.]server[.]request[.]count(_total)?","service.name"="platform-api"}))',
+  receiver:
+    'sum({__name__=~"otelcol_receiver_accepted_metric_points(_total)?",job="platform-collector"})',
+  exporter:
+    'sum({__name__=~"otelcol_exporter_sent_metric_points(_total)?",job="platform-collector",exporter="otlp_http/otelcol.exporter.otlphttp.metrics"})',
+};
+const QUERY_BATCH_MS = 8_000;
+const MIN_QUERY_REMAINING_MS = 1;
+const QUERY_TRANSPORT = {
+  host: "gateway",
+  port: 8080,
+  timeoutMs: QUERY_BATCH_MS,
+};
+
+/** @param {string} filename */
+function queryKey(filename) {
   const key = readFileSync(filename, "utf8").trim();
-  if (!/^[A-Za-z0-9_-]{43}$/u.test(key))
-    throw new Error("private query key shape");
+  if (!/^[A-Za-z0-9_-]{43}$/u.test(key)) throw new Error("closed query key");
+  return key;
+}
+
+/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @returns {Promise<{state:string,value:number|null}>} */
+async function metricQuery(key, query, transport) {
   return await new Promise((resolve) => {
     let settled = false;
-    /** @param {string} state @param {number|null} latest_seconds */
-    const finish = (state, latest_seconds) => {
+    /** @param {string} state @param {number|null} value */
+    const finish = (state, value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      resolve({ state, latest_seconds });
+      resolve({ state, value });
     };
-    const query =
-      'max(timestamp({__name__=~"http_server_request_count(_total)?",service_name="platform-api"}))';
     const req = request(
       {
-        host: "gateway",
-        port: 8080,
+        host: transport.host,
+        port: transport.port,
         path: "/metrics/api/v1/query?query=" + encodeURIComponent(query),
         agent: false,
         headers: { authorization: "Bearer " + key },
@@ -315,8 +356,8 @@ async function metric(filename) {
             /** @type {unknown} */ const body = JSON.parse(
               Buffer.concat(chunks).toString("utf8"),
             );
-            const value = metricResult(res.statusCode ?? 0, body);
-            finish(value.state, value.latest_seconds);
+            const value = aggregateResult(res.statusCode ?? 0, body);
+            finish(value.state, value.value);
           } catch {
             finish("unknown", null);
           }
@@ -326,10 +367,66 @@ async function metric(filename) {
     const timer = setTimeout(() => {
       finish("unknown", null);
       req.destroy();
-    }, 8000);
+    }, transport.timeoutMs);
     req.on("error", () => finish("unknown", null));
     req.end();
   });
+}
+
+/** @param {string} filename */
+async function metric(filename) {
+  const result = await metricQuery(
+    queryKey(filename),
+    CURRENT_METRIC_QUERY,
+    QUERY_TRANSPORT,
+  );
+  return result.value === 0
+    ? { state: "unknown", latest_seconds: null }
+    : { state: result.state, latest_seconds: result.value };
+}
+
+/** @param {string} key @param {{host:string,port:number,timeoutMs:number}} [transport] */
+export async function metricProbe(key, transport = QUERY_TRANSPORT) {
+  if (!/^[A-Za-z0-9_-]{43}$/u.test(key)) throw new Error("closed query key");
+  if (
+    !Number.isFinite(transport.timeoutMs) ||
+    transport.timeoutMs <= 0 ||
+    transport.timeoutMs > QUERY_BATCH_MS
+  )
+    throw new Error("closed query budget");
+  /** @returns {{state:string,value:number|null}} */
+  const unknown = () => ({ state: "unknown", value: null });
+  const queries = {
+    current: unknown(),
+    normalized: unknown(),
+    dotted: unknown(),
+    dotted_service: unknown(),
+    receiver: unknown(),
+    exporter: unknown(),
+  };
+  const deadline = performance.now() + transport.timeoutMs;
+  for (const name of /** @type {const} */ ([
+    "current",
+    "normalized",
+    "dotted",
+    "dotted_service",
+    "receiver",
+    "exporter",
+  ])) {
+    const remaining = deadline - performance.now();
+    if (remaining <= MIN_QUERY_REMAINING_MS) continue;
+    const result = await metricQuery(key, PROBE_QUERIES[name], {
+      ...transport,
+      timeoutMs: remaining,
+    });
+    queries[name] =
+      (name === "receiver" || name === "exporter") &&
+      result.value !== null &&
+      !Number.isSafeInteger(result.value)
+        ? unknown()
+        : result;
+  }
+  return { schema: 1, queries };
 }
 
 async function main() {
@@ -344,6 +441,10 @@ async function main() {
     };
     process.once("SIGTERM", stop);
     process.once("SIGINT", stop);
+    return;
+  }
+  if (action === "metric-probe") {
+    process.stdout.write(JSON.stringify(await metricProbe(queryKey(filename))));
     return;
   }
   if (action === "metric") {

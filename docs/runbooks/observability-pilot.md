@@ -488,6 +488,41 @@ API request counter, с учётом [OTLP mapping VictoriaMetrics](https://docs
 только к этому наблюдению. Это не доказательство отсутствия позднего экспорта или no-loss ledger.
 Неизвестный/недостоверный результат не разрешает overhead claim.
 
+Фактический короткий запуск `248c1315` завершил четыре режима по 100 успешных HTTP samples,
+но оба ON observation вернули пустой результат; `partial` и подавление p95 overhead сохранены.
+Причина не установлена: существующий selector предполагает underscore metric name и
+`service_name`, тогда как SDK отправляет `http.server.request.count` и `service.name`.
+Новая подготовленная диагностика не заменяет selector и не меняет acceptance gates.
+
+Только для ON runner собирает два закрытых snapshot: после protected readiness перед
+measurement и после прежнего SDK observation. Каждый snapshot выполняет шесть фиксированных
+GET queries через тот же gateway: прежний selector, underscore name без service filter,
+dotted name без service filter, dotted name с quoted label `"service.name"`, collector
+receiver accepted metric points и sent metric points точного metrics exporter.
+Результаты содержат только агрегатные числа или UNKNOWN. Имя сервиса фиксировано;
+raw series, label maps, тела ответов, token, URL и error text не сохраняются.
+Один последовательный batch имеет общий абсолютный deadline 8 секунд, response limit
+65 KiB на query и не создаёт дополнительной query concurrency. Четыре batch добавляют
+максимум 24 queries вне measurement window, общий supervisor deadline остаётся 600 секунд.
+
+`resource-sdk-diagnostics.json` входит в public whitelist и ограничен прежним 1 MiB.
+Он сохраняет частичные стадии до команд и закрытый `command_failed` при отказе;
+identity/transport command failure продолжает останавливать worker. Некорректный JSON,
+неизвестные поля, nonfinite/future timestamp и недостоверный counter дают UNKNOWN без
+копирования содержимого. Отсутствующий counter не становится нулём; наблюдаемое уменьшение
+обнуляет достоверность delta, но не подменяется нулевой разницей.
+
+Матрица позволяет проверить гипотезы: dotted sample при пустом normalized selector указывает
+на различие наблюдаемых форм имени; normalized sample без результата прежнего selector
+выделяет service-label filter. Свежий результат прежнего selector после его исходного
+пустого/stale observation отмечает более позднюю видимость, но не измеряет полную задержку
+экспорта. Запросы последовательны, поэтому различия между ними ещё не доказывают причину.
+Receiver/exporter deltas показывают только прогресс общего collector между snapshot,
+без отнесения к конкретному producer и без доказательства отсутствия потерь или resets
+между двумя наблюдениями. Нулевые/отсутствующие deltas не доказывают выключенный SDK.
+Диагностика остаётся `observations_only` и не разрешает p95 при неуспешном прежнем observation.
+Новый фактический запуск этой диагностики ожидает review и точного source-bound образа.
+
 Raw Engine sampling хранит charged memory, file/active/inactive cache, working-set estimate,
 накопленные CPU nanoseconds и guest online CPU count раздельно. Используется
 [Engine API v1.51](https://docs.docker.com/reference/api/engine/version/v1.51/),

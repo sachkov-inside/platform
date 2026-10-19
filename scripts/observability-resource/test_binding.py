@@ -12,7 +12,7 @@ class Artifacts(unittest.TestCase):
     def test_all_shared_and_new_executable_inputs_are_hash_bound(self):
         value=binding.source('a'*40,'b'*40)
         for name in ('scripts/production-runtime-configuration.sh','scripts/observability-resource/client.mjs',
-                     'scripts/observability-resource/runtime.py','infra/observability/resource/profile.json',
+                     'scripts/observability-resource/runtime.py','scripts/observability-resource/sdk_diagnostics.py','infra/observability/resource/profile.json',
                      'scripts/observability-pilot/orbstack.py','scripts/observability-pilot/storage_policy.py'):
             self.assertRegex(value['inputs'][name],r'^[a-f0-9]{64}$')
         self.assertTrue(all(path.is_file() for path in binding.inputs()))
@@ -32,8 +32,9 @@ class Artifacts(unittest.TestCase):
                 (output/name).write_text('{"private":"sentinel"}')
             binding.write(output/'resource-proof.json',{'schema':1,'acceptance':'pending'})
             binding.write(output/'startup-client.json',{'schema':1,'stage':'api_off_establish','state':'sampled','sample':{'label':'protected_account','outcome':'unexpected_response','status':401,'elapsed_ms':3}})
+            binding.write(output/'resource-sdk-diagnostics.json',{'schema':1,'phases':[]})
             hosted.collect(output,root/'public')
-            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['resource-proof.json','startup-client.json'])
+            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['resource-proof.json','resource-sdk-diagnostics.json','startup-client.json'])
             self.assertNotIn('sentinel',(root/'public/resource-proof.json').read_text())
             (output/'resource-current.json').symlink_to(output/'token.json')
             with self.assertRaises(ValueError):
