@@ -34,6 +34,47 @@ class CollectorPrivacyContract(unittest.TestCase):
         for value in ('queueXpublish','worker/retry','dependency/http','HTTP GET /private'):
             self.assertIsNone(re.fullmatch(operation_pattern, value))
 
+    def test_pinned_component_counter_ids_survive_closed_self_scrape(self):
+        import privacy_config
+        actual = privacy_config.render()
+        rules = dict(re.findall(r'source_labels = \["(receiver|exporter)"\]\n    regex = "([^"]+)"', actual))
+        # Alloy1.21 uses NewIDWithName(factory.Type(), opts.ID); receiver ID also measured live.
+        fixed_ids = {
+            'receiver': ['otlp/otelcol.receiver.otlp.pilot'],
+            'exporter': ['otlp_http/otelcol.exporter.otlphttp.'+signal for signal in ('metrics','logs','traces')],
+        }
+        for label, values in fixed_ids.items():
+            for value in values:
+                with self.subTest(label=label, value=value):
+                    self.assertIsNotNone(re.fullmatch(rules[label], value))
+            rejected = ['private-sentinel', values[0]+'suffix', 'prefix'+values[0], values[0].replace('pilot', 'untrusted').replace('.metrics', '.untrusted')]
+            if label == 'exporter':
+                rejected.append('otlphttp/otelcol.exporter.otlphttp.metrics')
+            for value in rejected:
+                with self.subTest(label=label, rejected=value):
+                    self.assertIsNone(re.fullmatch(rules[label], value))
+
+    def test_queue_signal_dimension_cannot_collapse_or_publish_arbitrary_values(self):
+        import privacy_config
+        actual = privacy_config.render()
+        keep = re.search(r'regex = "([^"]+)"\n    action = "labelkeep"', actual)[1]
+        identities = set()
+        for exporter in ('metrics','logs','traces'):
+            for data_type in ('metrics','logs','traces'):
+                labels = {'__name__':'otelcol_exporter_queue_size',
+                    'job':'platform-collector','instance':'pilot',
+                    'exporter':'otlp_http/otelcol.exporter.otlphttp.'+exporter,
+                    'data_type':data_type}
+                identities.add(tuple(sorted((key,value) for key,value in labels.items() if re.fullmatch(keep,key))))
+        self.assertEqual(len(identities), 9)
+        rule = re.search(r'source_labels = \["data_type"\]\n    regex = "([^"]+)"', actual)[1]
+        for value in ('', 'traces','metrics','logs'):
+            self.assertIsNotNone(re.fullmatch(rule,value))
+        for value in ('profiles','private-sentinel','traces-suffix'):
+            self.assertIsNone(re.fullmatch(rule,value))
+        for key in ('url','account.id','error.message'):
+            self.assertIsNone(re.fullmatch(keep,key))
+
     def test_health_proof_requires_exact_closed_metric_and_successful_numeric_sample(self):
         body = {'status':'success', 'data':{'resultType':'vector', 'result':[
             {'metric':{'__name__':'up', 'job':'platform-collector', 'instance':'pilot'}, 'value':[1790000000,'1']}]}}

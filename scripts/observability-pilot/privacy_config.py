@@ -142,12 +142,17 @@ prometheus.relabel "collector_health" {
   }
   rule {
     source_labels = ["receiver"]
-    regex = "(|otlp|otlp/pilot|otelcol[.]receiver[.]otlp[.]pilot)"
+    regex = "(|otlp|otlp/pilot|(otlp/)?otelcol[.]receiver[.]otlp[.]pilot)"
     action = "keep"
   }
   rule {
     source_labels = ["exporter"]
-    regex = "(|otlphttp|otlphttp/(metrics|logs|traces)|otelcol[.]exporter[.]otlphttp[.](metrics|logs|traces))"
+    regex = "(|otlphttp|otlphttp/(metrics|logs|traces)|(otlp_http/)?otelcol[.]exporter[.]otlphttp[.](metrics|logs|traces))"
+    action = "keep"
+  }
+  rule {
+    source_labels = ["data_type"]
+    regex = "(|traces|metrics|logs)"
     action = "keep"
   }
   rule {
@@ -159,7 +164,7 @@ prometheus.relabel "collector_health" {
     replacement = "pilot"
   }
   rule {
-    regex = "__name__|job|instance|receiver|exporter"
+    regex = "__name__|job|instance|receiver|exporter|data_type"
     action = "labelkeep"
   }
 }
