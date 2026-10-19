@@ -1,0 +1,24 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	@query {
+		method GET POST
+		path /metrics/* /logs/* /traces/*
+	}
+	handle @query {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy vmauth:8427 {
+			transport http {
+				response_header_timeout 10s
+			}
+		}
+	}
+	handle {
+		respond 403
+	}
+}

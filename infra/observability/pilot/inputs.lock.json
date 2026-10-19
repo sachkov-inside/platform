@@ -1,0 +1,104 @@
+{
+  "status": "candidate; runtime compatibility unverified",
+  "observed_at": "2026-10-19",
+  "images": {
+    "grafana": "grafana/grafana:13.2.4@sha256:dbbc38ea21103cefb50396340cd88afec779c7e070b0a7bf5a75b4ce46651d3f",
+    "alloy": "grafana/alloy:v1.21.0@sha256:9726bfba078de9bc2212c60c6e643238c700b4fe0868ea78cbe03163d03d95bf",
+    "metrics": "victoriametrics/victoria-metrics:v1.154.0@sha256:4bd592341587d669b7f57d54bbb82bd21ac8675f4e24234b7703a7c0f85197d8",
+    "logs": "victoriametrics/victoria-logs:v1.53.0@sha256:251121fa882af99b95ba0c230a4a2f412ea602d2698c64a96c58dc9842bb755d",
+    "traces": "victoriametrics/victoria-traces:v0.12.0@sha256:80919fcc85cc6dd87f598d20ccf42d0ab1120de8f25d4dcf08c5ea2515a496ba",
+    "vmauth": "victoriametrics/vmauth:v1.154.0@sha256:f4c4f409e59a076cd52bbbb3127fbea8a3fde24dac04353102f39a7e778a1f80",
+    "gateway": "docker.io/library/caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b"
+  },
+  "artifacts": {
+    "mcp-victoriametrics": {
+      "version": "v1.20.2",
+      "source": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/tag/v1.20.2",
+      "assets": [
+        {
+          "name": "mcp-victoriametrics_Darwin_arm64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Darwin_arm64.tar.gz",
+          "digest": "sha256:ca7559352bbb21e0387b591cf12e14b879afa9a2bcc1aef128e9914b369c7835"
+        },
+        {
+          "name": "mcp-victoriametrics_Darwin_x86_64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Darwin_x86_64.tar.gz",
+          "digest": "sha256:da976f17b79b8740c6fe7ec8927d60d8ecc300044f242406b4763fe7dfcb13c3"
+        },
+        {
+          "name": "mcp-victoriametrics_Linux_arm64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Linux_arm64.tar.gz",
+          "digest": "sha256:f3a544a20cfa20178c852b9b98aa470651446ba6c7167af74afeebcc7ca82b51"
+        },
+        {
+          "name": "mcp-victoriametrics_Linux_x86_64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriametrics/releases/download/v1.20.2/mcp-victoriametrics_Linux_x86_64.tar.gz",
+          "digest": "sha256:8f73d4656e2b85c947b97f28a17c803d2b74c4b4201a2ff0400880911c2bbeb5"
+        }
+      ]
+    },
+    "mcp-victorialogs": {
+      "version": "v1.9.0",
+      "source": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/tag/v1.9.0",
+      "assets": [
+        {
+          "name": "mcp-victorialogs_Darwin_arm64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Darwin_arm64.tar.gz",
+          "digest": "sha256:601edbc5fba4a6f18bb62e4dbedef9b6bf55660b635b7bc8f62cb7c3490bc361"
+        },
+        {
+          "name": "mcp-victorialogs_Darwin_x86_64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Darwin_x86_64.tar.gz",
+          "digest": "sha256:22b58f6a3941518deea48f756bc24d968bc007d451857ead1ae82f1e87010d5b"
+        },
+        {
+          "name": "mcp-victorialogs_Linux_arm64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Linux_arm64.tar.gz",
+          "digest": "sha256:35c4cdbf28eab62c0dc160d64001a7e16f6dd5f68689f85430e89149d72b5078"
+        },
+        {
+          "name": "mcp-victorialogs_Linux_x86_64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victorialogs/releases/download/v1.9.0/mcp-victorialogs_Linux_x86_64.tar.gz",
+          "digest": "sha256:66f68c07f780ec41c9283df19d1df77a7824a1830fdcdb4b6a5ebb84f0b1f871"
+        }
+      ]
+    },
+    "mcp-victoriatraces": {
+      "version": "v1.5.0",
+      "source": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/tag/v1.5.0",
+      "assets": [
+        {
+          "name": "mcp-victoriatraces_Darwin_arm64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Darwin_arm64.tar.gz",
+          "digest": "sha256:91056b7079d5f33e3a57cf47bc2e7b57e41e3bf9b3e636bcf72d51717f4016c1"
+        },
+        {
+          "name": "mcp-victoriatraces_Darwin_x86_64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Darwin_x86_64.tar.gz",
+          "digest": "sha256:566697b73b9de0ba9ddf27dcd94a616cb13f117d2e2f9a148793e8b941d2f9b2"
+        },
+        {
+          "name": "mcp-victoriatraces_Linux_arm64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Linux_arm64.tar.gz",
+          "digest": "sha256:8517cb004164794075db27990df935ac83d4015706fd367028ecd439358e8fe6"
+        },
+        {
+          "name": "mcp-victoriatraces_Linux_x86_64.tar.gz",
+          "url": "https://github.com/VictoriaMetrics/mcp-victoriatraces/releases/download/v1.5.0/mcp-victoriatraces_Linux_x86_64.tar.gz",
+          "digest": "sha256:bd0f92234cafc3794877c6081253fc0448ff993e9d693bb7c29380e4c1b60de0"
+        }
+      ]
+    },
+    "victorialogs-datasource": {
+      "version": "v0.33.1",
+      "source": "https://github.com/VictoriaMetrics/victorialogs-datasource/releases/tag/v0.33.1",
+      "assets": [
+        {
+          "name": "victoriametrics-logs-datasource-v0.33.1.zip",
+          "url": "https://github.com/VictoriaMetrics/victorialogs-datasource/releases/download/v0.33.1/victoriametrics-logs-datasource-v0.33.1.zip",
+          "digest": "sha256:73e7ce379ae9a9ce6fdb978e5d6d43f67029b4c3e4d970f1ca8f7f4617f331c5"
+        }
+      ]
+    }
+  }
+}
