@@ -58,36 +58,40 @@ export class ProductOutlines {
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await setDiagnosticStatementBudget(transaction);
+        const products = await transaction.product.findMany({
+          where: { archivedAt: null },
+          take: MAX_PRODUCTS + 1,
+          select: { id: true },
+        });
+        if (products.length > MAX_PRODUCTS)
+          return {
+            ok: false as const,
+            error: { code: "products_too_many" as const },
+          };
+        const productIds = products.map((product) => product.id);
         const sources = await Promise.all([
-          transaction.product.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { id: true },
-          }),
           transaction.productProgrammePlacement.findMany({
+            where: { productId: { in: productIds } },
             take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
             select: { id: true },
           }),
           transaction.productChapter.findMany({
+            where: { productId: { in: productIds } },
             take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
             select: { id: true },
           }),
           transaction.productChapterSupplementaryMaterial.findMany({
+            where: { productId: { in: productIds } },
             take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
             select: { materialId: true },
           }),
           transaction.productMembership.findMany({
+            where: { seriesId: { in: productIds } },
             take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
             select: { materialId: true },
           }),
           transaction.publishedMaterialProductMembership.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { materialId: true },
-          }),
-          transaction.material.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { id: true },
-          }),
-          transaction.publishedMaterial.findMany({
+            where: { seriesId: { in: productIds } },
             take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
             select: { materialId: true },
           }),

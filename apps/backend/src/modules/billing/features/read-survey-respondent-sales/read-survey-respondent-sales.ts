@@ -1,7 +1,5 @@
 import {
-  DIAGNOSTIC_SOURCE_ROW_LIMIT,
   diagnosticSnapshotOptions,
-  diagnosticSourceBudgetFailure,
   setDiagnosticStatementBudget,
   type DiagnosticSourceBudgetFailure,
 } from "../../../../infrastructure/diagnostic-read-budget.js";
@@ -68,22 +66,6 @@ export class BillingSurveyRespondentSales {
     try {
       return await this.prisma.$transaction(async (transaction) => {
         await setDiagnosticStatementBudget(transaction);
-        const sources = await Promise.all([
-          transaction.billingSurveyRespondent.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { username: true },
-          }),
-          transaction.billingPromoReservation.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { purchaseRef: true },
-          }),
-          transaction.billingPurchase.findMany({
-            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-            select: { id: true },
-          }),
-        ]);
-        if (sources.some((rows) => rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT))
-          return diagnosticSourceBudgetFailure;
         return readBillingSurveyRespondentSales(
           transaction,
           query,

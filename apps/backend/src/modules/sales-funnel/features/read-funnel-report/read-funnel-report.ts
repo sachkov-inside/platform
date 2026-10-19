@@ -34,7 +34,9 @@ export type ReadFunnelReportDependencies = {
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly links: Pick<
     TelegramAccountLinks,
-    "findCurrentAccounts" | "findCurrentAccountsForDiagnostics"
+    | "findCurrentAccounts"
+    | "findCurrentAccountsForDiagnostics"
+    | "findCurrentIdentitiesForDiagnostics"
   >;
   readonly outlines: Pick<ProductOutlines, "list" | "listForDiagnostics">;
   readonly firstOpens: Pick<MaterialFirstOpens, "list" | "listForDiagnostics">;
@@ -146,9 +148,9 @@ export async function readFunnelReport(
   if (parsed.data.chapterId !== undefined && chapter === undefined)
     return failure("chapter_not_found");
 
-  const [journal, surveyRespondents] = await Promise.all([
+  const [initialJournal, surveyRespondents] = await Promise.all([
     diagnostics
-      ? readJournalForDiagnostics(dependencies.prisma)
+      ? readJournalForDiagnostics(dependencies.prisma, { from, to })
       : readJournal(dependencies.prisma),
     (diagnostics
       ? dependencies.surveyRespondents.readForDiagnostics.bind(
@@ -162,6 +164,7 @@ export async function readFunnelReport(
       to,
     }),
   ]);
+  let journal = initialJournal;
   if (journal === undefined) return failure("dependency_unavailable");
   if ("ok" in journal) return journal;
   if (!surveyRespondents.ok)
@@ -198,6 +201,65 @@ export async function readFunnelReport(
   }
 
   if (product !== undefined) {
+    let diagnosticAccountIds: readonly string[] = [];
+    if (diagnostics) {
+      const initialAttribution = await attributeAccounts(
+        dependencies.links,
+        journal.contacts,
+        true,
+      );
+      if (initialAttribution === undefined)
+        return failure("dependency_unavailable");
+      if ("ok" in initialAttribution) return initialAttribution;
+      const [candidateOpens, candidateSales] = await Promise.all([
+        dependencies.firstOpens.listForDiagnostics(
+          product.chapters.flatMap((item) => item.materialIds),
+          { from, to },
+        ),
+        dependencies.sales.listForDiagnostics(product.id, { from, to }),
+      ]);
+      if (!candidateOpens.ok || !candidateSales.ok) {
+        if (
+          (!candidateOpens.ok &&
+            candidateOpens.error.code === "source_budget_exceeded") ||
+          (!candidateSales.ok &&
+            candidateSales.error.code === "source_budget_exceeded")
+        )
+          return diagnosticSourceBudgetFailure;
+        return failure("dependency_unavailable");
+      }
+      diagnosticAccountIds = [
+        ...new Set([
+          ...initialAttribution.keys(),
+          ...candidateOpens.value.keys(),
+          ...candidateSales.value.checkout.keys(),
+          ...candidateSales.value.paid.keys(),
+        ]),
+      ];
+      if (diagnosticAccountIds.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
+        return diagnosticSourceBudgetFailure;
+      const identities =
+        await dependencies.links.findCurrentIdentitiesForDiagnostics(
+          diagnosticAccountIds,
+        );
+      if (!identities.ok)
+        return identities.error.code === "source_budget_exceeded"
+          ? diagnosticSourceBudgetFailure
+          : failure("dependency_unavailable");
+      const completeJournal = await readJournalForDiagnostics(
+        dependencies.prisma,
+        {
+          from,
+          to,
+          accountIds: diagnosticAccountIds,
+          identityRefs: identities.identityRefs,
+        },
+      );
+      if (completeJournal === undefined)
+        return failure("dependency_unavailable");
+      if ("ok" in completeJournal) return completeJournal;
+      journal = completeJournal;
+    }
     const attribution = await attributeAccounts(
       dependencies.links,
       journal.contacts,
@@ -209,17 +271,22 @@ export async function readFunnelReport(
       chapter === undefined
         ? Promise.resolve({ ok: true as const, value: new Map<string, Date>() })
         : diagnostics
-          ? dependencies.firstOpens.listForDiagnostics(chapter.materialIds)
+          ? dependencies.firstOpens.listForDiagnostics(chapter.materialIds, {
+              accountIds: diagnosticAccountIds,
+            })
           : dependencies.firstOpens.list(chapter.materialIds),
       diagnostics
         ? dependencies.firstOpens.listForDiagnostics(
             product.chapters.flatMap((item) => item.materialIds),
+            { accountIds: diagnosticAccountIds },
           )
         : dependencies.firstOpens.list(
             product.chapters.flatMap((item) => item.materialIds),
           ),
       diagnostics
-        ? dependencies.sales.listForDiagnostics(product.id)
+        ? dependencies.sales.listForDiagnostics(product.id, {
+            accountIds: diagnosticAccountIds,
+          })
         : dependencies.sales.list(product.id),
     ]);
     if (!opens.ok || !productOpens.ok || !sales.ok) {
@@ -316,17 +383,71 @@ const firstEntries = Prisma.sql`
   order by contact_ref, occurred_at, event_id
 `;
 
-async function readJournalForDiagnostics(prisma: SalesFunnelPrismaClient) {
+async function readJournalForDiagnostics(
+  prisma: SalesFunnelPrismaClient,
+  scope: {
+    readonly from: Date;
+    readonly to: Date;
+    readonly accountIds?: readonly string[];
+    readonly identityRefs?: readonly string[];
+  },
+) {
   try {
     return await prisma.$transaction(async (transaction) => {
       await setDiagnosticStatementBudget(transaction);
-      const rows = await transaction.salesFunnelBotEvent.findMany({
-        take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
-        select: { eventId: true },
-      });
+      const accountIds = [...new Set(scope.accountIds ?? [])];
+      const identityRefs = [...new Set(scope.identityRefs ?? [])];
+      if (
+        accountIds.length > DIAGNOSTIC_SOURCE_ROW_LIMIT ||
+        identityRefs.length > DIAGNOSTIC_SOURCE_ROW_LIMIT
+      )
+        return diagnosticSourceBudgetFailure;
+      const rows = contactRowsSchema.parse(
+        await transaction.$queryRaw(Prisma.sql`
+        with candidates as (
+          select distinct contact_ref from sales_funnel.bot_events
+          where kind = 'bot_entered' and occurred_at >= ${scope.from} and occurred_at < ${scope.to}
+          union
+          select contact_ref from sales_funnel.bot_events
+          where kind = 'account_linked' and account_id = any(${accountIds}::uuid[])
+          union
+          select contact_ref from sales_funnel.bot_events
+          where kind = 'account_linked' and telegram_identity_ref = any(${identityRefs}::text[])
+        )
+        select entry.source_code, entry.occurred_at as entered_at,
+               consent.granted_at as consented_at, link.account_id, link.telegram_identity_ref
+        from candidates
+        join lateral (
+          select source_code, occurred_at from sales_funnel.bot_events
+          where contact_ref = candidates.contact_ref and kind = 'bot_entered'
+          order by occurred_at, event_id limit 1
+        ) entry on true
+        left join lateral (
+          select min(occurred_at) as granted_at from sales_funnel.bot_events
+          where contact_ref = candidates.contact_ref and kind = 'marketing_consent' and granted
+        ) consent on true
+        left join lateral (
+          select account_id, telegram_identity_ref from sales_funnel.bot_events
+          where contact_ref = candidates.contact_ref and kind = 'account_linked'
+          order by occurred_at desc, event_id desc limit 1
+        ) link on true
+        where (entry.occurred_at >= ${scope.from} and entry.occurred_at < ${scope.to})
+           or link.account_id = any(${accountIds}::uuid[])
+           or (link.account_id is null and link.telegram_identity_ref = any(${identityRefs}::text[]))
+        limit ${DIAGNOSTIC_SOURCE_ROW_LIMIT + 1}
+      `),
+      );
       if (rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT)
         return diagnosticSourceBudgetFailure;
-      return readJournal(transaction, "readFunnelDiagnostics");
+      const lastReceived = lastReceivedSchema.parse(
+        await transaction.$queryRaw(Prisma.sql`
+        select received_at from sales_funnel.bot_events order by received_at desc limit 1
+      `),
+      );
+      return {
+        contacts: rows,
+        lastReceivedAt: lastReceived[0]?.received_at ?? null,
+      };
     }, diagnosticSnapshotOptions);
   } catch (error) {
     return dependencyFailure(
