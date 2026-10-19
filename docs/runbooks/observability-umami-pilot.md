@@ -72,9 +72,24 @@ DNS/connect, upstream headers/body и запись ответа. Отдельн�
 Локальные contracts без Docker и внешних запросов:
 
 ```sh
-bash scripts/heavy-check.sh node --test scripts/observability-umami.test.mjs
+bash scripts/heavy-check.sh node --test scripts/observability-umami.test.mjs scripts/observability-umami-process.test.mjs
 python3 scripts/observability-umami/prepare.py /absolute/task-owned/new-private-directory
 ```
+
+Python contracts запускаются отдельной POSIX process group. Внешний Node owner находится
+вне этой группы и сразу регистрирует очистку. При завершении worker, ошибке, deadline 30 секунд
+или SIGTERM/SIGINT владельца он останавливает всю группу: SIGTERM, через 250 ms — SIGKILL,
+проверка исчезновения группы ограничена тремя секундами. Output ограничен 1 MiB; ожидание
+worker exit и закрытия inherited descriptors также ограничено. Убийство только Python worker
+сигналом SIGKILL не обходит этот внешний cleanup. Process fixtures отдельно проверяют
+success/failure/timeout, SIGTERM/SIGKILL worker и SIGTERM owner: acceptor/request descendants
+исчезают вместе с process group, listener действительно закрывается.
+
+SIGKILL самого Node owner, уничтожение всего supervisor tree или потеря хоста требуют ручного
+восстановления: автоматическая гарантия не продолжается бесконечной цепочкой supervisors.
+При таком аварийном завершении перед повтором необходимо проверить принадлежность оставшейся
+test process group текущей задаче, остановить её и подтвердить закрытие её listener. Этот
+контракт касается локальных contracts; supervised Docker runtime runner всё ещё pending.
 
 `prepare.py` сначала валидирует bounded JSON lock целиком: schema/revisions, exact image
 repositories с digest, даты и source proofs. Дубликаты JSON keys запрещены. При отказе выходной
