@@ -66,4 +66,3 @@ class CollectorPrivacyContract(unittest.TestCase):
                                   {name:'pinned' for name in pilot.SERVICES}, credential_owner=(1001,1002))
         self.assertEqual(plan['services']['alloy']['logging'], {'driver':'none'})
         self.assertEqual(plan['services']['metrics']['logging']['options']['max-size'], '5m')
-
