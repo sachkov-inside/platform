@@ -10,6 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/observability-pilot'))
 import pilot
+import binding
 
 
 def images(value, source):
@@ -118,4 +119,5 @@ def prepare(output, cache):
         item['pull_policy'] = 'never'
     pilot.write_json(output / 'compose.json', plan)
     os.chmod(output / 'compose.json', 0o600)
-    pilot.write_json(output / 'resource-images.json', {key: pins[key] for key in ('source', 'backend', 'foundation')})
+    binding.write(output / 'resource-source.json',binding.source(source,pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD^{tree}']).strip()))
+    binding.write(output / 'resource-images.json', {key: pins[key] for key in ('source', 'backend', 'foundation')})

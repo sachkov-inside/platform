@@ -40,3 +40,26 @@ class Fixture(unittest.TestCase):
             self.assertIn('LOGTO_JWKS_URL=http://provider:8081/oidc/jwks', env)
             self.assertNotIn('sachkov.dev', env)
             self.assertTrue(all(path.stat().st_mode & 0o777 == 0o600 for path in (output/'runtime').iterdir()))
+
+    def test_prepared_single_project_has_no_application_egress_ports_or_foreign_resources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)/'owned'
+            pins={'schema':1,'source':'a'*40,'owner':'inside-platform-production-smoke-cache-resource','backend':'sha256:'+'b'*64,'foundation':'sha256:'+'c'*64}
+            def command(args,**kwargs):
+                if args[0]=='git':
+                    return 'a'*40
+                return pins['foundation'] if '-foundation:local' in ' '.join(args) else pins['backend']
+            with patch.object(fixture.pilot,'command',side_effect=command),patch.object(fixture.pilot,'assert_docker_identity'):
+                fixture.prepare(output,pins)
+            plan=json.loads((output/'compose.json').read_text())
+            for name in ('api','provider','loadgen','postgres','migrations'):
+                self.assertEqual(plan['services'][name]['networks'],['pilot'])
+                self.assertNotIn('ports',plan['services'][name])
+                self.assertEqual(plan['services'][name]['pull_policy'],'never')
+            self.assertEqual(plan['networks']['pilot'],{'internal':True})
+            self.assertTrue(all('name' not in volume and 'external' not in volume for volume in plan['volumes'].values()))
+            self.assertNotIn('/query',json.dumps(plan['services']['provider']))
+            self.assertIn('/query:ro',json.dumps(plan['services']['loadgen']))
+            self.assertTrue(all('/var/run/docker.sock' not in json.dumps(service) for service in plan['services'].values()))
+            self.assertEqual((output/'query/key').stat().st_mode & 0o777,0o600)
+            self.assertEqual(json.loads((output/'resource-source.json').read_text())['commit'],pins['source'])

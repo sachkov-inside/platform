@@ -20,6 +20,7 @@ import ci
 sys.path.insert(0, str(SCRIPTS))
 import fixture
 import measurements
+import binding
 import profile as resource_profile
 
 PROJECT_PREFIX = 'inside-observability-resource-'
@@ -131,6 +132,8 @@ def parse_phase(text):
             if not isinstance(value['samples'], list) or len(value['samples']) != 20:
                 raise ValueError('warmup_shape')
             warmup = [valid_sample(sample) for sample in value['samples']]
+            if any(sample['label'] != resource_profile.LABELS[index % 2] for index,sample in enumerate(warmup)):
+                raise ValueError('warmup_schedule')
         elif value.get('kind') == 'sample' and set(value) == {'kind','index','label','outcome','status','elapsed_ms'} and warmup and completed is None:
             if type(value['index']) is not int or value['index'] != len(samples) or len(samples) >= 100:
                 raise ValueError('phase_index')
@@ -228,14 +231,22 @@ def measure(output, compose, project):
     monitor.start()
     try:
         measured = client(compose, 'load')
+    except (OSError,ValueError,RuntimeError,subprocess.SubprocessError):
+        measured = parse_phase('')
+        failure.append('client_transport_unknown')
     finally:
         stop.set()
         monitor.join(SAMPLER_STOP_SECONDS)
         if monitor.is_alive():
             # External supervisor owns the worker group, including a failed/stuck sampler's child.
             raise RuntimeError('sampler_shutdown_failed')
-    after_io = operations(compose, states)
-    final = inspect(compose, project)
+    try:
+        after_io = operations(compose, states)
+        final = inspect(compose, project)
+    except (OSError,ValueError,RuntimeError,subprocess.SubprocessError):
+        after_io = {name:None for name in ACTIVE}
+        final = {}
+        failure.append('final_counters_unknown')
     coherent = all(name in final and final[name]['container'] == states[name]['container'] and final[name]['running']
                    and final[name]['oom'] is False and final[name]['restarts'] == states[name]['restarts'] == 0 for name in ACTIVE)
     counters = {}
@@ -258,13 +269,37 @@ def measure(output, compose, project):
             'counter_window':'phase includes equal warmup; io brackets entire phase and sampling', 'state_before':states, 'state_after':final}
 
 
+def registration(output):
+    deadline=time.monotonic()+2
+    path=output/'worker.json'
+    while True:
+        if path.is_symlink():
+            raise ValueError('worker_registration_symlink')
+        try:
+            record=json.loads(path.read_text())
+        except (FileNotFoundError,ValueError):
+            record=None
+        if record is not None:
+            if (not isinstance(record,dict) or record.get('pid')!=os.getpid() or record.get('group')!=os.getpid()
+                    or os.getpgrp()!=os.getpid() or record.get('supervisor_pid')!=os.getppid()):
+                raise ValueError('worker_registration_mismatch')
+            return
+        if time.monotonic()>=deadline:
+            raise ValueError('worker_registration_deadline')
+        time.sleep(.02)
+
+
 def worker(output):
     owner = json.loads((output / 'owner.json').read_text())
-    if owner.get('supervisor_pid') != os.getppid():
+    if (not isinstance(owner,dict) or owner.get('supervisor_pid') != os.getppid()
+            or owner.get('cwd') != str(ROOT) or not isinstance(owner.get('project'),str)
+            or not re.fullmatch(re.escape(PROJECT_PREFIX)+r'[0-9a-f]{12}',owner['project'])):
         raise RuntimeError('resource_worker_requires_external_supervisor')
+    registration(output)
     compose = ['docker', 'compose', '-p', owner['project'], '-f', str(output / 'compose.json')]
     stage = 'configuration'
     proof = {'schema':1, 'acceptance':'pending', 'scope':'short proposed synthetic SDK-only comparison', 'pairs':[], 'missing':MISSING}
+    binding.write(output / 'resource-proof.json',proof)
     try:
         with pilot.worker_storage_guard(owner, compose, output):
             manifest = resource_profile.load()
@@ -320,17 +355,18 @@ def worker(output):
                         raise RuntimeError('protected_fixture_readiness')
                     stage = 'measure_' + mode
                     result['modes'][mode] = measure(output, compose, owner['project'])
+                    binding.write(output / 'resource-current.json', {'pair':pair,'mode':mode,'measurement':result['modes'][mode]})
                     observation = json.loads(invoke(compose, ['exec','-T','loadgen','node','/resource/client.mjs','metric','/query/key']))
                     result['modes'][mode]['sdk_observation'] = sdk_observation(observation, phase_started, mode)
-                    pilot.write_json(output / 'resource-proof.json', {**proof, 'partial_pair':result})
+                    binding.write(output / 'resource-proof.json', {**proof, 'partial_pair':result})
                 result['p95_overhead_percent'] = {label: measurements.overhead(result['modes']['off']['samples'], result['modes']['on']['samples'], label) if all(result['modes'][switch]['sdk_observation']['matches_configured_mode'] is True for switch in ('off','on')) else None for label in resource_profile.LABELS}
                 proof['pairs'].append(result)
-                pilot.write_json(output / 'resource-proof.json', proof)
+                binding.write(output / 'resource-proof.json', proof)
             proof['state'] = 'completed_short_profile' if all(mode['lifecycle_coherent'] and mode['sdk_observation']['matches_configured_mode'] is True and mode['client_completed'] and not mode['counter_errors']
                 and all(sample['outcome'] == 'ok' for sample in mode['samples'] + mode['warmup_samples'])
                 and all(counter['cpu_seconds'] is not None and counter['memory_sampled_max_charged_bytes'] is not None
                         and counter['io_read_operations_delta'] is not None for counter in mode['counter_summary'].values()) for pair in proof['pairs'] for mode in pair['modes'].values()) else 'partial'
-            pilot.write_json(output / 'resource-proof.json', proof)
+            binding.write(output / 'resource-proof.json', proof)
             evidence = json.loads((output / 'evidence.json').read_text())
             evidence.update({'resource_profile':manifest['profile'], 'status':proof['state'] + '; full resource acceptance pending'})
             pilot.write_json(output / 'evidence.json', evidence)
@@ -344,7 +380,8 @@ def sdk_observation(value, started, mode):
         raise ValueError('closed_sdk_observation')
     latest=value['latest_seconds']
     if latest is not None and (type(latest) not in (int,float) or not math.isfinite(latest) or not 0 < latest <= time.time()+2):
-        raise ValueError('sdk_observation_time')
+        value={'state':'unknown','latest_seconds':None}
+        latest=None
     fresh=latest is not None and latest >= started if value['state']=='known' else None
     return {**value,'phase_started_seconds':started,'fresh_sample_observed':fresh,
             'matches_configured_mode':fresh == (mode=='on') if fresh is not None else None,
@@ -384,8 +421,6 @@ def main():
         if result.get('down') == 'passed' and result.get('residue') == 'passed':
             cleanup_private(output, acquired=True)
         return result
-    # Unreviewed checkpoint. Resume notes list missing contracts/bindings before enabling run.
-    raise RuntimeError('resource_runner_incomplete_no_runtime')
     if not args.images or args.images.is_symlink() or args.images.stat().st_size > 4096:
         raise ValueError('private_cache_manifest_required')
     cache = json.loads(args.images.read_text())

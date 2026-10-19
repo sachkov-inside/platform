@@ -38,7 +38,7 @@ class Lifecycle(unittest.TestCase):
 
     def test_partial_client_samples_are_retained_and_unstarted_latency_is_unknown(self):
         sample = {'label':'public_index','outcome':'ok','status':200,'elapsed_ms':3}
-        warmup = {'kind':'warmup','samples':[sample]*20}
+        warmup = {'kind':'warmup','samples':[{**sample,'label':runtime.resource_profile.LABELS[index%2]} for index in range(20)]}
         raw = json.dumps(warmup)+'\n'+json.dumps({'kind':'sample','index':0,**sample})+'\n'+ '{"private-body-interrupted'
         value = runtime.parse_phase(raw)
         self.assertEqual(value['received_samples'],1)
@@ -69,3 +69,45 @@ class Lifecycle(unittest.TestCase):
             private.write_text('owner-sentinel')
             runtime.cleanup_private(output)
             self.assertEqual(private.read_text(),'owner-sentinel')
+
+    def test_worker_foreign_project_or_cwd_refused_before_registration_and_docker(self):
+        for owner in ({'supervisor_pid':runtime.os.getppid(),'cwd':str(runtime.ROOT),'project':'inside-platform'},
+                      {'supervisor_pid':runtime.os.getppid(),'cwd':'/foreign','project':runtime.PROJECT_PREFIX+'a'*12}):
+            with tempfile.TemporaryDirectory() as directory:
+                output=Path(directory);(output/'owner.json').write_text(json.dumps(owner))
+                with patch.object(runtime,'registration') as registered,patch.object(runtime.pilot,'worker_storage_guard') as guard:
+                    with self.assertRaises(RuntimeError):
+                        runtime.worker(output)
+                    registered.assert_not_called();guard.assert_not_called()
+
+    def test_worker_registration_binds_pid_group_and_external_parent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            with patch.object(runtime.os,'getpid',return_value=123),patch.object(runtime.os,'getpgrp',return_value=123),patch.object(runtime.os,'getppid',return_value=122):
+                for record in ({'pid':124,'group':123,'supervisor_pid':122},{'pid':123,'group':124,'supervisor_pid':122},{'pid':123,'group':123,'supervisor_pid':121}):
+                    (output/'worker.json').write_text(json.dumps(record))
+                    with self.assertRaises(ValueError):
+                        runtime.registration(output)
+                (output/'worker.json').write_text(json.dumps({'pid':123,'group':123,'supervisor_pid':122}))
+                runtime.registration(output)
+
+    def test_main_refused_output_keeps_preexisting_private_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory);(output/'runtime').mkdir();private=output/'runtime/api.env';private.write_text('preserve')
+            cache=output/'cache.json';cache.write_text('{}')
+            def refused(output,**kwargs):
+                raise FileExistsError('fixed')
+            with patch.object(runtime.sys,'argv',['resource','run','--output',str(output),'--images',str(cache)]),patch.object(runtime.pilot,'run',side_effect=refused):
+                with self.assertRaises(FileExistsError):
+                    runtime.main()
+            self.assertEqual(private.read_text(),'preserve')
+
+    def test_sdk_unknown_and_nonfinite_timestamp_cannot_confirm_activation(self):
+        with patch.object(runtime.time,'time',return_value=100):
+            for value in ({'state':'unknown','latest_seconds':None},{'state':'known','latest_seconds':float('nan')},{'state':'known','latest_seconds':1000}):
+                result=runtime.sdk_observation(value,90,'on')
+                self.assertIsNone(result['matches_configured_mode'])
+            self.assertTrue(runtime.sdk_observation({'state':'known','latest_seconds':95},90,'on')['matches_configured_mode'])
+            self.assertTrue(runtime.sdk_observation({'state':'known','latest_seconds':None},90,'off')['matches_configured_mode'])
+        with self.assertRaises(ValueError):
+            runtime.sdk_observation({'state':'known','latest_seconds':None,'body':'secret'},90,'off')

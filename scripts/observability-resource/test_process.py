@@ -75,3 +75,25 @@ class Processes(unittest.TestCase):
             (output/'cleanup.json').write_text(json.dumps({'down':'passed','residue':'passed'}))
             runtime.cleanup_private(output,acquired=True)
             self.assertFalse(env.exists())
+
+    def test_resource_recovery_rechecks_prefix_and_daemon_before_any_cleanup(self):
+        identity={'platform':'linux','context':'default','endpoint':'unix:///fixture/docker.sock','daemon_id':'owned',
+                  'storage':'/var/lib/docker','socket_device':1,'socket_inode':2}
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            owner={'project':runtime.PROJECT_PREFIX+'a'*12,'cwd':str(runtime.ROOT),'daemon':identity}
+            (output/'worker.json').write_text(json.dumps({'pid':12345,'group':12345}))
+            (output/'compose.json').write_text('{}')
+            for project,changed in (('inside-platform',False),(owner['project'],True),(owner['project'],False)):
+                (output/'owner.json').write_text(json.dumps({**owner,'project':project}))
+                with patch.object(runtime.pilot.daemon,'identify',return_value={**identity,'daemon_id':'changed'} if changed else identity), \
+                        patch.object(runtime.ci.os,'kill',side_effect=ProcessLookupError),patch.object(runtime.ci.os,'killpg',side_effect=ProcessLookupError), \
+                        patch.object(runtime.ci,'cleanup_project',return_value={'down':'passed','residue':'passed'}) as cleanup:
+                    if project=='inside-platform' or changed:
+                        with self.assertRaises((ValueError,RuntimeError)):
+                            runtime.ci.recover(output,project_prefix=runtime.PROJECT_PREFIX,services=runtime.SERVICES)
+                        cleanup.assert_not_called()
+                    else:
+                        runtime.ci.recover(output,project_prefix=runtime.PROJECT_PREFIX,services=runtime.SERVICES)
+                        self.assertEqual(cleanup.call_args.kwargs['services'],runtime.SERVICES)
+                        self.assertEqual(cleanup.call_args.args[2],owner['project'])
