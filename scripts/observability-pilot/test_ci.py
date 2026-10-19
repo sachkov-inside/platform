@@ -5,10 +5,15 @@ from pathlib import Path
 import tempfile
 import unittest
 import os
+import signal
+import subprocess
+import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import ci
+
+FIXTURE_LEADER_EXIT_BUDGET_SECONDS = 2
 
 
 class HostedEvidenceTest(unittest.TestCase):
@@ -75,6 +80,29 @@ class HostedEvidenceTest(unittest.TestCase):
                     self.assertEqual(ci.admission(metadata), 1)
                 report = json.loads((metadata / "admission.json").read_text())
                 self.assertEqual(report, {"ready": False, "error_type": "ValueError"})
+
+    def test_recovery_refuses_live_child_after_registered_group_leader_exits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            fixture = Path(__file__).parent / "fixtures/process.py"
+            leader = subprocess.Popen([sys.executable, str(fixture), "worker", directory, "descendant"],
+                                      start_new_session=True)
+            try:
+                self.assertEqual(leader.wait(timeout=FIXTURE_LEADER_EXIT_BUDGET_SECONDS), 0)
+                (output / "owner.json").write_text(json.dumps({
+                    "project": "inside-observability-pilot-012345abcdef", "cwd": str(ci.ROOT),
+                }))
+                (output / "worker.json").write_text(json.dumps({"pid": leader.pid, "group": leader.pid}))
+                (output / "compose.json").write_text("{}")
+                with patch("ci.subprocess.run", side_effect=AssertionError("Docker cleanup must not run")):
+                    with self.assertRaisesRegex(ValueError, "registered worker process group still exists"):
+                        ci.recover(output)
+            finally:
+                try:
+                    os.killpg(leader.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                leader.wait(timeout=FIXTURE_LEADER_EXIT_BUDGET_SECONDS)
 
 
 if __name__ == "__main__":

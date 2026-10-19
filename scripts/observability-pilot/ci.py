@@ -68,6 +68,12 @@ def recover(output):
         pass
     else:
         raise ValueError("registered worker still exists; supervisor or disposable runner teardown required")
+    try:
+        os.killpg(worker["group"], 0)
+    except ProcessLookupError:
+        pass
+    else:
+        raise ValueError("registered worker process group still exists; disposable runner teardown required")
     compose_file = output / "compose.json"
     if not compose_file.is_file() or compose_file.is_symlink():
         raise ValueError("owned Compose input missing")
