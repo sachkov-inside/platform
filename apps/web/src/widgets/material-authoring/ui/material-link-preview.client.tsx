@@ -6,7 +6,7 @@ import {
   coverLinkPreviewImage,
   type ContentCover,
 } from "@/entities/material.model";
-import { SocialCardArtwork } from "@/shared/link-preview";
+import { SITE_NAME, SocialCardArtwork } from "@/shared/link-preview";
 import { presentText } from "@/shared/lib/text";
 import { Button } from "@/shared/ui/button";
 
@@ -105,7 +105,7 @@ export function MaterialLinkPreview({
           />
         )}
         <div className="space-y-2 p-4">
-          <p className="text-xs text-muted-foreground">Sachkov Inside</p>
+          <p className="text-xs text-muted-foreground">{SITE_NAME}</p>
           <p className="break-words text-base font-semibold">
             {presentText(title.trim()) ?? "Название материала"}
           </p>

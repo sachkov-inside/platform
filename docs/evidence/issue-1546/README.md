@@ -9,7 +9,7 @@
 
 Снимки Storybook: [desktop 1440 × 1024](link-preview-desktop.png),
 [mobile 390 × 844 с длинным названием](link-preview-mobile.png). На mobile горизонтального
-переполнения нет. Это доказательство функциональной версии, а не owner visual GO.
+переполнения нет. Axe не нашёл нарушений на desktop и mobile после повышения контраста подписи автоматической картинки. Это доказательство функциональной версии, а не owner visual GO.
 
 Проверки на production-сборке: `material-link-preview.spec.ts`, 10 сценариев на desktop/mobile:
 TelegramBot с полным и коротким User-Agent, Googlebot; HTML без JavaScript, canonical без UTM,

@@ -3,6 +3,7 @@ export { CLOSED_SECTIONS, OPEN_SECTIONS } from "./model/indexing-rules";
 export {
   hiddenPageMetadata,
   publicPageMetadata,
+  SITE_NAME,
   SITE_TAGLINE,
   siteLinkPreview,
   unavailablePageMetadata,

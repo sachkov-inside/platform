@@ -86,7 +86,7 @@ export function SocialCardArtwork({
         {content.eyebrow === undefined ? null : (
           <div
             style={{
-              color: ACCENT,
+              color: PAPER,
               display: "flex",
               fontSize: length(28),
               letterSpacing: length(4),
