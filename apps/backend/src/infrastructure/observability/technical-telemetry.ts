@@ -148,21 +148,14 @@ export function createTechnicalTelemetry(
     let pending = 0;
     const spanExporter: SpanExporter = {
       export: (spans, callback) =>
-        configuration.exporters.spans.export(
-          spans.map((span) =>
-            span.instrumentationScope.name === "pg-boss"
-              ? safePgBossSpan(span, queues)
-              : span,
-          ),
-          (result) => {
-            pending -= spans.length;
-            if (result.code !== ExportResultCode.SUCCESS) {
-              failedTraceExports++;
-              configuration.onExportFailure?.("traces");
-            }
-            callback(result);
-          },
-        ),
+        configuration.exporters.spans.export(spans, (result) => {
+          pending -= spans.length;
+          if (result.code !== ExportResultCode.SUCCESS) {
+            failedTraceExports++;
+            configuration.onExportFailure?.("traces");
+          }
+          callback(result);
+        }),
       shutdown: () => configuration.exporters.spans.shutdown(),
     };
     const batch = new BatchSpanProcessor(spanExporter, {
@@ -191,7 +184,11 @@ export function createTechnicalTelemetry(
               return;
             }
             pending++;
-            batch.onEnd(span);
+            batch.onEnd(
+              span.instrumentationScope.name === "pg-boss"
+                ? safePgBossSpan(span, queues)
+                : span,
+            );
           },
           forceFlush: () => batch.forceFlush(),
           shutdown: () => batch.shutdown(),

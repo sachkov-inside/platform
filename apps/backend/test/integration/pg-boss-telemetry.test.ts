@@ -1,4 +1,3 @@
-import { fork, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
@@ -11,10 +10,17 @@ import { PgBoss } from "pg-boss";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import {
+  launchQueueTelemetryProcess,
+  finishFixtureCleanup,
+  boundedProcessFact,
+  type QueueTelemetryProcess,
+} from "./setup/queue-telemetry-process.js";
 import { createTestDatabase } from "./setup/test-database.js";
 
 const attemptSchema = z.object({
   kind: z.literal("attempt"),
+  pid: z.number().int().positive(),
   jobId: z.string(),
   traceId: z.string(),
   spanId: z.string(),
@@ -88,11 +94,11 @@ describe("durable queue technical context", () => {
         ),
       ).toBe(true);
     } finally {
-      await Promise.allSettled([
-        boss.stop({ close: true, graceful: false }),
-        telemetry.shutdown(),
+      await finishFixtureCleanup([
+        () => boss.stop({ close: true, graceful: false }),
+        () => telemetry.shutdown(),
+        () => database.dispose(),
       ]);
-      await database.dispose();
     }
   });
   test("continues a persisted producer trace after SIGKILL and retry across processes without exporting private input", async () => {
@@ -110,12 +116,7 @@ describe("durable queue technical context", () => {
         response.end("{}");
       });
     });
-    const children: {
-      child: ChildProcess;
-      exited: Promise<unknown>;
-      messages: unknown[];
-      output: string[];
-    }[] = [];
+    const children: QueueTelemetryProcess[] = [];
     const inspector = new PgBoss({
       connectionString: database.url,
       openTelemetry: { enabled: false },
@@ -127,42 +128,16 @@ describe("durable queue technical context", () => {
       if (address === null || typeof address === "string")
         throw new Error("listener address unavailable");
       const launch = (mode: "produce" | "crash" | "retry") => {
-        // deterministic-test-allow process-cleanup: each child is registered immediately, killed in finally if live, and its pre-registered exit promise is awaited before database disposal.
-        const child = fork(
-          new URL("./fixtures/pg-boss-telemetry-worker.ts", import.meta.url),
-          [],
-          {
-            execArgv: ["--import", "tsx"],
-            stdio: ["ignore", "pipe", "pipe", "ipc"],
-            env: {
-              ...Object.fromEntries(
-                Object.entries(process.env).filter(
-                  ([key]) => !key.startsWith("OTEL_EXPORTER_OTLP"),
-                ),
-              ),
-              PG_BOSS_TELEMETRY_FIXTURE: JSON.stringify({
-                databaseUrl: database.url,
-                endpoint: `http://127.0.0.1:${address.port}`,
-                mode,
-              }),
-            },
-          },
-        );
-        const owned = {
-          child,
-          exited: once(child, "exit"),
-          messages: [] as unknown[],
-          output: [] as string[],
-        };
-        child.on("message", (message: unknown) => owned.messages.push(message));
-        child.stdout?.setEncoding("utf8");
-        child.stdout?.on("data", (chunk: string) => owned.output.push(chunk));
-        child.stderr?.resume();
+        const owned = launchQueueTelemetryProcess({
+          databaseUrl: database.url,
+          endpoint: `http://127.0.0.1:${address.port}`,
+          mode,
+        });
         children.push(owned);
         return owned;
       };
       const producer = launch("produce");
-      expect(await producer.exited).toEqual([0, null]);
+      expect(await boundedProcessFact(producer.exited)).toEqual([0, null]);
       const produced = z
         .object({ kind: z.literal("produced"), jobId: z.string() })
         .parse(producer.messages[0]);
@@ -191,12 +166,12 @@ describe("durable queue technical context", () => {
         );
       expect(carriers).toHaveLength(1);
       const crashed = launch("crash");
-      await once(crashed.child, "message");
+      await boundedProcessFact(crashed.firstMessage);
       const first = attemptSchema.parse(crashed.messages[0]);
-      crashed.child.kill("SIGKILL");
-      expect(await crashed.exited).toEqual([null, "SIGKILL"]);
+      process.kill(first.pid, "SIGKILL");
+      expect(await boundedProcessFact(crashed.exited)).toEqual([137, null]);
       const restarted = launch("retry");
-      expect(await restarted.exited).toEqual([0, null]);
+      expect(await boundedProcessFact(restarted.exited)).toEqual([0, null]);
       const attempts = [
         first,
         ...restarted.messages.map((message) => attemptSchema.parse(message)),
@@ -282,20 +257,17 @@ describe("durable queue technical context", () => {
         )[0]?.state,
       ).toBe("completed");
     } finally {
-      for (const owned of children) {
-        if (owned.child.exitCode === null && owned.child.signalCode === null)
-          owned.child.kill("SIGKILL");
-      }
-      await Promise.allSettled(children.map((owned) => owned.exited));
-      await Promise.allSettled([
-        inspector.stop({ close: true, graceful: false }),
-        new Promise<void>((resolve, reject) =>
-          receiver.close((error) =>
-            error === undefined ? resolve() : reject(error),
+      await finishFixtureCleanup([
+        ...children.map((owned) => () => owned.stop()),
+        () => inspector.stop({ close: true, graceful: false }),
+        () =>
+          new Promise<void>((resolve, reject) =>
+            receiver.close((error) =>
+              error === undefined ? resolve() : reject(error),
+            ),
           ),
-        ),
+        () => database.dispose(),
       ]);
-      await database.dispose();
     }
   });
 });

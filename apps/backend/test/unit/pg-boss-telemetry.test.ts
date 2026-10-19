@@ -6,12 +6,16 @@ import {
   createTraceState,
   SpanStatusCode,
 } from "@opentelemetry/api";
-import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
+import {
+  BatchSpanProcessor,
+  InMemorySpanExporter,
+} from "@opentelemetry/sdk-trace-base";
 import {
   AggregationTemporality,
   InMemoryMetricExporter,
 } from "@opentelemetry/sdk-metrics";
 import { ExportResultCode } from "@opentelemetry/core";
+import { z } from "zod";
 import { describe, expect, it, vi } from "vitest";
 import {
   createTechnicalTelemetry,
@@ -39,6 +43,107 @@ function enabledPgBoss(
 }
 
 describe("pg-boss telemetry privacy boundary", () => {
+  it("retains only a detached bounded span snapshot before SDK batching, preserving the caller span", async () => {
+    const retention = vi.spyOn(BatchSpanProcessor.prototype, "onEnd");
+    const spans = new InMemorySpanExporter();
+    const metrics = new InMemoryMetricExporter(
+      AggregationTemporality.CUMULATIVE,
+    );
+    const telemetry = createTechnicalTelemetry({
+      enabled: true,
+      service: "platform-material-assets-worker",
+      environment: "test",
+      release: "test",
+      sampleRatio: 1,
+      exporters: { spans, metrics },
+    });
+    try {
+      const options = enabledPgBoss(telemetry, ["material-assets.cleanup"]);
+      const span = options.tracerProvider
+        .getTracer("pg-boss")
+        .startSpan("process material-assets.cleanup", {
+          attributes: {
+            "messaging.operation.name": "process",
+            "messaging.destination.name": "material-assets.cleanup",
+          },
+          links: [
+            {
+              context: {
+                traceId: "1".repeat(32),
+                spanId: "2".repeat(16),
+                traceFlags: 1,
+              },
+              attributes: { private: "sentinel-link" },
+            },
+          ],
+        });
+      const privateMessage = "sentinel-status-" + "x".repeat(2 * 1024 * 1024);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: privateMessage });
+      span.end();
+      const retained = retention.mock.calls[0]?.[0];
+      expect(Object.keys(retained?.status ?? {})).toEqual(["code"]);
+      expect(retained?.status.code).toBe(SpanStatusCode.ERROR);
+      expect(retained).not.toBe(span);
+      expect(retained).not.toHaveProperty("_spanProcessor");
+      expect(JSON.stringify(retained).includes("sentinel-")).toBe(false);
+      expect(JSON.stringify(retained).length).toBeLessThan(4096);
+      expect(retained?.spanContext().traceId).toBe(span.spanContext().traceId);
+      expect(retained?.spanContext().spanId).toBe(span.spanContext().spanId);
+      expect(retained?.links).toEqual([
+        {
+          context: {
+            traceId: "1".repeat(32),
+            spanId: "2".repeat(16),
+            traceFlags: 1,
+            isRemote: false,
+          },
+        },
+      ]);
+      expect(
+        z.object({ status: z.object({ message: z.string() }) }).parse(span)
+          .status.message === privateMessage,
+      ).toBe(true);
+    } finally {
+      await telemetry.shutdown();
+      retention.mockRestore();
+    }
+  });
+  it("keeps PostgreSQL UUID formats including nil and non-RFC variants, excluding non-UUID IDs", async () => {
+    const spans = new InMemorySpanExporter();
+    const metrics = new InMemoryMetricExporter(
+      AggregationTemporality.CUMULATIVE,
+    );
+    const telemetry = createTechnicalTelemetry({
+      enabled: true,
+      service: "platform-material-assets-worker",
+      environment: "test",
+      release: "test",
+      sampleRatio: 1,
+      exporters: { spans, metrics },
+    });
+    try {
+      const options = enabledPgBoss(telemetry, ["material-assets.cleanup"]);
+      const ids = [
+        "550e8400-e29b-41d4-a716-446655440000",
+        "00000000-0000-0000-0000-000000000000",
+        "FFFFFFFF-FFFF-FFFF-0FFF-FFFFFFFFFFFF",
+        "not-a-job-id",
+      ];
+      for (const id of ids)
+        options.tracerProvider
+          .getTracer("pg-boss")
+          .startSpan("process", { attributes: { "messaging.message.id": id } })
+          .end();
+      await telemetry.flush();
+      expect(
+        spans
+          .getFinishedSpans()
+          .map((span) => span.attributes["messaging.message.id"]),
+      ).toEqual([ids[0], ids[1], ids[2], undefined]);
+    } finally {
+      await telemetry.shutdown();
+    }
+  });
   it.each([true, false])(
     "keeps job outcomes and request IDs with enabled=%s",
     async (enabled) => {

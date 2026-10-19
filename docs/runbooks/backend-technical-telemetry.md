@@ -74,7 +74,9 @@ span IDs; batch consumers start a root trace and link producers. Links are bound
 An interrupted process cannot export its unfinished span; durable retries can still retain the
 producer trace. This is correlation, not a guarantee that every attempt is retained.
 
-At the span export boundary, pg-boss spans are copied rather than mutating SDK spans. Only fixed
+Before the SDK batch retains a completed pg-boss span, it receives a detached snapshot rather than
+mutating or retaining the caller's SDK span. The snapshot copies only public fields and captures scalar
+trace context, so a large status message cannot remain reachable through an internal field or closure. Only fixed
 operation/state/type values, registered queue names, valid UUID job IDs and integer retry/batch counts
 survive. Unknown queues/operations become `_OTHER`; errors become `job_error`. Database/schema names,
 exception events, status descriptions, link attributes and trace state are excluded. The metric View
@@ -90,7 +92,11 @@ consumer trace/span plus service/environment/release. Existing log redaction is 
 not exported to OTLP.
 
 The isolated PostgreSQL contract uses separate producer, killed consumer and restarted consumer
-processes, a synthetic payload and a loopback OTLP receiver. It proves persisted correlation across
+processes, a synthetic payload and a loopback OTLP receiver. Each command runs beneath the repository's
+independent `spawnOwned` Python supervisor. Protocol-message and command-exit waits have named deadlines;
+cleanup requests immediate group termination and awaits the supervisor reaping the tree and closing
+its descriptors. Ownership contracts exercise missing-exit timeout and SIGKILL of the Node test owner,
+including a signal-resistant fixture and closure of its loopback socket. It proves persisted correlation across
 SIGKILL, expiration and two retries, distinct attempt spans, fixed error evidence and absence of
 payload/error/baggage sentinels on the actual wire. Fixture-only monitor/supervisor intervals are one
 second and expiration two seconds; production timing is unchanged. It also checks the job's unchanged
@@ -98,7 +104,8 @@ payload and final completed state, and log request IDs/release. A synthetic HTTP
 is an SDK propagation test, not an existing product API-to-queue producer path.
 
 This remains a bounded implementation slice of #1566. Billing, profile-avatar and video-deletion
-workers are not yet wired. Their producers currently live in their own startup/scheduling paths;
+workers are not yet wired. The fifth production worker, notifications, uses AMQP and remains outside
+this pg-boss slice. The other pg-boss producers currently live in their own startup/scheduling paths;
 the API does not send these pg-boss maintenance jobs. HTTP-to-outbox/AMQP linkage, dependency spans,
 Telegram, queue-age/lag metrics and collector-side privacy controls remain separate work. The
 loopback receiver does not prove production retention, capacity or full business trace chains.

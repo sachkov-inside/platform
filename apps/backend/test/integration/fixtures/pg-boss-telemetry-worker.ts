@@ -1,3 +1,5 @@
+import { createServer } from "node:net";
+import { once } from "node:events";
 import { setTimeout as delay } from "node:timers/promises";
 import { context, propagation } from "@opentelemetry/api";
 import { PgBoss, type JobWithMetadata } from "pg-boss";
@@ -12,9 +14,24 @@ const input = z
   .object({
     databaseUrl: z.string(),
     endpoint: z.string(),
-    mode: z.enum(["produce", "crash", "retry"]),
+    mode: z.enum(["produce", "crash", "retry", "ownership"]),
   })
   .parse(JSON.parse(process.env["PG_BOSS_TELEMETRY_FIXTURE"] ?? ""));
+const COMPLETION_DEADLINE_MS = 20_000;
+const COMPLETION_POLL_INTERVAL_MS = 50;
+const send = (value: unknown) =>
+  process.stdout.write(`${JSON.stringify(value)}\n`);
+if (input.mode === "ownership") {
+  const server = createServer();
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (address === null || typeof address === "string")
+    throw new Error("fixture listener unavailable");
+  process.on("SIGTERM", () => undefined);
+  send({ kind: "ownership", pid: process.pid, port: address.port });
+  await new Promise<void>(() => undefined);
+}
 const queue = "material-assets.cleanup";
 const telemetry = technicalTelemetryFromEnvironment({
   environment: {
@@ -25,7 +42,6 @@ const telemetry = technicalTelemetryFromEnvironment({
   mode: "test",
   identity: { release: "queue-proof", sourceSha: "queue-proof" },
 });
-const send = (value: unknown) => process.send?.(value);
 let ownedBoss: PgBoss | undefined;
 try {
   const boss = (ownedBoss = new PgBoss({
@@ -69,6 +85,7 @@ try {
           writeLog("info", "queue_attempt");
           send({
             kind: "attempt",
+            pid: process.pid,
             jobId: job.id,
             retryCount: job.retryCount,
             ...telemetry.correlation(),
@@ -88,7 +105,7 @@ try {
         telemetry,
       ),
     );
-    const deadline = performance.now() + 20_000;
+    const deadline = performance.now() + COMPLETION_DEADLINE_MS;
     for (;;) {
       if (
         finishedId !== undefined &&
@@ -99,7 +116,7 @@ try {
       if (performance.now() >= deadline)
         throw new Error("fixture completion deadline");
       // deterministic-test-allow duration-wait: Observe durable queue completion; interval is not the assertion.
-      await delay(50);
+      await delay(COMPLETION_POLL_INTERVAL_MS);
     }
   }
 } finally {
