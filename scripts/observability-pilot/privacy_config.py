@@ -20,6 +20,11 @@ def enum_rule(key, values, *, fallback='_OTHER'):
     return f'set(attributes[{literal(key)}], {literal(fallback)}) where attributes[{literal(key)}] != nil and not IsMatch(attributes[{literal(key)}], {literal(pattern(values))})'
 
 
+def only(statement, condition):
+    command, separator, predicate = statement.partition(' where ')
+    return command+' where ('+condition+')'+(' and ('+predicate+')' if separator else '')
+
+
 def block(kind, context, statements):
     return '  '+kind+'_statements {\n    context = '+literal(context)+'\n    statements = [\n'+''.join(
         '      `'+statement+'`,\n' for statement in statements)+'    ]\n  }\n'
@@ -27,27 +32,38 @@ def block(kind, context, statements):
 
 def render():
     policy = json.loads((CONFIG/'privacy-policy.json').read_text())
+    notification = policy['notifications']
     resource = ['keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])',
         enum_rule('service.name', policy['services']),
         enum_rule('deployment.environment.name', policy['environments']),
         'set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")']
     scope = ['set(name, "inside-collector")', 'set(version, "")', 'keep_keys(attributes, [])']
-    attribute_rules = [
+    http_rules = [
         enum_rule('http.route', policy['routes']),
         enum_rule('http.request.method', policy['methods']),
-        enum_rule('http.request.outcome', ['completed','aborted','timeout']),
+        enum_rule('http.request.outcome', ['completed','aborted','timeout'])]
+    boss_rules = [
         enum_rule('messaging.system', ['pg-boss']),
         enum_rule('messaging.destination.name', policy['queues']),
-        enum_rule('messaging.operation.name', policy['operations']),
+        enum_rule('messaging.operation.name', policy['operations'])]
+    state_rules = [
         enum_rule('messaging.operation.type', ['send','receive','process','settle']),
-        enum_rule('pgboss.job.state', ['deferred','ready','blocked','active','failed']),
-        enum_rule('error.type', ['aborted','timeout','job_error']),
-        'delete_key(attributes, "http.response.status_code") where attributes["http.response.status_code"] != nil and (not IsInt(attributes["http.response.status_code"]) or attributes["http.response.status_code"] < 100 or attributes["http.response.status_code"] > 599)',
-    ]
+        enum_rule('pgboss.job.state', ['deferred','ready','blocked','active','failed'])]
+    errors = ['aborted','timeout','job_error']
+    status_rule = 'delete_key(attributes, "http.response.status_code") where attributes["http.response.status_code"] != nil and (not IsInt(attributes["http.response.status_code"]) or attributes["http.response.status_code"] < 100 or attributes["http.response.status_code"] > 599)'
+    attribute_rules = [*http_rules,*boss_rules,*state_rules,enum_rule('error.type',errors),status_rule]
     keys = ['http.route','http.request.method','http.request.outcome','http.response.status_code',
         'messaging.system','messaging.destination.name','messaging.operation.name','messaging.operation.type',
         'pgboss.job.state','error.type']
-    span_rules = ['keep_keys(attributes, '+literal(keys+['messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *attribute_rules,
+    rabbit = 'attributes["messaging.system"] == '+literal(notification['system'])
+    span_attributes = [*http_rules,
+        enum_rule('messaging.system', ['pg-boss', notification['system']]),
+        only(enum_rule('messaging.destination.name', policy['queues']), 'not ('+rabbit+')'),
+        only(enum_rule('messaging.destination.name', [notification['destination']]), rabbit),
+        only(enum_rule('messaging.operation.name', policy['operations']), 'not ('+rabbit+')'),
+        only(enum_rule('messaging.operation.name', notification['operations']), rabbit),
+        *state_rules,enum_rule('error.type', [*errors,notification['error']]),status_rule]
+    span_rules = ['keep_keys(attributes, '+literal(keys+['messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *span_attributes,
         'delete_key(attributes, "messaging.message.id") where attributes["messaging.message.id"] != nil and not IsMatch(attributes["messaging.message.id"], "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")']
     for key in ('pgboss.job.retry_count','messaging.batch.message_count'):
         span_rules.append(f'delete_key(attributes, "{key}") where attributes["{key}"] != nil and (not IsInt(attributes["{key}"]) or attributes["{key}"] < 0 or attributes["{key}"] > 1000000)')
@@ -80,7 +96,7 @@ otelcol.receiver.otlp "pilot" {
 otelcol.processor.filter "catalog" {
   error_mode = "propagate"
   metrics {
-    metric = ['''+'`not IsMatch(name, '+literal(pattern(policy['metrics']))+')`'+''']
+    metric = ['''+'`not IsMatch(name, '+literal(pattern(policy['metrics']+notification['metrics']))+')`'+''']
   }
   output {
     metrics = [otelcol.processor.transform.privacy.input]
@@ -97,7 +113,14 @@ otelcol.processor.transform "privacy" {
     text += block('trace','span',span_rules)
     text += block('metric','metric',['set(description, "")', 'set(unit, "")',
         'set(unit, "s") where IsMatch(name, "duration$")'])
-    text += block('metric','datapoint',['keep_keys(attributes, '+literal(keys)+')',*attribute_rules, 'set(exemplars, nil)'])
+    is_notification = 'IsMatch(metric.name, '+literal(pattern(notification['metrics']))+')'
+    point_rules = [only(statement, 'not ('+is_notification+')') for statement in
+                   ['keep_keys(attributes, '+literal(keys)+')',*attribute_rules]]
+    point_rules.append(only('keep_keys(attributes, ["operation", "outcome"])',is_notification))
+    for key, values in (('operation',notification['operations']), ('outcome',notification['outcomes'])):
+        point_rules += [only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_notification),
+                        only(enum_rule(key,values),is_notification)]
+    text += block('metric','datapoint',[*point_rules, 'set(exemplars, nil)'])
     text += block('log','log',['keep_keys(attributes, [])',
         'set(body, "telemetry.redacted") where not IsString(body) or body != "pilot.known_failure"',
         'set(event_name, "")', 'set(severity_text, "")'])

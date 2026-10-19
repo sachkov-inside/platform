@@ -86,6 +86,19 @@ class NativeCpuTest(unittest.TestCase):
                     self.assertEqual(result, {'outcome': 'timeout'})
                 self.assert_native_closed(directory)
 
+    def test_additional_queries_share_one_owned_native_and_validation_failure_reaps_it(self):
+        for mode in ('additional','additional-error'):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                status,result = owned_case(mode,directory)
+                self.assertEqual(status,0)
+                if mode=='additional':
+                    self.assertIsNotNone(result)
+                    self.assertEqual(result['additional_known_fixtures'],3)
+                    self.assertEqual(result['validated'],3)
+                else:
+                    self.assertEqual(result,{'outcome':'rejected'})
+                self.assert_native_closed(directory)
+
     def test_cpu_metadata_rejects_private_or_malformed_unclosed_values(self):
         unknown = {'cpu_seconds': None, 'cpu_measurement': 'unavailable'}
         valid = {'schema': 1, 'user_seconds': .25, 'system_seconds': .125}

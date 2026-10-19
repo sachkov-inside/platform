@@ -7,7 +7,8 @@
     "platform-pilot",
     "platform-profile-avatars-worker",
     "platform-video-deletions-worker",
-    "platform-billing-worker"
+    "platform-billing-worker",
+    "platform-notifications-worker"
   ],
   "environments": ["development", "test", "production", "isolated-pilot"],
   "routes": [
@@ -284,5 +285,16 @@
     "messaging.client.consumed.messages",
     "messaging.process.duration",
     "pgboss.queue.jobs"
-  ]
+  ],
+  "notifications": {
+    "system": "rabbitmq",
+    "destination": "inside.events.materials.v1",
+    "operations": ["publish", "receive", "audience"],
+    "outcomes": ["completed", "failed"],
+    "metrics": [
+      "inside.notification.operations",
+      "inside.notification.duration"
+    ],
+    "error": "notification_operation_failed"
+  }
 }
