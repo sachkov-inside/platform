@@ -2015,5 +2015,50 @@
         }
       }
     }
+  },
+  {
+    "name": "preview-waitlist-broadcast",
+    "definition": "request",
+    "valid": true,
+    "value": {
+      "contractVersion": "inside-communications-v1",
+      "operation": "broadcasts.preview",
+      "operationId": "11111111-1111-4111-8111-111111111111",
+      "actor": {
+        "accountRef": "synthetic-author"
+      },
+      "expectedRevision": 0,
+      "payload": {
+        "broadcastId": "22222222-2222-4222-8222-222222222222"
+      }
+    }
+  },
+  {
+    "name": "waitlist-service-audience",
+    "definition": "waitlistAudienceRequest",
+    "valid": true,
+    "value": {
+      "contractVersion": "inside-communications-v1",
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "actorAccountRef": "synthetic-author",
+      "intakeId": "d4f674dc-a1a9-4f86-8855-e4d904d2845f"
+    }
+  },
+  {
+    "name": "waitlist-no-arbitrary-recipients",
+    "definition": "waitlistAudienceRequest",
+    "valid": false,
+    "value": {
+      "contractVersion": "inside-communications-v1",
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "actorAccountRef": "synthetic-author",
+      "intakeId": "d4f674dc-a1a9-4f86-8855-e4d904d2845f",
+      "members": [
+        {
+          "accountRef": "injected",
+          "telegramIdentityRef": "injected"
+        }
+      ]
+    }
   }
 ]

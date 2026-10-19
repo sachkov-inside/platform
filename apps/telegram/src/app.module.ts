@@ -1,3 +1,8 @@
+import { HttpWaitlistAuthorizationAdapter } from "./adapters/platform/http-waitlist-authorization.adapter.js";
+import {
+  WAITLIST_AUTHORIZATION,
+  DisabledWaitlistAuthorization,
+} from "./modules/communications/waitlist-authorization.js";
 import { TelegramContacts } from "./modules/identity-linking/telegram-contacts.js";
 import { TelegramContactsController } from "./modules/identity-linking/telegram-contacts.controller.js";
 import {
@@ -386,11 +391,20 @@ export class AppModule {
         MarketingEntry,
         FunnelScheduler,
         {
+          provide: WAITLIST_AUTHORIZATION,
+          useFactory: () =>
+            hasText(config.platformAuthorAuthorizationUrl) &&
+            hasText(config.platformAuthorAuthorizationSecret)
+              ? new HttpWaitlistAuthorizationAdapter(
+                  config.platformAuthorAuthorizationUrl,
+                  config.platformAuthorAuthorizationSecret,
+                )
+              : new DisabledWaitlistAuthorization(),
+        },
+        {
           provide: COMMUNICATION_TRANSPORT,
           useFactory: () =>
-            config.marketingEnabled &&
-            config.deliveryMode === "live" &&
-            hasText(config.botToken)
+            config.deliveryMode === "live" && hasText(config.botToken)
               ? new GrammyCommunicationsAdapter(
                   new Api(config.botToken, { timeoutSeconds: 10 }),
                 )

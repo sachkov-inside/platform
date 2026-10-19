@@ -542,13 +542,13 @@ function performOnBroadcast(
       return t.ask({ kind: "read-statistics", broadcastId: b.broadcastId });
     case "confirm-launch":
     case "confirm-cancel":
-      if (a.kind === "confirm-launch" && b.audience.kind !== "all") {
+      if (a.kind === "confirm-launch" && b.audience.kind === "funnels") {
         b.audience = { kind: "all" };
         return saveBroadcast(t, { kind: "confirm-launch" });
       }
       return t.reply(
         a.kind === "confirm-launch"
-          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
+          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
           : "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
         [
           [

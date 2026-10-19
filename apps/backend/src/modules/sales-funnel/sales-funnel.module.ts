@@ -38,6 +38,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     ReadFunnelReportController,
     ProductWaitlistController,
   ],
+  exports: [ProductWaitlists],
   providers: [
     {
       provide: ProductWaitlists,

@@ -96873,6 +96873,27 @@
                                   "funnelIds"
                                 ],
                                 "type": "object"
+                              },
+                              {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "intakeId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "enum": [
+                                      "waitlist"
+                                    ],
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "intakeId"
+                                ],
+                                "type": "object"
                               }
                             ]
                           },
@@ -98892,6 +98913,55 @@
                             "type": "string"
                           }
                         },
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "contractVersion",
+                      "operation",
+                      "operationId",
+                      "expectedRevision",
+                      "payload"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "contractVersion": {
+                        "enum": [
+                          "inside-communications-v1"
+                        ],
+                        "type": "string"
+                      },
+                      "expectedRevision": {
+                        "maximum": 2147483647,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "operation": {
+                        "enum": [
+                          "broadcasts.preview"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                        "type": "string"
+                      },
+                      "payload": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "broadcastId": {
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "broadcastId"
+                        ],
                         "type": "object"
                       }
                     },
@@ -103093,6 +103163,27 @@
                                         "funnelIds"
                                       ],
                                       "type": "object"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "intakeId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "enum": [
+                                            "waitlist"
+                                          ],
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "intakeId"
+                                      ],
+                                      "type": "object"
                                     }
                                   ]
                                 },
@@ -106177,6 +106268,27 @@
                                           "funnelIds"
                                         ],
                                         "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "intakeId": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "waitlist"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "intakeId"
+                                        ],
+                                        "type": "object"
                                       }
                                     ]
                                   },
@@ -107865,6 +107977,71 @@
                             "status",
                             "nextCursor",
                             "templates"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            },
+                            "waitlistPreview": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "active": {
+                                  "maximum": 10000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "broadcastId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                  "type": "string"
+                                },
+                                "eligible": {
+                                  "maximum": 10000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "purchaseUrl": {
+                                  "format": "uri",
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "maximum": 2147483647,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "saleOpen": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "active",
+                                "eligible",
+                                "saleOpen",
+                                "purchaseUrl",
+                                "broadcastId",
+                                "revision"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "waitlistPreview"
                           ],
                           "type": "object"
                         }
@@ -112539,6 +112716,27 @@
                                         "funnelIds"
                                       ],
                                       "type": "object"
+                                    },
+                                    {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "intakeId": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "enum": [
+                                            "waitlist"
+                                          ],
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "intakeId"
+                                      ],
+                                      "type": "object"
                                     }
                                   ]
                                 },
@@ -115623,6 +115821,27 @@
                                           "funnelIds"
                                         ],
                                         "type": "object"
+                                      },
+                                      {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "intakeId": {
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                            "type": "string"
+                                          },
+                                          "kind": {
+                                            "enum": [
+                                              "waitlist"
+                                            ],
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "intakeId"
+                                        ],
+                                        "type": "object"
                                       }
                                     ]
                                   },
@@ -117311,6 +117530,71 @@
                             "status",
                             "nextCursor",
                             "templates"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "contractVersion": {
+                              "enum": [
+                                "inside-communications-v1"
+                              ],
+                              "type": "string"
+                            },
+                            "status": {
+                              "enum": [
+                                "ok"
+                              ],
+                              "type": "string"
+                            },
+                            "waitlistPreview": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "active": {
+                                  "maximum": 10000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "broadcastId": {
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                                  "type": "string"
+                                },
+                                "eligible": {
+                                  "maximum": 10000,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "purchaseUrl": {
+                                  "format": "uri",
+                                  "maxLength": 2048,
+                                  "type": "string"
+                                },
+                                "revision": {
+                                  "maximum": 2147483647,
+                                  "minimum": 0,
+                                  "type": "integer"
+                                },
+                                "saleOpen": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "active",
+                                "eligible",
+                                "saleOpen",
+                                "purchaseUrl",
+                                "broadcastId",
+                                "revision"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "contractVersion",
+                            "status",
+                            "waitlistPreview"
                           ],
                           "type": "object"
                         }
@@ -120920,6 +121204,315 @@
           }
         ],
         "summary": "Check public Material and Series targets in an immutable author content snapshot",
+        "tags": [
+          "Communications"
+        ]
+      }
+    },
+    "/integrations/telegram/v1/communications/waitlist": {
+      "post": {
+        "operationId": "readTelegramWaitlistAudience",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "actorAccountRef": {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "contractVersion": {
+                    "enum": [
+                      "inside-communications-v1"
+                    ],
+                    "type": "string"
+                  },
+                  "intakeId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                    "type": "string"
+                  },
+                  "recipient": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "accountRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "telegramIdentityRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "accountRef",
+                      "telegramIdentityRef"
+                    ],
+                    "type": "object"
+                  },
+                  "requestId": {
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "contractVersion",
+                  "requestId",
+                  "actorAccountRef",
+                  "intakeId"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "active": {
+                      "maximum": 10000,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "contractVersion": {
+                      "enum": [
+                        "inside-communications-v1"
+                      ],
+                      "type": "string"
+                    },
+                    "members": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "accountRef": {
+                            "maxLength": 256,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "telegramIdentityRef": {
+                            "maxLength": 256,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "accountRef",
+                          "telegramIdentityRef"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 10000,
+                      "type": "array"
+                    },
+                    "purchaseUrl": {
+                      "format": "uri",
+                      "maxLength": 2048,
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                      "type": "string"
+                    },
+                    "saleOpen": {
+                      "type": "boolean"
+                    },
+                    "status": {
+                      "enum": [
+                        "ok"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "contractVersion",
+                    "requestId",
+                    "status",
+                    "saleOpen",
+                    "purchaseUrl",
+                    "active",
+                    "members"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unauthorized",
+                        "malformed",
+                        "validation_unavailable",
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unauthorized",
+                        "malformed",
+                        "validation_unavailable",
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unauthorized",
+                        "malformed",
+                        "validation_unavailable",
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        "unauthorized",
+                        "malformed",
+                        "validation_unavailable",
+                        "forbidden"
+                      ],
+                      "type": "string"
+                    },
+                    "status": {
+                      "maximum": 9007199254740991,
+                      "minimum": -9007199254740991,
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "telegram-communications": []
+          }
+        ],
+        "summary": "Derive an active intake notification audience or recheck one dispatch recipient",
         "tags": [
           "Communications"
         ]

@@ -416,6 +416,9 @@ export class CommunicationsService {
         } | {
           funnelIds: Array<string>;
           kind: 'funnels';
+        } | {
+          intakeId: string;
+          kind: 'waitlist';
         });
         broadcastId: string;
         parts: Array<{
@@ -714,6 +717,14 @@ export class CommunicationsService {
       operationId: string;
       payload: {
         cursor?: string;
+      };
+    } | {
+      contractVersion: 'inside-communications-v1';
+      expectedRevision: number;
+      operation: 'broadcasts.preview';
+      operationId: string;
+      payload: {
+        broadcastId: string;
       };
     }),
   }): CancelablePromise<{
@@ -1307,6 +1318,9 @@ export class CommunicationsService {
         } | {
           funnelIds: Array<string>;
           kind: 'funnels';
+        } | {
+          intakeId: string;
+          kind: 'waitlist';
         });
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
@@ -1726,6 +1740,9 @@ export class CommunicationsService {
         } | {
           funnelIds: Array<string>;
           kind: 'funnels';
+        } | {
+          intakeId: string;
+          kind: 'waitlist';
         });
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
@@ -1953,6 +1970,17 @@ export class CommunicationsService {
         revision: number;
         templateId: string;
       }>;
+    } | {
+      contractVersion: 'inside-communications-v1';
+      status: 'ok';
+      waitlistPreview: {
+        active: number;
+        broadcastId: string;
+        eligible: number;
+        purchaseUrl: string;
+        revision: number;
+        saleOpen: boolean;
+      };
     });
   }> {
     return this.httpRequest.request({
@@ -2565,6 +2593,9 @@ export class CommunicationsService {
         } | {
           funnelIds: Array<string>;
           kind: 'funnels';
+        } | {
+          intakeId: string;
+          kind: 'waitlist';
         });
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
@@ -2984,6 +3015,9 @@ export class CommunicationsService {
         } | {
           funnelIds: Array<string>;
           kind: 'funnels';
+        } | {
+          intakeId: string;
+          kind: 'waitlist';
         });
         audienceSnapshotId: (string | string | null);
         broadcastId: string;
@@ -3211,6 +3245,17 @@ export class CommunicationsService {
         revision: number;
         templateId: string;
       }>;
+    } | {
+      contractVersion: 'inside-communications-v1';
+      status: 'ok';
+      waitlistPreview: {
+        active: number;
+        broadcastId: string;
+        eligible: number;
+        purchaseUrl: string;
+        revision: number;
+        saleOpen: boolean;
+      };
     });
   }> {
     return this.httpRequest.request({
@@ -3398,6 +3443,43 @@ export class CommunicationsService {
     return this.httpRequest.request({
       method: 'POST',
       url: '/integrations/telegram/v1/communications/validate-content',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Derive an active intake notification audience or recheck one dispatch recipient
+   * @returns any
+   * @throws ApiError
+   */
+  public readTelegramWaitlistAudience({
+    requestBody,
+  }: {
+    requestBody: {
+      actorAccountRef: string;
+      contractVersion: 'inside-communications-v1';
+      intakeId: string;
+      recipient?: {
+        accountRef: string;
+        telegramIdentityRef: string;
+      };
+      requestId: string;
+    },
+  }): CancelablePromise<{
+    active: number;
+    contractVersion: 'inside-communications-v1';
+    members: Array<{
+      accountRef: string;
+      telegramIdentityRef: string;
+    }>;
+    purchaseUrl: string;
+    requestId: string;
+    saleOpen: boolean;
+    status: 'ok';
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/communications/waitlist',
       body: requestBody,
       mediaType: 'application/json',
     });

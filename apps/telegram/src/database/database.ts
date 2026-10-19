@@ -357,6 +357,17 @@ export interface DatabaseSchema
   };
   sign_in_requests: SignInRequestsTable;
   sign_in_subjects: SignInSubjectsTable;
+  communication_waitlist_openings: {
+    bot_identity: string;
+    intake_id: string;
+    broadcast_id: string;
+  };
+  communication_waitlist_recipients: {
+    broadcast_id: string;
+    contact_id: string;
+    account_ref: string;
+    telegram_identity_ref: string;
+  };
   communication_broadcasts: {
     broadcast_id: string;
     bot_identity: string;

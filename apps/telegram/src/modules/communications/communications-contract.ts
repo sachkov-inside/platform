@@ -39,6 +39,7 @@ export interface TemplateSnapshot {
   readonly content: TemplateContent;
 }
 export type BroadcastAudience =
+  | { readonly kind: "waitlist"; readonly intakeId: string }
   | { readonly kind: "all" }
   | { readonly kind: "funnels"; readonly funnelIds: readonly string[] };
 export interface CommunicationsRequest {

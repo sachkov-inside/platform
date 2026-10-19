@@ -1,7 +1,7 @@
 import { migrateToLatest } from "../../src/migrations/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
-import { ProductWaitlists } from "../../src/modules/sales-funnel/facets/product-waitlists/product-waitlists.js";
+import { ProductWaitlists } from "../../src/modules/sales-funnel/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   createMigratedTestDatabase,
@@ -238,5 +238,47 @@ test("migration replay and application reconstruction preserve a confirmed membe
   expect(await reconstructed.join(accountId, command)).toMatchObject({
     ok: true,
     value: { active: false },
+  });
+});
+
+test("notification audience belongs to one intake and excludes withdrawn records", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  expect(await waitlists.notificationAudience(intakeId)).toEqual({
+    ok: true,
+    value: { productId, accountIds: [accountId] },
+  });
+  await waitlists.withdraw(accountId, { intakeId });
+  expect(await waitlists.notificationAudience(intakeId)).toEqual({
+    ok: true,
+    value: { productId, accountIds: [] },
+  });
+  expect(await waitlists.notificationAudience(randomUUID())).toMatchObject({
+    ok: false,
+    error: { code: "intake_not_found" },
+  });
+});
+
+test("dispatch eligibility follows the current explicit membership of its intake", async () => {
+  expect(await waitlists.notificationMembership(intakeId, accountId)).toEqual({
+    ok: true,
+    value: { productId, active: false },
+  });
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  expect(await waitlists.notificationMembership(intakeId, accountId)).toEqual({
+    ok: true,
+    value: { productId, active: true },
+  });
+  await waitlists.withdraw(accountId, { intakeId });
+  expect(await waitlists.notificationMembership(intakeId, accountId)).toEqual({
+    ok: true,
+    value: { productId, active: false },
   });
 });

@@ -1,3 +1,8 @@
+import {
+  WAITLIST_AUTHORIZATION,
+  DisabledWaitlistAuthorization,
+  type WaitlistAuthorization,
+} from "./waitlist-authorization.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import {
@@ -87,6 +92,8 @@ export class Funnels {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(AUTHOR_CONTENT_VALIDATION)
     private readonly contentValidation: AuthorContentValidation,
+    @Inject(WAITLIST_AUTHORIZATION)
+    private readonly waitlist: WaitlistAuthorization = new DisabledWaitlistAuthorization(),
   ) {}
   async execute(
     request: CommunicationsRequest,
@@ -136,6 +143,7 @@ export class Funnels {
           "intro.read",
           "deliveries.read",
           "broadcasts.read",
+          "broadcasts.preview",
           "broadcasts.list",
           "statistics.read",
           "entries.read",
@@ -167,7 +175,14 @@ export class Funnels {
     const { operation, payload, expectedRevision } = request;
     const bot = this.config.botIdentity;
     if (operation.startsWith("broadcasts."))
-      return applyBroadcast(tx, request, bot, actor, this.clock.now());
+      return applyBroadcast(
+        tx,
+        request,
+        bot,
+        actor,
+        this.clock.now(),
+        this.waitlist,
+      );
     if (operation === "statistics.read")
       return readStatistics(tx, request, bot, actor);
     if (operation === "entries.read")

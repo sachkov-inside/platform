@@ -28,12 +28,15 @@ const weeksSchema = z.array(
     withdrawn: z.coerce.number().int().nonnegative(),
   }),
 );
-const fail = (
-  code:
+const fail = <
+  Code extends
     | "invalid_request"
     | "intake_not_found"
+    | "audience_too_large"
     | "telegram_required"
     | "dependency_unavailable",
+>(
+  code: Code,
 ) => ({ ok: false, error: { code } }) as const;
 export class ProductWaitlists {
   constructor(
@@ -43,6 +46,75 @@ export class ProductWaitlists {
       readonly clock: () => Date;
     },
   ) {}
+  /** Complete bounded notification audience. Never silently truncate active memberships. */
+  async notificationAudience(intakeId: string) {
+    if (!z.uuid().safeParse(intakeId).success) return fail("invalid_request");
+    try {
+      return await this.dependencies.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw(
+          Prisma.sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`,
+        );
+        const intake = await tx.productWaitlistIntake.findUnique({
+          where: { id: intakeId },
+        });
+        if (intake === null) return fail("intake_not_found");
+        const rows = await tx.productWaitlistMembership.findMany({
+          where: { intakeId, active: true },
+          select: { accountId: true },
+          orderBy: { accountId: "asc" },
+          take: 10001,
+        });
+        if (rows.length > 10000) return fail("audience_too_large");
+        return {
+          ok: true,
+          value: {
+            productId: intake.productId,
+            accountIds: rows.map((row) => row.accountId),
+          },
+        } as const;
+      });
+    } catch (error) {
+      return dependencyFailure(
+        { module: "sales-funnel", operation: "notificationAudience" },
+        error,
+        fail("dependency_unavailable"),
+      );
+    }
+  }
+  async notificationMembership(intakeId: string, accountId: string) {
+    if (
+      !z.uuid().safeParse(intakeId).success ||
+      !z.uuid().safeParse(accountId).success
+    )
+      return fail("invalid_request");
+    try {
+      return await this.dependencies.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw(
+          Prisma.sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`,
+        );
+        const intake = await tx.productWaitlistIntake.findUnique({
+          where: { id: intakeId },
+        });
+        if (intake === null) return fail("intake_not_found");
+        const membership = await tx.productWaitlistMembership.findUnique({
+          where: { intakeId_accountId: { intakeId, accountId } },
+        });
+        return {
+          ok: true,
+          value: {
+            productId: intake.productId,
+            active: membership?.active === true,
+          },
+        } as const;
+      });
+    } catch (error) {
+      return dependencyFailure(
+        { module: "sales-funnel", operation: "notificationMembership" },
+        error,
+        fail("dependency_unavailable"),
+      );
+    }
+  }
   async readIntake(productId: string) {
     if (!z.uuid().safeParse(productId).success) return fail("invalid_request");
     try {
