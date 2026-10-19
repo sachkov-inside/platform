@@ -1,3 +1,4 @@
+import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -143,6 +144,7 @@ describe("delegated Material authoring over MCP", () => {
       billing: application.get(BillingOperations),
       diagnostics: application.get(PaymentDiagnostics),
       funnel: application.get(SalesFunnel),
+      queues: application.get(QueueDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

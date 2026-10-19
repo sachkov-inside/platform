@@ -1,3 +1,4 @@
+import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../modules/sales-funnel/index.js";
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { VIDEOS, type Videos } from "../modules/videos/index.js";
@@ -83,6 +84,7 @@ async function bootstrap(): Promise<void> {
       billing: application.get(BillingOperations),
       diagnostics: application.get(PaymentDiagnostics),
       funnel: application.get(SalesFunnel),
+      queues: application.get(QueueDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: mcpConfig,
       identityIssuer: config.identity.issuer,

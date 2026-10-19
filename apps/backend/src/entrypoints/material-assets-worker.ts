@@ -1,3 +1,4 @@
+import { jobQueues } from "../infrastructure/job-queues.js";
 import "reflect-metadata";
 
 import { NestFactory } from "@nestjs/core";
@@ -21,7 +22,7 @@ import {
 } from "../modules/materials/index.js";
 import { MaterialAssetsWorkerModule } from "./material-assets-worker/material-assets-worker.module.js";
 
-const CLEANUP_QUEUE = "material-assets.cleanup";
+const CLEANUP_QUEUE = jobQueues.materialAssets;
 const CLEANUP_JOB_RETENTION_SECONDS = 86_400;
 const CLEANUP_JOB_TIMEOUT_SECONDS = 300;
 const CLEANUP_RETRY_INITIAL_DELAY_SECONDS = 30;
