@@ -52,8 +52,8 @@ export function assembleNotificationWorker(input: {
           : input.transport.outbox;
     while (!abort.signal.aborted) {
       try {
-        await source.relay(lane, (envelope) =>
-          publishNotification(connection, envelope),
+        await source.relay(lane, (envelope, metadata) =>
+          publishNotification(connection, envelope, metadata),
         );
       } catch (error) {
         input.report({

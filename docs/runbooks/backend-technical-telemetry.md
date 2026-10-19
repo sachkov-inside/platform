@@ -7,7 +7,7 @@ use `unmatched`; arbitrary HTTP methods use `_OTHER`. Aborts and timeouts finish
 with fixed `http.request.outcome` / `error.type` values and no invented HTTP status when no response
 was completed. `http.server.active_requests` reports the current total, including unsampled work.
 
-The API, MCP and all four pg-boss worker runtimes read these settings:
+The API, MCP, all four pg-boss workers and the notifications worker read these settings:
 
 | Variable | Meaning |
 | --- | --- |
@@ -18,7 +18,7 @@ The API, MCP and all four pg-boss worker runtimes read these settings:
 The existing runtime identity supplies the release, and Platform mode supplies the environment.
 Service identity is selected by its entrypoint: `platform-api`, `platform-mcp`,
 `platform-material-assets-worker`, `platform-profile-avatars-worker`,
-`platform-video-deletions-worker` or `platform-billing-worker`. Invalid telemetry configuration emits a fixed warning and
+`platform-video-deletions-worker`, `platform-billing-worker` or `platform-notifications-worker`. Invalid telemetry configuration emits a fixed warning and
 leaves the application running with export disabled. No production configuration is enabled by
 this change.
 
@@ -113,12 +113,61 @@ completed startup jobs, unchanged queue policies/schedules, ready â†’ draining â
 release identity, final process exit and shutdown exports. No external payment, object-storage,
 Telegram or video-provider operation is invoked by those empty-database cases.
 
-This remains a bounded implementation slice of #1566. The fifth production worker, notifications,
-uses AMQP and remains outside
-this pg-boss slice. The other pg-boss producers currently live in their own startup/scheduling paths;
-the API does not send these pg-boss maintenance jobs. HTTP-to-outbox/AMQP linkage, dependency spans,
-Telegram, queue-age/lag metrics and collector-side privacy controls remain separate work. The
-loopback receiver does not prove production retention, capacity or full business trace chains.
+## Material publication through durable notifications
+
+The genuine producer is authenticated `PUT /authoring/materials/:materialId` changing a draft to its
+first publication. Its existing transaction commits the publication, immutable announcement revision
+and Materials outbox together. Only the `materials` lane captures a technical carrier, separately
+from the unchanged canonical payload, digest, message ID and idempotency rules. Billing, email and
+Telegram callers of the shared transport retain their existing payload-only contracts.
+
+Migrations `0108_materials_notification_trace_context` and
+`0109_notifications_notification_trace_context` add nullable `varchar(55)` columns to their owning
+Materials outbox and Notifications inbox. They add no default, backfill or index. Local lock and
+statement budgets are five and fifteen seconds; refusal rolls back the migration transaction and
+ledger. The first insert owns its context: duplicate/replayed writes never replace an original
+traceparent **or legacy NULL**. Missing, nonstring, oversized, zero-ID or malformed metadata becomes
+absent without rejecting a valid business delivery. Only bounded W3C v00 `traceparent` is admitted;
+no baggage, tracestate, Account ID or payload enters technical metadata or metric labels.
+
+Each relay attempt starts from the persisted publication parent and publishes only its own safe
+`traceparent` AMQP header after restoring that parent. Required persistent/mandatory properties,
+routing, ACLs and publisher confirms are unchanged. Receipt restores that header around durable inbox
+admission; ACK still follows the existing successful admission/quarantine boundary. The inbox stores
+the first receipt context, which is restored independently for each resumed audience batch. It never
+inherits an unrelated sweep trace. A killed unfinished span can be lost, including the receipt span
+whose ID was already persisted; later work still correlates with the same trace. This is not a promise
+that every crashed attempt is exported.
+
+The notifications process owns one SDK. Startup enters its technical scope, broker callbacks bind
+the registered context, and each inbox sweep retains its existing generated requestId. Only the
+individual material row creates an audience span. SDK shutdown follows the existing consumer/task
+and connection drain, application close and worker lease release. No global tracer/meter provider is
+installed. SDK OFF preserves business processing and suppresses capture, headers and export, including
+when a previous enabled process had persisted a carrier. Export failure cannot prevent publication,
+receipt, audience progress or shutdown; diagnostics contain fixed signal/service values only.
+
+`inside.notification.operations` and `inside.notification.duration` measure the fixed operations
+`publish`, `receive`, `audience` and outcomes `completed`, `failed`, independently of trace sampling.
+They use the existing bounded reader/exporter/cardinality policy. These metrics do not identify
+Accounts, message IDs or individual recipients.
+
+The isolated contract starts a real authenticated loopback API and actual Materials publication,
+PostgreSQL and RabbitMQ. It tests confirm failure/retry, SIGKILL after confirm, SIGKILL after durable
+receipt before ACK, duplicate delivery and per-batch process restart; 27 synthetic audience Accounts
+span a durable checkpoint. Other cases cover authorization, parallel HTTP context isolation,
+transaction rollback, NULL/replay/concurrency rules, untrusted AMQP field tables, default-OFF and
+collector-503 behavior. No email, Telegram, bank or external provider is invoked. Migration tests
+exercise a populated pre-carrier database, bounded lock refusal, upgrade/replay and legacy field-set
+writers with full-registry readiness. A compatible rollback must retain the **full applied migration
+registry**; a short old registry remains rejected. This contract does not publish a rollback image or
+replace release backup/restore and image verification gates.
+
+This remains a bounded slice of #1566. Material publication now reaches resumed audience processing;
+email command/result carriers, the external provider boundary, Telegram propagation, other business
+HTTP producers, dependency spans and collector retention/capacity acceptance remain separate work.
+The API still does not enqueue the recurring pg-boss maintenance jobs. Queue-age/lag metrics and
+full business delivery chains are not proven by this slice.
 
 SDK configuration follows the [official JavaScript exporter documentation](https://opentelemetry.io/docs/languages/js/exporters/).
 The [pg-boss telemetry contract](https://pgboss.io/opentelemetry) documents provider injection and durable

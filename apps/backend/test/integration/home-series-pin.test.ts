@@ -98,6 +98,8 @@ beforeAll(async () => {
       "0105_learning_activity_provenance",
       "0106_bookmark_activity_provenance",
       "0107_submission_activity_period",
+      "0108_materials_notification_trace_context",
+      "0109_notifications_notification_trace_context",
     ],
   });
   await database.prisma.topic.create({

@@ -6,6 +6,7 @@ const input = z
       "profile-avatars-worker",
       "video-deletions-worker",
       "billing-worker",
+      "notifications-worker",
     ]),
   })
   .parse(JSON.parse(process.env["PG_BOSS_TELEMETRY_FIXTURE"] ?? "null"));
@@ -16,6 +17,9 @@ switch (input.worker) {
     break;
   case "video-deletions-worker":
     await import("../../../src/entrypoints/video-deletions-worker.js");
+    break;
+  case "notifications-worker":
+    await import("../../../src/entrypoints/notifications-worker.js");
     break;
   case "billing-worker":
     await import("../../../src/entrypoints/billing-worker.js");

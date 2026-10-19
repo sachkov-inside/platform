@@ -1,3 +1,6 @@
+import { context } from "@opentelemetry/api";
+import { notificationTraceparent } from "../observability/notification-trace.js";
+import { observeNotification } from "../observability/technical-telemetry.js";
 import { readFile } from "node:fs/promises";
 import {
   connect,
@@ -33,10 +36,15 @@ export async function connectNotificationBroker(
 export async function publishNotification(
   connection: ChannelModel,
   envelope: NotificationEnvelope,
+  metadata?: { readonly traceparent?: unknown },
 ): Promise<void> {
   const channel = await connection.createConfirmChannel();
   channel.on("error", () => undefined);
   const route = lanes[envelope.lane];
+  const traceparent =
+    envelope.lane === "materials"
+      ? notificationTraceparent(metadata?.traceparent)
+      : undefined;
   let returned = false;
   channel.on("return", () => {
     returned = true;
@@ -62,6 +70,7 @@ export async function publishNotification(
           contentType: "application/json",
           messageId: envelope.messageId,
           type: envelope.version,
+          ...(traceparent === undefined ? {} : { headers: { traceparent } }),
         },
         (error: unknown) => {
           if ((error !== null && error !== undefined) || returned)
@@ -78,6 +87,7 @@ export async function publishNotification(
 export interface NotificationReceiver {
   accept(
     envelope: NotificationEnvelope,
+    metadata?: { readonly traceparent?: unknown },
   ): Promise<"accepted" | "duplicate" | "conflict">;
   quarantine(
     lane: NotificationLane,
@@ -131,7 +141,7 @@ export async function consumeNotificationLane(
   await channel.prefetch(prefetch);
   const consumer = await channel.consume(
     lanes[lane].queue,
-    (message) => {
+    context.bind(context.active(), (message: ConsumeMessage | null) => {
       if (!message) {
         fail(new Error("consumer_cancelled"));
         return;
@@ -149,7 +159,18 @@ export async function consumeNotificationLane(
           channel.ack(message);
           return;
         }
-        const result = await receiver.accept(envelope);
+        const result =
+          lane === "materials"
+            ? await observeNotification(
+                "receive",
+                message.properties.headers?.["traceparent"],
+                (traceparent) =>
+                  receiver.accept(
+                    envelope,
+                    traceparent === undefined ? undefined : { traceparent },
+                  ),
+              )
+            : await receiver.accept(envelope);
         if (result === "conflict")
           await receiver.quarantine(lane, message.content, "payload_conflict");
         // A failed durable write or quarantine admission never reaches this ack.
@@ -163,7 +184,7 @@ export async function consumeNotificationLane(
           void channel.close().catch(() => undefined);
         })
         .finally(() => active.delete(task));
-    },
+    }),
     { noAck: false },
   );
   return {
