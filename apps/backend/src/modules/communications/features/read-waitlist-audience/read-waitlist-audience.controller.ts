@@ -1,9 +1,9 @@
+import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   Body,
   Controller,
   Headers,
   HttpCode,
-  HttpException,
   Inject,
   Post,
 } from "@nestjs/common";
@@ -91,9 +91,18 @@ export class ReadWaitlistAudienceController {
         config.authorizationSecret,
       )
     )
-      throw new HttpException({ code: "unauthorized" }, 401);
+      throw problemException(
+        401,
+        "unauthorized",
+        "Service authentication required",
+      );
     const parsed = waitlistAudienceRequestSchema.safeParse(body);
-    if (!parsed.success) throw new HttpException({ code: "malformed" }, 400);
+    if (!parsed.success)
+      throw problemException(
+        400,
+        "malformed",
+        "Invalid waitlist audience request",
+      );
     const result = await readWaitlistAudience(
       {
         accounts: this.accounts,
@@ -107,9 +116,13 @@ export class ReadWaitlistAudienceController {
       parsed.data,
     );
     if (result.status === "unavailable")
-      throw new HttpException({ code: "validation_unavailable" }, 503);
+      throw problemException(
+        503,
+        "validation_unavailable",
+        "Waitlist eligibility unavailable",
+      );
     if (result.status === "denied")
-      throw new HttpException({ code: "forbidden" }, 403);
+      throw problemException(403, "forbidden", "Author permission required");
     return result;
   }
 }

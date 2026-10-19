@@ -1923,6 +1923,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 2147483647
+        },
+        "waitlistAudience": {
+          "$ref": "#/definitions/waitlistLaunchAudience"
         }
       },
       "required": [
@@ -2973,6 +2976,28 @@
         "broadcastId",
         "revision"
       ]
+    },
+    "waitlistLaunchAudience": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "eligible": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "excluded": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      },
+      "required": ["active", "eligible", "excluded"]
     }
   },
   "oneOf": [

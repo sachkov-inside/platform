@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, expect, test } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { bootstrapOwnerAccount } from "../../src/modules/accounts/index.js";
@@ -61,11 +61,6 @@ beforeAll(async () => {
     links: new TelegramAccountLinks(db.prisma),
     clock: () => instant,
   });
-  await waitlists.join(ownerId, {
-    intakeId,
-    operationId: randomUUID(),
-    source: null,
-  });
   app = await createApiApplication(
     parsePlatformConfig({
       NODE_ENV: "test",
@@ -81,6 +76,16 @@ beforeAll(async () => {
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
+});
+beforeEach(async () => {
+  await db.prisma.productWaitlistOperation.deleteMany({});
+  await db.prisma.productWaitlistEvent.deleteMany({});
+  await db.prisma.productWaitlistMembership.deleteMany({});
+  await waitlists.join(ownerId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
 });
 afterAll(async () => {
   try {
@@ -147,10 +152,5 @@ test("dispatch uses the active membership and current Account identity rather th
     status: "ok",
     active: 0,
     members: [],
-  });
-  await waitlists.join(ownerId, {
-    intakeId,
-    operationId: randomUUID(),
-    source: null,
   });
 });

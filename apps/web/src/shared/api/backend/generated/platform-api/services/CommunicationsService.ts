@@ -1428,6 +1428,11 @@ export class CommunicationsService {
         scheduledAt: (string | string | null);
         snapshotSize: number;
         state: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled' | 'completed';
+        waitlistAudience?: {
+          active: number;
+          eligible: number;
+          excluded: number;
+        };
       };
       contractVersion: 'inside-communications-v1';
       status: 'ok';
@@ -1850,6 +1855,11 @@ export class CommunicationsService {
         scheduledAt: (string | string | null);
         snapshotSize: number;
         state: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled' | 'completed';
+        waitlistAudience?: {
+          active: number;
+          eligible: number;
+          excluded: number;
+        };
       }>;
       contractVersion: 'inside-communications-v1';
       nextCursor: (string | string | null);
@@ -2703,6 +2713,11 @@ export class CommunicationsService {
         scheduledAt: (string | string | null);
         snapshotSize: number;
         state: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled' | 'completed';
+        waitlistAudience?: {
+          active: number;
+          eligible: number;
+          excluded: number;
+        };
       };
       contractVersion: 'inside-communications-v1';
       status: 'ok';
@@ -3125,6 +3140,11 @@ export class CommunicationsService {
         scheduledAt: (string | string | null);
         snapshotSize: number;
         state: 'draft' | 'scheduled' | 'running' | 'paused' | 'cancelled' | 'completed';
+        waitlistAudience?: {
+          active: number;
+          eligible: number;
+          excluded: number;
+        };
       }>;
       contractVersion: 'inside-communications-v1';
       nextCursor: (string | string | null);

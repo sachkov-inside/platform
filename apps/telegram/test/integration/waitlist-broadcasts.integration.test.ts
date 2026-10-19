@@ -1,9 +1,11 @@
+import { closeIfStarted } from "../support/close-if-started.js";
 import { SIGN_IN_REPLY_ELIGIBILITY } from "../../src/modules/outbound/sign-in-reply-eligibility.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import type { TelegramDeliveryResult } from "../../src/modules/outbound/telegram-messages.js";
 import {
   WAITLIST_AUTHORIZATION,
   type WaitlistAuthorizationResult,
+  type WaitlistQuery,
 } from "../../src/modules/communications/waitlist-authorization.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
@@ -42,6 +44,8 @@ const config = loadApplicationConfig({
   TELEGRAM_MARKETING_ENABLED: "false",
 });
 const instant = new Date("2030-01-01T00:00:00Z");
+let currentTime = new Date(instant);
+const clock = { now: () => new Date(currentTime) };
 const transport = {
   send: vi.fn((): Promise<TelegramDeliveryResult> =>
     Promise.resolve({ kind: "delivered", providerMessageId: "synthetic" }),
@@ -53,7 +57,7 @@ const member = {
   telegramIdentityRef: "waitlisted-identity",
 };
 const waitlist = {
-  read: vi.fn((): Promise<WaitlistAuthorizationResult> =>
+  read: vi.fn((_query: WaitlistQuery): Promise<WaitlistAuthorizationResult> =>
     Promise.resolve({
       status: "ok",
       saleOpen: true,
@@ -86,7 +90,7 @@ beforeAll(async () => {
     imports: [AppModule.register(config)],
   })
     .overrideProvider(CLOCK)
-    .useValue({ now: () => new Date(instant) })
+    .useValue(clock)
     .overrideProvider(AUTHOR_AUTHORIZATION)
     .useValue({ authorize: () => Promise.resolve("allowed") })
     .overrideProvider(WAITLIST_AUTHORIZATION)
@@ -102,9 +106,10 @@ beforeAll(async () => {
   await app.getHttpAdapter().getInstance().ready();
 });
 beforeEach(async () => {
-  await sql`truncate communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, platform_links, link_transactions cascade`.execute(
+  await sql`truncate communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_funnels, communication_intro, platform_links, link_transactions cascade`.execute(
     database,
   );
+  currentTime = new Date(instant);
   intakeId = randomUUID();
   transport.send.mockClear();
   waitlist.read.mockResolvedValue({
@@ -146,8 +151,11 @@ beforeEach(async () => {
     .execute();
 });
 afterAll(async () => {
-  await app.close();
-  await database.destroy();
+  try {
+    await closeIfStarted(app);
+  } finally {
+    await database.destroy();
+  }
 });
 test("owner can prepare an explicit waitlist draft without sending or enabling marketing", async () => {
   const broadcastId = randomUUID();
@@ -402,7 +410,7 @@ test("confirmed Telegram block is reported as failure and never retried", async 
   expect(
     (await command("statistics.read", { broadcastId })).json(),
   ).toMatchObject({
-    statistics: { blocked: 1, deliveries: { failed: 1, sent: 0 } },
+    statistics: { blocked: 1, deliveries: { suppressed: 1, sent: 0 } },
   });
 });
 test("ordinary broadcasts remain pending while the explicitly launched waitlist can dispatch", async () => {
@@ -445,4 +453,106 @@ test("ordinary broadcasts remain pending while the explicitly launched waitlist 
   expect(
     (await command("statistics.read", { broadcastId: all })).json(),
   ).toMatchObject({ statistics: { deliveries: { sent: 0, pending: 1 } } });
+});
+
+test("withdrawal after the first Platform check but before the local claim prevents transport", async () => {
+  const broadcastId = await prepared();
+  expect(
+    (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+  ).toBe(200);
+  let withdrawn = false;
+  waitlist.read.mockImplementation(() => {
+    const active = !withdrawn;
+    withdrawn = true;
+    return Promise.resolve({
+      status: "ok",
+      saleOpen: true,
+      purchaseUrl,
+      active: active ? 1 : 0,
+      members: active ? [member] : [],
+    });
+  });
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(transport.send).not.toHaveBeenCalled();
+  expect(
+    (await command("statistics.read", { broadcastId })).json(),
+  ).toMatchObject({
+    statistics: { deliveries: { sent: 0, unknown: 0, pending: 0 } },
+  });
+});
+
+test("launch report retains active and unavailable audience separately from delivery attempts", async () => {
+  const broadcastId = await prepared();
+  await app.get(MarketingEntry).setPreference(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "99",
+      observedAt: instant,
+    },
+    false,
+  );
+  const launched = await command("broadcasts.launch", { broadcastId }, 1);
+  expect(launched.statusCode).toBe(200);
+  expect(launched.json()).toMatchObject({
+    broadcast: {
+      snapshotSize: 0,
+      waitlistAudience: { active: 1, eligible: 0, excluded: 1 },
+    },
+  });
+  waitlist.read.mockResolvedValue({
+    status: "ok",
+    saleOpen: true,
+    purchaseUrl,
+    active: 0,
+    members: [],
+  });
+  expect(
+    (await command("broadcasts.read", { broadcastId })).json(),
+  ).toMatchObject({
+    broadcast: { waitlistAudience: { active: 1, eligible: 0, excluded: 1 } },
+  });
+  expect(
+    (await command("statistics.read", { broadcastId })).json(),
+  ).toMatchObject({
+    statistics: { deliveries: { sent: 0, failed: 0, unknown: 0 } },
+  });
+  expect(transport.send).not.toHaveBeenCalled();
+});
+
+test("final eligibility outage releases an unsent claim without unknown delivery and retries after recovery", async () => {
+  const broadcastId = await prepared();
+  expect(
+    (await command("broadcasts.launch", { broadcastId }, 1)).statusCode,
+  ).toBe(200);
+  let first = true;
+  waitlist.read.mockImplementation(() => {
+    if (!first) return Promise.resolve({ status: "unavailable" });
+    first = false;
+    return Promise.resolve({
+      status: "ok",
+      saleOpen: true,
+      purchaseUrl,
+      active: 1,
+      members: [member],
+    });
+  });
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(0);
+  expect(transport.send).not.toHaveBeenCalled();
+  expect(
+    (await command("statistics.read", { broadcastId })).json(),
+  ).toMatchObject({
+    statistics: { deliveries: { pending: 1, unknown: 0, sent: 0 } },
+  });
+  waitlist.read.mockResolvedValue({
+    status: "ok",
+    saleOpen: true,
+    purchaseUrl,
+    active: 1,
+    members: [member],
+  });
+  currentTime = new Date("2030-01-01T00:00:06Z");
+  expect(await app.get(FunnelScheduler).processAvailable()).toBe(1);
+  expect(transport.send).toHaveBeenCalledTimes(1);
 });

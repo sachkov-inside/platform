@@ -104,6 +104,14 @@ export async function waitlistContacts(
         .execute();
     contacts.push(...recipients.map((recipient) => recipient.contact_id));
   }
+  await tx
+    .updateTable("communication_broadcasts")
+    .set({
+      waitlist_active_count: audience.active,
+      waitlist_excluded_count: audience.active - contacts.length,
+    })
+    .where("broadcast_id", "=", row.broadcast_id)
+    .execute();
   return contacts;
 }
 

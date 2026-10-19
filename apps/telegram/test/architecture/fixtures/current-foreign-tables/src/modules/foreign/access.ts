@@ -104,6 +104,14 @@ export async function access(database: any) {
   await database.insertInto("communication_tracking_hits").values({}).execute();
   await database.updateTable("communication_tracking_hits").set({}).execute();
   await database.deleteFrom("communication_tracking_hits").execute();
+  await database.selectFrom("communication_waitlist_openings").selectAll().execute();
+  await database.insertInto("communication_waitlist_openings").values({}).execute();
+  await database.updateTable("communication_waitlist_openings").set({}).execute();
+  await database.deleteFrom("communication_waitlist_openings").execute();
+  await database.selectFrom("communication_waitlist_recipients").selectAll().execute();
+  await database.insertInto("communication_waitlist_recipients").values({}).execute();
+  await database.updateTable("communication_waitlist_recipients").set({}).execute();
+  await database.deleteFrom("communication_waitlist_recipients").execute();
   await database.selectFrom("communication_tracking_tokens").selectAll().execute();
   await database.insertInto("communication_tracking_tokens").values({}).execute();
   await database.updateTable("communication_tracking_tokens").set({}).execute();

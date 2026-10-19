@@ -69,10 +69,12 @@ The explicit launch fixes a recipient snapshot. A durable `(bot, intake)` openin
 a second broadcast for the same intake, including after cancellation or completion. Each recipient
 uses the existing unique broadcast/contact delivery key. Before claiming each part, the worker
 rechecks the snapshot's Account/identity against Telegram's current verified link and asks Platform
-for current active membership, author authority, sale and purchase URL. The Platform eligibility
-read is the dispatch cutoff: withdrawal committed before this check suppresses the delivery;
+for current active membership, author authority, sale and purchase URL. After the local claim commits, the worker performs a fresh, uncached Platform check before transport.
+A withdrawal committed before the local claim therefore suppresses the delivery even when the
+pre-claim answer became stale during a lock wait. The committed claim is the dispatch cutoff;
 a transport already admitted after it cannot be recalled. External reads run outside database
-transactions, then local rows and locks are reread. Unavailable Platform eligibility defers dispatch;
+transactions, then local rows and locks are reread. Unavailable final eligibility releases the
+unsent claim back to pending with a five-second delay and no invented transport attempt;
 withdrawal, a changed link, revoked authority or a closed/changed purchase target cancels it.
 
 This one-time, explicitly launched audience uses the existing transport slots and delivery ledger
@@ -83,13 +85,16 @@ preference is changed. Current stop, contact unavailability and Telegram 403 ret
 suppression behavior. Unknown attempts remain unknown across restarts and do not retry automatically;
 only the existing explicit operator resolution can accept duplicate risk.
 
-`broadcasts.read` reports immutable audience snapshot size; `statistics.read` and `deliveries.read`
+`broadcasts.read` reports immutable audience snapshot size and `waitlistAudience` with launch-time
+active, eligible and excluded counts. Excluded contacts remain visible in that launch result even
+when their link, preference or membership changes later; no transport attempt is invented for them. `statistics.read` and `deliveries.read`
 retain delivery-part outcomes and attempt history. With this single-part notification, confirmed sent
 parts correspond to notified recipients. Active waitlist stock, snapshot audience, confirmed delivery,
 failed/unknown outcomes and purchases remain separate measures. This adds no Web page; the historical
 Web communications routes continue returning 404.
 
-Migration `033-waitlist-notifications` is additive. Code rollback may leave its two tables in place;
+Migrations `033-waitlist-notifications` and `034-waitlist-audience-result` are additive. Code rollback
+may leave their tables and columns in place;
 preserve opening receipts and delivery history after a launch, because deleting them destroys the
 one-opening deduplication guarantee. No real recipient data, messages or product settings are seeded.
 Real sample text, recipient and send authorization belong to #1570; bulk sending remains a separate

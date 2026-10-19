@@ -28,6 +28,16 @@ export function broadcastView(row: Broadcast) {
     scheduledAt: row.scheduled_at?.toISOString() ?? null,
     audienceSnapshotId: row.audience_snapshot_id,
     snapshotSize: row.snapshot_size,
+    ...(row.waitlist_active_count === null ||
+    row.waitlist_excluded_count === null
+      ? {}
+      : {
+          waitlistAudience: {
+            active: row.waitlist_active_count,
+            eligible: row.snapshot_size,
+            excluded: row.waitlist_excluded_count,
+          },
+        }),
   };
 }
 export type BroadcastResult =

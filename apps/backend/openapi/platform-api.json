@@ -103953,6 +103953,32 @@
                                     "completed"
                                   ],
                                   "type": "string"
+                                },
+                                "waitlistAudience": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "active": {
+                                      "maximum": 10000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "eligible": {
+                                      "maximum": 10000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "excluded": {
+                                      "maximum": 10000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "active",
+                                    "eligible",
+                                    "excluded"
+                                  ],
+                                  "type": "object"
                                 }
                               },
                               "required": [
@@ -107058,6 +107084,32 @@
                                       "completed"
                                     ],
                                     "type": "string"
+                                  },
+                                  "waitlistAudience": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "active": {
+                                        "maximum": 10000,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "eligible": {
+                                        "maximum": 10000,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "excluded": {
+                                        "maximum": 10000,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "active",
+                                      "eligible",
+                                      "excluded"
+                                    ],
+                                    "type": "object"
                                   }
                                 },
                                 "required": [
@@ -113506,6 +113558,32 @@
                                     "completed"
                                   ],
                                   "type": "string"
+                                },
+                                "waitlistAudience": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "active": {
+                                      "maximum": 10000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "eligible": {
+                                      "maximum": 10000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "excluded": {
+                                      "maximum": 10000,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "active",
+                                    "eligible",
+                                    "excluded"
+                                  ],
+                                  "type": "object"
                                 }
                               },
                               "required": [
@@ -116611,6 +116689,32 @@
                                       "completed"
                                     ],
                                     "type": "string"
+                                  },
+                                  "waitlistAudience": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "active": {
+                                        "maximum": 10000,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "eligible": {
+                                        "maximum": 10000,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "excluded": {
+                                        "maximum": 10000,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "active",
+                                      "eligible",
+                                      "excluded"
+                                    ],
+                                    "type": "object"
                                   }
                                 },
                                 "required": [

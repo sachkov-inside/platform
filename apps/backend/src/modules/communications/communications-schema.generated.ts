@@ -480,6 +480,12 @@ export const publishPreviewSchema = z.strictObject({
 })).min(0).max(100),
 });
 
+export const waitlistLaunchAudienceSchema = z.strictObject({
+  "active": z.number().int().min(0).max(10000),
+  "eligible": z.number().int().min(0).max(10000),
+  "excluded": z.number().int().min(0).max(10000),
+});
+
 export const broadcastSchema = z.strictObject({
   "broadcastId": z.guid(),
   "revision": z.number().int().min(0).max(2147483647),
@@ -489,6 +495,7 @@ export const broadcastSchema = z.strictObject({
   "scheduledAt": z.union([z.iso.datetime({ offset: true }), z.null()]),
   "audienceSnapshotId": z.union([z.guid(), z.null()]),
   "snapshotSize": z.number().int().min(0).max(2147483647),
+  "waitlistAudience": waitlistLaunchAudienceSchema.optional(),
 });
 
 export const countsSchema = z.strictObject({

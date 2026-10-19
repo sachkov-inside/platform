@@ -5,6 +5,9 @@ import {
   DisabledWaitlistAuthorization,
   authorizeWaitlist,
   type WaitlistAuthorization,
+  type WaitlistQuery,
+  type WaitlistMember,
+  type WaitlistAuthorizationResult,
 } from "./waitlist-authorization.js";
 import {
   SIGN_IN_REPLY_ELIGIBILITY,
@@ -64,12 +67,16 @@ type DueDelivery = Selectable<DatabaseSchema["communication_deliveries"]> & {
   private_chat_id: string;
   marketing_enabled: boolean;
 };
+type WaitlistDispatchQuery = WaitlistQuery & {
+  readonly recipient: WaitlistMember;
+};
 type Claim = {
   startedAt: Date;
   delivery: DueDelivery;
   attemptId: string;
   chatId: string;
   content: TemplateContent;
+  waitlist?: WaitlistDispatchQuery;
 };
 // `capacity_busy`: the bot's shared lane or fairness turn refuses every chat, so stop scanning.
 // `released`: a locked contact turned out unsendable; commit now so its /start never waits
@@ -80,6 +87,7 @@ type CandidateOutcome =
   | { kind: "capacity_busy" }
   | { kind: "released" };
 const STALE_CLAIM_MS = 60_000;
+const WAITLIST_ELIGIBILITY_RETRY_MS = 5_000;
 // A claim reads due work in index pages and gives up after a bounded scan, whatever the backlog.
 const CLAIM_PAGE = 50;
 const CLAIM_SCAN_LIMIT = 500;
@@ -130,6 +138,40 @@ export class FunnelScheduler {
       if (outcome.kind === "released") continue;
       if (outcome.kind !== "claimed") break;
       const claimed = outcome.claim;
+      if (claimed.waitlist !== undefined) {
+        // This read follows the committed local claim, so an earlier Platform withdrawal
+        // cannot hide in the cached pre-claim answer or a scheduler-lock wait.
+        const query = claimed.waitlist;
+        let eligibility: WaitlistAuthorizationResult;
+        try {
+          eligibility = await this.waitlist.read(query);
+        } catch (error) {
+          reportFailure("communications.waitlist-eligibility", error);
+          eligibility = { status: "unavailable" };
+        }
+        const eligible =
+          eligibility.status === "ok" &&
+          eligibility.saleOpen &&
+          eligibility.members.some(
+            (member) =>
+              member.accountRef === query.recipient.accountRef &&
+              member.telegramIdentityRef ===
+                query.recipient.telegramIdentityRef,
+          ) &&
+          claimed.delivery.snapshot.some((part) =>
+            part.content.buttons.some(
+              (button) => button.url === eligibility.purchaseUrl,
+            ),
+          );
+        if (!eligible) {
+          await this.releaseUnsentClaim(
+            claimed,
+            eligibility.status === "unavailable",
+          );
+          if (eligibility.status === "unavailable") break;
+          continue;
+        }
+      }
       let result: TelegramDeliveryResult;
       try {
         result = await this.transport.send({
@@ -411,6 +453,7 @@ export class FunnelScheduler {
     const delivery = await read();
     const part = delivery && (await this.nextPart(tx, delivery, now));
     if (!delivery || !part) return { kind: "released" };
+    let waitlistQuery: WaitlistDispatchQuery | undefined;
     if (delivery.broadcast_id !== null) {
       const broadcast = await tx
         .selectFrom("communication_broadcasts")
@@ -446,11 +489,15 @@ export class FunnelScheduler {
           accountRef: recipient.account_ref,
           telegramIdentityRef: recipient.telegram_identity_ref,
         };
-        const eligibility = await authorizeWaitlist(this.waitlist, {
+        waitlistQuery = {
           actorAccountRef: broadcast.owner_account_ref,
           intakeId: broadcast.audience.intakeId,
           recipient: member,
-        });
+        };
+        const eligibility = await authorizeWaitlist(
+          this.waitlist,
+          waitlistQuery,
+        );
         if (eligibility.status === "unavailable")
           return { kind: "capacity_busy" };
         if (
@@ -500,6 +547,7 @@ export class FunnelScheduler {
       kind: "claimed",
       claim: {
         startedAt: now,
+        ...(waitlistQuery === undefined ? {} : { waitlist: waitlistQuery }),
         delivery,
         attemptId,
         chatId: delivery.private_chat_id,
@@ -513,6 +561,55 @@ export class FunnelScheduler {
         ),
       },
     };
+  }
+  /** No provider call occurred. Keep outage retries distinct from unknown transport attempts. */
+  private async releaseUnsentClaim(
+    claim: Claim,
+    retry: boolean,
+  ): Promise<void> {
+    await this.database.transaction().execute(async (tx) => {
+      await schedulerLock(tx, this.config.botIdentity);
+      await lockDeliveryContact(
+        tx,
+        this.config.botIdentity,
+        claim.delivery.delivery_id,
+      );
+      const delivery = await tx
+        .selectFrom("communication_deliveries")
+        .selectAll()
+        .where("delivery_id", "=", claim.delivery.delivery_id)
+        .forUpdate()
+        .executeTakeFirstOrThrow();
+      if (delivery.attempt_id !== claim.attemptId) return;
+      const part = delivery.parts.find((part) => part.state === "in_flight");
+      // Recovery may already have classified a lost lease as unknown. Never turn it into a retry.
+      if (part === undefined) return;
+      const now = this.clock.now();
+      part.state =
+        retry && !delivery.cancel_requested ? "pending" : "cancelled";
+      part.diagnosticCode =
+        part.state === "pending"
+          ? "waitlist_eligibility_unavailable"
+          : "waitlist_ineligible";
+      await tx
+        .updateTable("communication_deliveries")
+        .set({
+          parts: JSON.stringify(delivery.parts),
+          revision: delivery.revision + 1,
+          attempt_id: null,
+          locked_at: null,
+          due_at: new Date(now.getTime() + WAITLIST_ELIGIBILITY_RETRY_MS),
+          completed_at: terminal(delivery.parts) ? now : null,
+        })
+        .where("delivery_id", "=", delivery.delivery_id)
+        .execute();
+      if (delivery.broadcast_id !== null)
+        await completeBroadcasts(
+          tx,
+          this.config.botIdentity,
+          delivery.broadcast_id,
+        );
+    });
   }
   // The part to send now, or undefined while broadcast offsets, the funnel lane or the intro
   // hold this delivery.

@@ -369,6 +369,8 @@ export interface DatabaseSchema
     telegram_identity_ref: string;
   };
   communication_broadcasts: {
+    waitlist_active_count: Generated<number | null>;
+    waitlist_excluded_count: Generated<number | null>;
     broadcast_id: string;
     bot_identity: string;
     owner_account_ref: string;
