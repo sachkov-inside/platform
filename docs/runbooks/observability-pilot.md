@@ -188,7 +188,7 @@ monitor signals внутри down и replacement identity между diagnostics
 identity и использует закреплённый socket; при несовпадении отказывает.
 
 `storage-host.json` и `storage-vm.json` содержат только начальные/последние числовые измерения
-и filesystem identity, без backing path, socket, env, argv или raw errors. Только они дополнены
+и filesystem identity, без backing path, socket, env, argv или raw errors. Они включены
 в curated upload allowlist. `monitor-failure.json` сохраняет первую причину отказа до сигнала:
 источник `host` / `identity` / `vm`, фиксированную категорию exception и фиксированный reason.
 Сообщения исключений, команды, paths и payload в него не попадают; последующий отказ не
