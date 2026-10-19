@@ -1,0 +1,95 @@
+[
+  {
+    "host": "sachkov.dev",
+    "type": "A",
+    "answers": [
+      "201.24.126.23"
+    ]
+  },
+  {
+    "host": "sachkov.dev",
+    "type": "AAAA",
+    "answers": []
+  },
+  {
+    "host": "sachkov.dev",
+    "type": "TYPE64",
+    "answers": []
+  },
+  {
+    "host": "sachkov.dev",
+    "type": "TYPE65",
+    "answers": []
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "A",
+    "answers": [
+      "201.24.126.23"
+    ]
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "AAAA",
+    "answers": []
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "TYPE64",
+    "answers": []
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "TYPE65",
+    "answers": []
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "A",
+    "answers": [
+      "201.24.126.23"
+    ]
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "AAAA",
+    "answers": []
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "TYPE64",
+    "answers": []
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "TYPE65",
+    "answers": []
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "A",
+    "answers": [
+      "201.24.126.23"
+    ]
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "AAAA",
+    "answers": []
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "TYPE64",
+    "answers": []
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "TYPE65",
+    "answers": []
+  },
+  {
+    "host": "sachkov.dev",
+    "type": "DS",
+    "answers": []
+  }
+]

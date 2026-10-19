@@ -3,6 +3,14 @@
 	# HTTP/3 on the pinned upstream Caddy; retain TCP protocols for blocked QUIC (#399).
 	servers :443 {
 		protocols h1 h2 h3
+		# Only the local receiver validates and forwards the foreign entry metadata.
+		listener_wrappers {
+			proxy_protocol {
+				allow 127.0.0.2/32
+				fallback_policy ignore
+			}
+			tls
+		}
 	}
 }
 
