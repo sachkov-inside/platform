@@ -3,8 +3,15 @@
 Статус на 19.10.2026: подготовлен исполняемый **кандидат** первого технического smoke
 для [#1566](https://github.com/sachkov-inside/platform/issues/1566) /
 [принятой спецификации #1565](https://github.com/sachkov-inside/platform/issues/1565).
-Новая [collector privacy candidate](collector-privacy.md) меняет Alloy config; её runtime ещё не
-проверен. Приведённые ниже успешные запуски относятся к предшествующему контуру.
+Текущий синтетический Mac core source `525f71d1` прошёл с новым Alloy privacy config:
+accessible-field sentinels и SDK-shaped links, закрытые receiver/exporter counters, restart,
+read-only/revocation и три native Victoria MCP с изолированным CPU. Worker exit 0, monitor
+не отказал, cleanup PASS, собственных containers/volumes/networks осталось 0; чужой stand сохранён.
+[Точное evidence](https://github.com/sachkov-inside/platform/issues/1566#issuecomment-6276818970)
+и [границы collector proof](collector-privacy.md#проверка-и-доказательства).
+Это не общий PASS source `525f71d1`: fresh-carrier PostgreSQL case с 240-секундным timeout
+остаётся открытым. Actual SDK wire/protobuf, произвольные link metadata и full resource/spec
+acceptance не закрыты. Ниже сохранены успешные запуски предшествующего контура.
 Функциональный Linux smoke прошёл на sources `a087bb271` и `14faa9904`:
 [run 39288942467](https://github.com/sachkov-inside/platform/actions/runs/39288942467),
 [run 39289463842](https://github.com/sachkov-inside/platform/actions/runs/39289463842).
@@ -337,7 +344,8 @@ SIGTERM или SIGKILL worker supervisor ограниченно останавл
 
 Локальные process fixtures проверяют эти пять исходов, остановку оставленного дочернего
 процесса с игнорированием SIGTERM и сбой diagnostics без Docker;
-реальное удаление Docker resources пока не проверено. SIGKILL самого supervisor, уничтожение
+реальное успешное удаление Docker resources подтверждено текущим Mac core `525f71d1`.
+Это не Docker fault-injection proof для каждого из перечисленных аварийных исходов. SIGKILL самого supervisor, уничтожение
 всего внешнего дерева и отключение машины требуют ручного восстановления. В `owner.json`
 заранее записана точная команда cleanup; `worker.json` содержит PID/group и supervisor PID.
 Не применять `docker system prune` и не удалять чужие volumes/images.
@@ -352,8 +360,8 @@ Evidence находится в `.reports/observability-pilot-*/evidence.json` в
 
 После успешного core smoke по #1565 ещё обязательны:
 
-- Повторную совместимость с новым collector privacy config; предыдущие Mac stdio/CPU proofs
-  Victoria/Umami не являются выполнением всего resource corpus.
+- Полный resource corpus: успешный synthetic core `525f71d1` с новым collector privacy config
+  и Mac stdio/CPU proofs Victoria/Umami не заменяют эту проверку.
 - SDK всех production процессов, реальная HTTP/queue/retry/worker/dependency корреляция,
   отдельные попытки, SQL/HTTP latency и release comparison.
 - PII/sentinel во всех storage/MCP/collector/browser/exporter путях; ограниченная cardinality.
