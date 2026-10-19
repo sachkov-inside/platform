@@ -6,9 +6,12 @@
 Функциональный Linux smoke прошёл на sources `a087bb271` и `14faa9904`:
 [run 39288942467](https://github.com/sachkov-inside/platform/actions/runs/39288942467),
 [run 39289463842](https://github.com/sachkov-inside/platform/actions/runs/39289463842).
-На Mac source `507ed39c` три native Victoria MCP прочитали известные fixtures, но весь запуск
-завершился отказом VM identity monitor; diagnostics, down и residue checks прошли.
-Отклонённый sample тогда не сохранялся, поэтому конкретное изменившееся поле неизвестно.
+На Mac source `3bd70d3398a2341d0fd619e1a796b822edcfd0a8` весь core smoke прошёл:
+три native Victoria MCP прочитали известные fixtures, identity/storage monitor и cleanup завершились
+успешно. Кураторские доказательства сохранены в `.reports/observability-1566/mac-3bd70d33`.
+В этом запуске отдельный native CPU ещё был unavailable; новый CPU helper требует отдельного
+запуска после ревью. История: source `507ed39c` также прочитал fixtures, но остановился из-за
+VM identity monitor; diagnostics/down/residue прошли, а отклонённый sample тогда не сохранялся.
 Production не менялся; аналитика не включалась.
 Этот smoke не является полным ресурсным пилотом или выполнением спецификации.
 Подготовленный доменный отчёт Platform MCP описан в
@@ -81,8 +84,8 @@ Caddyfile. Поэтому только `gateway` получает `NET_BIND_SERV
 
 Нужны Linux Engine с локально доступным `DockerRootDir` либо Mac arm64 с уже работающим
 OrbStack, Docker Compose, Git, Python 3.9+ и сеть для получения pinned images/artifacts.
-Checkout должен быть чистым и закоммиченным. OrbStack остаётся кандидатом полного smoke:
-native Mac MCP проверены, но весь Mac smoke ещё не прошёл. Остальные Darwin/context combinations
+Checkout должен быть чистым и закоммиченным. Короткий core smoke на OrbStack проверен:
+core Mac smoke прошёл на source `3bd70d33`; отдельный CPU нового helper ещё требует проверки. Остальные Darwin/context combinations
 отклоняются до получения images.
 
 ```bash
@@ -133,10 +136,30 @@ auth/method/mutation/encoded traversal, перезапускает Alloy, дож
 
 Три native Victoria MCP скачиваются с проверкой SHA256 и запускаются по stdio на платформе runner
 (Linux либо Darwin arm64 для OrbStack):
-initialize → tools/list → query известного fixture. Tools discovery сохраняется; stderr не сохраняется. На Linux сохраняются CPU seconds
-дочернего процесса. На Mac эта величина явно `null/unavailable`: параллельные verification exec
-загрязняют общий `RUSAGE_CHILDREN`. Отдельный per-MCP CPU замер остаётся обязательным;
-общую сумму дочерних процессов нельзя выдавать за расход одного MCP. Umami MCP ещё не подготовлен.
+initialize → tools/list → query известного fixture. Tools discovery сохраняется; stderr не сохраняется.
+На Darwin/Linux каждый native MCP запускается через stdlib helper `native_cpu.py`, который создаёт
+только этого ребёнка и вызывает `Popen.wait()`. После reap он читает свой kernel
+[`RUSAGE_CHILDREN`](https://docs.python.org/3/library/resource.html#resource.RUSAGE_CHILDREN):
+учитывается CPU native процесса и тех потомков, чей расход ядро включило после их завершения/reap.
+CPU самого helper, параллельных Compose/storage-probe процессов и остального pilot не включается.
+Это не замер полного дерева с неубранными или detached потомками и не полный resource corpus.
+`os.wait4()` параллельно с `Popen.wait()` не используется.
+
+Закрытый private pipe переносит максимум 512 bytes с exact schema и конечными неотрицательными
+user/system CPU seconds; native executable не наследует этот descriptor. Данные принимаются только
+после EOF, сумма имеет sanity ceiling 86 400 секунд. Повреждение, неполный record, отсутствующие
+данные или неуспешный reap оставляют `cpu_seconds: null`, `cpu_measurement: unavailable`; значения
+среды, argv, пути, stderr и тексты ошибок туда не попадают. Весь helper/native остаётся в группе
+внешнего supervisor; protocol response сохраняет прежний предел 1 MiB и 15 секунд. Helper имеет
+60-секундный lifetime; после запроса остановки даёт 0,25 секунды на TERM и 0,5 секунды на reap после
+KILL; аварийная уборка helper повторяет KILL/reap с тем же 0,5-секундным сроком. Родитель ограничивает wait helper двумя секундами и затем KILL/reap ещё двумя.
+`isolated_reaped_child_cpu` описывает только измеренный интервал, без утверждения о запасе хоста.
+
+Core снимает CPU-pending только при трёх корректных Victoria records; Umami — при своём одном.
+Остальные missing/resource acceptance пункты сохраняются. Старые evidence не пересчитываются;
+новый Mac CPU и полный ресурсный пилот остаются обязательными отдельными проверками;
+общую сумму дочерних процессов нельзя выдавать за расход одного MCP. Umami использует тот же
+изолированный CPU-канал для своего одного native MCP.
 
 ## Admission для Mac/OrbStack
 
@@ -267,7 +290,7 @@ recovery отказывает, чтобы
 Обычные выходы/timeout/signals по-прежнему обслуживает собственный supervisor.
 
 Зелёный hosted smoke подтверждает только проверенный синтетический Linux сценарий этого source.
-Он не доказывает запас Timeweb VPS, работу stdio/CPU на Mac, полный согласованный resource workload,
+Он не доказывает запас Timeweb VPS, отдельный CPU нового helper на Mac, полный согласованный resource workload,
 аналитическую часть, production rollout или семь суток наблюдений. Первый фактический запуск workflow
 и его artifact должны быть отдельно записаны в #1566.
 

@@ -434,12 +434,11 @@ class OrbStackAdmissionTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, patch('pilot.platform.system',return_value='Darwin'), \
              patch('pilot.platform.machine',return_value='arm64'), \
              patch('pilot.downloaded_asset',return_value=data.getvalue()), \
-             patch('pilot.stdio_probe',return_value={'known_fixture':'passed'}), \
-             patch('pilot.resource.getrusage',side_effect=AssertionError('cumulative CPU unavailable')):
+             patch('pilot.stdio_probe',return_value={'known_fixture':'passed', 'cpu_seconds':.125, 'cpu_measurement':'isolated_reaped_child_cpu'}):
             result = pilot.native_probes('fixture',Path(directory))
         for probe in result.values():
-            self.assertIsNone(probe['cpu_seconds'])
-            self.assertIn('unavailable',probe['cpu_measurement'])
+            self.assertEqual(probe['cpu_seconds'], .125)
+            self.assertEqual(probe['cpu_measurement'], 'isolated_reaped_child_cpu')
 
 if __name__ == '__main__':
     unittest.main()

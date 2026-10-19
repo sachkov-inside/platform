@@ -1,9 +1,18 @@
 # Изолированный пилот Umami
 
 Это подготовленный компонент #1566 к спецификации #1565. Он не включает tracker в Platform,
-не меняет legal-редакции и не означает готовность production. Runtime-проверка на Linux,
-полный каталог аналитики, native MCP по stdio на Mac, очистка/restore и измерения ресурсов
-ещё требуют фактического доказательства. Локальные Python contracts не заменяют эти проверки.
+не меняет legal-редакции и не означает готовность production. Совместимость Linux и native stdio
+на Mac проверена в коротких запусках ниже. Полный каталог аналитики, очистка/restore и
+ресурсный пилот ещё требуют фактического доказательства; локальные contracts их не заменяют.
+
+Mac smoke на source `fbb1a9c9` с explicit Node 26 прошёл: native MCP вернул один fixture pageview,
+read-only/privacy/revoke и cleanup завершились успешно. Linux
+[run 39299627883](https://github.com/sachkov-inside/platform/actions/runs/39299627883) также прошёл.
+В этих доказательствах изолированный CPU ещё pending. Общий с core stdlib helper теперь подготавливает
+отдельный kernel CPU record для единственного native Umami MCP; его новый фактический Mac запуск
+проводится после ревью. Счётчик включает только native child и kernel-accounted/reaped descendants,
+исключает параллельные verification команды; не заменяет полный resource corpus. Детали закрытого
+канала, неизвестных значений и очистки описаны в [core runbook](observability-pilot.md).
 
 ## Закреплённый комплект и проверенные defaults
 
@@ -12,14 +21,14 @@ PostgreSQL 16.13 и Python 3.13.12 OCI index digest. Там же находят�
 файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Digest подтверждён registry
 manifest. Фактические supervised запуски Mac (`9d38522d`) и Linux CI (`39297716250`, тот же
 source tree) завершились на `synthetic_seed`; monitor не отказал, diagnostics/down/residue прошли,
-собственных ресурсов после cleanup не осталось. Успешная совместимость ещё не доказана.
+собственных ресурсов после cleanup не осталось. Эти ранние запуски не подтверждали успешную совместимость.
 
 Источник закреплённого [POST /api/teams](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/teams/route.ts)
 возвращает результат [createTeam](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/team.ts)
 как tuple `[Team, TeamUser]`. Прежний seed ошибочно требовал объект. Регрессия воспроизводит
 этот отказ по форме ответа; отдельный adapter проверяет UUID, связь teamId и owner role до
 использования идентификатора. Старые runtime evidence не содержат seed substage, поэтому
-нельзя исключить более ранний сбой. Повторный supervised запуск исправленного source pending.
+нельзя исключить более ранний сбой. Последующие успешные supervised запуски исправленного source описаны выше; старые evidence сохраняются как история.
 
 В закреплённом [send handler](https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/send/route.ts)
 по умолчанию сохраняются query/hash URL, title, referrer path/query, UTM, click IDs и свойства.
