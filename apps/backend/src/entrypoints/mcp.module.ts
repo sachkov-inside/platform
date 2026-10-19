@@ -1,3 +1,5 @@
+import { PgBossQueueDiagnostics } from "../infrastructure/pg-boss-queue-diagnostics.js";
+import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
 import { SalesFunnelModule } from "../modules/sales-funnel/index.js";
 import { WebTelemetryModule } from "../modules/web-telemetry/index.js";
 import { BillingModule } from "../modules/billing/index.js";
@@ -20,7 +22,9 @@ import {
   ProductTasksModule,
 } from "../modules/product-tasks/index.js";
 
-@Module({ providers: [OperationalReadiness] })
+@Module({
+  providers: [OperationalReadiness, PgBossQueueDiagnostics, QueueDiagnostics],
+})
 export class McpModule {
   static forRoot(config?: PlatformConfig): DynamicModule {
     return {
