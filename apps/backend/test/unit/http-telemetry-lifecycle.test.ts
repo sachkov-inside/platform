@@ -169,6 +169,7 @@ describe("HTTP telemetry terminal lifecycle", () => {
         const clientClosed = once(client, "close");
         if (outcome === "aborted") client.destroy();
         else {
+          // deterministic-test-allow duration-wait: arm owned transport inactivity after the active-request barrier; await real timeout/abort hooks.
           incomingSocket.setTimeout(CONNECTION_TIMEOUT_MS);
           await timedOut.promise;
         }
