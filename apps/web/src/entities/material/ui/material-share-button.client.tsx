@@ -81,7 +81,7 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
           </label>
           <input
             id={fieldId}
-            className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-sm text-foreground"
+            className="mt-1 min-h-11 w-full rounded-md border border-input bg-background px-2 text-base text-foreground sm:text-sm"
             readOnly
             value={current.url}
             onFocus={(event) => {
