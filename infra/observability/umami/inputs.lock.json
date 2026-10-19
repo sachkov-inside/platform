@@ -78,6 +78,16 @@
       "path": "src/app/api/scripts/telemetry/route.ts",
       "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/scripts/telemetry/route.ts",
       "sha256": "b6bad64f42b0101e10d77af22704c3f35e30b358297fba798e6eb9ed1827f2f6"
+    },
+    {
+      "path": "src/app/api/teams/route.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/teams/route.ts",
+      "sha256": "dc06cdc46b25acf524cafda8bdee16e9ef817f697d4e7fe46de8bb1dba6c8f13"
+    },
+    {
+      "path": "src/queries/prisma/team.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/team.ts",
+      "sha256": "3f0de9a63f6ce497e3f476bcdb4bd2c8256a5748106c17f08f37140db78273f5"
     }
   ],
   "postgres_runtime": {
