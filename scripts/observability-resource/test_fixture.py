@@ -35,11 +35,27 @@ class Fixture(unittest.TestCase):
             output = Path(directory)
             fixture.configuration(output, 'a'*40)
             env = (output/'runtime/api.env').read_text()
-            self.assertIn('DATABASE_URL=postgresql://platform:', env)
-            self.assertIn('LOGTO_ISSUER=https://identity.resource.test/oidc', env)
-            self.assertIn('LOGTO_JWKS_URL=http://provider:8081/oidc/jwks', env)
-            self.assertNotIn('sachkov.dev', env)
+            self.assertTrue('DATABASE_URL=postgresql://platform:' in env, 'private database target')
+            self.assertTrue('LOGTO_ISSUER=https://identity.resource.test/oidc' in env, 'synthetic issuer')
+            self.assertTrue('LOGTO_JWKS_URL=https://provider:8081/oidc/jwks' in env, 'production JWKS requires HTTPS')
+            self.assertFalse('sachkov.dev' in env, 'synthetic origins')
             self.assertTrue(all(path.stat().st_mode & 0o777 == 0o600 for path in (output/'runtime').iterdir()))
+
+    def test_owned_provider_certificate_is_private_and_generation_is_bounded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            fixture.certificates(output)
+            self.assertEqual((output/'provider-tls/server.key').stat().st_mode & 0o777,0o600)
+            self.assertEqual((output/'provider-tls').stat().st_mode & 0o777,0o700)
+            self.assertEqual((output/'trust').stat().st_mode & 0o777,0o755)
+            self.assertEqual((output/'trust/provider.pem').stat().st_mode & 0o777,0o444)
+            self.assertEqual((output/'trust/provider.pem').read_bytes(),(output/'provider-tls/server.pem').read_bytes())
+        with tempfile.TemporaryDirectory() as directory, patch.object(fixture.subprocess,'run',side_effect=fixture.subprocess.TimeoutExpired('openssl',5)) as command:
+            with self.assertRaisesRegex(RuntimeError,'private_certificate_generation_failed'):
+                fixture.certificates(Path(directory))
+            self.assertEqual(command.call_args.kwargs['timeout'],5)
+            self.assertEqual(command.call_count,1)
+            self.assertIn('subjectAltName=DNS:provider',command.call_args.args[0])
 
     def test_prepared_single_project_has_no_application_egress_ports_or_foreign_resources(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -61,5 +77,16 @@ class Fixture(unittest.TestCase):
             self.assertNotIn('/query',json.dumps(plan['services']['provider']))
             self.assertIn('/query:ro',json.dumps(plan['services']['loadgen']))
             self.assertTrue(all('/var/run/docker.sock' not in json.dumps(service) for service in plan['services'].values()))
+            api=plan['services']['api']
+            self.assertEqual(api['environment']['NODE_EXTRA_CA_CERTS'],'/trust/provider.pem')
+            self.assertEqual(api['volumes'],[str(output/'trust')+':/trust:ro'])
+            self.assertIn(str(output/'provider-tls')+':/provider-tls:ro',plan['services']['provider']['volumes'])
+            for name in plan['services']:
+                if name!='api':
+                    self.assertNotIn('NODE_EXTRA_CA_CERTS',plan['services'][name].get('environment',{}))
+                    self.assertNotIn('/trust:',json.dumps(plan['services'][name]))
+                if name!='provider':
+                    self.assertNotIn('/provider-tls:',json.dumps(plan['services'][name]))
+            self.assertNotIn('NODE_TLS_REJECT_UNAUTHORIZED',json.dumps(plan))
             self.assertEqual((output/'query/key').stat().st_mode & 0o777,0o600)
             self.assertEqual(json.loads((output/'resource-source.json').read_text())['commit'],pins['source'])

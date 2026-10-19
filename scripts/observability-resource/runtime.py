@@ -409,7 +409,8 @@ def cleanup_private(output, *, acquired=False):
         return
     names = {'runtime':('runtime.env','api.env','mcp.env','migrations.env','material-assets-worker.env',
                         'profile-avatars-worker.env','video-deletions-worker.env','billing-worker.env','notifications-worker.env','web.env'),
-             'provider':('token.json','token.json.new'), 'query':('key',)}
+             'provider':('token.json','token.json.new'), 'query':('key',),
+             'provider-tls':('server.key','server.pem'), 'trust':('provider.pem',)}
     for directory, files in names.items():
         private = output / directory
         if private.is_dir() and not private.is_symlink():

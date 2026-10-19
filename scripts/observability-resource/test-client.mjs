@@ -1,13 +1,34 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { createPublicKey, verify } from "node:crypto";
-import { createServer, get } from "node:http";
+import { createServer } from "node:http";
+import { get } from "node:https";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { connect } from "node:net";
+import { connect as tlsConnect } from "node:tls";
 import { sample, schedule, serve, metricResult } from "./client.mjs";
+
+/** @param {string} directory */
+async function providerTls(directory) {
+  execFileSync(
+    "python3",
+    [
+      "-B",
+      "-c",
+      "import sys;from pathlib import Path;sys.path.insert(0,'scripts/observability-resource');import fixture;fixture.certificates(Path(sys.argv[1]))",
+      directory,
+    ],
+    { timeout: 5000, stdio: "pipe" },
+  );
+  return {
+    key: await readFile(join(directory, "provider-tls/server.key")),
+    cert: await readFile(join(directory, "trust/provider.pem")),
+  };
+}
 
 const PUBLIC = {
   items: [],
@@ -129,7 +150,8 @@ test("fixed resource schedule owns duration and marks missed slots without catch
 test("private resource identity signs real ES384 tokens with the existing five-minute lifetime", async () => {
   const directory = await mkdtemp(join(tmpdir(), "inside-resource-identity-"));
   const filename = join(directory, "token.json");
-  const handle = await serve(filename, { host: "127.0.0.1", port: 0 });
+  const tls = await providerTls(directory);
+  const handle = await serve(filename, { host: "127.0.0.1", port: 0 }, tls);
   try {
     assert.equal((await stat(filename)).mode & 0o777, 0o600);
     /** @type {unknown} */ const encoded = JSON.parse(
@@ -163,7 +185,14 @@ test("private resource identity signs real ES384 tokens with the existing five-m
     /** @type {Promise<string>} */
     const response = new Promise((resolve, reject) => {
       const req = get(
-        { host: "127.0.0.1", port: address.port, path: "/oidc/jwks" },
+        {
+          host: "127.0.0.1",
+          port: address.port,
+          path: "/oidc/jwks",
+          ca: tls.cert,
+          servername: "provider",
+          agent: false,
+        },
         (res) => {
           let value = "";
           res.setEncoding("utf8");
@@ -176,6 +205,39 @@ test("private resource identity signs real ES384 tokens with the existing five-m
       req.on("error", reject);
       req.setTimeout(1000, () => req.destroy());
     });
+    for (const trust of [
+      { servername: "provider" },
+      { ca: tls.cert, servername: "foreign.invalid" },
+    ]) {
+      await assert.rejects(
+        new Promise((resolve, reject) => {
+          const req = get(
+            {
+              host: "127.0.0.1",
+              port: address.port,
+              path: "/oidc/jwks",
+              agent: false,
+              ...trust,
+            },
+            (res) => {
+              res.resume();
+              res.on("end", resolve);
+            },
+          );
+          req.on("error", reject);
+          req.setTimeout(1000, () =>
+            req.destroy(new Error("bounded TLS probe")),
+          );
+        }),
+        (error) =>
+          error instanceof Error &&
+          "code" in error &&
+          [
+            "DEPTH_ZERO_SELF_SIGNED_CERT",
+            "ERR_TLS_CERT_ALTNAME_INVALID",
+          ].includes(String(error.code)),
+      );
+    }
     const body = await response;
     /** @type {unknown} */ const jwks = JSON.parse(body);
     assert.ok(
@@ -250,17 +312,27 @@ test("SDK query parser keeps missing and nonfinite counters UNKNOWN", () => {
 // deterministic-test-allow unit-io: owned provider sockets and private temp token; incomplete headers expire and finally closes every socket/server/file.
 test("provider recovers bounded connection slots after idle headers", async () => {
   const directory = await mkdtemp(join(tmpdir(), "inside-resource-headers-"));
-  const handle = await serve(join(directory, "token.json"), {
-    host: "127.0.0.1",
-    port: 0,
-  });
+  const tls = await providerTls(directory);
+  const handle = await serve(
+    join(directory, "token.json"),
+    {
+      host: "127.0.0.1",
+      port: 0,
+    },
+    tls,
+  );
   const address = handle.server.address();
   assert.ok(address && typeof address !== "string");
   /** @type {import("node:net").Socket[]} */ const sockets = [];
   try {
     const closed = [];
     for (let index = 0; index < 4; index++) {
-      const socket = connect(address.port, "127.0.0.1");
+      const socket = tlsConnect({
+        port: address.port,
+        host: "127.0.0.1",
+        ca: tls.cert,
+        servername: "provider",
+      });
       sockets.push(socket);
       closed.push(
         new Promise((resolve) =>
@@ -270,7 +342,7 @@ test("provider recovers bounded connection slots after idle headers", async () =
       socket.on("error", () => {});
       socket.resume();
       await new Promise((resolve) =>
-        socket.once("connect", () => resolve(undefined)),
+        socket.once("secureConnect", () => resolve(undefined)),
       );
       socket.write("GET /oidc/jwks HTTP/1.1\r\nHost: owned\r\n");
     }
@@ -288,7 +360,14 @@ test("provider recovers bounded connection slots after idle headers", async () =
     /** @type {Promise<number|undefined>} */
     const pending = new Promise((resolve) => {
       const req = get(
-        { host: "127.0.0.1", port: address.port, path: "/oidc/jwks" },
+        {
+          host: "127.0.0.1",
+          port: address.port,
+          path: "/oidc/jwks",
+          ca: tls.cert,
+          servername: "provider",
+          agent: false,
+        },
         (res) => {
           res.resume();
           res.on("end", () => resolve(res.statusCode));
@@ -308,6 +387,7 @@ test("provider recovers bounded connection slots after idle headers", async () =
 // deterministic-test-allow unit-io: occupied owned ephemeral port proves failed provider startup releases its refresh timer; outer process owner also bounds the fixture group.
 test("failed provider acquisition does not keep an orphan refresh process alive", async () => {
   const directory = await mkdtemp(join(tmpdir(), "inside-resource-startup-"));
+  const tls = await providerTls(directory);
   const blocker = createServer();
   await new Promise((resolve) =>
     blocker.listen(0, "127.0.0.1", () => resolve(undefined)),
@@ -316,14 +396,82 @@ test("failed provider acquisition does not keep an orphan refresh process alive"
   assert.ok(address && typeof address !== "string");
   try {
     await assert.rejects(
-      serve(join(directory, "token.json"), {
-        host: "127.0.0.1",
-        port: address.port,
-      }),
+      serve(
+        join(directory, "token.json"),
+        {
+          host: "127.0.0.1",
+          port: address.port,
+        },
+        tls,
+      ),
       /startup failed/u,
     );
   } finally {
     await new Promise((resolve) => blocker.close(resolve));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+// deterministic-test-allow unit-io: raw owned loopback clients deliberately omit TLS handshake; bounded server handshake timer frees every slot and finally closes all resources.
+test("provider expires stalled TLS handshakes without exhausting fresh query slots", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "inside-resource-handshake-"));
+  const tls = await providerTls(directory);
+  const handle = await serve(
+    join(directory, "token.json"),
+    { host: "127.0.0.1", port: 0 },
+    tls,
+  );
+  const address = handle.server.address();
+  assert.ok(address && typeof address !== "string");
+  /** @type {import("node:net").Socket[]} */ const sockets = [];
+  let timer;
+  try {
+    const closed = [];
+    for (let index = 0; index < 4; index++) {
+      const socket = connect(address.port, "127.0.0.1");
+      sockets.push(socket);
+      closed.push(
+        new Promise((resolve) =>
+          socket.once("close", () => resolve(undefined)),
+        ),
+      );
+      socket.on("error", () => {});
+      socket.resume();
+      await new Promise((resolve) =>
+        socket.once("connect", () => resolve(undefined)),
+      );
+    }
+    // deterministic-test-allow duration-wait: fail after the bounded TLS handshake grace; owned socket/server cleanup always runs in finally.
+    timer = setTimeout(() => {
+      for (const socket of sockets) socket.destroy();
+    }, 4000);
+    const start = performance.now();
+    await Promise.all(closed);
+    assert.ok(performance.now() - start < 3500);
+    /** @type {Promise<number|undefined>} */
+    const status = new Promise((resolve, reject) => {
+      const req = get(
+        {
+          host: "127.0.0.1",
+          port: address.port,
+          path: "/oidc/jwks",
+          ca: tls.cert,
+          servername: "provider",
+          agent: false,
+        },
+        (res) => {
+          res.resume();
+          res.on("end", () => resolve(res.statusCode));
+        },
+      );
+      req.on("error", reject);
+      req.setTimeout(1000, () => req.destroy());
+    });
+    assert.equal(await status, 200);
+  } finally {
+    clearTimeout(timer);
+    for (const socket of sockets) socket.destroy();
+    await handle.close();
     await rm(directory, { recursive: true, force: true });
   }
 });

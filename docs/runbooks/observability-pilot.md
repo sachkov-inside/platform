@@ -375,7 +375,7 @@ Evidence находится в `.reports/observability-pilot-*/evidence.json` в
 ### Короткое сравнение реального API с SDK OFF/ON
 
 Первый resource runner находится в [runtime.py](../../scripts/observability-resource/runtime.py).
-Это подготовленный исполняемый эксперимент, полный запуск приложения ещё не выполнен.
+Это подготовленный исполняемый эксперимент. Первый запуск `3a501dca` завершился до измерений: API вышел с кодом 1, очистка собственного project прошла. Измерительных результатов пока нет.
 Профиль [short-sdk-pair-v1](../../infra/observability/resource/profile.json) предложен для
 синтетической проверки и не является принятой производственной нагрузкой.
 
@@ -386,6 +386,24 @@ API/provider/loadgen доступны только во внутренней с�
 к переключению SDK, не к цене всей observability stack. Web, workers, broker, Umami и MCP
 в этот workload не входят. Production smoke и full-stack reset helpers runner не запускает.
 Shared private env writer извлечён без изменения содержимого production configuration.
+
+Локальный JWKS double использует HTTPS. Production API отвергает HTTP `LOGTO_JWKS_URL`
+до открытия порта; исходная конфигурация `3a501dca` воспроизводимо нарушала это требование
+при проверке настоящим `parsePlatformConfig`. Сохранённого stderr того запуска нет,
+поэтому наличие дополнительных причин отказа не исключено.
+Перед запуском требуется host `openssl`: стандартная команда создаёт отдельный однодневный
+сертификат с единственным SAN `DNS:provider`, deadline 5 секунд. Ошибка генерации закрытая,
+без вывода stderr. Свежий EC P-384 private key имеет mode `0600` и доступен только provider.
+Публичный сертификат монтируется read-only только в API и подключается через
+`NODE_EXTRA_CA_CERTS`; mode `0444` позволяет production пользователю `node` прочитать CA.
+Host trust store, production HTTPS guards и проверка имени сервера не меняются.
+TLS handshake ограничен 1 секундой, HTTP headers 1 секундой и request 2 секундами;
+неполные соединения освобождают ограниченные четыре slots.
+TLS private files исключены из public artifacts. После `down` и `residue=passed`
+runner удаляет только известные TLS files; при неудачной очистке сохраняет их для recovery.
+Следующий фактический запуск требует образа с новым точным Source SHA, отдельного review
+этого исправления и coordinator-owned public supervisor. Старый образ не переименовывается
+в образ нового source.
 
 Профиль фиксирует две пары (`off,on`, затем `on,off`), прогрев 2 секунды и измерение 10 секунд
 на режим, 10 запланированных запросов в секунду, один активный запрос и sample ratio 1.

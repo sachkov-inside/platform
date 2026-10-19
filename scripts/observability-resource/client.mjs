@@ -1,7 +1,8 @@
 // @ts-check
 // Container load generator and private JWKS double. Built-in Node only.
 import { generateKeyPairSync, sign } from "node:crypto";
-import { createServer, request } from "node:http";
+import { request } from "node:http";
+import { createServer } from "node:https";
 import { readFileSync, writeFileSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
@@ -128,10 +129,14 @@ export async function sample(
   });
 }
 
-/** @param {string} filename @param {{host:string,port:number}} [endpoint] */
+/** @param {string} filename @param {{host:string,port:number}} [endpoint] @param {{key:Buffer,cert:Buffer}} [tls] */
 export async function serve(
   filename,
   endpoint = { host: "0.0.0.0", port: 8081 },
+  tls = {
+    key: readFileSync("/provider-tls/server.key"),
+    cert: readFileSync("/provider-tls/server.pem"),
+  },
 ) {
   const pair = generateKeyPairSync("ec", { namedCurve: "P-384" });
   const jwk = {
@@ -168,9 +173,11 @@ export async function serve(
     renameSync(filename + ".new", filename);
   }
   issue();
-  const refresh = setInterval(issue, TOKEN_REFRESH_MS);
   const server = createServer(
     {
+      ...tls,
+      minVersion: "TLSv1.2",
+      handshakeTimeout: 1000,
       requestTimeout: 2000,
       headersTimeout: 1000,
       connectionsCheckingInterval: 250,
@@ -185,6 +192,7 @@ export async function serve(
       res.end(JSON.stringify({ keys: [jwk] }));
     },
   );
+  const refresh = setInterval(issue, TOKEN_REFRESH_MS);
   server.maxConnections = 4;
   /** @returns {Promise<void>} */
   async function close() {

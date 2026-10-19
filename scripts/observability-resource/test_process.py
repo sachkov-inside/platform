@@ -74,12 +74,18 @@ class Processes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)
             private=output/'runtime';private.mkdir();env=private/'api.env';env.write_text('private')
+            tls=output/'provider-tls';tls.mkdir();key=tls/'server.key';key.write_text('synthetic-private')
+            trust=output/'trust';trust.mkdir();ca=trust/'provider.pem';ca.write_text('public-certificate')
             (output/'cleanup.json').write_text(json.dumps({'down':'failed','residue':'failed'}))
             runtime.cleanup_private(output,acquired=True)
             self.assertTrue(env.exists())
+            self.assertTrue(key.exists())
+            self.assertTrue(ca.exists())
             (output/'cleanup.json').write_text(json.dumps({'down':'passed','residue':'passed'}))
             runtime.cleanup_private(output,acquired=True)
             self.assertFalse(env.exists())
+            self.assertFalse(key.exists())
+            self.assertFalse(ca.exists())
 
     def test_resource_recovery_rechecks_prefix_and_daemon_before_any_cleanup(self):
         identity={'platform':'linux','context':'default','endpoint':'unix:///fixture/docker.sock','daemon_id':'owned',

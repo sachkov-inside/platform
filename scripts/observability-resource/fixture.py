@@ -49,13 +49,35 @@ write_disposable_runtime_configuration
     password = secrets.token_hex(24)
     for path in runtime.iterdir():
         content = path.read_text().replace('platform-production-smoke-password', password)
-        content = content.replace('https://identity.production-smoke.invalid/oidc/jwks', 'http://provider:8081/oidc/jwks')
+        content = content.replace('https://identity.production-smoke.invalid/oidc/jwks', 'https://provider:8081/oidc/jwks')
         content = content.replace('https://identity.production-smoke.invalid/oidc', 'https://identity.resource.test/oidc')
         content = content.replace('https://api.production-smoke.invalid', 'https://api.resource.test')
         content = content.replace('https://sachkov.dev', 'https://site.resource.test').replace('https://inside.sachkov.dev', 'https://api.resource.test')
         path.write_text(content)
         os.chmod(path, 0o600)
     return password
+
+
+def certificates(output):
+    private = output / 'provider-tls'
+    private.mkdir(mode=0o700)
+    trust = output / 'trust'
+    trust.mkdir(mode=0o755)
+    os.chmod(trust, 0o755)
+    # Fixed synthetic DNS identity; no host trust store or production authority changes.
+    try:
+        result = subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec',
+            '-pkeyopt', 'ec_paramgen_curve:P-384', '-nodes', '-days', '1',
+            '-subj', '/CN=provider', '-addext', 'subjectAltName=DNS:provider',
+            '-keyout', str(private / 'server.key'), '-out', str(private / 'server.pem')],
+            capture_output=True, timeout=5, env={'PATH':os.defpath,'LC_ALL':'C'}, umask=0o077)
+        if result.returncode:
+            raise RuntimeError('private_certificate_generation_failed')
+    except (OSError, subprocess.SubprocessError):
+        raise RuntimeError('private_certificate_generation_failed') from None
+    os.chmod(private / 'server.key', 0o600)
+    (trust / 'provider.pem').write_bytes((private / 'server.pem').read_bytes())
+    os.chmod(trust / 'provider.pem', 0o444)
 
 
 def mode(path, value):
@@ -77,6 +99,7 @@ def prepare(output, cache):
             raise RuntimeError('owned_cache_identity_mismatch')
     pilot.prepare(output)
     password = configuration(output, source)
+    certificates(output)
     plan = json.loads((output / 'compose.json').read_text())
     uid = str(output.stat().st_uid) + ':' + str(output.stat().st_gid)
     shared = {'image': pins['backend'], 'pull_policy': 'never', 'init': True, 'cap_drop': ['ALL'],
@@ -98,7 +121,8 @@ def prepare(output, cache):
     plan['volumes']['application-database'] = {}
     plan['services']['migrations'] = service('migrations', ['node', 'dist/migrations/migrate.js'])
     plan['services']['api'] = service('api', ['node', 'dist/entrypoints/api.js'])
-    plan['services']['api']['environment'] = {'INSIDE_OTEL_ENABLED': 'false', 'INSIDE_OTEL_ENDPOINT': 'http://alloy:4318', 'INSIDE_OTEL_SAMPLE_RATIO': '1'}
+    plan['services']['api']['environment'] = {'INSIDE_OTEL_ENABLED': 'false', 'INSIDE_OTEL_ENDPOINT': 'http://alloy:4318', 'INSIDE_OTEL_SAMPLE_RATIO': '1', 'NODE_EXTRA_CA_CERTS': '/trust/provider.pem'}
+    plan['services']['api']['volumes'] = [str(output / 'trust') + ':/trust:ro']
     private = output / 'provider'
     private.mkdir(mode=0o700)
     query = json.loads((output / 'auth.json').read_text())['users'][0]['bearer_token']
@@ -113,6 +137,7 @@ def prepare(output, cache):
                         str(private) + ':/private:' + ('rw' if name == 'provider' else 'ro')],
             'command': ['node', '/resource/client.mjs', 'provider', '/private/token.json'] if name == 'provider'
                 else ['node', '-e', 'setInterval(()=>{},1000)']}
+    plan['services']['provider']['volumes'].append(str(output / 'provider-tls') + ':/provider-tls:ro')
     plan['services']['loadgen']['volumes'].append(str(query_directory) + ':/query:ro')
     # Core and application images must already exist locally; the prepared run cannot pull candidates.
     for item in plan['services'].values():
