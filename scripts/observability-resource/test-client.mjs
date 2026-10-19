@@ -36,7 +36,7 @@ const PUBLIC = {
   topicSlugs: [],
   nextCursor: null,
 };
-const BODY = { account: { id: "00000000-0000-4000-8000-000000001566" } };
+const BODY = { account: { accountId: "00000000-0000-4000-8000-000000001566" } };
 
 // deterministic-test-allow unit-io: bounded actual owned loopback requests verify complete success, oversize and absolute slow-drip timeout; finally closes sockets/server.
 test("resource HTTP samples preserve failures and stop slow body progress by absolute deadline", async () => {

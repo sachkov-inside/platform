@@ -8,7 +8,7 @@ SCRIPTS = Path(__file__).parent
 MAX_BYTES = 1_048_576
 ARTIFACTS = ('evidence.json','cleanup.json','worker-outcome.json','recovery.json','container-states.json',
              'readiness.json','storage-host.json','storage-vm.json','monitor-failure.json',
-             'resource-source.json','resource-proof.json','resource-current.json','resource-images.json')
+             'startup-client.json','resource-source.json','resource-proof.json','resource-current.json','resource-images.json')
 
 
 def inputs():
@@ -25,7 +25,10 @@ def inputs():
         ROOT / 'infra/production/database/Dockerfile', ROOT / 'infra/production/database/init-production-databases.sh',
         ROOT / 'apps/backend/Dockerfile', ROOT / 'apps/backend/src/infrastructure/observability/technical-telemetry.ts',
         ROOT / 'apps/backend/src/infrastructure/observability/technical-telemetry-runtime.ts',
-        ROOT / 'apps/backend/src/config/platform-config.ts', ROOT / 'packages/runtime-identity/index.mjs',
+        ROOT / 'apps/backend/src/config/platform-config.ts',
+        ROOT / 'apps/backend/src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.ts',
+        ROOT / 'apps/backend/src/modules/accounts/adapters/nest/account-http.contract.ts',
+        ROOT / 'apps/backend/scripts/resource-corpus-contract.test.mjs', ROOT / 'packages/runtime-identity/index.mjs',
         ROOT / 'pnpm-lock.yaml', ROOT / '.node-version', ROOT / '.github/workflows/ci.yml'))))
 
 

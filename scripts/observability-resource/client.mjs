@@ -46,7 +46,9 @@ function validBody(operation, body) {
       body["topicSlugs"].length === 0 &&
       body["nextCursor"] === null
     );
-  return record(body["account"]) && typeof body["account"]["id"] === "string";
+  return (
+    record(body["account"]) && typeof body["account"]["accountId"] === "string"
+  );
 }
 /** @param {number} operation @param {string} bearer @param {boolean} [establish] @param {{host:string,port:number,timeoutMs:number}} [transport] @returns {Promise<Sample>} */
 export async function sample(

@@ -114,14 +114,39 @@ def client(compose, action, *, timeout=PHASE_SECONDS):
     return result
 
 
-def valid_sample(value):
+def startup_stage(action, mode):
+    if action not in ('ready','establish','protected-ready') or mode not in ('off','on'):
+        raise ValueError('closed_startup_action')
+    return 'api_' + mode + '_' + ('public_ready' if action == 'ready' else action.replace('-','_'))
+
+
+def startup_client(output, compose, action, mode, *, timeout=PHASE_SECONDS):
+    stage = startup_stage(action, mode)
+    record = {'schema':1,'stage':stage}
+    path = output / 'startup-client.json'
+    binding.write(path, {**record,'state':'pending'})
+    try:
+        value = client(compose, action, timeout=timeout)
+        valid_sample(value, success_status=201 if action == 'establish' else 200)
+        if (value['label'] != ('public_index' if action == 'ready' else 'protected_account')
+                or value['outcome'] in ('schedule_missed','phase_aborted')):
+            raise ValueError('closed_startup_sample')
+        binding.write(path, {**record,'state':'sampled','sample':value})
+        return value
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        reason = 'transport' if isinstance(error, (OSError, subprocess.SubprocessError)) else 'invalid_sample' if isinstance(error, ValueError) else 'client_failed'
+        binding.write(path, {**record,'state':'client_error','error_type':reason})
+        raise
+
+
+def valid_sample(value, *, success_status=200):
     if (not isinstance(value, dict) or set(value) != {'label', 'outcome', 'status', 'elapsed_ms'}
             or value['label'] not in resource_profile.LABELS
             or value['outcome'] not in ('ok', 'timeout', 'oversize', 'transport_error', 'unexpected_response', 'schedule_missed', 'phase_aborted')
             or value['status'] is not None and (type(value['status']) is not int or not 100 <= value['status'] <= 599)
             or value['elapsed_ms'] is not None and (type(value['elapsed_ms']) not in (int, float) or not math.isfinite(value['elapsed_ms']) or not 0 <= value['elapsed_ms'] <= PHASE_SECONDS * 1000)
             or (value['outcome'] in ('schedule_missed', 'phase_aborted')) != (value['elapsed_ms'] is None)
-            or value['outcome'] == 'ok' and value['status'] != 200):
+            or value['outcome'] == 'ok' and value['status'] != success_status):
         raise ValueError('closed_latency_sample')
     return value
 
@@ -349,10 +374,11 @@ def worker(output):
                     fixture.mode(output / 'compose.json', mode)
                     phase_started = time.time()
                     invoke(compose, ['up', '-d', '--force-recreate', '--no-deps', 'api'], timeout=60)
+                    stage = startup_stage('ready', mode)
                     deadline = time.monotonic() + 60
                     while True:
                         try:
-                            ready = client(compose, 'ready', timeout=min(5, max(.01, deadline - time.monotonic())))
+                            ready = startup_client(output, compose, 'ready', mode, timeout=min(5, max(.01, deadline - time.monotonic())))
                         except RuntimeError:
                             ready = {'outcome':'not_ready'}
                         if ready.get('outcome') == 'ok':
@@ -361,9 +387,11 @@ def worker(output):
                             raise RuntimeError('api_readiness_deadline')
                         time.sleep(.25)
                     if not proof['pairs'] and not result['modes']:
-                        if client(compose, 'establish').get('outcome') != 'ok':
+                        stage = startup_stage('establish', mode)
+                        if startup_client(output, compose, 'establish', mode).get('outcome') != 'ok':
                             raise RuntimeError('owned_account_seed')
-                    if client(compose, 'protected-ready').get('outcome') != 'ok':
+                    stage = startup_stage('protected-ready', mode)
+                    if startup_client(output, compose, 'protected-ready', mode).get('outcome') != 'ok':
                         raise RuntimeError('protected_fixture_readiness')
                     stage = 'measure_' + mode
                     result['modes'][mode] = measure(output, compose, owner['project'])

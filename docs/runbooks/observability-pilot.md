@@ -391,6 +391,23 @@ Shared private env writer извлечён без изменения содер�
 до открытия порта; исходная конфигурация `3a501dca` воспроизводимо нарушала это требование
 при проверке настоящим `parsePlatformConfig`. Сохранённого stderr того запуска нет,
 поэтому наличие дополнительных причин отказа не исключено.
+Следующий запуск `fbbc4ebe` подтвердил работающий API, но также завершился до измерений;
+прежний общий `api_off` не различал readiness, создание Account и protected GET.
+Воспроизводимый contract test с настоящими `parsePlatformConfig`, remote JWT verifier
+(HTTPS/fetch, generated CA, issuer и audience) и `accountResponseSchema` выявил отдельное
+расхождение клиента: API возвращает `account.accountId`, а клиент ожидал `account.id`.
+Тест проходил проверку JWT и получал `unexpected_response` на успешной форме POST `201`;
+после исправления принимает POST `201` и GET `200`. Это тест реального verifier и схемы
+через собственный loopback transport, без полноценного Nest application и PostgreSQL.
+Исторические HTTP status/outcome запуска `fbbc4ebe` не сохранены, поэтому этот дефект
+не объявляется единственной причиной фактического отказа.
+Теперь `readiness.json` различает public readiness, establish и protected readiness
+для каждого SDK mode. Отдельный `startup-client.json` сохраняет только закрытые stage/state,
+фиксированный тип command failure либо проверенные label/outcome/HTTP status/elapsed time.
+Token, Account ID, URL, request/response body и exception text/stack в него не попадают.
+Файл записывается до cleanup и входит в whitelist public artifacts; неизвестная форма
+sample отвергается без сохранения её содержимого. POST создания Account не повторяется.
+
 Перед запуском требуется host `openssl`: стандартная команда создаёт отдельный однодневный
 сертификат с единственным SAN `DNS:provider`, deadline 5 секунд. Ошибка генерации закрытая,
 без вывода stderr. Свежий EC P-384 private key имеет mode `0600` и доступен только provider.

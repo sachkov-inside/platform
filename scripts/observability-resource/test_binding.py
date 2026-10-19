@@ -31,8 +31,9 @@ class Artifacts(unittest.TestCase):
             for name in ('compose.json','auth.json','datasources.json','api.env','token.json','engine-raw.json'):
                 (output/name).write_text('{"private":"sentinel"}')
             binding.write(output/'resource-proof.json',{'schema':1,'acceptance':'pending'})
+            binding.write(output/'startup-client.json',{'schema':1,'stage':'api_off_establish','state':'sampled','sample':{'label':'protected_account','outcome':'unexpected_response','status':401,'elapsed_ms':3}})
             hosted.collect(output,root/'public')
-            self.assertEqual([path.name for path in (root/'public').iterdir()],['resource-proof.json'])
+            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['resource-proof.json','startup-client.json'])
             self.assertNotIn('sentinel',(root/'public/resource-proof.json').read_text())
             (output/'resource-current.json').symlink_to(output/'token.json')
             with self.assertRaises(ValueError):

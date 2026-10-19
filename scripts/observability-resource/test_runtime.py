@@ -50,6 +50,33 @@ class Lifecycle(unittest.TestCase):
         with self.assertRaises(ValueError):
             runtime.parse_phase(json.dumps({'kind':'warmup','samples':[sample]*20,'token':'secret'})+'\n')
 
+    def test_startup_diagnostics_retain_only_closed_stage_and_http_sample(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            sample={'label':'protected_account','outcome':'ok','status':201,'elapsed_ms':4}
+            with patch.object(runtime,'client',return_value=sample):
+                self.assertEqual(runtime.startup_client(output,[],'establish','off'),sample)
+            value=json.loads((output/'startup-client.json').read_text())
+            self.assertEqual(value,{'schema':1,'stage':'api_off_establish','state':'sampled','sample':sample})
+            for invalid in ({**sample,'token':'private-sentinel'},{**sample,'status':200},{**sample,'elapsed_ms':float('nan')},{**sample,'label':'public_index'}):
+                with patch.object(runtime,'client',return_value=invalid),self.assertRaises(ValueError):
+                    runtime.startup_client(output,[],'establish','off')
+                value=json.loads((output/'startup-client.json').read_text())
+                self.assertEqual(value,{'schema':1,'stage':'api_off_establish','state':'client_error','error_type':'invalid_sample'})
+                self.assertNotIn('private-sentinel',json.dumps(value))
+            with patch.object(runtime,'client',side_effect=runtime.subprocess.TimeoutExpired('private-sentinel',5)):
+                with self.assertRaises(runtime.subprocess.TimeoutExpired):
+                    runtime.startup_client(output,[],'protected-ready','on')
+            self.assertEqual(json.loads((output/'startup-client.json').read_text()),{'schema':1,'stage':'api_on_protected_ready','state':'client_error','error_type':'transport'})
+            denied={'label':'protected_account','outcome':'unexpected_response','status':401,'elapsed_ms':3}
+            with patch.object(runtime,'client',return_value=denied):
+                self.assertEqual(runtime.startup_client(output,[],'protected-ready','off'),denied)
+            self.assertEqual(json.loads((output/'startup-client.json').read_text())['sample'],denied)
+            with patch.object(runtime,'client') as command:
+                for action,mode in [('load','off'),('ready','unknown')]:
+                    with self.assertRaises(ValueError):runtime.startup_client(output,[],action,mode)
+                command.assert_not_called()
+
     def test_stdout_partial_on_timeout_never_retries_mutating_commands(self):
         with patch.object(runtime.pilot,'assert_docker_identity'), \
                 patch.object(runtime.subprocess,'run',side_effect=runtime.subprocess.TimeoutExpired('fixed',1,output=b'{"kind":"sample"}\n')) as command:
