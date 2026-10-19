@@ -26,10 +26,10 @@ PILOT_ARTIFACTS = (
 METADATA_ARTIFACTS = ("source.json", "admission.json")
 
 
-def collect(output, metadata, destination):
+def collect(output, metadata, destination, *, artifacts=None):
     """Copy only regular bounded JSON evidence, never a private report directory."""
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
-    for source_root, names in ((metadata, METADATA_ARTIFACTS), (output, PILOT_ARTIFACTS)):
+    for source_root, names in ((metadata, METADATA_ARTIFACTS), (output, PILOT_ARTIFACTS if artifacts is None else artifacts)):
         if source_root.is_symlink():
             raise ValueError("artifact source directory cannot be a symlink")
         for name in names:
@@ -47,7 +47,7 @@ def collect(output, metadata, destination):
             (destination / name).write_text(content)
 
 
-def recover(output):
+def recover(output, *, project_prefix="inside-observability-pilot-", services=None):
     owner_path = output / "owner.json"
     if not owner_path.exists():
         return {"state": "no registered project acquired"}
@@ -55,15 +55,10 @@ def recover(output):
         raise ValueError("recovery requires regular ownership records")
     owner = json.loads(owner_path.read_text())
     if (not isinstance(owner, dict) or not isinstance(owner.get("project"), str)
-            or not re.fullmatch(r"inside-observability-pilot-[0-9a-f]{12}", owner["project"])
+            or not re.fullmatch(re.escape(project_prefix) + r"[0-9a-f]{12}", owner["project"])
             or owner.get("cwd") != str(ROOT)):
         raise ValueError("recovery requires the owned random pilot project and checkout")
-    if owner.get('orbstack') is not None:
-        current = orbstack.identify(lambda args: read_command(args), home=Path.home())
-        if current != owner['orbstack']:
-            raise ValueError('OrbStack recovery identity changed; manual owner inspection required')
-        pilot.FROZEN_DOCKER_ENDPOINT = current['endpoint']
-        pilot.FROZEN_DOCKER_IDENTITY = current
+    pilot.restore_daemon(owner)
     worker_path = output / "worker.json"
     if not worker_path.is_file() or worker_path.is_symlink():
         raise ValueError("worker registration missing; disposable runner teardown required")
@@ -88,7 +83,7 @@ def recover(output):
         raise ValueError("owned Compose input missing")
     # Never execute arbitrary argv copied from owner.json.
     compose = ["docker", "compose", "-p", owner["project"], "-f", str(compose_file)]
-    result = cleanup_project(compose, output, owner["project"])
+    result = cleanup_project(compose, output, owner["project"], **({"services": services} if services is not None else {}))
     write_json(output / "recovery.json", result)
     if result["down"] != "passed" or result["residue"] != "passed":
         raise RuntimeError("exact-project recovery incomplete")
@@ -100,16 +95,16 @@ def read_command(args):
                           timeout=CI_COMMAND_TIMEOUT_SECONDS).stdout.strip()
 
 
-def admission(metadata):
+def admission(metadata, *, inputs=None, scope=None):
     metadata.mkdir(mode=0o700, parents=True, exist_ok=False)
     sha = read_command(["git", "-C", str(ROOT), "rev-parse", "HEAD"])
     if read_command(["git", "-C", str(ROOT), "status", "--porcelain"]):
         raise ValueError("hosted proof requires clean committed source")
     if sha != os.environ.get("GITHUB_SHA"):
         raise ValueError("checkout SHA does not match provider execution SHA")
-    inputs = (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "Caddyfile",
+    inputs = inputs or (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "Caddyfile",
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
-              Path(__file__).with_name("pilot.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
+              Path(__file__).with_name("pilot.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
               ROOT / ".github/workflows/observability-pilot.yml")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,
@@ -122,7 +117,7 @@ def admission(metadata):
         "provider_pr_head_sha": os.environ.get("PILOT_PR_HEAD_SHA"),
         "provider_pr_base_sha": os.environ.get("PILOT_PR_BASE_SHA"),
         "inputs": {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs},
-        "scope": "Linux hosted functional smoke; not Timeweb capacity, Mac MCP or full resource acceptance",
+        "scope": scope or "Linux hosted functional smoke; not Timeweb capacity, Mac MCP or full resource acceptance",
     })
     try:
         storage = Path(read_command(["docker", "info", "--format", "{{.DockerRootDir}}"]))

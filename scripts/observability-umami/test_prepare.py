@@ -21,7 +21,11 @@ class IsolatedInputs(unittest.TestCase):
             self.assertNotIn('ports', plan['services']['db'])
             self.assertNotIn('ports', plan['services']['umami'])
             self.assertEqual(plan['services']['query']['ports'], ['127.0.0.1:13301:3001'])
-            self.assertEqual(plan['networks'], {'private': {'internal': True}})
+            self.assertEqual(plan['networks'], {'private': {'internal': True}, 'ingress': {}})
+            self.assertEqual(plan['services']['query']['networks'], ['private', 'ingress'])
+            self.assertEqual(plan['services']['umami']['networks'], ['private'])
+            self.assertEqual(plan['services']['db']['networks'], ['private'])
+            self.assertNotIn('/docker-entrypoint-initdb.d', json.dumps(plan))
             self.assertEqual(plan['services']['query']['volumes'][1], str(output / 'reader.key') + ':/private/reader.key:ro')
             self.assertTrue(all('@sha256:' in item['image'] for item in plan['services'].values()))
             with self.assertRaises(FileExistsError):

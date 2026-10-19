@@ -8,6 +8,13 @@
 Подготовленный доменный отчёт Platform MCP описан в
 [инструкции диагностики](production-diagnostics.md); его наличие не подтверждает rollout всего контура.
 
+Linux и Umami runtime используют общий внешний supervisor, cleanup и storage policy.
+На Linux перед первым приобретением фиксируются local Unix socket/inode, context, daemon ID
+и DockerRootDir; перед mutation и recovery эта identity проверяется заново. Смена daemon
+останавливает автоматическое действие и требует ручной проверки владельца. Umami сохраняет
+собственные services/project prefix, private configuration и whitelist доказательств; её
+процедура описана в [отдельном runbook](observability-umami-pilot.md).
+
 ## Подготовка без установки
 
 Из корня репозитория:
