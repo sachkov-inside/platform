@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "umami_version": "3.4.0",
+  "upstream_commit": "ec0ff50388c264ed8ce46f00967e92f7e71476ae",
+  "checked_at": "2026-10-19",
+  "images": {
+    "umami": "ghcr.io/umami-software/umami:3.4.0@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367",
+    "postgres": "postgres:16.13-alpine@sha256:4e6e670bb069649261c9c18031f0aded7bb249a5b6664ddec29c013a89310d50",
+    "python": "python:3.13.12-alpine3.23@sha256:bb1f2fdb1065c85468775c9d680dcd344f6442a2d1181ef7916b60a623f11d40"
+  },
+  "sources": [
+    {
+      "path": "src/app/api/send/route.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/send/route.ts",
+      "sha256": "63de352bb5fe987544de29bc9c882397594ba370dc14d3f18539390132de4436"
+    },
+    {
+      "path": "src/lib/api-key.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/lib/api-key.ts",
+      "sha256": "2f95a35371262fc72c10e020bbce580994f05ead79b4e457aef0c8262c3ff1eb"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/lib/auth.ts",
+      "sha256": "2f8f466426ed45215d73b9198ad3bed325bf54e839ad7da7f825d8a712857bac"
+    },
+    {
+      "path": "src/permissions/website.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/permissions/website.ts",
+      "sha256": "34effa98ed8050bdbd33e2310b7b63ccc4c0a9d452440dd06baa281d9fd67fd8"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/reset/route.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/websites/[websiteId]/reset/route.ts",
+      "sha256": "ec2c046f0a2b0a16eb48360c55933fc1483beacfb1cfbb776ee803473fd59273"
+    },
+    {
+      "path": "src/queries/prisma/website.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/queries/prisma/website.ts",
+      "sha256": "4e65a171bd995b84ba599ccace62723d4012d2e61da8583af35458127e4a80db"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/prisma/schema.prisma",
+      "sha256": "9b27b84576c2f9fea31fd68d5c0ad23a6ea9384e946f18934a78761c9eaeedd6"
+    },
+    {
+      "path": "packages/mcp/README.md",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/packages/mcp/README.md",
+      "sha256": "e0da55fd4c331cce841ac2874437d03fca69d47be188919856e6dc856160774c"
+    },
+    {
+      "path": "packages/mcp/package.json",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/packages/mcp/package.json",
+      "sha256": "fb353c65b06eaaf1862570936b9f4e61fbc768ac21046c1300d82e0cef6752a4"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/stats/route.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/websites/[websiteId]/stats/route.ts",
+      "sha256": "09aaa9ea6bd9c8485abf0d274f92485b9439a3d2f652e458c2e3dffa83918c77"
+    },
+    {
+      "path": "src/tracker/index.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/tracker/index.ts",
+      "sha256": "0684f4c6896f53695fe6c0ae1122f70f0e12e6e8a3d1ea21ad2556653525d6a7"
+    },
+    {
+      "path": "src/lib/detect.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/lib/detect.ts",
+      "sha256": "28799f1bba9a5357951a77a88aa4b5e53aa10591a9ac6d0110af3f3f1c1fdaa2"
+    },
+    {
+      "path": "src/app/api/config/route.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/config/route.ts",
+      "sha256": "d477fd4e58a02d7bad178790bbb0406f6748e2bb050f1793b3b9d388ad4a5a14"
+    },
+    {
+      "path": "src/app/api/scripts/telemetry/route.ts",
+      "url": "https://github.com/umami-software/umami/blob/ec0ff50388c264ed8ce46f00967e92f7e71476ae/src/app/api/scripts/telemetry/route.ts",
+      "sha256": "b6bad64f42b0101e10d77af22704c3f35e30b358297fba798e6eb9ed1827f2f6"
+    }
+  ]
+}

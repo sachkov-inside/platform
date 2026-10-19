@@ -77,7 +77,14 @@ bash scripts/heavy-check.sh python3 scripts/observability-pilot/pilot.py run
 ```
 
 Запуск не использует production env, volumes, порты или Compose project. Проект получает имя
-`inside-observability-pilot-<random>`; сеть internal. Занятые порты приводят к отказу.
+`inside-observability-pilot-<random>`. Сеть `pilot` остаётся internal: metrics, logs, traces и vmauth
+подключены только к ней, без опубликованных портов. Только gateway, Alloy и Grafana, чьи порты
+опубликованы на `127.0.0.1`, дополнительно подключены к собственной bridge-сети `ingress`.
+В изолированной проверке закреплённого Caddy контейнер только в internal-сети работал, но
+Docker port mapping отсутствовал и запрос к host loopback получал отказ соединения. Добавление
+отдельной ingress bridge-сети восстановило mapping и HTTP-ответ. `ingress` разрешает этим трём процессам также
+исходящие соединения; остальные процессы остаются в изолированной сети. Обе сети принадлежат
+одноразовому Compose project и удаляются его cleanup. Занятые порты приводят к отказу.
 Другой `inside-platform` сохраняется: его работа записывается в evidence как посторонняя нагрузка.
 Такая среда не доказывает ресурсный запас production.
 
