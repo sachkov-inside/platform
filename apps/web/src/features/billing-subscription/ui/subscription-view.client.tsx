@@ -72,7 +72,7 @@ export function SubscriptionSectionView({
       ) : subscription === null ? (
         <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
           <h2 className="text-xl font-semibold">
-            Автопродление Inside не подключено
+            Автопродление Sachkov Dev не подключено
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             Ранее выданные права остаются в силе на своих условиях: подписка их

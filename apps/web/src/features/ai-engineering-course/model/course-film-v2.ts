@@ -582,7 +582,7 @@ function sceneRelease({ g, t, f, c }: Ctx) {
   g.translate(-CX, -(APP.y + APP.h / 2));
   roundRect(g, APP.x, APP.y, APP.w, APP.h, 30);
   fill(g, c.paper);
-  text(g, "Inside", CX, APP.y + 82, 40, 800, c.ink, f.sans, {
+  text(g, "Sachkov Dev", CX, APP.y + 82, 40, 800, c.ink, f.sans, {
     align: "center",
   });
   for (const [i, share] of [0.78, 0.6].entries()) {

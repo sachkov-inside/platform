@@ -16,6 +16,7 @@ import { ContentCoverImage } from "./content-cover-image.client";
 import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
+import { MaterialShareButton } from "./material-share-button.client";
 import {
   SeriesContinuationAction,
   SeriesRowArticle,
@@ -140,7 +141,7 @@ export function MaterialCard({
           S
         </span>
         <div className="min-w-0 text-[0.8125rem] sm:text-sm">
-          <strong>Sachkov Inside</strong>
+          <strong>Sachkov Dev</strong>
           <p className="text-[0.6875rem] text-muted-foreground sm:text-xs">
             {material.format}
             {material.publishedAt === undefined ? null : (
@@ -253,6 +254,9 @@ export function MaterialCard({
         {readingStatus === undefined ? null : (
           <div className="relative z-10">{readingStatus}</div>
         )}
+        <div className="relative z-10">
+          <MaterialShareButton slug={material.slug} title={material.title} />
+        </div>
       </div>
     </article>
   );
@@ -346,6 +350,7 @@ function MaterialRow({
             {readingStatus}
           </span>
         ) : null}
+        <MaterialShareButton slug={material.slug} title={material.title} />
         {showAccessDetails ? (
           <span
             className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground"
@@ -417,7 +422,7 @@ function SeriesMaterialRow({
     >
       {/* Строка в одну линию: номер, тип словом, название, статус. Открытость показывает замок у
           закрытых уроков, метки «Бесплатно» нет (решение владельца 09.10.2026). */}
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         {ordinal === undefined ? null : (
           <span
             aria-hidden="true"
@@ -450,6 +455,11 @@ function SeriesMaterialRow({
             </IntentPrefetchLink>
           </Heading>
         </div>
+        <MaterialShareButton
+          compact
+          slug={material.slug}
+          title={material.title}
+        />
         <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
           {duration === undefined ? null : (
             <span className="tabular-nums max-sm:hidden" data-series-duration>

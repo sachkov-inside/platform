@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { materialLinkPreview } from "@/_pages/material-reader";
 import {
   loadMaterialPreview,
   MaterialReaderPage,
+  MaterialStructuredData,
 } from "@/_pages/material-reader.server";
 import {
   hiddenPageMetadata,
@@ -52,5 +54,17 @@ export default function MaterialRoute({
   params,
   searchParams,
 }: MaterialPageProps) {
-  return <MaterialReaderPage params={params} searchParams={searchParams} />;
+  return (
+    <>
+      <Suspense fallback={null}>
+        <ArticleData params={params} />
+      </Suspense>
+      <MaterialReaderPage params={params} searchParams={searchParams} />
+    </>
+  );
+}
+
+async function ArticleData({ params }: Pick<MaterialPageProps, "params">) {
+  const { slug } = await params;
+  return <MaterialStructuredData slug={slug} />;
 }

@@ -60,7 +60,7 @@ describe("Карточка публичной ссылки", () => {
       description: "Обещание материала одной строкой.",
       locale: "ru_RU",
       publishedTime: "2026-08-25T05:00:00.000Z",
-      siteName: "Sachkov Inside",
+      siteName: "Sachkov Dev",
       title: "Как устроен Inside",
       type: "article",
       url: "/materials/kak-ustroen-inside",
@@ -91,12 +91,12 @@ describe("Карточка публичной ссылки", () => {
     expect(metadata.title).toBe("Главная");
     expect(metadata.alternates?.canonical).toBe("/");
     expect(metadata.openGraph).toMatchObject({
-      title: "Sachkov Inside",
+      title: "Sachkov Dev",
       type: "website",
       url: "/",
     });
     expect(metadata.openGraph?.images).toEqual([
-      { alt: "Sachkov Inside", height: 630, url: "/social-card", width: 1200 },
+      { alt: "Sachkov Dev", height: 630, url: "/social-card", width: 1200 },
     ]);
   });
 

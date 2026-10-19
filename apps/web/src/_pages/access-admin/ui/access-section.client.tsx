@@ -56,8 +56,8 @@ export function AccessSection({
             Доступ
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
-            Кто и как получает доступ к Inside: тарифы, личные приглашения через
-            бота, люди с их основаниями и сводка.
+            Кто и как получает доступ к Sachkov Dev: тарифы, личные приглашения
+            через бота, люди с их основаниями и сводка.
           </p>
         </header>
         <div

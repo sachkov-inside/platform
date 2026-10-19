@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily retirement of old Inside application images
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+RandomizedDelaySec=30min
+Persistent=true
+Unit=inside-image-cleanup.service
+
+[Install]
+WantedBy=timers.target
+

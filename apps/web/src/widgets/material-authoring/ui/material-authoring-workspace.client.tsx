@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 
 import { MaterialDocumentEditor } from "./material-document-editor.client";
 import {
@@ -9,6 +9,7 @@ import {
   MaterialAuthoringNotice,
 } from "./material-authoring-chrome.client";
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
+import { MaterialLinkPreview } from "./material-link-preview.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { ProductRemovalConfirmationDialog } from "@/shared/ui/product-removal-confirmation-dialog.client";
@@ -31,6 +32,7 @@ function MaterialAuthoringWorkspaceView({
   actions,
   presentation,
 }: MaterialAuthoringWorkspaceProps) {
+  const [cover, setCover] = useState(presentation.draft.cover ?? null);
   if (presentation.authorization.kind === "unauthorized") {
     return (
       <MaterialAuthoringUnauthorizedState
@@ -124,6 +126,13 @@ function MaterialAuthoringWorkspaceView({
         }}
       >
         <MemoizedMetadataPanel actions={actions} presentation={presentation} />
+        <MaterialLinkPreview
+          title={presentation.draft.title}
+          description={presentation.draft.summary}
+          cover={cover}
+          published={presentation.draft.status === "published"}
+          getPublicUrl={actions.onGetPublicUrl}
+        />
         <section aria-labelledby="document-heading" className="min-w-0 py-8">
           <h2 className="text-sm font-semibold" id="document-heading">
             Содержимое материала
@@ -135,7 +144,8 @@ function MaterialAuthoringWorkspaceView({
                   presentation.blocking.kind === "not_found" ||
                   presentation.draft.readOnly
                 }
-                initialCover={presentation.draft.cover ?? null}
+                initialCover={cover}
+                onChange={setCover}
                 ownerId={presentation.draft.materialId}
                 ownerLabel={presentation.draft.title}
                 ownerKind="material"

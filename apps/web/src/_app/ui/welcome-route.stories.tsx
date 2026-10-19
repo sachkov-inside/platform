@@ -102,7 +102,7 @@ export const FirstSignIn: Story = {
       canvas.getByRole("link", { name: "условия использования" }),
     ).toHaveAttribute("href", termsHref);
     await expect(
-      canvas.getByText(/пользоваться Inside можно с 14 лет/u),
+      canvas.getByText(/пользоваться Sachkov Dev можно с 14 лет/u),
     ).toBeInTheDocument();
     await userEvent.click(
       canvas.getByRole("button", { name: "Принять условия и продолжить" }),

@@ -11,6 +11,7 @@ import {
   type MaterialBodyRendering,
   materialTaxonomyLabel,
   MaterialBodyView,
+  MaterialShareButton,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -309,7 +310,9 @@ export function MaterialReaderHeader({
         supplementary={supplementary}
         title={material.title}
         actions={actions}
-        metadata={null}
+        metadata={
+          <MaterialShareButton slug={material.slug} title={material.title} />
+        }
       />
     );
   return (
@@ -327,6 +330,7 @@ export function MaterialReaderHeader({
         </IntentPrefetchLink>
         <span aria-hidden="true">·</span>
         <time dateTime={material.publishedAt}>{publicationDate}</time>
+        <MaterialShareButton slug={material.slug} title={material.title} />
       </div>
       <h1 className="mt-3 break-words text-balance text-[1.375rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 sm:text-2xl md:text-[1.75rem]">
         {material.title}
