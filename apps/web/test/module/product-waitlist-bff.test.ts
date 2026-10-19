@@ -3,7 +3,7 @@ import {
   beginWaitlistSignIn,
   finishWaitlistSignIn,
 } from "@/features/product-waitlist.sign-in.server";
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 const fakes = vi.hoisted(() => ({
   token: vi.fn(),
   optional: vi.fn(),
@@ -75,6 +75,8 @@ function request(source?: string, origin = "http://127.0.0.1:3000") {
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
   fakes.store.clear();
   fakes.optional.mockResolvedValue("trusted-token");
   fakes.token.mockResolvedValue("trusted-token");
@@ -88,6 +90,9 @@ beforeEach(() => {
   fakes.join.mockResolvedValue(
     response({ intakeId, name: "Следующий набор", active: true }),
   );
+});
+afterEach(() => {
+  vi.useRealTimers();
 });
 test("ordinary sign-in and a fabricated return address never create a membership", async () => {
   expect(await (await handleWaitlistJoin(request())).json()).toEqual({
