@@ -3,5 +3,6 @@ export {
   getMaterialReader,
   loadMaterialReader,
   MaterialReaderPage,
+  MaterialStructuredData,
   loadMaterialPreview,
 } from "./material-reader/index.server";

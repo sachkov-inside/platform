@@ -3,6 +3,7 @@ export {
   CurrentMaterialAuthoringPage,
   handleCreateMaterialRequest,
   handleSaveMaterialRequest,
+  handleMaterialPublicLink,
   MaterialAuthoringPage,
   MaterialCurrentPreviewPage,
 } from "./material-authoring/index.server";

@@ -31,6 +31,7 @@ import {
 import { withMaterialNodeIds } from "@/widgets/material-authoring/model";
 import { createMaterialDraft } from "../api/create-material-draft.browser";
 import { saveMaterial } from "../api/save-material.browser";
+import { getMaterialPublicUrl } from "../api/get-material-public-link.browser";
 import type { CreateMaterialDraftInput } from "../model/create-material-draft";
 import type { SaveMaterialInput } from "../model/save-material";
 import { hasText } from "@/shared/lib/text";
@@ -274,6 +275,12 @@ export function MaterialAuthoringPageClient({
   const actions = useMemo(
     () =>
       ({
+        onGetPublicUrl: () => {
+          const materialId = draftRef.current.materialId;
+          return materialId === null
+            ? Promise.resolve(null)
+            : getMaterialPublicUrl(materialId);
+        },
         onBack: () => {
           void flushPendingEdits().then((ok) => {
             if (ok) router.push(returnHref);

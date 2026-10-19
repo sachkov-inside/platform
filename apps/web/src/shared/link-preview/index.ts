@@ -14,3 +14,4 @@ export {
   SOCIAL_CARD_SIZE,
   type SocialCardContent,
 } from "./model/social-card-content";
+export { SocialCardArtwork } from "./ui/social-card-artwork";
