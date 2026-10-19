@@ -1,3 +1,11 @@
+import {
+  DIAGNOSTIC_SOURCE_ROW_LIMIT,
+  diagnosticSnapshotOptions,
+  diagnosticSourceBudgetFailure,
+  setDiagnosticStatementBudget,
+  type DiagnosticSourceBudgetFailure,
+} from "../../../../infrastructure/diagnostic-read-budget.js";
+import type { BillingPrisma } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -41,28 +49,86 @@ export type SurveyRespondentSalesResult =
 export class BillingSurveyRespondentSales {
   constructor(private readonly prisma: BillingPrismaClient) {}
 
-  async read(query: {
+  read(query: {
     readonly productId: string | null;
     readonly from: Date;
     readonly to: Date;
   }): Promise<SurveyRespondentSalesResult> {
+    return readBillingSurveyRespondentSales(this.prisma, query);
+  }
+
+  async readForDiagnostics(query: {
+    readonly productId: string | null;
+    readonly from: Date;
+    readonly to: Date;
+  }): Promise<SurveyRespondentSalesResult | DiagnosticSourceBudgetFailure> {
     const parsed = querySchema.safeParse(query);
     if (!parsed.success || parsed.data.from >= parsed.data.to)
       return { ok: false, error: { code: "invalid_request" } };
-    const { productId, from, to } = parsed.data;
     try {
-      const [uploaded, issued] = await Promise.all([
-        this.prisma.billingSurveyRespondent.count(),
-        this.prisma.billingSurveyRespondent.count({
-          where: { issuedAt: { not: null } },
-        }),
-      ]);
-      if (uploaded === 0) return { ok: true, value: null };
-      if (productId === null)
-        return { ok: true, value: { uploaded, issued, paid: null } };
-      const namesProduct = Prisma.sql`jsonb_build_array(${productId}::text)`;
-      const rows = countRowsSchema.parse(
-        await this.prisma.$queryRaw(Prisma.sql`
+      return await this.prisma.$transaction(async (transaction) => {
+        await setDiagnosticStatementBudget(transaction);
+        const sources = await Promise.all([
+          transaction.billingSurveyRespondent.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { username: true },
+          }),
+          transaction.billingPromoReservation.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { purchaseRef: true },
+          }),
+          transaction.billingPurchase.findMany({
+            take: DIAGNOSTIC_SOURCE_ROW_LIMIT + 1,
+            select: { id: true },
+          }),
+        ]);
+        if (sources.some((rows) => rows.length > DIAGNOSTIC_SOURCE_ROW_LIMIT))
+          return diagnosticSourceBudgetFailure;
+        return readBillingSurveyRespondentSales(
+          transaction,
+          query,
+          "readForDiagnostics",
+        );
+      }, diagnosticSnapshotOptions);
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "readForDiagnostics" },
+        error,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
+      );
+    }
+  }
+}
+
+async function readBillingSurveyRespondentSales(
+  prisma: BillingPrisma,
+  query: {
+    readonly productId: string | null;
+    readonly from: Date;
+    readonly to: Date;
+  },
+  operation = "readSurveyRespondentSales",
+): Promise<SurveyRespondentSalesResult> {
+  const parsed = querySchema.safeParse(query);
+  if (!parsed.success || parsed.data.from >= parsed.data.to)
+    return { ok: false, error: { code: "invalid_request" } };
+  const { productId, from, to } = parsed.data;
+  try {
+    const [uploaded, issued] = await Promise.all([
+      prisma.billingSurveyRespondent.count(),
+      prisma.billingSurveyRespondent.count({
+        where: { issuedAt: { not: null } },
+      }),
+    ]);
+    if (uploaded === 0) return { ok: true, value: null };
+    if (productId === null)
+      return { ok: true, value: { uploaded, issued, paid: null } };
+    const namesProduct = Prisma.sql`jsonb_build_array(${productId}::text)`;
+    const rows = countRowsSchema.parse(
+      await prisma.$queryRaw(Prisma.sql`
           select count(distinct respondent.username) as paid
           from billing.survey_respondents as respondent
           join billing.promo_reservations as reservation
@@ -75,17 +141,15 @@ export class BillingSurveyRespondentSales {
             and purchase.confirmed_at >= ${from}
             and purchase.confirmed_at < ${to}
         `),
-      );
-      return {
-        ok: true,
-        value: { uploaded, issued, paid: Number(rows[0]?.paid ?? 0n) },
-      };
-    } catch (error) {
-      return dependencyFailure(
-        { module: "billing", operation: "readSurveyRespondentSales" },
-        error,
-        { ok: false, error: { code: "dependency_unavailable" } } as const,
-      );
-    }
+    );
+    return {
+      ok: true,
+      value: { uploaded, issued, paid: Number(rows[0]?.paid ?? 0n) },
+    };
+  } catch (error) {
+    return dependencyFailure({ module: "billing", operation }, error, {
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    } as const);
   }
 }
