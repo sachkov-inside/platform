@@ -66,10 +66,11 @@ Caddyfile. Поэтому только `gateway` получает `NET_BIND_SERV
 
 ## Изолированный запуск
 
-Нужны Linux Engine с локально доступным `DockerRootDir`, Docker Compose, Git, Python 3.9+
-и сеть только для получения pinned images/artifacts. Checkout должен быть чистым и
-закоммиченным. Mac/OrbStack сейчас не поддержан runner: путь к его хранилищу не установлен,
-и скрипт отказывает до получения images. Поддержка Mac как места запуска стека остаётся открытой.
+Нужны Linux Engine с локально доступным `DockerRootDir` либо Mac arm64 с уже работающим
+OrbStack, Docker Compose, Git, Python 3.9+ и сеть для получения pinned images/artifacts.
+Checkout должен быть чистым и закоммиченным. Поддержка OrbStack подготовлена как кандидат;
+её фактический запуск и native Mac MCP ещё не проверены. Остальные Darwin/context combinations
+отклоняются до получения images.
 
 ```bash
 bash scripts/heavy-check.sh python3 scripts/observability-pilot/pilot.py run
@@ -117,10 +118,79 @@ auth/method/mutation/encoded traversal, перезапускает Alloy, дож
 Пять spans HTTP → publish → attempt → retry → dependency **сгенерированы fixture**;
 это не доказательство передачи контекста SDK/настоящей очередью/worker.
 
-Три native Victoria MCP скачиваются с проверкой SHA256 и запускаются по stdio на Linux:
-initialize → tools/list → query известного fixture. Tools discovery и CPU seconds дочернего
-процесса сохраняются; stderr не сохраняется. Выполнение на Mac и его отдельный расход CPU
-остаются обязательной последующей проверкой. Umami MCP ещё не подготовлен.
+Три native Victoria MCP скачиваются с проверкой SHA256 и запускаются по stdio на платформе runner
+(Linux либо Darwin arm64 для OrbStack):
+initialize → tools/list → query известного fixture. Tools discovery сохраняется; stderr не сохраняется. На Linux сохраняются CPU seconds
+дочернего процесса. На Mac эта величина явно `null/unavailable`: параллельные verification exec
+загрязняют общий `RUSAGE_CHILDREN`. Отдельный per-MCP CPU замер остаётся обязательным;
+общую сумму дочерних процессов нельзя выдавать за расход одного MCP. Umami MCP ещё не подготовлен.
+
+## Admission для Mac/OrbStack
+
+Точка входа та же: только guarded `pilot.py run`, не `worker`. Никаких Linux machines
+создавать не нужно. Другие контейнеры OrbStack остаются посторонней нагрузкой.
+[OrbStack FAQ](https://docs.orbstack.dev/faq) объясняет: `~/OrbStack` — представление данных,
+а не backing filesystem. Runner требует context `orbstack` и локальный socket текущего
+пользователя, идентифицирует единственный открытый OrbStack Helper файл `data.img.raw` через
+`lsof` metadata и сохраняет canonical path/device/inode. Socket, daemon ID и DockerRootDir
+также закрепляются. Runtime Docker commands используют явно закреплённый socket; смена
+контекста, endpoint, daemon или backing identity даёт отказ. Docker endpoint overrides не допускаются.
+
+До приобретения probe/image проверяется минимум 16GiB на host filesystem backing image,
+checkout и отчётов; разные filesystems измеряются отдельно. Внешний public supervisor
+запускает независимый host monitor каждые 250ms **до bootstrap**. Сохраняются пределы
+10GiB floor, общий 4GiB growth cap и 2GiB cleanup headroom; stop margin — 256MiB.
+Проверяются также реальные allocated blocks sparse image, а не apparent size.
+Daemon/socket/backing identity проверяется отдельно, чтобы metadata commands не задерживали
+быстрые host measurements. Любая потеря или смена identity прерывает собственный worker.
+
+Внутренний VM filesystem нельзя выдать за `/var/lib/docker` на host. До его измерения
+разрешён только ограниченный bootstrap preflight, **не admission всего пилота**:
+[probe.lock.json](../../infra/observability/pilot/probe.lock.json) закрепляет publisher
+[Docker Official Image BusyBox](https://github.com/docker-library/busybox), `1.37.0-musl`,
+отдельный Linux arm64 OCI manifest, config и единственный gzip layer. Проверенные 19.10.2026
+размеры: 899,665B compressed / 1,853,440B unpacked. Manifest/config/layer и распакованный layer
+проверяются по точным размерам/digests и config diff ID в памяти до `docker pull`.
+Пределы входов — 2MiB compressed / 4MiB unpacked. Bootstrap получает отдельный sampled host
+рост не более 32MiB **внутри прежнего 4GiB cap**, включая metadata; это кандидат бюджета,
+а не измеренный расход Docker и не hard quota. Нет предположения о cached image.
+Bootstrap acquisition имеет timeout 60s; public worker deadline остаётся 10 минут.
+Если metadata/budget/identity не проверены, полного workload не будет.
+
+До pull регистрируется тот же случайный Compose project и внешний supervisor. Probe service
+`storage-probe` входит в этот собственный project. Он non-root, read-only, без сети,
+capabilities, Docker socket и privileged mode, с 16MiB memory / 0.05 CPU / 8 pids. Единственный
+read-only bind — подтверждённый daemon DockerRootDir; missing path не создаётся. Фиксированная команда `stat -f` выполняется отдельным `compose exec -T` только в собственном
+probe с паузой 250ms после завершённой попытки измерения. Это не гарантированный период опроса 250ms.
+Каждый запрос несёт новый случайный challenge, который должен вернуться
+в единственном ответе с filesystem ID/type, fundamental block size и counters. Старые или
+буферизованные logs не читаются. На ответ от нового процесса отводится максимум 1s,
+проверяемая также host monotonic clock; отрицательная/слишком большая длительность либо
+несовпавший challenge отвергаются. Сравнение wall clocks Mac и VM не требуется. Первый такой
+свежий VM sample должен подтвердить те же 16GiB перед установкой plugin или стартом остальных
+services. Identity, floor и growth VM далее контролируются отдельно от host. Потеря ответа,
+malformed/oversized output, отказ probe или смена identity приводят к cleanup. Чужой `exec`
+не используется. Время/число verification requests учитываются отдельно; их CPU пока явно
+unavailable и не выдаётся за CPU native MCP или resource acceptance.
+
+Каждый foreground `exec` остаётся в группе worker. Public supervisor останавливает всю эту
+группу перед `down --volumes --remove-orphans`; diagnostics, down и residue checks независимы
+и охватывают probe вместе с core. Сигналы обоих host monitors только фиксируют failure в
+supervisor: bounded wait loop прекращает acquisition, а mandatory cleanup/outcome не
+прерываются этими сигналами. Ошибка monitor или cleanup сохраняет ненулевой exit status.
+Перед каждым cleanup step и каждой Docker mutation сверяются socket/backing/daemon identity.
+При несовпадении мутации запрещены: replacement daemon/volumes не трогаются, owner record и
+failed outcome сохраняются для ручного восстановления исходного окружения. Тесты с настоящими локальными процессами и Docker doubles
+проверяют success, failure, timeout, SIGTERM и SIGKILL, fresh challenge requests, завершение
+зависшего процесса ответа и сохранность foreign resource. Отдельные регрессии проверяют
+monitor signals внутри down и replacement identity между diagnostics и down. Это не Docker/OrbStack runtime evidence. Полная потеря supervisor/host
+сохраняет прежнее ограничение ручного exact-owner recovery. Recovery также сверяет OrbStack
+identity и использует закреплённый socket; при несовпадении отказывает.
+
+`storage-host.json` и `storage-vm.json` содержат только начальные/последние числовые измерения
+и filesystem identity, без backing path, socket, env, argv или raw errors. Только они дополнены
+в curated upload allowlist. Shared image cache не удаляется; размер acquisition учитывается
+в бюджете. Совместное выполнение с foreign stand не доказывает capacity Timeweb или 25% запаса.
 
 ## Проверка на GitHub-hosted Linux
 
