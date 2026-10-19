@@ -96,6 +96,8 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
         "0106_learning_activity_provenance",
         "0107_bookmark_activity_provenance",
         "0108_submission_activity_period",
+        "0109_materials_notification_trace_context",
+        "0110_notifications_notification_trace_context",
       ],
     });
     expect(await existing.summary("owner", 30)).toMatchObject({

@@ -67,6 +67,8 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0106_learning_activity_provenance",
         "0107_bookmark_activity_provenance",
         "0108_submission_activity_period",
+        "0109_materials_notification_trace_context",
+        "0110_notifications_notification_trace_context",
       ],
     });
     expect(

@@ -1,3 +1,5 @@
+import { startNotificationBroker } from "./setup/broker.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import { once } from "node:events";
 import { access } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -17,6 +19,7 @@ import {
 
 const WORKER_FACT_BUDGET_MS = 20_000;
 const cases = [
+  { worker: "notifications-worker", queues: [] },
   { worker: "profile-avatars-worker", queues: ["profile-avatars.cleanup"] },
   { worker: "video-deletions-worker", queues: ["videos.deletions"] },
   {
@@ -37,7 +40,9 @@ const workerMessage = z.object({
 const log = z
   .object({
     event: z.string(),
-    release: z.object({ release: z.string() }).loose().optional(),
+    release: z
+      .union([z.string(), z.object({ release: z.string() }).loose()])
+      .optional(),
   })
   .loose();
 
@@ -70,6 +75,8 @@ for (const { worker, queues } of cases) {
         migrate: false,
       });
       let child: QueueTelemetryProcess | undefined;
+      let broker:
+        Awaited<ReturnType<typeof startNotificationBroker>> | undefined;
       let workerPid: number | undefined;
       let signalled = false;
       const stopWorker = async () => {
@@ -99,6 +106,10 @@ for (const { worker, queues } of cases) {
       };
       try {
         await migrateRuntimeDatabase(database.url);
+        if (worker === "notifications-worker")
+          broker = await startNotificationBroker({
+            topology: localNotificationTopology("inside-test", 100),
+          });
         receiver.listen(0, "127.0.0.1");
         await once(receiver, "listening");
         const address = receiver.address();
@@ -111,6 +122,7 @@ for (const { worker, queues } of cases) {
           mode: "worker",
           worker,
           enabled: mode !== "off",
+          ...(broker === undefined ? {} : { brokerUrls: broker.urls }),
         });
         workerPid = workerMessage.parse(
           await boundedProcessFact(child.firstMessage),
@@ -182,7 +194,11 @@ for (const { worker, queues } of cases) {
           "worker_stopped",
         ]);
         expect(
-          lifecycle.every((record) => record.release?.release === "test"),
+          lifecycle.every(
+            (record) =>
+              typeof record.release === "object" &&
+              record.release.release === "test",
+          ),
         ).toBe(true);
         await expect(access(WORKER_READINESS_PATH)).rejects.toThrow();
         if (mode === "off") expect(captured).toHaveLength(0);
@@ -211,6 +227,7 @@ for (const { worker, queues } of cases) {
             new Promise<void>((resolve, reject) =>
               receiver.close((error) => (error ? reject(error) : resolve())),
             ),
+          () => broker?.stop(),
           () => database.dispose(),
         ]);
       }

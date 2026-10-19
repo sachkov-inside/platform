@@ -1187,6 +1187,7 @@ model MaterialAnnouncementRevision {
 }
 
 model MaterialNotificationOutbox {
+  traceparent String? @db.VarChar(55)
   scope String
   messageId String @map("message_id") @db.Uuid
   lane String
@@ -1221,6 +1222,7 @@ model NotificationOutbox {
 }
 
 model NotificationInbox {
+  traceparent String? @db.VarChar(55)
   nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
   scope String
   messageId String @map("message_id") @db.Uuid

@@ -42,16 +42,37 @@ export function launchQueueTelemetryProcess(
   input: {
     readonly databaseUrl: string;
     readonly endpoint: string;
+    readonly brokerUrls?: {
+      readonly billing: string;
+      readonly materials: string;
+      readonly notifications: string;
+      readonly email: string;
+    };
   } & (
     | {
         readonly mode: "produce" | "crash" | "retry" | "ownership";
+      }
+    | {
+        readonly mode: "notification";
+        readonly action:
+          | "fail-publish"
+          | "confirm-crash"
+          | "publish"
+          | "accept-crash"
+          | "accept"
+          | "audience";
+        readonly urls: {
+          readonly materials: string;
+          readonly notifications: string;
+        };
       }
     | {
         readonly mode: "worker";
         readonly worker:
           | "profile-avatars-worker"
           | "video-deletions-worker"
-          | "billing-worker";
+          | "billing-worker"
+          | "notifications-worker";
         readonly enabled: boolean;
       }
   ),
@@ -63,9 +84,11 @@ export function launchQueueTelemetryProcess(
       "tsx",
       fileURLToPath(
         new URL(
-          input.mode === "worker"
-            ? "../fixtures/technical-worker.ts"
-            : "../fixtures/pg-boss-telemetry-worker.ts",
+          input.mode === "notification"
+            ? "../fixtures/notification-technical-worker.ts"
+            : input.mode === "worker"
+              ? "../fixtures/technical-worker.ts"
+              : "../fixtures/pg-boss-telemetry-worker.ts",
           import.meta.url,
         ),
       ),
@@ -73,13 +96,29 @@ export function launchQueueTelemetryProcess(
     {
       stdio: ["ignore", "pipe", "pipe"],
       env: {
-        ...(input.mode === "worker"
+        ...(input.mode === "worker" || input.mode === "notification"
           ? {
               PATH: process.env["PATH"],
               NODE_ENV: "test",
               DATABASE_URL: input.databaseUrl,
               KINESCOPE_PROVIDER_MODE: "test",
-              ...(input.enabled ? { INSIDE_OTEL_ENABLED: "true" } : {}),
+              ...(input.mode === "worker" && input.enabled
+                ? { INSIDE_OTEL_ENABLED: "true" }
+                : {}),
+              ...(input.brokerUrls === undefined
+                ? {}
+                : {
+                    NOTIFICATIONS_BROKER_URLS: JSON.stringify(input.brokerUrls),
+                  }),
+              ...(input.mode === "notification" ||
+              input.worker === "notifications-worker"
+                ? {
+                    NOTIFICATIONS_PLATFORM_ORIGIN:
+                      "https://inside.example.test",
+                    NOTIFICATIONS_TELEGRAM_SECRET:
+                      "synthetic-notification-secret-00000",
+                  }
+                : {}),
               INSIDE_OTEL_ENDPOINT: input.endpoint,
             }
           : Object.fromEntries(
@@ -134,7 +173,7 @@ export function launchQueueTelemetryProcess(
       }
     }
   });
-  if (input.mode === "worker") {
+  if (input.mode === "worker" || input.mode === "notification") {
     let errors = "";
     child.stderr?.setEncoding("utf8");
     child.stderr?.on("data", (chunk: string) => {

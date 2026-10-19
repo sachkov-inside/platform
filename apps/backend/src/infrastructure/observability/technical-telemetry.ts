@@ -7,6 +7,7 @@ import {
   SpanKind,
   SpanStatusCode,
   type Attributes,
+  type Tracer,
 } from "@opentelemetry/api";
 import type { OpenTelemetryOptions } from "pg-boss";
 import {
@@ -14,6 +15,7 @@ import {
   pgBossTracePropagator,
   safePgBossSpan,
 } from "./pg-boss-telemetry.js";
+import { notificationTraceparent } from "./notification-trace.js";
 import { ExportResultCode } from "@opentelemetry/core";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
@@ -38,7 +40,88 @@ const technicalScopeKey = createContextKey("inside.technical.scope");
 class TechnicalScope {
   constructor(
     readonly correlation: Readonly<Record<string, string | boolean>>,
+    readonly notificationTracer: Tracer,
+    readonly recordNotification: (
+      operation: NotificationOperation,
+      failed: boolean,
+      seconds: number,
+    ) => void,
   ) {}
+}
+
+type NotificationOperation = "publish" | "receive" | "audience";
+
+/** Capture only a span inside this application's enabled, owned technical scope. */
+export function captureNotificationTraceparent(): string | undefined {
+  if (!(context.active().getValue(technicalScopeKey) instanceof TechnicalScope))
+    return undefined;
+  const carrier: Record<string, string> = {};
+  pgBossTracePropagator().inject(context.active(), carrier, {
+    set: (target: Record<string, string>, key: string, value: string) => {
+      target[key] = value;
+    },
+  });
+  return notificationTraceparent(carrier["traceparent"]);
+}
+
+/** Per durable row/attempt, from its persisted parent; never inherit a sweep's unrelated trace. */
+export async function observeNotification<Value>(
+  operation: NotificationOperation,
+  parent: unknown,
+  work: (traceparent: string | undefined) => Promise<Value>,
+): Promise<Value> {
+  const scope = context.active().getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work(undefined);
+  const valid = notificationTraceparent(parent);
+  const root = ROOT_CONTEXT.setValue(technicalScopeKey, scope);
+  const causal =
+    valid === undefined
+      ? root
+      : pgBossTracePropagator().extract(
+          root,
+          { traceparent: valid },
+          {
+            keys: () => ["traceparent"],
+            get: (carrier: Readonly<Record<string, string>>, key: string) =>
+              key === "traceparent" ? carrier["traceparent"] : undefined,
+          },
+        );
+  const span = scope.notificationTracer.startSpan(
+    `${operation} materials`,
+    {
+      kind:
+        operation === "publish"
+          ? SpanKind.PRODUCER
+          : operation === "receive"
+            ? SpanKind.CONSUMER
+            : SpanKind.INTERNAL,
+      attributes: {
+        "messaging.system": "rabbitmq",
+        "messaging.destination.name": "inside.events.materials.v1",
+        "messaging.operation.name": operation,
+      },
+    },
+    causal,
+  );
+  const start = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(causal, span), () =>
+      work(valid === undefined ? undefined : captureNotificationTraceparent()),
+    );
+  } catch (error) {
+    failed = true;
+    span.setAttribute("error.type", "notification_operation_failed");
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    throw error;
+  } finally {
+    scope.recordNotification(
+      operation,
+      failed,
+      (performance.now() - start) / 1_000,
+    );
+    span.end();
+  }
 }
 
 export function technicalLogCorrelation(): Readonly<
@@ -64,7 +147,8 @@ export type TechnicalService =
   | "platform-material-assets-worker"
   | "platform-profile-avatars-worker"
   | "platform-video-deletions-worker"
-  | "platform-billing-worker";
+  | "platform-billing-worker"
+  | "platform-notifications-worker";
 
 interface EnabledConfiguration {
   readonly enabled: true;
@@ -115,8 +199,13 @@ export function createTechnicalTelemetry(
   if (!configuration.enabled)
     return {
       pgBoss: () => ({ enabled: false }),
-      runJob: (work) => work(),
-      startHttp: () => ({ run: (work) => work(), finish: () => undefined }),
+      runJob: (work) =>
+        context.with(context.active().deleteValue(technicalScopeKey), work),
+      startHttp: () => ({
+        run: (work) =>
+          context.with(context.active().deleteValue(technicalScopeKey), work),
+        finish: () => undefined,
+      }),
       correlation: () => ({}),
       diagnostics: () => ({
         droppedSpans,
@@ -272,6 +361,26 @@ export function createTechnicalTelemetry(
       .createObservableGauge("telemetry.trace.sampling.ratio")
       .addCallback((result) => result.observe(configuration.sampleRatio));
     const tracer = traces.getTracer("inside-http");
+    const notificationTracer = traces.getTracer("inside-notification");
+    const notificationCount = meter.createCounter(
+      "inside.notification.operations",
+    );
+    const notificationDuration = meter.createHistogram(
+      "inside.notification.duration",
+      { unit: "s" },
+    );
+    const recordNotification = (
+      operation: NotificationOperation,
+      failed: boolean,
+      seconds: number,
+    ) => {
+      const attributes = {
+        operation,
+        outcome: failed ? "failed" : "completed",
+      };
+      notificationCount.add(1, attributes);
+      notificationDuration.record(seconds, attributes);
+    };
     let closing: Promise<void> | undefined;
     return {
       pgBoss: (names) => {
@@ -288,7 +397,14 @@ export function createTechnicalTelemetry(
         context.with(
           context
             .active()
-            .setValue(technicalScopeKey, new TechnicalScope(identity)),
+            .setValue(
+              technicalScopeKey,
+              new TechnicalScope(
+                identity,
+                notificationTracer,
+                recordNotification,
+              ),
+            ),
           work,
         ),
       startHttp: (input) => {
@@ -328,7 +444,11 @@ export function createTechnicalTelemetry(
               trace.setSpan(
                 ROOT_CONTEXT.setValue(
                   technicalScopeKey,
-                  new TechnicalScope(correlation),
+                  new TechnicalScope(
+                    correlation,
+                    notificationTracer,
+                    recordNotification,
+                  ),
                 ),
                 span,
               ),
