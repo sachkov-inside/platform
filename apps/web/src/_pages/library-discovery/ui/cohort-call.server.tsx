@@ -52,17 +52,22 @@ export async function PersonalCohortCall({
   ) {
     const progress = await getSeriesContinuation(slug, accessToken);
     return (
-      <CohortCallView
-        call={{
-          banner: null,
-          action: courseLearningAction(
-            slug,
-            progress.kind === "ready"
-              ? (progress.continuation?.materialSlug ?? null)
-              : null,
-          ),
-        }}
-      />
+      <>
+        <CohortCallView
+          call={{
+            banner: null,
+            action: courseLearningAction(
+              slug,
+              progress.kind === "ready"
+                ? (progress.continuation?.materialSlug ?? null)
+                : null,
+            ),
+          }}
+        />
+        {slug === "ai-engineering" ? (
+          <ProductWaitlistSlot existingOnly />
+        ) : null}
+      </>
     );
   }
   const sale = await (accessToken === undefined
@@ -74,18 +79,23 @@ export async function PersonalCohortCall({
     sale.offers.length === 0
   )
     return <ProductWaitlistSlot />;
-  if (sale.kind === "unavailable" || !sale.cohortKnown)
-    return <PendingCohortCall slug={slug} />;
   return (
-    <CohortCallView
-      call={cohortCall({
-        cohort: sale.cohort,
-        offer: sale.offers[0] ?? null,
-        productAccess: sale.access,
-        signedIn: sale.signedIn,
-        slug,
-      })}
-    />
+    <>
+      {sale.kind === "unavailable" || !sale.cohortKnown ? (
+        <PendingCohortCall slug={slug} />
+      ) : (
+        <CohortCallView
+          call={cohortCall({
+            cohort: sale.cohort,
+            offer: sale.offers[0] ?? null,
+            productAccess: sale.access,
+            signedIn: sale.signedIn,
+            slug,
+          })}
+        />
+      )}
+      {slug === "ai-engineering" ? <ProductWaitlistSlot existingOnly /> : null}
+    </>
   );
 }
 
@@ -112,14 +122,21 @@ export async function PersonalCohortStatus({
     sale.offers.length === 0
   )
     return <ProductWaitlistSlot lower />;
-  if (sale.kind === "unavailable" || !sale.cohortKnown) return null;
-  const status = cohortStatus({
-    cohort: sale.cohort,
-    offer: sale.offers[0] ?? null,
-    productAccess: sale.access,
-    slug,
-  });
-  return status === null ? null : <CohortStatusView status={status} />;
+  const status =
+    sale.kind === "unavailable" || !sale.cohortKnown
+      ? null
+      : cohortStatus({
+          cohort: sale.cohort,
+          offer: sale.offers[0] ?? null,
+          productAccess: sale.access,
+          slug,
+        });
+  return (
+    <>
+      {status === null ? null : <CohortStatusView status={status} />}
+      {slug === "ai-engineering" ? <ProductWaitlistSlot existingOnly /> : null}
+    </>
+  );
 }
 
 /**

@@ -14,6 +14,56 @@ export interface WaitlistActionProps {
   readonly notice?: string;
   readonly retryingWithdrawal?: boolean;
 }
+/** Existing intent or membership management never offers a new signup beside purchase or learning. */
+export function WaitlistMembership({
+  state,
+  notice = "",
+  onBegin,
+  onWithdraw,
+  linking,
+  retryingWithdrawal = false,
+}: Omit<WaitlistActionProps, "lower">) {
+  if (state === "idle" && notice === "") return null;
+  return (
+    <div className="waitlist-membership">
+      {state === "success" ? (
+        <WaitlistAction
+          state={state}
+          onBegin={onBegin}
+          onWithdraw={onWithdraw}
+        />
+      ) : state === "loading" || state === "saving" ? (
+        <p role="status">
+          {state === "loading" ? "Проверяю запись…" : "Сохраняю…"}
+        </p>
+      ) : state === "error" ? (
+        <>
+          <p role="alert">Не удалось обновить запись в список ожидания.</p>
+          <button
+            className="waitlist-secondary waitlist-withdraw"
+            type="button"
+            onClick={onBegin}
+          >
+            {retryingWithdrawal ? "Повторить отказ" : "Повторить"}
+          </button>
+        </>
+      ) : state === "linking" ? (
+        <>
+          <p>
+            Подключите Telegram к текущему аккаунту, чтобы завершить запись.
+          </p>
+          {linking}
+        </>
+      ) : (
+        <p role="status">
+          {state === "expired"
+            ? "Срок заявки истёк. Запись не завершена."
+            : "Вы отказались от ожидания."}
+        </p>
+      )}
+    </div>
+  );
+}
 /** The accepted #1568 presentation. Both course slots consume one confirmed membership state. */
 export function WaitlistAction({
   state,

@@ -5,6 +5,15 @@
   margin-top: 1.5rem;
   order: 5;
 }
+.waitlist-membership {
+  margin-top: 1rem;
+}
+.waitlist-membership .waitlist-action {
+  margin-top: 0;
+}
+.waitlist-membership > p {
+  margin: 0;
+}
 .ai-product-page .waitlist-invitation {
   max-width: 29rem;
   margin: 0;

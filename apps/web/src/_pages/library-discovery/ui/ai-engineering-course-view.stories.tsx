@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   WaitlistAction,
+  WaitlistMembership,
   type WaitlistState,
 } from "@/features/product-waitlist";
 import type { Meta, StoryObj } from "@storybook/react-vite";
@@ -527,5 +528,132 @@ export const WaitlistExpired: Story = {
   render: () => <WaitlistCourseFixture initialState="expired" />,
   play: async ({ canvasElement }) => {
     await expect(within(canvasElement).getAllByRole("alert")).toHaveLength(2);
+  },
+};
+
+function ExistingWaitlistCourseFixture({
+  learning = false,
+  initialState = "success",
+}: {
+  readonly learning?: boolean;
+  readonly initialState?: WaitlistState;
+}) {
+  const [state, setState] = useState(initialState);
+  const membership = (
+    <WaitlistMembership
+      state={state}
+      notice={state === "idle" ? "Вы отказались от ожидания." : ""}
+      onBegin={() => {
+        setState("success");
+      }}
+      onWithdraw={() => {
+        setState("idle");
+      }}
+      retryingWithdrawal={state === "error"}
+    />
+  );
+  const call = cohortCall({
+    cohort: preorderCohort,
+    offer: preorderOffer,
+    productAccess: learning ? "open" : "closed",
+    signedIn: true,
+    slug: "ai-engineering",
+    continuationMaterialSlug: learning ? "course-intro" : null,
+  });
+  const status = learning
+    ? null
+    : cohortStatus({
+        cohort: preorderCohort,
+        offer: preorderOffer,
+        productAccess: "closed",
+        slug: "ai-engineering",
+      });
+  return (
+    <ProductLandingView
+      {...meta.args}
+      heroCall={
+        <>
+          <CohortCallView call={call} />
+          {membership}
+        </>
+      }
+      statusCall={
+        <>
+          {status === null ? null : <CohortStatusView status={status} />}
+          {membership}
+        </>
+      }
+    />
+  );
+}
+export const WaitlistExistingWithOffer: Story = {
+  parameters: { account: "authenticated" },
+  render: () => <ExistingWaitlistCourseFixture />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      page.getAllByRole("button", { name: "Отказаться от ожидания" }),
+    ).toHaveLength(2);
+    await expect(
+      page.getByRole("link", { name: "Оформить предзаказ" }),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole("button", { name: "Вступить в список ожидания" }),
+    ).toBeNull();
+  },
+};
+export const WaitlistExistingWithOfferWithdrawal: Story = {
+  ...WaitlistExistingWithOffer,
+  play: async ({ canvasElement, userEvent }) => {
+    const page = within(canvasElement);
+    const withdraw =
+      page.getAllByRole("button", { name: "Отказаться от ожидания" })[0] ??
+      fail("Отказ");
+    await userEvent.click(withdraw);
+    await expect(
+      page.queryByRole("button", { name: "Отказаться от ожидания" }),
+    ).toBeNull();
+    await expect(
+      page.queryByRole("button", { name: "Вступить в список ожидания" }),
+    ).toBeNull();
+    await expect(
+      page.getByRole("link", { name: "Оформить предзаказ" }),
+    ).toBeVisible();
+  },
+};
+export const WaitlistExistingWithLearning: Story = {
+  parameters: { account: "authenticated" },
+  render: () => <ExistingWaitlistCourseFixture learning />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(
+      page.getByRole("link", { name: "Продолжить обучение" }),
+    ).toBeVisible();
+    await expect(
+      page.getAllByRole("button", { name: "Отказаться от ожидания" }),
+    ).toHaveLength(2);
+    await expect(
+      page.queryByRole("button", { name: "Вступить в список ожидания" }),
+    ).toBeNull();
+  },
+};
+export const WaitlistContinuingWithLearning: Story = {
+  parameters: { account: "authenticated" },
+  render: () => (
+    <ExistingWaitlistCourseFixture learning initialState="saving" />
+  ),
+};
+export const WaitlistWithdrawalRetryWithLearning: Story = {
+  parameters: { account: "authenticated" },
+  render: () => <ExistingWaitlistCourseFixture learning initialState="error" />,
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await expect(page.getAllByRole("alert")).toHaveLength(2);
+    await expect(
+      page.getAllByRole("button", { name: "Повторить отказ" }),
+    ).toHaveLength(2);
+    await expect(
+      page.getByRole("link", { name: "Продолжить обучение" }),
+    ).toBeVisible();
   },
 };

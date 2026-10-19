@@ -1,5 +1,6 @@
 export {
   WaitlistAction,
+  WaitlistMembership,
   type WaitlistState,
   type WaitlistActionProps,
 } from "./ui/waitlist-action";

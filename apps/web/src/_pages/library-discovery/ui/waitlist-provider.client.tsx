@@ -11,6 +11,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { TelegramLinkAction } from "@/features/account-access";
 import {
   WaitlistAction,
+  WaitlistMembership,
   type WaitlistState,
   useProductWaitlist,
   productWaitlistKey,
@@ -27,6 +28,7 @@ const Context = createContext<{
   finishLink: () => Promise<void>;
   notice: string;
   retryingWithdrawal: boolean;
+  retry: () => void;
 } | null>(null);
 type Retry = "join" | "withdraw" | null;
 /** Owns one mutation lifecycle for both course slots; the feature owns the Account-scoped fact. */
@@ -190,6 +192,11 @@ export function WaitlistProvider({
         finishLink,
         notice,
         retryingWithdrawal: retry === "withdraw",
+        retry: () => {
+          if (retry === "withdraw") withdraw.mutate();
+          else if (retry === "join") continuation.mutate();
+          else void query.refetch();
+        },
       }}
     >
       {children}
@@ -198,11 +205,24 @@ export function WaitlistProvider({
 }
 export function ProductWaitlistSlot({
   lower = false,
+  existingOnly = false,
 }: {
   readonly lower?: boolean;
+  readonly existingOnly?: boolean;
 }) {
   const context = useContext(Context);
   if (context === null) return null;
+  if (existingOnly)
+    return (
+      <WaitlistMembership
+        state={context.state}
+        onBegin={context.retry}
+        onWithdraw={context.withdraw}
+        notice={context.notice}
+        retryingWithdrawal={context.retryingWithdrawal}
+        linking={<TelegramLinkAction onRefresh={context.finishLink} />}
+      />
+    );
   return (
     <WaitlistAction
       lower={lower}
