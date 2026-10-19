@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import {
   InfiniteMaterialCatalog,
   homeFeedQueryOptions,
@@ -13,21 +13,6 @@ import {
   type LibraryCatalogQueryOptions,
 } from "@/features/library-catalog";
 import { Button } from "@/shared/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/ui/select";
-
-const formats = [
-  { slug: null, label: "Все" },
-  { slug: "video", label: "Видео" },
-  { slug: "guide", label: "Гайды" },
-  { slug: "note", label: "Заметки" },
-] as const;
-
 export function HomeFeed() {
   const search = useSearchParams().toString();
   // Поиска на Главной нет (решение владельца 09.10.2026): текст запроса из старой ссылки
@@ -40,6 +25,7 @@ export function HomeFeed() {
     return {
       ...query,
       q: "",
+      formatSlugs: [],
       sort: query.sort === "relevance" ? ("newest" as const) : query.sort,
     };
   }, [search]);
@@ -63,10 +49,17 @@ export function HomeFeedView({
     query: LibrarySearchQuery,
   ) => LibraryCatalogQueryOptions;
 }) {
-  const catalog = useLibraryCatalogQuery({ initialQuery, createQueryOptions });
+  const topicQuery = useMemo(
+    () => ({ ...initialQuery, formatSlugs: [] }),
+    [initialQuery],
+  );
+  const catalog = useLibraryCatalogQuery({
+    initialQuery: topicQuery,
+    createQueryOptions,
+  });
   useEffect(() => {
-    if (syncLocation) replaceHomeQuery(initialQuery);
-  }, [initialQuery, syncLocation]);
+    if (syncLocation) replaceHomeQuery(topicQuery);
+  }, [topicQuery, syncLocation]);
   const changeQuery = (next: LibrarySearchQuery) => {
     catalog.changeQuery(next);
     if (syncLocation) replaceHomeQuery(next);
@@ -78,7 +71,7 @@ export function HomeFeedView({
   return (
     <section className="home-feed" aria-label="Материалы" id="materials">
       {/* Поиска по материалам на Главной пока нет (решение владельца 09.10.2026): лента и
-          фильтры по формату и теме. Поиск остаётся в каталоге. */}
+          фильтры по темам. Поиск и форматы остаются в каталоге. */}
       <div className="home-feed-toolbar">
         <FeedFilters
           query={catalog.searchQuery}
@@ -126,10 +119,8 @@ export function HomeFeedView({
       ) : page?.kind === "empty" ||
         (page?.kind === "ready" && page.totalCount === 0) ? (
         <p className="py-10 text-muted-foreground">
-          {catalog.searchQuery.q !== "" ||
-          catalog.searchQuery.formatSlugs.length > 0 ||
-          catalog.searchQuery.topicSlug !== null
-            ? "Ничего не найдено. Измените запрос, тему или формат."
+          {catalog.searchQuery.topicSlug !== null
+            ? "По этой теме пока нет материалов."
             : "Материалы скоро появятся."}
         </p>
       ) : page?.kind === "ready" ? (
@@ -149,10 +140,7 @@ export function HomeFeedView({
   );
 }
 
-/** Above this many topics the chip row folds them into one menu of the same shape. */
-const inlineTopicLimit = 6;
-
-/** Formats and topics share one chip language; a second press on a topic clears it. */
+/** The public library is filtered by topic; pressing the selected topic clears it. */
 function FeedFilters({
   query,
   topics,
@@ -166,101 +154,34 @@ function FeedFilters({
   }[];
   readonly onQueryChange: (query: LibrarySearchQuery) => void;
 }) {
-  const format = query.formatSlugs[0] ?? null;
-  // Search text has its own clear control; the reset clears the chip filters only.
-  const filtered = format !== null || query.topicSlug !== null;
-  const allFormats = useRef<HTMLButtonElement>(null);
   const chooseTopic = (slug: string | null) => {
-    onQueryChange({ ...query, topicSlug: slug, after: null });
+    onQueryChange({ ...query, formatSlugs: [], topicSlug: slug, after: null });
   };
   return (
     <div className="home-feed-filters">
-      <div
-        className="home-feed-chips"
-        role="group"
-        aria-label="Формат материала"
-      >
-        {formats.map(({ slug, label }) => (
+      <div className="home-feed-chips" role="group" aria-label="Тема">
+        <button
+          type="button"
+          aria-pressed={query.topicSlug === null}
+          onClick={() => {
+            chooseTopic(null);
+          }}
+        >
+          Все
+        </button>
+        {topics.map((topic) => (
           <button
-            key={slug ?? "all"}
-            ref={slug === null ? allFormats : undefined}
+            key={topic.id}
             type="button"
-            aria-pressed={format === slug}
+            aria-pressed={query.topicSlug === topic.slug}
             onClick={() => {
-              onQueryChange({
-                ...query,
-                formatSlugs: slug === null ? [] : [slug],
-                after: null,
-              });
+              chooseTopic(query.topicSlug === topic.slug ? null : topic.slug);
             }}
           >
-            {label}
+            {topic.name}
           </button>
         ))}
       </div>
-      {topics.length === 0 ? null : (
-        <>
-          <span aria-hidden="true" className="home-feed-divider" />
-          {topics.length > inlineTopicLimit ? (
-            <Select
-              value={query.topicSlug ?? "all"}
-              onValueChange={(value) => {
-                chooseTopic(value === "all" ? null : value);
-              }}
-            >
-              <SelectTrigger
-                aria-label="Тема"
-                className="home-feed-topic-menu"
-                data-active={query.topicSlug !== null}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все темы</SelectItem>
-                {topics.map((topic) => (
-                  <SelectItem key={topic.id} value={topic.slug}>
-                    {topic.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <div className="home-feed-chips" role="group" aria-label="Тема">
-              {topics.map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  aria-pressed={query.topicSlug === topic.slug}
-                  onClick={() => {
-                    chooseTopic(
-                      query.topicSlug === topic.slug ? null : topic.slug,
-                    );
-                  }}
-                >
-                  {topic.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-      {filtered ? (
-        <button
-          type="button"
-          className="home-feed-reset"
-          onClick={() => {
-            onQueryChange({
-              ...query,
-              formatSlugs: [],
-              topicSlug: null,
-              after: null,
-            });
-            allFormats.current?.focus();
-          }}
-        >
-          Сбросить
-        </button>
-      ) : null}
     </div>
   );
 }
@@ -298,7 +219,7 @@ export function HomeFeedLoading() {
     <section className="home-feed" aria-busy="true" aria-label="Материалы">
       <div className="home-feed-toolbar" aria-hidden="true">
         <div className="home-feed-filters">
-          {["w-14", "w-16", "w-16", "w-20"].map((width, index) => (
+          {["w-14", "w-24"].map((width, index) => (
             <div
               key={index}
               className={`h-9 shrink-0 rounded-full sm:h-11 ${width} ${skeletonBlock}`}

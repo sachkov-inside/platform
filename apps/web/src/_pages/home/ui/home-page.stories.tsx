@@ -164,7 +164,7 @@ export const RealDataReady: Story = {
       canvas.getByRole("region", { name: "Материалы" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByRole("group", { name: "Формат материала" }),
+      canvas.getByRole("group", { name: "Тема" }),
     ).toBeInTheDocument();
     await expect(
       await canvas.findByRole("link", {
@@ -178,7 +178,7 @@ export const RealDataReady: Story = {
   },
 };
 /**
- * Поиска на Главной пока нет (решение владельца 09.10.2026): форматы и темы — один ряд чипов,
+ * Поиска на Главной пока нет (решение владельца 09.10.2026): темы — один ряд чипов,
  * повторное нажатие снимает тему.
  */
 export const FeedFilters: Story = {
@@ -197,19 +197,15 @@ export const FeedFilters: Story = {
     await expect(agents).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(agents);
     await expect(agents).toHaveAttribute("aria-pressed", "false");
-    const formats = within(
-      canvas.getByRole("group", { name: "Формат материала" }),
-    );
-    await userEvent.click(formats.getByRole("button", { name: "Видео" }));
     await userEvent.click(
       topics.getByRole("button", { name: "Разработка ПО" }),
     );
-    await userEvent.click(canvas.getByRole("button", { name: "Сбросить" }));
-    await expect(formats.getByRole("button", { name: "Все" })).toHaveAttribute(
+    await userEvent.click(topics.getByRole("button", { name: "Все" }));
+    await expect(topics.getByRole("button", { name: "Все" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(formats.getByRole("button", { name: "Все" })).toHaveFocus();
+    await expect(topics.getByRole("button", { name: "Все" })).toHaveFocus();
     await expect(
       topics.getByRole("button", { name: "Разработка ПО" }),
     ).toHaveAttribute("aria-pressed", "false");
@@ -235,10 +231,10 @@ export const FeedFiltersManyTopics: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      await canvas.findByRole("combobox", { name: "Тема" }),
+      await canvas.findByRole("group", { name: "Тема" }),
     ).toBeVisible();
     await expect(
-      canvas.queryByRole("group", { name: "Тема" }),
+      canvas.queryByRole("combobox", { name: "Тема" }),
     ).not.toBeInTheDocument();
   },
 };
@@ -462,7 +458,7 @@ function loadsInPlace({
       const boundary = measureFirstScreen(canvasElement);
 
       sequence.openShell();
-      await canvas.findByRole("group", { name: "Формат материала" });
+      await canvas.findByRole("group", { name: "Тема" });
       const feed = within(canvas.getByRole("region", { name: "Материалы" }));
       await expect(feed.getByRole("status")).toHaveTextContent(
         "Загружаем материалы…",

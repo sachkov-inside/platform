@@ -111,6 +111,7 @@ export function MaterialReaderView({
       : seriesContext?.programme?.next;
   const topActions = (
     <ReaderTopActions
+      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       returnAction={returnAction}
       nextStep={nextStep}
@@ -196,6 +197,7 @@ export function MaterialReaderView({
           )}
           <div className="mt-5" data-material-actions data-reader-footer>
             <ReaderTopActions
+              alignControls={seriesContext === null ? "end" : "center"}
               position="bottom"
               context={seriesContext?.programme == null ? seriesContext : null}
               returnAction={returnAction}
@@ -376,6 +378,7 @@ export function MaterialReaderFooter({
   return (
     <footer className="mt-5" data-reader-footer>
       <ReaderTopActions
+        alignControls="center"
         position="bottom"
         context={seriesContext}
         format={format}
@@ -475,6 +478,7 @@ export function MaterialReaderBreadcrumbs({
   readonly material: MaterialReaderMetadata;
   readonly target: MaterialReaderReturnTarget;
 }) {
+  if (target.kind === "home") return null;
   const course = material.seriesMemberships.find(
     (item) => item.series.slug === target.seriesSlug,
   )?.series;
@@ -482,7 +486,7 @@ export function MaterialReaderBreadcrumbs({
     <Breadcrumbs
       compact
       items={[
-        { label: "Главная", href: target.kind === "home" ? target.href : "/" },
+        { label: "Главная", href: "/" },
         ...(target.kind === "series" && target.seriesSlug !== undefined
           ? [
               {

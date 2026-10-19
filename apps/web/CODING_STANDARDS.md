@@ -235,11 +235,14 @@ At normal phone text size, keep this size contract. Enlarged text can reflow; ne
 | Reader element | Phone size |
 | --- | --- |
 | Upper and lower action panels | 38 px high |
-| Visible panel controls / clickable area | 36 px / at least 44 px high |
+| Visible panel controls / clickable area | 32 px / at least 44 px high |
 | Panel labels / icons | 12 px / 16 px |
 | Floating lesson pager | 146 × 46 px; 44 px arrow controls |
 | Title / prose | 22 px / 15 px |
 | Quiz heading, question and choices | 14 px |
+
+Reader panel controls are 36 px high on desktop; their icons are 16 px on both device classes.
+Standalone panels place bookmark and study actions at the right edge, with return at the left.
 
 Compact reading actions use the ghost button variant, with no visible border or filled pill.
 Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
@@ -291,7 +294,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   Allow reflow when text is enlarged. Both panels keep previous/next
   arrows at the left/right edges and the written reading action centred
   on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
-  its 36 px controls extend their clickable area to 44 px with an invisible pseudo-element.
+  its 32 px controls extend their clickable area to 44 px with an invisible pseudo-element.
   Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
   the ordinal, product heading or large next button beneath the material on phones.
 - Outside checked course context, use 22 px on phones for the Reader title and 15 px with a 1.65 line height for its

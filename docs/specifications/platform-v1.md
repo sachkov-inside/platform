@@ -434,6 +434,10 @@ step metadata. Public cards do not display separate step labels or counts; autho
 Reader outside checked programme context keeps its existing collection return controls. Available
 Materials show matching return, bookmark and study panels before the title and after the text.
 The article has no automatic contents disclosure. Both panels share saved state, pending commands and failure handling.
+Standalone panels align bookmark and study actions to the right on desktop and phones. When the
+source is Home, the header omits the redundant Home breadcrumb. A locked Material with a known
+Product membership links «Получить доступ» to that Product landing, including before an offer
+is available; purchase availability remains owned by the landing and checkout.
 Within a checked Product,
 Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
 The Material's bottom actions follow any practice workspace and precede course navigation.
@@ -673,6 +677,9 @@ Account без права получают «не найдено». `ContentAcce
 На телефоне описание скрыто, название находится над анимацией, а кнопка — внизу
 общего тёмного блока под ней. Действие участника остаётся персональным.
 Описание и преимущества остаются на лендинге. Личное действие участника сохраняется.
+Home feed filters show «Все» and the available topic names in a horizontally scrollable row.
+Formats remain in the product catalogue; legacy Home format parameters are cleared so that
+no invisible format filter restricts the feed. Selecting a topic again, or «Все», clears it.
 
 The course landing links to the dedicated programme without repeating its chapter overview.
 The programme uses actual Product chapters; fixtures never supply production copy. Published

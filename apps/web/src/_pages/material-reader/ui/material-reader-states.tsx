@@ -1,6 +1,6 @@
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
 import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
-import { materialPath } from "@/shared/routing/public-page-path";
+import { materialPath, productPath } from "@/shared/routing/public-page-path";
 import {
   ArrowLeft,
   ArrowRight,
@@ -50,6 +50,7 @@ export function MaterialReaderLoading() {
       <div className="mx-auto mb-6 max-w-[43rem]" data-reader-top-frame>
         <div aria-hidden="true">
           <ReaderTopActions
+            alignControls="end"
             context={null}
             returnAction={
               <span className="h-5 w-20 rounded-md bg-muted sm:w-36" />
@@ -87,6 +88,7 @@ export function MaterialReaderPending({
 }) {
   const topActions = (
     <ReaderTopActions
+      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       nextStep={
         seriesContext?.supplementary === true
@@ -218,7 +220,7 @@ const accessCopy = {
   },
 } as const;
 
-/** Действие есть только там, где есть что купить. */
+/** Purchase actions stay available only where an offer exists. */
 const accessAction = {
   product: "Купить продукт",
   subscription: "Получить доступ",
@@ -226,7 +228,7 @@ const accessAction = {
 
 /**
  * Закрытый материал: отказ объяснён словами и даёт ровно один следующий шаг внутри платформы —
- * оплату выбранного руководства или витрину подписки. Когда покупать нечего, обещания нет.
+ * страницу своего курса, либо оплату выбранного продукта или витрину подписки.
  */
 export function MaterialReaderAccess({
   readingAction,
@@ -241,9 +243,30 @@ export function MaterialReaderAccess({
   readonly returnTarget?: MaterialReaderReturnTarget;
   readonly seriesContext?: SeriesReaderContext | null;
 }) {
-  const copy = accessCopy[invitation?.kind ?? "none"];
+  const membership =
+    material.seriesMemberships.find(
+      ({ series }) => series.slug === returnTarget.seriesSlug,
+    ) ??
+    (material.seriesMemberships.length === 1
+      ? material.seriesMemberships[0]
+      : undefined);
+  const courseHref =
+    membership === undefined ? undefined : productPath(membership.series.slug);
+  const copy =
+    courseHref === undefined
+      ? accessCopy[invitation?.kind ?? "none"]
+      : {
+          title: "Продолжение для участников",
+          explanation: "Этот материал доступен участникам курса.",
+        };
+  const accessHref = courseHref ?? invitation?.href;
+  const actionLabel =
+    courseHref === undefined && invitation !== null
+      ? accessAction[invitation.kind]
+      : "Получить доступ";
   const topActions = (
     <ReaderTopActions
+      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       nextStep={
         seriesContext?.supplementary === true
@@ -321,18 +344,18 @@ export function MaterialReaderAccess({
                 <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
                   {copy.explanation}
                 </p>
-                {invitation === null ? null : (
+                {accessHref === undefined ? null : (
                   <div className="mt-5 flex flex-wrap justify-center gap-3">
                     <Button
                       asChild
                       className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
                       size="lg"
                     >
-                      <Link href={invitation.href}>
-                        {accessAction[invitation.kind]}
+                      <Link href={accessHref}>
+                        {actionLabel}
                         <ArrowRight
                           aria-hidden="true"
-                          className="shrink-0 text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                          className="shrink-0 transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
                           data-icon="inline-end"
                         />
                       </Link>

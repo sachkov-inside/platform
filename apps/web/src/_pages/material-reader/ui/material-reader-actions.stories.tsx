@@ -384,7 +384,7 @@ export const MobileActionPanels: Story = {
         ...actions.getAllByRole("link"),
       ]) {
         const bounds = action.getBoundingClientRect();
-        await expect(bounds.height).toBe(36);
+        await expect(bounds.height).toBe(32);
         await expect(getComputedStyle(action).fontSize).toBe("12px");
         const hitArea = getComputedStyle(action, "::after");
         await expect(parseFloat(hitArea.height)).toBeGreaterThanOrEqual(44);

@@ -93,6 +93,7 @@ test("mobile material actions and breadcrumbs fit one row", async ({
             [...element.querySelectorAll("a,button")].every((control) => {
               const box = control.getBoundingClientRect();
               return (
+                box.height <= 32 &&
                 box.left >= frame.left &&
                 box.right <= frame.right &&
                 box.top >= frame.top &&

@@ -62,6 +62,7 @@ export function ReaderTopActions({
   nextStep,
   format = "guide",
   position = "top",
+  alignControls = "center",
 }: {
   readonly context: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
@@ -72,6 +73,7 @@ export function ReaderTopActions({
     Pick<SeriesReaderContextItem, "href" | "title"> | null | undefined;
   readonly format?: string;
   readonly position?: "top" | "bottom";
+  readonly alignControls?: "center" | "end";
 }) {
   if (
     context === null &&
@@ -111,6 +113,7 @@ export function ReaderTopActions({
         }
         className={cn(
           styles["panel"],
+          alignControls === "end" && styles["standalonePanel"],
           context !== null && styles["lessonPanel"],
           "items-center rounded-xl border border-border bg-muted/40 p-0 [&_a]:text-xs [&_button]:text-xs sm:p-0.5 sm:[&_a]:text-sm sm:[&_button]:text-sm",
         )}
