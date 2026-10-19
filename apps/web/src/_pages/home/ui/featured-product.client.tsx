@@ -64,21 +64,23 @@ function AiEngineeringFeaturedProduct({
           <IntentPrefetchLink href={href}>{series.name}</IntentPrefetchLink>
         </h2>
         <p className="home-course-description">{series.hero.lead}</p>
+      </div>
+      <div className="home-course-visual">
+        <IntentPrefetchLink
+          href={href}
+          className="home-course-film"
+          aria-label={`Открыть курс ${series.name}`}
+        >
+          <CourseFilm />
+        </IntentPrefetchLink>
         <div className="home-course-call">
           {courseCall ?? (
             <IntentPrefetchLink href={href} className="home-course-open">
-              Открыть <ArrowRight aria-hidden="true" />
+              Открыть курс <ArrowRight aria-hidden="true" />
             </IntentPrefetchLink>
           )}
         </div>
       </div>
-      <IntentPrefetchLink
-        href={href}
-        className="home-course-film"
-        aria-label="Открыть курс AI Engineering"
-      >
-        <CourseFilm />
-      </IntentPrefetchLink>
     </section>
   );
 }

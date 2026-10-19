@@ -16,10 +16,14 @@ export function HomeLoading() {
             <div className="mt-2 h-4 w-11/12 rounded bg-muted/80" />
             <div className="mt-2 h-4 w-3/4 rounded bg-muted/80" />
           </div>
-          <div className="h-11 w-36 shrink-0 rounded-xl bg-muted" />
         </div>
-        <div className="home-course-film">
-          <div className="aspect-[3/2] rounded-[1.25rem] bg-muted" />
+        <div className="home-course-visual">
+          <div className="home-course-film">
+            <div className="aspect-[3/2] rounded-[1.25rem] bg-muted" />
+          </div>
+          <div className="home-course-call">
+            <div className="h-11 w-36 shrink-0 rounded-xl bg-muted" />
+          </div>
         </div>
       </div>
       <HomeFeedLoading />

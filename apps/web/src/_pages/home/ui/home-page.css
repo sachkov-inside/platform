@@ -512,11 +512,16 @@
   margin-inline: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "heading film" "call film";
+  grid-template-rows: auto auto;
   align-items: center;
-  gap: 2rem;
+  column-gap: 2rem;
+  row-gap: 1rem;
   color: var(--foreground);
 }
 .home-course-heading {
+  grid-area: heading;
+  align-self: end;
   display: grid;
   justify-items: start;
   gap: 1rem;
@@ -556,7 +561,15 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+.home-course-visual {
+  display: contents;
+}
+.home-course-call {
+  grid-area: call;
+  align-self: start;
+}
 .home-course-film {
+  grid-area: film;
   display: block;
   border-radius: 1.25rem;
 }
@@ -578,11 +591,45 @@
     display: none;
   }
   .home-course-heading {
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+  .home-course-visual {
+    display: block;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    background: var(--primary);
+  }
+  .home-course-call {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
+    justify-content: flex-end;
+    padding: 0 1rem 1rem;
+  }
+  .home-course-call .aie-hero-action,
+  .home-course-call .home-course-open {
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.875rem;
+    border-radius: 999px;
+    background: color-mix(
+      in srgb,
+      var(--primary-foreground) 16%,
+      var(--primary)
+    );
+    color: var(--primary-foreground);
+    white-space: nowrap;
+  }
+  .home-course-call .aie-hero-action:hover,
+  .home-course-call .home-course-open:hover {
+    background: color-mix(
+      in srgb,
+      var(--primary-foreground) 24%,
+      var(--primary)
+    );
+  }
+  .home-course-call .aie-hero-action svg {
+    width: 1rem;
+    height: 1rem;
   }
   .home-product-course + .home-feed {
     margin-top: 1.5rem;
