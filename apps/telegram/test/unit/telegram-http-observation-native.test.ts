@@ -1,3 +1,4 @@
+// deterministic-test-allow unit-io: actual owned native HTTP/disconnect boundary; 1000ms fetch failure budget, finally destroys its client and drains public Fastify and SDK owners.
 import Fastify from "fastify";
 import { request as nativeRequest } from "node:http";
 import { deferred } from "../support/deferred.js";
