@@ -62,6 +62,21 @@ class RedactedRestoreFailure(unittest.TestCase):
             self.assertNotIn("other output", str(failure.exception))
 
 
+class WrongKeyRefusal(unittest.TestCase):
+    def test_accepts_specific_metadata_rejection_after_wrong_key(self):
+        failed = result(code=75, stderr="backup.info backup.info.copy [FormatError]")
+        self.assertTrue(proof.metadata_key_refusal(failed))
+
+    def test_rejects_unrelated_failures_and_generic_no_backup(self):
+        for output in ("no backup set found to restore",
+                       "backup.info backup.info.copy [FormatError] Permission denied",
+                       "backup.info backup.info.copy [FileMissingError]",
+                       "backup.info backup.info.copy [FormatError] No such file"):
+            with self.subTest(output=output):
+                self.assertFalse(proof.metadata_key_refusal(result(code=75, stderr=output)))
+
+
+
 class OwnedResources(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -177,6 +192,12 @@ def verify_process_absence(test, processes):
 
 
 class RealProcessBoundary(unittest.TestCase):
+    def test_binary_metadata_reads_preserve_bytes_without_text_decoding(self):
+        binary = proof.invoke([sys.executable, "-c",
+                               "import sys; sys.stdout.buffer.write(bytes([160]))"],
+                              binary=True, timeout=5)
+        self.assertEqual(binary.stdout, bytes([160]))
+
     def test_non_utf8_refusal_output_keeps_the_command_failure(self):
         refused = proof.invoke([sys.executable, "-c",
                                 "import sys; sys.stderr.buffer.write(bytes([160])); sys.exit(7)"],

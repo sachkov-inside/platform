@@ -22,7 +22,13 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
   точке подтверждает наличие транзакций до неё и отсутствие транзакций после неё.
 - Обычную совместимость чтения копии pgBackRest 2.57.0. Legacy writer собирается отдельно
   из замороженного source `9a17509d802f8fa165b5988962f20ae18155fd73`, не из production image.
-- Отказ с неверной synthetic passphrase и отказ PITR после удаления необходимого WAL
+- Контрольное сравнение ключей на одном неизменном repository: правильный ключ читает
+  `backup.info` полностью через `repo-get`, неверный даёт CryptoError либо другие plaintext
+  bytes, затем restore обязан отказать именно на decipher/metadata validation. Внешний
+  код 75 без соответствующей цепочки ошибки не принимается. Целевой кластер должен
+  отсутствовать. Правильный ключ повторно читает тот же plaintext и восстанавливает
+  обе базы в тот же target, исключая ошибку прав доступа. Plaintext и subkeys не публикуются.
+- Отказ PITR после удаления необходимого WAL
   только в отдельной копии synthetic repository.
 - Неизменность остановленного source volume и исходного repository. Восстановления читают
   repository через read-only mount и пишут в новые собственные тома.
@@ -30,6 +36,12 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
   Команды запускаются в собственных process groups с ограниченным завершением всего дерева.
   SIGTERM и SIGKILL прерывают активную команду с дочерним процессом. Для SIGKILL внешний
   supervisor завершает её группу и отдельно восстанавливает очистку по журналу ресурсов.
+
+Потоковое расшифрование может передать байты парсеру раньше проверки padding, поэтому
+неверный ключ может дать `FormatError` вместо CryptoError. CBC также может принять padding
+при неверном ключе; один успешный `repo-get` с отличающимися bytes не закрывает отрицательный
+сценарий. Основание: [cipherBlock.c](https://github.com/pgbackrest/pgbackrest/blob/46cdca625a73403cad4774d97354a1fac1e91e51/src/common/crypto/cipherBlock.c#L183)
+и [repo-get](https://pgbackrest.org/command.html#command-repo-get).
 
 Synthetic backup запрашивает немедленный checkpoint через `--start-fast`, чтобы плановый
 checkpoint PostgreSQL не превышал ограниченный бюджет теста. Это штатная опция

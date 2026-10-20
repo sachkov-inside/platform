@@ -45,13 +45,15 @@ def stop_process_group(group, leader=None):
         pass
 
 
-def invoke(arguments, *, text=None, timeout=120, check=True):
+def invoke(arguments, *, text=None, timeout=120, check=True, binary=False):
     environment = dict(os.environ)
     if "--host" in arguments:
         for key in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
             environment.pop(key, None)
     child = subprocess.Popen(arguments, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+                             stderr=subprocess.PIPE, text=not binary,
+                             encoding=None if binary else "utf-8",
+                             errors=None if binary else "replace",
                              env=environment,
                              start_new_session=True)
     try:
@@ -154,7 +156,7 @@ class Resources:
         return name
 
     def container(self, suffix, image, data, repository, envfile, command, *, detached=False,
-                  data_readonly=False, repository_readonly=False, command_timeout=120):
+                  data_readonly=False, repository_readonly=False, command_timeout=120, binary=False):
         name = self.register("container", suffix)
         args = ["run", "--name", name, "--label", LABEL + "=" + self.owner,
                 "--network", "none", "--pull", "never", "--read-only",
@@ -170,7 +172,7 @@ class Resources:
         # tmpfs masks the image's postgres-owned directories; establish ownership in this fixture.
         script = ("install -d -o postgres -g postgres -m 700 "
                   "/var/spool/pgbackrest /var/log/pgbackrest; " + command)
-        result = self.command(*args, image, "-ec", script, check=False, timeout=command_timeout)
+        result = self.command(*args, image, "-ec", script, check=False, timeout=command_timeout, binary=binary)
         return name, result
 
     def cleanup(self):
@@ -292,8 +294,29 @@ def refusal_detail(result, *envfiles):
     return "exit " + str(result.returncode) + ": " + error[:400] + "; classes=" + ",".join(classes)
 
 
-def restore_case(resources, image, repository, envfile, suffix, target, expected_rows):
-    data = resources.volume(suffix + "-data")
+def metadata_key_refusal(result):
+    output = result.stdout + result.stderr
+    metadata = "backup.info" in output and "backup.info.copy" in output
+    unrelated = re.search(r"Permission denied|No such file|does not exist|"
+                          r"FileMissingError|FileOpenError|PathOpenError", output, re.I)
+    cause = re.search(r"\b(?:FormatError|CryptoError|ChecksumError)\b", output)
+    return bool(not unrelated and metadata and cause and result.returncode in (29, 75, 95))
+
+
+def read_backup_info(resources, image, source, repository, envfile, suffix):
+    # Read to EOF as bytes: early INI parsing can precede CipherFinal's padding check.
+    # Plaintext includes synthetic stanza subkeys and must never enter logs or receipts.
+    _, result = resources.container(
+        suffix, image, source, repository, envfile,
+        "exec gosu postgres pgbackrest --config=/dev/null --stanza=proof "
+        "repo-get backup/proof/backup.info",
+        data_readonly=True, repository_readonly=True, binary=True)
+    return result
+
+
+def restore_case(resources, image, repository, envfile, suffix, target, expected_rows, *, data=None):
+    if data is None:
+        data = resources.volume(suffix + "-data")
     _, result = resources.container(
         suffix + "-restore", image, data, repository, envfile,
         "install -d -o postgres -g postgres -m 700 " + DATA + "; "
@@ -437,20 +460,45 @@ def proof(image, receipt, directory, legacy_source=None):
         restore_case(resources, image, repository, envfile, "immediate", "--type=immediate", "backup")
         restore_case(resources, image, repository, envfile, "pitr",
                      "--type=name --target=proof_target", "backup,before")
+        correct_before = read_backup_info(resources, image, source, repository, envfile, "key-before")
+        if correct_before.returncode or not correct_before.stdout:
+            raise RuntimeError("correct-key metadata control failed")
         wrong = directory / "wrong.env"
         wrong.write_text(common + "PGBACKREST_REPO1_CIPHER_PASS=wrong-synthetic-passphrase\n")
         wrong.chmod(0o600)
+        def without_passphrase(path):
+            return [line for line in path.read_text().splitlines()
+                    if not line.startswith("PGBACKREST_REPO1_CIPHER_PASS=")]
+        if without_passphrase(envfile) != without_passphrase(wrong):
+            raise ValueError("key comparison changed more than the passphrase")
+        wrong_read = read_backup_info(resources, image, source, repository, wrong, "key-wrong")
+        if (wrong_read.returncode not in (0, 95)
+                or (wrong_read.returncode == 0 and wrong_read.stdout == correct_before.stdout)):
+            # 95 is upstream CryptoError. CBC may also accept padding with a wrong key;
+            # different plaintext alone is diagnostic, never the restore refusal verdict.
+            raise RuntimeError("wrong-key decipher probe failed its controlled contract")
         data = resources.volume("wrong-cipher-data")
         _, result = resources.container(
             "wrong-cipher", image, data, repository, wrong,
             "install -d -o postgres -g postgres -m 700 " + DATA + "; "
-            "exec gosu postgres pgbackrest --config=/dev/null --stanza=proof --type=immediate restore",
+            "exec gosu postgres pgbackrest --config=/dev/null --stanza=proof "
+            "--archive-mode=off --target-action=promote --type=immediate restore",
             repository_readonly=True)
-        if result.returncode == 0 or not re.search(
-                r"unable to decrypt|invalid passphrase|bad decrypt|cipher header invalid",
-                result.stdout + result.stderr, re.I):
-            raise RuntimeError("wrong cipher did not refuse decryption: "
+        if not metadata_key_refusal(result):
+            raise RuntimeError("wrong cipher did not refuse metadata recovery: "
                                + refusal_detail(result, wrong, envfile))
+        _, empty = resources.container(
+            "wrong-target-absent", image, data, repository, wrong,
+            "test ! -e " + DATA + "/PG_VERSION; test ! -d " + DATA + "/base",
+            data_readonly=True, repository_readonly=True)
+        if empty.returncode:
+            raise RuntimeError("wrong-key restore created a cluster")
+        correct_after = read_backup_info(resources, image, source, repository, envfile, "key-after")
+        if correct_after.returncode or correct_after.stdout != correct_before.stdout:
+            raise RuntimeError("correct-key metadata control changed after wrong-key refusal")
+        # Reuse the negative target to prove its permissions and access were not the cause.
+        restore_case(resources, image, repository, envfile, "key-control",
+                     "--type=immediate", "backup", data=data)
         missing = resources.volume("missing-wal-repository")
         # Copy only our repository, then remove exactly the selected synthetic WAL from the copy.
         name = resources.register("container", "copy-repository")
@@ -472,7 +520,9 @@ def proof(image, receipt, directory, legacy_source=None):
         verdict.update(passed=True, databases=list(DATABASES), encryptedFullRestore=True,
                        namedTargetPitr=True, wrongCipherRefused=True, missingWalRefused=True,
                        sourcePreserved=True, repositoryPreserved=True,
-                       legacyBackupRead=bool(legacy_source), rngFailureVerified=False)
+                       legacyBackupRead=bool(legacy_source), rngFailureVerified=False,
+                       wrongKeyControlledComparison=True, wrongKeyTargetAbsent=True,
+                       sourceAndRepositoryManifestSha256=before)
     finally:
         resources.cleanup()
         verdict["ownedResourcesRemoved"] = True
