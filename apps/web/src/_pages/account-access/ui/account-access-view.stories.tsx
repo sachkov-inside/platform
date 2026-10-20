@@ -228,6 +228,12 @@ export const WithLearningMobile: Story = {
 };
 
 export const CourseAndVideo: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(
+      canvas.getByRole("link", { name: /Как выбрать и настроить агента/u }),
+    );
+  },
   args: {
     continuationSlot: (
       <LearningContinuationView

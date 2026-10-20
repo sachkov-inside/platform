@@ -67,7 +67,7 @@ export function LearningContinuationView({
           {series === undefined ? null : (
             <li>
               <Link
-                className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:bg-background/70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
                 aria-label={`Продолжить продукт ${series.collection.name}`}
                 href={productProgrammeHref(series.collection.slug)}
               >
@@ -86,7 +86,7 @@ export function LearningContinuationView({
           {video === undefined ? null : (
             <li>
               <Link
-                className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                className="flex min-h-14 items-center justify-between gap-4 rounded-lg py-2 no-underline hover:bg-background/70 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
                 href={materialReaderHref(video.material.slug, "/account")}
               >
                 <span className="min-w-0">
