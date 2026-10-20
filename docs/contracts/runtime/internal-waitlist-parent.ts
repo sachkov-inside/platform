@@ -1,6 +1,4 @@
-import { parseTraceParent } from "@opentelemetry/core";
-
-/** Only authenticated, strictly decoded internal waitlist continuations may call this guard. */
+/** Pure protocol admission over Node-parsed rawHeaders. Call only after internal auth and strict body decoding. */
 export function admitInternalWaitlistParent(
   rawHeaders: readonly string[],
 ): string | undefined {
@@ -17,5 +15,10 @@ export function admitInternalWaitlistParent(
   }
   if (occurrences !== 1 || value?.length !== 55) return undefined;
   if (!/^00-[0-9a-f]{32}-[0-9a-f]{16}-(?:00|01)$/.test(value)) return undefined;
-  return parseTraceParent(value) === null ? undefined : value;
+  if (
+    value.slice(3, 35) === "0".repeat(32) ||
+    value.slice(36, 52) === "0".repeat(16)
+  )
+    return undefined;
+  return value;
 }

@@ -30,7 +30,7 @@ import {
 
 export type TelegramRuntimeTelemetry = TelegramObservability &
   TelegramHttpObservability;
-import { admitInternalWaitlistParent } from "./internal-waitlist-parent.js";
+import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
 import { rejectFailures } from "../shared/drain-report.js";
 import {
   disabledTelegramObservability,

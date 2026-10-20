@@ -1,4 +1,4 @@
-import { admitInternalWaitlistParent } from "../../observability/internal-waitlist-parent.js";
+import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
 import {
   disabledTelegramObservability,
   type TelegramObservability,

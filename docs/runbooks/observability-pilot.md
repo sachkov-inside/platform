@@ -1596,7 +1596,11 @@ actual days remain outside this success proof. No deployment is authorized for t
 
 `inside-telegram` has a separate finite collector catalog for receipt, authorization, committed
 attempt and `sendMessage`, its HTTP routes, and nine metric families. Backend span and datapoint
-instructions retain their previous predicates and order outside this partition. Telegram spans
+instructions retain their previous order outside this partition. The existing B waitlist
+`authorize` operation extends the backend enum alongside `deliver`; this is a separate explicit
+delta from accepted ROOT, not byte equivalence to that baseline. Non-Telegram services, including
+missing or unknown service names, retain the old metric catalog. Only `inside-telegram` admits
+the Telegram catalog. Telegram spans
 retain only their technical operation/outcome or finite HTTP attributes. Events, links, tracestate,
 private status messages, metric exemplars and unrelated attributes are removed. Authorization alone
 may retain a numeric HTTP status between 100 and 599. No user, chat, message or provider identifiers
@@ -1661,7 +1665,10 @@ actual managed Nest/Fastify factory. Its raw HTTP corpus distinguishes Node-norm
 OWS from whitespace remaining in parsed values, duplicate/coalesced headers, malformed parents,
 strict-body rejection and failed bearer authentication. First receipt parents, including NULL,
 remain immutable on replay; conflicts retain 409. Actual SDK JSON must continue only admitted
-receipt parents while generic HTTP spans remain local roots. OFF and ratio zero cannot be forced
+receipt parents while generic HTTP spans remain local roots. The pure parsed-header protocol has
+one owner, `@inside/contracts/internal-waitlist-parent`; app adapters retain authentication and
+strict-body admission timing. Its single corpus compares the exact nonzero-ID semantics with the
+pinned official parser without adding an SDK dependency to the shared package. OFF and ratio zero cannot be forced
 by a remote sampled flag; ratio zero keeps the independent operation counter with finite
 `operation`/`outcome` labels.
 

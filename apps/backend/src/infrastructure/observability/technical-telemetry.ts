@@ -23,7 +23,7 @@ import {
 } from "./email-telemetry-contract.js";
 import { notificationTraceparent } from "./notification-trace.js";
 import { ExportResultCode, parseTraceParent } from "@opentelemetry/core";
-import { admitInternalWaitlistParent } from "./internal-waitlist-parent.js";
+import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BasicTracerProvider,

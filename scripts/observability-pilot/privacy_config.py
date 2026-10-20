@@ -187,7 +187,7 @@ otelcol.receiver.otlp "pilot" {
 otelcol.processor.filter "catalog" {
   error_mode = "propagate"
   metrics {
-    metric = ['''+'`not IsMatch(name, '+literal(pattern(list(dict.fromkeys(policy['metrics']+notification['metrics']+dependency['metrics']+policy['postgresql']['metrics']+email['metrics']+tracking['metrics']+waitlist['metrics']+telegram['metrics']))))+') or ('+TELEGRAM_SERVICE+') and not IsMatch(name, '+literal(pattern(telegram['metrics']))+')`'+''']
+    metric = ['''+'`not IsMatch(name, '+literal(pattern(list(dict.fromkeys(policy['metrics']+notification['metrics']+dependency['metrics']+policy['postgresql']['metrics']+email['metrics']+tracking['metrics']+waitlist['metrics']))))+') and not ('+TELEGRAM_SERVICE+') or ('+TELEGRAM_SERVICE+') and not IsMatch(name, '+literal(pattern(telegram['metrics']))+')`'+''']
   }
   output {
     metrics = [otelcol.processor.transform.privacy.input]

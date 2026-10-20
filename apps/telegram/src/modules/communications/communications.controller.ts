@@ -1,5 +1,5 @@
 import type { FastifyRequest } from "fastify";
-import { admitInternalWaitlistParent } from "../../observability/internal-waitlist-parent.js";
+import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
 import { waitlistConfirmationSchema } from "@inside/contracts/waitlist-confirmation";
 import {
   WaitlistConfirmations,
