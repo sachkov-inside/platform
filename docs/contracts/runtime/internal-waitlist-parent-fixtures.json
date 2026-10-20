@@ -1,0 +1,164 @@
+[
+  {
+    "name": "canonical",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    ],
+    "parent": "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+  },
+  {
+    "name": "mixed-name",
+    "headers": [
+      "Host",
+      "synthetic.invalid",
+      "TrAcEpArEnT",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    ],
+    "parent": "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+  },
+  {
+    "name": "unsampled",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00"
+    ],
+    "parent": "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00"
+  },
+  {
+    "name": "absent",
+    "headers": [],
+    "parent": null
+  },
+  {
+    "name": "foreign",
+    "headers": [
+      "host",
+      "synthetic.invalid"
+    ],
+    "parent": null
+  },
+  {
+    "name": "duplicate",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01",
+      "TraceParent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "different-duplicate",
+    "headers": [
+      "TRACEPARENT",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01",
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00"
+    ],
+    "parent": null
+  },
+  {
+    "name": "odd-pairs",
+    "headers": [
+      "traceparent"
+    ],
+    "parent": null
+  },
+  {
+    "name": "leading-space",
+    "headers": [
+      "traceparent",
+      " 00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "trailing-space",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01 "
+    ],
+    "parent": null
+  },
+  {
+    "name": "coalesced",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01,00-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "newline",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01\n"
+    ],
+    "parent": null
+  },
+  {
+    "name": "uppercase",
+    "headers": [
+      "traceparent",
+      "00-1234567890ABCDEF1234567890ABCDEF-1234567890ABCDEF-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "future-version",
+    "headers": [
+      "traceparent",
+      "01-1234567890abcdef1234567890abcdef-1234567890abcdef-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "all-flags",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-ff"
+    ],
+    "parent": null
+  },
+  {
+    "name": "reserved-flags",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-02"
+    ],
+    "parent": null
+  },
+  {
+    "name": "zero-trace",
+    "headers": [
+      "traceparent",
+      "00-00000000000000000000000000000000-1234567890abcdef-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "zero-parent",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-0000000000000000-01"
+    ],
+    "parent": null
+  },
+  {
+    "name": "suffix",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01-extra"
+    ],
+    "parent": null
+  },
+  {
+    "name": "short",
+    "headers": [
+      "traceparent",
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-0"
+    ],
+    "parent": null
+  }
+]

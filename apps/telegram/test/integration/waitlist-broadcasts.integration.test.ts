@@ -1,3 +1,7 @@
+import { ExportResultCode } from "@opentelemetry/core";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import { createTelegramObservability } from "../../src/observability/telegram-sdk.js";
+import { HttpWaitlistConfirmationAdapter } from "../../src/adapters/platform/http-waitlist-confirmation.adapter.js";
 import { WaitlistConfirmations } from "../../src/modules/communications/waitlist-confirmations.js";
 import {
   contactLock,
@@ -14,6 +18,7 @@ import {
   type WaitlistQuery,
 } from "../../src/modules/communications/waitlist-authorization.js";
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
 import { Test } from "@nestjs/testing";
 import {
   FastifyAdapter,
@@ -1017,3 +1022,192 @@ function deferredResult<Value>() {
   });
   return { promise, resolve };
 }
+
+// Technical persistence seam: first-committed carrier, including null, belongs to the durable receipt.
+test("confirmation carrier stays immutable across replay and authorization rollback, with honest sibling attempts", async () => {
+  const spans: ReadableSpan[] = [];
+  const telemetry = createTelegramObservability({
+    identity: {
+      release: "test",
+      sourceSha: "0000000000000000000000000000000000000000",
+    },
+    mode: "test",
+    sampleRatio: 1,
+    exporters: {
+      spans: {
+        export: (batch, callback) => {
+          spans.push(...batch);
+          callback({ code: ExportResultCode.SUCCESS });
+        },
+        shutdown: () => Promise.resolve(),
+      },
+      metrics: {
+        export: (_batch, callback) =>
+          callback({ code: ExportResultCode.SUCCESS }),
+        forceFlush: () => Promise.resolve(),
+        shutdown: () => Promise.resolve(),
+      },
+    },
+  });
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: "00000000-0000-4000-8000-000000000037",
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  let carrierAtAuthorization: string | undefined;
+  let authorizationRequests = 0;
+  let callbackFailed = false;
+  const callback = createServer((request, response) => {
+    void (async () => {
+      authorizationRequests += 1;
+      const header = request.headers["traceparent"];
+      carrierAtAuthorization = typeof header === "string" ? header : undefined;
+      // Actual HTTP observes the same row lock only after the preparation transaction rolled back.
+      await database.transaction().execute(async (tx) => {
+        await sql`set local lock_timeout = '1000ms'`.execute(tx);
+        await tx
+          .selectFrom("waitlist_confirmations")
+          .select("event_id")
+          .where("event_id", "=", confirmation.eventId)
+          .forUpdate()
+          .executeTakeFirstOrThrow();
+      });
+      request.resume();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({ eventId: confirmation.eventId, status: "accepted" }),
+      );
+    })().catch(() => {
+      callbackFailed = true;
+      request.resume();
+      response.writeHead(503);
+      response.end();
+    });
+  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      callback.once("error", reject);
+      callback.listen(0, "127.0.0.1", () => {
+        callback.off("error", reject);
+        resolve();
+      });
+    });
+    const address = callback.address();
+    if (address === null || typeof address === "string")
+      throw new Error("Owned authorization listener unavailable");
+    const authorization = new HttpWaitlistConfirmationAdapter(
+      `http://127.0.0.1:${address.port}/authorize/`,
+      "synthetic-secret",
+      fetch,
+      telemetry,
+    );
+    const receipts = new WaitlistConfirmations(
+      database,
+      { ...config, deliveryMode: "live" },
+      clock,
+      authorization,
+      transport,
+      telemetry,
+    );
+    await app.get(BotContacts).observeStart(
+      {
+        botIdentity: "inside",
+        telegramUserId: "42",
+        privateChatId: "42",
+        updateId: "1",
+        observedAt: instant,
+      },
+      "none",
+    );
+    await receipts.receive(
+      confirmation,
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00",
+    );
+    const first = await database
+      .selectFrom("waitlist_confirmations")
+      .select("receipt_traceparent")
+      .where("event_id", "=", confirmation.eventId)
+      .executeTakeFirstOrThrow();
+    expect(first.receipt_traceparent).toMatch(
+      /^00-1234567890abcdef1234567890abcdef-[0-9a-f]{16}-01$/,
+    );
+    await receipts.receive(
+      confirmation,
+      "00-abcdefabcdefabcdefabcdefabcdefab-abcdefabcdefabcd-01",
+    );
+    await expect(
+      receipts.receive({ ...confirmation, accountRef: "conflicting" }),
+    ).rejects.toBeInstanceOf(Error);
+    expect(
+      await database
+        .selectFrom("waitlist_confirmations")
+        .select("receipt_traceparent")
+        .where("event_id", "=", confirmation.eventId)
+        .executeTakeFirstOrThrow(),
+    ).toEqual(first);
+    expect(await receipts.processAvailable()).toBe(1);
+    expect(carrierAtAuthorization).toMatch(
+      /^00-1234567890abcdef1234567890abcdef-[0-9a-f]{16}-01$/,
+    );
+    const legacy = {
+      ...confirmation,
+      eventId: "00000000-0000-4000-8000-000000000038",
+    };
+    await receipts.receive(legacy);
+    await receipts.receive(
+      legacy,
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01",
+    );
+    expect(
+      (
+        await database
+          .selectFrom("waitlist_confirmations")
+          .select("receipt_traceparent")
+          .where("event_id", "=", legacy.eventId)
+          .executeTakeFirstOrThrow()
+      ).receipt_traceparent,
+    ).toBeNull();
+    expect(transport.send).toHaveBeenCalledTimes(1);
+    expect(authorizationRequests).toBe(1);
+    expect(callbackFailed).toBe(false);
+  } finally {
+    try {
+      await telemetry.shutdown();
+    } finally {
+      if (callback.listening)
+        await new Promise<void>((resolve, reject) => {
+          callback.close((error) =>
+            error === undefined
+              ? resolve()
+              : reject(
+                  new Error("Owned authorization listener cleanup failed"),
+                ),
+          );
+        });
+    }
+  }
+  expect(
+    spans.filter((span) => span.name === "platform waitlist.confirm"),
+  ).toHaveLength(1);
+  expect(spans.filter((span) => span.name === "waitlist attempt")).toHaveLength(
+    1,
+  );
+  const authorizationSpan = spans.find(
+    (span) => span.name === "platform waitlist.confirm",
+  );
+  const attempt = spans.find((span) => span.name === "waitlist attempt");
+  const send = spans.find((span) => span.name === "telegram sendMessage");
+  expect(send).toBeDefined();
+  expect(send?.parentSpanContext?.spanId).toBe(attempt?.spanContext().spanId);
+  expect(send?.attributes["telegram.outcome"]).toBe("delivered");
+  expect(authorizationSpan).toBeDefined();
+  expect(attempt).toBeDefined();
+  expect(attempt?.parentSpanContext?.spanId).toBe(
+    authorizationSpan?.parentSpanContext?.spanId,
+  );
+  expect(attempt?.parentSpanContext?.spanId).not.toBe(
+    authorizationSpan?.spanContext().spanId,
+  );
+});

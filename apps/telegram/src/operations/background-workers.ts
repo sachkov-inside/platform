@@ -1,3 +1,4 @@
+import type { DrainReport } from "../shared/drain-report.js";
 import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";
@@ -60,6 +61,9 @@ export class BackgroundWorkers
   implements OnApplicationBootstrap, OnModuleDestroy
 {
   private loops: WorkerLoop[] = [];
+  private stopping = false;
+  private readonly stops: Promise<readonly unknown[]>[] = [];
+  private drained: Promise<DrainReport> | undefined;
 
   constructor(
     @Inject(SubscriptionActivation)
@@ -91,12 +95,17 @@ export class BackgroundWorkers
     private readonly invitations: InvitationRedemption,
   ) {}
 
+  private admissionClosed(): boolean {
+    return this.stopping;
+  }
+
   async onApplicationBootstrap(): Promise<void> {
-    if (!this.config.workersEnabled) {
+    if (this.admissionClosed() || !this.config.workersEnabled) {
       return;
     }
 
     await this.funnels.assertConfigured();
+    if (this.admissionClosed()) return;
     const loops: WorkerLoop[] = [];
     const add = (
       name: string,
@@ -237,8 +246,52 @@ export class BackgroundWorkers
     );
   }
 
+  beginStop(): void {
+    if (this.stopping) return;
+    this.stopping = true;
+    // Close every loop's admission before invoking any potentially failing stop wrapper.
+    for (const loop of this.loops) loop.beginStop();
+    for (const loop of this.loops) {
+      try {
+        this.stops.push(
+          loop.stop().then(
+            () => [],
+            (error: unknown) => [error],
+          ),
+        );
+      } catch (error: unknown) {
+        this.stops.push(Promise.resolve([error]));
+      }
+    }
+  }
+
+  isQuiescent(): boolean {
+    return this.stopping && this.loops.every((loop) => loop.isStopped());
+  }
+
+  async whenQuiescent(): Promise<void> {
+    await Promise.all(this.loops.map((loop) => loop.whenQuiescent()));
+  }
+
+  drain(): Promise<DrainReport> {
+    this.beginStop();
+    this.drained ??= (async () => {
+      const results = await Promise.allSettled(this.stops);
+      await this.whenQuiescent();
+      return {
+        quiescent: true,
+        failures: results.flatMap((result) =>
+          result.status === "rejected"
+            ? [result.reason as unknown]
+            : result.value,
+        ),
+      };
+    })();
+    return this.drained;
+  }
+
   async onModuleDestroy(): Promise<void> {
-    await Promise.all(this.loops.map((loop) => loop.stop()));
+    await this.drain();
   }
 
   /** Every enabled cycle has reached an empty poll at the requested delay, within its policy. */

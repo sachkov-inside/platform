@@ -1,3 +1,4 @@
+import type { DrainReport } from "../shared/drain-report.js";
 import {
   Inject,
   Injectable,
@@ -32,6 +33,9 @@ export class NotificationWorker
 {
   private broker?: NotificationBroker;
   private loops: WorkerLoop[] = [];
+  private stopping = false;
+  private readonly stops: Promise<readonly unknown[]>[] = [];
+  private drained: Promise<DrainReport> | undefined;
 
   constructor(
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
@@ -42,7 +46,7 @@ export class NotificationWorker
 
   onApplicationBootstrap() {
     const notifications = this.config.notifications;
-    if (!notifications || !this.config.workersEnabled) return;
+    if (this.stopping || !notifications || !this.config.workersEnabled) return;
     const provider = new NotificationProvider(
       this.db,
       this.config.botIdentity,
@@ -113,7 +117,7 @@ export class NotificationWorker
             await broker.open();
             results.wake();
           } catch (error) {
-            await broker.close();
+            if (!this.stopping) await broker.close();
             throw error;
           }
         }
@@ -129,8 +133,60 @@ export class NotificationWorker
     for (const loop of this.loops) loop.start();
   }
 
-  async onModuleDestroy() {
-    await Promise.all(this.loops.map((loop) => loop.stop()));
-    await this.broker?.close();
+  beginStop(): void {
+    if (this.stopping) return;
+    this.stopping = true;
+    for (const loop of this.loops) loop.beginStop();
+    this.broker?.beginStop();
+    for (const loop of this.loops) {
+      try {
+        this.stops.push(
+          loop.stop().then(
+            () => [],
+            (error: unknown) => [error],
+          ),
+        );
+      } catch (error: unknown) {
+        this.stops.push(Promise.resolve([error]));
+      }
+    }
+  }
+
+  isQuiescent(): boolean {
+    return (
+      this.stopping &&
+      this.loops.every((loop) => loop.isStopped()) &&
+      (this.broker === undefined || this.broker.isQuiescent())
+    );
+  }
+
+  drain(): Promise<DrainReport> {
+    this.beginStop();
+    this.drained ??= (async () => {
+      const results = await Promise.allSettled(this.stops);
+      await Promise.all(this.loops.map((loop) => loop.whenQuiescent()));
+      const broker = await this.broker?.drain();
+      return {
+        quiescent: true,
+        failures: [
+          ...results.flatMap((result) =>
+            result.status === "rejected"
+              ? [result.reason as unknown]
+              : result.value,
+          ),
+          ...(broker?.failures ?? []),
+        ],
+      };
+    })();
+    return this.drained;
+  }
+
+  async whenQuiescent(): Promise<void> {
+    await Promise.all(this.loops.map((loop) => loop.whenQuiescent()));
+    await this.broker?.whenQuiescent();
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.drain();
   }
 }
