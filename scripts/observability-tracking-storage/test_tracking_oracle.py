@@ -92,7 +92,7 @@ def trace_rows():
                       {'dependency.name':'postgresql','dependency.operation':operation,'dependency.outcome':'completed'}))
     rows = []
     for name, identity, parent, kind, attrs in specs:
-        row = {'name':name,'span_id':identity,'trace_id':TRACE,'kind':kind,'status_code':'0','_msg':'-',
+        row = {'name':name,'span_id':identity,'trace_id':TRACE,'kind':kind,'status_code':'0','flags':'769' if name == 'tracking deliver' else '257','_msg':'-',
                'resource_attr:service.name':'platform-api','resource_attr:deployment.environment.name':'test','resource_attr:service.version':'_OTHER',
                'scope_name':'inside-collector','start_time_unix_nano':'1800000000000000000','end_time_unix_nano':'1800000000001000000','duration':'1000000',
                '_time':'2027-01-15T08:00:00.000000000Z','_stream_id':'0'*48,
@@ -159,6 +159,29 @@ class SqlParentRoles(unittest.TestCase):
                     raw='\n'.join(json.dumps(row) for row in rows)
                     with self.assertRaisesRegex(RuntimeError,'^Tracking storage trace contract failed$'):
                         oracle.traces(raw,trace_id=TRACE,root_id=ROOT)
+
+
+class RoleFlags(unittest.TestCase):
+    def test_valid_role_flags_remain_pending_when_another_main_role_is_not_visible(self):
+        for index in (0,1,2,3):
+            with self.subTest(missing=index):
+                rows=trace_rows();rows.pop(index)
+                self.assertIsNone(oracle.traces('\n'.join(json.dumps(r) for r in rows),trace_id=TRACE,root_id=ROOT))
+
+    def test_missing_legacy_swapped_unsampled_unknown_bits_and_noncanonical_flags_refuse_before_pending(self):
+        for role,index in (('root',0),('delivery',1),('provider',3),('sql',-1)):
+            expected='769' if role=='delivery' else '257'
+            for value in ('__missing__',None,'1','0','256','512','513','768','1025','1793','0257','0769','257.0','769.0',' 257','+257','0x101','0x301','-1','4294967295',257,769,257.0,True,False,'257' if expected=='769' else '769'):
+                for visibility in ('complete','partial'):
+                    with self.subTest(role=role,value=value,visibility=visibility):
+                        rows=trace_rows();row=rows[index]
+                        if value == '__missing__': del row['flags']
+                        else: row['flags']=value
+                        if visibility=='partial':
+                            # Keep the poisoned row visible while another required main role is missing.
+                            rows.remove(rows[1] if role!='delivery' else rows[0])
+                        with self.assertRaisesRegex(RuntimeError,'^Tracking storage trace contract failed$'):
+                            oracle.traces('\n'.join(json.dumps(r) for r in rows),trace_id=TRACE,root_id=ROOT)
 
 
 if __name__ == '__main__': unittest.main()
