@@ -1,3 +1,4 @@
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
@@ -75,6 +76,12 @@ test("explicit concurrent joins converge on one active membership for one intake
     ),
   );
   expect(results.every((result) => result.ok)).toBe(true);
+  const confirmations: unknown[] = [];
+  await waitlists.dispatchConfirmations((command) => {
+    confirmations.push(command);
+    return Promise.resolve("accepted" as const);
+  });
+  expect(confirmations).toHaveLength(1);
   expect(await waitlists.read(accountId, productId)).toMatchObject({
     ok: true,
     value: { intakeId, active: true },
@@ -358,4 +365,32 @@ test("confirmation retry survives unavailable delivery and suppresses withdrawal
     where: { accountId },
     data: { revision: 1, identityRef: "identity-test" },
   });
+});
+
+test("a failed durable confirmation write rolls back membership and never authorizes a bot message", async () => {
+  await db.prisma.$executeRaw(
+    Prisma.sql`ALTER TABLE sales_funnel.product_waitlist_confirmations ADD CONSTRAINT confirmation_storage_failure CHECK (false) NOT VALID`,
+  );
+  try {
+    expect(
+      await waitlists.join(accountId, {
+        intakeId,
+        operationId: randomUUID(),
+        source: null,
+      }),
+    ).toEqual({ ok: false, error: { code: "dependency_unavailable" } });
+    expect(await waitlists.read(accountId, productId)).toMatchObject({
+      ok: true,
+      value: { active: false },
+    });
+    expect(
+      await waitlists.dispatchConfirmations(() => {
+        throw new Error("Rolled back join cannot reach the Telegram boundary");
+      }),
+    ).toBe(0);
+  } finally {
+    await db.prisma.$executeRaw(
+      Prisma.sql`ALTER TABLE sales_funnel.product_waitlist_confirmations DROP CONSTRAINT confirmation_storage_failure`,
+    );
+  }
 });
