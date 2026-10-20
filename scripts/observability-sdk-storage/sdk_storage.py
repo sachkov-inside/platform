@@ -225,7 +225,7 @@ def stored_metrics_and_traces(*, token, compose, targets, observed, release, res
         try:
             traces = oracle.traces(raw_traces, trace_id=observed['trace_id'], root_id=observed['root_id'], release=release)
         except Exception as error:
-            diagnostic.fail(diagnostics.oracle_reason(error)); raise
+            diagnostic.fail(diagnostics.oracle_reason(error,scope='sdk')); raise
         diagnostic.observed(traces)
         result['traces_state'] = 'passed' if traces is not None else 'pending'
         if metrics is not None and traces is not None:

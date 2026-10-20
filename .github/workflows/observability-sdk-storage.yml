@@ -16,6 +16,7 @@ on:
       - "**/package.json"
       - apps/backend/tsconfig*.json
       - apps/backend/prisma.config.ts
+      - apps/backend/prisma/schema.prisma
       - packages/**
       - docs/contracts/**
       - patches/**
