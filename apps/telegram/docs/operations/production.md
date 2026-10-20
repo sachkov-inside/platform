@@ -868,3 +868,5 @@ production scenario: passed, failed или deferred с причиной и evide
 подготовьте проверенный recovery plan с совместимостью и допустимым rollback window.
 Rollback или repair-forward выполняется только по новой команде владельца; автоматические
 down-migrations и restore production database не разрешены.
+
+Сервисные подтверждения списка ожидания используют отдельный [порядок совместимого выпуска](waitlist-confirmations.md), включая точную правку существующих текстов привязки.

@@ -309,6 +309,13 @@ class TelegramObservationTests(unittest.TestCase):
         self.assertTrue(all(item['status'] == 'passed' for item in telegram_observation_checks(before, after, '')))
         self.assertEqual(telegram_error_check(200, after['metrics'])['status'], 'failed')
 
+    def test_settled_confirmation_rejection_is_not_an_unresolved_queue(self):
+        from verify import telegram_observation_checks
+        before, after = self.snapshot(), self.snapshot()
+        before['metrics']['inside_telegram_waitlist_confirmation_rejected'] = 3
+        after['metrics']['inside_telegram_waitlist_confirmation_rejected'] = 3
+        self.assertTrue(all(item['status'] == 'passed' for item in telegram_observation_checks(before, after, '')))
+
     def test_increment_reset_missing_nonfinite_and_negative_counters_fail(self):
         from verify import telegram_observation_checks
         for value in [5, 3, None, float('nan'), float('inf'), -1]:
@@ -330,7 +337,8 @@ class TelegramObservationTests(unittest.TestCase):
                 before, after = self.snapshot(), self.snapshot()
                 after[field] = value
                 self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(before, after, '')))
-        for name in ['inside_telegram_reconciliation_due', 'inside_telegram_community_effects_unknown']:
+        for name in ['inside_telegram_reconciliation_due', 'inside_telegram_community_effects_unknown',
+                     'inside_telegram_waitlist_confirmation_pending', 'inside_telegram_waitlist_confirmation_unknown']:
             before, after = self.snapshot(), self.snapshot()
             before['metrics'][name] = 1
             self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(before, after, '')))

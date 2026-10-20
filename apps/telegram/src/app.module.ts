@@ -1,3 +1,10 @@
+import type { CommunicationTransport } from "./modules/communications/communication-delivery.js";
+import {
+  WaitlistConfirmations,
+  WAITLIST_CONFIRMATION_AUTHORIZATION,
+  type WaitlistConfirmationAuthorization,
+} from "./modules/communications/waitlist-confirmations.js";
+import { HttpWaitlistConfirmationAdapter } from "./adapters/platform/http-waitlist-confirmation.adapter.js";
 import { HttpWaitlistAuthorizationAdapter } from "./adapters/platform/http-waitlist-authorization.adapter.js";
 import {
   WAITLIST_AUTHORIZATION,
@@ -155,6 +162,38 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        {
+          provide: WAITLIST_CONFIRMATION_AUTHORIZATION,
+          useValue: new HttpWaitlistConfirmationAdapter(
+            config.platformAuthorAuthorizationUrl,
+            config.platformAuthorAuthorizationSecret,
+          ),
+        },
+        {
+          provide: WaitlistConfirmations,
+          inject: [
+            DATABASE,
+            APPLICATION_CONFIG,
+            CLOCK,
+            WAITLIST_CONFIRMATION_AUTHORIZATION,
+            COMMUNICATION_TRANSPORT,
+          ],
+          useFactory: (
+            database: Database,
+            config: ApplicationConfig,
+            clock: Clock,
+            authorization: WaitlistConfirmationAuthorization,
+            transport: CommunicationTransport,
+          ) =>
+            new WaitlistConfirmations(
+              database,
+              config,
+              clock,
+              authorization,
+              transport,
+            ),
+        },
+
         TelegramContacts,
         {
           provide: TELEGRAM_CONTACT_PROFILE,

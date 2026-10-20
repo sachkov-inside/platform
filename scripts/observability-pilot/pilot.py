@@ -443,6 +443,7 @@ def fixture_trace_rows(compose, fixture):
     import link_privacy
     import notification_privacy
     import dependency_privacy
+    import email_privacy
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     stage = 'ownership'
     boundary = 'input'
@@ -462,7 +463,10 @@ def fixture_trace_rows(compose, fixture):
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
                    **{'dependency-'+key:(value,36) for key,value in dependency_privacy.TRACE_IDS.items()},
-                   **{'communications-'+key:(value,30) for key,value in dependency_privacy.COMMUNICATIONS_TRACE_IDS.items()}}
+                   **{'communications-'+key:(value,30) for key,value in dependency_privacy.COMMUNICATIONS_TRACE_IDS.items()},
+                   **{'telegram-http-'+key:(value,30) for key,value in dependency_privacy.TELEGRAM_HTTP_TRACE_IDS.items()},
+                   **{'email-known-'+key:(value,23) for key,value in email_privacy.TRACE_IDS.items()},
+                   **{'email-adversarial-'+key:(value,9) for key,value in email_privacy.ADVERSARIAL_IDS.items()}}
         trace_id, limit = queries[fixture]
         boundary = 'identity_before'
         assert_docker_identity(deadline=deadline)
@@ -595,11 +599,12 @@ def dependency_catalog_corpus(token, output, compose):
     proof = {'outcome':'failed','stage':'logging','cases':[]}
     try:
         verify_trace_store_logging(output,compose)
-        for communications in (False,True):
-            partition = 'communications' if communications else 'dependency'
-            payloads = dependency_privacy.communications_payloads if communications else dependency_privacy.payloads
+        for partition,payloads in (('dependency',dependency_privacy.payloads),
+                                   ('communications',dependency_privacy.communications_payloads),
+                                   ('telegram-http',dependency_privacy.telegram_http_payloads)):
             for transport in ('json','protobuf'):
-                batches = (payloads(transport,time.time_ns()),) if communications else dependency_privacy.payload_batches(transport,time.time_ns())
+                now_ns = time.time_ns()
+                batches = dependency_privacy.payload_batches(transport,now_ns) if partition == 'dependency' else (payloads(transport,now_ns),)
                 for batch in batches:
                     for signal,body in batch.items():
                         proof['stage']='ingest_'+partition+'_'+transport+'_'+signal
@@ -608,7 +613,7 @@ def dependency_catalog_corpus(token, output, compose):
                             raise RuntimeError('dependency OTLP rejected')
                 proof['stage']='storage_'+partition+'_'+transport
                 stored = await_fact(lambda: dependency_privacy.stored_traces(
-                    fixture_trace_rows(compose,partition+'-'+transport),transport,communications=communications),bool,
+                    fixture_trace_rows(compose,partition+'-'+transport),transport,communications=partition=='communications',telegram_http=partition=='telegram-http',now_ns=now_ns),bool,
                     probe=partition+'_full_storage_'+transport,output=output)
                 proof['cases'].append({**stored,'partition':partition})
         proof['stage']='metrics'
@@ -623,6 +628,58 @@ def dependency_catalog_corpus(token, output, compose):
     write_json(output/'dependency-collector.json',proof)
     if proof['outcome']!='passed':
         raise RuntimeError('dependency collector proof failed; raw diagnostics withheld')
+
+
+def email_catalog_corpus(token, output, compose):
+    """Separate fixed email external partition; actual SDK-to-store evidence remains pending."""
+    import email_privacy
+    proof={'outcome':'failed','stage':'logging','uploads':0,'cases':[],'metric_checkpoints':[]}
+    stages={'json':0,'protobuf':0};previous={'json':0,'protobuf':0}
+    path='/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})
+    def upload(signal,body):
+        assert_docker_identity()
+        if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+            raise RuntimeError('email OTLP rejected')
+        proof['uploads']+=1
+    def checkpoint(probe):
+        # Both validators receive SAME complete raw response, with the legacy owner unchanged.
+        value=await_fact(lambda: email_privacy.stored_metric_corpus(request(path,token=token),stages),bool,
+            probe=probe,output=output)
+        proof['metric_checkpoints'].append(value)
+    try:
+        verify_trace_store_logging(output,compose)
+        for transport in ('json','protobuf'):
+            now=time.time_ns()
+            for partition,body in email_privacy.trace_payloads(transport,now):
+                proof['stage']='ingest_'+transport+'_'+partition
+                upload('traces',body)
+            for partition in ('known','adversarial'):
+                proof['stage']='storage_'+transport+'_'+partition
+                value=await_fact(lambda: email_privacy.stored_traces(
+                    fixture_trace_rows(compose,'email-'+partition+'-'+transport),transport,now,
+                    adversarial=partition=='adversarial'),bool,
+                    probe='email_full_storage_'+partition+'_'+transport,output=output)
+                proof['cases'].append(value)
+            previous[transport]=email_privacy.metric_timestamp(time.time_ns(),previous[transport])
+            proof['stage']='metrics_baseline_'+transport
+            upload('metrics',email_privacy.metric_payload(transport,previous[transport]))
+        proof['stage']='metrics_baseline_storage'
+        checkpoint('email_metrics_baseline')
+        for transport in ('json','protobuf'):
+            for stage in range(1,7):
+                proof['stage']='metrics_'+transport+'_'+str(stage)
+                # Fresh wall clock only; refuse a storage-ms collision, never future-date it.
+                previous[transport]=email_privacy.metric_timestamp(time.time_ns(),previous[transport])
+                upload('metrics',email_privacy.metric_payload(transport,previous[transport],stage))
+                stages[transport]=stage
+                checkpoint('email_metrics_'+transport+'_'+str(stage))
+        proof.update({'outcome':'passed','stage':'complete','timestamp_precision':'strictly increasing storage milliseconds per release',
+            'scope':'external fixed JSON/protobuf full-storage email corpus; actual SDK wire, native storage and resource acceptance pending'})
+    except (RuntimeError,OSError,ValueError,KeyError,TypeError,UnicodeError,subprocess.SubprocessError):
+        pass
+    write_json(output/'email-collector.json',proof)
+    if proof['outcome']!='passed':
+        raise RuntimeError('email collector proof failed; raw diagnostics withheld')
 
 
 def await_fact(read, predicate, *, budget=FACT_TIMEOUT_SECONDS, probe=None, output=None):
@@ -787,6 +844,7 @@ def smoke(token, output, compose):
     link_privacy_corpus(output, compose)
     notification_catalog_corpus(token,output,compose)
     dependency_catalog_corpus(token,output,compose)
+    email_catalog_corpus(token,output,compose)
     trace_store_surface(token, output)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)

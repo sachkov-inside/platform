@@ -88,4 +88,8 @@ export async function access(database: any) {
   await database.insertInto("communication_tracking_tokens").values({}).execute();
   await database.updateTable("communication_tracking_tokens").set({}).execute();
   await database.deleteFrom("communication_tracking_tokens").execute();
+  await database.selectFrom("waitlist_confirmations").selectAll().execute();
+  await database.insertInto("waitlist_confirmations").values({}).execute();
+  await database.updateTable("waitlist_confirmations").set({}).execute();
+  await database.deleteFrom("waitlist_confirmations").execute();
 }

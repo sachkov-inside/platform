@@ -3475,7 +3475,7 @@ export class CommunicationsService {
   public readTelegramWaitlistAudience({
     requestBody,
   }: {
-    requestBody: {
+    requestBody: ({
       actorAccountRef: string;
       contractVersion: 'inside-communications-v1';
       intakeId: string;
@@ -3484,8 +3484,15 @@ export class CommunicationsService {
         telegramIdentityRef: string;
       };
       requestId: string;
-    },
-  }): CancelablePromise<{
+    } | {
+      accountRef: string;
+      contractVersion: 'inside.waitlist-confirmation.v1';
+      eventId: string;
+      intakeId: string;
+      linkRevision: number;
+      telegramIdentityRef: string;
+    }),
+  }): CancelablePromise<({
     active: number;
     contractVersion: 'inside-communications-v1';
     members: Array<{
@@ -3496,7 +3503,10 @@ export class CommunicationsService {
     requestId: string;
     saleOpen: boolean;
     status: 'ok';
-  }> {
+  } | {
+    eventId: string;
+    status: 'accepted' | 'suppressed';
+  })> {
     return this.httpRequest.request({
       method: 'POST',
       url: '/integrations/telegram/v1/communications/waitlist',
