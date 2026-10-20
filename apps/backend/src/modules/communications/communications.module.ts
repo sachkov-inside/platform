@@ -1,4 +1,5 @@
 import type { TechnicalTelemetry } from "../../infrastructure/observability/technical-telemetry.js";
+import { ReadMaterialAnnouncementsController } from "./features/read-material-announcements/read-material-announcements.controller.js";
 import { ReadWaitlistAudienceController } from "./features/read-waitlist-audience/read-waitlist-audience.controller.js";
 import { BillingModule } from "../billing/index.js";
 import { SalesFunnelModule } from "../sales-funnel/index.js";
@@ -104,6 +105,7 @@ export class TrackingHitPump
     MaterialContentModule,
   ],
   controllers: [
+    ReadMaterialAnnouncementsController,
     ReadWaitlistAudienceController,
     TrackVisitController,
     AuthorizeCommunicationsAuthorController,

@@ -24,6 +24,8 @@ export async function recordMaterialAnnouncement(
   input: {
     readonly occurrence: AnnouncementOccurrence;
     readonly firstPublication: boolean;
+    readonly telegramEnabled?: boolean;
+    readonly telegramManaged?: boolean;
   },
   now: Date,
 ): Promise<void> {
@@ -59,6 +61,8 @@ export async function recordMaterialAnnouncement(
     await transaction.materialAnnouncement.create({
       data: {
         id: announcementRef,
+        telegramEnabled: input.telegramEnabled ?? false,
+        telegramManaged: input.telegramManaged ?? false,
         materialId: occurrence.materialId,
         occurredAt: new Date(event.occurredAt),
         notAfter: new Date(event.notAfter),

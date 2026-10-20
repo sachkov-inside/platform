@@ -1,0 +1,6 @@
+{
+  "postgres": "18.4",
+  "pgBackRest": "2.59.3",
+  "sourceSha": "46cdca625a73403cad4774d97354a1fac1e91e51",
+  "distributionSha256": "14037901db002e5536a948bf9f0fc0ff6cde31f4e675d3e9b46f129071bf2e5f"
+}

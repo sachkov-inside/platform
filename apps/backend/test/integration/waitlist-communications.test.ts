@@ -1,3 +1,4 @@
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -193,4 +194,67 @@ test("service confirmation authorization checks the exact committed generation a
   expect((await invoke(confirmation)).json()).toMatchObject({
     status: "suppressed",
   });
+});
+
+test("material announcements require the service credential and reject arbitrary actor, URL or recipient inputs", async () => {
+  const url = "/integrations/telegram/v1/communications/materials";
+  const payload = { contractVersion: "inside.material-announcements.v1" };
+  expect((await app.inject({ method: "POST", url, payload })).statusCode).toBe(
+    401,
+  );
+  expect(
+    (
+      await app.inject({
+        method: "POST",
+        url,
+        headers: { authorization: "Bearer wrong" },
+        payload,
+      })
+    ).statusCode,
+  ).toBe(401);
+  for (const extra of [
+    { actor: accountRef },
+    { url: "https://evil.example" },
+    { recipient: "42" },
+    { after: randomUUID(), announcementRef: randomUUID() },
+  ]) {
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          headers: { authorization: `Bearer ${secret}` },
+          payload: { ...payload, ...extra },
+        })
+      ).statusCode,
+    ).toBe(400);
+  }
+  const response = await app.inject({
+    method: "POST",
+    url,
+    headers: { authorization: `Bearer ${secret}` },
+    payload,
+  });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toEqual({ items: [], nextCursor: null });
+});
+
+test("material source persistence failure maps to retryable 503", async () => {
+  await db.prisma.$executeRaw(
+    Prisma.sql`alter table materials.publication_announcements rename to publication_announcements_unavailable`,
+  );
+  try {
+    const response = await app.inject({
+      method: "POST",
+      url: "/integrations/telegram/v1/communications/materials",
+      headers: { authorization: `Bearer ${secret}` },
+      payload: { contractVersion: "inside.material-announcements.v1" },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json<{ code: string }>().code).toBe("unavailable");
+  } finally {
+    await db.prisma.$executeRaw(
+      Prisma.sql`alter table materials.publication_announcements_unavailable rename to publication_announcements`,
+    );
+  }
 });

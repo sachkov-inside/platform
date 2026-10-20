@@ -1,7 +1,15 @@
 import {
+  name as waitlistTraceName,
+  statement as waitlistTraceStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0113-waitlist-trace-context.js";
+import {
   name as trackingTraceName,
   statement as trackingTraceStatement,
 } from "../modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.js";
+import {
+  name as materialTelegramAnnouncementsName,
+  statement as materialTelegramAnnouncementsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0102-material-telegram-announcements.js";
 import {
   name as waitlistConfirmationsName,
   statement as waitlistConfirmationsStatement,
@@ -704,6 +712,10 @@ export const platformMigrations = [
     name: waitlistConfirmationsName,
     statement: waitlistConfirmationsStatement,
   },
+  {
+    name: materialTelegramAnnouncementsName,
+    statement: materialTelegramAnnouncementsStatement,
+  },
   { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
   { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },
   { name: funnelDiagnostic2Name, statement: funnelDiagnostic2Statement },
@@ -716,6 +728,7 @@ export const platformMigrations = [
   { name: notificationTraceName, statement: notificationTraceStatement },
   { name: emailTraceName, statement: emailTraceStatement },
   { name: trackingTraceName, statement: trackingTraceStatement },
+  { name: waitlistTraceName, statement: waitlistTraceStatement },
 ] as const;
 
 export function migrateToLatest(

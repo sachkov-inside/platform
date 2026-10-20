@@ -60,6 +60,7 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0099_chapter_supplementary_materials",
         "0100_product_waitlists",
         "0101_waitlist_confirmations",
+        "0102_material_telegram_announcements",
         "0101_funnel_diagnostic_candidates",
         "0102_billing_funnel_diagnostic_sources",
         "0103_reading_funnel_diagnostic_sources",
@@ -72,6 +73,7 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0110_notifications_notification_trace_context",
         "0111_notifications_email_trace_context",
         "0112_communications_tracking_trace_context",
+        "0113_waitlist_trace_context",
       ],
     });
     expect(

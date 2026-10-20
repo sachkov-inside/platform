@@ -1,3 +1,4 @@
+import { createApiProgress } from "../observability-tracking-storage/api-progress.mjs";
 // @ts-check
 // Genuine loopback API -> persisted carrier -> production timer, with owned provider/PG.
 import assert from "node:assert/strict";
@@ -14,12 +15,13 @@ const token = "private_tracking_token_storage_sentinel_0000000000";
 const origin = "https://tracking-storage.example.test";
 const secret = "private-tracking-storage-provider-secret";
 
-/** @param {string} databaseUrl */
-export async function produce(databaseUrl) {
+/** @param {string} databaseUrl @param {(milestone:string)=>void} [progress] */
+export async function produce(databaseUrl, progress = () => {}) {
   assert.match(
     databaseUrl,
     /^postgresql:\/\/tracking:tracking_fixture@127\.0\.0\.1:15432\/tracking$/u,
   );
+  progress("producer_started");
   /** @type {Map<string, string>} */
   const loaded = new Map();
   const hooks = registerHooks({
@@ -150,10 +152,13 @@ export async function produce(databaseUrl) {
       ).href
     );
     commandSchema = schema.requestSchema;
+    progress("modules_imported");
     await migrations.migrateToLatest(databaseUrl);
+    progress("migrated");
     prisma = persistence.createPrismaClient(databaseUrl);
     provider.listen(0, "127.0.0.1");
     await once(provider, "listening");
+    progress("provider_started");
     const address = provider.address();
     assert.ok(address !== null && typeof address !== "string");
     const endpoint = `http://127.0.0.1:${address.port}`;
@@ -174,6 +179,7 @@ export async function produce(databaseUrl) {
     });
     app = await entrypoint.createApiApplication(config, { logger: false });
     await app.listen(0, "127.0.0.1");
+    progress("api_started");
     const response = await fetch(
       (await app.getUrl()) + "/communications/tracking/resolve",
       {
@@ -188,6 +194,7 @@ export async function produce(databaseUrl) {
       kind: "resolved",
       safeUrl: origin + "/materials/proof-material",
     });
+    progress("http_completed");
     const rows = await prisma.communicationTrackingHit.findMany();
     assert.equal(rows.length, 1);
     const row = rows[0];
@@ -197,6 +204,7 @@ export async function produce(databaseUrl) {
     assert.equal(typeof row.traceparent, "string");
     assert.match(row.traceparent ?? "", /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/u);
     const [, traceId, rootId] = (row.traceparent ?? "").split("-");
+    progress("carrier_confirmed");
     const deadline = performance.now() + 20000;
     while (true) {
       const current = await prisma.communicationTrackingHit.findUniqueOrThrow({
@@ -219,14 +227,17 @@ export async function produce(databaseUrl) {
       throw new Error("closed operation");
     assert.equal(delivered.payload.eventId, row.eventId);
     assert.equal(delivered.payload.occurredAt, row.occurredAt.toISOString());
+    progress("delivery_confirmed");
     // Normal API lifecycle drains the real pump and flushes its SDK while Alloy remains alive.
     await app.close();
     app = undefined;
     await prisma.$disconnect();
     prisma = undefined;
+    progress("sdk_shutdown");
     const modules = [...loaded]
       .sort()
       .map(([path, sha256]) => ({ path, sha256 }));
+    progress("module_map_ready");
     return {
       schema: 1,
       trace_id: traceId,
@@ -295,6 +306,7 @@ if (
     await writeProducerWitness(() =>
       produce(
         "postgresql://tracking:tracking_fixture@127.0.0.1:15432/tracking",
+        createApiProgress("tracking"),
       ),
     );
   } catch {

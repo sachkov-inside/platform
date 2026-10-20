@@ -121,3 +121,9 @@ Community entitlement и его permit остаются в telegram-membership �
 Самостоятельные schema checks выполняются без чужого checkout/network. Полная проверка этого
 артефакта — `pnpm docs:check` и `pnpm check`; persistence/infrastructure runtime не изменены.
 Развёртывание RabbitMQ, production HA, реальные контакты и отправки здесь не проверены.
+
+## Telegram-анонсы открытой ленты
+
+Для новых материалов author choice и аудитория BotContact заменяют Account-путь Telegram
+по [Public material announcements v1](../contracts/runtime/material-announcements.md).
+Wire bundle v1, email, служебные сообщения и исторические Account-анонсы сохраняют свои контракты.
