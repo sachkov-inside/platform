@@ -6,6 +6,7 @@ import {
   fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 test("cabinet presents private Telegram state and documents on one page", async ({
   context,
@@ -60,7 +61,8 @@ test("cabinet presents private Telegram state and documents on one page", async 
 test("cabinet saves display name without a bio editor", async ({
   context,
   page,
-}) => {
+}, info) => {
+  const savedName = `Проверка профиля ${info.project.name}`;
   await signInFullStack(context, "MEMBER");
   await page.goto("/");
   const before = await fullStackBrowserRequest(page, "/api/account/profile");
@@ -75,7 +77,7 @@ test("cabinet saves display name without a bio editor", async ({
     exact: true,
   });
   await expect(name).toBeVisible();
-  await name.fill("Проверка профиля");
+  await name.fill(savedName);
   await page
     .getByRole("button", { name: "Сохранить имя", exact: true })
     .click();
@@ -96,7 +98,7 @@ test("cabinet saves display name without a bio editor", async ({
       }),
     })
     .parse(await after.json());
-  expect(profileState.state.profile.displayName).toBe("Проверка профиля");
+  expect(profileState.state.profile.displayName).toBe(savedName);
   const previous = z
     .object({
       state: z.union([
@@ -120,5 +122,10 @@ test("cabinet saves display name without a bio editor", async ({
   await page.reload();
   await expect(
     page.getByRole("textbox", { name: "Отображаемое имя" }),
-  ).toHaveValue("Проверка профиля");
+  ).toHaveValue(savedName);
+  if (process.env["CAPTURE_EVIDENCE"] === "1") {
+    await screenshotWholePage(page, {
+      path: info.outputPath("account-profile.png"),
+    });
+  }
 });

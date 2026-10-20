@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { randomBytes, createHash } from "node:crypto";
 import { createServer } from "node:http";

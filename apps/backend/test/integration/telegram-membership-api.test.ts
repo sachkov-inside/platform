@@ -112,6 +112,7 @@ describe("Telegram Membership API", () => {
     );
     expect(initialPresentation.json()).toEqual({
       link: { kind: "unlinked" },
+      contact: { state: "not_linked", displayName: null, username: null },
       // По умолчанию ни один вариант подписки не продаётся, поэтому продающего предложения нет.
       membership: { kind: "notOffered" },
     });
@@ -181,10 +182,11 @@ describe("Telegram Membership API", () => {
     );
     expect(linkedPresentation.json()).toEqual({
       link: { kind: "linked" },
+      contact: { state: "unavailable", displayName: null, username: null },
       membership: { kind: "unavailable" },
     });
     expect(JSON.stringify(linkedPresentation.json())).not.toMatch(
-      /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|username|validUntil/iu,
+      /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|validUntil/iu,
     );
   });
 
