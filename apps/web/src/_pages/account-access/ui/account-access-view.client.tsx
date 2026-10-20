@@ -27,10 +27,6 @@ export interface AccountAccessViewProps {
   readonly onTelegramRefresh: () => Promise<void>;
 }
 
-/**
- * Temporary semantic UI for #1586.
- * Replace through #1587 after Storybook acceptance.
- */
 export function AccountAccessView({
   acceptedDocuments,
   link,

@@ -60,11 +60,11 @@ record ownership, wrong/expired codes, occupied addresses, same provider subject
 attachments, and removes its own containers/network on completion. Browser evidence and name edits
 use the production modules and their Storybook states.
 
-The functional delivery is tracked in #1586 under specification #1585. New local name/email forms
-use the temporary semantic UI path in `docs/agents/frontend-delivery.md`; #1587 owns their
-Storybook and live-route visual acceptance and removal of the single temporary marker at
-`AccountAccessView`. Both adapters import the same production modules. No new shared visual
-system is introduced.
+The functional delivery is tracked in #1586 under specification #1585. The owner accepted the
+functional result and Storybook/live-route presentation at `f4205481f252f46af5884667a4fb4e7302974d2e`
+on 20 October 2026 and explicitly requested merge. This completes the visual gate tracked in
+#1587; the temporary marker at `AccountAccessView` is removed. Both adapters import the same
+accepted production modules. No new shared visual system is introduced.
 
 
 ## Cabinet presentation
@@ -78,7 +78,7 @@ reading order, accessible section names, and full-width form controls on narrow 
 
 This addresses the owner's visual correction of 20 October 2026. Stories cover the empty profile,
 unlinked Telegram, missing/verified email, code entry and recovery states through the production
-components. Visual acceptance remains tracked in #1587.
+components. Owner visual acceptance is recorded in #1587.
 
 Keep the cabinet's headings concise. Omit the name-limit/uniqueness hint, the contacts-section
 explanation, and the initial bot-connection duration hint. Validation feedback still explains an
