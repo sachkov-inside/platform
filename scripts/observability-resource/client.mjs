@@ -360,13 +360,14 @@ function queryKey(filename) {
   return key;
 }
 
-/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @param {boolean} [counter] @param {string} [fixedSuffix] @returns {Promise<{state:string,value:number|null}>} */
+/** @param {string} key @param {string} query @param {{host:string,port:number,timeoutMs:number}} transport @param {boolean} [counter] @param {string} [fixedSuffix] @param {() => void} [onTimeout] @returns {Promise<{state:string,value:number|null}>} */
 async function metricQuery(
   key,
   query,
   transport,
   counter = false,
   fixedSuffix = "",
+  onTimeout = () => {},
 ) {
   return await new Promise((resolve) => {
     let settled = false;
@@ -414,6 +415,7 @@ async function metricQuery(
       },
     );
     const timer = setTimeout(() => {
+      onTimeout();
       finish("unknown", null);
       req.destroy();
     }, transport.timeoutMs);
@@ -462,6 +464,7 @@ export async function metricProbe(key, transport = QUERY_TRANSPORT) {
     exporter: unknown(),
   };
   const deadline = performance.now() + transport.timeoutMs;
+  let exhausted = false;
   for (const name of /** @type {const} */ ([
     "current",
     "normalized",
@@ -471,7 +474,7 @@ export async function metricProbe(key, transport = QUERY_TRANSPORT) {
     "exporter",
   ])) {
     const remaining = deadline - performance.now();
-    if (remaining <= MIN_QUERY_REMAINING_MS) continue;
+    if (exhausted || remaining <= MIN_QUERY_REMAINING_MS) continue;
     const result = await metricQuery(
       key,
       PROBE_QUERIES[name],
@@ -480,6 +483,10 @@ export async function metricProbe(key, transport = QUERY_TRANSPORT) {
         timeoutMs: remaining,
       },
       name === "receiver" || name === "exporter",
+      "",
+      () => {
+        exhausted = true;
+      },
     );
     queries[name] =
       (name === "receiver" || name === "exporter") &&
