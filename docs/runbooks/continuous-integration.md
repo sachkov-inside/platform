@@ -60,7 +60,7 @@ cannot establish trust or correspondence between different SHAs.
 ## Available checks
 
 `pnpm check` is the local aggregate of four stages. CI runs independent work in parallel;
-`unit`, `web-e2e`, `integration` and `fullstack` retain stable aggregate jobs. Each aggregate
+`unit`, `web-e2e`, `integration`, `compose-production` and `fullstack` retain stable aggregate jobs. Each aggregate
 requires every selected matrix member to succeed, including during reusable release gap checks.
 A failed, cancelled or skipped selected member fails its aggregate. Coverage selection, required
 commands, permissions and source/tree/attempt evidence bindings are unchanged.
@@ -78,7 +78,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; exact-source cache-only proof; pull requests also run clean `pnpm release:images:smoke` |
+| `compose-production` | Two isolated `compose-production-checks` parts require both the cold nine-process runtime proof (plus PR release-image inspection) and the exact-source admitted-cache proof |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
@@ -105,10 +105,12 @@ Automated telemetry resource-budget measurements and their CI/release gates were
 Functional telemetry checks remain in application suites. Historical failures, including #1386 and
 the bounded #1408/v36 exclusion, remain evidence; removal does not repair their causes or stop production telemetry.
 
-The Production Compose job also runs `scripts/production-cache-smoke-ci.sh`. On its disposable
-runner it prepares four distinct owned backend v1/v2, Web v1 and foundation image IDs from the
-checked-out Source, then runs the unchanged runtime assertions with `PRODUCTION_SMOKE_CACHE_ONLY=1`.
-The already-acquired pinned broker and edge must be present. Separate Actions log groups measure
+Production Compose runs cold and admitted-cache proofs concurrently on separate disposable runners.
+The cache part runs `scripts/production-cache-smoke-ci.sh`: preparation reads the checked-in Compose
+model without interpolation or environment-file resolution, validates and pulls only its digest-pinned
+broker and edge inputs, and builds four distinct owned backend v1/v2, Web v1 and foundation image IDs
+from the checked-out Source. It then runs the unchanged runtime assertions with
+`PRODUCTION_SMOKE_CACHE_ONLY=1`. After admission the pinned broker and edge must already be present. Separate Actions log groups measure
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
 removes its own tags and override and preserves the primary failure if cleanup also fails.
 

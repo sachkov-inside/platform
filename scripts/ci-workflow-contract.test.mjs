@@ -115,6 +115,7 @@ describe("application CI workflow contract", () => {
       ["unit", "unit-checks"],
       ["integration", "integration-checks"],
       ["web-e2e", "web-e2e-browser"],
+      ["compose-production", "compose-production-checks"],
     ];
     for (const [aggregateId, childId] of groups) {
       const child = jobBlock(childId);
@@ -244,6 +245,30 @@ describe("application CI workflow contract", () => {
         `test:navigation --project=${profile}`,
       ]);
     }
+  });
+  it("requires both production proofs while isolating cold builds and admitted-cache preparation", () => {
+    const production = jobBlock("compose-production-checks");
+    assert.match(production, /part: \[cold, cache\]/u);
+    assert.match(
+      production,
+      /- name: Run isolated production smoke\n        if: \$\{\{ matrix.part == 'cold' \}\}/u,
+    );
+    assert.match(
+      production,
+      /if: \$\{\{ matrix.part == 'cold' && github.event_name == 'pull_request' \}\}/u,
+    );
+    assert.match(
+      production,
+      /- name: Prove exact-source production runtime from admitted cache\n        if: \$\{\{ matrix.part == 'cache' \}\}/u,
+    );
+    assert.match(
+      production,
+      /name: compose-production-diagnostics-\$\{\{ matrix.part \}\}-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(
+      production,
+      /run: bash scripts\/heavy-check.sh bash scripts\/production-cache-smoke-ci.sh/u,
+    );
   });
   it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
     assert.deepEqual(coverageSupersets, { docs: "static", contracts: "unit" });
@@ -599,7 +624,7 @@ describe("application CI workflow contract", () => {
     );
 
     assert.match(
-      jobBlock("compose-production"),
+      jobBlock("compose-production-checks"),
       /run: pnpm compose:production:smoke/u,
     );
   });
@@ -623,7 +648,7 @@ describe("application CI workflow contract", () => {
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(
-      jobBlock("compose-production"),
+      jobBlock("compose-production-checks"),
       /PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts\/compose-production/u,
     );
     assert.match(

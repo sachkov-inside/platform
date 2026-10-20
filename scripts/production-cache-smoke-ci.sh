@@ -25,6 +25,32 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 
+# Read only the checked-in model. No environment files or application configuration are needed.
+# This is preparation on a disposable runner; admitted runtime below still cannot build or pull.
+echo '::group::Prepare pinned broker and edge images'
+pins="$(docker compose --project-name "$owner" \
+  --file compose.production.yaml --file scripts/fixtures/production-runtime/compose.smoke.yaml \
+  config --no-interpolate --no-env-resolution --no-normalize --no-consistency --format json \
+  rabbitmq caddy-smoke | python3 -c '
+import json
+import re
+import sys
+
+model = json.load(sys.stdin)
+services = model.get("services", {}) if isinstance(model, dict) else {}
+for name in ("rabbitmq", "caddy-smoke"):
+    service = services.get(name, {}) if isinstance(services, dict) else {}
+    image = service.get("image") if isinstance(service, dict) else None
+    if not isinstance(image, str) or re.fullmatch(r"[^\s]+@sha256:[0-9a-f]{64}", image) is None:
+        print("Cache preparation requires pinned broker and edge images", file=sys.stderr)
+        sys.exit(65)
+    print(image)
+')"
+while IFS= read -r image; do
+  docker pull "$image"
+done <<<"$pins"
+echo '::endgroup::'
+
 echo '::group::Prepare exact-source cached production images'
 for release in v1 v2; do
   docker build --file apps/backend/Dockerfile --target backend-production \

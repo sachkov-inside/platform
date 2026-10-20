@@ -67,6 +67,10 @@ export const ciMatrixJobs = {
     prefix: "Web browser",
     names: ["Web browser (desktop-chromium)", "Web browser (mobile-chromium)"],
   },
+  "compose-production": {
+    prefix: "Production checks",
+    names: ["Production checks (cold)", "Production checks (cache)"],
+  },
   fullstack: {
     prefix: "Full-stack browser",
     names: [
