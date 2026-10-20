@@ -1370,6 +1370,10 @@ package использует production-код очистки диагности
 набор входных файлов SDK. Остальные пути `docs/` не допускаются в module witness.
 Пределы private protocol и схема public artifact не меняются.
 
+The owning SDK workflow routes every selected source input, including the exact
+`apps/backend/prisma/schema.prisma` path. Its contract checks the full selection and refuses the
+same paths list when that exact entry is removed; contract-source/compiler assertions remain.
+
 
 Tracking and waitlist module witnesses additionally admit exactly
 `docs/contracts/notifications-v1/schema.json`, imported directly by the production notification
