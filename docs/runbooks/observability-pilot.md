@@ -784,6 +784,25 @@ storage millisecond. Совпадение, включая `+1ns`, даёт от�
 `unknown`: [VM decoder использует этот literal, когда protobuf version отсутствует](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/protoparser/opentelemetry/pb/pb.go). Ожидаемые 220 baseline / 230 final series и 44 / 46 email labelsets относятся
 только к этому one-bound fixture, не к native SDK histogram с 15 границами.
 
+Закреплённый VM v1.154.0 безусловно добавляет в успешный instant-query ответ
+[`stats`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/query_response.qtpl):
+`seriesFetched` как десятичную строку и `executionTimeMsec` как целое число.
+Reader сохраняет прежний bare-fixture envelope и допускает только этот дополнительный
+object с ровно двумя ключами. `seriesFetched` ограничен неотрицательным signed int64,
+а milliseconds ограничены 9223372036854, максимумом положительного `time.Duration`
+после деления nanoseconds на миллион. Bool, отрицательные, дробные, переполненные,
+неизвестные и повторные поля дают отказ до pending. Metadata не заменяет проверку
+полного vector, не задаёт его cardinality и не копируется в proof.
+Native [formatter](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/vendor/github.com/valyala/quicktemplate/writer.go)
+использует plain decimal; numeric grammar samples не расширяется. `isPartial`, `trace`
+и другие неподтверждённые дополнительные поля по-прежнему запрещены.
+
+E-METRIC-01 зафиксирован после CI39391699476: четыре trace verdicts прошли, но первый
+metric checkpoint завершился отказом после восьми uploads. Host replay доказал
+несовместимость прежнего exact envelope с обязательным native `stats`. Raw failed
+response не сохранялся, поэтому это не доказательство единственной причины CI failure.
+Исправленный native collector/storage result требует нового exact-source evidence.
+
 `pilot.email_catalog_corpus` выполняет конечные 20 uploads, четыре full trace reads и
 13 full-vector metric checkpoints. Исходные query 10s / fact 60s сохраняются; отдельный
 runtime controller и его общий бюджет согласуются до lease. На каждом checkpoint

@@ -23,6 +23,8 @@ UUID='11111111-2222-4333-8444-555555555555'
 DEST='inside.notifications.email.v1'
 RESULT='inside.results.email.v1'
 MAX_RESPONSE_BYTES=1_048_576
+MAX_QUERY_STATS_INTEGER=2**63-1
+MAX_QUERY_EXECUTION_MILLISECONDS=MAX_QUERY_STATS_INTEGER//1_000_000
 
 
 def _attr(key,value):
@@ -249,7 +251,14 @@ def stored_metrics(response,stages):
         if type(response) not in (tuple,list) or len(response)!=2 or type(response[0]) is not int:raise ValueError('invalid response')
         if response[0]!=200:return None
         body=_load(response[1])
-        if type(body) is not dict or set(body)!={'status','data'} or body['status']!='success':raise ValueError('invalid response envelope')
+        if type(body) is not dict or set(body) not in ({'status','data'},{'status','data','stats'}) or body['status']!='success':raise ValueError('invalid response envelope')
+        if 'stats' in body:
+            stats=body['stats']
+            # VM1.154 emits atomic.Int64 seriesFetched as text and duration milliseconds as int64.
+            if (type(stats) is not dict or set(stats)!={'seriesFetched','executionTimeMsec'} or
+                type(stats['seriesFetched']) is not str or re.fullmatch(r'(?:0|[1-9][0-9]{0,18})',stats['seriesFetched']) is None or
+                int(stats['seriesFetched'])>MAX_QUERY_STATS_INTEGER or type(stats['executionTimeMsec']) is not int or
+                not 0<=stats['executionTimeMsec']<=MAX_QUERY_EXECUTION_MILLISECONDS):raise ValueError('invalid query stats')
         data=body['data']
         if type(data) is not dict or set(data)!={'resultType','result'} or data['resultType']!='vector':raise ValueError('invalid vector envelope')
         rows=data['result']

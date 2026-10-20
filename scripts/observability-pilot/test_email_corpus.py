@@ -170,6 +170,73 @@ class EmailMetrics(unittest.TestCase):
                 self.assertEqual(verdict['stored_series'],225 if stages['protobuf']==0 else 230)
                 self.assertEqual(verdict['fallback_stages'],stages)
 
+class EmailNativeMetricEnvelope(unittest.TestCase):
+    def test_pinned_vm_stats_preserve_complete_verdict_and_safe_partial_pending(self):
+        stages={'json':0,'protobuf':0}
+        body=json.loads(metric_response(stages)[1])
+        # Literal VM1.154 instant-query metadata; fetched series are not returned cardinality.
+        body['stats']={'seriesFetched':'17','executionTimeMsec':0}
+        verdict=email_privacy.stored_metrics((200,json.dumps(body)),stages)
+        self.assertEqual(verdict,{'stored_series':220,'metric_labelsets':44,'fallback_stages':stages,'privacy':'passed'})
+        empty={'status':'success','data':{'resultType':'vector','result':[]},
+               'stats':{'seriesFetched':'0','executionTimeMsec':0}}
+        self.assertIsNone(email_privacy.stored_metrics((200,json.dumps(empty)),stages))
+        empty['stats']={'seriesFetched':'9223372036854775807','executionTimeMsec':9223372036854}
+        self.assertIsNone(email_privacy.stored_metrics((200,json.dumps(empty)),stages))
+
+    def test_native_execution_milliseconds_respect_the_time_duration_range(self):
+        # time.Duration is signed int64 nanoseconds; native Milliseconds truncates by 1e6.
+        raw={'status':'success','data':{'resultType':'vector','result':[]},
+             'stats':{'seriesFetched':'0','executionTimeMsec':9223372036855}}
+        with self.assertRaisesRegex(RuntimeError,'^email metric contract failed; raw response withheld$'):
+            email_privacy.stored_metrics((200,json.dumps(raw)),{'json':0,'protobuf':0})
+
+    def test_invalid_native_stats_fail_before_empty_vector_can_be_pending(self):
+        stages={'json':0,'protobuf':0}
+        empty={'status':'success','data':{'resultType':'vector','result':[]}}
+        invalid=[None,[],0,'private',{}, {'seriesFetched':'0'}, {'executionTimeMsec':0},
+                 {'seriesFetched':'0','executionTimeMsec':0,'private':'late-secret'}]
+        for value in (True,0,0.0,'-1','01','+1',' 1','1.0','1e0','NaN','Infinity',
+                      '9223372036854775808','9'*20,'١'):
+            invalid.append({'seriesFetched':value,'executionTimeMsec':0})
+        for value in (True,'0',0.0,-1,9223372036854775808,float('nan'),float('inf')):
+            invalid.append({'seriesFetched':'0','executionTimeMsec':value})
+        for stats in invalid:
+            with self.subTest(stats=stats):
+                with self.assertRaisesRegex(RuntimeError,'^email metric contract failed; raw response withheld$'):
+                    email_privacy.stored_metrics((200,json.dumps({**empty,'stats':stats})),stages)
+        for key,value in (('isPartial',False),('trace',{}),('private','late-secret')):
+            body={**empty,'stats':{'seriesFetched':'0','executionTimeMsec':0},key:value}
+            with self.assertRaises(RuntimeError):email_privacy.stored_metrics((200,json.dumps(body)),stages)
+
+    def test_native_stats_do_not_bypass_duplicate_malformed_privacy_or_byte_limits(self):
+        raw='{"status":"success","data":{"resultType":"vector","result":[]},"stats":{"seriesFetched":"0","executionTimeMsec":0}}'
+        unsafe=[raw.replace('"seriesFetched":"0"','"seriesFetched":"0","seriesFetched":"0"'),
+                raw.replace('"executionTimeMsec":0','"executionTimeMsec":0,"executionTimeMsec":0'),
+                raw.replace('"stats":{','"stats":{},"stats":{'),raw[:-1],
+                raw.replace('"0"','"'+email_privacy.SENTINEL+'"'),
+                raw.replace('"0"','"'+''.join('\\u%04x'%ord(c) for c in email_privacy.SENTINEL)+'"'),
+                raw.replace('"0"','"'+'x'*1_048_576+'"'),
+                raw.replace('"0"','"\ud800"')]
+        for body in unsafe:
+            with self.assertRaisesRegex(RuntimeError,'^email metric contract failed; raw response withheld$'):
+                email_privacy.stored_metrics((200,body),{'json':0,'protobuf':0})
+
+    def test_native_stats_keep_both_owners_on_full_vector_and_refuse_late_poison(self):
+        from test_dependency_privacy import metric_rows
+        stages={'json':6,'protobuf':6}
+        body=json.loads(metric_response(stages)[1]);body['data']['result']+=metric_rows()
+        body['stats']={'seriesFetched':'670','executionTimeMsec':2}
+        verdict=email_privacy.stored_metric_corpus((200,json.dumps(body)),stages)
+        self.assertEqual(verdict,{'legacy':{'stored_series':440,'metric_labelsets':86,'pool_series':10,'privacy':'passed'},
+                                'email':{'stored_series':230,'metric_labelsets':46,'fallback_stages':stages,'privacy':'passed'}})
+        poisoned=copy.deepcopy(body);poisoned['data']['result'][-1]['metric']['private']='late-secret'
+        with self.assertRaises(RuntimeError):email_privacy.stored_metric_corpus((200,json.dumps(poisoned)),stages)
+        poisoned=copy.deepcopy(body);poisoned['data']['result'][-1]['metric']['private']=email_privacy.SENTINEL
+        with self.assertRaises(RuntimeError):email_privacy.stored_metric_corpus((200,json.dumps(poisoned)),stages)
+        poisoned=copy.deepcopy(body);poisoned['data']['result'][0]['metric']['private']='late-secret'
+        with self.assertRaises(RuntimeError):email_privacy.stored_metric_corpus((200,json.dumps(poisoned)),stages)
+
 class EmailMetricSafety(unittest.TestCase):
     def test_quantization_collisions_are_refused_without_future_dating(self):
         self.assertEqual(email_privacy.metric_timestamp(NOW+1_000_000,NOW),NOW+1_000_000)
