@@ -1160,10 +1160,31 @@ deadline и закрытых labels сохраняются.
 
 The view pairs values with the original source timestamps returned by a second fixed query.
 An instant query's outer evaluation timestamp alone does not establish scrape freshness.
-Metric names are copied into a fixed temporary query-result label before the timestamp
-function so the two responses can be joined by exact catalog identity. No stored metric label
-is added. Pinned-engine compatibility and real source-outage behavior still require the
-separate isolated runtime proof; local HTTP fixtures establish the adapter contract only.
+The timestamp query applies `timestamp_with_name` separately to each raw source metric
+selector, before combining the two vectors with `or`. Only then does `label_replace` copy
+its preserved metric name into `source_metric`, so both complete responses join by exact
+catalog identity. No stored metric label is added. The value query, fixed selectors, evaluation
+time, `nocache=1`, query timeout and response validation remain unchanged.
+
+FRESH-STAMP-01 records a source-pattern defect exposed after CI39412486312 passed native MCP
+and the baseline freshness observation, then failed with `malformed` during `vt_down`.
+The earlier `timestamp(label_replace(...))` applies a rollup to an expression. In pinned
+[VM evaluation](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/eval.go),
+that expression becomes a subquery aligned to the default 300s step. Its timestamp can
+therefore describe the subquery grid instead of the original scrape. A disappeared counter
+can remain in that timestamp vector after leaving the current value vector. More seriously,
+a stopped source's old sample can appear fresh when the grid point is newer than the scrape.
+Pinned [rollups](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/rollup.go)
+map `timestamp_with_name` to the last input timestamp and preserve the metric name. Applying
+it directly to each raw selector avoids the implicit subquery.
+
+Owned HTTP tests exercise the actual private reader, credentials and full validators with
+a model of those pinned rules. The old plan reproduces malformed down-state acquisition
+and falsely reports an actual 105.2s sample as fresh with age 5.2s. The direct-selector plan
+reports `fresh_down` and the correct `stale` age. Private, unknown and mismatched rows still
+fail closed. These models do not execute native VM. The failed CI did not archive its raw
+query responses, so the unique runtime cause remains unknown. All seven native outage phases
+and their fit within the unchanged worker budget still require separate exact-source CI.
 
 Source state is `fresh_up`, `fresh_down`, `stale`, `missing`, `query_unavailable` or `malformed`.
 Fresh means sample age after bounded response decode and validation is at most 10 seconds, reusing the existing
