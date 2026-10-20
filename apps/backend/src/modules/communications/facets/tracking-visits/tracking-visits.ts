@@ -1,3 +1,7 @@
+import {
+  captureNotificationTraceparent,
+  type TechnicalTelemetry,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
 import { PublicContentTargets } from "../../../materials/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -104,6 +108,7 @@ export class TrackingVisits {
         this.prisma.communicationTrackingHit.create({
           data: {
             eventId: randomUUID(),
+            traceparent: captureNotificationTraceparent() ?? null,
             token: parsed.data.token,
             traffic: parsed.data.traffic,
             occurredAt: now,
@@ -158,7 +163,9 @@ export class TrackingVisits {
     }
   }
 
-  async deliverPending(): Promise<void> {
+  async deliverPending(
+    telemetry?: Pick<TechnicalTelemetry, "runTrackingDelivery">,
+  ): Promise<void> {
     const rows = await this.prisma.communicationTrackingHit.findMany({
       where: { deliveredAt: null, availableAt: { lte: this.now() } },
       orderBy: { occurredAt: "asc" },
@@ -179,30 +186,35 @@ export class TrackingVisits {
           },
         });
         if (claim.count === 0) return;
-        // Event and operation IDs survive retries, process restarts and ambiguous ACKs.
-        const result = await this.provider.execute({
-          ...envelope,
-          operation: "tracking.recordHit",
-          operationId: row.eventId,
-          payload: {
-            eventId: row.eventId,
-            token: row.token,
-            occurredAt: row.occurredAt.toISOString(),
-            traffic:
-              row.traffic === "known_automation"
-                ? "known_automation"
-                : "unknown",
-          },
-        });
-        await this.prisma.communicationTrackingHit.updateMany({
-          where: { eventId: row.eventId, claimId, deliveredAt: null },
-          data: result.ok
-            ? { deliveredAt: this.now(), claimId: null }
-            : {
-                availableAt: new Date(+this.now() + HIT_RETRY_DELAY_MS),
-                claimId: null,
-              },
-        });
+        const deliver = async (observation: { fail(): void }) => {
+          // Event and operation IDs survive retries, process restarts and ambiguous ACKs.
+          const result = await this.provider.execute({
+            ...envelope,
+            operation: "tracking.recordHit",
+            operationId: row.eventId,
+            payload: {
+              eventId: row.eventId,
+              token: row.token,
+              occurredAt: row.occurredAt.toISOString(),
+              traffic:
+                row.traffic === "known_automation"
+                  ? "known_automation"
+                  : "unknown",
+            },
+          });
+          await this.prisma.communicationTrackingHit.updateMany({
+            where: { eventId: row.eventId, claimId, deliveredAt: null },
+            data: result.ok
+              ? { deliveredAt: this.now(), claimId: null }
+              : {
+                  availableAt: new Date(+this.now() + HIT_RETRY_DELAY_MS),
+                  claimId: null,
+                },
+          });
+          if (!result.ok) observation.fail();
+        };
+        if (telemetry === undefined) await deliver({ fail: () => undefined });
+        else await telemetry.runTrackingDelivery(row.traceparent, deliver);
       }),
     );
   }

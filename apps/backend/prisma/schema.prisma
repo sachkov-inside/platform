@@ -703,6 +703,7 @@ model CommunicationTrackingHit {
   @@index([deliveredAt, availableAt], map: "tracking_hit_pending_idx")
   @@map("tracking_hits")
   @@schema("communications")
+  traceparent String? @db.VarChar(55)
 }
 
 model ReadingMaterialState {
