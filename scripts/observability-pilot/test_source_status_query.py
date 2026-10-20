@@ -19,7 +19,7 @@ import source_status_query
 
 
 @contextlib.contextmanager
-def server(callback):
+def server(callback, *, poll_interval=.5):
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             callback(self)
@@ -31,7 +31,7 @@ def server(callback):
     try:
         instance.daemon_threads = False
         instance.block_on_close = True
-        thread = threading.Thread(target=instance.serve_forever)
+        thread = threading.Thread(target=lambda: instance.serve_forever(poll_interval=poll_interval))
         thread.start()
         yield instance.server_port
     finally:
@@ -50,7 +50,7 @@ def native_near_now_vector(parameters):
     """Model pinned VM's 30s adjustment and restored outer point timestamp, not a native run."""
     evaluated_at = int(parameters['time'][0])
     effective_at = evaluated_at if parameters.get('nocache') == ['1'] else evaluated_at - 30
-    timestamp_query = parameters['query'][0].startswith('timestamp(')
+    timestamp_query = 'timestamp_with_name(' in parameters['query'][0]
     rows = [{'metric': {'job': job, 'instance': 'pilot',
                         'source_metric' if timestamp_query else '__name__': 'up'},
              'value': [evaluated_at, str(effective_at - 1) if timestamp_query else '1']}
@@ -121,7 +121,7 @@ class QueryTests(unittest.TestCase):
             parsed = urllib.parse.urlsplit(handler.path)
             query = urllib.parse.parse_qs(parsed.query)
             requests.append((parsed.path, query, handler.headers.get('Authorization')))
-            stamp_query = query['query'][0].startswith('timestamp(')
+            stamp_query = 'timestamp_with_name(' in query['query'][0]
             labels = {'job': 'platform-collector', 'instance': 'pilot',
                       'source_metric' if stamp_query else '__name__': 'up'}
             payload = json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': [
@@ -151,7 +151,7 @@ class QueryTests(unittest.TestCase):
                 def reply(handler):
                     query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
                     calls.append((query, handler.headers.get('Authorization')))
-                    stamp = query['query'][0].startswith('timestamp(')
+                    stamp = 'timestamp_with_name(' in query['query'][0]
                     rows = [{'metric': {'job': job, 'instance': 'pilot',
                                         'source_metric' if stamp else '__name__': 'up'},
                              'value': [100, '99' if stamp else '1']}
@@ -262,7 +262,7 @@ class QueryTests(unittest.TestCase):
         def read(request, *, timeout):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)
             requests.append(timeout)
-            timestamp_query = query['query'][0].startswith('timestamp(')
+            timestamp_query = 'timestamp_with_name(' in query['query'][0]
             labels = {'job': 'platform-collector', 'instance': 'pilot',
                       'source_metric' if timestamp_query else '__name__': 'up'}
             body = json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': [
@@ -379,7 +379,7 @@ class QueryTests(unittest.TestCase):
     def test_source_age_and_wall_regression_include_bounded_json_decode(self):
         def reply(handler):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
-            timestamp_query = query['query'][0].startswith('timestamp(')
+            timestamp_query = 'timestamp_with_name(' in query['query'][0]
             labels = {'job': 'platform-collector', 'instance': 'pilot',
                       'source_metric' if timestamp_query else '__name__': 'up'}
             payload = json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': [
@@ -494,7 +494,7 @@ class QueryTests(unittest.TestCase):
             query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
             requests.append(handler.headers.get('Authorization'))
             evaluation = int(query['time'][0])
-            timestamp_query = query['query'][0].startswith('timestamp(')
+            timestamp_query = 'timestamp_with_name(' in query['query'][0]
             rows = [{'metric': {'job': job, 'instance': 'pilot',
                                 'source_metric' if timestamp_query else '__name__': 'up'},
                      'value': [evaluation, str(evaluation) if timestamp_query else '1']}
