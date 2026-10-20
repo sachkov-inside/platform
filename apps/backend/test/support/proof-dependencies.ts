@@ -9,3 +9,5 @@ export {
 export type { NestApplicationOptions } from "@nestjs/common";
 export type { NestFastifyApplication } from "@nestjs/platform-fastify";
 export { default as fastify } from "fastify";
+
+export * as jose from "jose";

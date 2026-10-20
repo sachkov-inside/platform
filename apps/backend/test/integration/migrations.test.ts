@@ -280,6 +280,7 @@ describe("Platform migrations", () => {
         "0110_notifications_notification_trace_context",
         "0111_notifications_email_trace_context",
         "0112_communications_tracking_trace_context",
+        "0113_waitlist_trace_context",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -997,6 +998,7 @@ describe("Platform migrations", () => {
           "0110_notifications_notification_trace_context",
           "0111_notifications_email_trace_context",
           "0112_communications_tracking_trace_context",
+          "0113_waitlist_trace_context",
         ],
       });
 

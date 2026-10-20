@@ -30,6 +30,7 @@ const appendedNames = [
   "0110_notifications_notification_trace_context",
   "0111_notifications_email_trace_context",
   "0112_communications_tracking_trace_context",
+  "0113_waitlist_trace_context",
 ];
 
 // Frozen from canonical main2f530002, including its committed waitlist migration.
@@ -37,14 +38,14 @@ const currentMainCount = 102;
 const currentMainDigest =
   "6e88fc6f9aac093fa2deb0da67dcf20c9502339d23d271a2d28d9c881c8199e7";
 
-it("upgrades exact current main0101 to all 114 migrations without changing its ledger prefix", async () => {
+it("upgrades exact current main0101 to all 115 migrations without changing its ledger prefix", async () => {
   const mainRegistry = platformMigrations.slice(0, currentMainCount);
   expect(
     createHash("sha256").update(JSON.stringify(mainRegistry)).digest("hex"),
   ).toBe(currentMainDigest);
   expect(mainRegistry.at(-1)?.name).toBe("0101_waitlist_confirmations");
-  expect(platformMigrations).toHaveLength(114);
-  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(114);
+  expect(platformMigrations).toHaveLength(115);
+  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(115);
   const database = await createTestDatabase();
   const ledger = async () =>
     parseAppliedMigrations(
@@ -173,7 +174,8 @@ it("retains the frozen historical root0108 upgrade and rejects its divergent led
   const preparedRegistry = platformMigrations.filter(
     ({ name }) =>
       name !== "0101_waitlist_confirmations" &&
-      name !== "0112_communications_tracking_trace_context",
+      name !== "0112_communications_tracking_trace_context" &&
+      name !== "0113_waitlist_trace_context",
   );
   const rootRegistry = preparedRegistry.slice(0, preparedRootCount);
   expect(
@@ -305,7 +307,10 @@ it("appends nullable tracking context after the exact 113-entry ledger without c
     `),
     );
     expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: ["0112_communications_tracking_trace_context"],
+      appliedMigrations: [
+        "0112_communications_tracking_trace_context",
+        "0113_waitlist_trace_context",
+      ],
     });
     const after = parseAppliedMigrations(
       await database.prisma.$queryRaw(Prisma.sql`
@@ -313,7 +318,7 @@ it("appends nullable tracking context after the exact 113-entry ledger without c
     `),
     );
     expect(after.slice(0, 113)).toEqual(before);
-    expect(after).toHaveLength(114);
+    expect(after).toHaveLength(115);
     const hit =
       await database.prisma.communicationTrackingHit.findUniqueOrThrow({
         where: { eventId: "9f30cb17-16d4-4683-92f7-425003956a10" },
@@ -335,6 +340,71 @@ it("appends nullable tracking context after the exact 113-entry ledger without c
     });
     await expect(runMigrationsToLatest(database.url, prefix)).rejects.toThrow(
       "not an exact registry prefix at position 114",
+    );
+  } finally {
+    await database.dispose();
+  }
+});
+
+it("appends nullable waitlist context after the frozen 114-entry ledger and preserves old receipt writers", async () => {
+  const prefix = platformMigrations.slice(0, 114);
+  expect(
+    createHash("sha256").update(JSON.stringify(prefix)).digest("hex"),
+  ).toBe("a254d3ce7962494f014693a49112283c0117891c9ff505f3b018afbfe714f2ae");
+  const database = await createTestDatabase();
+  try {
+    await runMigrationsToLatest(database.url, prefix);
+    await database.prisma.$executeRaw(Prisma.sql`
+      insert into sales_funnel.product_waitlist_intakes(id, product_id, name, accepting)
+      values ('11111111-1111-4111-8111-111111111111'::uuid, '22222222-2222-4222-8222-222222222222'::uuid, 'Historical', true)
+    `);
+    await database.prisma.$executeRaw(Prisma.sql`
+      insert into sales_funnel.product_waitlist_events(id, intake_id, account_id, kind, occurred_at)
+      values ('33333333-3333-4333-8333-333333333333'::uuid, '11111111-1111-4111-8111-111111111111'::uuid, '44444444-4444-4444-8444-444444444444'::uuid, 'joined', '2026-10-07T09:00:00Z'::timestamptz)
+    `);
+    await database.prisma.$executeRaw(Prisma.sql`
+      insert into sales_funnel.product_waitlist_confirmations(event_id, intake_id, account_id, account_ref, telegram_identity_ref, link_revision, created_at)
+      values ('33333333-3333-4333-8333-333333333333'::uuid, '11111111-1111-4111-8111-111111111111'::uuid, '44444444-4444-4444-8444-444444444444'::uuid, 'historical-account', 'historical-identity', 1, '2026-10-07T09:00:00Z'::timestamptz)
+    `);
+    const ledger = async () =>
+      parseAppliedMigrations(
+        await database.prisma.$queryRaw(
+          Prisma.sql`select name, checksum, position from public.platform_migrations order by position`,
+        ),
+      );
+    const before = await ledger();
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: ["0113_waitlist_trace_context"],
+    });
+    const after = await ledger();
+    expect(after.slice(0, 114)).toEqual(before);
+    expect(after).toHaveLength(115);
+    const row =
+      await database.prisma.productWaitlistConfirmation.findUniqueOrThrow({
+        where: { eventId: "33333333-3333-4333-8333-333333333333" },
+      });
+    expect(row.traceparent).toBeNull();
+    expect(row.completedAt).toBeNull();
+    expect(row.accountRef).toBe("historical-account");
+    expect(row.createdAt.toISOString()).toBe("2026-10-07T09:00:00.000Z");
+    // The old relay's named-column update remains valid. No historical parent is invented.
+    expect(
+      await database.prisma.$executeRaw(
+        Prisma.sql`update sales_funnel.product_waitlist_confirmations set completed_at = '2026-10-07T09:00:01Z'::timestamptz where event_id = '33333333-3333-4333-8333-333333333333'::uuid and completed_at is null`,
+      ),
+    ).toBe(1);
+    expect(
+      (
+        await database.prisma.productWaitlistConfirmation.findUniqueOrThrow({
+          where: { eventId: row.eventId },
+        })
+      ).traceparent,
+    ).toBeNull();
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: [],
+    });
+    await expect(runMigrationsToLatest(database.url, prefix)).rejects.toThrow(
+      "not an exact registry prefix at position 115",
     );
   } finally {
     await database.dispose();
