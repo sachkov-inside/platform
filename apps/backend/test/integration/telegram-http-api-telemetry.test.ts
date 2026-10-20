@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { createServer, type RequestListener } from "node:http";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
-import { expect, test, vi } from "vitest";
+import { expect, test, vi, type TestContext } from "vitest";
 import { z } from "zod";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -73,6 +73,17 @@ const registrationSchema = z.object({
 });
 
 test("authenticated production link begin persists one pending receipt and parents one private-safe native Telegram completion", async (owner) => {
+  await proveTelegramLink("register", owner);
+});
+
+test("authenticated production link confirmation isolates Accounts and parents exactly one native completion", async (owner) => {
+  await proveTelegramLink("confirm", owner);
+});
+
+async function proveTelegramLink(
+  scenario: "register" | "confirm",
+  owner: TestContext,
+) {
   const database = await createMigratedTestDatabase();
   let application: NestFastifyApplication | undefined;
   const releases: (() => Promise<void>)[] = [];
@@ -130,6 +141,8 @@ test("authenticated production link begin persists one pending receipt and paren
     });
   });
   const registrations: z.infer<typeof registrationSchema>[] = [];
+  const confirmations: unknown[] = [];
+  const privateValues: string[] = [];
   const providerFailures: unknown[] = [];
   const provider = await listen((request, response) => {
     let body = "";
@@ -141,12 +154,41 @@ test("authenticated production link begin persists one pending receipt and paren
     request.on("end", () => {
       try {
         expect(request.method).toBe("POST");
-        expect(request.url).toBe("/integrations/platform/v1/identity-links");
         expect(request.headers.authorization).toBe(
           "Bearer private-linking-secret-sentinel",
         );
         expect(request.headers["traceparent"]).toBeUndefined();
         expect(request.headers["tracestate"]).toBeUndefined();
+        response.setHeader("content-type", "application/json");
+        if (
+          request.url ===
+          "/integrations/platform/v1/identity-links/private-provider-link-sentinel/confirm"
+        ) {
+          const confirmation = z
+            .strictObject({
+              accountRef: z.string(),
+              contractVersion: z.literal("inside.identity-linking.v1"),
+              returnCorrelation: z.string(),
+            })
+            .parse(JSON.parse(body));
+          expect(confirmation).toEqual({
+            accountRef: registrations[0]?.accountRef,
+            contractVersion: "inside.identity-linking.v1",
+            returnCorrelation: registrations[0]?.returnCorrelation,
+          });
+          confirmations.push(confirmation);
+          response.end(
+            JSON.stringify({
+              contractVersion: "inside.identity-linking.v1",
+              linkTransactionRef: "private-provider-link-sentinel",
+              returnCorrelation: confirmation.returnCorrelation,
+              status: "linked",
+              telegramIdentityRef: "private-telegram-identity-sentinel",
+            }),
+          );
+          return;
+        }
+        expect(request.url).toBe("/integrations/platform/v1/identity-links");
         const registration = registrationSchema.parse(JSON.parse(body));
         registrations.push(registration);
         response.setHeader("content-type", "application/json");
@@ -244,7 +286,9 @@ test("authenticated production link begin persists one pending receipt and paren
   );
   expect(terms.status).toBe(200);
   const { document } = z
-    .object({ document: z.object({ version: z.string(), digest: z.string() }) })
+    .object({
+      document: z.object({ version: z.string(), digest: z.string() }),
+    })
     .parse(terms.body);
   expect(
     (
@@ -300,6 +344,84 @@ test("authenticated production link begin persists one pending receipt and paren
       where: { accountId: account.accountId },
     }),
   ).toBe(0);
+  if (scenario === "confirm") {
+    const otherBearer = await identity.sign(
+      "private-other-link-owner-sentinel",
+      {
+        inside_verified_email:
+          "private-other-link-owner-sentinel@example.invalid",
+      },
+    );
+    const otherEstablished = await request("POST", "/accounts", otherBearer);
+    expect(otherEstablished.status).toBe(201);
+    const otherAccount = z
+      .object({ account: z.object({ accountId: z.uuid() }) })
+      .parse(otherEstablished.body).account;
+    privateValues.push(otherBearer, otherAccount.accountId);
+    // Pass the real terms guard so the wrong Account reaches the ownership boundary.
+    expect(
+      (
+        await request(
+          "POST",
+          "/accounts/current/legal-acceptances/terms",
+          otherBearer,
+          {
+            operationId: randomUUID(),
+            version: document.version,
+            digest: document.digest,
+            buttonLabel: "Принять условия и продолжить",
+          },
+        )
+      ).status,
+    ).toBe(200);
+    const confirmPath = `/accounts/current/telegram-link/${pending.linkRef}/confirm`;
+    expect((await request("POST", confirmPath)).status).toBe(401);
+    expect(confirmations).toHaveLength(0);
+    expect(
+      await database.prisma.telegramLinkTransaction.findUniqueOrThrow({
+        where: { linkRef: pending.linkRef },
+      }),
+    ).toEqual(receipt);
+    expect((await request("POST", confirmPath, otherBearer)).status).toBe(404);
+    expect(confirmations).toHaveLength(0);
+    expect(
+      await database.prisma.telegramLinkTransaction.findUniqueOrThrow({
+        where: { linkRef: pending.linkRef },
+      }),
+    ).toEqual(receipt);
+    expect(await database.prisma.membershipBinding.count()).toBe(0);
+    expect(await database.prisma.telegramAccountLinkState.count()).toBe(0);
+    expect(await database.prisma.telegramAccountLinkHistory.count()).toBe(0);
+    const confirmed = await request("POST", confirmPath, bearer);
+    expect(confirmed.status).toBe(200);
+    expect(confirmed.body).toMatchObject({
+      linkRef: pending.linkRef,
+      status: "linked",
+    });
+    expect(confirmations).toHaveLength(1);
+    expect(
+      await database.prisma.telegramLinkTransaction.findUniqueOrThrow({
+        where: { linkRef: pending.linkRef },
+      }),
+    ).toMatchObject({
+      accountId: account.accountId,
+      status: "linked",
+      providerIdentityRef: "private-telegram-identity-sentinel",
+      principalRef: receipt.principalRef,
+      returnCorrelation: receipt.returnCorrelation,
+      tokenDigest: receipt.tokenDigest,
+      providerTransactionRef: receipt.providerTransactionRef,
+    });
+    expect(await database.prisma.membershipBinding.findMany()).toEqual([
+      expect.objectContaining({
+        accountId: account.accountId,
+        principalRef: receipt.principalRef,
+      }),
+    ]);
+  }
+  expect(providerFailures).toEqual([]);
+  expect(registrations).toHaveLength(1);
+  expect(confirmations).toHaveLength(scenario === "register" ? 0 : 1);
   await application.close();
   application = undefined;
   const documents = exported.map((raw) => exportSchema.parse(JSON.parse(raw)));
@@ -319,35 +441,74 @@ test("authenticated production link begin persists one pending receipt and paren
   const clients = logical.filter(
     (span) => attribute(span, "dependency.name")?.stringValue === "telegram",
   );
-  expect(clients).toHaveLength(1);
-  const client = clients[0];
-  if (client === undefined) throw new Error("Missing Telegram completion");
-  expect(client.kind).toBe(3);
-  expect(client.name).toBe("telegram link.register");
-  expect(client.attributes.map((item) => item.key).sort()).toEqual([
-    "dependency.name",
-    "dependency.operation",
-    "dependency.outcome",
-    "http.request.method",
-    "http.response.status_code",
-  ]);
-  expect(attribute(client, "dependency.outcome")?.stringValue).toBe(
-    "completed",
-  );
-  const parent = logical.find(
-    (span) =>
-      span.kind === 2 &&
-      span.traceId === client.traceId &&
-      span.spanId === client.parentSpanId,
-  );
-  expect(parent).toBeDefined();
-  if (parent === undefined) throw new Error("Missing actual API parent");
-  expect(attribute(parent, "http.route")?.stringValue).toBe(
-    "/accounts/current/telegram-link",
-  );
-  expect(String(attribute(parent, "http.response.status_code")?.intValue)).toBe(
-    "200",
-  );
+  const operations =
+    scenario === "register"
+      ? ["link.register"]
+      : ["link.register", "link.confirm"];
+  expect(clients).toHaveLength(operations.length);
+  for (const operation of operations) {
+    const matching = clients.filter(
+      (span) =>
+        attribute(span, "dependency.operation")?.stringValue === operation,
+    );
+    expect(matching).toHaveLength(1);
+    const client = matching[0];
+    if (client === undefined) throw new Error("Missing Telegram completion");
+    expect(client.kind).toBe(3);
+    expect(client.name).toBe(`telegram ${operation}`);
+    expect(client.attributes.map((item) => item.key).sort()).toEqual([
+      "dependency.name",
+      "dependency.operation",
+      "dependency.outcome",
+      "http.request.method",
+      "http.response.status_code",
+    ]);
+    expect(attribute(client, "dependency.outcome")?.stringValue).toBe(
+      "completed",
+    );
+    expect(attribute(client, "http.request.method")?.stringValue).toBe("POST");
+    expect(
+      String(attribute(client, "http.response.status_code")?.intValue),
+    ).toBe("200");
+    const parent = logical.find(
+      (span) =>
+        span.kind === 2 &&
+        span.traceId === client.traceId &&
+        span.spanId === client.parentSpanId,
+    );
+    expect(parent).toBeDefined();
+    if (parent === undefined) throw new Error("Missing actual API parent");
+    expect(attribute(parent, "http.route")?.stringValue).toBe(
+      operation === "link.register"
+        ? "/accounts/current/telegram-link"
+        : "/accounts/current/telegram-link/:linkRef/confirm",
+    );
+    expect(
+      String(attribute(parent, "http.response.status_code")?.intValue),
+    ).toBe("200");
+  }
+  if (scenario === "confirm") {
+    const rejected = logical.filter(
+      (span) =>
+        span.kind === 2 &&
+        attribute(span, "http.route")?.stringValue ===
+          "/accounts/current/telegram-link/:linkRef/confirm" &&
+        ["401", "404"].includes(
+          String(attribute(span, "http.response.status_code")?.intValue),
+        ),
+    );
+    expect(
+      rejected
+        .map((span) =>
+          String(attribute(span, "http.response.status_code")?.intValue),
+        )
+        .sort(),
+    ).toEqual(["401", "404"]);
+    for (const parent of rejected)
+      expect(clients.filter((span) => span.traceId === parent.traceId)).toEqual(
+        [],
+      );
+  }
   const metrics = documents.flatMap(
     (value) =>
       value.resourceMetrics?.flatMap((resource) =>
@@ -371,16 +532,27 @@ test("authenticated production link begin persists one pending receipt and paren
         ),
       );
     expect(points.length).toBeGreaterThan(0);
+    expect(
+      [
+        ...new Set(
+          points.map(
+            (point) =>
+              point.attributes.find((item) => item.key === "operation")?.value
+                .stringValue,
+          ),
+        ),
+      ].sort(),
+    ).toEqual([...operations].sort());
     for (const point of points) {
       expect(point.attributes.map((item) => item.key).sort()).toEqual([
         "dependency",
         "operation",
         "outcome",
       ]);
-      expect(
+      expect(operations).toContain(
         point.attributes.find((item) => item.key === "operation")?.value
           .stringValue,
-      ).toBe("link.register");
+      );
       expect(
         point.attributes.find((item) => item.key === "outcome")?.value
           .stringValue,
@@ -393,6 +565,7 @@ test("authenticated production link begin persists one pending receipt and paren
     }
   }
   for (const secret of [
+    ...privateValues,
     "private-",
     provider,
     bearer,
@@ -404,4 +577,4 @@ test("authenticated production link begin persists one pending receipt and paren
     pending.deepLink,
   ])
     expect(exported.join("\n")).not.toContain(secret);
-});
+}
