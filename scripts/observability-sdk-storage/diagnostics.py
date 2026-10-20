@@ -23,6 +23,76 @@ class OracleRefusal(RuntimeError):
         super().__init__(message)
         self.reason = reason
 
+# Permanent scope+gate identifiers. Never renumber when source lines move.
+TRACE_CODES = ('trace_decode', 'trace_gate_01', 'trace_gate_02', 'trace_gate_03',
+               'trace_gate_04', 'trace_gate_05', 'trace_gate_06', 'trace_gate_07',
+               'trace_gate_08', 'trace_gate_09', 'trace_gate_10', 'trace_gate_11',
+               'trace_gate_12', 'trace_gate_13', 'trace_gate_14', 'trace_gate_15',
+               'trace_gate_16', 'trace_gate_17', 'trace_gate_18', 'trace_gate_19', 'trace_gate_20')
+TRACE_GATES = {'sdk': TRACE_CODES[:13], 'tracking': TRACE_CODES, 'waitlist': TRACE_CODES}
+TRACE_MESSAGES = {'sdk':'SDK storage trace contract failed',
+                  'tracking':'Tracking storage trace contract failed',
+                  'waitlist':'Waitlist storage trace contract failed'}
+WAITLIST_STORAGE_PHASES = ('metric_query','metric_validation','trace_query','trace_validation',
+                           'reconciliation','visibility','complete')
+
+
+class TraceGateRefusal(ValueError):
+    """An empty ValueError with a constructor-owned semantic predicate identifier."""
+    __slots__ = ('_scope','_reason')
+    def __init__(self, scope, reason):
+        if (type(scope) is not str or scope not in TRACE_GATES or type(reason) is not str
+                or reason not in TRACE_GATES[scope]):
+            raise ValueError('closed trace predicate reason')
+        object.__setattr__(self,'_scope',scope)
+        object.__setattr__(self,'_reason',reason)
+        super().__init__()
+
+    @property
+    def scope(self):return self._scope
+    @property
+    def reason(self):return self._reason
+    def __setattr__(self,name,value):
+        if name in ('scope','reason','_scope','_reason'):raise AttributeError('read-only trace reason')
+        super().__setattr__(name,value)
+
+
+class TraceOracleRefusal(OracleRefusal):
+    """Fixed original RuntimeError message, never caller-provided native details."""
+    __slots__ = ('_scope','_reason')
+    def __init__(self,scope,reason):
+        admitted=TraceGateRefusal(scope,reason)
+        object.__setattr__(self,'_scope',admitted.scope)
+        object.__setattr__(self,'_reason',admitted.reason)
+        RuntimeError.__init__(self,TRACE_MESSAGES[scope])
+
+    @property
+    def scope(self):return self._scope
+    @property
+    def reason(self):return self._reason
+    def __setattr__(self,name,value):
+        if name in ('scope','reason','_scope','_reason'):raise AttributeError('read-only trace reason')
+        super().__setattr__(name,value)
+
+
+def _trace_reason(error,scope):
+    # No foreign properties, formatting, args or exception delegation.
+    if type(error) not in (TraceGateRefusal,TraceOracleRefusal):return None
+    if type(scope) is not str or scope not in TRACE_GATES:return None
+    try:owner,reason=error.scope,error.reason
+    except AttributeError:return None
+    if type(owner) is str and owner==scope and type(reason) is str and reason in TRACE_GATES[scope]:return reason
+    return None
+
+
+def trace_refusal(error,*,scope):
+    reason=_trace_reason(error,scope)
+    if reason is not None:return TraceOracleRefusal(scope,reason)
+    if type(error) is ResponseDecode:return OracleRefusal(TRACE_MESSAGES[scope],'response_decode')
+    if scope=='waitlist':return RuntimeError(TRACE_MESSAGES[scope])
+    return OracleRefusal(TRACE_MESSAGES[scope],'oracle_refusal')
+
+
 NAME = 'storage-diagnostic.json'
 MAX_BYTES = 2048
 MAX_ATTEMPTS = 1024
@@ -37,7 +107,7 @@ FAILURES = {
     'metric_query': ('transport', 'deadline', 'response_decode'),
     'metric_validation': ('response_decode', 'oracle_refusal'),
     'trace_query': ('transport', 'deadline', 'response_decode'),
-    'trace_validation': ('response_decode', 'oracle_refusal'),
+    'trace_validation': ('response_decode', 'oracle_refusal', *TRACE_CODES),
     'reconciliation': ('oracle_refusal',), 'visibility': ('deadline',), 'complete': (),
 }
 
@@ -64,7 +134,8 @@ def validate(value, *, scope):
         _refuse()
     phase, outcome, reason = (value[key] for key in ('phase','outcome','reason'))
     if reason in TRACKING_WITNESS_REASONS and scope != 'tracking': _refuse()
-    if scope == 'waitlist' and phase not in ('unknown', 'capture', 'protocol_decode'): _refuse()
+    if reason in TRACE_CODES and (phase != 'trace_validation' or reason not in TRACE_GATES[scope]): _refuse()
+    if scope == 'waitlist' and phase not in ('unknown', 'capture', 'protocol_decode', *WAITLIST_STORAGE_PHASES): _refuse()
     if outcome == 'unknown':
         if phase != 'unknown' or reason != 'unknown' or value['attempts'] or value['attempts_saturated']: _refuse()
     elif outcome == 'failed':
@@ -153,7 +224,11 @@ def query_reason(error):
     return 'unknown'
 
 
-def oracle_reason(error):
-    if isinstance(error, OracleRefusal) and error.reason in ('response_decode','oracle_refusal'):
-        return error.reason
+def oracle_reason(error, *, scope=None):
+    if type(error) is TraceOracleRefusal:
+        return _trace_reason(error,scope) or 'unknown'
+    if type(error) is OracleRefusal:
+        try:reason=error.reason
+        except AttributeError:return 'unknown'
+        if type(reason) is str and reason in ('response_decode','oracle_refusal'):return reason
     return 'unknown'

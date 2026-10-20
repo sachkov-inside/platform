@@ -66,6 +66,60 @@ def capture_producer(output, *, environment, source):
         diagnostic.persist(output/diagnostics.NAME)
 
 
+def stored_metrics_and_traces(output, *, token, compose, targets, observed, result, diagnostic):
+    """Observe only the original post-capture storage loop; no new query or policy."""
+    deadline=time.monotonic()+STORAGE_SECONDS
+    attempts=0; metrics=traces=None
+    try:
+        while time.monotonic()<deadline:
+            attempts+=1
+            result['stage']='stored_metrics'
+            diagnostic.start('metric_query');diagnostic.attempt()
+            try:
+                raw_metrics=sdk_storage.metric_response(token,budget=min(10,max(.001,deadline-time.monotonic())))
+            except Exception as error:
+                diagnostic.fail(diagnostics.query_reason(error));raise
+            diagnostic.start('metric_validation')
+            try:
+                metrics=waitlist_oracle.metrics(raw_metrics)
+            except Exception as error:
+                diagnostic.fail(diagnostics.oracle_reason(error));raise
+            diagnostic.observed(metrics)
+            result['metrics_state']='passed' if metrics is not None else 'pending'
+            result['stage']='stored_traces'
+            diagnostic.start('trace_query')
+            try:
+                raw_traces=trace_response(compose,targets,observed['trace_id'],budget=min(10,max(.001,deadline-time.monotonic())))
+            except Exception as error:
+                diagnostic.fail(diagnostics.query_reason(error));raise
+            diagnostic.start('trace_validation')
+            try:
+                traces=waitlist_oracle.traces(raw_traces,trace_id=observed['trace_id'],root_id=observed['root_id'])
+            except Exception as error:
+                diagnostic.fail(diagnostics.oracle_reason(error,scope='waitlist'));raise
+            diagnostic.observed(traces)
+            result['traces_state']='passed' if traces is not None else 'pending'
+            if metrics is not None and traces is not None:
+                diagnostic.start('reconciliation')
+                if all(metrics['dependency_counts']['postgresql:'+operation] == count for operation,count in traces['postgresql_counts'].items()):
+                    diagnostic.observed(True);break
+                # Preserve the original partial-trace SQL reconciliation and pending outcome.
+                if any(metrics['dependency_counts']['postgresql:'+operation] < count for operation,count in traces['postgresql_counts'].items()):
+                    diagnostic.fail('oracle_refusal');raise RuntimeError()
+                diagnostic.observed(None)
+            time.sleep(pilot.POLL_INTERVAL_SECONDS)
+        else:
+            diagnostic.start('visibility');diagnostic.fail('deadline');raise TimeoutError()
+        if metrics is None or traces is None:
+            diagnostic.start('visibility');diagnostic.fail('deadline');raise TimeoutError()
+        diagnostic.start('complete')
+        return metrics,traces,attempts
+    except BaseException as error:
+        diagnostic.fail('interrupted' if isinstance(error,KeyboardInterrupt) else 'unknown');raise
+    finally:
+        diagnostic.persist(output/diagnostics.NAME)
+
+
 def worker(output):
     owner=json.loads((output/'owner.json').read_text())
     if owner['supervisor_pid'] != os.getppid(): raise RuntimeError()
@@ -105,23 +159,10 @@ def worker(output):
             module_artifact={'schema':1,'sha256':observed['runtime_modules']}
             if len((json.dumps(module_artifact,indent=2)+'\n').encode()) > ci.PUBLIC_ARTIFACT_MAX_BYTES: raise ValueError()
             pilot.write_json(output/'runtime-modules.json',module_artifact)
-            deadline=time.monotonic()+STORAGE_SECONDS
-            attempts=0; metrics=traces=None
-            while time.monotonic()<deadline:
-                attempts+=1
-                result['stage']='stored_metrics'
-                metrics=waitlist_oracle.metrics(sdk_storage.metric_response(token,budget=min(10,max(.001,deadline-time.monotonic()))))
-                result['metrics_state']='passed' if metrics is not None else 'pending'
-                result['stage']='stored_traces'
-                traces=waitlist_oracle.traces(trace_response(compose,targets,observed['trace_id'],budget=min(10,max(.001,deadline-time.monotonic()))),trace_id=observed['trace_id'],root_id=observed['root_id'])
-                result['traces_state']='passed' if traces is not None else 'pending'
-                if metrics is not None and traces is not None:
-                    if all(metrics['dependency_counts']['postgresql:'+operation] == count for operation,count in traces['postgresql_counts'].items()): break
-                    # A partial trace can already contain the four causal roles while SQL rows are still arriving.
-                    if any(metrics['dependency_counts']['postgresql:'+operation] < count for operation,count in traces['postgresql_counts'].items()): raise RuntimeError()
-                time.sleep(pilot.POLL_INTERVAL_SECONDS)
-            else: raise TimeoutError()
-            if metrics is None or traces is None: raise TimeoutError()
+            # Capture failures are terminal; this storage observer starts only after the map write.
+            diagnostic=diagnostics.Diagnostic('waitlist')
+            metrics,traces,attempts=stored_metrics_and_traces(output,token=token,compose=compose,targets=targets,
+                observed=observed,result=result,diagnostic=diagnostic)
             result.update({'state':'passed','stage':'complete','native_api_request':True,'provider_requests':1,
                 'persisted_carrier':'passed','native_timer':'passed','api_owned_sdk_shutdown':'passed',
                 'metrics':metrics,'traces':traces,'attempts':attempts,'containers':8,'volumes':5,'networks':2})

@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'observability-sdk-storage'))
 import oracle as sdk_oracle
-from diagnostics import ResponseDecode, OracleRefusal
+from diagnostics import ResponseDecode, OracleRefusal, TraceGateRefusal, trace_refusal
 
 BOUNDS = sdk_oracle.BOUNDS
 COMMON = {'service.name':'platform-api', 'deployment.environment.name':'test',
@@ -132,14 +132,18 @@ def traces(raw, *, trace_id, root_id):
         from telegram_http_storage import _timestamp_matches
         if (type(raw) is not str or len(raw.encode()) > sdk_oracle.MAX_BYTES
                 or type(trace_id) is not str or re.fullmatch(r'[0-9a-f]{32}',trace_id) is None or trace_id == '0'*32
-                or type(root_id) is not str or re.fullmatch(r'[0-9a-f]{16}',root_id) is None or root_id == '0'*16): raise ValueError()
-        rows = [sdk_oracle.decode(line) for line in raw.splitlines() if line.strip()]
-        if len(rows) > 68: raise ValueError()
+                or type(root_id) is not str or re.fullmatch(r'[0-9a-f]{16}',root_id) is None or root_id == '0'*16): raise TraceGateRefusal('tracking','trace_gate_01')
+        try:
+            rows = [sdk_oracle.decode(line) for line in raw.splitlines() if line.strip()]
+        except ResponseDecode:raise
+        except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError):
+            raise TraceGateRefusal('tracking','trace_decode') from None
+        if len(rows) > 68: raise TraceGateRefusal('tracking','trace_gate_02')
         parsed, roles, main, providers, sql = {}, {}, {}, [], {'query':0,'acquire':0}
         for row in rows:
-            if type(row) is not dict or not all(type(v) is str for v in row.values()): raise ValueError()
+            if type(row) is not dict or not all(type(v) is str for v in row.values()): raise TraceGateRefusal('tracking','trace_gate_03')
             name, identity = row.get('name'), row.get('span_id')
-            if identity is None or re.fullmatch(r'[0-9a-f]{16}',identity) is None or identity == '0'*16 or identity in parsed: raise ValueError()
+            if identity is None or re.fullmatch(r'[0-9a-f]{16}',identity) is None or identity == '0'*16 or identity in parsed: raise TraceGateRefusal('tracking','trace_gate_04')
             if name == 'POST /communications/tracking/resolve':
                 role, kind = 'root','2'
                 attrs = {'http.request.method':'POST','http.route':'/communications/tracking/resolve','http.request.outcome':'completed','http.response.status_code':'200'}
@@ -151,7 +155,7 @@ def traces(raw, *, trace_id, root_id):
                 role, kind = 'postgresql','3'; operation = name.split(' ')[1]
                 attrs = {'dependency.name':'postgresql','dependency.operation':operation,'dependency.outcome':'completed'}
                 sql[operation] += 1
-            else: raise ValueError()
+            else: raise TraceGateRefusal('tracking','trace_gate_05')
             expected = {'trace_id':trace_id,'resource_attr:service.name':'platform-api','resource_attr:deployment.environment.name':'test',
                         'resource_attr:service.version':'_OTHER','scope_name':'inside-collector','kind':kind,'status_code':'0','flags':'769' if role=='delivery' else '257','_msg':'-',
                         '_stream':'{name='+json.dumps(name)+',resource_attr:service.name="platform-api"}',
@@ -161,50 +165,49 @@ def traces(raw, *, trace_id, root_id):
             if role == 'root': optional['parent_span_id']=''
             else: mandatory.add('parent_span_id')
             if (not mandatory <= set(row) or set(row)-mandatory-set(optional) or any(row.get(k) != v for k,v in expected.items())
-                    or any(row[k] != optional[k] for k in set(row)&set(optional))): raise ValueError()
+                    or any(row[k] != optional[k] for k in set(row)&set(optional))): raise TraceGateRefusal('tracking','trace_gate_06')
             for key in ('start_time_unix_nano','end_time_unix_nano','duration'):
-                if re.fullmatch(r'0|[1-9][0-9]{0,18}',row[key]) is None: raise ValueError()
+                if re.fullmatch(r'0|[1-9][0-9]{0,18}',row[key]) is None: raise TraceGateRefusal('tracking','trace_gate_07')
             start,end,duration = (int(row[k]) for k in ('start_time_unix_nano','end_time_unix_nano','duration'))
             if (not 0 < start <= end < 2**63 or duration != end-start or duration > 60_000_000_000
-                    or not _timestamp_matches(row['_time'],start) or re.fullmatch(r'0{16}[0-9a-f]{32}',row['_stream_id']) is None): raise ValueError()
+                    or not _timestamp_matches(row['_time'],start) or re.fullmatch(r'0{16}[0-9a-f]{32}',row['_stream_id']) is None): raise TraceGateRefusal('tracking','trace_gate_08')
             if role in ('root','delivery'):
-                if role in main: raise ValueError()
+                if role in main: raise TraceGateRefusal('tracking','trace_gate_09')
                 main[role]=row
-                if role == 'root' and identity != root_id or role == 'delivery' and row['parent_span_id'] != root_id: raise ValueError()
+                if role == 'root' and identity != root_id or role == 'delivery' and row['parent_span_id'] != root_id: raise TraceGateRefusal('tracking','trace_gate_10')
             elif role == 'provider': providers.append(row)
             parent = row.get('parent_span_id')
-            if role != 'root' and (re.fullmatch(r'[0-9a-f]{16}',parent) is None or parent == '0'*16 or parent == identity): raise ValueError()
+            if role != 'root' and (re.fullmatch(r'[0-9a-f]{16}',parent) is None or parent == '0'*16 or parent == identity): raise TraceGateRefusal('tracking','trace_gate_11')
             parsed[identity]=row
             roles[identity]=role
-        if len(providers)>2 or sum(sql.values())>64: raise ValueError()
+        if len(providers)>2 or sum(sql.values())>64: raise TraceGateRefusal('tracking','trace_gate_12')
         delivery = main.get('delivery')
         for provider in providers:
-            if provider['parent_span_id'] != root_id and delivery is not None and provider['parent_span_id'] != delivery['span_id']: raise ValueError()
-        if len({row['parent_span_id'] for row in providers}) != len(providers): raise ValueError()
+            if provider['parent_span_id'] != root_id and delivery is not None and provider['parent_span_id'] != delivery['span_id']: raise TraceGateRefusal('tracking','trace_gate_13')
+        if len({row['parent_span_id'] for row in providers}) != len(providers): raise TraceGateRefusal('tracking','trace_gate_14')
         # Every visible neighboring edge is checked before returning pending.
         for row in rows:
             parent_id=row.get('parent_span_id')
             if roles[row['span_id']] == 'postgresql':
                 # Production driver observations run directly in HTTP or delivery TechnicalScope.
                 # The owned provider does no SQL, and nested SQL is not part of this vertical.
-                if parent_id in roles and roles[parent_id] not in ('root','delivery'): raise ValueError()
-                if delivery is not None and parent_id not in (root_id,delivery['span_id']): raise ValueError()
+                if parent_id in roles and roles[parent_id] not in ('root','delivery'): raise TraceGateRefusal('tracking','trace_gate_15')
+                if delivery is not None and parent_id not in (root_id,delivery['span_id']): raise TraceGateRefusal('tracking','trace_gate_16')
             parent = parsed.get(parent_id)
             if parent is not None and row is not delivery:
-                if not int(parent['start_time_unix_nano']) <= int(row['start_time_unix_nano']) <= int(row['end_time_unix_nano']) <= int(parent['end_time_unix_nano']): raise ValueError()
+                if not int(parent['start_time_unix_nano']) <= int(row['start_time_unix_nano']) <= int(row['end_time_unix_nano']) <= int(parent['end_time_unix_nano']): raise TraceGateRefusal('tracking','trace_gate_17')
             visited = set(); current=row
             while current.get('parent_span_id') in parsed:
-                if current['span_id'] in visited: raise ValueError()
+                if current['span_id'] in visited: raise TraceGateRefusal('tracking','trace_gate_18')
                 visited.add(current['span_id']); current=parsed[current['parent_span_id']]
         if set(main) != {'root','delivery'} or len(providers) != 2 or not all(sql.values()): return None
-        if int(delivery['start_time_unix_nano']) < int(main['root']['start_time_unix_nano']): raise ValueError()
+        if int(delivery['start_time_unix_nano']) < int(main['root']['start_time_unix_nano']): raise TraceGateRefusal('tracking','trace_gate_19')
         expected_parents = {root_id,delivery['span_id']}
-        if {row['parent_span_id'] for row in providers} != expected_parents: raise ValueError()
+        if {row['parent_span_id'] for row in providers} != expected_parents: raise TraceGateRefusal('tracking','trace_gate_20')
         for row in rows:
             if row is main['root']: continue
             if row['parent_span_id'] not in parsed: return None
         return {'stored_spans':len(rows),'tracking_spans':1,'provider_spans':2,'postgresql_counts':sql,
                 'privacy':'passed','persisted_causality':'passed'}
     except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError) as error:
-        raise OracleRefusal('Tracking storage trace contract failed',
-                            'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None
+        raise trace_refusal(error,scope='tracking') from None
