@@ -1,4 +1,5 @@
 """Owned Node child/loopback cleanup, with real exit, timeout and bounded output."""
+import fnmatch
 import json
 import os
 from pathlib import Path
@@ -111,6 +112,24 @@ class PrivateWireWitness(unittest.TestCase):
                 invalid['runtime_modules'].append({'path': rejected, 'sha256': 'b'*64})
                 with self.assertRaises(ValueError):
                     self.parse(invalid)
+
+    def test_contract_source_and_compiler_changes_trigger_the_bound_storage_workflow(self):
+        workflow = (sdk_storage.pilot.ROOT/'.github/workflows/observability-sdk-storage.yml').read_text()
+        # This workflow owns one plain scalar paths list under pull_request.
+        block = workflow.split('    paths:\n', 1)[1].split('\n\n', 1)[0]
+        patterns = []
+        for line in block.splitlines():
+            self.assertTrue(line.startswith('      - '))
+            patterns.append(line.removeprefix('      - ').strip('"'))
+        contracts = {str(path.relative_to(sdk_storage.pilot.ROOT))
+                     for path in sdk_storage.source_inputs()
+                     if path.is_relative_to(sdk_storage.pilot.ROOT/'docs/contracts')}
+        self.assertTrue({'docs/contracts/runtime/diagnostic-error.ts',
+                         'docs/contracts/tsconfig.build.json'} <= contracts)
+        for changed_path in sorted(contracts):
+            with self.subTest(changed_path=changed_path):
+                self.assertTrue(any(fnmatch.fnmatchcase(changed_path, pattern)
+                                    for pattern in patterns), 'bound contract input skips native storage CI')
 
     def test_module_count_and_path_size_boundaries(self):
         self.assertEqual(len(self.parse(self.wire(1000))['runtime_modules']), 1000)

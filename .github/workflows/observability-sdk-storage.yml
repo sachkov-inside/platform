@@ -17,6 +17,7 @@ on:
       - apps/backend/tsconfig*.json
       - apps/backend/prisma.config.ts
       - packages/**
+      - docs/contracts/**
       - patches/**
       - package.json
       - pnpm-lock.yaml
