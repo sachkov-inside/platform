@@ -78,6 +78,14 @@ class CorpusBoundary:
             elif fault=='identity':rows[-1]['span_id']='f'*16
             elif fault=='extra':rows.append(copy.deepcopy(rows[-1]))
             elif fault=='duplicate':rows[-1]=copy.deepcopy(rows[0])
+            elif fault=='conflicting':
+                row=copy.deepcopy(rows[0]);row['name']+=' contradictory'
+                assert row['span_id']==rows[0]['span_id'] and row!=rows[0],'controlled contradictory duplicate'
+                rows[-1]=row
+            elif fault=='unknown':
+                row=copy.deepcopy(rows[-1]);row['span_id']='f'*16
+                assert all(row['span_id']!=prior['span_id'] for prior in rows),'controlled unknown span'
+                rows.append(row)
             elif fault=='timestamp':rows[-1]['start_time_unix_nano']='1'
         return '\n'.join(json.dumps(row) for row in rows)
 
@@ -179,7 +187,7 @@ class DependencyScheduling(unittest.TestCase):
 
     def test_every_full_trace_oracle_refuses_late_poison_and_keeps_only_successful_read_prefix(self):
         for index,pair in enumerate(PAIRS):
-            for fault in ('decode','refused','private','identity','extra','duplicate'):
+            for fault in ('decode','refused','private','identity','extra','duplicate','conflicting','unknown'):
                 with self.subTest(pair=index,fault=fault):
                     boundary=CorpusBoundary();boundary.trace_fault=(index,fault)
                     self.refused(boundary,'storage_'+'_'.join(pair),index)
