@@ -141,6 +141,7 @@ const completePath = "/integrations/telegram/v1/sign-in/complete";
 const resumePath = "/accounts/current/telegram-sign-in/resume";
 const contactsPath = "/accounts/current/telegram-membership";
 const secret = "private-telegram-api-integration-secret-sentinel";
+const signInSecret = "private-telegram-api-signin-secret-sentinel";
 
 async function prove(
   scenario: "contacts" | "signin",
@@ -189,6 +190,7 @@ async function prove(
   const responses = { traces: 0, metrics: 0, other: 0 };
   const privateValues = [
     secret,
+    signInSecret,
     "private-telegram-api",
     "Private learner",
     "private_learner",
@@ -272,6 +274,10 @@ async function prove(
   const nativeBodies: string[] = [];
   const handlerFailures: unknown[] = [];
   const handlers = new Set<Promise<void>>();
+  // Listener shutdown precedes draining its independently observed DB reads; DB outlives both.
+  cleanup.push(async () => {
+    await Promise.allSettled([...handlers]);
+  });
   let expectedContact:
     { accountRef: string; telegramIdentityRef: string } | undefined;
   const subjectRef = randomUUID();
@@ -289,7 +295,10 @@ async function prove(
     request.on("end", () => {
       const handling = (async () => {
         assert.equal(request.method, "POST");
-        assert.equal(request.headers.authorization, `Bearer ${secret}`);
+        assert.equal(
+          request.headers.authorization,
+          `Bearer ${scenario === "contacts" ? secret : signInSecret}`,
+        );
         assert.equal(request.headers["content-type"], "application/json");
         for (const header of ["traceparent", "tracestate", "baggage"])
           assert.equal(request.headers[header], undefined);
@@ -373,10 +382,6 @@ async function prove(
         .finally(() => handlers.delete(handling));
     });
   });
-  // Listener shutdown precedes draining its independently observed DB reads; DB outlives both.
-  cleanup.push(async () => {
-    await Promise.allSettled([...handlers]);
-  });
   let jwksRequests = 0;
   const identity = await startTestIdentityIssuer({
     issuer: "https://telegram-api-frontier.example.test/oidc",
@@ -407,7 +412,7 @@ async function prove(
       ? {
           TELEGRAM_SIGN_IN_ENABLED: "true",
           TELEGRAM_SIGN_IN_PROVIDER_URL: provider,
-          TELEGRAM_SIGN_IN_INTEGRATION_SECRET: secret,
+          TELEGRAM_SIGN_IN_INTEGRATION_SECRET: signInSecret,
         }
       : {}),
   });
@@ -430,6 +435,14 @@ async function prove(
     telegram = 0,
   ) {
     const before = logRows.length;
+    if (payload !== undefined) {
+      privateValues.push(JSON.stringify(payload));
+      for (const [key, value] of Object.entries(
+        z.record(z.string(), z.unknown()).parse(payload),
+      ))
+        if (typeof value === "string" && /(?:Id|Ref|digest)$/u.test(key))
+          privateValues.push(value);
+    }
     const response = await fetch(endpoint + route, {
       method,
       headers: {
@@ -621,8 +634,10 @@ async function prove(
       claims,
     );
     const refreshed = await identity.sign("private-telegram-api-signin-owner");
+    const foreignRequestRef = randomUUID();
+    privateValues.push(foreignRequestRef);
     const foreign = await identity.sign("private-telegram-api-signin-foreign", {
-      inside_telegram_sign_in: { subjectRef, requestRef: randomUUID() },
+      inside_telegram_sign_in: { subjectRef, requestRef: foreignRequestRef },
     });
     const emailOnly = await identity.sign("private-telegram-api-email-only", {
       inside_verified_email: "private-telegram-api-email@example.invalid",
