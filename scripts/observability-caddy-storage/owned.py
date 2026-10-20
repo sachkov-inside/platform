@@ -13,17 +13,20 @@ MODULES={'caddy.adapters.caddyfile','http','http.handlers.subroute','http.handle
 
 
 class Targets(core.OwnedTargets):
-    def __init__(self,output,compose,plan,read):
+    def __init__(self,output,compose,plan,read,*,ownership_checkpoint=None):
+        if ownership_checkpoint is not None:ownership_checkpoint(None,'plan')
         if plan!=overlay.plan(output):runtime_identity.refuse()
-        super().__init__(output,compose,plan,read)
-        for role in core.CORE_ROLES:self.check(role)
+        super().__init__(output,compose,plan,read,ownership_checkpoint=ownership_checkpoint)
+        for role in core.CORE_ROLES:self.check(role,ownership_checkpoint=ownership_checkpoint)
 
-    def check(self,role):
+    def check(self,role,*,ownership_checkpoint=None):
         if role not in core.CORE_ROLES:runtime_identity.refuse()
+        if ownership_checkpoint is not None:ownership_checkpoint(role,'runtime_read')
         target=self.targets[role]
         current=self.read(self.compose+['ps','--all','-q',role]).strip()
         if current!=target['id'] or self.inspect(role,current)!=target:runtime_identity.refuse()
         raw=self.read(['docker','inspect','--format',runtime_identity.INSPECT,current]).encode()
+        if ownership_checkpoint is not None:ownership_checkpoint(role,'runtime_contract')
         runtime_identity.validate(raw,role,self.plan)
         return current
 
