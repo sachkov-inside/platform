@@ -327,7 +327,81 @@ it("enforces the daily quota atomically and labels the late-day incomplete sampl
     value: { vitals: [{ saved: 5, dropped: 15, incomplete: true }] },
   });
 });
-it("groups client and server errors by digest and route and keeps 500 Unicode characters", async () => {
+it.each([
+  {
+    label: "client free text",
+    source: "client",
+    name: "Иван Петров",
+    message: "Иван Петров alice@example.test token=private-token",
+    expectedName: "Error",
+    expectedMessage: "[client-error-text-omitted]",
+  },
+  {
+    label: "server input echo",
+    source: "server",
+    name: "SyntaxError",
+    message: "Unexpected Иван Петров in JSON",
+    expectedName: "SyntaxError",
+    expectedMessage: "[redacted-input-error]",
+  },
+  {
+    label: "server contact and URL path",
+    source: "server",
+    name: "Error",
+    message:
+      "Failed alice@example.test token=private-token https://files.test/Иван-Петров/private-token",
+    expectedName: "Error",
+    expectedMessage: "Failed [redacted-email] token=[redacted] [redacted-url]",
+  },
+])(
+  "redacts $label before persisting an error",
+  async ({ source, name, message, expectedName, expectedMessage }) => {
+    expect(
+      await telemetry.record({
+        kind: "error",
+        source,
+        route: "/materials/private-person",
+        mobile: false,
+        digest: "42",
+        name,
+        message,
+      }),
+    ).toEqual({ ok: true });
+    const rows: unknown = await database.prisma.$queryRaw`
+    SELECT name,message,route_template FROM web_telemetry.errors
+  `;
+    expect(rows).toEqual([
+      {
+        name: expectedName,
+        message: expectedMessage,
+        route_template: "/materials/[slug]",
+      },
+    ]);
+    expect(await telemetry.summary("owner", 1)).toMatchObject({
+      ok: true,
+      value: { errors: [{ digest: "42", count: 1 }] },
+    });
+  },
+);
+
+it("drops arbitrary digest labels before persistence", async () => {
+  expect(
+    await telemetry.record({
+      kind: "error",
+      source: "client",
+      route: "/",
+      mobile: false,
+      digest: "Иван Петров",
+      name: "Error",
+      message: "private",
+    }),
+  ).toEqual({ ok: true });
+  const rows: unknown = await database.prisma
+    .$queryRaw`SELECT digest FROM web_telemetry.errors`;
+  expect(rows).toEqual([{ digest: "" }]);
+});
+
+it("groups errors by digest and route, omits client text and bounds server text", async () => {
   for (const source of ["client", "server"])
     await telemetry.record({
       kind: "error",
@@ -345,10 +419,10 @@ it("groups client and server errors by digest and route and keeps 500 Unicode ch
     },
   });
   const rows: unknown = await database.prisma
-    .$queryRaw`SELECT char_length(message) AS length, octet_length(message) AS bytes FROM web_telemetry.errors`;
+    .$queryRaw`SELECT source,char_length(message) AS length, octet_length(message) AS bytes FROM web_telemetry.errors ORDER BY source`;
   expect(rows).toEqual([
-    { length: 500, bytes: 2000 },
-    { length: 500, bytes: 2000 },
+    { source: "client", length: 27, bytes: 27 },
+    { source: "server", length: 500, bytes: 2000 },
   ]);
 });
 it("cleans data older than 30 days in bounded batches", async () => {

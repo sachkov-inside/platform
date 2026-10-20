@@ -290,7 +290,7 @@ describe("production runtime readiness", () => {
       reason: "worker_close_failed",
       status: "operator_attention",
       error: {
-        message: "close failed for postgresql://[redacted]@db:5432/inside",
+        message: "close failed for [redacted-url]",
       },
     });
     expect(JSON.stringify(logged.mock.calls)).not.toContain("db-secret");

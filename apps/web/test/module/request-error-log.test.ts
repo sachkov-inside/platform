@@ -32,7 +32,7 @@ it("пишет серверный сбой одной строкой с кодо
       message: "Каталог не ответил",
       method: "GET",
       name: "Error",
-      path: "/products/ai",
+      path: "/products/[slug]",
       renderSource: "react-server-components",
       routePath: "/(public)/(catalog)/products/[slug]",
       routeType: "render",
@@ -40,6 +40,32 @@ it("пишет серверный сбой одной строкой с кодо
   );
   expect(line).not.toContain("secret");
   expect(line).not.toContain("from=");
+});
+
+it("keeps the error digest and template while removing credentials and identifying text", () => {
+  const output = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  logRequestError(
+    Object.assign(
+      new Error(
+        "Failed for alice@example.test token=private-token cookie=session-private https://example.test/reset?code=private-code",
+      ),
+      { digest: "42" },
+    ),
+    { method: "GET", path: "/products/alice@example.test?token=private-token" },
+    renderContext,
+  );
+  const line = String(output.mock.calls[0]?.[0]);
+  expect(JSON.parse(line)).toMatchObject({
+    digest: "42",
+    path: "/products/[slug]",
+  });
+  for (const secret of [
+    "alice@example.test",
+    "private-token",
+    "session-private",
+    "private-code",
+  ])
+    expect(line).not.toContain(secret);
 });
 
 it("пишет и значение, которое не является ошибкой", () => {
@@ -61,4 +87,41 @@ it("пишет и значение, которое не является оши�
       path: "/api/web-vitals",
     }),
   );
+});
+
+it.each([
+  "SyntaxError",
+  "ZodError",
+  "PrismaClientValidationError",
+  "DriverAdapterError",
+])("omits echoed input for %s", (name) => {
+  const output = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  logRequestError(
+    Object.assign(new Error('Invalid {"customer":"Иван Петров"}'), {
+      name,
+      digest: "42",
+    }),
+    { method: "POST", path: "/account" },
+    { routePath: "/account", routeType: "route" },
+  );
+  expect(String(output.mock.calls[0]?.[0])).not.toContain("Иван Петров");
+});
+
+it("omits complete URLs and connection strings including path secrets", () => {
+  const output = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  logRequestError(
+    new Error(
+      "Failed https://files.test/reports/Иван-Петров https://host/reset/opaque-token postgres://user:secret@host/private-database",
+    ),
+    { method: "GET", path: "/account" },
+    { routePath: "/account", routeType: "route" },
+  );
+  const saved = String(output.mock.calls[0]?.[0]);
+  for (const value of [
+    "Иван-Петров",
+    "opaque-token",
+    "private-database",
+    "user:secret",
+  ])
+    expect(saved).not.toContain(value);
 });

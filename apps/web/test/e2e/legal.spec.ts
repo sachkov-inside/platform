@@ -58,6 +58,32 @@ test("документ открывается по своему адресу и 
   await expect(page.getByText(/^[0-9a-f]{64}$/u)).toBeVisible();
 });
 
+test("политика v5 раскрывает размещение данных и сохраняет архив v4", async ({
+  page,
+}) => {
+  for (const path of ["/legal/privacy", "/legal/privacy/v5"]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Политика обработки персональных данных Sachkov Dev",
+    );
+    await expect(
+      page.getByText(/Версия 5\. Действует с /u).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/Амстердаме, Нидерланды/u)).toBeVisible();
+  }
+  const archived = await page.goto("/legal/privacy/v4");
+  expect(archived?.status()).toBe(200);
+  await expect(
+    page.getByText(/^Версия 4\. Действует с /u).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
+    ),
+  ).toBeVisible();
+});
+
 test("адрес редакции остаётся рабочим и не спорит с действующим текстом", async ({
   page,
 }) => {
