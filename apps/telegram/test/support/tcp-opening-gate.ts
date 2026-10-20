@@ -17,6 +17,9 @@ export async function createTcpOpeningGate(target: {
   const admitted = deferred();
   const sockets = new Map<Socket, Promise<void>>();
   const held = new Set<Socket>();
+  const upstreams = new Map<Socket, Socket>();
+  const inboundPiped = new Set<Socket>();
+  let inboundHeld = false;
   let accepted = 0;
   let released = false;
   let closed = false;
@@ -31,22 +34,40 @@ export async function createTcpOpeningGate(target: {
       stopped.resolve();
     });
   };
+  const pipeInbound = (upstream: Socket, client: Socket): void => {
+    if (
+      closed ||
+      inboundHeld ||
+      inboundPiped.has(upstream) ||
+      upstream.destroyed ||
+      client.destroyed
+    )
+      return;
+    inboundPiped.add(upstream);
+    upstream.pipe(client);
+    upstream.resume();
+  };
   const forward = (client: Socket): void => {
     held.delete(client);
     if (closed || client.destroyed) return;
     const upstream = connect(target.port, target.host);
     own(upstream);
+    upstreams.set(upstream, client);
     upstream.once("connect", () => {
       if (closed || client.destroyed) {
         upstream.destroy();
         return;
       }
       client.pipe(upstream);
-      upstream.pipe(client);
+      pipeInbound(upstream, client);
       client.resume();
     });
     client.once("close", () => upstream.destroy());
-    upstream.once("close", () => client.destroy());
+    upstream.once("close", () => {
+      upstreams.delete(upstream);
+      inboundPiped.delete(upstream);
+      client.destroy();
+    });
     upstream.once("error", () => client.destroy());
   };
   const server = createServer((client) => {
@@ -84,6 +105,20 @@ export async function createTcpOpeningGate(target: {
       if (closed) return;
       released = true;
       for (const client of held) forward(client);
+    },
+    holdInbound: (): void => {
+      if (closed) return;
+      inboundHeld = true;
+      for (const [upstream, client] of upstreams) {
+        upstream.unpipe(client);
+        upstream.pause();
+        inboundPiped.delete(upstream);
+      }
+    },
+    releaseInbound: (): void => {
+      if (closed) return;
+      inboundHeld = false;
+      for (const [upstream, client] of upstreams) pipeInbound(upstream, client);
     },
     close: (): Promise<void> => {
       if (closing !== undefined) return closing;

@@ -1629,3 +1629,11 @@ release and captures no payloads. Owned echo-peer tests verify only that TCP gat
 The genuine broker case must complete against hosted RabbitMQ, leave both queues without consumers
 and refuse another connection after terminal drain. The broker's existing connection timeout stays
 unchanged. Native AMQP execution is not established by the echo-peer results.
+
+Two further RabbitMQ cases prepare an actual queued-result witness while the original publish
+confirmation is held by native inbound socket forwarding. They then release confirmation or drop
+only the owned TCP gate to exercise a genuine transport failure after publication. Terminal drain
+must settle that original promise and retain its original private rejection. The native publisher
+deadline and product retry/outbox policy stay unchanged. Additional echo-peer controls cover holding
+inbound forwarding before and after connection establishment. They remain TCP harness evidence;
+the genuine RabbitMQ publication cases require hosted execution.

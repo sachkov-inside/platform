@@ -2,6 +2,7 @@
 import { connect, createServer, type Server, type Socket } from "node:net";
 import { once } from "node:events";
 import { expect, it } from "vitest";
+import { deferred } from "../support/deferred.js";
 import { createTcpOpeningGate } from "../support/tcp-opening-gate.js";
 
 function port(server: Server): number {
@@ -67,5 +68,72 @@ for (const outcome of ["released", "closed"] as const)
         ),
       );
       if (gate !== undefined) expect(gate.activeCount()).toBe(0);
+    }
+  });
+
+for (const phase of ["before_opening", "after_opening"] as const)
+  it(`withholds native echo response while outbound bytes reach the peer (${phase})`, async () => {
+    const entered = deferred();
+    let arrivals = 0;
+    const sockets = new Set<Socket>();
+    const target = createServer((socket) => {
+      sockets.add(socket);
+      socket.once("close", () => sockets.delete(socket));
+      socket.on("error", () => undefined);
+      socket.on("data", () => {
+        arrivals += 1;
+        if (arrivals === (phase === "after_opening" ? 2 : 1)) entered.resolve();
+      });
+      socket.pipe(socket);
+    });
+    target.listen(0, "127.0.0.1");
+    await once(target, "listening");
+    let gate: Awaited<ReturnType<typeof createTcpOpeningGate>> | undefined;
+    let client: Socket | undefined;
+    try {
+      gate = await createTcpOpeningGate({
+        host: "127.0.0.1",
+        port: port(target),
+      });
+      client = connect(gate.port, "127.0.0.1");
+      client.on("error", () => undefined);
+      await gate.admitted;
+      if (phase === "after_opening") {
+        gate.release();
+        const warm = once(client, "data");
+        client.write("owned-warm");
+        await warm;
+      }
+      let received = false;
+      client.once("data", () => {
+        received = true;
+      });
+      const reply = once(client, "data");
+      gate.holdInbound();
+      gate.release();
+      client.write("owned-held-inbound-probe");
+      await entered.promise;
+      // deterministic-test-allow duration-wait: absence observation during an explicit native inbound hold; not a throughput or quiescence verdict.
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+      expect(received).toBe(false);
+      gate.releaseInbound();
+      gate.releaseInbound();
+      const values: readonly unknown[] = await reply;
+      const bytes = values[0];
+      if (!Buffer.isBuffer(bytes))
+        throw new Error("Expected owned native echo bytes");
+      expect(bytes.toString()).toBe("owned-held-inbound-probe");
+    } finally {
+      client?.destroy();
+      try {
+        await gate?.close();
+      } finally {
+        for (const socket of sockets) socket.destroy();
+        await new Promise<void>((resolve, reject) =>
+          target.close((error) =>
+            error === undefined ? resolve() : reject(error),
+          ),
+        );
+      }
     }
   });
