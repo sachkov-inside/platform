@@ -339,6 +339,83 @@ test("production HTTP resolve persists causality and timer delivery resumes that
     );
   expect(client).toBeDefined();
   expect(proof.calls).toHaveLength(1);
+  const metricsSchema = z.object({
+    resourceMetrics: z
+      .array(
+        z.object({
+          scopeMetrics: z.array(
+            z.object({
+              metrics: z.array(
+                z.object({
+                  name: z.string(),
+                  sum: z
+                    .object({
+                      dataPoints: z.array(
+                        z.object({
+                          attributes: z.array(attributeSchema),
+                          asDouble: z.number(),
+                        }),
+                      ),
+                    })
+                    .optional(),
+                  histogram: z
+                    .object({
+                      dataPoints: z.array(
+                        z.object({
+                          attributes: z.array(attributeSchema),
+                          count: z.union([z.string(), z.number()]),
+                        }),
+                      ),
+                    })
+                    .optional(),
+                }),
+              ),
+            }),
+          ),
+        }),
+      )
+      .optional(),
+  });
+  const metrics = proof.exported.flatMap(
+    (body) =>
+      metricsSchema
+        .parse(JSON.parse(body))
+        .resourceMetrics?.flatMap((resource) =>
+          resource.scopeMetrics.flatMap((scope) => scope.metrics),
+        ) ?? [],
+  );
+  for (const name of [
+    "inside.tracking.operations",
+    "inside.tracking.duration",
+  ]) {
+    const points = metrics
+      .filter((metric) => metric.name === name)
+      .flatMap((metric) => [
+        ...(metric.sum?.dataPoints ?? []).map((point) => ({
+          attributes: point.attributes,
+          value: point.asDouble,
+        })),
+        ...(metric.histogram?.dataPoints ?? []).map((point) => ({
+          attributes: point.attributes,
+          value: Number(point.count),
+        })),
+      ]);
+    expect(points.length).toBeGreaterThan(0);
+    for (const point of points) {
+      expect(point.attributes.map((attribute) => attribute.key).sort()).toEqual(
+        ["operation", "outcome"],
+      );
+      expect(
+        point.attributes.find((attribute) => attribute.key === "operation")
+          ?.value.stringValue,
+      ).toBe("deliver");
+      expect(
+        point.attributes.find((attribute) => attribute.key === "outcome")?.value
+          .stringValue,
+      ).toBe("completed");
+      expect(point.value).toBe(1);
+    }
+  }
   proof.assertPrivacy();
 });
 
