@@ -119,6 +119,7 @@ exit "$RUNTIME_STATUS"
           ]),
           env: {
             ...process.env,
+            TMPDIR: root,
             PATH: `${bin}:${process.env["PATH"] ?? ""}`,
             CALLS: calls,
             MODEL: JSON.stringify(selected),
