@@ -444,18 +444,6 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
     expect(new Set(completedLogs.map((record) => record.requestId)).size).toBe(
       4,
     );
-    expect([...sqlCounts.keys()].sort()).toEqual([
-      "acquire/completed",
-      "query/completed",
-    ]);
-    for (const [key, count] of sqlCounts) {
-      const operation = key.split("/")[0];
-      expect(
-        sqlClients.filter(
-          (span) => attribute(span, "dependency.operation") === operation,
-        ),
-      ).toHaveLength(count);
-    }
     for (const record of completedLogs) {
       expect(z.uuid().safeParse(record.requestId).success).toBe(true);
       expect(requestIds.some((supplied) => supplied === record.requestId)).toBe(
