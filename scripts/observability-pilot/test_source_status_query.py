@@ -72,6 +72,41 @@ class QueryTests(unittest.TestCase):
         self.assertTrue(all(item[2] == 'Bearer private-token' for item in requests))
         self.assertNotIn('private-token', json.dumps(report))
 
+    def test_native_stats_loopback_reads_keep_original_timestamps_and_private_credentials(self):
+        for fetched, elapsed in (('0', 0), ('9223372036854775807', 9223372036854)):
+            with self.subTest(fetched=fetched), tempfile.TemporaryDirectory() as directory:
+                output = Path(directory).resolve()
+                credential = output / 'auth.json'
+                credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+                credential.chmod(0o600)
+                calls = []
+                def reply(handler):
+                    query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
+                    calls.append((query, handler.headers.get('Authorization')))
+                    stamp = query['query'][0].startswith('timestamp(')
+                    rows = [{'metric': {'job': job, 'instance': 'pilot',
+                                        'source_metric' if stamp else '__name__': 'up'},
+                             'value': [100, '99' if stamp else '1']}
+                            for job in ('platform-collector', 'platform-trace-store')]
+                    payload = json.dumps({'status': 'success',
+                        'data': {'resultType': 'vector', 'result': rows},
+                        'stats': {'seriesFetched': fetched, 'executionTimeMsec': elapsed}}).encode()
+                    handler.send_response(200)
+                    handler.send_header('Content-Length', str(len(payload)))
+                    handler.end_headers()
+                    handler.wfile.write(payload)
+                with server(reply) as port:
+                    report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+                self.assertEqual(len(calls), 2)
+                self.assertTrue(all(query['time'] == ['100'] and query['timeout'] == ['2s']
+                                    and token == 'Bearer private-token' for query, token in calls))
+                for source in report['sources'].values():
+                    self.assertEqual(source['state'], 'fresh_up')
+                    self.assertEqual(source['measured_at'], 99)
+                    self.assertEqual(source['sample_age_seconds'], 1)
+                self.assertNotIn('stats', json.dumps(report))
+                self.assertNotIn('private-token', json.dumps(report))
+
     def test_owned_trickling_body_obeys_one_deadline_and_closes_reader(self):
         disconnected = threading.Event()
         stop = threading.Event()

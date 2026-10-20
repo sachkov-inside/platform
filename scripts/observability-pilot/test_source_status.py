@@ -20,6 +20,12 @@ def times(rows, stamp='99'):
              'value': [100, stamp]} for item in rows]
 
 
+def native_envelope(rows, stats):
+    body = json.loads(envelope(rows))
+    body['stats'] = stats
+    return json.dumps(body, separators=(',', ':')).encode()
+
+
 class SourceStatusTests(unittest.TestCase):
     def test_fresh_measurement_and_explicit_uncovered_sources(self):
         rows = [row(), row(job='platform-trace-store')]
@@ -29,6 +35,110 @@ class SourceStatusTests(unittest.TestCase):
         self.assertEqual(report['sources']['collector']['sample_age_seconds'], 2)
         self.assertEqual(report['sources']['trace_store']['state'], 'fresh_up')
         self.assertEqual(report['not_covered'], ['host', 'containers', 'rabbitmq', 'logto', 'caddy', 'backups'])
+
+    def test_native_stats_zero_and_max_preserve_current_and_previous_acquisitions(self):
+        current = [row(), row(job='platform-trace-store'),
+                   row('otelcol_receiver_accepted_spans_total', value='19', receiver='otlp/pilot')]
+        prior_rows = [row(), row(job='platform-trace-store'),
+                      row('otelcol_receiver_accepted_spans_total', value='12', receiver='otlp/pilot')]
+        prior = {'values': envelope(prior_rows), 'timestamps': envelope(times(prior_rows, '80')),
+                 'evaluated_at': 100, 'completed_at': 100}
+        bare = source_status.evaluate(envelope(current), envelope(times(current)),
+                                      evaluated_at=100, completed_at=101, previous=prior)
+        for fetched, elapsed in (('0', 0), ('9223372036854775807', 9223372036854)):
+            with self.subTest(fetched=fetched):
+                def native(raw):
+                    body = json.loads(raw)
+                    body['stats'] = {'seriesFetched': fetched, 'executionTimeMsec': elapsed}
+                    return json.dumps(body).encode()
+                report = source_status.evaluate(native(envelope(current)), native(envelope(times(current))),
+                                                evaluated_at=100, completed_at=101,
+                                                previous={**prior, 'values': native(prior['values']),
+                                                          'timestamps': native(prior['timestamps'])})
+                self.assertEqual(report['sources']['collector']['state'], 'fresh_up')
+                self.assertEqual(report['sources']['trace_store']['sample_age_seconds'], 2)
+                self.assertEqual(report['sources']['collector']['metrics'][1]['comparison'],
+                                 {'state': 'progress', 'delta': 7, 'incomplete': True})
+                self.assertEqual(report, bare)
+                self.assertNotIn('stats', json.dumps(report))
+
+    def test_invalid_native_stats_fail_closed_in_every_current_and_prior_vector(self):
+        valid = {'seriesFetched': '0', 'executionTimeMsec': 0}
+        invalid = [None, [], True, 0, 'private-sentinel', {}, {'seriesFetched': '0'},
+                   {'executionTimeMsec': 0}, {**valid, 'private': {'late': 'private-sentinel'}}]
+        for value in (True, False, 0, 0.0, '-1', '01', '+1', ' 1', '1 ', '1.0', '1e0', '',
+                      'NaN', 'Infinity', '9223372036854775808', '9' * 20, '١', '１',
+                      'private-sentinel', '\ud800', {}, ['0']):
+            invalid.append({**valid, 'seriesFetched': value})
+        for value in (True, False, '0', '٠', 0.0, 1.5, -1, 9223372036855,
+                      9223372036854775807, None, [], {}, float('nan'), float('inf')):
+            invalid.append({**valid, 'executionTimeMsec': value})
+        rows = [row(), row(job='platform-trace-store')]
+        for slot in ('values', 'timestamps', 'previous_values', 'previous_timestamps'):
+            for case, stats in enumerate(invalid):
+                with self.subTest(slot=slot, case=case):
+                    vectors = {'values': native_envelope(rows, valid),
+                               'timestamps': native_envelope(times(rows), valid),
+                               'previous_values': native_envelope(rows, valid),
+                               'previous_timestamps': native_envelope(times(rows), valid)}
+                    vectors[slot] = native_envelope(times(rows) if slot.endswith('timestamps') else rows, stats)
+                    result = source_status.evaluate(vectors['values'], vectors['timestamps'],
+                        evaluated_at=100, completed_at=101,
+                        previous={'values': vectors['previous_values'], 'timestamps': vectors['previous_timestamps'],
+                                  'evaluated_at': 100, 'completed_at': 100})
+                    self.assertEqual(result['query']['state'], 'malformed')
+                    self.assertEqual(result['sources']['collector']['state'], 'malformed')
+                    self.assertNotIn('private-sentinel', json.dumps(result))
+
+    def test_native_stats_do_not_admit_duplicates_unknown_envelopes_or_late_row_poison(self):
+        valid = {'seriesFetched': '9223372036854775807', 'executionTimeMsec': 9223372036854}
+        rows = [row(), row(job='platform-trace-store')]
+        good = native_envelope(rows, valid)
+        self.assertEqual(source_status.evaluate(good, native_envelope(times(rows), valid),
+                         evaluated_at=100, completed_at=101)['query']['state'], 'observed')
+        raw = good.decode()
+        bad = [raw.replace('"seriesFetched":', '"seriesFetched":"0","seriesFetched":'),
+               raw.replace('"executionTimeMsec":', '"executionTimeMsec":0,"executionTimeMsec":'),
+               raw.replace('"stats":', '"stats":{},"stats":'),
+               raw.replace('"seriesFetched":', '"\\u0073eriesFetched":"0","seriesFetched":')]
+        for field, value in (('isPartial', False), ('trace', {}), ('warnings', []),
+                             ('private', {'late': 'private-sentinel'})):
+            body = json.loads(good)
+            body[field] = value
+            bad.append(json.dumps(body))
+        for poison in ('private_label', 'duplicate_row', 'unknown_family', 'nested_value'):
+            body = json.loads(good)
+            last = body['data']['result'][-1]
+            if poison == 'private_label':
+                last['metric']['private'] = 'private-sentinel'
+            elif poison == 'duplicate_row':
+                body['data']['result'].append(last)
+            elif poison == 'unknown_family':
+                last['metric']['__name__'] = 'private-sentinel'
+            else:
+                last['value'] = [100, {'late': 'private-sentinel'}]
+            bad.append(json.dumps(body))
+        for case, value in enumerate(bad):
+            with self.subTest(case=case):
+                result = source_status.evaluate(value.encode(), native_envelope(times(rows), valid),
+                                                evaluated_at=100, completed_at=101)
+                self.assertEqual(result['sources']['trace_store']['state'], 'malformed')
+                self.assertNotIn('private-sentinel', json.dumps(result))
+
+    def test_native_stats_do_not_supply_sample_age_completion_or_missing_sources(self):
+        stats = {'seriesFetched': '9223372036854775807', 'executionTimeMsec': 9223372036854}
+        rows = [row()]
+        values, stamps = native_envelope(rows, stats), native_envelope(times(rows), stats)
+        report = source_status.evaluate(values, stamps, evaluated_at=100, completed_at=100,
+                                        completion_clock=lambda: 110)
+        self.assertEqual(report['sources']['collector']['sample_age_seconds'], 11)
+        self.assertEqual(report['sources']['collector']['state'], 'stale')
+        self.assertEqual(report['sources']['trace_store']['state'], 'missing')
+        self.assertIsNone(report['sources']['trace_store']['measured_at'])
+        self.assertNotIn('stats', json.dumps(report))
+        backwards = source_status.evaluate(values, stamps, evaluated_at=100, completed_at=101,
+                                           completion_clock=lambda: 100)
+        self.assertEqual(backwards['query']['state'], 'malformed')
 
     def test_retained_up_is_stale_and_absent_source_is_missing(self):
         rows = [row()]

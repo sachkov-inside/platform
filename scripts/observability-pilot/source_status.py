@@ -1,6 +1,7 @@
 """Bounded interpretation of genuine pilot scrapes, never delivery/loss accounting."""
 import json
 import math
+import re
 from decimal import Decimal, InvalidOperation
 
 from collector_privacy import TRACE_STORE_MAX_SCRAPE_AGE_SECONDS
@@ -11,6 +12,8 @@ MAX_BODY_BYTES = 1_048_576
 MAX_ROWS = 1000
 MAX_OUTPUT_BYTES = 131_072
 MAX_SAFE_NUMBER = 2**53 - 1
+MAX_QUERY_STATS_INTEGER = 2**63 - 1
+MAX_QUERY_EXECUTION_MILLISECONDS = MAX_QUERY_STATS_INTEGER // 1_000_000
 NOT_COVERED = ['host', 'containers', 'rabbitmq', 'logto', 'caddy', 'backups']
 
 
@@ -132,12 +135,27 @@ def _identity(metric, timestamp):
     return tuple(sorted(metric.items()))
 
 
+def _native_query_stats(stats):
+    # VM1.154 atomic.Int64 is decimal text; Duration.Milliseconds truncates int64 ns.
+    # This metadata is validated and discarded, never used as sample/row evidence.
+    if (type(stats) is not dict or set(stats) != {'seriesFetched', 'executionTimeMsec'}
+            or type(stats['seriesFetched']) is not str
+            or re.fullmatch(r'(?:0|[1-9][0-9]{0,18})', stats['seriesFetched']) is None
+            or int(stats['seriesFetched']) > MAX_QUERY_STATS_INTEGER
+            or type(stats['executionTimeMsec']) is not int
+            or not 0 <= stats['executionTimeMsec'] <= MAX_QUERY_EXECUTION_MILLISECONDS):
+        _reject()
+
+
 def _vector(raw, evaluated_at, timestamp=False):
     body = decode_json(raw)
-    if (not isinstance(body, dict) or set(body) != {'status', 'data'} or body['status'] != 'success'
+    if (not isinstance(body, dict) or set(body) not in ({'status', 'data'}, {'status', 'data', 'stats'})
+            or body['status'] != 'success'
             or not isinstance(body['data'], dict) or set(body['data']) != {'resultType', 'result'}
             or body['data']['resultType'] != 'vector' or not isinstance(body['data']['result'], list)):
         _reject()
+    if 'stats' in body:
+        _native_query_stats(body['stats'])
     result = {}
     aliases = set()
     for row in body['data']['result']:

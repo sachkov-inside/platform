@@ -1066,6 +1066,19 @@ Mac/Linux command uses its main thread and temporarily owns `SIGALRM`; it refuse
 active real-time timer and restores the prior handler. Timeout and interruption close the HTTP
 reader; the command creates no reader thread or child process.
 
+Публичный `evaluate` сохраняет bare envelope `{status,data}` и допускает только одно
+дополнительное поле `stats` с двумя обязательными полями. `seriesFetched` содержит
+каноническую неотрицательную ASCII decimal string от `0` до `9223372036854775807`.
+`executionTimeMsec` содержит JSON integer от `0` до `9223372036854`, исключая boolean
+и дробные значения. Это границы pinned VM1.154: signed int64 counter и signed int64
+nanosecond duration после преобразования в milliseconds. См.
+[query response](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/query_response.qtpl)
+и [duration conversion](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/prometheus.go).
+Metadata проверяется и отбрасывается для текущих и предыдущих values/timestamp acquisitions.
+Она не определяет sample age, полноту или число рядов и не попадает в публичный отчёт.
+Неизвестные поля, дубликаты и некорректная metadata дают `malformed`, включая позднюю
+ошибку после корректного ряда. Это совместимость source-контракта, а не native runtime proof.
+
 The view pairs values with the original source timestamps returned by a second fixed query.
 An instant query's outer evaluation timestamp alone does not establish scrape freshness.
 Metric names are copied into a fixed temporary query-result label before the timestamp
