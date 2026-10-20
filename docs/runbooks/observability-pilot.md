@@ -639,8 +639,10 @@ histogram/counter series. Ещё десять series проверяют пять
 `scripts/observability-pilot/dependency_privacy.py` содержит фиксированный OTLP JSON/protobuf
 corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL, 14 T-Bank, два Logto, четыре community set/status и три adversarial spans с
 неизвестными, отсутствующими и неверно типизированными полями. Controller проверяет
-logging-none до ingest, только два фиксированных trace IDs, максимум 36 полных строк на
-запрос для 35 ожидаемых spans и закрытый `dependency-collector.json` без raw данных.
+logging-none до ingest и четыре фиксированных trace IDs в двух partitions. Для core query
+разрешены максимум 36 полных строк при 35 ожидаемых spans; для communications query
+сохраняется предел 30 строк при двух ожидаемых spans. Закрытый `dependency-collector.json`
+не содержит raw данных.
 Pool metric dimensions удаляются полностью. Runtime нового corpus в pinned collector,
 настоящие API/worker с PostgreSQL, причинная цепочка и ресурсная приёмка фиксируются отдельно
 для точного source commit. Loopback SDK/HTTP/OTLP проверки их не заменяют.

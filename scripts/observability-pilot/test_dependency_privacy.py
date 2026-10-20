@@ -203,7 +203,7 @@ class DependencyRuntimeContract(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 fixture.stored_metrics(response(rows))
 
-    def test_public_controller_uses_only_two_registered_trace_ids_and_bounded_owned_full_reads(self):
+    def test_public_controller_uses_only_four_registered_trace_ids_in_two_partitions_and_bounded_owned_full_reads(self):
         import dependency_privacy as fixture
         project='inside-observability-pilot-123456abcdef'
         compose=['docker','compose','-p',project,'-f','/owned/compose.json']
