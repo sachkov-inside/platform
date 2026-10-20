@@ -59,3 +59,9 @@ starts its own disposable Logto, PostgreSQL and Mailpit without touching the sha
 record ownership, wrong/expired codes, occupied addresses, same provider subject, retry and competing
 attachments, and removes its own containers/network on completion. Browser evidence and name edits
 use the production modules and their Storybook states.
+
+The functional delivery is tracked in #1586 under specification #1585. New local name/email forms
+use the temporary semantic UI path in `docs/agents/frontend-delivery.md`; #1587 owns their
+Storybook and live-route visual acceptance and removal of the single temporary marker at
+`AccountAccessView`. Both adapters import the same production modules. No new shared visual
+system is introduced.

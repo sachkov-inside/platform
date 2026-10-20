@@ -65,6 +65,7 @@ test("cabinet saves display name without a bio editor", async ({
   const savedName = `Проверка профиля ${info.project.name}`;
   await signInFullStack(context, "MEMBER");
   await page.goto("/");
+  await page.getByRole("button", { name: "Понятно", exact: true }).click();
   const before = await fullStackBrowserRequest(page, "/api/account/profile");
   expect(before.status()).toBe(200);
   const state = z.object({ state: z.unknown() }).parse(await before.json());
@@ -123,6 +124,9 @@ test("cabinet saves display name without a bio editor", async ({
   await expect(
     page.getByRole("textbox", { name: "Отображаемое имя" }),
   ).toHaveValue(savedName);
+  await expect(
+    page.getByRole("region", { name: "Почта", exact: true }),
+  ).toContainText("fullstack-member@inside.test");
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(page, {
       path: info.outputPath("account-profile.png"),

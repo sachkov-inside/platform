@@ -27,7 +27,10 @@ export interface AccountAccessViewProps {
   readonly onTelegramRefresh: () => Promise<void>;
 }
 
-/** One cabinet for essential account actions; private profile data stays stored. */
+/**
+ * Temporary semantic UI for #1586.
+ * Replace through #1587 after Storybook acceptance.
+ */
 export function AccountAccessView({
   acceptedDocuments,
   link,
