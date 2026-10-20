@@ -18,6 +18,10 @@ import { Notifications } from "../../src/modules/notifications/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { startNotificationBroker } from "./setup/broker.js";
 import { startEmailSmtp } from "./setup/email-smtp.js";
+import {
+  assembleEmailExportCapture,
+  EMAIL_EXPORT_CAPTURE_LIMITS,
+} from "./setup/email-export-capture.js";
 import { eventually } from "./setup/eventually.js";
 import {
   boundedProcessFact,
@@ -52,13 +56,15 @@ const diagnosticExport = z.looseObject({
   resourceMetrics: z.array(diagnosticResource).optional(),
 });
 /** Only closed classifications survive; raw attributes, JSON errors and payloads never enter diagnostics. */
-function exportDiagnosticCounts(wire: readonly string[]) {
+function exportDiagnosticCounts(
+  entries: readonly { readonly body: string; readonly multiplicity: number }[],
+) {
   const counts = {
     traces: { api: 0, worker: 0, other: 0 },
     metrics: { api: 0, worker: 0, other: 0 },
     other: { api: 0, worker: 0, other: 0 },
   };
-  for (const body of wire) {
+  for (const { body, multiplicity } of entries) {
     try {
       const parsed = diagnosticExport.parse(JSON.parse(body));
       const resources = [
@@ -88,9 +94,9 @@ function exportDiagnosticCounts(wire: readonly string[]) {
               parsed.resourceSpans === undefined
             ? "metrics"
             : "other";
-      counts[signal][service]++;
+      counts[signal][service] += multiplicity;
     } catch {
-      counts.other.other++;
+      counts.other.other += multiplicity;
     }
   }
   return counts;
@@ -357,11 +363,10 @@ test.each(scenarios)(
   async (scenario) => {
     const cleanup: (() => unknown)[] = [];
     const children: QueueTelemetryProcess[] = [];
-    const wire: string[] = [];
+    const capture = assembleEmailExportCapture();
     const logs: string[] = [];
-    let overflow = false;
     const requestCounts = { traces: 0, metrics: 0, other: 0 };
-    const rejectedRequests = { bodyLimit: 0, exportLimit: 0 };
+    const responseCounts = { traces: 0, metrics: 0, other: 0 };
     const database = await createMigratedTestDatabase();
     cleanup.push(() => database.dispose());
     try {
@@ -379,44 +384,65 @@ test.each(scenarios)(
         () => info.mockRestore(),
         () => warn.mockRestore(),
       );
-      const collector = createServer((request, response) => {
-        // Classify the route, never retain a URL or headers.
-        const signal =
-          request.url === "/v1/traces"
-            ? "traces"
-            : request.url === "/v1/metrics"
-              ? "metrics"
-              : "other";
-        requestCounts[signal]++;
-        let rejected = false;
-        let body = "";
-        request.setEncoding("utf8");
-        request.on("data", (chunk: string) => {
-          if (
-            Buffer.byteLength(body) + Buffer.byteLength(chunk) > 1024 * 1024 ||
-            wire.length >= 32
-          ) {
-            if (!rejected) {
-              if (
-                Buffer.byteLength(body) + Buffer.byteLength(chunk) >
-                1024 * 1024
-              )
-                rejectedRequests.bodyLimit++;
-              if (wire.length >= 32) rejectedRequests.exportLimit++;
-              rejected = true;
-            }
-            overflow = true;
-            request.destroy();
-          } else body += chunk;
-        });
-        request.on("end", () => {
-          wire.push(body);
-          response.writeHead(scenario.exporterFailure === true ? 503 : 200, {
-            "content-type": "application/json",
-            "Retry-After": "Thu, 01 Jan 1970 00:00:00 GMT",
+      // Two live SDK owners (API/worker), each with traces+metrics concurrency1: at most4 body assemblies.
+      // Idle keep-alive connections are bounded separately by the192 possible native requests (32x6).
+      const collector = createServer(
+        {
+          highWaterMark: EMAIL_EXPORT_CAPTURE_LIMITS.highWaterMark,
+          maxHeaderSize: EMAIL_EXPORT_CAPTURE_LIMITS.headerBytes,
+        },
+        (request, response) => {
+          const signal =
+            request.url === "/v1/traces"
+              ? "traces"
+              : request.url === "/v1/metrics"
+                ? "metrics"
+                : "other";
+          requestCounts[signal]++;
+          response.on("finish", () => {
+            responseCounts[signal]++;
+            if (
+              response.statusCode !==
+              (scenario.exporterFailure === true ? 503 : 200)
+            )
+              capture.transportFailure();
           });
-          response.end("{}");
-        });
+          response.on("error", () => capture.transportFailure());
+          response.on("close", () => {
+            if (!response.writableFinished) capture.transportFailure();
+          });
+          const body = capture.begin(request.url ?? "");
+          if (body === undefined) {
+            request.destroy();
+            return;
+          }
+          request.on("data", (chunk: Buffer) => {
+            if (!body.write(chunk)) request.destroy();
+          });
+          request.on("aborted", () => body.abort());
+          request.on("error", () => {
+            body.abort();
+            capture.transportFailure();
+          });
+          request.on("close", () => {
+            if (!request.complete) body.abort();
+          });
+          request.on("end", () => {
+            body.complete();
+            // Failure cases NEVER recover to200: every completed response stays503, including capture refusals.
+            response.writeHead(scenario.exporterFailure === true ? 503 : 200, {
+              "content-type": "application/json",
+              "Retry-After": "Thu, 01 Jan 1970 00:00:00 GMT",
+            });
+            response.end("{}");
+          });
+        },
+      );
+      collector.maxConnections = EMAIL_EXPORT_CAPTURE_LIMITS.sockets;
+      collector.on("drop", () => capture.connectionSaturation());
+      collector.on("clientError", (_error, socket) => {
+        capture.transportFailure();
+        socket.destroy();
       });
       cleanup.unshift(
         () =>
@@ -794,6 +820,10 @@ test.each(scenarios)(
       }
       expect(await child.finish()).toEqual([0, null]);
       await closeApp(); // Flush the genuine API producer before inspecting the complete wire corpus.
+      capture.assertComplete(requestCounts);
+      expect(responseCounts).toEqual(requestCounts);
+      const entries = capture.entries();
+      const wire = capture.payloads();
       const spans = spansFrom(wire);
       assertRegisteredSpans(spans);
       if (scenario.phase === "legacy-command")
@@ -810,11 +840,15 @@ test.each(scenarios)(
         // Fixed-size numeric/enum diagnostics are emitted only if this assertion fails.
         const diagnostics = JSON.stringify({
           event: "email_runtime_export_counts",
-          retainedExports: wire.length,
+          retainedExports: entries.reduce(
+            (sum, entry) => sum + entry.multiplicity,
+            0,
+          ),
+          retainedDistinctBodies: wire.length,
           requests: requestCounts,
-          rejectedRequests,
-          overflow,
-          signalServiceExports: exportDiagnosticCounts(wire),
+          completedResponses: responseCounts,
+          capture: capture.summary(),
+          signalServiceExports: exportDiagnosticCounts(entries),
           smtpSamples: smtpOperations.length,
         });
         expect(smtpOperations.length, diagnostics).toBeGreaterThan(0);
@@ -932,16 +966,17 @@ test.each(scenarios)(
       if (scenario.exporterFailure === true) {
         expect(captured).toContain("telemetry_export_failed");
         const attempts = new Map<string, number>();
-        for (const payload of wire)
+        for (const { body: payload, multiplicity } of entries)
           if (
             (exportSchema.parse(JSON.parse(payload)).resourceSpans?.length ??
               0) > 0
           )
-            attempts.set(payload, (attempts.get(payload) ?? 0) + 1);
+            attempts.set(payload, multiplicity);
         expect(attempts.size).toBeGreaterThan(0);
         expect([...attempts.values()].every((count) => count > 1)).toBe(true);
       }
-      expect(overflow).toBe(false);
+      capture.assertComplete(requestCounts);
+      expect(responseCounts).toEqual(requestCounts);
     } finally {
       await finishFixtureCleanup(cleanup);
     }
