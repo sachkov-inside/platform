@@ -68,7 +68,7 @@ export function rootNodeCommands(script, source) {
     throw new Error(`Missing root test script: ${script}`);
   // CI runs the native launcher directly; only this known local admission prefix is removed.
   let launcher = source.replace(/^bash scripts\/heavy-check\.sh /u, "");
-  // Nightly builds the workspace before running the plan. Ordinary test:tooling
+  // The nightly unit job builds the backend once before running the plan. Ordinary test:tooling
   // keeps its guarded backend build prerequisite and failure propagation.
   if (
     script === "test:tooling" &&

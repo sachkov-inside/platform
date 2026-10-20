@@ -594,7 +594,9 @@ case index within that file/name group. Vitest JSON retains declaration order; N
 are sorted by testId. Unrelated tests do not affect this index. Reordering identically named cases
 or removing duplicate names can change their identity; give cases distinct names to avoid that limit.
 The nightly planner recognizes the exact guarded `test:tooling` backend-build wrapper and runs its
-native Node test command after the workflow's existing workspace build. It preserves file globs,
+native Node test command after the unit job's mandatory backend build. That build runs once before
+the five samples, and its failure prevents sampling. The separate full build remains exclusive to
+Web E2E. The planner preserves file globs,
 concurrency and reporters. Other shell wrappers remain errors. Ordinary `test:tooling` still builds
 the backend first and stops before serializers when that prerequisite fails.
 
