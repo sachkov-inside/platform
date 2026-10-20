@@ -94,6 +94,11 @@ independent command trees across all worktrees on this machine. A third invocati
 needed after #1151 is merged. Existing runs from older worktrees must finish before that handoff;
 update those worktrees from `main` to use the wrappers.
 
+`pnpm test:tooling` first builds the backend under the same shared slot, then runs the bounded
+Node test suite. Both tracking and waitlist serializer contracts load the compiled production
+telemetry module and the pinned JSON/protobuf serializers. A failed backend build stops before
+any tooling tests run. Generated workspace packages and Prisma remain required setup inputs.
+
 The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
 `test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,

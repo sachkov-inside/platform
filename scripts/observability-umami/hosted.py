@@ -15,11 +15,14 @@ ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'recovery.j
 
 
 def source_inputs():
-    return tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + tuple(sorted(runtime.SCRIPTS.glob('*.sql'))) + (
+    return tuple(sorted(runtime.SCRIPTS.glob('*.py'))) + tuple(sorted(runtime.SCRIPTS.glob('*.mjs'))) + tuple(sorted(runtime.SCRIPTS.glob('*.sql'))) + tuple(sorted((runtime.SCRIPTS/'fixtures'/'foundation-2.57.0').iterdir())) + (
         ROOT / 'scripts/observability-pilot/pilot.py', ROOT / 'scripts/observability-pilot/native_cpu.py', ROOT / 'scripts/observability-pilot/ci.py',
         ROOT / 'scripts/observability-pilot/daemon.py', ROOT / 'scripts/observability-pilot/orbstack.py',
         ROOT / 'scripts/observability-pilot/storage_policy.py', ROOT / 'scripts/observability-pilot/collector_privacy.py', ROOT / 'infra/observability/pilot/probe.lock.json',
-        runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json', runtime.CONFIG / 'schema-fixture.sql',
+        ROOT / 'infra/production/database/Dockerfile', ROOT / 'infra/production/database/init-production-databases.sh',
+        ROOT / 'infra/production/database/restore-entrypoint.sh', ROOT / 'infra/production/database/pgbackrest.conf',
+        ROOT / 'infra/production/database/libpq-version.c', ROOT / 'infra/production/database/versions.json',
+        runtime.CONFIG / 'recovery-cache.lock.json', runtime.CONFIG / 'inputs.lock.json', runtime.CONFIG / 'mcp/package.json', runtime.CONFIG / 'mcp/package-lock.json', runtime.CONFIG / 'schema-fixture.sql',
         ROOT / '.github/workflows/observability-umami.yml', ROOT / '.node-version',
         ROOT / 'scripts/observability-umami-startup.pg.test.mjs', ROOT / 'scripts/observability-umami-retention.pg.test.mjs', ROOT / 'scripts/observability-umami.test.mjs', ROOT / 'scripts/observability-umami-process.test.mjs',
         ROOT / 'scripts/process-group-signal.mjs',

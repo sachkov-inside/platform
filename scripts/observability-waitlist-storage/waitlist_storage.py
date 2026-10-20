@@ -16,6 +16,7 @@ sys.path.insert(0,str(HERE.parent/'observability-sdk-storage'))
 import pilot
 import ci
 import sdk_storage
+import diagnostics
 import source_status_query
 sys.path.insert(0,str(HERE.parent/'observability-tracking-storage'))
 import ownership
@@ -25,7 +26,7 @@ import producer_protocol
 import waitlist_oracle
 
 SCOPE='One genuine production API/PG carrier/real timer/API-owned SDK waitlist receipt success through pinned storage; no retry/crash or capacity acceptance'
-ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','waitlist-storage.json','runtime-modules.json','recovery.json','waitlist-cleanup.json',api_progress.NAME)
+ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','waitlist-storage.json','runtime-modules.json','recovery.json','waitlist-cleanup.json',api_progress.NAME,diagnostics.NAME)
 STORAGE_SECONDS=60
 
 
@@ -53,6 +54,16 @@ def trace_response(compose,targets,trace_id,*,budget):
             "set -o pipefail; wget -q -T 3 -O - '"+url+"' | head -c 1048577"],timeout=max(.001,deadline-time.monotonic()))
         if len(raw.encode()) > 1048576: raise ValueError()
         return raw
+
+
+def capture_producer(output, *, environment, source):
+    """Only native capture/IPC metadata; later SQL/storage behavior is outside this scope."""
+    diagnostic=diagnostics.Diagnostic('waitlist')
+    try:
+        with api_progress.OwnedProgress(output,scope='waitlist',source=source) as progress:
+            return producer_protocol.capture(environment=progress.environment(environment),diagnostic=diagnostic)
+    finally:
+        diagnostic.persist(output/diagnostics.NAME)
 
 
 def worker(output):
@@ -89,8 +100,7 @@ def worker(output):
             environment={key:os.environ[key] for key in ('PATH','HOME') if key in os.environ}
             environment.update({'INSIDE_OTEL_ENABLED':'true','INSIDE_OTEL_ENDPOINT':'http://127.0.0.1:14318','INSIDE_OTEL_SAMPLE_RATIO':'1'})
             source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
-            with api_progress.OwnedProgress(output,scope='waitlist',source=source) as progress:
-                wire=producer_protocol.capture(environment=progress.environment(environment))
+            wire=capture_producer(output,environment=environment,source=source)
             observed=producer_protocol.witness(wire)
             module_artifact={'schema':1,'sha256':observed['runtime_modules']}
             if len((json.dumps(module_artifact,indent=2)+'\n').encode()) > ci.PUBLIC_ARTIFACT_MAX_BYTES: raise ValueError()
@@ -132,9 +142,11 @@ def cleanup_proof(output):
 
 
 def collect(output,metadata,destination):
+    projected=diagnostics.read(output/diagnostics.NAME,scope='waitlist')
     source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
     phase=api_progress.read(output/api_progress.NAME,scope='waitlist',source=source)
-    ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name!=api_progress.NAME))
+    ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME)))
+    diagnostics.write(destination/diagnostics.NAME,projected,scope='waitlist')
     api_progress.write(destination/api_progress.NAME,phase,scope='waitlist',source=source)
 
 

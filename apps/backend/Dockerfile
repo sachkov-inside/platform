@@ -29,7 +29,7 @@ COPY --chown=node:node packages/legal ./packages/legal
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
 COPY --chown=node:node docs/contracts ./docs/contracts
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
-    pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy --filter '@inside/backend...'
+    pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
 FROM dependencies AS source
 

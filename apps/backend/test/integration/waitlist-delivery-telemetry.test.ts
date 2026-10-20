@@ -143,8 +143,10 @@ test.each(["on", "off", "exporter503"] as const)(
       LOGTO_ISSUER: identity.issuer,
       LOGTO_AUDIENCE: identity.audience,
       LOGTO_JWKS_URL: identity.jwksUrl,
-      TELEGRAM_COMMUNICATIONS_ENDPOINT: provider,
+      TELEGRAM_COMMUNICATIONS_ENDPOINT: `${provider}/integrations/platform/v1/communications`,
       TELEGRAM_COMMUNICATIONS_SECRET: "private-waitlist-secret",
+      TELEGRAM_AUTHOR_AUTHORIZATION_SECRET:
+        "private-waitlist-authorization-secret",
       TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "private-bot",
     });
     const applications = new Set<NestFastifyApplication>();

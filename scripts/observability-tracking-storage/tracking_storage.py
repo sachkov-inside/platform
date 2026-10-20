@@ -62,7 +62,7 @@ def producer_observation(output, *, environment, diagnostic):
     try:
         observed=producer_protocol.witness(wire)
     except Exception as error:
-        diagnostic.fail('witness_refusal' if isinstance(error,(ValueError,TypeError,KeyError)) else 'unknown'); raise
+        diagnostic.fail(producer_protocol.witness_reason(error) if isinstance(error,(ValueError,TypeError,KeyError)) else 'unknown'); raise
     diagnostic.start('module_projection')
     try:
         module_artifact={'schema':1,'sha256':observed['runtime_modules']}

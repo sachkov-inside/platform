@@ -240,6 +240,22 @@ class CollectorPrivacyContract(unittest.TestCase):
         self.assertNotIn('/members/private-person@example.test', policy['routes'])
         self.assertNotIn('/mcp?token=SECRET', policy['routes'])
 
+    def test_materials_route_admits_only_the_canonical_registered_template(self):
+        import privacy_config
+        route = '/integrations/telegram/v1/communications/materials'
+        policy = json.loads((pilot.CONFIG/'privacy-policy.json').read_text())
+        self.assertEqual(policy['routes'].count(route), 1)
+        actual = privacy_config.render()
+        # The rendered collector catalogue must keep its exact anchored allowlist.
+        rule = privacy_config.enum_rule('http.route', policy['routes'])
+        self.assertIn(rule, actual)
+        pattern = privacy_config.pattern(policy['routes'])
+        self.assertIsNotNone(re.fullmatch(pattern, route))
+        for rejected in (route + '/private', route + '?token=SECRET', route + 'suffix',
+                         '/integrations/telegram/v1/communications/private-person@example.test'):
+            self.assertNotIn(rejected, policy['routes'])
+            self.assertIsNone(re.fullmatch(pattern, rejected))
+
     def test_collector_raw_diagnostics_are_not_retained_by_docker(self):
         plan = pilot.compose_plan(Path('/source'), Path('/owned'),
                                   {name:'pinned' for name in pilot.SERVICES}, credential_owner=(1001,1002))

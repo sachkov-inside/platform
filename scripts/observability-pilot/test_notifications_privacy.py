@@ -58,7 +58,7 @@ class NotificationCatalog(unittest.TestCase):
             'videos.deletions','web-telemetry.retention','billing.payment-recovery',
             'billing.subscription-renewal','billing.subscription-notices','tribute.source-reconciliation',
             'community.entitlement-delivery','_OTHER'])
-        self.assertEqual(len(policy['routes']),222)
+        self.assertEqual(len(policy['routes']),223)
         owner = (pilot.ROOT/'apps/backend/src/infrastructure/observability/technical-telemetry.ts').read_text()
         for value in ('rabbitmq','inside.events.materials.v1','notification_operation_failed',
                       'inside.notification.operations','inside.notification.duration'):

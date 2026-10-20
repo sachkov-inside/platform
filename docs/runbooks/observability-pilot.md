@@ -1371,7 +1371,7 @@ package использует production-код очистки диагности
 Пределы private protocol и схема public artifact не меняются.
 
 
-### Closed SDK and tracking failure diagnostics (#1566)
+### Closed SDK, tracking and waitlist failure diagnostics (#1566)
 
 The SDK and tracking workers publish a separate `storage-diagnostic.json` (schema1, at most2048bytes).
 Its fixed scope, phase, outcome and reason distinguish query transport/decode, full raw oracle refusal
@@ -1380,6 +1380,25 @@ and module write boundaries. Attempts are retained on failure, bounded at1024 wi
 saturation flag. Existing30/60/600-second budgets and all byte, row, role, flags and metric gates remain.
 A pending observation is recorded only after the complete unchanged raw oracle accepts the response.
 No role-presence projection bypasses that gate. No raw native stderr or exception message is collected.
+
+Tracking witness refusals retain the original `ValueError` messages and expose only the fixed
+`witness_header`, `witness_group`, `witness_row`, `witness_path`, `witness_digest`,
+`witness_duplicate` or `witness_required` category. The owning exception sets its read-only reason
+at construction. Classification accepts only that exact known type and a valid finite reason;
+foreign or malformed exceptions retain the legacy `witness_refusal` fallback. It never parses
+exception text, arguments, row values, paths or hashes to form metadata. All witness predicates,
+validation order, required modules and caps remain unchanged. The new categories belong only to
+tracking scope, not SDK or waitlist.
+
+The waitlist scope reuses the same bounded capture owner and optional diagnostic argument. Its
+record admits only `unknown`, `capture` and `protocol_decode` phases, covering native capture
+and private IPC decoding. A later SQL or stored-data failure
+is outside this record's coverage; a passed capture record does not accept those operations or
+identify their failure. Missing legacy records are explicitly unknown. Capture failure keeps its
+original exception even if diagnostic or milestone persistence fails. Before public copying, the
+waitlist collector strictly reads both present metadata records, excludes their raw files from
+generic collection and writes only canonical projections. Invalid present metadata refuses
+collection. No producer stderr, SQLSTATE, raw witness or inferred next-operation cause is published.
 
 The actual tracking and waitlist API producers also have a separate optional private milestone channel.
 Its canonical `api-producer-phase.json` is at most512bytes and contains only schema1, exact caller
@@ -1476,10 +1495,10 @@ representative production load, full retention, whole-host reserve or seven actu
 The workflow adds no mandatory release gate. Native image builds and runtime compatibility
 must be observed in a source-bound hosted attempt before claiming they work.
 
-The backend image install selects the backend workspace dependency closure and root tooling.
-It retains the declared development dependencies and package build lifecycle. Web and Telegram
-application dependencies are not selected. This selection does not bound transient image/cache
-storage or establish that acquisition fits the unchanged filesystem growth budget.
+Backend and Web keep the same complete dependency install ancestry. The shared development
+image also runs Web, so its frozen install includes the Web dependencies and root tooling.
+The former backend-only install filter broke that shared image and has been removed.
+No storage reduction or fit within the unchanged filesystem growth budget is established.
 
 For acquisition failures, `resource-acquisition.json` records a closed stage and boundary
 (identity probe, child wait, inspection or publication), bounded outcome/counters/elapsed

@@ -133,6 +133,8 @@ class ClosedReaderGate(unittest.TestCase):
 class RecoverySourceAndBackupEvidence(unittest.TestCase):
     def test_local_cache_requires_exact_context_hashes_before_preparing_inputs(self):
         import copy
+        from recovery_test_source import historical_foundation_source
+        self.enterContext(historical_foundation_source())
         lock = json.loads((recovery.ROOT / 'infra/observability/umami/recovery-cache.lock.json').read_text())
         self.assertEqual(recovery.validate_cache(lock)['image'], lock['image'])
         invalid = []
@@ -145,6 +147,11 @@ class RecoverySourceAndBackupEvidence(unittest.TestCase):
         changed = copy.deepcopy(lock)
         del changed['inputs']['infra/production/database/restore-entrypoint.sh']
         invalid.append(changed)
+        for key, value in (('architecture', 'amd64'), ('cache_owner', 'foreign:latest'),
+                           ('source', 'not-a-commit'), ('schema', True)):
+            changed = copy.deepcopy(lock)
+            changed[key] = value
+            invalid.append(changed)
         for candidate in invalid:
             with self.subTest(candidate=candidate), self.assertRaises(ValueError):
                 recovery.validate_cache(candidate)

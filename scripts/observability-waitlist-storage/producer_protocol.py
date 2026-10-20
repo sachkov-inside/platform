@@ -12,8 +12,10 @@ _spec=importlib.util.spec_from_file_location('waitlist_native_child_owner', HERE
 _owner=importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_owner)
 
-def capture(*,environment=None):
-    return _owner.capture(argv=['node',str(HERE/'producer.mjs')],environment=environment)
+def capture(*,environment=None,diagnostic=None):
+    # Leave the original caller/default owner arguments identical when omitted.
+    optional={} if diagnostic is None else {'diagnostic':diagnostic}
+    return _owner.capture(argv=['node',str(HERE/'producer.mjs')],environment=environment,**optional)
 
 
 REQUIRED = {
