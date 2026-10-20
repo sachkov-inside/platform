@@ -283,7 +283,14 @@ def restore_case(resources, image, repository, envfile, suffix, target, expected
         "--archive-mode=off --target-action=promote " + target + " restore",
         repository_readonly=True)
     if result.returncode:
-        raise RuntimeError("ordinary restore failed")
+        error = next((line for line in (result.stdout + result.stderr).splitlines()
+                      if re.search(r"ERROR:\s+\[\d+\]", line)), "no structured error")
+        for line in envfile.read_text().splitlines():
+            key, _, value = line.partition("=")
+            if key.endswith("_PASS") and value:
+                error = error.replace(value, "<REDACTED>")
+        raise RuntimeError("ordinary restore failed (exit " + str(result.returncode)
+                           + "): " + error[:400])
     container, result = resources.container(
         suffix + "-postgres", image, data, repository, envfile,
         "install -d -o postgres -g postgres /var/run/postgresql; "
