@@ -94,6 +94,21 @@ def collect(output, destination, *, metadata):
         raise ValueError('resource_project_not_acquired')
 
 
+def signal_group(group, signum):
+    try:
+        os.killpg(group, signum)
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        # Verify absence of live processes after a permission refusal.
+        # An unobservable or live group must retain the original refusal.
+        result = subprocess.run(['ps', '-o', 'stat=', '-g', str(group)],
+            capture_output=True, text=True, timeout=3)
+        if (result.returncode not in (0, 1) or result.stderr or len(result.stdout) > 4096
+                or any(not re.fullmatch(r'Z[A-Za-z+<]*', state) for state in result.stdout.split())):
+            raise
+
+
 def command(args, timeout):
     # Own the complete Docker CLI/plugin group, including timeout and interruption.
     if args[0] == 'docker':
@@ -105,18 +120,12 @@ def command(args, timeout):
         if status:
             raise RuntimeError('resource_acquisition_failed')
     finally:
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+        signal_group(process.pid, signal.SIGTERM)
         try:
             process.wait(timeout=3)
         except subprocess.TimeoutExpired:
             pass
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
+        signal_group(process.pid, signal.SIGKILL)
         process.wait(timeout=3)
 
 

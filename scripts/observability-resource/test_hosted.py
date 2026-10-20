@@ -298,11 +298,22 @@ hosted.command([sys.executable, sys.argv[2], sys.argv[3]], 10)
             finally:
                 for group in (process.pid, facts['pid'] if facts else None):
                     if group is not None:
-                        try:
-                            os.killpg(group, signal.SIGKILL)
-                        except ProcessLookupError:
-                            pass
+                        hosted.signal_group(group, signal.SIGKILL)
                 process.wait(timeout=3)
+
+
+class GroupSignalBoundary(unittest.TestCase):
+    def test_permission_refusal_is_tolerated_only_for_observed_zombies_or_absence(self):
+        import signal
+        import subprocess
+        for states in ('Z\nZ+\n', ''):
+            with patch.object(os, 'killpg', side_effect=PermissionError()), \
+                    patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, states, '')):
+                hosted.signal_group(12345, signal.SIGKILL)
+        with patch.object(os, 'killpg', side_effect=PermissionError()), \
+                patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'S\n', '')):
+            with self.assertRaises(PermissionError):
+                hosted.signal_group(12345, signal.SIGKILL)
 
 
 if __name__ == '__main__':
