@@ -5,5 +5,5 @@ export const SIGN_IN_REPLY_ELIGIBILITY = Symbol("SIGN_IN_REPLY_ELIGIBILITY");
 export type SignInReplyEligibility = (
   database: Database | Transaction<DatabaseSchema>,
   now: Date,
-  reply: { requestRef: string; editMessageId: string },
+  reply: { requestRef: string; editMessageId: string; sourceKey: string },
 ) => RawBuilder<boolean>;

@@ -200,12 +200,12 @@ def traces(raw, *, trace_id, root_id, release):
                         **({'span_attr:http.request.method': 'GET', 'span_attr:http.response.status_code': '200'} if role == 'http' else {})})
             expected = {'trace_id': trace_id, 'resource_attr:service.name': 'platform-api',
                         'resource_attr:deployment.environment.name': 'test', 'resource_attr:service.version': release,
-                        'scope_name': 'inside-collector', 'kind': kind, 'status_code': '0', '_msg': '-',
+                        'scope_name': 'inside-collector', 'kind': kind, 'status_code': '0', 'flags': '257', '_msg': '-',
                         '_stream': '{name='+json.dumps(row['name'])+',resource_attr:service.name="platform-api"}', **attrs}
             mandatory = {*expected, 'name', 'span_id', 'start_time_unix_nano', 'end_time_unix_nano', 'duration', '_time', '_stream_id'}
             if role != 'root':
                 mandatory.add('parent_span_id')
-            optional = {'scope_version': '', 'trace_state': '', 'status_message': '', 'flags': '1',
+            optional = {'scope_version': '', 'trace_state': '', 'status_message': '',
                         'dropped_attributes_count': '0', 'dropped_events_count': '0', 'dropped_links_count': '0'}
             if role == 'root':
                 optional['parent_span_id'] = ''

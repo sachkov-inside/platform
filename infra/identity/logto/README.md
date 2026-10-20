@@ -81,6 +81,10 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
+Fork revision `inside.10` restores Telegram waiting after transient status failures and checks
+approval immediately when the browser becomes active again. Requests do not overlap; waiting
+is bounded by the interaction expiry and a five-minute browser budget during an outage.
+
 Fork revision `inside.9` adds the automatic Telegram app handoff on the existing waiting page.
 The HTTPS fallback and the app URI share one validator; polling and the browser-bound proof are
 unchanged. The site starts this connector directly through the official SDK. Revision `inside.8`
