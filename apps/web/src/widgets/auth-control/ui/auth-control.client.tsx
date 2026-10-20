@@ -23,7 +23,7 @@ const triggerClass =
 const menuItemClass =
   "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-medium no-underline outline-none hover:bg-muted focus:bg-muted data-[highlighted]:bg-muted";
 
-/** Desktop identity actions; state remains owned by the app adapter. */
+/** Header identity actions; state remains owned by the app adapter. */
 export function HeaderAuthControl({ state, avatar }: AuthControlStateProps) {
   if (state === "guest")
     return (
@@ -32,8 +32,14 @@ export function HeaderAuthControl({ state, avatar }: AuthControlStateProps) {
         method="post"
         className="flex min-h-11 items-center"
       >
-        <button type="submit" className={triggerClass}>
-          Войти через Telegram
+        <button
+          type="submit"
+          aria-label="Войти через Telegram"
+          className={triggerClass}
+        >
+          <span>
+            Войти<span className="hidden lg:inline"> через Telegram</span>
+          </span>
           <LogIn
             aria-hidden="true"
             className="hidden size-3.5 shrink-0 sm:block"

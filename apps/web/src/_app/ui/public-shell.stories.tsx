@@ -190,6 +190,19 @@ export const MobileTopNavigation: Story = {
       name: "Войти через Telegram",
     });
     await expect(signIn).toBeVisible();
+    await expect(signIn.innerText).toBe("Войти");
+    const brand = within(header).getByRole("link", { name: "Главная" });
+    const buttonBounds = signIn.getBoundingClientRect();
+    const brandBounds = brand.getBoundingClientRect();
+    await expect(
+      Math.abs(
+        (buttonBounds.top + buttonBounds.bottom) / 2 -
+          (brandBounds.top + brandBounds.bottom) / 2,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(signIn.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      header.getBoundingClientRect().bottom,
+    );
     await expect(signIn.getBoundingClientRect().height).toBe(36);
     await expect(
       parseFloat(getComputedStyle(signIn, "::before").height),
@@ -225,9 +238,19 @@ export const MobileSignInEnlargedText: Story = {
       });
       await expect(button).toBeVisible();
       await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
-      await expect(button.getBoundingClientRect().right).toBeLessThanOrEqual(
-        root.clientWidth,
+      await expect(button.innerText).toBe("Войти");
+      const header = canvasElement.querySelector<HTMLElement>(
+        "[data-mobile-header]",
       );
+      if (header === null) throw new Error("Нет шапки телефона");
+      const container = header.firstElementChild;
+      if (container === null) throw new Error("Нет содержимого шапки");
+      const headerRight =
+        container.getBoundingClientRect().right -
+        parseFloat(getComputedStyle(container).paddingRight);
+      await expect(
+        Math.abs(button.getBoundingClientRect().right - headerRight),
+      ).toBeLessThanOrEqual(1);
     } finally {
       root.style.fontSize = fontSize;
     }

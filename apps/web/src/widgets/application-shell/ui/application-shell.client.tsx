@@ -262,7 +262,7 @@ function MobileTopNavigation({
           <span>Sachkov</span>
           <span className="text-action">Dev</span>
         </Link>
-        <nav aria-label="Мобильная навигация">
+        <nav aria-label="Мобильная навигация" className="ml-auto">
           <ul className="flex flex-wrap items-center gap-1">
             {sections.map((item) => {
               const Icon = iconByName[item.icon];
