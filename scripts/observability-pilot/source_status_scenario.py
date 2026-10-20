@@ -176,8 +176,8 @@ def run(output, compose, plan, *, command, assert_identity, observe=None,
         cid = targets.check(role)
         read(['docker', action, *(['--time', '2'] if action == 'stop' else []), cid])
         targets.check(role)
-    persist()
     try:
+        persist()
         baseline = wait('baseline', up)
         targets = OwnedTargets(output, compose, plan, read)
         change('traces', 'stop')
@@ -203,12 +203,19 @@ def run(output, compose, plan, *, command, assert_identity, observe=None,
             report.pop('last_report', None)
         report.update(state='failed', reason=error.reason if isinstance(error, ScenarioFailed) else 'boundary_failed',
                       acquisitions=acquisitions, duration_seconds=max(0, last_clock - started))
-        persist()
+        try:
+            persist()
+        except Exception:
+            if isinstance(error, Exception):
+                raise ScenarioFailed('artifact_write') from None
+        if isinstance(error, Exception):
+            raise ScenarioFailed(report['reason']) from None
         raise
 
 
-def verify_cleanup(output, project, *, read, clock=time.monotonic):
+def verify_cleanup(output, project, *, read, clock=None):
     """Prove absence by exact saved identities; daemon failures remain unknown."""
+    clock = clock or time.monotonic
     failed = {'outcome': 'unproved'}
     try:
         path = output / 'source-freshness-owned.json'
@@ -237,7 +244,7 @@ def verify_cleanup(output, project, *, read, clock=time.monotonic):
                     return failed
                 previous = now
                 try:
-                    read(['docker', kind, 'inspect', identity], timeout=deadline - now)
+                    read(['docker', kind, 'inspect', identity], timeout=deadline - now, deadline=deadline)
                 except subprocess.CalledProcessError as error:
                     expected = ('Error response from daemon: No such container: ' + identity if kind == 'container' else
                                 'Error response from daemon: get ' + identity + ': no such volume' if kind == 'volume' else

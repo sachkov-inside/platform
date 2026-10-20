@@ -840,8 +840,13 @@ def container_states(raw, *, services=SERVICES):
 def cleanup_project(compose, output, project, *, docker=("docker",), services=SERVICES):
     """Diagnostics may fail; down and both residue checks are independent obligations."""
     result = {}
-    def checked_command(args, **kwargs):
-        assert_docker_identity()
+    def checked_command(args, *, deadline=None, **kwargs):
+        assert_docker_identity(**({'deadline': deadline} if deadline is not None else {}))
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('cleanup identity exhausted shared read budget')
+            kwargs['timeout'] = min(kwargs.get('timeout', COMMAND_TIMEOUT_SECONDS), remaining)
         return command(args, **kwargs)
     try:
         snapshot = checked_command(compose + ["ps", "--all", "--format", "json"])
@@ -1119,12 +1124,16 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
+def cli():
     def interrupt(signum, _frame):
         raise KeyboardInterrupt(f"signal {signum}")
     signal.signal(signal.SIGTERM, interrupt)
     try:
-        sys.exit(main())
+        return main()
     except (RuntimeError, OSError, subprocess.SubprocessError) as error:
         print(f"observability-pilot: {type(error).__name__}: {error}", file=sys.stderr)
-        sys.exit(error.returncode if isinstance(error, subprocess.CalledProcessError) else 1)
+        return error.returncode if isinstance(error, subprocess.CalledProcessError) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(cli())

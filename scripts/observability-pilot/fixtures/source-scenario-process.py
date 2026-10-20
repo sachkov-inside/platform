@@ -1,4 +1,5 @@
 """Owned process contract for the source scenario; Docker/query boundaries are doubles."""
+from contextlib import nullcontext
 import json
 import os
 from pathlib import Path
@@ -18,16 +19,45 @@ fake = FakePilot(output)
 if role == 'worker':
     def observe(*args, **kwargs):
         if fake.changes:
-            if mode == 'failure':
-                raise RuntimeError('private boundary diagnostic')
-            if mode == 'timeout':
+            (output / 'boundary-entered').write_text('ready')
+            if mode in ('failure', 'cli_failure'):
+                raise RuntimeError('private boundary diagnostic ' + str(output / 'private-config-sentinel'))
+            if mode in ('timeout', 'outer_timeout', 'assertion_failure'):
                 signal.pause()
             if mode == 'sigterm':
                 os.kill(os.getpid(), signal.SIGTERM)
         return fake.observe(*args, **kwargs)
-    scenario.run(output, fake.compose, fake.plan, command=fake.command,
-                 assert_identity=fake.identity, observe=observe)
+    if mode.startswith('cli_'):
+        images = json.loads((pilot.CONFIG / 'inputs.lock.json').read_text())['images']
+        fake.plan = pilot.compose_plan(pilot.CONFIG, output, images,
+                                      credential_owner=(os.getuid(), os.getgid()))
+        def command(args, **kwargs):
+            if args[:6] == fake.compose and args[6] in ('config', 'up'):
+                return ''
+            if mode == 'cli_command_failure' and fake.changes:
+                raise subprocess.CalledProcessError(7, ['docker', '--config', str(output / 'private-config-sentinel')],
+                                                    output='private-output-sentinel', stderr='private-error-sentinel')
+            return fake.command(args, **kwargs)
+        pilot.command = command
+        pilot.assert_docker_identity = fake.identity
+        pilot.install_plugin = lambda *_: None
+        pilot.worker_storage_guard = lambda *_: nullcontext()
+        pilot.smoke = lambda *_: {}
+        scenario.source_status_query.read_report = observe
+        sys.argv = ['pilot.py', 'worker', '--output', str(output)]
+        sys.exit(pilot.cli())
+    else:
+        scenario.run(output, fake.compose, fake.plan, command=fake.command,
+                     assert_identity=fake.identity, observe=observe)
 else:
+    if mode.startswith('cli_'):
+        (output / 'owner.json').write_text(json.dumps({'supervisor_pid': os.getpid(), 'project': PROJECT}))
+        (output / 'auth.json').write_text(json.dumps({'users': [{'bearer_token': 'private-token-sentinel'}]}))
+        (output / 'auth.json').chmod(0o600)
+        (output / 'evidence.json').write_text('{}')
+    def interrupt(*_):
+        raise KeyboardInterrupt()
+    signal.signal(signal.SIGTERM, interrupt)
     def cleanup_command(args, **_):
         if args[1] in ('container', 'volume', 'network') and args[2] == 'inspect':
             kind, identity = args[1], args[-1]
