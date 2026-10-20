@@ -209,8 +209,8 @@ export const WithLearning: Story = {
     const telegram = canvas.getByRole("region", {
       name: /^Telegram$/,
     });
-    await expect(learning.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-      telegram.getBoundingClientRect().top,
+    await expect(telegram.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      learning.getBoundingClientRect().top,
     );
     await expect(getComputedStyle(learning).position).toBe("static");
     const documents = canvas.getByRole("button", { name: /Документы/ });

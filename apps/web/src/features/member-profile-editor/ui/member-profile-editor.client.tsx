@@ -63,13 +63,16 @@ export function MemberProfileEditor({
   return (
     <section
       aria-labelledby={`${id}-heading`}
-      className="border-b border-border py-6"
+      className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6"
     >
       <h2 className="text-lg font-semibold" id={`${id}-heading`}>
-        Профиль
+        Личные данные
       </h2>
+      <p className="mt-1 text-sm leading-6 text-muted-foreground">
+        Как к вам обращаться на платформе.
+      </p>
       <form
-        className="mt-4 max-w-xl"
+        className="mt-5 max-w-xl"
         onSubmit={(event) => {
           event.preventDefault();
           if (displayNameLengthIsValid(name)) save.mutate();
@@ -78,10 +81,7 @@ export function MemberProfileEditor({
         <label className="text-sm font-medium" htmlFor={id}>
           Отображаемое имя
         </label>
-        <p className="mt-1 text-sm text-muted-foreground" id={`${id}-help`}>
-          Как к вам обращаться. От 2 до 80 символов, имя может повторяться.
-        </p>
-        <div className="mt-3 flex flex-wrap items-start gap-3">
+        <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:items-start">
           <input
             aria-describedby={`${id}-help${error === undefined ? "" : ` ${id}-error`}`}
             aria-invalid={error !== undefined || undefined}
@@ -111,6 +111,12 @@ export function MemberProfileEditor({
             {save.isPending ? "Сохраняем…" : "Сохранить имя"}
           </Button>
         </div>
+        <p
+          className="mt-2 text-xs leading-5 text-muted-foreground"
+          id={`${id}-help`}
+        >
+          От 2 до 80 символов. Имя может повторяться.
+        </p>
         {error === undefined ? null : (
           <p
             className="mt-3 text-sm text-destructive"

@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 import {
+  accountPresentationResponse,
   respondByPath,
   subscribedMemberRoutes,
 } from "@/storybook/account.fixtures";
@@ -134,6 +135,42 @@ export const FirstEmailAttachment: Story = {
     await expect(await canvas.findByText("new@example.test")).toBeVisible();
     await expect(
       canvas.getByText(/Почта подтверждена и привязана/),
+    ).toBeVisible();
+  },
+};
+
+/** The first visit keeps profile settings ahead of learning and uses one contact group. */
+export const NewMember: Story = {
+  ...accountSectionEnvironment("/account", {
+    fetch: () =>
+      respondByPath({
+        ...subscribedMemberRoutes,
+        "/api/account": () =>
+          accountPresentationResponse({
+            link: { kind: "unlinked" },
+            profile: null,
+          }),
+        "/api/account/email": () => Response.json({ ok: true, email: null }),
+        "/api/account/billing": () => currentBillingResponse(null),
+        "/api/account/billing/enrollments": () => enrollmentsResponse([]),
+      }),
+  }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const personal = within(
+      await canvas.findByRole("region", { name: "Личные данные" }),
+    );
+    await expect(
+      personal.getByRole("textbox", { name: "Отображаемое имя" }),
+    ).toBeVisible();
+    const connections = within(
+      await canvas.findByRole("region", { name: "Контакты и вход" }),
+    );
+    await expect(
+      await connections.findByRole("button", { name: "Добавить почту" }),
+    ).toBeVisible();
+    await expect(
+      connections.getByRole("button", { name: "Подключить" }),
     ).toBeVisible();
   },
 };

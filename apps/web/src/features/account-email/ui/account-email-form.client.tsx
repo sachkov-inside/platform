@@ -40,13 +40,10 @@ export function AccountEmailForm({
   const [code, setCode] = useState("");
   const [editing, setEditing] = useState(false);
   return (
-    <section
-      aria-labelledby={`${id}-heading`}
-      className="border-b border-border py-6"
-    >
-      <h2 className="text-lg font-semibold" id={`${id}-heading`}>
+    <section aria-labelledby={`${id}-heading`}>
+      <h3 className="text-base font-semibold" id={`${id}-heading`}>
         Почта
-      </h2>
+      </h3>
       {loading ? (
         <p className="mt-3 text-sm text-muted-foreground" role="status">
           Загружаем почту…
@@ -56,7 +53,7 @@ export function AccountEmailForm({
           <p>Войдите снова, чтобы управлять почтой.</p>
           <form action="/auth/sign-in" method="post">
             <input name="returnTo" type="hidden" value="/account" />
-            <Button className="mt-3 min-h-11" type="submit">
+            <Button className="mt-3 min-h-11" type="submit" variant="outline">
               Войти снова
             </Button>
           </form>
@@ -86,21 +83,24 @@ export function AccountEmailForm({
         </div>
       ) : (
         <>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Добавьте почту, чтобы входить в этот же аккаунт по коду из письма.
-          </p>
-          {!editing && challenge === null ? (
-            <Button
-              className="mt-4 min-h-11"
-              onClick={() => {
-                setEditing(true);
-              }}
-              type="button"
-              variant="outline"
-            >
-              Добавить почту
-            </Button>
-          ) : challenge === null ? (
+          <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row">
+            <p className="max-w-lg text-sm leading-6 text-muted-foreground">
+              Добавьте почту, чтобы входить в этот же аккаунт по коду из письма.
+            </p>
+            {!editing && challenge === null ? (
+              <Button
+                className="min-h-11 shrink-0"
+                onClick={() => {
+                  setEditing(true);
+                }}
+                type="button"
+                variant="outline"
+              >
+                Добавить почту
+              </Button>
+            ) : null}
+          </div>
+          {!editing && challenge === null ? null : challenge === null ? (
             <form
               className="mt-4 max-w-xl"
               onSubmit={(event) => {
@@ -111,7 +111,7 @@ export function AccountEmailForm({
               <label className="text-sm font-medium" htmlFor={`${id}-email`}>
                 Адрес почты
               </label>
-              <div className="mt-2 flex flex-wrap gap-3">
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
                 <input
                   autoComplete="email"
                   className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3"
@@ -148,7 +148,7 @@ export function AccountEmailForm({
               >
                 Код из письма
               </label>
-              <div className="mt-2 flex flex-wrap gap-3">
+              <div className="mt-2 flex flex-col gap-3 sm:flex-row">
                 <input
                   aria-describedby={`${id}-code-help`}
                   autoComplete="one-time-code"

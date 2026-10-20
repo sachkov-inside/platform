@@ -65,3 +65,17 @@ use the temporary semantic UI path in `docs/agents/frontend-delivery.md`; #1587 
 Storybook and live-route visual acceptance and removal of the single temporary marker at
 `AccountAccessView`. Both adapters import the same production modules. No new shared visual
 system is introduced.
+
+
+## Cabinet presentation
+
+The profile editor is the primary task. Show it in a distinct personal-details section, followed
+by one contacts/access section containing email and Telegram. Learning continuation, purchases
+and documents are supporting sections after settings. Telegram uses the same neutral surfaces
+and shared buttons as email; a provider-specific colored panel must not dominate the page.
+Use spacing and bounded groups rather than repeated full-width horizontal rules. Preserve this
+reading order, accessible section names, and full-width form controls on narrow screens.
+
+This addresses the owner's visual correction of 20 October 2026. Stories cover the empty profile,
+unlinked Telegram, missing/verified email, code entry and recovery states through the production
+components. Visual acceptance remains tracked in #1587.

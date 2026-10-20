@@ -1,6 +1,6 @@
 "use client";
 import type { ReactNode } from "react";
-import { FileText } from "lucide-react";
+import { FileText, LogOut } from "lucide-react";
 import { AccountDisclosure } from "./account-disclosure.client";
 import {
   AccountTelegramPanel,
@@ -47,13 +47,13 @@ export function AccountAccessView({
 }: AccountAccessViewProps) {
   return (
     <div>
-      <header className="mb-8 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
+          <h1 className="text-3xl font-semibold tracking-tight">
             Личный кабинет
           </h1>
           {displayName === undefined ? null : (
-            <p className="mt-3 break-all text-sm text-muted-foreground">
+            <p className="mt-2 break-words text-sm text-muted-foreground">
               {displayName}
             </p>
           )}
@@ -61,6 +61,7 @@ export function AccountAccessView({
         {sessionExpired ? null : (
           <form action="/auth/sign-out" method="post">
             <Button className="min-h-11 px-3" type="submit" variant="ghost">
+              <LogOut aria-hidden="true" className="size-4" />
               Выйти из аккаунта
             </Button>
           </form>
@@ -79,44 +80,61 @@ export function AccountAccessView({
           </form>
         </div>
       ) : (
-        <>
-          {continuationSlot}
+        <div className="space-y-6">
           {profileSlot}
-          {loading ? (
-            <p className="py-4 text-sm text-muted-foreground" role="status">
-              Загружаем состояние аккаунта…
-            </p>
-          ) : unavailable || link === null ? (
-            <div className="py-4 text-sm" role="alert">
-              <p>Состояние аккаунта сейчас недоступно.</p>
-              <button
-                className="mt-2 min-h-11 underline underline-offset-4"
-                onClick={() => {
-                  void onTelegramRefresh();
-                }}
-                type="button"
-              >
-                Попробовать снова
-              </button>
-            </div>
-          ) : (
-            <AccountTelegramPanel
-              contact={telegramContact}
-              link={link}
-              onRefresh={onTelegramRefresh}
-            />
-          )}
-          {emailSlot}
-          <div className="mt-4">{billingSlot}</div>
-          <AccountDisclosure
-            description="Условия использования и обработка данных"
-            icon={FileText}
-            id="documents"
-            title="Документы"
+          <section
+            aria-labelledby="account-connections"
+            className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6"
           >
-            <AcceptedDocumentsPanel {...acceptedDocuments} />
-          </AccountDisclosure>
-        </>
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold" id="account-connections">
+                Контакты и вход
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                Почта для входа и подключённый Telegram.
+              </p>
+            </div>
+            <div className="space-y-8">
+              {emailSlot}
+              {loading ? (
+                <p className="py-4 text-sm text-muted-foreground" role="status">
+                  Загружаем состояние аккаунта…
+                </p>
+              ) : unavailable || link === null ? (
+                <div className="py-4 text-sm" role="alert">
+                  <p>Состояние аккаунта сейчас недоступно.</p>
+                  <button
+                    className="mt-2 min-h-11 underline underline-offset-4"
+                    onClick={() => {
+                      void onTelegramRefresh();
+                    }}
+                    type="button"
+                  >
+                    Попробовать снова
+                  </button>
+                </div>
+              ) : (
+                <AccountTelegramPanel
+                  contact={telegramContact}
+                  link={link}
+                  onRefresh={onTelegramRefresh}
+                />
+              )}
+            </div>
+          </section>
+          {continuationSlot}
+          <div className="space-y-4">
+            {billingSlot}
+            <AccountDisclosure
+              description="Условия использования и обработка данных"
+              icon={FileText}
+              id="documents"
+              title="Документы"
+            >
+              <AcceptedDocumentsPanel {...acceptedDocuments} />
+            </AccountDisclosure>
+          </div>
+        </div>
       )}
     </div>
   );
