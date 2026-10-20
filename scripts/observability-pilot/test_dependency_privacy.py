@@ -14,7 +14,7 @@ class DependencyCatalog(unittest.TestCase):
     def test_fixed_sdk_dependency_catalog_has_no_request_or_status_metric_dimensions(self):
         policy = json.loads((privacy_config.CONFIG/'privacy-policy.json').read_text())
         self.assertEqual(policy['dependencies'], {
-            'names':['kinescope','postgresql','tbank','logto','telegram'], 'operations':['delete','find','initUpload','query','acquire','material-slug-lock','Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState','jwks','community.set','community.status','communications.execute'],
+            'names':['kinescope','postgresql','tbank','logto','telegram','s3'], 'operations':['delete','find','initUpload','query','acquire','material-slug-lock','Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState','jwks','community.set','community.status','communications.execute'],
             'outcomes':['completed','failed'],
             'metrics':['inside.dependency.operations','inside.dependency.duration']})
         actual = privacy_config.render()
