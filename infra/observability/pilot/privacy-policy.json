@@ -314,6 +314,8 @@
       "AddCard",
       "GetAddCardState",
       "jwks",
+      "community.set",
+      "community.status",
       "communications.execute",
       "link.register",
       "link.confirm",

@@ -461,7 +461,7 @@ def fixture_trace_rows(compose, fixture):
         boundary = 'fixture'
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
-                   **{'dependency-'+key:(value,32) for key,value in dependency_privacy.TRACE_IDS.items()},
+                   **{'dependency-'+key:(value,36) for key,value in dependency_privacy.TRACE_IDS.items()},
                    **{'communications-'+key:(value,30) for key,value in dependency_privacy.COMMUNICATIONS_TRACE_IDS.items()},
                    **{'telegram-http-'+key:(value,30) for key,value in dependency_privacy.TELEGRAM_HTTP_TRACE_IDS.items()}}
         trace_id, limit = queries[fixture]
@@ -601,11 +601,13 @@ def dependency_catalog_corpus(token, output, compose):
                                    ('telegram-http',dependency_privacy.telegram_http_payloads)):
             for transport in ('json','protobuf'):
                 now_ns = time.time_ns()
-                for signal,body in payloads(transport,now_ns).items():
-                    proof['stage']='ingest_'+partition+'_'+transport+'_'+signal
-                    assert_docker_identity()
-                    if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
-                        raise RuntimeError('dependency OTLP rejected')
+                batches = dependency_privacy.payload_batches(transport,now_ns) if partition == 'dependency' else (payloads(transport,now_ns),)
+                for batch in batches:
+                    for signal,body in batch.items():
+                        proof['stage']='ingest_'+partition+'_'+transport+'_'+signal
+                        assert_docker_identity()
+                        if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+                            raise RuntimeError('dependency OTLP rejected')
                 proof['stage']='storage_'+partition+'_'+transport
                 stored = await_fact(lambda: dependency_privacy.stored_traces(
                     fixture_trace_rows(compose,partition+'-'+transport),transport,communications=partition=='communications',telegram_http=partition=='telegram-http',now_ns=now_ns),bool,

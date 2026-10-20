@@ -631,21 +631,21 @@ provider request ID, названия/идентификаторы видео и
 К провайдеру не добавляются trace headers. OFF подавляет сбор и внутри другого включённого SDK.
 
 `privacy-policy.json` и сгенерированный Alloy допускают фиксированный каталог Kinescope
-PostgreSQL, T-Bank, Logto и Telegram HTTP. Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
-`_OTHER`: максимум 360 сочетаний на инструмент и resource identity. Это граница каталога,
-не измеренное число хранимых рядов. Общий corpus ожидает 390 dependency series для двух
-фиксированных releases и 39 сочетаний (38 известных и общий fallback), по пяти
+PostgreSQL, T-Bank, Logto и Telegram HTTP (community, communications, link, contacts, sign-in). Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
+`_OTHER`: максимум 396 сочетаний на инструмент и resource identity. Это граница каталога,
+не измеренное число хранимых рядов. Общий corpus ожидает 430 dependency series для двух
+фиксированных releases и 43 сочетания (42 известных и общий fallback), по пяти
 histogram/counter series. Ещё десять series проверяют пять pool gauges для двух releases.
-Итого ожидаются 400 series. Это ожидаемые числа конкретного corpus, которые должен
+Итого ожидаются 440 series. Это ожидаемые числа конкретного corpus, которые должен
 подтвердить runtime gate точной версии исходников.
 
 `scripts/observability-pilot/dependency_privacy.py` содержит фиксированный OTLP JSON/protobuf
-corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL, 14 T-Bank, два Logto и три adversarial spans с
+corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL, 14 T-Bank, два Logto, четыре community set/status и три adversarial spans с
 неизвестными, отсутствующими и неверно типизированными полями. Controller проверяет
-logging-none до ingest, два фиксированных trace IDs для основного corpus (максимум 32 полных
-строки на запрос для 31 ожидаемых spans) и ещё два фиксированных trace IDs для отдельного
-communications corpus (максимум 30 строк для двух ожидаемых spans), а также два IDs
-для восьми Telegram HTTP spans с тем же лимитом 30 строк. Результат сохраняется в закрытый `dependency-collector.json` без raw данных.
+logging-none до ingest и шесть фиксированных trace IDs в трёх partitions. Для core query
+разрешены максимум 36 полных строк при 35 ожидаемых spans; для communications query
+сохраняется предел 30 строк при двух ожидаемых spans; отдельный Telegram HTTP query имеет тот же предел 30 строк при восьми ожидаемых spans. Закрытый `dependency-collector.json`
+не содержит raw данных.
 Pool metric dimensions удаляются полностью. Runtime нового corpus в pinned collector,
 настоящие API/worker с PostgreSQL, причинная цепочка и ресурсная приёмка фиксируются отдельно
 для точного source commit. Loopback SDK/HTTP/OTLP проверки их не заменяют.
@@ -745,8 +745,8 @@ Rabbit, worker, SMTP и применение результата. Эти про
 Span содержит только `dependency.name=tbank`, фиксированную operation,
 `dependency.outcome=completed|failed` и `http.request.method=POST`. Counter и histogram
 используют только dependency/operation/outcome. Семь операций на два исхода дают 14 новых
-сочетаний атрибутов на каждый инструмент и resource identity, всего 38 известных сочетаний
-с Kinescope, PostgreSQL, Logto и Telegram HTTP. Существующий SDK cap 128 ограничивает aggregation cardinality,
+сочетаний атрибутов на каждый инструмент и resource identity, всего 42 известных сочетания
+с Kinescope, PostgreSQL, Logto и всем Telegram HTTP каталогом. Существующий SDK cap 128 ограничивает aggregation cardinality,
 а не число хранимых histogram series; cap и overflow поведение не меняются. Для histogram
 с B конечными границами counter, count, sum и B+1 buckets дают B+4 хранимых series на
 сочетание, если приёмник публикует каждый bucket. Фактическое преобразование и число series
@@ -776,9 +776,9 @@ HTTP 200 даёт `completed`, другой status или native fetch rejection
 
 Fixed span `logto jwks` содержит dependency name/operation/outcome, GET и допустимый status.
 Counter/histogram содержат только `logto`/`jwks`/`completed|failed`: два новых сочетания
-атрибутов на инструмент и resource identity. Общее число известных SDK сочетаний в объединённом каталоге равно 38,
+атрибутов на инструмент и resource identity. Общее число известных SDK сочетаний равно 42,
 существующий aggregation cardinality cap 128 не меняется. Это не количество stored series.
-Полный объединённый внешний corpus ожидает 400 series, но новый результат должен подтвердить точный runtime.
+Полный внешний corpus ожидает 440 series, но новый результат должен подтвердить точный runtime.
 
 Counter измеряет реальные customFetch обращения, не количество verifyAccount/verifyAccountSignIn.
 Local JWKS, cache hit и дополнительные waiters общего pending fetch не создают обращения.
@@ -794,6 +794,44 @@ Actual OTLP остаётся отдельной границей от pinned col
 через настоящий HTTP adapter; подготовленные API cases используют production application,
 реальный PostgreSQL и управляемый JWKS issuer. PostgreSQL cases до отдельного запуска pending.
 Полная SDK-to-storage цепочка и representative resource acceptance из этих проверок не следуют.
+
+
+## Наблюдение community entitlement set/status
+
+`HttpCommunityEntitlementProvider` наблюдает только собственные `set` и `status` через
+фиксированные `telegram` / `community.set|community.status`. Проверка версии в `set` и
+предел сериализованного body 16KiB выполняются до наблюдения, без HTTP, span и счётчика.
+Один допущенный POST создаёт один CLIENT span и одно измерение counter/histogram.
+Duration включает существующее чтение JSON и проверку корреляции ответа. Принимаемый
+коррелированный result и обработанный protocol denial дают `completed`; transport/JSON error,
+неверный body/status/correlation и protocol `unavailable` дают `failed`. Это технический
+исход обмена, не подтверждение применённого доступа. Все прежние результаты адаптера
+возвращаются без изменений, неизвестный исход не вызывает повторного `set`.
+
+Сохраняются request bytes, bearer/content-type, native redirect error и AbortSignal timeout
+5 секунд. Response читается один раз прежним `json`, без clone/нового чтения. Operation
+выбирается вызывающим entrypoint, не из приватного body. В telemetry разрешены только
+фиксированные dependency/operation/outcome, POST и фактический допустимый HTTP status.
+Account/Telegram/link/operation/correlation refs, revision/access, body, URL, secret и raw
+provider errors не передаются observer. Trace headers не добавляются.
+
+Четыре пары community operation/outcome вместе с остальным Telegram HTTP каталогом дают 42 известных SDK aggregation attribute sets на
+инструмент и resource identity; существующий cap128 не меняется и не обозначает число
+stored series. Независимая нормализация внешних labels имеет ceiling6×22×3=396 сочетаний.
+Фиксированная core partition ожидает 35 spans (32 registered completions плюс три adversarial) и
+440 stored series с communications и remaining Telegram HTTP partitions: два releases ×43 сочетания с fallback ×пять counter/histogram series,
+плюс десять pool gauges. Пять series относятся к fixture с одной конечной histogram bound,
+а не к production histogram. Это аналитические ожидания, не измеренный runtime результат.
+
+Corpus сохраняет все прежние негативные поля и делится на две фиксированные непересекающиеся
+порции по18 и17 spans/metric points. Это восемь core OTLP ingest requests: два signals ×две порции
+×два transports JSON/protobuf. Отдельная communications partition добавляет четыре запроса,
+а remaining Telegram HTTP partition ещё четыре, всего шестнадцать. Ни один protobuf request не достигает прежних65536B;
+предел полного ответа1MiB, vector1000, query budget и resource caps не увеличиваются.
+Полный storage query ограничен36 строками для35 ожидаемых spans, чтобы обнаруживать extras.
+Host loopback/OTLP проверки, PostgreSQL caller proof и pinned collector runtime подтверждают
+разные границы. Реальные provider calls, representative resources и full-spec acceptance
+не следуют из этих source contracts.
 
 
 ### Communications HTTP observation
@@ -813,10 +851,11 @@ resend rule remain authoritative. Telemetry adds no provider headers. Only fixed
 operation, method, numeric status and completion outcome enter spans; metrics carry only fixed
 dependency/operation/outcome. Request envelopes, author content, credentials, URLs, identifiers,
 provider responses and raw errors never enter this observation. Trace sampling does not suppress
-the completion counter. Cross-application propagation remains a separate coverage gap.
+the completion counter. The separate community set/status observer retains its own duration/outcome contract.
+Cross-application propagation remains a coverage gap.
 
-The external JSON/protobuf catalog preserves the reviewed Logto 31-span dependency challenge
-byte for byte, including all prior adversarial cases.
+The external JSON/protobuf catalog retains all Logto and community challenges in the two fixed
+core batches. The separate two-span communications partition retains its parent bytes exactly.
 Two additional fixed trace IDs (`ddddddddddddddddddddddddddddddd5` and
 `ddddddddddddddddddddddddddddddd6`) carry the two communications outcomes in a separate finite
 partition, with additional private Telegram-field challenges. Each read retains the existing
@@ -825,8 +864,8 @@ The new partition has no fallback cases; the original corpus retains unknown, no
 missing-dimension challenges. Protobuf payloads retain the existing 65,536-byte ceiling, and
 full query responses retain 1 MiB with at most 1,000 metric vector rows.
 
-For the combined Logto and communications catalog, expected storage is 320 metric series,
-62 dependency label sets across two releases and 10 pool series. These are fixture expectations,
+For the combined Logto and all Telegram HTTP catalog, expected storage is 440 metric series,
+86 dependency label sets across two releases and 10 pool series. These are fixture expectations,
 not measured production cardinality or resource acceptance. The combined catalog must
 receive its own runtime source binding; encoded fixture sizes are checked separately. Host adapter/SDK and actual loopback
 proofs do not replace the pinned collector, genuine API/worker + PostgreSQL, full stored-data
@@ -854,9 +893,9 @@ The separate eight-pair JSON/protobuf Telegram HTTP catalog uses fixed trace IDs
 `eeeeeeeeeeeeeeeeeeeeeeeeeeeeee71` and `eeeeeeeeeeeeeeeeeeeeeeeeeeeeee72`. It preserves the previous
 Logto and communications payload bytes and their limits. Its full stored-row read uses the existing
 30-row limit; protobuf retains the 65,536-byte ceiling, and query responses retain 1 MiB and 1,000
-metric rows. The combined fixture now expects 400 metric series, 78 dependency label sets and 10
-pool series. These counts are fixture arithmetic, not a measured storage result. The older 320/62
-figures above describe the prior Logto and communications catalog alone.
+metric rows. The combined fixture now expects 440 metric series, 86 dependency label sets and 10
+pool series. These counts are fixture arithmetic, not a measured storage result. The prior
+community and communications catalog without these eight pairs expected 360/70.
 
 The Telegram-only full-row reader validates every observed row before allowing a partial/pending
 result. Its literal scalar metadata follows the pinned
