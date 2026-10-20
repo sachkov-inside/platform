@@ -298,10 +298,26 @@
     "error": "notification_operation_failed"
   },
   "dependencies": {
-    "names": ["kinescope"],
-    "operations": ["delete", "find", "initUpload"],
+    "names": ["kinescope", "postgresql"],
+    "operations": [
+      "delete",
+      "find",
+      "initUpload",
+      "query",
+      "acquire",
+      "material-slug-lock"
+    ],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.dependency.operations", "inside.dependency.duration"]
+  },
+  "postgresql": {
+    "metrics": [
+      "inside.postgresql.pool.available",
+      "inside.postgresql.pool.total",
+      "inside.postgresql.pool.idle",
+      "inside.postgresql.pool.waiting",
+      "inside.postgresql.pool.registry_overflow"
+    ]
   },
   "email": {
     "operations": [

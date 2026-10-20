@@ -41,4 +41,4 @@ class EmailCatalog(unittest.TestCase):
         self.assertIn('not IsString(attributes["outcome"])', points)
         # New admission never widens the existing Materials or Kinescope catalog.
         self.assertEqual(policy['notifications']['operations'], ['publish','receive','audience'])
-        self.assertEqual(policy['dependencies']['names'], ['kinescope'])
+        self.assertEqual(policy['dependencies']['names'], ['kinescope','postgresql'])

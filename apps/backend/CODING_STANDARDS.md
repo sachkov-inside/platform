@@ -122,7 +122,7 @@ not dependency wiring.
   runtime validation.
 - Prisma is the application ORM. `pg` is limited to the migration runner, the dedicated-session
   worker generation lease, the exact-schema worker health probe, isolated test database
-  administration, and a test double that stands in for another application's own database, where
+  administration, the Prisma adapter-owned transport pool (no application SQL), and a test double that stands in for another application's own database, where
   no Prisma schema exists in this repository to describe it. The lease and health probe are
   process lifecycle, not capability data access.
 - Checked-in migrations are append-only and self-contained: change the schema with a new

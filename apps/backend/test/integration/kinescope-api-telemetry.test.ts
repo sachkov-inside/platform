@@ -482,7 +482,17 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
     }
     const logical = [...unique.values()];
     const roots = logical.filter((span) => span.kind === 2);
-    const clients = logical.filter((span) => span.kind === 3);
+    const allClients = logical.filter((span) => span.kind === 3);
+    const attribute = (span: z.infer<typeof spanSchema>, key: string) =>
+      span.attributes.find((value) => value.key === key)?.value.stringValue;
+    const clients = allClients.filter(
+      (span) => attribute(span, "dependency.name") === "kinescope",
+    );
+    const sqlClients = allClients.filter(
+      (span) => attribute(span, "dependency.name") === "postgresql",
+    );
+    expect(allClients).toHaveLength(57);
+    expect(sqlClients).toHaveLength(54);
     expect(roots).toHaveLength(4);
     expect(clients).toHaveLength(3);
     expect(clients.map((span) => span.name).sort()).toEqual([
@@ -505,6 +515,20 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       expect(client.events ?? []).toEqual([]);
     }
     expect(new Set(clients.map((client) => client.parentSpanId)).size).toBe(3);
+    for (const client of sqlClients) {
+      const operation = attribute(client, "dependency.operation");
+      expect(["query", "acquire"]).toContain(operation);
+      expect(client.name).toBe(`postgresql ${String(operation)}`);
+      expect(client.attributes.map((value) => value.key).sort()).toEqual([
+        "dependency.name",
+        "dependency.operation",
+        "dependency.outcome",
+      ]);
+      expect(attribute(client, "dependency.outcome")).toBe("completed");
+      expect(rootFor(client)).toBeDefined();
+      expect(client.events ?? []).toEqual([]);
+    }
+    const sqlCounts = new Map<string, number>();
     const counts = new Map<string, number>();
     for (const metric of exported.flatMap(
       (body) =>
@@ -520,12 +544,21 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
             attribute.value.stringValue,
           ]),
         );
-        expect(attributes["dependency"]).toBe("kinescope");
         expect(Object.keys(attributes).sort()).toEqual([
           "dependency",
           "operation",
           "outcome",
         ]);
+        if (attributes["dependency"] === "postgresql") {
+          expect(["query", "acquire"]).toContain(attributes["operation"]);
+          expect(attributes["outcome"]).toBe("completed");
+          expect(Number.isSafeInteger(point.asDouble)).toBe(true);
+          expect(point.asDouble).toBeGreaterThan(0);
+          const key = `${attributes["operation"]}/${attributes["outcome"]}`;
+          sqlCounts.set(key, Math.max(sqlCounts.get(key) ?? 0, point.asDouble));
+          continue;
+        }
+        expect(attributes["dependency"]).toBe("kinescope");
         expect(point.asDouble).toBe(1);
         counts.set(
           `${attributes["operation"]}/${attributes["outcome"]}`,
@@ -538,6 +571,18 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       ["find/failed", 1],
       ["initUpload/completed", 1],
     ]);
+    expect([...sqlCounts.keys()].sort()).toEqual([
+      "acquire/completed",
+      "query/completed",
+    ]);
+    for (const [key, count] of sqlCounts) {
+      const operation = key.split("/")[0];
+      expect(
+        sqlClients.filter(
+          (span) => attribute(span, "dependency.operation") === operation,
+        ),
+      ).toHaveLength(count);
+    }
     for (const record of completedLogs) {
       expect(
         roots.some(

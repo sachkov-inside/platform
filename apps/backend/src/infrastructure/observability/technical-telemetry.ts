@@ -39,6 +39,8 @@ import { acquireTechnicalContext } from "./technical-context.js";
 import { TELEMETRY_EXPORT_TIMEOUT_MS } from "./technical-telemetry-policy.js";
 
 const MAX_PENDING_SPANS = 512;
+// Local reference budget, independent of pool connection limits and metric cardinality.
+const MAX_OBSERVED_POSTGRES_POOLS = 16;
 
 const EXPORT_INTERVAL_MS = 5_000;
 const technicalScopeKey = createContextKey("inside.technical.scope");
@@ -47,7 +49,8 @@ class TechnicalScope {
     readonly correlation: Readonly<Record<string, string | boolean>>,
     readonly dependencyTracer: Tracer,
     readonly recordDependency: (
-      operation: KinescopeOperation,
+      dependency: "kinescope" | "postgresql",
+      operation: KinescopeOperation | PostgresOperation,
       failed: boolean,
       seconds: number,
     ) => void,
@@ -56,6 +59,10 @@ class TechnicalScope {
       operation: EmailOperation | "smtpSend",
       outcome: EmailOutcome,
       seconds: number,
+    ) => void,
+    readonly observePool: (
+      owner: object,
+      read: () => PostgresPoolSnapshot,
     ) => void,
     readonly notificationTracer: Tracer,
     readonly recordNotification: (
@@ -230,12 +237,79 @@ export async function observeKinescopeOperation<Value>(
     span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
     if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
     scope.recordDependency(
+      "kinescope",
       operation,
       failed,
       (performance.now() - started) / 1_000,
     );
     span.end();
   }
+}
+
+interface PostgresPoolSnapshot {
+  available: boolean;
+  total: number;
+  idle: number;
+  waiting: number;
+}
+
+/** Register only this process's Prisma-owned pools; readers inspect live public counts without I/O. */
+export function observePostgresPool(
+  owner: object,
+  read: () => PostgresPoolSnapshot,
+): void {
+  const scope = context.active().getValue(technicalScopeKey);
+  if (scope instanceof TechnicalScope) scope.observePool(owner, read);
+}
+
+type PostgresOperation = "query" | "acquire" | "material-slug-lock";
+
+/** Driver wall duration and acquisition are distinct observations; no SQL or errors enter here. */
+export function beginPostgresObservation(operation: PostgresOperation): {
+  run<Value>(work: () => Value): Value;
+  complete<Value>(failed: boolean, work: () => Value): Value;
+} {
+  const parent = context.active();
+  const scope = parent.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope))
+    return { run: (work) => work(), complete: (_failed, work) => work() };
+  const span = scope.dependencyTracer.startSpan(
+    `postgresql ${operation}`,
+    {
+      kind:
+        operation === "material-slug-lock"
+          ? SpanKind.INTERNAL
+          : SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "postgresql",
+        "dependency.operation": operation,
+      },
+    },
+    parent,
+  );
+  const started = performance.now();
+  let completed = false;
+  return {
+    run: (work) => context.with(trace.setSpan(parent, span), work),
+    complete: (failed, work) => {
+      if (!completed) {
+        completed = true;
+        span.setAttribute(
+          "dependency.outcome",
+          failed ? "failed" : "completed",
+        );
+        if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+        scope.recordDependency(
+          "postgresql",
+          operation,
+          failed,
+          (performance.now() - started) / 1_000,
+        );
+        span.end();
+      }
+      return context.with(parent, work);
+    },
+  };
 }
 
 /** Capture only a span inside this application's enabled, owned technical scope. */
@@ -557,12 +631,13 @@ export function createTechnicalTelemetry(
       { unit: "s" },
     );
     const recordDependency = (
-      operation: KinescopeOperation,
+      dependency: "kinescope" | "postgresql",
+      operation: KinescopeOperation | PostgresOperation,
       failed: boolean,
       seconds: number,
     ) => {
       const attributes = {
-        dependency: "kinescope",
+        dependency,
         operation,
         outcome: failed ? "failed" : "completed",
       };
@@ -583,6 +658,43 @@ export function createTechnicalTelemetry(
       emailCount.add(1, attributes);
       emailDuration.record(seconds, attributes);
     };
+    const pools = new Map<object, () => PostgresPoolSnapshot>();
+    let poolOverflow = false;
+    let poolClosed = false;
+    const observePool = (owner: object, read: () => PostgresPoolSnapshot) => {
+      if (poolClosed) return;
+      for (const [key, source] of pools)
+        if (!source().available) pools.delete(key);
+      if (pools.has(owner) || pools.size < MAX_OBSERVED_POSTGRES_POOLS)
+        pools.set(owner, read);
+      else poolOverflow = true;
+    };
+    const poolSnapshot = () =>
+      [...pools.values()]
+        .map((read) => read())
+        .filter((value) => value.available);
+    meter
+      .createObservableGauge("inside.postgresql.pool.registry_overflow")
+      .addCallback((result) => result.observe(poolOverflow ? 1 : 0));
+    meter
+      .createObservableGauge("inside.postgresql.pool.available")
+      .addCallback((result) => {
+        result.observe(!poolOverflow && poolSnapshot().length > 0 ? 1 : 0);
+      });
+    for (const count of ["total", "idle", "waiting"] as const) {
+      meter
+        .createObservableGauge(`inside.postgresql.pool.${count}`)
+        .addCallback((result) => {
+          const live = poolSnapshot();
+          // Observable aggregation retains old values when a callback omits a point.
+          // Emit an explicit placeholder; counts are valid only while available=1.
+          result.observe(
+            !poolOverflow && live.length > 0
+              ? live.reduce((sum, pool) => sum + pool[count], 0)
+              : 0,
+          );
+        });
+    }
     const notificationTracer = traces.getTracer("inside-notification");
     const notificationCount = meter.createCounter(
       "inside.notification.operations",
@@ -627,6 +739,7 @@ export function createTechnicalTelemetry(
                 recordDependency,
                 emailTracer,
                 recordEmail,
+                observePool,
                 notificationTracer,
                 recordNotification,
               ),
@@ -676,6 +789,7 @@ export function createTechnicalTelemetry(
                     recordDependency,
                     emailTracer,
                     recordEmail,
+                    observePool,
                     notificationTracer,
                     recordNotification,
                   ),
@@ -717,13 +831,19 @@ export function createTechnicalTelemetry(
       flush: async () => {
         await Promise.allSettled([traces.forceFlush(), meters.forceFlush()]);
       },
-      shutdown: () =>
-        (closing ??= Promise.allSettled([
-          traces.shutdown(),
-          meters.shutdown(),
-        ]).then(() => {
-          lease.release();
-        })),
+      shutdown: () => {
+        if (closing === undefined) {
+          poolClosed = true;
+          pools.clear();
+          closing = Promise.allSettled([
+            traces.shutdown(),
+            meters.shutdown(),
+          ]).then(() => {
+            lease.release();
+          });
+        }
+        return closing;
+      },
     };
   } catch {
     // Telemetry construction is optional infrastructure; keep application startup independent.

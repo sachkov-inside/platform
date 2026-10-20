@@ -43,3 +43,19 @@ compatibility branch in production code.
 This trades some use-case coupling to Prisma for substantially lower navigation and assembly cost.
 Moving to another database API would touch persistence-aware slices, but it would not change domain
 rules, capability interfaces, HTTP adapters, or application result contracts.
+
+
+## Amendment, 2026-10-20: Prisma-owned transport observation
+
+The paragraph above records the original Prisma cutover restriction. For
+[#1566](https://github.com/sachkov-inside/platform/issues/1566),
+`src/infrastructure/prisma/prisma-adapter.ts` may own the `pg` transport pool before handing it
+to `PrismaPg`. This explicit exception observes real connection acquisition and driver query
+completion separately, instead of inferring SQL work from Prisma method calls. Application SQL
+still passes through Prisma; the adapter issues no capability SQL and does not patch global or
+vendor-private driver state.
+
+Each factory `connect()` call creates a fresh observed pool. The vendor adapter closes that pool
+through `disposeExternalPool: true` when disposed. Other narrow lifecycle and test owners remain governed by the
+[backend coding standards](../../apps/backend/CODING_STANDARDS.md). This amendment does not add
+another application persistence path or permit other files to create application transport pools.

@@ -117,7 +117,7 @@ otelcol.receiver.otlp "pilot" {
 otelcol.processor.filter "catalog" {
   error_mode = "propagate"
   metrics {
-    metric = ['''+'`not IsMatch(name, '+literal(pattern(policy['metrics']+notification['metrics']+dependency['metrics']+email['metrics']))+')`'+''']
+    metric = ['''+'`not IsMatch(name, '+literal(pattern(policy['metrics']+notification['metrics']+dependency['metrics']+policy['postgresql']['metrics']+email['metrics']))+')`'+''']
   }
   output {
     metrics = [otelcol.processor.transform.privacy.input]
@@ -136,13 +136,15 @@ otelcol.processor.transform "privacy" {
         'set(unit, "s") where IsMatch(name, "duration$")'])
     is_notification = 'IsMatch(metric.name, '+literal(pattern(notification['metrics']))+')'
     is_dependency = 'IsMatch(metric.name, '+literal(pattern(dependency['metrics']))+')'
+    is_pool = 'IsMatch(metric.name, '+literal(pattern(policy['postgresql']['metrics']))+')'
     is_email_metric = 'IsMatch(metric.name, '+literal(pattern(email['metrics']))+')'
-    point_rules = [only(statement, 'not ('+is_notification+') and not ('+is_dependency+') and not ('+is_email_metric+')') for statement in
+    point_rules = [only(statement, 'not ('+is_notification+') and not ('+is_dependency+') and not ('+is_email_metric+') and not ('+is_pool+')') for statement in
                    ['keep_keys(attributes, '+literal(keys)+')',*attribute_rules]]
     point_rules.append(only('keep_keys(attributes, ["operation", "outcome"])',is_notification))
     for key, values in (('operation',notification['operations']), ('outcome',notification['outcomes'])):
         point_rules += [only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_notification),
                         only(enum_rule(key,values),is_notification)]
+    point_rules.append(only('keep_keys(attributes, [])',is_pool))
     point_rules.append(only('keep_keys(attributes, ["dependency", "operation", "outcome"])',is_dependency))
     for key, values in (('dependency',dependency['names']), ('operation',dependency['operations']), ('outcome',dependency['outcomes'])):
         point_rules += [only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_dependency),

@@ -324,6 +324,7 @@ function violationsFor(source, specifier) {
   const importsPg = specifier === "pg" || specifier.startsWith("pg/");
   const ownsPostgresLifecycle = [
     "src/infrastructure/postgres/migrate-to-latest.ts",
+    "src/infrastructure/prisma/prisma-adapter.ts",
     "src/infrastructure/worker-runtime.ts",
   ].includes(sourcePath);
   const importsDeletedGeneratedPersistence =
