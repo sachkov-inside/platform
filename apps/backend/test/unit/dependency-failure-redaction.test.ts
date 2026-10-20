@@ -51,8 +51,10 @@ describe("dependency failure redaction", () => {
     ]) {
       expect(line).not.toContain(secret);
     }
-    expect(line).toContain("postgresql://[redacted]@db.internal:5432/inside");
-    expect(line).toContain("https://storage.example/bucket/key?[redacted]");
+    expect(line).toContain("connect to [redacted-url]");
+    expect(line).toContain("retry [redacted-url]");
+    expect(line).not.toContain("db.internal");
+    expect(line).not.toContain("storage.example/bucket/key");
   });
 
   it("records only the name and code of errors whose text restates the query or its input", () => {

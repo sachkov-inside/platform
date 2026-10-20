@@ -1,9 +1,7 @@
 import "server-only";
 
 import { writeStructuredLog } from "./structured-log.server";
-
-/** Сколько символов сообщения об ошибке попадает в журнал: достаточно, чтобы узнать сбой. */
-const LOGGED_MESSAGE_LENGTH = 500;
+import { diagnosticError } from "@inside/contracts/diagnostic-error";
 
 /**
  * Серверный сбой запроса для `onRequestError`: код обращения совпадает с тем, что видит граница
@@ -26,14 +24,22 @@ export function logRequestError(
     typeof error.digest === "string"
       ? error.digest
       : undefined;
+  const routePath = context.routePath
+    .split("/")
+    .filter((part) => !part.startsWith("("))
+    .join("/");
   const report = {
-    ...(digest === undefined ? {} : { digest }),
-    message: Array.from(error instanceof Error ? error.message : String(error))
-      .slice(0, LOGGED_MESSAGE_LENGTH)
-      .join(""),
+    ...diagnosticError(
+      {
+        digest,
+        name: error instanceof Error ? error.name : typeof error,
+        message: error instanceof Error ? error.message : String(error),
+      },
+      "server",
+    ),
     method: request.method,
-    name: error instanceof Error ? error.name : typeof error,
-    path: request.path.split(/[?#]/u, 1)[0] ?? "/",
+    // Next supplies the source route template; the concrete URL can contain personal data.
+    path: routePath === "" ? "/" : routePath,
     ...(context.renderSource === undefined
       ? {}
       : { renderSource: context.renderSource }),

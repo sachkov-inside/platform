@@ -1,3 +1,4 @@
+import { diagnosticError } from "@inside/contracts/diagnostic-error";
 import { summaryDaysSchema } from "../../features/read-summary/summary-input.js";
 import { type WebTelemetryPrisma } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -24,7 +25,15 @@ export class WebTelemetry {
     const parsed = telemetryReportSchema.safeParse(input);
     if (!parsed.success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
-    const report = parsed.data;
+    const inputReport = parsed.data;
+    const report =
+      inputReport.kind === "error"
+        ? {
+            ...inputReport,
+            digest: undefined,
+            ...diagnosticError(inputReport, inputReport.source),
+          }
+        : inputReport;
     const now = this.clock();
     const route = normalizeTelemetryRoute(report.route);
     const device = report.mobile ? "mobile" : "desktop";

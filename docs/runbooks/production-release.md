@@ -552,6 +552,11 @@ entitlement, ученик B, expired и anonymous не получают их з�
 Billing-only открывают свои административные чтения и получают отказ на чужих. Клетки Product B и
 video отложены решениями владельца в #905 и #906.
 
+Для тестовых email identities браузерный вход передаёт `entry=account-choice` в `/auth/sign-in`.
+Этот режим открывает обычный OIDC flow, куда проход добавляет one-time token. Параметр нужен после
+перехода основного входа на прямой Telegram flow (#1590); social authorization requests остаются вне
+allowlist прохода.
+
 **Только чтение.** Раннер проверяет каждый запрос до отправки (`pass-requests.ts`): GET и HEAD, MCP
 POST к названным read-only tools, выдача playback session видео и закрытый перечень операций входа
 Logto и BFF. Другой запрос раннер отклоняет и не отправляет. Страница сама шлёт записи, например
