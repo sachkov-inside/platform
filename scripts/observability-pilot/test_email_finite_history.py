@@ -100,8 +100,9 @@ class FiniteEmailHistory(unittest.TestCase):
                         'query':['last_over_time({__name__=~".+"}[10m])'],'nocache':['1']})
                 self.assertNotIn('PRIVATE_TOKEN',json.dumps(proof))
 
-    def test_history_window_excludes_its_lower_boundary_and_cannot_prove_a_missing_catalog(self):
+    def test_legacy_older_than_the_window_at_first_query_cannot_prove_a_complete_catalog(self):
         store=FiniteStorage(age=600)
+        # Two baseline uploads advance the clock: the first query is at 600.004s.
         proof=run_finite(store)
         self.assertEqual(proof['outcome'],'failed');self.assertEqual(proof['metric_checkpoints'],[])
 
