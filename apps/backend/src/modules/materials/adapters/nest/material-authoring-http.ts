@@ -67,6 +67,7 @@ export const materialMutationReceiptSchema = z
 export const materialSchema = z
   .object({
     source: authoringSourceSchema.optional(),
+    notifyTelegram: z.boolean().nullable(),
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,
     publicationState: publicationStateWireSchema,
@@ -92,6 +93,7 @@ export const createDraftBodySchema = z
 export const saveMaterialBodySchema = z
   .object({
     expectedContentVersion: contentVersionSchema,
+    notifyTelegram: z.boolean().optional(),
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable().default(null),
     deleteVideoId: z.uuid().nullable().default(null),

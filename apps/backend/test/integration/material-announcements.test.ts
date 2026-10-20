@@ -1,3 +1,4 @@
+import { PublicMaterialAnnouncements } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -114,6 +115,185 @@ describe("анонс первой публикации материала", () =
     });
   }
 
+  function publicAnnouncements() {
+    const source = new PublicMaterialAnnouncements(database.prisma);
+    return {
+      read: async (...args: Parameters<PublicMaterialAnnouncements["read"]>) =>
+        value(await source.read(...args)),
+    };
+  }
+
+  test("повтор Save с другим выбором Telegram не маскируется прежним idempotency receipt", async () => {
+    const materialId = await draft("Telegram operation identity");
+    const command = {
+      actor: ownerId,
+      idempotencyKey: randomUUID(),
+      materialId,
+      expectedContentVersion: 1,
+      publicationState: "draft" as const,
+      notifyTelegram: false,
+      metadata: metadata("Telegram operation identity"),
+      body: representativeDocument(),
+    };
+    const authoring = materials().authoring;
+    value(await authoring.saveMaterial(command));
+    expect(
+      await authoring.saveMaterial({ ...command, notifyTelegram: true }),
+    ).toEqual({ ok: false, error: { code: "idempotency_key_reused" } });
+  });
+
+  test("выбор Telegram сохраняется в черновике, а первая публикация создаёт публичный анонс", async () => {
+    const id = await draft("Telegram selected draft");
+    const authoring = materials().authoring;
+    value(
+      await authoring.saveMaterial({
+        actor: ownerId,
+        idempotencyKey: randomUUID(),
+        materialId: id,
+        expectedContentVersion: 1,
+        publicationState: "draft",
+        notifyTelegram: true,
+        metadata: metadata("Telegram selected draft"),
+        body: representativeDocument(),
+      }),
+    );
+    const loaded = value(
+      await authoring.loadMaterial({ actor: ownerId, materialId: id }),
+    );
+    expect(loaded.notifyTelegram).toBe(true);
+    expect(await announcementsOf(id)).toBeNull();
+    value(await publish(id, 2, "Telegram selected draft"));
+    const announcement = await announcedOccurrence(id);
+    expect(announcement.telegramEnabled).toBe(true);
+    const source = publicAnnouncements();
+    const current = await source.read(
+      { announcementRef: announcement.id },
+      "https://inside.example",
+      announcement.occurredAt,
+    );
+    expect(current.items).toEqual([
+      expect.objectContaining({
+        materialId: id,
+        title: "Telegram selected draft",
+        summary: metadata("").summary,
+        url: "https://inside.example/materials/telegram-selected-draft",
+      }),
+    ]);
+    value(
+      await authoring.saveMaterial({
+        actor: ownerId,
+        idempotencyKey: randomUUID(),
+        materialId: id,
+        expectedContentVersion: 3,
+        publicationState: "published",
+        notifyTelegram: false,
+        metadata: metadata("Telegram selected draft"),
+        body: representativeDocument(),
+      }),
+    );
+    expect(
+      (
+        await source.read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.occurredAt,
+        )
+      ).items,
+    ).toEqual([]);
+  });
+
+  test("позднее включение и повторная публикация не создают рассылку задним числом", async () => {
+    const id = await draft("Telegram initially disabled");
+    value(await publish(id, 1, "Telegram initially disabled"));
+    const authoring = materials().authoring;
+    value(
+      await authoring.saveMaterial({
+        actor: ownerId,
+        idempotencyKey: randomUUID(),
+        materialId: id,
+        expectedContentVersion: 2,
+        publicationState: "published",
+        notifyTelegram: true,
+        metadata: metadata("Telegram initially disabled"),
+        body: representativeDocument(),
+      }),
+    );
+    const announcement = await announcedOccurrence(id);
+    expect(announcement.telegramEnabled).toBe(false);
+    expect(
+      (
+        await publicAnnouncements().read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.occurredAt,
+        )
+      ).items,
+    ).toEqual([]);
+  });
+
+  test("публичный анонс следует действующей ленте: legacy showInFeed не скрывает, снятие и закрытие отзывают", async () => {
+    const id = await draft("Telegram current eligibility");
+    value(
+      await materials().authoring.saveMaterial({
+        actor: ownerId,
+        idempotencyKey: randomUUID(),
+        materialId: id,
+        expectedContentVersion: 1,
+        publicationState: "published",
+        notifyTelegram: true,
+        metadata: metadata("Telegram current eligibility"),
+        body: representativeDocument(),
+      }),
+    );
+    const announcement = await announcedOccurrence(id);
+    const source = publicAnnouncements();
+    await database.prisma.material.update({
+      where: { id },
+      data: { showInFeed: false },
+    });
+    expect(
+      (
+        await source.read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.occurredAt,
+        )
+      ).items,
+    ).toHaveLength(1);
+    for (const change of [
+      { access: "closed" },
+      { publicationState: "unpublished" },
+    ]) {
+      await database.prisma.material.update({ where: { id }, data: change });
+      expect(
+        (
+          await source.read(
+            { announcementRef: announcement.id },
+            "https://inside.example",
+            announcement.occurredAt,
+          )
+        ).items,
+      ).toEqual([]);
+      await database.prisma.material.update({
+        where: { id },
+        data: {
+          showInFeed: true,
+          access: "free",
+          publicationState: "published",
+        },
+      });
+    }
+    expect(
+      (
+        await source.read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.notAfter,
+        )
+      ).items,
+    ).toEqual([]);
+  });
+
   test("первая публикация сохраняет повод, его revision и строку outbox одной транзакцией", async () => {
     const materialId = await draft("Как мы собираем платформу");
     const published = value(
@@ -161,6 +341,7 @@ describe("анонс первой публикации материала", () =
       prisma: database.prisma,
     }).resolveAnnouncement(payload);
     expect(source).toEqual({
+      telegramManaged: true,
       status: "current",
       event: payload,
       content: { category: "material", kind: "material_published" },

@@ -184,6 +184,40 @@ export function MaterialMetadataPanel({
             </SelectContent>
           </Select>
         </Field>
+        <div className="min-w-0 sm:col-span-2">
+          <p className="mb-2 text-sm font-medium">Уведомление в Telegram</p>
+          <label
+            className="flex items-start gap-3 text-sm leading-6"
+            htmlFor="material-notify-telegram"
+          >
+            <input
+              className="mt-1 size-4 shrink-0 accent-primary"
+              id="material-notify-telegram"
+              name="notifyTelegram"
+              type="checkbox"
+              checked={presentation.draft.notifyTelegram ?? false}
+              disabled={
+                disabled ||
+                presentation.draft.wasPublished === true ||
+                presentation.draft.status === "published" ||
+                presentation.draft.status === "unpublished" ||
+                presentation.draft.access !== "free"
+              }
+              onChange={(event) => {
+                actions.onFieldChange(
+                  "notifyTelegram",
+                  String(event.currentTarget.checked),
+                );
+              }}
+            />
+            <span>
+              Отправить при первой публикации открытого материала в ленте.
+              {presentation.draft.wasPublished === true
+                ? " Повторная публикация и правки не отправляют уведомление."
+                : " Пользователи с отключёнными уведомлениями не получат сообщение."}
+            </span>
+          </label>
+        </div>
       </div>
       {presentation.draft.canDelete &&
       presentation.draft.materialId !== null &&

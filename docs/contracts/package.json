@@ -32,6 +32,10 @@
     "./diagnostic-error": {
       "types": "./dist/runtime/diagnostic-error.d.ts",
       "default": "./dist/runtime/diagnostic-error.js"
+    },
+    "./material-announcements": {
+      "types": "./dist/runtime/material-announcements.d.ts",
+      "default": "./dist/runtime/material-announcements.js"
     }
   },
   "files": [

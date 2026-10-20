@@ -43,7 +43,7 @@ function value<T>(
  * очереди. Каналы включены участником заранее; SMTP синтетический, реальные отправки людям
  * здесь не выполняются.
  */
-test("первая публикация доходит до обоих каналов через реальные RabbitMQ и PostgreSQL", async () => {
+test("публикация с выключенным Telegram доставляет email без дублирующей Account-команды", async () => {
   const topology = localNotificationTopology("inside-test", 100);
   const broker = await startNotificationBroker({ topology });
   onTestFinished(async () => {
@@ -246,8 +246,7 @@ test("первая публикация доходит до обоих кана�
       `${origin}/materials/kak-my-sobiraem-platformu`,
     );
 
-    // Событие покинуло outbox Materials только после подтверждения брокера, а команда Telegram
-    // ждёт своего приложения в собственной очереди.
+    // Materials event and email complete, while the disabled author choice emits no Telegram command.
     await eventually(async () => {
       expect(
         await database.prisma.materialNotificationOutbox.count({
@@ -256,7 +255,7 @@ test("первая публикация доходит до обоих кана�
       ).toBe(0);
       expect(
         await queueDepth(admin, "inside-test", lanes.telegramMaterial.queue),
-      ).toBe(1);
+      ).toBe(0);
       expect(
         await database.prisma.notificationDelivery.count({
           where: { channel: "email", state: "sent" },

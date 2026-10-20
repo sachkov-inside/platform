@@ -48,6 +48,10 @@ export async function access(database: any) {
   await database.insertInto("communication_broadcasts").values({}).execute();
   await database.updateTable("communication_broadcasts").set({}).execute();
   await database.deleteFrom("communication_broadcasts").execute();
+  await database.selectFrom("communication_material_announcements").selectAll().execute();
+  await database.insertInto("communication_material_announcements").values({}).execute();
+  await database.updateTable("communication_material_announcements").set({}).execute();
+  await database.deleteFrom("communication_material_announcements").execute();
   await database.selectFrom("communication_contacts").selectAll().execute();
   await database.insertInto("communication_contacts").values({}).execute();
   await database.updateTable("communication_contacts").set({}).execute();

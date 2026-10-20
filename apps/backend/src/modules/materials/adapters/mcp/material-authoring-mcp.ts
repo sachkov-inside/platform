@@ -120,7 +120,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Material state",
       description:
-        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until the same save lists those products in confirmedProductRemovals after the owner confirms; the removal is journaled.",
+        "Set notifyTelegram before first publication to announce an open feed Material to activated bot contacts (default off); later saves and republication never create another broadcast. Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until the same save lists those products in confirmedProductRemovals after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
@@ -128,6 +128,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           expectedContentVersion: contentVersionWireSchema,
           primaryVideoId: z.uuid().nullable(),
           publicationState: publicationStateWireSchema,
+          notifyTelegram: z.boolean().optional(),
           metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
           confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
@@ -145,6 +146,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       expectedContentVersion,
       primaryVideoId,
       publicationState: targetState,
+      notifyTelegram,
       metadata,
       body,
       confirmedProductRemovals,
@@ -157,6 +159,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           expectedContentVersion,
           primaryVideoId,
           publicationState: targetState,
+          notifyTelegram,
           metadata,
           body,
           confirmedProductRemovals: confirmedProductRemovals ?? [],

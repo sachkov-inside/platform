@@ -80,6 +80,9 @@ export interface ApplicationConfig {
   readonly databaseUrl: string;
   readonly deliveryMode: DeliveryMode;
   readonly marketingEnabled: boolean;
+  readonly materialAnnouncements?:
+    | { readonly mode: "all" }
+    | { readonly mode: "test"; readonly telegramUserId: string };
   readonly evidenceDeliveryMode: EvidenceDeliveryMode;
   readonly host: string;
   readonly linkReceiptText: string;
@@ -119,6 +122,31 @@ export const APPLICATION_CONFIG = Symbol("APPLICATION_CONFIG");
 export function loadApplicationConfig(
   environment: NodeJS.ProcessEnv,
 ): ApplicationConfig {
+  const materialMode = environment["MATERIAL_ANNOUNCEMENTS_MODE"] ?? "disabled";
+  if (!["disabled", "test", "all"].includes(materialMode))
+    throw new Error(
+      "MATERIAL_ANNOUNCEMENTS_MODE must be disabled, test or all",
+    );
+  if (
+    materialMode === "test" &&
+    (!isSafeTelegramId(
+      environment["MATERIAL_ANNOUNCEMENTS_TEST_USER_ID"] ?? "",
+    ) ||
+      (environment["MATERIAL_ANNOUNCEMENTS_TEST_USER_ID"] ?? "").startsWith(
+        "-",
+      ))
+  )
+    throw new Error(
+      "MATERIAL_ANNOUNCEMENTS_TEST_USER_ID is required in test mode",
+    );
+  if (
+    materialMode !== "disabled" &&
+    (!hasText(environment["PLATFORM_AUTHOR_AUTHORIZATION_URL"]) ||
+      !hasText(environment["PLATFORM_AUTHOR_AUTHORIZATION_SECRET"]))
+  )
+    throw new Error(
+      "Material announcements require Platform communications authorization configuration",
+    );
   const databaseUrl = required(environment, "DATABASE_URL");
   assertPostgresUrl(databaseUrl);
 
@@ -493,6 +521,17 @@ export function loadApplicationConfig(
     ...(hasText(communicationsSecret) ? { communicationsSecret } : {}),
     databaseUrl,
     deliveryMode,
+    ...(environment["MATERIAL_ANNOUNCEMENTS_MODE"] === "all"
+      ? { materialAnnouncements: { mode: "all" as const } }
+      : environment["MATERIAL_ANNOUNCEMENTS_MODE"] === "test"
+        ? {
+            materialAnnouncements: {
+              mode: "test" as const,
+              telegramUserId:
+                environment["MATERIAL_ANNOUNCEMENTS_TEST_USER_ID"] ?? "",
+            },
+          }
+        : {}),
     marketingEnabled: parseBoolean(
       environment["TELEGRAM_MARKETING_ENABLED"],
       false,

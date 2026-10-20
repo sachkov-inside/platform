@@ -132,6 +132,7 @@ export function assembleCreateDraft(
                 sourcePath: source?.path ?? null,
                 sourceRevision: source?.revision ?? null,
                 showInFeed: source?.showInFeed ?? true,
+                notifyTelegram: false,
                 slug: sourceSlug,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
