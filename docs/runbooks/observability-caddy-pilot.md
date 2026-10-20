@@ -185,3 +185,15 @@ artifacts, and no file permission, capability, port or deadline is widened.
 These source checks do not establish the earlier native Alloy exit cause. Exact pinned Linux
 file readability, Alloy config parsing, both services' startup and the four native modes still
 need hosted CI evidence before runtime acceptance.
+
+### Known acquisition-limit feedback
+
+The existing `Scenario.snapshot` refusal at 128 acquisitions keeps its limit,
+position and fixed message. Its exact owning `RuntimeError` subtype now maps to the
+already admitted `budget` reason at both scenario and worker boundaries. Ordinary
+errors, identical error text and subclasses of this refusal remain `unknown`.
+No acquisition counts or exception details are published.
+
+This is source-only diagnostic coverage. Earlier native partition failures remain
+unattributed. A future `budget` result would establish that this guard fired, but
+would not explain why acquisitions accumulated or establish native acceptance.
