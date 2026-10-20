@@ -21,9 +21,10 @@ import source_status_query
 import source_status_scenario
 import oracle
 import diagnostics
+import emitter_phase
 
 SCOPE = 'One production SDK S3 cold read under a test-owned HTTP scope; not genuine API-to-store or resource acceptance'
-ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME)
+ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME, emitter_phase.NAME)
 EMITTER_SECONDS = 30
 STORAGE_SECONDS = 60
 CHILD_BYTES = 512 * 1024
@@ -172,8 +173,12 @@ def trace_response(compose, targets, trace_id, *, budget=10):
             raise diagnostics.ResponseDecode('SDK storage response cap')
         return raw
 
-def producer_observation(output, *, environment, diagnostic):
-    wire = emitter(environment=environment, diagnostic=diagnostic)
+def producer_observation(output, *, environment, diagnostic, phase_source=None):
+    if phase_source is None:
+        wire = emitter(environment=environment, diagnostic=diagnostic)
+    else:
+        with emitter_phase.OwnedSdkPhase(output,source=phase_source) as phase:
+            wire = emitter(environment=phase.environment(environment), diagnostic=diagnostic)
     diagnostic.start('witness')
     try:
         observed = witness(wire)
@@ -272,7 +277,7 @@ def worker(output):
             # Frozen daemon and exact owned plan/logging are established before secret ingress.
             pilot.assert_docker_identity()
             result['stage'] = 'producer'
-            observed = producer_observation(output, environment={**os.environ, 'SDK_STORAGE_RELEASE': release}, diagnostic=diagnostic)
+            observed = producer_observation(output, environment={**os.environ, 'SDK_STORAGE_RELEASE': release}, diagnostic=diagnostic, phase_source=release)
             metrics, traces, attempts = stored_metrics_and_traces(token=token, compose=compose, targets=targets,
                 observed=observed, release=release, result=result, diagnostic=diagnostic)
             result['stage'] = 'complete'
@@ -295,9 +300,12 @@ def worker(output):
 
 
 def collect(output, metadata, destination):
+    source=emitter_phase.source_from_metadata(metadata)
     projected = diagnostics.read(output/diagnostics.NAME, scope='sdk')
-    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name != diagnostics.NAME))
+    phase=emitter_phase.load_for_collection(output,source=source)
+    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,emitter_phase.NAME)))
     diagnostics.write(destination/diagnostics.NAME, projected, scope='sdk')
+    emitter_phase.write(destination/emitter_phase.NAME,phase,source=source)
 
 
 def main():
