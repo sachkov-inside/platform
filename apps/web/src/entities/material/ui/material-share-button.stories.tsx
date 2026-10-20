@@ -169,3 +169,53 @@ export const CompactManualCopy: Story = {
   render: () => <MaterialCard material={material} variant="series" />,
   globals: { viewport: { value: "mobile320", isRotated: false } },
 };
+
+export const ReaderCopyLink: Story = {
+  args: { presentation: "reader" },
+  beforeEach: () => replaceShare(undefined),
+  decorators: [
+    (Story) => (
+      <div className="relative max-w-lg">
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const copy = spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    try {
+      const canvas = within(canvasElement);
+      const share = canvas.getByRole("button", {
+        name: "Поделиться материалом «Первый материал»",
+      });
+      await expect(share).toHaveTextContent("Поделиться");
+      await userEvent.click(share);
+      const feedback = await canvas.findByText("Ссылка скопирована");
+      await expect(feedback).toBeVisible();
+      await expect(feedback).not.toHaveClass("sr-only");
+      await expect(copy).toHaveBeenCalledWith(
+        `${window.location.origin}/materials/first-material`,
+      );
+    } finally {
+      copy.mockRestore();
+    }
+  },
+};
+export const ReaderManualCopy: Story = {
+  ...ManualCopy,
+  args: { presentation: "reader" },
+  decorators: [
+    (Story) => (
+      <div className="relative max-w-lg">
+        <Story />
+      </div>
+    ),
+  ],
+};
+export const ReaderNativeMenu: Story = {
+  ...NativeMenu,
+  args: { presentation: "reader" },
+};
+export const ReaderCancelMenu: Story = {
+  ...CancelMenu,
+  args: { presentation: "reader" },
+};

@@ -18,6 +18,7 @@ test("читатель делится постоянным адресом без
     "/materials/navigation-lesson-1?utm_source=telegram&view=reference",
   );
   await page
+    .getByRole("navigation", { name: "Действия материала", exact: true })
     .getByRole("button", {
       name: "Поделиться материалом «Первый бесплатный урок»",
     })
@@ -49,11 +50,17 @@ test("при запрете clipboard остаётся доступный адр
       },
     });
   });
-  await page.goto("/materials/navigation-lesson-3?from=%2Flibrary");
-  await page.getByRole("button", { name: /^Поделиться материалом/ }).click();
+  await page.goto("/materials/navigation-lesson-1?from=%2Flibrary");
+  await page
+    .getByRole("navigation", {
+      name: "Действия в конце материала",
+      exact: true,
+    })
+    .getByRole("button", { name: /^Поделиться материалом/ })
+    .click();
   await expect(
     page.getByRole("textbox", { name: /Скопируйте ссылку/ }),
-  ).toHaveValue(`${String(baseURL)}/materials/navigation-lesson-3`);
+  ).toHaveValue(`${String(baseURL)}/materials/navigation-lesson-1`);
   await expect(page.locator("html")).toHaveAttribute(
     "data-clipboard-calls",
     "1",
@@ -91,7 +98,9 @@ test("кнопка обмена доступна только после под�
     await page.goto("/materials/navigation-lesson-3?from=%2Flibrary", {
       waitUntil: "commit",
     });
-    const share = page.getByRole("button", { name: /^Поделиться материалом/ });
+    const share = page
+      .getByRole("navigation", { name: "Действия материала", exact: true })
+      .getByRole("button", { name: /^Поделиться материалом/ });
     await expect(share).toBeVisible();
     await expect(share).toBeDisabled();
     releaseScripts();

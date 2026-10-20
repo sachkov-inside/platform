@@ -14,10 +14,15 @@ import { Button } from "@/shared/ui/button";
 export interface MaterialShareButtonProps {
   readonly slug: string;
   readonly title: string;
+  readonly presentation?: "default" | "reader";
 }
 
 /** Shares only the canonical material address, never the reader's private route context. */
-export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
+export function MaterialShareButton({
+  slug,
+  title,
+  presentation = "default",
+}: MaterialShareButtonProps) {
   const fieldId = useId();
   // Server HTML must not accept a click before this component owns its handler.
   const ready = useSyncExternalStore(subscribeToNothing, always, never);
@@ -59,15 +64,22 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
   return (
     <div
       className={cn(
-        "relative z-10 flex min-w-0 flex-wrap items-center gap-y-1",
-        current?.copied === false ? "basis-full" : "shrink-0",
+        "z-10 flex min-w-0 flex-wrap items-center gap-y-1",
+        presentation === "reader" ? "static shrink-0" : "relative",
+        current?.copied === false && presentation !== "reader"
+          ? "basis-full"
+          : "shrink-0",
       )}
     >
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="size-11 text-muted-foreground"
+        className={
+          presentation === "reader"
+            ? "min-h-11 text-muted-foreground"
+            : "size-11 text-muted-foreground"
+        }
         disabled={!ready || pending}
         aria-label={`Поделиться материалом «${title}»`}
         title={current?.copied === true ? "Ссылка скопирована" : "Поделиться"}
@@ -78,8 +90,18 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
         ) : (
           <Upload aria-hidden="true" className="size-4" />
         )}
+        {presentation === "reader" ? (
+          <span data-share-label>Поделиться</span>
+        ) : null}
       </Button>
-      <span aria-live="polite" className="sr-only">
+      <span
+        aria-live="polite"
+        className={
+          presentation === "reader" && current?.copied === true
+            ? "absolute inset-x-0 top-full mt-2 rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-sm"
+            : "sr-only"
+        }
+      >
         {current === null
           ? null
           : current.copied
@@ -87,7 +109,13 @@ export function MaterialShareButton({ slug, title }: MaterialShareButtonProps) {
             : "Не удалось скопировать автоматически"}
       </span>
       {current?.copied === false ? (
-        <div className="basis-full min-w-0 text-xs text-muted-foreground">
+        <div
+          className={
+            presentation === "reader"
+              ? "absolute inset-x-0 top-full mt-2 min-w-0 rounded-lg border border-border bg-popover p-3 text-sm text-popover-foreground shadow-sm"
+              : "basis-full min-w-0 text-xs text-muted-foreground"
+          }
+        >
           <label htmlFor={fieldId}>Скопируйте ссылку:</label>
           <input
             id={fieldId}

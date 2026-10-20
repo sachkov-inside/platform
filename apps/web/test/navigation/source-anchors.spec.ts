@@ -9,12 +9,32 @@ async function expectHeadingInView(page: Page, fragment = anchor) {
     .locator(`[data-reader-body] h2[id="${fragment}"]`)
     .filter({ visible: true });
   await expect(heading).toBeVisible();
+  await expect(heading).toBeInViewport({ ratio: 1 });
   await expect
-    .poll(() => heading.evaluate((node) => node.getBoundingClientRect().top))
-    .toBeGreaterThanOrEqual(0);
-  await expect
-    .poll(() => heading.evaluate((node) => node.getBoundingClientRect().top))
-    .toBeLessThan(160);
+    .poll(() =>
+      heading.evaluate((node) => {
+        let parent = node.parentElement;
+        while (parent) {
+          if (/auto|scroll/.test(getComputedStyle(parent).overflowY)) break;
+          parent = parent.parentElement;
+        }
+        const scroller = parent ?? document.scrollingElement;
+        if (scroller === null) return false;
+        const scrollTop = parent?.getBoundingClientRect().top ?? 0;
+        const margin = Number.parseFloat(
+          getComputedStyle(node).scrollMarginTop,
+        );
+        const parsedPadding = Number.parseFloat(
+          getComputedStyle(scroller).scrollPaddingTop,
+        );
+        const padding = Number.isFinite(parsedPadding) ? parsedPadding : 0;
+        // Native block:start includes the scroll owner's position and target margin.
+        return (
+          node.getBoundingClientRect().top <= scrollTop + margin + padding + 1
+        );
+      }),
+    )
+    .toBe(true);
 }
 
 test("cross-page fragment reaches the heading after the destination body arrives", async ({
