@@ -1163,6 +1163,10 @@ test("confirmation carrier stays immutable across replay and authorization rollb
     (span) => span.name === "platform waitlist.confirm",
   );
   const attempt = spans.find((span) => span.name === "waitlist attempt");
+  const send = spans.find((span) => span.name === "telegram sendMessage");
+  expect(send).toBeDefined();
+  expect(send?.parentSpanContext?.spanId).toBe(attempt?.spanContext().spanId);
+  expect(send?.attributes["telegram.outcome"]).toBe("delivered");
   expect(authorizationSpan).toBeDefined();
   expect(attempt).toBeDefined();
   expect(attempt?.parentSpanContext?.spanId).toBe(

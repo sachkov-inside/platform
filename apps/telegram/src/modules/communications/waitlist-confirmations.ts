@@ -222,15 +222,17 @@ export class WaitlistConfirmations {
     return this.telemetry.runAttempt(rowParent, async () => {
       let result;
       try {
-        result = await this.transport.send({
-          chatId,
-          content: {
-            type: "text",
-            text: "Вы находитесь в списке ожидания.",
-            entities: [],
-            buttons: [],
-          },
-        });
+        result = await this.telemetry.runBotApi(() =>
+          this.transport.send({
+            chatId,
+            content: {
+              type: "text",
+              text: "Вы находитесь в списке ожидания.",
+              entities: [],
+              buttons: [],
+            },
+          }),
+        );
       } catch (error) {
         reportFailure("communications.waitlist-confirmation", error);
         result = { kind: "transport_unknown" as const };
