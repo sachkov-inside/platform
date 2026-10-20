@@ -69,3 +69,39 @@ export const TermsAndSelection: Story = {
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+export const SameNameProducts: Story = {
+  args: {
+    benefits: [],
+    periods: [],
+    products: Array.from({ length: 23 }, (_, index) => ({
+      id: `97000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      title: "Одинаковый продукт",
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      page.getByRole("button", { name: "Следующие продукты" }),
+    );
+    const last = page
+      .getAllByRole("checkbox", { name: "Одинаковый продукт" })
+      .at(2);
+    if (last === undefined) throw new Error("Third product is missing");
+    await userEvent.click(last);
+    await userEvent.click(
+      page.getByRole("button", { name: "Предыдущие продукты" }),
+    );
+    await expect(page.getAllByRole("checkbox").length).toBeLessThanOrEqual(25);
+    const form = canvasElement.querySelector("form");
+    if (form === null) throw new Error("Missing offer form");
+    await expect(new FormData(form).get("offerBenefits")).toBe(
+      productCapability("97000000-0000-4000-8000-000000000022"),
+    );
+    await expect(
+      page
+        .getAllByRole("checkbox", { name: "Одинаковый продукт" })
+        .filter((input) => input instanceof HTMLInputElement && input.checked),
+    ).toHaveLength(1);
+  },
+};

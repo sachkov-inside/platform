@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/shared/ui/button";
 import { useState } from "react";
 import { globalAccessCapabilities } from "@inside/access-capabilities";
 import {
@@ -35,12 +36,18 @@ export function OfferBenefitsFields({
       ),
   );
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const matchingProducts = products.filter((product) =>
     product.title
       .toLocaleLowerCase("ru")
       .includes(search.trim().toLocaleLowerCase("ru")),
   );
-  const visibleProducts = matchingProducts.slice(0, 20);
+  const lastPage = Math.max(0, Math.ceil(matchingProducts.length / 20) - 1);
+  const currentPage = Math.min(page, lastPage);
+  const visibleProducts = matchingProducts.slice(
+    currentPage * 20,
+    (currentPage + 1) * 20,
+  );
   const choices = [
     ...new Set<AccessCapability>([
       ...globalAccessCapabilities,
@@ -82,6 +89,7 @@ export function OfferBenefitsFields({
           value={search}
           onChange={(event) => {
             setSearch(event.currentTarget.value);
+            setPage(0);
           }}
         />
       </label>
@@ -153,9 +161,33 @@ export function OfferBenefitsFields({
         })}
       </div>
       {matchingProducts.length > visibleProducts.length ? (
-        <p className="text-sm text-muted-foreground">
-          Показаны первые 20 продуктов. Уточните название в поиске.
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentPage === 0}
+            onClick={() => {
+              setPage(currentPage - 1);
+            }}
+          >
+            Предыдущие продукты
+          </Button>
+          <span className="text-xs text-muted-foreground" role="status">
+            {currentPage * 20 + 1}–
+            {Math.min((currentPage + 1) * 20, matchingProducts.length)} из{" "}
+            {matchingProducts.length}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentPage === lastPage}
+            onClick={() => {
+              setPage(currentPage + 1);
+            }}
+          >
+            Следующие продукты
+          </Button>
+        </div>
       ) : null}
       {selected.length === 0 ? (
         <p className="text-sm text-muted-foreground">

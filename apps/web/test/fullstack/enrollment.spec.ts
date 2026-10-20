@@ -52,7 +52,10 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .getByRole("checkbox", { name: "Вопросы автору и эфиры", exact: true })
     .check();
   await page
-    .getByLabel("Срок: Вопросы автору и эфиры", { exact: true })
+    .getByRole("combobox", {
+      name: "Срок: Вопросы автору и эфиры",
+      exact: true,
+    })
     .selectOption("months");
   await page
     .getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true })
