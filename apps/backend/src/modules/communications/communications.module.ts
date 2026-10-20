@@ -86,7 +86,11 @@ export class TrackingHitPump
   async onApplicationShutdown() {
     this.stopped = true;
     clearTimeout(this.timer);
-    await this.active;
+    try {
+      await this.active;
+    } finally {
+      await this.visits.drainDeliveries();
+    }
   }
 }
 

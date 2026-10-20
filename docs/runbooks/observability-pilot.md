@@ -1051,7 +1051,7 @@ claims do not create delivery spans. This HTTP outbox has no RabbitMQ destinatio
 `inside.tracking.operations` and `inside.tracking.duration` use only `operation=deliver` and
 `outcome=completed|failed`. A negative provider result marks that attempt failed; it does not
 change the existing event ID, operation ID, payload, claim, retry or ambiguous-ACK handling.
-The API drains the pump before shutting down its SDK. Telemetry remains optional, and the
+The API stops the pump and drains every started row callback, including pending claims after a sibling failure, before shutting down its SDK. The normal batch remains fail-fast and retains its existing polling cadence. Telemetry remains optional, and the
 existing five-second polling and provider timeout stay authoritative.
 
 Apply append-only `0112_communications_tracking_trace_context` before the new application binary.

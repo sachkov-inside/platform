@@ -1,3 +1,4 @@
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { once } from "node:events";
 import { createServer, type RequestListener } from "node:http";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -59,6 +60,8 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
   let rejected = false;
   let hold: Promise<void> | undefined;
   let releaseHold: (() => void) | undefined;
+  let holdEventId: string | undefined;
+  let holdExceptToken: string | undefined;
   onTestFinished(async () => {
     const failures: unknown[] = [];
     releaseHold?.();
@@ -148,7 +151,13 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
           if (command.operation !== "tracking.recordHit")
             throw new Error("Unexpected proof operation");
           calls.push(command);
-          if (hold !== undefined) await hold;
+          if (
+            hold !== undefined &&
+            (holdEventId === undefined ||
+              holdEventId === command.payload.eventId) &&
+            command.payload.token !== holdExceptToken
+          )
+            await hold;
           if (rejected) {
             response.writeHead(403, { "content-type": "application/json" }).end(
               JSON.stringify({
@@ -221,13 +230,13 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
     await app.close();
     applications.delete(app);
   }
-  async function resolve(app: NestFastifyApplication) {
+  async function resolve(app: NestFastifyApplication, trackingToken = token) {
     const response = await fetch(
       (await app.getUrl()) + "/communications/tracking/resolve",
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ token, traffic: "unknown" }),
+        body: JSON.stringify({ token: trackingToken, traffic: "unknown" }),
         signal: AbortSignal.timeout(budgetMilliseconds),
       },
     );
@@ -303,7 +312,9 @@ async function fixture(mode: "on" | "off" | "exporter503" = "on") {
     setRejected: (value: boolean) => {
       rejected = value;
     },
-    holdProvider: () => {
+    holdProvider: (selection?: { eventId?: string; exceptToken?: string }) => {
+      holdEventId = selection?.eventId;
+      holdExceptToken = selection?.exceptToken;
       hold = new Promise<void>((resolve) => {
         releaseHold = resolve;
       });
@@ -556,12 +567,7 @@ test("API shutdown awaits the active claimed delivery before the SDK closes", as
     expect(proof.calls).toHaveLength(1);
     return Promise.resolve();
   }, budgetMilliseconds);
-  let stopped = false;
-  const closing = proof.close(app).then(() => {
-    stopped = true;
-  });
-  await Promise.resolve();
-  expect(stopped).toBe(false);
+  const closing = proof.close(app);
   release();
   await closing;
   expect(
@@ -572,5 +578,85 @@ test("API shutdown awaits the active claimed delivery before the SDK closes", as
   expect(
     proof.spans().filter((span) => span.name === "tracking deliver"),
   ).toHaveLength(1);
+  proof.assertPrivacy();
+});
+
+test("API close drains a held sibling after another claimed row fails its real PostgreSQL completion", async () => {
+  const proof = await fixture();
+  const faultToken = "private_fault_tracking_token_0000000000000000";
+  await proof.database.prisma.$executeRaw(Prisma.sql`
+    create function communications.tracking_proof_reject_completion() returns trigger language plpgsql as $$
+    begin
+      if new.token = 'private_fault_tracking_token_0000000000000000' and new.delivered_at is not null then
+        raise exception 'Synthetic tracking completion fault';
+      end if;
+      return new;
+    end $$
+  `);
+  await proof.database.prisma.$executeRaw(Prisma.sql`
+    create trigger tracking_proof_reject_completion before update on communications.tracking_hits
+    for each row execute function communications.tracking_proof_reject_completion()
+  `);
+  const failures: string[] = [];
+  const report = vi
+    .spyOn(console, "error")
+    .mockImplementation((...values: unknown[]) => {
+      failures.push(values.map(String).join(" "));
+    });
+  onTestFinished(() => {
+    report.mockRestore();
+  });
+  const release = proof.holdProvider({ exceptToken: faultToken });
+  const app = await proof.start();
+  await proof.resolve(app, faultToken);
+  await proof.resolve(app);
+  const sibling =
+    await proof.database.prisma.communicationTrackingHit.findFirstOrThrow({
+      where: { token },
+    });
+  await eventually(async () => {
+    expect(proof.calls).toHaveLength(2);
+    expect(
+      failures.some((value) => value.includes('"operation":"deliverPending"')),
+    ).toBe(true);
+    const held =
+      await proof.database.prisma.communicationTrackingHit.findUniqueOrThrow({
+        where: { eventId: sibling.eventId },
+      });
+    expect(held.claimId).not.toBeNull();
+    expect(held.deliveredAt).toBeNull();
+  }, budgetMilliseconds);
+  const closing = proof.close(app);
+  release();
+  await closing;
+  const rows = await proof.database.prisma.communicationTrackingHit.findMany();
+  expect(
+    rows.find((row) => row.eventId === sibling.eventId)?.deliveredAt,
+  ).not.toBeNull();
+  expect(rows.find((row) => row.token === faultToken)?.deliveredAt).toBeNull();
+  const deliveries = proof
+    .spans()
+    .filter((span) => span.name === "tracking deliver");
+  expect(deliveries).toHaveLength(2);
+  expect(
+    deliveries
+      .map(
+        (span) =>
+          span.attributes.find(
+            (attribute) => attribute.key === "tracking.outcome",
+          )?.value.stringValue,
+      )
+      .sort(),
+  ).toEqual(["completed", "failed"]);
+  for (const delivery of deliveries)
+    expect(
+      proof
+        .spans()
+        .some(
+          (span) =>
+            span.name === "telegram communications.execute" &&
+            span.parentSpanId === delivery.spanId,
+        ),
+    ).toBe(true);
   proof.assertPrivacy();
 });
