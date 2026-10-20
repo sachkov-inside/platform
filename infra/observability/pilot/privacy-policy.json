@@ -298,7 +298,7 @@
     "error": "notification_operation_failed"
   },
   "dependencies": {
-    "names": ["kinescope", "postgresql", "tbank", "telegram"],
+    "names": ["kinescope", "postgresql", "tbank", "logto", "telegram"],
     "operations": [
       "delete",
       "find",
@@ -313,6 +313,7 @@
       "Cancel",
       "AddCard",
       "GetAddCardState",
+      "jwks",
       "communications.execute"
     ],
     "outcomes": ["completed", "failed"],

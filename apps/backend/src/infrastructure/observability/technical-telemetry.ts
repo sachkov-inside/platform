@@ -44,11 +44,12 @@ class TechnicalScope {
     readonly correlation: Readonly<Record<string, string | boolean>>,
     readonly dependencyTracer: Tracer,
     readonly recordDependency: (
-      dependency: "kinescope" | "postgresql" | "tbank" | "telegram",
+      dependency: "kinescope" | "postgresql" | "tbank" | "logto" | "telegram",
       operation:
         | KinescopeOperation
         | PostgresOperation
         | TbankOperation
+        | "jwks"
         | "communications.execute",
       failed: boolean,
       seconds: number,
@@ -64,6 +65,53 @@ class TechnicalScope {
       seconds: number,
     ) => void,
   ) {}
+}
+
+/** Native JWKS fetch through response headers; JOSE owns later body/validation work. */
+export async function observeLogtoJwksRequest(
+  work: () => Promise<Response>,
+): Promise<Response> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work();
+  const span = scope.dependencyTracer.startSpan(
+    "logto jwks",
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "logto",
+        "dependency.operation": "jwks",
+        "http.request.method": "GET",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    const response = await context.with(trace.setSpan(current, span), work);
+    if (
+      Number.isInteger(response.status) &&
+      response.status >= 100 &&
+      response.status <= 599
+    )
+      span.setAttribute("http.response.status_code", response.status);
+    failed = response.status !== 200;
+    return response;
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "logto",
+      "jwks",
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
 }
 
 export type TbankOperation =
@@ -614,11 +662,12 @@ export function createTechnicalTelemetry(
       { unit: "s" },
     );
     const recordDependency = (
-      dependency: "kinescope" | "postgresql" | "tbank" | "telegram",
+      dependency: "kinescope" | "postgresql" | "tbank" | "logto" | "telegram",
       operation:
         | KinescopeOperation
         | PostgresOperation
         | TbankOperation
+        | "jwks"
         | "communications.execute",
       failed: boolean,
       seconds: number,
