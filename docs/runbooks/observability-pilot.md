@@ -1621,7 +1621,7 @@ The genuine RabbitMQ suite prepares two terminal-receive cases: held work commit
 PostgreSQL provider and is acknowledged, or fails before commit and is re-delivered by RabbitMQ.
 They inspect actual queue consumers and retrieve a new confirmed message after terminal `open`,
 without a duration-based absence claim. These cases are not locally executed native evidence.
-Blocked connection opening and original publication/confirm still require separate scenarios.
+The separate prepared opening and publication scenarios are described below.
 
 A further genuine RabbitMQ case prepares terminal stop while native TCP admission is held before
 the AMQP handshake completes. Its test-only opening gate forwards through native sockets after
@@ -1637,6 +1637,44 @@ must settle that original promise and retain its original private rejection. The
 deadline and product retry/outbox policy stay unchanged. Additional echo-peer controls cover holding
 inbound forwarding before and after connection establishment. They remain TCP harness evidence;
 the genuine RabbitMQ publication cases require hosted execution.
+
+`native-waitlist-factory.integration.test.ts` prepares five genuine PostgreSQL cases through the
+actual managed Nest/Fastify factory. Its raw HTTP corpus distinguishes Node-normalized surrounding
+OWS from whitespace remaining in parsed values, duplicate/coalesced headers, malformed parents,
+strict-body rejection and failed bearer authentication. First receipt parents, including NULL,
+remain immutable on replay; conflicts retain 409. Actual SDK JSON must continue only admitted
+receipt parents while generic HTTP spans remain local roots. OFF and ratio zero cannot be forced
+by a remote sampled flag; ratio zero keeps the independent operation counter with finite
+`operation`/`outcome` labels.
+
+The remaining two factory cases disconnect an actual request held on a genuine PostgreSQL advisory
+lock. SDK, database and framework cleanup must not start before that handler settles. One case
+injects fixed failures after each real cleanup completes and checks the original private error
+order. These are prepared native cases, not local execution results. Their bounded SDK JSON
+observation rejects private markers but is not the independent full stored-row collector oracle.
+The separate receipt-037 PostgreSQL case uses actual owned callback HTTP and native fetch to
+acquire the same row lock after preparation rollback. It retains a controlled send port, so it
+does not establish native BotAPI delivery.
+
+The first hosted execution path is `.github/workflows/ci.yml`, job `telegram`, on the reviewed
+exact source. Its owned PostgreSQL and non-guest RabbitMQ serve
+`pnpm --filter @inside/telegram check:full`, which builds the actual `main` before running all
+integration files serially. This includes the two built-main, five RabbitMQ terminal-lifetime and
+five native factory cases above, plus the receipt persistence/rollback cases. The coverage planner
+selects `telegram` for Telegram application changes; shared collector, workflow, package and pilot
+changes require the full shared coverage selection as well. Source-bound check output must record
+the exact selected paths and checkout. No historical CI result accepts this new source.
+
+Remaining acceptance gaps are explicit: genuine execution of these prepared PostgreSQL/RabbitMQ
+cases; every concurrently active production lane and activation-timeout descendant through the
+full factory, including the complete startup/drain/cleanup fault matrix; the actual SDK through
+pinned Alloy and both stores; and the cross-application receipt, worker, reverse authorization and
+owned BotAPI HTTP stored graph with source/image witnesses. Existing actual Grammy loopback tests
+exercise its pinned transport separately. Synthetic collector corpora, controlled send ports,
+periodic exports and benign child/TCP controls cannot close those gaps. Native execution and
+independent HIGH-risk review remain pending; production capacity has not been measured and this
+preparation authorizes no deployment.
+
 ## Isolated native Caddy observation
 
 [The Caddy pilot](observability-caddy-pilot.md) adds an opt-in native registry, fixed partition,

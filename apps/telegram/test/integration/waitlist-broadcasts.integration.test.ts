@@ -18,6 +18,7 @@ import {
   type WaitlistQuery,
 } from "../../src/modules/communications/waitlist-authorization.js";
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
 import { Test } from "@nestjs/testing";
 import {
   FastifyAdapter,
@@ -1057,14 +1058,13 @@ test("confirmation carrier stays immutable across replay and authorization rollb
   };
   let carrierAtAuthorization: string | undefined;
   let authorizationRequests = 0;
-  const authorization = new HttpWaitlistConfirmationAdapter(
-    "https://platform.test/authorize/",
-    "synthetic-secret",
-    async (_url, init) => {
+  let callbackFailed = false;
+  const callback = createServer((request, response) => {
+    void (async () => {
       authorizationRequests += 1;
-      carrierAtAuthorization =
-        new Headers(init?.headers).get("traceparent") ?? undefined;
-      // This lock is held by the preparation transaction. Acquisition here proves rollback happened before external I/O.
+      const header = request.headers["traceparent"];
+      carrierAtAuthorization = typeof header === "string" ? header : undefined;
+      // Actual HTTP observes the same row lock only after the preparation transaction rolled back.
       await database.transaction().execute(async (tx) => {
         await sql`set local lock_timeout = '1000ms'`.execute(tx);
         await tx
@@ -1074,22 +1074,43 @@ test("confirmation carrier stays immutable across replay and authorization rollb
           .forUpdate()
           .executeTakeFirstOrThrow();
       });
-      return Response.json({
-        eventId: confirmation.eventId,
-        status: "accepted",
-      });
-    },
-    telemetry,
-  );
-  const receipts = new WaitlistConfirmations(
-    database,
-    { ...config, deliveryMode: "live" },
-    clock,
-    authorization,
-    transport,
-    telemetry,
-  );
+      request.resume();
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({ eventId: confirmation.eventId, status: "accepted" }),
+      );
+    })().catch(() => {
+      callbackFailed = true;
+      request.resume();
+      response.writeHead(503);
+      response.end();
+    });
+  });
   try {
+    await new Promise<void>((resolve, reject) => {
+      callback.once("error", reject);
+      callback.listen(0, "127.0.0.1", () => {
+        callback.off("error", reject);
+        resolve();
+      });
+    });
+    const address = callback.address();
+    if (address === null || typeof address === "string")
+      throw new Error("Owned authorization listener unavailable");
+    const authorization = new HttpWaitlistConfirmationAdapter(
+      `http://127.0.0.1:${address.port}/authorize/`,
+      "synthetic-secret",
+      fetch,
+      telemetry,
+    );
+    const receipts = new WaitlistConfirmations(
+      database,
+      { ...config, deliveryMode: "live" },
+      clock,
+      authorization,
+      transport,
+      telemetry,
+    );
     await app.get(BotContacts).observeStart(
       {
         botIdentity: "inside",
@@ -1150,8 +1171,22 @@ test("confirmation carrier stays immutable across replay and authorization rollb
     ).toBeNull();
     expect(transport.send).toHaveBeenCalledTimes(1);
     expect(authorizationRequests).toBe(1);
+    expect(callbackFailed).toBe(false);
   } finally {
-    await telemetry.shutdown();
+    try {
+      await telemetry.shutdown();
+    } finally {
+      if (callback.listening)
+        await new Promise<void>((resolve, reject) => {
+          callback.close((error) =>
+            error === undefined
+              ? resolve()
+              : reject(
+                  new Error("Owned authorization listener cleanup failed"),
+                ),
+          );
+        });
+    }
   }
   expect(
     spans.filter((span) => span.name === "platform waitlist.confirm"),
