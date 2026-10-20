@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import binding
 import hosted
+from test_hosted import metadata
 
 
 class Artifacts(unittest.TestCase):
@@ -33,9 +34,11 @@ class Artifacts(unittest.TestCase):
             binding.write(output/'resource-proof.json',{'schema':1,'acceptance':'pending'})
             binding.write(output/'startup-client.json',{'schema':1,'stage':'api_off_establish','state':'sampled','sample':{'label':'protected_account','outcome':'unexpected_response','status':401,'elapsed_ms':3}})
             binding.write(output/'resource-sdk-diagnostics.json',{'schema':1,'phases':[]})
-            hosted.collect(output,root/'public')
-            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['resource-proof.json','resource-sdk-diagnostics.json','startup-client.json'])
+            admitted=metadata(root)
+            binding.write(output/'owner.json',{'cwd':str(binding.ROOT),'project':'inside-observability-resource-012345abcdef'})
+            hosted.collect(output,root/'public',metadata=admitted)
+            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['admission.json','resource-hosted.json','resource-proof.json','resource-sdk-diagnostics.json','source.json','startup-client.json'])
             self.assertNotIn('sentinel',(root/'public/resource-proof.json').read_text())
             (output/'resource-current.json').symlink_to(output/'token.json')
             with self.assertRaises(ValueError):
-                hosted.collect(output,root/'rejected')
+                hosted.collect(output,root/'rejected',metadata=admitted)

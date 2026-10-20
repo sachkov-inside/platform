@@ -1,6 +1,7 @@
 """Exact-source inputs and finite bounded public artifacts; private inputs are never collected."""
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -12,24 +13,17 @@ ARTIFACTS = ('evidence.json','cleanup.json','worker-outcome.json','recovery.json
 
 
 def inputs():
-    core = ROOT / 'scripts/observability-pilot'
-    config = ROOT / 'infra/observability/pilot'
-    return tuple(sorted(set((*SCRIPTS.glob('*.py'), *SCRIPTS.glob('*.mjs'), *core.glob('*.py'),
-        *(config / name for name in ('inputs.lock.json','probe.lock.json','config.alloy','privacy-policy.json','Caddyfile','vmauth.routes.json')),
-        ROOT / 'infra/observability/resource/profile.json', ROOT / 'scripts/observability-resource.test.mjs',
-        ROOT / 'scripts/observability-umami/process-owner.mjs', ROOT / 'scripts/process-group-signal.mjs',
-        ROOT / 'scripts/heavy-check.sh', ROOT / 'scripts/production-runtime-configuration.sh',
-        ROOT / 'scripts/production-compose-smoke.sh', ROOT / 'compose.production.yaml',
-        ROOT / 'scripts/fixtures/production-runtime/compose.smoke.yaml',
-        ROOT / 'scripts/fixtures/production-runtime/compose.database-smoke.yaml',
-        ROOT / 'infra/production/database/Dockerfile', ROOT / 'infra/production/database/init-production-databases.sh',
-        ROOT / 'apps/backend/Dockerfile', ROOT / 'apps/backend/src/infrastructure/observability/technical-telemetry.ts',
-        ROOT / 'apps/backend/src/infrastructure/observability/technical-telemetry-runtime.ts',
-        ROOT / 'apps/backend/src/config/platform-config.ts',
-        ROOT / 'apps/backend/src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.ts',
-        ROOT / 'apps/backend/src/modules/accounts/adapters/nest/account-http.contract.ts',
-        ROOT / 'apps/backend/scripts/resource-corpus-contract.test.mjs', ROOT / 'packages/runtime-identity/index.mjs',
-        ROOT / 'pnpm-lock.yaml', ROOT / '.node-version', ROOT / '.github/workflows/ci.yml'))))
+    # Conservative tracked compilation/build closure. COPY source, workspace install,
+    # generated Prisma and contracts can all change the actual backend payload.
+    names = subprocess.run(['git', '-C', str(ROOT), 'ls-files', '-z', '--',
+        'apps/backend', 'packages', 'docs/contracts', 'scripts', 'infra', 'patches',
+        ':(top,glob)*.json', ':(top,glob)*.yaml', ':(top,glob)*.yml',
+        'apps/web/package.json', 'apps/telegram/package.json', '.node-version', '.npmrc', '.dockerignore',
+        '.github/actions/setup-platform', '.github/workflows/ci.yml', '.github/workflows/observability-resource.yml'],
+        check=True, capture_output=True, timeout=10).stdout.decode().split('\0')
+    return tuple(sorted(set(ROOT / name for name in names if name) |
+        set(SCRIPTS.glob('*.py')) | set(SCRIPTS.glob('*.mjs')) |
+        {ROOT / '.github/workflows/observability-resource.yml'}))
 
 
 def write(path, value):
