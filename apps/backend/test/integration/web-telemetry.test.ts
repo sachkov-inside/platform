@@ -384,6 +384,23 @@ it.each([
   },
 );
 
+it("drops arbitrary digest labels before persistence", async () => {
+  expect(
+    await telemetry.record({
+      kind: "error",
+      source: "client",
+      route: "/",
+      mobile: false,
+      digest: "Иван Петров",
+      name: "Error",
+      message: "private",
+    }),
+  ).toEqual({ ok: true });
+  const rows: unknown = await database.prisma
+    .$queryRaw`SELECT digest FROM web_telemetry.errors`;
+  expect(rows).toEqual([{ digest: "" }]);
+});
+
 it("groups errors by digest and route, omits client text and bounds server text", async () => {
   for (const source of ["client", "server"])
     await telemetry.record({

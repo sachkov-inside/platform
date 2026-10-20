@@ -1,4 +1,8 @@
-import "server-only";
+export interface DiagnosticError {
+  readonly name: string;
+  readonly message: string;
+  readonly digest?: string;
+}
 
 const errorNames = new Set([
   "Error",
@@ -18,13 +22,14 @@ export function diagnosticError(
   input: {
     readonly name: string;
     readonly message: string;
-    readonly digest?: string;
+    readonly digest?: string | undefined;
   },
   source: "client" | "server",
-) {
+): DiagnosticError {
+  const digest = diagnosticDigest(input.digest);
   return {
     name: errorNames.has(input.name) ? input.name : "Error",
-    digest: diagnosticDigest(input.digest),
+    ...(digest === undefined ? {} : { digest }),
     message:
       source === "client"
         ? "[client-error-text-omitted]"
@@ -35,7 +40,7 @@ export function diagnosticError(
 }
 
 /** Retain bounded numeric/hex digests; arbitrary client labels can contain personal data. */
-export function diagnosticDigest(
+function diagnosticDigest(
   value: string | undefined,
 ): string | undefined {
   return value !== undefined && /^(?:\d{1,10}|[a-f\d]{32,64})$/iu.test(value)

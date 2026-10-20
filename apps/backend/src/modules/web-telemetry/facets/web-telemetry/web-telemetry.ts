@@ -1,28 +1,13 @@
+import { diagnosticError } from "@inside/contracts/diagnostic-error";
 import { summaryDaysSchema } from "../../features/read-summary/summary-input.js";
 import { type WebTelemetryPrisma } from "../../../../infrastructure/prisma/index.js";
-import {
-  dependencyFailure,
-  redactText,
-} from "../../../../infrastructure/observability/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { telemetryReportSchema } from "../../features/record-report/report.js";
 import { storeReport } from "../../features/record-report/store-report.js";
 import { cleanTelemetry } from "../../features/clean-telemetry/clean-telemetry.js";
 import { readSummary } from "../../features/read-summary/read-summary.js";
 import { normalizeTelemetryRoute } from "../../domain/route-templates.js";
-
-const errorNames = new Set([
-  "Error",
-  "TypeError",
-  "RangeError",
-  "ReferenceError",
-  "SyntaxError",
-  "URIError",
-  "EvalError",
-  "AggregateError",
-  "AbortError",
-  "TimeoutError",
-]);
 
 export class WebTelemetry {
   private readonly clock: () => Date;
@@ -45,20 +30,8 @@ export class WebTelemetry {
       inputReport.kind === "error"
         ? {
             ...inputReport,
-            name: errorNames.has(inputReport.name) ? inputReport.name : "Error",
-            message:
-              inputReport.source === "client"
-                ? "[client-error-text-omitted]"
-                : /^(?:Prisma|DriverAdapter|SyntaxError$|ZodError$)/u.test(
-                      inputReport.name,
-                    )
-                  ? "[redacted-input-error]"
-                  : redactText(inputReport.message, 500),
-            digest:
-              inputReport.digest !== undefined &&
-              /^(?:\d{1,10}|[a-f\d]{32,64})$/iu.test(inputReport.digest)
-                ? inputReport.digest
-                : undefined,
+            digest: undefined,
+            ...diagnosticError(inputReport, inputReport.source),
           }
         : inputReport;
     const now = this.clock();

@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 import { z } from "zod";
+import { diagnosticText } from "@inside/contracts/diagnostic-error";
 
 import type { BackendProcess } from "../../config/platform-config.js";
 
@@ -66,27 +67,8 @@ const AGGREGATE_LIMIT = 3;
 // сам разбираемый ввод. У таких ошибок остаются только имя и код.
 const inputEchoingType = /^(?:Prisma|DriverAdapter|SyntaxError$|ZodError$)/u;
 
-const secretPatterns: readonly (readonly [RegExp, string])[] = [
-  // Весь адрес может содержать контакт, путь пользователя или учётные данные.
-  [/\b[a-z][a-z\d+.-]*:\/\/[^\s"'<>]+/giu, "[redacted-url]"],
-  [/\beyJ[\w-]*\.[\w-]*\.[\w-]*/gu, "[redacted-jwt]"],
-  [/\b(bearer|basic)\s+[\w.~+/=-]+/giu, "$1 [redacted]"],
-  [
-    /\b(password|passwd|secret|token|api[-_]?key|access[-_]?key|signature|authorization|cookie)(["']?\s*[:=]\s*)["']?[^\s"',;&]+/giu,
-    "$1$2[redacted]",
-  ],
-  [/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/gu, "[redacted-email]"],
-  // Телефоны, номера карт и прочие длинные номера.
-  [/\+?\d(?:[\s()-]?\d){9,}/gu, "[redacted-number]"],
-];
-
 export function redactText(text: string, limit = MESSAGE_LIMIT): string {
-  const redacted = secretPatterns.reduce(
-    (redacted, [pattern, replacement]) =>
-      redacted.replace(pattern, replacement),
-    text,
-  );
-  return Array.from(redacted).slice(0, limit).join("");
+  return diagnosticText(text, limit);
 }
 
 const optional = <Schema extends z.ZodType>(schema: Schema) =>

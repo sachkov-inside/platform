@@ -1,7 +1,7 @@
 import "server-only";
 
 import { writeStructuredLog } from "./structured-log.server";
-import { diagnosticError } from "./diagnostic-text.server";
+import { diagnosticError } from "@inside/contracts/diagnostic-error";
 
 /**
  * Серверный сбой запроса для `onRequestError`: код обращения совпадает с тем, что видит граница

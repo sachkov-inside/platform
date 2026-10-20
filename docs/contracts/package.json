@@ -28,6 +28,10 @@
     "./waitlist-confirmation": {
       "types": "./dist/runtime/waitlist-confirmation.d.ts",
       "default": "./dist/runtime/waitlist-confirmation.js"
+    },
+    "./diagnostic-error": {
+      "types": "./dist/runtime/diagnostic-error.d.ts",
+      "default": "./dist/runtime/diagnostic-error.js"
     }
   },
   "files": [

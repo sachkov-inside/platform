@@ -9,7 +9,7 @@ import {
 } from "@/shared/auth/index.server";
 import { readWebRuntimeMode } from "@/shared/config/index.server";
 import { writeStructuredLog } from "@/shared/lib/structured-log.server";
-import { diagnosticError } from "@/shared/lib/diagnostic-text.server";
+import { diagnosticError } from "@inside/contracts/diagnostic-error";
 import {
   MAX_CLIENT_TELEMETRY_BYTES,
   renderErrorReportSchema,
