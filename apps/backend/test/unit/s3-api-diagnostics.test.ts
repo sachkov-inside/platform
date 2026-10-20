@@ -289,3 +289,255 @@ test("diagnostic output never serializes private fields, malformed attributes or
     summarizeS3Attempts(wrongParentKind).includes('"parentRole":"other"'),
   ).toBe(true);
 });
+
+test("privacy refusal emits one bounded closed reason while keeping the public error constant", () => {
+  const events: string[] = [];
+  expect(() =>
+    assertPrivateS3Exports(
+      [JSON.stringify({ secret: privateValue })],
+      [privateValue],
+      (event) => {
+        events.push(event);
+      },
+    ),
+  ).toThrow("S3 API privacy validation failed");
+  expect(events).toHaveLength(1);
+  expect(JSON.parse(events[0] ?? "null")).toEqual({
+    event: "s3_api_privacy_guard",
+    reason: "private_match",
+    phase: "raw",
+    documents: 1,
+    totalBytes: 40,
+    nodes: 0,
+    depth: 0,
+    corpusEntries: 1,
+  });
+  expect(Buffer.byteLength(events[0] ?? "")).toBeLessThanOrEqual(512);
+  expect(events[0]?.includes(privateValue)).toBe(false);
+});
+
+const guardReasons = [
+  "capture_shape",
+  "corpus_shape",
+  "document_count",
+  "document_bytes",
+  "total_bytes",
+  "node_budget",
+  "depth_budget",
+  "malformed_json",
+  "private_match",
+  "signing_match",
+];
+const guardPhases = ["input", "raw", "token", "decoded"];
+function checkedRefusal(
+  input: unknown,
+  secrets: readonly string[] = [privateValue],
+) {
+  const events: string[] = [];
+  expect(() =>
+    assertPrivateS3Exports(input, secrets, (event) => {
+      events.push(event);
+    }),
+  ).toThrow("S3 API privacy validation failed");
+  expect(events).toHaveLength(1);
+  const raw = events[0] ?? "";
+  expect(Buffer.byteLength(raw)).toBeLessThanOrEqual(512);
+  expect(raw.includes(privateValue)).toBe(false);
+  const event: unknown = JSON.parse(raw);
+  if (event === null || typeof event !== "object")
+    throw new Error("Missing closed event");
+  expect(Object.keys(event).sort()).toEqual([
+    "corpusEntries",
+    "depth",
+    "documents",
+    "event",
+    "nodes",
+    "phase",
+    "reason",
+    "totalBytes",
+  ]);
+  expect("event" in event && event.event === "s3_api_privacy_guard").toBe(true);
+  expect("reason" in event && guardReasons.includes(String(event.reason))).toBe(
+    true,
+  );
+  expect("phase" in event && guardPhases.includes(String(event.phase))).toBe(
+    true,
+  );
+  const counts = [
+    ["documents", 33],
+    ["totalBytes", 4_194_305],
+    ["nodes", 100_001],
+    ["depth", 33],
+    ["corpusEntries", 65],
+  ] as const;
+  for (const [key, maximum] of counts) {
+    if (!(key in event)) throw new Error("Missing bounded count");
+    const count: unknown = Reflect.get(event, key);
+    expect(
+      typeof count === "number" &&
+        Number.isSafeInteger(count) &&
+        count >= 0 &&
+        count <= maximum,
+    ).toBe(true);
+  }
+  return event;
+}
+
+test.each([
+  {
+    label: "capture shape",
+    input: "private-diagnostic-sentinel",
+    reason: "capture_shape",
+    phase: "input",
+  },
+  {
+    label: "document count",
+    input: Array.from({ length: 33 }, () => "{}"),
+    reason: "document_count",
+    phase: "input",
+  },
+  {
+    label: "document characters",
+    input: ["x".repeat(1_048_577)],
+    reason: "document_bytes",
+    phase: "input",
+  },
+  {
+    label: "document UTF8 bytes",
+    input: ["🦀".repeat(262145)],
+    reason: "document_bytes",
+    phase: "raw",
+  },
+  {
+    label: "bytes before private or malformed input",
+    input: ["🦀".repeat(262145) + privateValue + "{"],
+    reason: "document_bytes",
+    phase: "raw",
+  },
+  {
+    label: "aggregate bytes",
+    input: Array.from({ length: 5 }, () =>
+      JSON.stringify("x".repeat(1_048_574)),
+    ),
+    reason: "total_bytes",
+    phase: "raw",
+  },
+  {
+    label: "array node budget",
+    input: [JSON.stringify(Array.from({ length: 100_001 }, () => 0))],
+    reason: "node_budget",
+    phase: "decoded",
+  },
+  {
+    label: "shared node budget",
+    input: Array.from({ length: 6 }, () =>
+      JSON.stringify(Array.from({ length: 20_000 }, () => 0)),
+    ),
+    reason: "node_budget",
+    phase: "decoded",
+  },
+  {
+    label: "depth budget",
+    input: ["[".repeat(33) + "0" + "]".repeat(33)],
+    reason: "depth_budget",
+    phase: "token",
+  },
+  {
+    label: "malformed document",
+    input: ["{malformed"],
+    reason: "malformed_json",
+    phase: "decoded",
+  },
+  {
+    label: "malformed token",
+    input: ['{"key":"\\uZZZZ"}'],
+    reason: "malformed_json",
+    phase: "token",
+  },
+  {
+    label: "private raw",
+    input: [JSON.stringify({ secret: privateValue })],
+    reason: "private_match",
+    phase: "raw",
+  },
+  {
+    label: "private escaped duplicate",
+    input: ['{"key":"\\u0070rivate-diagnostic-sentinel","\\u006bey":"safe"}'],
+    reason: "private_match",
+    phase: "token",
+  },
+  {
+    label: "private before malformed tail",
+    input: ['{"key":"\\u0070rivate-diagnostic-sentinel","key":'],
+    reason: "private_match",
+    phase: "token",
+  },
+  {
+    label: "signing raw",
+    input: ['{"key":"Signature=synthetic"}'],
+    reason: "signing_match",
+    phase: "raw",
+  },
+  {
+    label: "signing escaped duplicate",
+    input: ['{"key":"\\u0058-Amz-Signature\\u003dsynthetic","key":"safe"}'],
+    reason: "signing_match",
+    phase: "token",
+  },
+])(
+  "one closed refusal distinguishes $label without revealing the matched value",
+  ({ input, reason, phase }) => {
+    expect(checkedRefusal(input)).toMatchObject({ reason, phase });
+  },
+);
+
+test("invalid private corpus is classified before raw inspection and bounded on refusal", () => {
+  for (const secrets of [
+    [""],
+    Array.from({ length: 65 }, () => privateValue),
+    ["x".repeat(2049)],
+  ]) {
+    expect(
+      checkedRefusal([JSON.stringify({ secret: privateValue })], secrets),
+    ).toMatchObject({
+      reason: "corpus_shape",
+      phase: "input",
+      nodes: 0,
+      totalBytes: 0,
+    });
+  }
+});
+
+test("successful raw gate emits nothing and a failing diagnostic sink cannot change the constant error", () => {
+  const events: string[] = [];
+  assertPrivateS3Exports(
+    ['{"key":"safe","\\u006bey":"safe"}'],
+    [privateValue],
+    (event) => {
+      events.push(event);
+    },
+  );
+  expect(events).toEqual([]);
+  let attempts = 0;
+  expect(() =>
+    assertPrivateS3Exports(
+      [JSON.stringify({ secret: privateValue })],
+      [privateValue],
+      () => {
+        attempts++;
+        throw new Error(privateValue);
+      },
+    ),
+  ).toThrow("S3 API privacy validation failed");
+  expect(attempts).toBe(1);
+  const throwing = new Proxy([], {
+    get() {
+      throw new Error(privateValue);
+    },
+  });
+  expect(checkedRefusal(throwing)).toMatchObject({
+    reason: "capture_shape",
+    phase: "input",
+    documents: 0,
+  });
+});

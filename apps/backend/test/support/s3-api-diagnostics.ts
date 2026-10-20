@@ -59,32 +59,75 @@ const allowedS3Attributes = new Set([
   "http.response.status_code",
 ]);
 
+type PrivacyReason =
+  | "capture_shape"
+  | "corpus_shape"
+  | "document_count"
+  | "document_bytes"
+  | "total_bytes"
+  | "node_budget"
+  | "depth_budget"
+  | "malformed_json"
+  | "private_match"
+  | "signing_match";
+type PrivacyPhase = "input" | "raw" | "token" | "decoded";
+
 /** Validate the entire bounded capture before parsing assertions or diagnostic output. */
 export function assertPrivateS3Exports(
   exports: unknown,
   privateValues: readonly string[],
+  emit?: (event: string) => void,
 ): void {
+  let reason: PrivacyReason = "capture_shape";
+  let phase: PrivacyPhase = "input";
+  let documentsCount = 0;
+  let corpusEntries = 0;
+  let total = 0;
+  let nodes = 0;
+  let maximumDepth = 0;
+  const refuse: (failure: PrivacyReason) => never = (failure) => {
+    reason = failure;
+    throw new Error();
+  };
   try {
     const documents = exportsSchema.safeParse(exports);
     const secrets = secretsSchema.safeParse(privateValues);
-    if (!documents.success || !secrets.success) throw new Error();
-    let total = 0;
-    let nodes = 0;
+    // Read counts only from parsed copies or the schema's known saturation boundary,
+    // never re-read arbitrary input getters just to construct a refusal diagnostic.
+    documentsCount = documents.success ? documents.data.length : 0;
+    corpusEntries = secrets.success ? secrets.data.length : 0;
+    if (
+      !secrets.success &&
+      secrets.error.issues.some(
+        (issue) => issue.code === "too_big" && issue.origin === "array",
+      )
+    )
+      corpusEntries = 65;
+    if (!documents.success) {
+      const first = documents.error.issues[0];
+      if (first?.code === "too_big") {
+        if (first.origin === "array") documentsCount = 33;
+        refuse(first.origin === "array" ? "document_count" : "document_bytes");
+      }
+      refuse("capture_shape");
+    }
+    if (!secrets.success) refuse("corpus_shape");
     const inspect = (value: unknown, depth: number): void => {
       nodes++;
-      if (nodes > 100_000 || depth > 32) throw new Error();
+      maximumDepth = Math.max(maximumDepth, depth);
+      if (nodes > 100_000) refuse("node_budget");
+      if (depth > 32) refuse("depth_budget");
       if (typeof value === "string") {
-        if (
-          secrets.data.some((secret) => value.includes(secret)) ||
-          /X-Amz-|AWS4-HMAC-SHA256|Credential=|Signature=/i.test(value)
-        )
-          throw new Error();
+        if (secrets.data.some((secret) => value.includes(secret)))
+          refuse("private_match");
+        if (/X-Amz-|AWS4-HMAC-SHA256|Credential=|Signature=/i.test(value))
+          refuse("signing_match");
       } else if (Array.isArray(value)) {
-        if (value.length > 100_000) throw new Error();
+        if (value.length > 100_000) refuse("node_budget");
         for (const item of value) inspect(item, depth + 1);
       } else if (value !== null && typeof value === "object") {
         const entries = Object.entries(value);
-        if (entries.length > 100_000) throw new Error();
+        if (entries.length > 100_000) refuse("node_budget");
         for (const [key, item] of entries) {
           inspect(key, depth + 1);
           inspect(item, depth + 1);
@@ -92,18 +135,20 @@ export function assertPrivateS3Exports(
       }
     };
     for (const raw of documents.data) {
+      phase = "raw";
       const bytes = Buffer.byteLength(raw);
       total += bytes;
-      if (
-        bytes > 1_048_576 ||
-        total > 4_194_304 ||
-        secrets.data.some((secret) => raw.includes(secret)) ||
-        /X-Amz-|AWS4-HMAC-SHA256|Credential=|Signature=/i.test(raw)
-      )
-        throw new Error();
+      if (bytes > 1_048_576) refuse("document_bytes");
+      if (total > 4_194_304) refuse("total_bytes");
+      if (secrets.data.some((secret) => raw.includes(secret)))
+        refuse("private_match");
+      if (/X-Amz-|AWS4-HMAC-SHA256|Credential=|Signature=/i.test(raw))
+        refuse("signing_match");
       // Inspect every decoded string before object construction can discard an
       // earlier duplicate member. This is a privacy scan, not a JSON parser:
       // JSON.parse below still validates the complete document syntax.
+      phase = "token";
+      reason = "malformed_json";
       let depth = 0;
       for (let cursor = 0; cursor < raw.length; cursor++) {
         const character = raw[cursor];
@@ -113,23 +158,43 @@ export function assertPrivateS3Exports(
             if (raw[end] === "\\") end++;
             else if (raw[end] === '"') break;
           }
-          if (end >= raw.length) throw new Error();
+          if (end >= raw.length) refuse("malformed_json");
           const token: unknown = JSON.parse(raw.slice(cursor, end + 1));
           inspect(token, 0);
           cursor = end;
         } else if (character === "{" || character === "[") {
           depth++;
-          if (depth > 32) throw new Error();
+          maximumDepth = Math.max(maximumDepth, depth);
+          if (depth > 32) refuse("depth_budget");
         } else if (character === "}" || character === "]") {
           depth--;
-          if (depth < 0) throw new Error();
+          if (depth < 0) refuse("malformed_json");
         }
       }
       // Never expose JSON parser excerpts, even for malformed private input.
+      phase = "decoded";
+      reason = "malformed_json";
       const decoded: unknown = JSON.parse(raw);
       inspect(decoded, 0);
     }
   } catch {
+    // Only owned enums and saturating progress counters may cross this diagnostic boundary.
+    // An unavailable diagnostic sink must never replace the original constant refusal.
+    try {
+      const event = JSON.stringify({
+        event: "s3_api_privacy_guard",
+        reason,
+        phase,
+        documents: documentsCount,
+        totalBytes: Math.min(total, 4_194_305),
+        nodes: Math.min(nodes, 100_001),
+        depth: Math.min(maximumDepth, 33),
+        corpusEntries,
+      });
+      if (Buffer.byteLength(event) <= 512) emit?.(event);
+    } catch {
+      /* The diagnostic is optional; the privacy refusal remains authoritative. */
+    }
     throw new Error(privacyFailure);
   }
 }

@@ -319,20 +319,26 @@ test("public file delivery through production API parents one complete private-s
   expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   await application.close();
   application = undefined;
-  assertPrivateS3Exports(exported, [
-    "private-",
-    body.toString("utf8").trim(),
-    filename,
-    checksum,
-    ...Object.values(buckets),
-    ...Object.values(credentials),
-    storageEndpoint,
-    actor,
-    materialId,
-    assetId,
-    publicKey,
-    protectedKey,
-  ]);
+  assertPrivateS3Exports(
+    exported,
+    [
+      "private-",
+      body.toString("utf8").trim(),
+      filename,
+      checksum,
+      ...Object.values(buckets),
+      ...Object.values(credentials),
+      storageEndpoint,
+      actor,
+      materialId,
+      assetId,
+      publicKey,
+      protectedKey,
+    ],
+    (event) => {
+      console.info(event);
+    },
+  );
   expect(captureFailures.length).toBe(0);
   const documents = exported.map((raw) => {
     // The privacy gate validates JSON first; retain schema checking without raw Zod diffs.

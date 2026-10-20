@@ -38,6 +38,7 @@ test("production SDK cold read emits through native OTLP and closes its provider
     `http://127.0.0.1:${address.port}`,
     "a".repeat(40),
   );
+  assert.equal(witness.schema, 2);
   assert.equal(witness.provider_requests, 1);
   assert.equal(witness.body_read, "passed");
   assert.match(String(witness.trace_id), /^[0-9a-f]{32}$/u);
@@ -45,18 +46,18 @@ test("production SDK cold read emits through native OTLP and closes its provider
   assert.ok(paths.includes("/v1/traces"));
   assert.ok(paths.includes("/v1/metrics"));
   assert.ok(
-    Object.keys(witness.runtime_modules).some((name) =>
-      name.includes("@aws-sdk/client-s3"),
-    ),
+    witness.runtime_modules
+      .map((row) => row.path)
+      .some((name) => name.includes("@aws-sdk/client-s3")),
   );
   assert.ok(
-    Object.keys(witness.runtime_modules).some((name) =>
-      name.includes("@opentelemetry/exporter-trace-otlp-http"),
-    ),
+    witness.runtime_modules
+      .map((row) => row.path)
+      .some((name) => name.includes("@opentelemetry/exporter-trace-otlp-http")),
   );
   assert.ok(
-    Object.values(witness.runtime_modules).every((hash) =>
-      /^[0-9a-f]{64}$/u.test(hash),
-    ),
+    witness.runtime_modules
+      .map((row) => row.sha256)
+      .every((hash) => /^[0-9a-f]{64}$/u.test(hash)),
   );
 });

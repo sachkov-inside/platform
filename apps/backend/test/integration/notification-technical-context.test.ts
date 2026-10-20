@@ -1440,7 +1440,33 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
   const database = await createTestDatabase();
   const admin = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const legacyRegistry = platformMigrations.slice(0, -3);
+    const materialMigrationIndex = platformMigrations.findIndex(
+      ({ name }) => name === "0109_materials_notification_trace_context",
+    );
+    const emailMigrationIndex = platformMigrations.findIndex(
+      ({ name }) => name === "0111_notifications_email_trace_context",
+    );
+    expect(materialMigrationIndex).toBeGreaterThan(0);
+    expect(emailMigrationIndex).toBe(materialMigrationIndex + 2);
+    expect(platformMigrations[materialMigrationIndex - 1]?.name).toBe(
+      "0108_submission_activity_period",
+    );
+    const legacyRegistry = platformMigrations.slice(0, materialMigrationIndex);
+    const throughCarriers = platformMigrations.slice(
+      0,
+      emailMigrationIndex + 1,
+    );
+    expect(
+      throughCarriers.slice(materialMigrationIndex).map(({ name }) => name),
+    ).toEqual([
+      "0109_materials_notification_trace_context",
+      "0110_notifications_notification_trace_context",
+      "0111_notifications_email_trace_context",
+    ]);
+    const remaining = platformMigrations.slice(throughCarriers.length);
+    expect(remaining[0]?.name).toBe(
+      "0112_communications_tracking_trace_context",
+    );
     await runMigrationsToLatest(database.url, legacyRegistry);
     const legacy = encodeNotification("materials", {
       ...materialFixture,
@@ -1462,7 +1488,7 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
     );
     try {
       await expect(
-        runMigrationsToLatest(database.url, platformMigrations),
+        runMigrationsToLatest(database.url, throughCarriers),
       ).rejects.toThrow("lock timeout");
     } finally {
       await admin.query("rollback");
@@ -1471,14 +1497,22 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
       (await verifyMigrationState(database.url, legacyRegistry))
         .appliedMigrations,
     ).toEqual(legacyRegistry.map((migration) => migration.name));
-    expect(
-      await runMigrationsToLatest(database.url, platformMigrations),
-    ).toEqual({
+    expect(await runMigrationsToLatest(database.url, throughCarriers)).toEqual({
       appliedMigrations: [
         "0109_materials_notification_trace_context",
         "0110_notifications_notification_trace_context",
         "0111_notifications_email_trace_context",
       ],
+    });
+    expect(
+      await runMigrationsToLatest(database.url, platformMigrations),
+    ).toEqual({
+      appliedMigrations: remaining.map(({ name }) => name),
+    });
+    expect(
+      await runMigrationsToLatest(database.url, platformMigrations),
+    ).toEqual({
+      appliedMigrations: [],
     });
     const migration = await migrateRuntimeDatabase(database.url);
     const identity = runtimeDatabaseSchemaIdentity(

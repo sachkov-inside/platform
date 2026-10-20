@@ -34,8 +34,12 @@ def query_plan(evaluated_at):
     trace_names = {'up'} | set(status.TRACE_COUNTERS)
     def selector(job, names):
         return '{job="' + job + '",instance="pilot",__name__=~"^(' + '|'.join(sorted(names)) + ')$"}'
-    select = '(' + selector(status.SOURCES['collector'], collector_names) + ' or ' + selector(status.SOURCES['trace_store'], trace_names) + ')'
-    stamps = 'timestamp(label_replace(' + select + ',"source_metric","$1","__name__","(.+)"))'
+    collector = selector(status.SOURCES['collector'], collector_names)
+    trace_store = selector(status.SOURCES['trace_store'], trace_names)
+    select = '(' + collector + ' or ' + trace_store + ')'
+    # Read raw scrape timestamps before any expression creates subquery-grid points.
+    stamps = ('label_replace((timestamp_with_name(' + collector + ') or timestamp_with_name(' + trace_store +
+              ')),"source_metric","$1","__name__","(.+)")')
     return ['/metrics/api/v1/query?' + urllib.parse.urlencode({
         'query': expression, 'time': str(evaluated_at), 'timeout': QUERY_SERVER_TIMEOUT, 'nocache': '1'})
         for expression in (select, stamps)]

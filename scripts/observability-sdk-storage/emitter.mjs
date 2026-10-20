@@ -36,7 +36,7 @@ export async function emit(endpoint, release) {
           dependency >= 0 ||
             (!local.startsWith("..") && !local.startsWith(sep)),
         );
-        assert.ok(loaded.size < 2000);
+        assert.ok(loaded.has(label) || loaded.size < 1000);
         loaded.set(
           label,
           createHash("sha256").update(readFileSync(filename)).digest("hex"),
@@ -153,12 +153,14 @@ export async function emit(endpoint, release) {
     ])
       assert.ok(loaded.has(path));
     return {
-      schema: 1,
+      schema: 2,
       trace_id: correlation["traceId"],
       root_id: correlation["spanId"],
       provider_requests: requests,
       body_read: "passed",
-      runtime_modules: Object.fromEntries([...loaded].sort()),
+      runtime_modules: [...loaded]
+        .sort()
+        .map(([path, sha256]) => ({ path, sha256 })),
     };
   } finally {
     await sdk?.shutdown();
