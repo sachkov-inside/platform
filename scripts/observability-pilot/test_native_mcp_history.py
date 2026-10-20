@@ -61,6 +61,7 @@ class NativeHistory(unittest.TestCase):
                 self.assertEqual(progress,{'outcome':'passed','probes':[
                     {'route':route,'phase':'complete','outcome':'passed'} for route in ('metrics','logs','traces')]})
                 metadata=Path(directory)/'metadata';metadata.mkdir()
+                (metadata/'source.json').write_text(json.dumps({'checkout_sha':'a'*40,'checkout_tree':'b'*40,'provider_execution_sha':'a'*40,'scope':ci.core_timing.METADATA_SCOPE}))
                 ci.collect(Path(directory),metadata,Path(directory)/'public')
                 self.assertEqual(json.loads((Path(directory)/'public/native-mcp-progress.json').read_text()),progress)
             finally:self.assert_children_reaped(directory)
@@ -84,6 +85,7 @@ class NativeHistory(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory)/'output';output.mkdir()
             metadata=Path(directory)/'metadata';metadata.mkdir()
+            (metadata/'source.json').write_text(json.dumps({'checkout_sha':'a'*40,'checkout_tree':'b'*40,'provider_execution_sha':'a'*40,'scope':ci.core_timing.METADATA_SCOPE}))
             (output/'native-mcp-progress.json').write_text(json.dumps(invalid))
             with self.assertRaises(RuntimeError):ci.collect(output,metadata,Path(directory)/'public')
 

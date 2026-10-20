@@ -42,7 +42,11 @@ if role == 'worker':
         pilot.assert_docker_identity = fake.identity
         pilot.install_plugin = lambda *_: None
         pilot.worker_storage_guard = lambda *_: nullcontext()
-        pilot.smoke = lambda *_: {}
+        def smoke(*args,timing=None):
+            for name in pilot.core_timing.STAGES[3:21]:
+                with timing.stage(name):pass
+            return {}
+        pilot.smoke = smoke
         scenario.source_status_query.read_report = observe
         sys.argv = ['pilot.py', 'worker', '--output', str(output)]
         sys.exit(pilot.cli())
@@ -54,7 +58,7 @@ else:
         (output / 'owner.json').write_text(json.dumps({'supervisor_pid': os.getpid(), 'project': PROJECT}))
         (output / 'auth.json').write_text(json.dumps({'users': [{'bearer_token': 'private-token-sentinel'}]}))
         (output / 'auth.json').chmod(0o600)
-        (output / 'evidence.json').write_text('{}')
+        (output / 'evidence.json').write_text(json.dumps({'source':'a'*40,'scope':pilot.core_timing.EVIDENCE_SCOPE}))
     def interrupt(*_):
         raise KeyboardInterrupt()
     signal.signal(signal.SIGTERM, interrupt)

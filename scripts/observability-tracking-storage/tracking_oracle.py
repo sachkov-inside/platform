@@ -127,6 +127,15 @@ def metrics(raw):
                             'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None
 
 
+def _gate06_detail(row,mandatory,expected,optional):
+    # Called only after the unchanged complete-row predicate has already refused.
+    if not mandatory <= set(row):return 'missing_mandatory'
+    if set(row)-mandatory-set(optional):return 'unexpected_key'
+    if any(row.get(k) != v for k,v in expected.items()):return 'expected_value'
+    if any(row[k] != optional[k] for k in set(row)&set(optional)):return 'optional_value'
+    return None
+
+
 def traces(raw, *, trace_id, root_id):
     try:
         from telegram_http_storage import _timestamp_matches
@@ -165,7 +174,7 @@ def traces(raw, *, trace_id, root_id):
             if role == 'root': optional['parent_span_id']=''
             else: mandatory.add('parent_span_id')
             if (not mandatory <= set(row) or set(row)-mandatory-set(optional) or any(row.get(k) != v for k,v in expected.items())
-                    or any(row[k] != optional[k] for k in set(row)&set(optional))): raise TraceGateRefusal('tracking','trace_gate_06')
+                    or any(row[k] != optional[k] for k in set(row)&set(optional))): raise TraceGateRefusal('tracking','trace_gate_06',detail=_gate06_detail(row,mandatory,expected,optional))
             for key in ('start_time_unix_nano','end_time_unix_nano','duration'):
                 if re.fullmatch(r'0|[1-9][0-9]{0,18}',row[key]) is None: raise TraceGateRefusal('tracking','trace_gate_07')
             start,end,duration = (int(row[k]) for k in ('start_time_unix_nano','end_time_unix_nano','duration'))

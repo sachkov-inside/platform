@@ -232,6 +232,7 @@ def prepare_images(source, disk, images, recorder, numeric):
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],
                  '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds')
+        numeric.after_backend_build()
         command(['docker', 'build', '--file', 'infra/production/database/Dockerfile',
                  '--tag', owner + '-foundation:local', 'infra/production/database'], 180,
                  recorder=recorder, stage='foundation_build', kind='builds')
