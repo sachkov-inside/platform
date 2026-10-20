@@ -107,8 +107,8 @@ the bounded #1408/v36 exclusion, remain evidence; removal does not repair their 
 
 Production Compose runs cold and admitted-cache proofs concurrently on separate disposable runners.
 The cache part runs `scripts/production-cache-smoke-ci.sh`: preparation reads the checked-in Compose
-model without interpolation or environment-file resolution, validates and pulls only its digest-pinned
-broker and edge inputs, and builds four distinct owned backend v1/v2, Web v1 and foundation image IDs
+model with synthetic interpolation values, empty owned env-file stand-ins and environment-file
+resolution disabled, validates and pulls only its digest-pinned broker and edge inputs, and builds four distinct owned backend v1/v2, Web v1 and foundation image IDs
 from the checked-out Source. It then runs the unchanged runtime assertions with
 `PRODUCTION_SMOKE_CACHE_ONLY=1`. After admission the pinned broker and edge must already be present. Separate Actions log groups measure
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script

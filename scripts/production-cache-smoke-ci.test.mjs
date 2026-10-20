@@ -32,8 +32,11 @@ test("isolated cache preparation admits only pinned broker/edge images and prese
 set -eu
 printf '%s\\n' "$*" >>"$CALLS"
 case "$1 $2" in
-  'compose --project-name')
-    if [[ "$*" != *'--no-interpolate --no-env-resolution --no-normalize --no-consistency --format json rabbitmq caddy-smoke' ]]; then exit 54; fi
+  'compose --env-file')
+    if [[ "$*" != *'--env-file /dev/null --project-name'*'config --no-env-resolution --no-normalize --no-consistency --format json rabbitmq caddy-smoke' ]]; then exit 54; fi
+    case "$PLATFORM_CONFIG_DIR" in "$TMPDIR"/inside-cache-model-*) ;; *) exit 57 ;; esac
+    test -f "$PLATFORM_RELEASE_ENV_FILE"
+    test ! -s "$PLATFORM_RELEASE_ENV_FILE"
     printf '%s\\n' "$MODEL" ;;
   'pull '*)
     if [[ "$SCENARIO" == deadline || "$SCENARIO" == interrupt ]]; then exec "$NODE_BINARY" "$HANG_SCRIPT"; fi
@@ -64,6 +67,20 @@ test -f "$PRODUCTION_SMOKE_FOUNDATION_OVERRIDE"
 printf '%s\\n' admitted-runtime >>"$CALLS"
 exit "$RUNTIME_STATUS"
 `,
+    );
+    mkdirSync(join(scripts, "fixtures", "production-runtime"), {
+      recursive: true,
+    });
+    copyFileSync(
+      new URL("../compose.production.yaml", import.meta.url),
+      join(root, "compose.production.yaml"),
+    );
+    copyFileSync(
+      new URL(
+        "./fixtures/production-runtime/compose.smoke.yaml",
+        import.meta.url,
+      ),
+      join(scripts, "fixtures", "production-runtime", "compose.smoke.yaml"),
     );
     chmodSync(join(bin, "docker"), 0o755);
     chmodSync(join(bin, "git"), 0o755);
@@ -120,6 +137,7 @@ exit "$RUNTIME_STATUS"
           env: {
             ...process.env,
             TMPDIR: root,
+            PLATFORM_CONFIG_DIR: "/unrelated-runtime-configuration",
             PATH: `${bin}:${process.env["PATH"] ?? ""}`,
             CALLS: calls,
             MODEL: JSON.stringify(selected),

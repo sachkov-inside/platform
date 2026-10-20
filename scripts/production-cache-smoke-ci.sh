@@ -25,27 +25,52 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 trap 'exit 129' HUP
 
-# Read only the checked-in model. No environment files or application configuration are needed.
-# This is preparation on a disposable runner; admitted runtime below still cannot build or pull.
+# Read only the checked-in model. Linux Compose parses bind mounts even with --no-normalize,
+# so use synthetic values for unrelated interpolation instead of unresolved ${NAME:?} paths.
+# No application env files are resolved; only the two literal digest pins leave preparation.
 echo '::group::Prepare pinned broker and edge images'
-pins="$(docker compose --project-name "$owner" \
-  --file compose.production.yaml --file scripts/fixtures/production-runtime/compose.smoke.yaml \
-  config --no-interpolate --no-env-resolution --no-normalize --no-consistency --format json \
-  rabbitmq caddy-smoke | python3 -c '
+pins="$(python3 - "$owner" <<'PYTHON'
 import json
+import os
+from pathlib import Path
 import re
+import subprocess
 import sys
+import tempfile
 
-model = json.load(sys.stdin)
+files = ["compose.production.yaml", "scripts/fixtures/production-runtime/compose.smoke.yaml"]
+environment = os.environ.copy()
+sources = [Path(filename).read_text() for filename in files]
+for source in sources:
+    for name in re.findall(r"\$\{([A-Z_][A-Z0-9_]*)", source):
+        environment[name] = "1"
+# Compose versions also validate the existence of env_file paths before rendering config.
+# These empty, owned stand-ins keep both content and paths independent of any real runtime.
+with tempfile.TemporaryDirectory(prefix="inside-cache-model-") as config_directory:
+    environment["PLATFORM_CONFIG_DIR"] = config_directory
+    release_env = Path(config_directory, "runtime.env")
+    release_env.write_text("")
+    environment["PLATFORM_RELEASE_ENV_FILE"] = str(release_env)
+    for source in sources:
+        for name in re.findall(r"\$\{PLATFORM_CONFIG_DIR[^}]*\}/([a-z0-9-]+\.env)", source):
+            Path(config_directory, name).write_text("")
+    command = ["docker", "compose", "--env-file", "/dev/null", "--project-name", sys.argv[1]]
+    for filename in files:
+        command.extend(["--file", filename])
+    command.extend(["config", "--no-env-resolution", "--no-normalize", "--no-consistency", "--format", "json", "rabbitmq", "caddy-smoke"])
+    model = json.loads(subprocess.check_output(command, env=environment))
 services = model.get("services", {}) if isinstance(model, dict) else {}
+pins = []
 for name in ("rabbitmq", "caddy-smoke"):
     service = services.get(name, {}) if isinstance(services, dict) else {}
     image = service.get("image") if isinstance(service, dict) else None
     if not isinstance(image, str) or re.fullmatch(r"[^\s]+@sha256:[0-9a-f]{64}", image) is None:
         print("Cache preparation requires pinned broker and edge images", file=sys.stderr)
         sys.exit(65)
-    print(image)
-')"
+    pins.append(image)
+print("\n".join(pins))
+PYTHON
+)"
 while IFS= read -r image; do
   docker pull "$image"
 done <<<"$pins"
