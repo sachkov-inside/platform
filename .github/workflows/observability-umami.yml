@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/observability-umami.yml
       - infra/observability/umami/**
+      - infra/production/database/**
       - infra/observability/pilot/probe.lock.json
       - scripts/observability-umami/**
       - scripts/observability-umami*.test.mjs

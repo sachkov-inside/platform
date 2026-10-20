@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/observability-pilot.yml
       - infra/observability/pilot/**
+      - apps/backend/openapi/platform-api.json
       - scripts/observability-pilot/**
       - scripts/observability-pilot.test.mjs
       - scripts/heavy-check.sh

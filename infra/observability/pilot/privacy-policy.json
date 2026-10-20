@@ -155,6 +155,7 @@
     "/integrations/kinescope/v1/authorize",
     "/integrations/kinescope/v1/webhook",
     "/integrations/telegram/v1/communications/authorize",
+    "/integrations/telegram/v1/communications/materials",
     "/integrations/telegram/v1/communications/validate-content",
     "/integrations/telegram/v1/communications/waitlist",
     "/integrations/telegram/v1/invitations/redeem",

@@ -119,7 +119,11 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            self.assertEqual(len(proof['inputs']), 23)
+            self.assertEqual(len(proof['inputs']), 24)
+            relative = 'apps/backend/openapi/platform-api.json'
+            self.assertEqual(proof['inputs'][relative], hashlib.sha256((ci.ROOT/relative).read_bytes()).hexdigest())
+            workflow = (ci.ROOT/'.github/workflows/observability-pilot.yml').read_text()
+            self.assertIn('      - ' + relative + '\n', workflow)
             for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py','email_privacy.py','telegram_http_storage.py', 'source_status.py', 'source_status_query.py', 'source_status_scenario.py'):
                 relative = 'scripts/observability-pilot/'+name
                 helper = ci.ROOT / relative
