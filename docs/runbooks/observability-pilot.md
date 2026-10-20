@@ -1455,3 +1455,30 @@ can include a storage-read failure. It does not identify a measured floor/growth
 The optional observer preserves the existing stop even if observation fails. Existing
 acquisition deadlines, identity checks, disk thresholds and 600-second worker budget remain
 unchanged. These diagnostics cannot retrospectively establish the cause of run 39433543633.
+
+### Platform waitlist receipt causality (prepared, before deployment)
+
+The opt-in API records one nullable technical `traceparent` only when its existing transaction
+creates a new waitlist confirmation. Replaying a join never replaces that carrier. The ordinary
+five-second relay reconstructs each admitted row from its own validated carrier and ROOT_CONTEXT;
+legacy NULL or invalid values remain rootless. Missing communications configuration performs no I/O.
+A `waitlist deliver` observation contains only operation `deliver` and outcome `completed` or
+`failed`. The single existing receipt POST is `telegram waitlist.confirm`. An accepted receipt
+means queued acceptance, not Telegram message delivery. No business payload or trace headers change,
+and no claim, retry or message-authority policy is introduced.
+
+`.github/workflows/observability-waitlist-storage.yml` prepares a separate Linux-only proof:
+compiled production API, genuine signed HTTP/JWKS, real PostgreSQL, committed carrier, API restart,
+normal timer, owned receipt HTTP, API-owned SDK and pinned Alloy/VictoriaMetrics/VictoriaTraces.
+It reuses the tracking proof's strict disposable PostgreSQL composition and typed cleanup ledger
+(eight containers, five volumes, two networks), child owner and private diagnostics channel.
+Its own whole-vector metrics and complete raw trace oracle admit only the waitlist success roles,
+including the genuine identity lookup. SDK serializer tests check mandatory role flags for JSON
+and protobuf. This source route is not a completed native run or a capacity measurement.
+
+Focused API integration tests cover restart/replay and ON, OFF and exporter503 business continuity.
+Migration0113 appends a nullable field without backfill; the frozen114-entry prefix, legacy row,
+old named-column writer and no-op migration are checked separately. Native PostgreSQL and storage
+checks require their hosted CI evidence. Failure/retry/rootless/OFF/503 through pinned storage,
+Telegram receipt/worker/reverse authorization/BotAPI causal continuation, production and seven
+actual days remain outside this success proof. No deployment is authorized for this work.

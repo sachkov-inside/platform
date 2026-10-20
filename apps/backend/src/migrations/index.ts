@@ -1,4 +1,7 @@
-import { name as waitlistTraceName, statement as waitlistTraceStatement } from "../modules/sales-funnel/infrastructure/postgres/migrations/0113-waitlist-trace-context.js";
+import {
+  name as waitlistTraceName,
+  statement as waitlistTraceStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0113-waitlist-trace-context.js";
 import {
   name as trackingTraceName,
   statement as trackingTraceStatement,

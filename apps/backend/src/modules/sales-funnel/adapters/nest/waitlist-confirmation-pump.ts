@@ -1,4 +1,7 @@
-import { observeWaitlistConfirmationRequest, type TechnicalTelemetry } from "../../../../infrastructure/observability/technical-telemetry.js";
+import {
+  observeWaitlistConfirmationRequest,
+  type TechnicalTelemetry,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
 import {
   Inject,
   Injectable,
@@ -27,8 +30,13 @@ export class WaitlistConfirmationPump
   private timer?: ReturnType<typeof setTimeout>;
   private active?: Promise<unknown>;
   private stopped = false;
-  private telemetry: Pick<TechnicalTelemetry, "runWaitlistDelivery"> | undefined;
-  observeDeliveries(telemetry: Pick<TechnicalTelemetry, "runWaitlistDelivery">): void { this.telemetry = telemetry; }
+  private telemetry:
+    Pick<TechnicalTelemetry, "runWaitlistDelivery"> | undefined;
+  observeDeliveries(
+    telemetry: Pick<TechnicalTelemetry, "runWaitlistDelivery">,
+  ): void {
+    this.telemetry = telemetry;
+  }
   constructor(
     @Inject(ProductWaitlists) private readonly waitlists: ProductWaitlists,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
@@ -39,12 +47,16 @@ export class WaitlistConfirmationPump
   private schedule() {
     this.timer = setTimeout(() => {
       this.active = this.waitlists
-        .dispatchConfirmations((command) => {
-          const config = this.config.communications;
-          return config === undefined
-            ? Promise.resolve("unavailable" as const)
-            : deliverWaitlistConfirmation(config, command);
-        }, 20, this.telemetry)
+        .dispatchConfirmations(
+          (command) => {
+            const config = this.config.communications;
+            return config === undefined
+              ? Promise.resolve("unavailable" as const)
+              : deliverWaitlistConfirmation(config, command);
+          },
+          undefined,
+          this.telemetry,
+        )
         .catch((error: unknown) => {
           reportDependencyFailure(
             { module: "sales-funnel", operation: "dispatchConfirmations" },
@@ -75,27 +87,29 @@ export async function deliverWaitlistConfirmation(
 ): Promise<"accepted" | "suppressed" | "unavailable"> {
   try {
     return await observeWaitlistConfirmationRequest(async (status) => {
-    const response = await fetcher(config.endpoint, {
-      method: "POST",
-      redirect: "error",
-      signal: AbortSignal.timeout(CONFIRMATION_REQUEST_TIMEOUT_MS),
-      headers: {
-        authorization: `Bearer ${config.secret}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(command),
-    });
-    status(response.status);
-    if (!response.ok)
-      throw new Error(`Waitlist confirmation provider HTTP ${response.status}`);
-    const parsed = waitlistConfirmationResultSchema.safeParse(
-      await response.json(),
-    );
-    if (!parsed.success)
-      throw new Error("Waitlist confirmation provider malformed response");
-    if (parsed.data.eventId !== command.eventId)
-      throw new Error("Waitlist confirmation provider event mismatch");
-    return parsed.data.status;
+      const response = await fetcher(config.endpoint, {
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(CONFIRMATION_REQUEST_TIMEOUT_MS),
+        headers: {
+          authorization: `Bearer ${config.secret}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(command),
+      });
+      status(response.status);
+      if (!response.ok)
+        throw new Error(
+          `Waitlist confirmation provider HTTP ${response.status}`,
+        );
+      const parsed = waitlistConfirmationResultSchema.safeParse(
+        await response.json(),
+      );
+      if (!parsed.success)
+        throw new Error("Waitlist confirmation provider malformed response");
+      if (parsed.data.eventId !== command.eventId)
+        throw new Error("Waitlist confirmation provider event mismatch");
+      return parsed.data.status;
     });
   } catch (error) {
     reportDependencyFailure(

@@ -1,4 +1,7 @@
-import { captureNotificationTraceparent, type TechnicalTelemetry } from "../../../../infrastructure/observability/technical-telemetry.js";
+import {
+  captureNotificationTraceparent,
+  type TechnicalTelemetry,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -400,9 +403,12 @@ export class ProductWaitlists {
         if (result === "unavailable") observation?.fail();
         return result;
       };
-      const result = current === "suppressed" ? "suppressed"
-        : telemetry === undefined ? await send()
-        : await telemetry.runWaitlistDelivery(row.traceparent, send);
+      const result =
+        current === "suppressed"
+          ? "suppressed"
+          : telemetry === undefined
+            ? await send()
+            : await telemetry.runWaitlistDelivery(row.traceparent, send);
       if (result === "unavailable") continue;
       await this.dependencies.prisma.productWaitlistConfirmation.updateMany({
         where: { eventId: row.eventId, completedAt: null },

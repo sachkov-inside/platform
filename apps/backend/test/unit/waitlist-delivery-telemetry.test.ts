@@ -5,7 +5,7 @@ import {
   DataPointType,
   InMemoryMetricExporter,
 } from "@opentelemetry/sdk-metrics";
-import { expect, test, onTestFinished } from "vitest";
+import { expect, test, onTestFinished, vi } from "vitest";
 import {
   captureNotificationTraceparent,
   createTechnicalTelemetry,
@@ -210,42 +210,129 @@ test("sampled-out waitlist attempts still count their completion", async () => {
   ).toEqual([[{ operation: "deliver", outcome: "completed" }, 1]]);
 });
 
-test("actual receipt POST is a child of the durable waitlist attempt and never forwards trace metadata", async () => {
-  const { createServer } = await import("node:http");
-  const { once } = await import("node:events");
-  const { deliverWaitlistConfirmation } = await import("../../src/modules/sales-funnel/adapters/nest/waitlist-confirmation-pump.js");
-  const spans = new InMemorySpanExporter();
-  const telemetry = createTechnicalTelemetry({ enabled: true, service: "platform-api", environment: "test", release: "test", sampleRatio: 1,
-    exporters: { spans, metrics: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE) } });
-  onTestFinished(() => telemetry.shutdown());
-  const command = { contractVersion: "inside.waitlist-confirmation.v1" as const, eventId: "11111111-1111-4111-8111-111111111111", intakeId: "22222222-2222-4222-8222-222222222222", accountRef: "private-account", telegramIdentityRef: "private-identity", linkRevision: 1 };
-  const received: string[] = [];
-  const server = createServer((request, response) => {
-    received.push(JSON.stringify(request.headers));
-    request.resume();
-    request.on("end", () => { response.setHeader("content-type", "application/json"); response.end(JSON.stringify({ eventId: command.eventId, status: "accepted" })); });
-  });
-  onTestFinished(async () => { server.closeAllConnections(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); });
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  if (address === null || typeof address === "string") throw new Error("Owned listener missing");
-  const result = await telemetry.runWaitlistDelivery("00-12345678901234567890123456789012-1234567890123456-01", async observation => {
-    const result = await deliverWaitlistConfirmation({ endpoint: `http://127.0.0.1:${address.port}`, secret: "private-secret" }, command);
-    if (result === "unavailable") observation.fail();
-    return result;
-  });
-  expect(result).toBe("accepted");
-  expect(received).toHaveLength(1);
-  expect(received[0]).not.toContain("traceparent");
-  expect(received[0]).not.toContain("baggage");
-  await telemetry.flush();
-  const finished = spans.getFinishedSpans();
-  const delivery = finished.find(span => span.name === "waitlist deliver");
-  const request = finished.find(span => span.name === "telegram waitlist.confirm");
-  expect(request).toBeDefined();
-  expect(request?.kind).toBe(SpanKind.CLIENT);
-  expect(request?.parentSpanContext?.spanId).toBe(delivery?.spanContext().spanId);
-  expect(request?.attributes).toEqual({ "dependency.name": "telegram", "dependency.operation": "waitlist.confirm", "dependency.outcome": "completed", "http.request.method": "POST", "http.response.status_code": 200 });
-  expect(JSON.stringify(finished.map(span => ({ attributes: span.attributes, events: span.events })))).not.toContain("private-");
-});
+test.each([
+  "accepted",
+  "suppressed",
+  "mismatch",
+  "malformed",
+  "redirect",
+  "timeout",
+] as const)(
+  "actual receipt POST keeps causal ownership and existing outcome (%s)",
+  async (mode) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const { createServer } = await import("node:http");
+    const { once } = await import("node:events");
+    const { deliverWaitlistConfirmation } =
+      await import("../../src/modules/sales-funnel/adapters/nest/waitlist-confirmation-pump.js");
+    const spans = new InMemorySpanExporter();
+    const telemetry = createTechnicalTelemetry({
+      enabled: true,
+      service: "platform-api",
+      environment: "test",
+      release: "test",
+      sampleRatio: 1,
+      exporters: {
+        spans,
+        metrics: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
+      },
+    });
+    onTestFinished(() => telemetry.shutdown());
+    const command = {
+      contractVersion: "inside.waitlist-confirmation.v1" as const,
+      eventId: "11111111-1111-4111-8111-111111111111",
+      intakeId: "22222222-2222-4222-8222-222222222222",
+      accountRef: "private-account",
+      telegramIdentityRef: "private-identity",
+      linkRevision: 1,
+    };
+    const received: string[] = [];
+    const server = createServer((request, response) => {
+      received.push(JSON.stringify(request.headers));
+      request.resume();
+      request.on("end", () => {
+        if (mode === "timeout") return;
+        if (mode === "redirect") {
+          response.writeHead(302, { location: "/unreachable-private" }).end();
+          return;
+        }
+        response.setHeader("content-type", "application/json");
+        response.end(
+          JSON.stringify(
+            mode === "malformed"
+              ? { private: "private-response" }
+              : {
+                  eventId:
+                    mode === "mismatch"
+                      ? "33333333-3333-4333-8333-333333333333"
+                      : command.eventId,
+                  status: mode === "suppressed" ? "suppressed" : "accepted",
+                },
+          ),
+        );
+      });
+    });
+    onTestFinished(async () => {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const address = server.address();
+    if (address === null || typeof address === "string")
+      throw new Error("Owned listener missing");
+    const result = await telemetry.runWaitlistDelivery(
+      "00-12345678901234567890123456789012-1234567890123456-01",
+      async (observation) => {
+        const result = await deliverWaitlistConfirmation(
+          {
+            endpoint: `http://127.0.0.1:${address.port}`,
+            secret: "private-secret",
+          },
+          command,
+        );
+        if (result === "unavailable") observation.fail();
+        return result;
+      },
+    );
+    const completed = mode === "accepted" || mode === "suppressed";
+    expect(result).toBe(completed ? mode : "unavailable");
+    expect(received).toHaveLength(1);
+    expect(received[0]).not.toContain("traceparent");
+    expect(received[0]).not.toContain("baggage");
+    await telemetry.flush();
+    const finished = spans.getFinishedSpans();
+    const delivery = finished.find((span) => span.name === "waitlist deliver");
+    const request = finished.find(
+      (span) => span.name === "telegram waitlist.confirm",
+    );
+    expect(request).toBeDefined();
+    expect(request?.kind).toBe(SpanKind.CLIENT);
+    expect(request?.parentSpanContext?.spanId).toBe(
+      delivery?.spanContext().spanId,
+    );
+    expect(request?.attributes).toEqual({
+      "dependency.name": "telegram",
+      "dependency.operation": "waitlist.confirm",
+      "dependency.outcome": completed ? "completed" : "failed",
+      "http.request.method": "POST",
+      ...(mode === "redirect" || mode === "timeout"
+        ? {}
+        : { "http.response.status_code": 200 }),
+    });
+    expect(
+      JSON.stringify(
+        finished.map((span) => ({
+          attributes: span.attributes,
+          events: span.events,
+        })),
+      ),
+    ).not.toContain("private-");
+  },
+  8_000,
+);

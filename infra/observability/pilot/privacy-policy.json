@@ -317,6 +317,7 @@
       "community.set",
       "community.status",
       "communications.execute",
+      "waitlist.confirm",
       "link.register",
       "link.confirm",
       "contacts.read",
@@ -361,5 +362,10 @@
     "operations": ["deliver"],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.tracking.operations", "inside.tracking.duration"]
+  },
+  "waitlist": {
+    "operations": ["deliver"],
+    "outcomes": ["completed", "failed"],
+    "metrics": ["inside.waitlist.operations", "inside.waitlist.duration"]
   }
 }

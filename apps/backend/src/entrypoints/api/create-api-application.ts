@@ -56,7 +56,10 @@ export async function createApiApplication(
   fastify.addHook("onClose", async () => {
     // Nest disposes Fastify before OnApplicationShutdown. Drain the API-owned pump before its SDK.
     try {
-      await Promise.all([trackingPump.onApplicationShutdown(), waitlistPump.onApplicationShutdown()]);
+      await Promise.all([
+        trackingPump.onApplicationShutdown(),
+        waitlistPump.onApplicationShutdown(),
+      ]);
     } finally {
       await telemetry.shutdown();
     }
