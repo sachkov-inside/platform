@@ -965,7 +965,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
 function readerNextLink(page: Page) {
   return page
     .getByRole("navigation", { name: "Действия материала", exact: true })
-    .getByRole("link", { name: "Следующий урок", exact: true });
+    .getByRole("link", { name: "Дальше", exact: true });
 }
 
 async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {

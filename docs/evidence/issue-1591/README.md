@@ -104,6 +104,16 @@ Owner participation: implementation и merge назначены; перед merg
 Принятый прототип не заменяет GO, final-head CI и merge queue. Закрытие #1591 назначено после merge.
 Противоречий классификаторов нет. Проверки и visual GO пока не считаются завершёнными.
 
+## Full-stack regression selectors
+
+CI run `39395463211` выявил пять full-stack failures в каждом browser profile:
+проверки всё ещё искали прежние названия «Открыть программу» внутри панели и «Следующий урок».
+В принятой панели соответствующие ссылки называются «Назад» и «Дальше».
+Обновлены только locators в `test/support/linear-programme.ts` и helper `readerNextLink`;
+точные проверки programme URL, occurrence identity, page, Material и dock сохранены.
+Production source и визуальное evidence не изменились. Подтверждение исправления ожидается
+в новом final-head CI, старый failed run не считается успешным.
+
 ## Ресурсы
 
 Storybook этой сессии оставлен на `6019`, PID `79792` на момент проверки, cwd этой рабочей
