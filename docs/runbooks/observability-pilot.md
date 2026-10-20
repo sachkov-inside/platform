@@ -1450,8 +1450,12 @@ directory before a runtime project exists. Public collection rejects duplicate J
 including escaped equivalents, unknown fields, nonfinite values and records over 4096 bytes;
 it publishes a canonical verified projection. Commands, output, error text, registry references,
 paths and credentials do not enter this record. A first command failure remains first when
-cleanup also fails. `storage_guard_stop` means the existing shared monitor stopped, which
-can include a storage-read failure. It does not identify a measured floor/growth violation.
-The optional observer preserves the existing stop even if observation fails. Existing
-acquisition deadlines, identity checks, disk thresholds and 600-second worker budget remain
-unchanged. These diagnostics cannot retrospectively establish the cause of run 39433543633.
+cleanup also fails. `storage_guard_floor`, `storage_guard_growth` and
+`storage_guard_floor_growth` distinguish the existing inclusive free-space and growth
+boundaries using the same monitor sample. `storage_guard_read_failure` reports a storage-read
+failure. `storage_guard_stop` remains the legacy or unknown-cause fallback. These records
+contain no extra disk reads or raw errors. Filesystem growth does not measure image growth
+or attribute storage consumption to one process. The optional observer preserves the existing
+stop even if observation fails. Existing acquisition deadlines, identity checks, disk thresholds
+and 600-second worker budget remain unchanged. These diagnostics cannot retrospectively
+establish the cause of runs 39433543633 or 39441411789.
