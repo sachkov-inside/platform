@@ -34,7 +34,8 @@ def main():
                     time.sleep(.01)
                 state = json.loads(Path(nested_report).read_text())
                 state.update(outer_python=os.getpid(), inner_owner=child.pid)
-                Path(report).write_text(json.dumps(state))
+                Path(report + '.tmp').write_text(json.dumps(state))
+                os.replace(report + '.tmp', report)
                 child.wait(timeout=30)
             finally:
                 # A nested owner has its own session; forward cancellation and await its reap.
@@ -47,8 +48,9 @@ def main():
                   'timeout': 'process.on("SIGTERM",()=>{});',
                   'interruption': 'process.on("SIGTERM",()=>{});'}[case]
         code = ('const h=require("node:http"),f=require("node:fs");const s=h.createServer();'
-                's.listen(0,"127.0.0.1",()=>{f.writeFileSync('+json.dumps(report)+
-                ',JSON.stringify({child:process.pid,python:'+str(os.getpid())+',port:s.address().port}));'+ending+'});')
+                's.listen(0,"127.0.0.1",()=>{const report='+json.dumps(report)+';f.writeFileSync(report+".tmp"'
+                ',JSON.stringify({child:process.pid,python:'+str(os.getpid())+',port:s.address().port}));'
+                'f.renameSync(report+".tmp",report);'+ending+'});')
         producer_protocol.capture(argv=['node', '-e', code])
     else:
         suite = unittest.defaultTestLoader.discover(str(Path(__file__).parent), pattern='test_*.py')
