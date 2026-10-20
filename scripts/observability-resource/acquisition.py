@@ -135,7 +135,11 @@ class Recorder:
             pass
 
     def storage_stop(self):
-        self.fail('storage_guard_stop')
+        # Signal observation only marks memory; outer failure handling publishes it.
+        if not self.failed:
+            self.failed = True
+            self.value['outcome'] = 'storage_guard_stop'
+            self.value['exit_code'] = None
 
     def cleanup_result(self, succeeded):
         if self.value['cleanup'] != 'failed':

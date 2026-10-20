@@ -105,8 +105,10 @@ class DiagnosticDiscrimination(unittest.TestCase):
                     with pilot.disk_budget(root, **({} if observer is None else {'on_stop': observer})):
                         target[0]()
                         send.assert_called_once_with(os.getpid(), signal.SIGUSR1)
-                        with self.assertRaisesRegex(RuntimeError, '^pilot disk budget exceeded; stopping owned resources$'):
+                        with self.assertRaisesRegex(RuntimeError, '^pilot disk budget exceeded; stopping owned resources$') as stop:
                             handlers[signal.SIGUSR1](signal.SIGUSR1, None)
+                        # The real prepare/command boundary persists the passive signal marker.
+                        hosted.record_failure(recorder, stop.exception)
                     thread.join.assert_called_once_with(timeout=pilot.MONITOR_SHUTDOWN_SECONDS)
             value = acquisition.read(root/acquisition.NAME, 'a'*40)
             self.assertEqual(value['outcome'], 'storage_guard_stop')
