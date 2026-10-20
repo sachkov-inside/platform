@@ -7,7 +7,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-import { ciJobNames, coverageSupersets } from "./ci-coverage-plan.mjs";
+import {
+  ciJobNames,
+  ciMatrixJobs,
+  coverageSupersets,
+} from "./ci-coverage-plan.mjs";
 import { readPackageManifest } from "./package-manifest.mjs";
 import { fullStackProjects } from "./full-stack-options.mjs";
 
@@ -62,6 +66,11 @@ const requiredJobs = [
 describe("application CI workflow contract", () => {
   it("isolates both full-stack profiles and rejects failed or absent profile coverage", () => {
     const profiles = jobBlock("fullstack-browser");
+    assert.match(profiles, /shard: \[1, 2\]/u);
+    assert.match(
+      profiles,
+      /FULLSTACK_TEST_SHARD: \$\{\{ matrix.shard \}\}\/2/u,
+    );
     const matrix = profiles.match(/project: \[([^\]]+)\]/u)?.[1];
     assert.ok(matrix);
     assert.deepEqual(
@@ -100,13 +109,174 @@ describe("application CI workflow contract", () => {
       assert.equal(execution.status, result === "success" ? 0 : 1, result);
     }
   });
+  it("preserves complete unit, integration and browser work behind fail-closed aggregates", () => {
+    /** @type {Array<[string, string]>} */
+    const groups = [
+      ["unit", "unit-checks"],
+      ["integration", "integration-checks"],
+      ["web-e2e", "web-e2e-browser"],
+      ["compose-production", "compose-production-checks"],
+    ];
+    for (const [aggregateId, childId] of groups) {
+      const child = jobBlock(childId);
+      assert.match(child, /fail-fast: false/u);
+      assert.match(
+        child,
+        /ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/u,
+      );
+      const aggregate = jobBlock(aggregateId);
+      assert.match(aggregate, new RegExp(`needs: \\[plan, ${childId}\\]`, "u"));
+      assert.match(aggregate, /if: \$\{\{ always\(\) && contains/u);
+      assert.match(
+        aggregate,
+        new RegExp(`RESULT: \\$\\{\\{ needs\\.${childId}\\.result \\}\\}`, "u"),
+      );
+      const command = aggregate.match(/run: (test .+)$/mu)?.[1];
+      assert.ok(command);
+      for (const result of ["success", "failure", "cancelled", "skipped", ""]) {
+        /** @type {import("node:child_process").SpawnSyncReturns<string>} */
+        const execution = spawnSync("bash", ["-euc", command], {
+          env: { ...process.env, RESULT: result },
+          encoding: "utf8",
+          timeout: 5_000,
+        });
+        assert.equal(execution.status, result === "success" ? 0 : 1, result);
+      }
+    }
+    assert.match(
+      jobBlock("unit-checks"),
+      /part: \[tooling, modules, contracts\]/u,
+    );
+    assert.match(
+      jobBlock("integration-checks"),
+      /part: \[database, enrollments, buyer-journey\]/u,
+    );
+    assert.match(
+      jobBlock("web-e2e-browser"),
+      /project: \[desktop-chromium, mobile-chromium\]/u,
+    );
+    assert.match(
+      jobBlock("web-e2e-browser"),
+      /pnpm check:web-e2e --project=\$\{\{ matrix.project \}\}/u,
+    );
+  });
+  it("binds each parallel unit part and both Web projects to the local complete commands", () => {
+    assert.equal(
+      rootScripts["check:unit"],
+      "pnpm check:unit:tooling && pnpm check:unit:modules && pnpm check:contracts",
+    );
+    assert.equal(
+      rootScripts["check:unit:tooling"],
+      "pnpm test:tooling && pnpm test:authoring && pnpm test:practice-review",
+    );
+    assert.equal(
+      rootScripts["check:unit:modules"],
+      "pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module",
+    );
+    for (const [part, command] of [
+      ["tooling", "check:unit:tooling"],
+      ["modules", "check:unit:modules"],
+      ["contracts", "check:contracts"],
+    ]) {
+      assert.ok(
+        jobBlock("unit-checks").includes(
+          `if: \${{ matrix.part == '${part}' }}\n        run: pnpm ${command}`,
+        ),
+      );
+    }
+    assert.ok(
+      rootScripts["check:web-e2e"]?.includes(
+        'pnpm test:e2e "$@" && pnpm test:navigation "$@"',
+      ),
+    );
+    const recovery = readFileSync(
+      resolve(repositoryRoot, ".github/workflows/ci-gate-recovery.yml"),
+      "utf8",
+    );
+    const matrixSource =
+      recovery.split("const matrixGroups = [")[1]?.split("            ];")[0] ??
+      "";
+    const copiedGroups = [
+      ...matrixSource.matchAll(
+        /aggregate: '([^']+)', prefix: '([^']+)', names: \[([^\]]+)\]/gu,
+      ),
+    ].map(([, aggregate, prefix, names = ""]) => ({
+      aggregate,
+      prefix,
+      names: [...names.matchAll(/'([^']+)'/gu)].map(([, name]) => name),
+    }));
+    assert.deepEqual(
+      copiedGroups,
+      Object.entries(ciMatrixJobs).map(([id, group]) => ({
+        aggregate: ciJobNames[id],
+        ...group,
+      })),
+    );
+    assert.deepEqual(
+      ciMatrixJobs.fullstack.names,
+      fullStackProjects.flatMap((project) =>
+        [1, 2].map((shard) => `Full-stack browser (${project}, ${shard})`),
+      ),
+    );
+  });
+  it("forwards the selected browser profile to both real pnpm command boundaries", () => {
+    const body = rootScripts["check:web-e2e"]?.match(
+      /bash -c '([^']+)' --$/u,
+    )?.[1];
+    assert.ok(body);
+    for (const profile of fullStackProjects) {
+      /** @type {import("node:child_process").SpawnSyncReturns<string>} */
+      const result = spawnSync(
+        "bash",
+        [
+          "-euc",
+          `pnpm() { printf '%s\\n' "$*"; };\n${body}`,
+          "--",
+          `--project=${profile}`,
+        ],
+        { encoding: "utf8", timeout: 5_000 },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(result.stdout.trim().split("\n"), [
+        "build",
+        "--filter @inside/web test:prerendered-handlers",
+        "--filter @inside/web test:standalone-config",
+        `test:e2e --project=${profile}`,
+        `test:navigation --project=${profile}`,
+      ]);
+    }
+  });
+  it("requires both production proofs while isolating cold builds and admitted-cache preparation", () => {
+    const production = jobBlock("compose-production-checks");
+    assert.match(production, /part: \[cold, cache\]/u);
+    assert.match(
+      production,
+      /- name: Run isolated production smoke\n {8}if: \$\{\{ matrix.part == 'cold' \}\}/u,
+    );
+    assert.match(
+      production,
+      /if: \$\{\{ matrix.part == 'cold' && github.event_name == 'pull_request' \}\}/u,
+    );
+    assert.match(
+      production,
+      /- name: Prove exact-source production runtime from admitted cache\n {8}if: \$\{\{ matrix.part == 'cache' \}\}/u,
+    );
+    assert.match(
+      production,
+      /name: compose-production-diagnostics-\$\{\{ matrix.part \}\}-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(
+      production,
+      /run: bash scripts\/heavy-check.sh bash scripts\/production-cache-smoke-ci.sh/u,
+    );
+  });
   it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
     assert.deepEqual(coverageSupersets, { docs: "static", contracts: "unit" });
     assertFocusedSupersets(rootScripts);
     /** @type {Array<[string, string]>} */
     const missingCommands = [
       ["check:static", "pnpm docs:check && "],
-      ["check:unit", "pnpm test:tooling && "],
+      ["check:unit:tooling", "pnpm test:tooling && "],
       ["check:unit", " && pnpm check:contracts"],
       ["check:contracts", "pnpm test:contracts && "],
     ];
@@ -297,7 +467,9 @@ describe("application CI workflow contract", () => {
       rootScripts["check"],
       `bash scripts/heavy-check.sh bash -c '${checkStages.map(([, script]) => `pnpm ${script}`).join(" && ")} "$@"' --`,
     );
-    for (const [job, script] of checkStages) {
+    for (const [job, script] of checkStages.filter(
+      ([id]) => !["unit", "web-e2e"].includes(id),
+    )) {
       assert.match(
         jobBlock(job),
         new RegExp(`run: pnpm ${escapeRegExp(script)}$`, "mu"),
@@ -309,7 +481,7 @@ describe("application CI workflow contract", () => {
     }
     assert.doesNotMatch(workflow, /run: pnpm check$/mu);
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
-    assert.match(jobBlock("web-e2e"), /browsers: chromium$/mu);
+    assert.match(jobBlock("web-e2e-browser"), /browsers: chromium$/mu);
   });
 
   it("installs frozen dependencies and cached browser engines in one place", () => {
@@ -385,15 +557,18 @@ describe("application CI workflow contract", () => {
     }
 
     assert.match(
-      jobBlock("integration"),
+      jobBlock("integration-checks"),
       /run: pnpm test:integration:parallel$/mu,
     );
-    assert.match(jobBlock("integration"), /run: pnpm smoke:enrollments$/mu);
+    assert.match(
+      jobBlock("integration-checks"),
+      /run: pnpm smoke:enrollments$/mu,
+    );
     assert.match(
       jobBlock("integration-serial"),
       /run: pnpm test:integration:serial$/mu,
     );
-    for (const job of ["integration", "integration-serial"]) {
+    for (const job of ["integration-checks", "integration-serial"]) {
       assert.doesNotMatch(jobBlock(job), /services:/u);
     }
 
@@ -449,8 +624,18 @@ describe("application CI workflow contract", () => {
     );
 
     assert.match(
-      jobBlock("compose-production"),
+      jobBlock("compose-production-checks"),
       /run: pnpm compose:production:smoke/u,
+    );
+    // The runtime health-budget helper imports workspace dependencies on the host.
+    const productionChecks = jobBlock("compose-production-checks");
+    assert.match(
+      productionChecks,
+      /uses: \.\/\.github\/actions\/setup-platform/u,
+    );
+    assert.ok(
+      productionChecks.indexOf("uses: ./.github/actions/setup-platform") <
+        productionChecks.indexOf("run: pnpm compose:production:smoke"),
     );
   });
 
@@ -465,12 +650,15 @@ describe("application CI workflow contract", () => {
       8,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
-    assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
-    assert.match(jobBlock("integration"), /apps\/web\/\.next\/dev\/logs/u);
+    assert.match(jobBlock("integration-checks"), /apps\/web\/test-results/u);
+    assert.match(
+      jobBlock("integration-checks"),
+      /apps\/web\/\.next\/dev\/logs/u,
+    );
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(
-      jobBlock("compose-production"),
+      jobBlock("compose-production-checks"),
       /PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts\/compose-production/u,
     );
     assert.match(
@@ -525,7 +713,7 @@ describe("application CI workflow contract", () => {
     );
     assert.equal(
       [...workflow.matchAll(/^ {4}name: /gmu)].length,
-      Object.keys(ciJobNames).length + 1,
+      Object.keys(ciJobNames).length + Object.keys(ciMatrixJobs).length,
     );
   });
 
@@ -534,11 +722,14 @@ describe("application CI workflow contract", () => {
       workflow,
       /telemetry-resource|measure-telemetry|TELEMETRY_RESOURCE/u,
     );
-    assert.match(jobBlock("integration"), /pnpm test:integration:parallel/u);
+    assert.match(
+      jobBlock("integration-checks"),
+      /pnpm test:integration:parallel/u,
+    );
   });
 
   it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
-    const webE2E = jobBlock("web-e2e");
+    const webE2E = jobBlock("web-e2e-browser");
     const upload = webE2E.slice(
       webE2E.indexOf("      - name: Upload Playwright diagnostics\n"),
     );
@@ -546,7 +737,7 @@ describe("application CI workflow contract", () => {
     assert.match(upload, /uses: actions\/upload-artifact@/u);
     assert.match(
       upload,
-      /name: web-e2e-playwright-\$\{\{ github\.run_attempt \}\}/u,
+      /name: web-e2e-playwright-\$\{\{ matrix\.project \}\}-\$\{\{ github\.run_attempt \}\}/u,
     );
     assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
     assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
@@ -791,7 +982,9 @@ function assertFocusedSupersets(scripts) {
     );
   };
   invokes("check:static", "docs:check");
-  invokes("check:unit", "test:tooling");
+  invokes("check:unit", "check:unit:tooling");
+  invokes("check:unit", "check:unit:modules");
+  invokes("check:unit:tooling", "test:tooling");
   invokes("check:unit", "check:contracts");
   invokes("check:contracts", "test:contracts");
 }

@@ -29,7 +29,7 @@ import orbstack
 import daemon
 import collector_privacy
 import native_cpu
-from storage_policy import admission as check_disk, assert_budget
+from storage_policy import admission as check_disk, assert_budget, StorageBudgetExceeded
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG = ROOT / "infra/observability/pilot"
@@ -137,13 +137,19 @@ def corpus(*, now_ns, sequence):
 
 
 @contextmanager
-def disk_budget(path, *, on_stop=None):
+def disk_budget(path, *, on_stop=None, on_stop_reason=None):
     """Bound no-build pilot growth on the identified Docker storage filesystem."""
     initial = shutil.disk_usage(path).free
+    stop_reason = None
     stop = threading.Event()
     previous = signal.getsignal(signal.SIGUSR1)
 
     def exceeded(_signum, _frame):
+        if on_stop_reason is not None:
+            try:
+                on_stop_reason(stop_reason)
+            except BaseException:
+                pass
         if on_stop is not None:
             try:
                 on_stop()
@@ -153,13 +159,19 @@ def disk_budget(path, *, on_stop=None):
         raise RuntimeError("pilot disk budget exceeded; stopping owned resources")
 
     def monitor():
+        nonlocal stop_reason
         while not stop.wait(POLL_INTERVAL_SECONDS):
             try:
                 free = shutil.disk_usage(path).free
                 assert_budget(initial, free)
                 continue
-            except (OSError, RuntimeError):
-                pass
+            except StorageBudgetExceeded as error:
+                stop_reason = error.reason
+            except OSError:
+                stop_reason = 'read_failure'
+            except RuntimeError:
+                # Preserve legacy stops whose cause was not classified by the policy.
+                stop_reason = None
             os.kill(os.getpid(), signal.SIGUSR1)
             break
 

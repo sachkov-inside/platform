@@ -59,8 +59,11 @@ cannot establish trust or correspondence between different SHAs.
 
 ## Available checks
 
-`pnpm check` is the aggregate of four stages, and each stage runs as its own job, so a failure
-names its seam and the stages run in parallel:
+`pnpm check` is the local aggregate of four stages. CI runs independent work in parallel;
+`unit`, `web-e2e`, `integration`, `compose-production` and `fullstack` retain stable aggregate jobs. Each aggregate
+requires every selected matrix member to succeed, including during reusable release gap checks.
+A failed, cancelled or skipped selected member fails its aggregate. Coverage selection, required
+commands, permissions and source/tree/attempt evidence bindings are unchanged.
 
 | Job | Repository command or proof |
 |---|---|
@@ -68,14 +71,14 @@ names its seam and the stages run in parallel:
 | `contracts` | `pnpm test:tooling && pnpm test:contracts`: repository-owned tooling/workflow and root release/deploy process contracts |
 | `fullstack` | Stable aggregate over desktop/mobile `fullstack-browser` matrix jobs; each runs `pnpm smoke:fullstack` with isolated infrastructure and unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
-| `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests, then the separate `pnpm check:contracts` commands |
+| `unit` | Three isolated `unit-checks` parts run `pnpm check:unit:tooling`, `pnpm check:unit:modules` and `pnpm check:contracts`. Together these execute the complete local `pnpm check:unit` sequence |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
-| `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |
+| `web-e2e` | Two isolated `web-e2e-browser` profiles run `pnpm check:web-e2e --project=<profile>`. Each builds once, checks prerendered/standalone output, then runs its complete e2e and navigation profile on that build. Local execution without arguments retains both profiles |
 | `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.4 и RabbitMQ, synthetic non-guest user |
-| `integration` | `pnpm test:integration:parallel` (PostgreSQL and RustFS via Testcontainers, a migrated template database copied per test database), then `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey`; a failed job uploads the Playwright results and the `next dev` log |
+| `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
-| `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; exact-source cache-only proof; pull requests also run clean `pnpm release:images:smoke` |
+| `compose-production` | Two isolated `compose-production-checks` parts require both the cold nine-process runtime proof (plus PR release-image inspection) and the exact-source admitted-cache proof |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
@@ -102,10 +105,12 @@ Automated telemetry resource-budget measurements and their CI/release gates were
 Functional telemetry checks remain in application suites. Historical failures, including #1386 and
 the bounded #1408/v36 exclusion, remain evidence; removal does not repair their causes or stop production telemetry.
 
-The Production Compose job also runs `scripts/production-cache-smoke-ci.sh`. On its disposable
-runner it prepares four distinct owned backend v1/v2, Web v1 and foundation image IDs from the
-checked-out Source, then runs the unchanged runtime assertions with `PRODUCTION_SMOKE_CACHE_ONLY=1`.
-The already-acquired pinned broker and edge must be present. Separate Actions log groups measure
+Production Compose runs cold and admitted-cache proofs concurrently on separate disposable runners.
+The cache part runs `scripts/production-cache-smoke-ci.sh`: preparation reads the checked-in Compose
+model with synthetic interpolation values, empty owned env-file stand-ins and environment-file
+resolution disabled, validates and pulls only its digest-pinned broker and edge inputs, and builds four distinct owned backend v1/v2, Web v1 and foundation image IDs
+from the checked-out Source. It then runs the unchanged runtime assertions with
+`PRODUCTION_SMOKE_CACHE_ONLY=1`. After admission the pinned broker and edge must already be present. Separate Actions log groups measure
 preparation and runtime; after admission the smoke uses `--no-build` and `--pull never`. The script
 removes its own tags and override and preserves the primary failure if cleanup also fails.
 
@@ -123,18 +128,23 @@ The outer root contract runner still admits two files; production TERM/KILL grac
 
 ### Full-stack browser execution
 
-The desktop and mobile profiles run concurrently on separate disposable GitHub runners.
-Each runner owns its PostgreSQL, object storage, identities and application processes.
-Each profile retains one Playwright worker because scenarios mutate shared account and catalogue fixtures.
-The stable `Full-stack smoke` job succeeds only after both profiles succeed; CI Gate and release evidence retain that identity.
-A failed, cancelled or skipped selected profile fails the aggregate. Both profiles finish independently to retain failure diagnostics.
+The desktop and mobile profiles each run two Playwright shards on separate disposable GitHub runners.
+All four profile/shard combinations are required. Each runner owns its PostgreSQL, object storage,
+identities and application processes. Each shard retains one Playwright worker because scenarios
+mutate shared account and catalogue fixtures. Sharding partitions the existing test files without
+filtering scenarios. The stable `Full-stack smoke` job succeeds only after all four members succeed;
+CI Gate and release evidence retain that identity. A failed, cancelled or skipped selected member
+fails the aggregate. All members finish independently to retain failure diagnostics.
 Path-based coverage selection remains unchanged; this matrix does not add full-stack checks to ordinary Web-only PRs.
 
 `FULLSTACK_TEST_PROJECT` selects exactly `desktop-chromium` or `mobile-chromium` before fixture preparation.
-An absent selector retains both profiles locally and in the manual smoke workflow.
+`FULLSTACK_TEST_SHARD` optionally selects exactly `1/2` or `2/2`; invalid values fail before fixture
+preparation. Absent selectors retain both complete profiles locally and in the manual smoke workflow.
 `FULLSTACK_TEST_GREP` remains an investigation filter; Application CI sets no scenario filter.
 Full-stack output includes `fullstack-timing` JSON records for commands, startup, fixtures, browser execution and cleanup.
-Compare successful attempts by profile and source; startup duplication increases runner minutes while concurrent profiles shorten elapsed time.
+Compare successful attempts by profile, shard and source; startup duplication increases runner
+minutes while concurrent shards shorten elapsed time. More matrix members can increase runner
+queue time, so compare elapsed time and total runner time before adding further shards.
 Runner availability and the Production Compose job can still determine total CI duration.
 
 The material-authoring suite retains upload, replacement, authorization, accessibility and publication assertions.
@@ -637,7 +647,7 @@ The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` (#999)
 `unlinked Account sees centered onboarding once per authenticated session` in
 `apps/web/test/e2e/routes.spec.ts` (#1080) also retain a video on failure. Web E2E uploads
 `playwright-report` (including the error's call log) and
-`test-results` (including `trace.zip` and the video) as `web-e2e-playwright-<run_attempt>`.
+`test-results` (including `trace.zip` and the video) as `web-e2e-playwright-<profile>-<run_attempt>`.
 Each CI attempt has its own artifact name, so a rerun does not replace the earlier failure.
 For a stuck reopen, inspect the reminder click after closing the dialog in the trace, its call
 log, and the video. Download the artifact before its seven-day retention expires.

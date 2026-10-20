@@ -356,5 +356,10 @@
     ],
     "smtp_outcomes": ["sent", "not_sent", "failed", "unknown"],
     "metrics": ["inside.email.operations", "inside.email.duration"]
+  },
+  "tracking": {
+    "operations": ["deliver"],
+    "outcomes": ["completed", "failed"],
+    "metrics": ["inside.tracking.operations", "inside.tracking.duration"]
   }
 }

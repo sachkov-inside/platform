@@ -3,14 +3,17 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { ciJobNames, selectCoverage } from "./ci-coverage-plan.mjs";
+import {
+  ciJobNames,
+  ciMatrixJobs,
+  selectCoverage,
+} from "./ci-coverage-plan.mjs";
 
 const requiredNames = Object.entries(ciJobNames)
   .filter(([id]) => id !== "ci-gate")
   .map(([, name]) => name);
 requiredNames.push(
-  "Full-stack browser (desktop-chromium)",
-  "Full-stack browser (mobile-chromium)",
+  ...Object.values(ciMatrixJobs).flatMap((group) => group.names),
 );
 // Metadata from run 37642003271, attempt 1 (#1085); job names follow current CI.
 const run = {
@@ -115,11 +118,20 @@ describe("missing CI Gate recovery", () => {
       }
     }
     replay({ jobs: jobs.slice(1) });
-    for (const name of [
-      "Full-stack browser (desktop-chromium)",
-      "Full-stack browser (mobile-chromium)",
-    ]) {
+    for (const name of requiredNames) {
       replay({ jobs: jobs.filter((job) => job.name !== name) });
+      if (
+        Object.values(ciMatrixJobs).some((group) => group.names.includes(name))
+      ) {
+        replay({
+          jobs: jobs.map((job) =>
+            job.name === name ? { ...job, conclusion: "skipped" } : job,
+          ),
+        });
+        const member = jobs.find((job) => job.name === name);
+        assert.ok(member);
+        replay({ jobs: [...jobs, member] });
+      }
     }
     replay({
       jobs: jobs.map((job, i) =>
@@ -166,7 +178,11 @@ describe("missing CI Gate recovery", () => {
       conclusion:
         job.name === ciJobNames["plan"] ||
         selectedNames.includes(job.name) ||
-        job.name.startsWith("Full-stack browser (")
+        Object.entries(ciMatrixJobs).some(
+          ([id, group]) =>
+            selectedNames.includes(ciJobNames[id]) &&
+            group.names.includes(job.name),
+        )
           ? "success"
           : "skipped",
     }));
