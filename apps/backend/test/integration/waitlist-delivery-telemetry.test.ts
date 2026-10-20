@@ -151,13 +151,17 @@ test.each(["on", "off", "exporter503"] as const)(
     onTestFinished(async () => {
       for (const app of applications) await app.close();
     });
-    async function open() {
-      const app = await createApiApplication(config, { logger: false });
+    const { communications, ...sourceConfig } = config;
+    expect(communications).toBeDefined();
+    async function open(delivery = true) {
+      const app = await createApiApplication(delivery ? config : sourceConfig, {
+        logger: false,
+      });
       applications.add(app);
       await app.listen(0, "127.0.0.1");
       return app;
     }
-    const first = await open();
+    const first = await open(false);
     const token = await identity.sign("member");
     const operationId = randomUUID();
     const join = async (app: NestFastifyApplication) => {

@@ -18,6 +18,7 @@ def capture(*,environment=None):
 
 REQUIRED = {
     'apps/backend/dist/entrypoints/api/create-api-application.js',
+    'apps/backend/dist/entrypoints/api/api-delivery-lifecycle.js',
     'apps/backend/dist/modules/sales-funnel/sales-funnel.module.js',
     'apps/backend/dist/modules/sales-funnel/adapters/nest/waitlist-confirmation-pump.js',
     'apps/backend/dist/modules/sales-funnel/facets/product-waitlists/product-waitlists.js',

@@ -200,7 +200,13 @@ export async function produce(databaseUrl) {
         TELEGRAM_COMMUNICATIONS_SECRET: secret,
         TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "waitlist_storage_bot",
       });
-      app = await entrypoint.createApiApplication(config, { logger: false });
+      // Existing missing-configuration admission makes the producer-only lifecycle perform zero provider I/O.
+      // The restart enables the ordinary relay, avoiding any race against its five-second timer.
+      const { communications, ...sourceConfig } = config;
+      assert.ok(communications !== undefined);
+      app = await entrypoint.createApiApplication(sourceConfig, {
+        logger: false,
+      });
       await app.listen(0, "127.0.0.1");
       // deterministic-test-allow wall-clock: A fresh signed JWT uses the same real clock as the production verifier.
       const now = Math.floor(Date.now() / 1000);
