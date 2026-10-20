@@ -35,8 +35,15 @@ function retryDelayMs(attempts: number): number {
 
 /** What the provider actually reported, separate from our own delivery lifecycle. */
 function observationFields(result: CommunityResult, now: Date) {
+  const providerAge = now.getTime() - new Date(result.updatedAt).getTime();
   return {
-    errorCode: null,
+    errorCode:
+      result.status === "waiting_for_join" &&
+      (!Number.isFinite(providerAge) ||
+        providerAge < 0 ||
+        providerAge > COMMUNITY_OVERDUE_MS)
+        ? "stale_observation"
+        : null,
     observedMembership: result.observedMembership,
     polledAt: now,
     result,
@@ -260,6 +267,16 @@ export async function readCommunityBacklog(
           {
             delivery: "accepted",
             resultStatus: { notIn: ["applied", "superseded", "failed"] },
+            // Voluntary joining has no deadline. Only fresh, successful observation
+            // may exempt that wait; a failed or stopped poll still needs attention.
+            OR: [
+              { resultStatus: { not: "waiting_for_join" } },
+              { observedMembership: null },
+              { observedMembership: { not: "not_member" } },
+              { errorCode: { not: null } },
+              { polledAt: null },
+              { polledAt: { lte: overdueBefore } },
+            ],
           },
         ],
       },
