@@ -5,6 +5,7 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+from types import SimpleNamespace
 from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pilot
@@ -61,6 +62,12 @@ def smoke(*args, **kwargs):
         os.killpg(os.getpgrp(), signal.SIGTERM if mode == 'sigterm' else signal.SIGKILL)
     return {'native_mcp':'fixture only'}
 
+# Disk belongs to this process fixture, just like Docker/registry/protocol inputs.
+# Keep the real production admission/stopping policy; exercise refusal separately.
+disk_total = 100 * 1024**3
+disk_free = (1 if mode == 'low_disk' else 80) * 1024**3
+disk_sample = SimpleNamespace(total=disk_total, free=disk_free, used=disk_total-disk_free)
+
 # This process fixture owns orchestration/cleanup with protocol doubles.
 # Source-outage behavior has its own injected Docker/query/clock seam contracts.
 original_supervise = pilot.supervise_worker
@@ -72,6 +79,7 @@ with patch.object(pilot.platform,'system',return_value='Darwin'), patch.object(p
      patch.object(orbstack,'identify',return_value=identity), patch.object(pilot,'command',side_effect=command), \
      patch.object(pilot,'supervise_worker',side_effect=supervise), patch.object(orbstack,'verify_probe'), \
      patch.object(pilot,'install_plugin'), \
+     patch.object(pilot.shutil,'disk_usage',return_value=disk_sample), \
      patch.object(pilot,'smoke',side_effect=smoke), \
      patch.object(source_status_scenario, 'run', return_value={'state':'fixture only', 'duration_seconds':0}):
     try:
