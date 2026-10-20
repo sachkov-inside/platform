@@ -1637,3 +1637,10 @@ must settle that original promise and retain its original private rejection. The
 deadline and product retry/outbox policy stay unchanged. Additional echo-peer controls cover holding
 inbound forwarding before and after connection establishment. They remain TCP harness evidence;
 the genuine RabbitMQ publication cases require hosted execution.
+## Isolated native Caddy observation
+
+[The Caddy pilot](observability-caddy-pilot.md) adds an opt-in native registry, fixed partition,
+strict canonical/VM MCP readers and a separate hosted observation/cleanup matrix over Core7.
+Core defaults and production Caddy are unchanged. Source and protocol checks do not establish
+Linux/native acceptance; the bound hosted matrix is required. This scope adds no production,
+server-sizing, resource-saving or #1579 acceptance.

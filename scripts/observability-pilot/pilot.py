@@ -197,7 +197,7 @@ def downloaded_asset(asset):
     return archive
 
 
-def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=(), progress=None):
+def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=(), progress=None, decode_response=None):
     """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
     # The helper and native process stay in the externally supervised worker group.
     with native_cpu.measured_process(argv or [str(executable)], environment) as (process, measurement):
@@ -216,7 +216,7 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
             while time.monotonic() < deadline:
                 while b"\n" in buffered:
                     line, buffered = buffered.split(b"\n", 1)
-                    response = json.loads(line)
+                    response = json.loads(line) if decode_response is None else decode_response(line, identifier)
                     if not isinstance(response, dict):
                         raise RuntimeError("MCP response must be an object")
                     if response.get("id") == identifier:
