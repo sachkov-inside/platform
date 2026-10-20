@@ -114,6 +114,16 @@ CI run `39395463211` выявил пять full-stack failures в каждом b
 Production source и визуальное evidence не изменились. Подтверждение исправления ожидается
 в новом final-head CI, старый failed run не считается успешным.
 
+## Source-anchor regression oracle
+
+В том же CI run пять desktop navigation cases достигали правильного заголовка на `176.97px`,
+но старый oracle требовал `<160px`. Заголовок имеет `scroll-mt-24`, desktop scroller начинается
+под шапкой. Проверка теперь учитывает фактическую позицию scroll owner, `scroll-margin-top`
+и `scroll-padding-top`, а также требует полной видимости заголовка. Native navigation code
+не изменялся. Локально на финальной production UI сборке все десять source-anchor cases
+(desktop/mobile) прошли, включая повторный fragment, retained hidden page и unknown fragment.
+Новый final-head CI остаётся обязательным.
+
 ## Ресурсы
 
 Storybook этой сессии оставлен на `6019`, PID `79792` на момент проверки, cwd этой рабочей
