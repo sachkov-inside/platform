@@ -1476,10 +1476,10 @@ representative production load, full retention, whole-host reserve or seven actu
 The workflow adds no mandatory release gate. Native image builds and runtime compatibility
 must be observed in a source-bound hosted attempt before claiming they work.
 
-The backend image install selects the backend workspace dependency closure and root tooling.
-It retains the declared development dependencies and package build lifecycle. Web and Telegram
-application dependencies are not selected. This selection does not bound transient image/cache
-storage or establish that acquisition fits the unchanged filesystem growth budget.
+Backend and Web keep the same complete dependency install ancestry. The shared development
+image also runs Web, so its frozen install includes the Web dependencies and root tooling.
+The former backend-only install filter broke that shared image and has been removed.
+No storage reduction or fit within the unchanged filesystem growth budget is established.
 
 For acquisition failures, `resource-acquisition.json` records a closed stage and boundary
 (identity probe, child wait, inspection or publication), bounded outcome/counters/elapsed

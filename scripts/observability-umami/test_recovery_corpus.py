@@ -8,6 +8,7 @@ import unittest
 import recovery
 import recovery_runtime as runner
 import retention_fixture
+from recovery_test_source import historical_foundation_source
 from test_retention import batch
 
 
@@ -15,7 +16,7 @@ class CorpusCallbackContinuity(unittest.TestCase):
     def run_corpus(self, failure=None, *, whole_controller=False, reject_create_service='all', recovered_cluster=None, source_cluster=None):
         project = recovery.PROJECT_PREFIX + 'a' * 12
         image = json.loads(recovery.CACHE_LOCK.read_text())['image']
-        with tempfile.TemporaryDirectory() as directory:
+        with historical_foundation_source(), tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'owned'
             runner.prepare_bound_inputs(output)
             plan = json.loads((output / 'compose.json').read_text())
@@ -207,7 +208,7 @@ class CorpusCallbackContinuity(unittest.TestCase):
         self.run_corpus()
 
     def test_create_services_use_supported_cli_contract_without_dependencies(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with historical_foundation_source(), tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'owned'
             runner.prepare_bound_inputs(output)
             plan = json.loads((output / 'compose.json').read_text())

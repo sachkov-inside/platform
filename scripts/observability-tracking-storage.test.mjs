@@ -41,3 +41,13 @@ test("tracking and waitlist API progress stays closed across owned child outcome
   );
   assert.equal(result.code, 0, result.stderr);
 });
+
+// deterministic-test-allow unit-io: Real compiled runtime and pinned JSON/protobuf serializers feed the strict tracking oracle; no API/PG/storage.
+test("tracking causal roles have actual pinned serializer flags", async () => {
+  const result = await runTrackingContracts([
+    "--script",
+    "trace_flags_contract.py",
+  ]);
+  assert.equal(result.reason, "exit");
+  assert.equal(result.code, 0, result.stderr);
+});

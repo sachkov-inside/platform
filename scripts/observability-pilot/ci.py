@@ -107,7 +107,7 @@ def admission(metadata, *, inputs=None, scope=None):
     inputs = inputs or (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "privacy-policy.json", CONFIG / "Caddyfile",
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
               Path(__file__).with_name("source_status.py"), Path(__file__).with_name("source_status_query.py"), Path(__file__).with_name("source_status_scenario.py"), Path(__file__).with_name("pilot.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("email_privacy.py"), Path(__file__).with_name("telegram_http_storage.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
-              ROOT / ".github/workflows/observability-pilot.yml")
+              ROOT / ".github/workflows/observability-pilot.yml", ROOT / "apps/backend/openapi/platform-api.json")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,
         "checkout_tree": read_command(["git", "-C", str(ROOT), "rev-parse", "HEAD^{tree}"]),

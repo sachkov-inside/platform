@@ -1,5 +1,5 @@
-import { createApiProgress } from "../observability-tracking-storage/api-progress.mjs";
 // @ts-check
+import { createApiProgress } from "../observability-tracking-storage/api-progress.mjs";
 // Genuine loopback API -> persisted carrier -> production timer, with owned provider/PG.
 import assert from "node:assert/strict";
 import { Console } from "node:console";

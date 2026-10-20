@@ -55,6 +55,30 @@ class HostedBoundaries(unittest.TestCase):
                          '.github/workflows/observability-umami.yml'} <= names)
         self.assertTrue(all(path.is_file() for path in hosted.source_inputs()))
 
+    def test_source_binding_and_pr_routing_cover_historical_and_current_foundation_inputs(self):
+        import fnmatch
+        import recovery
+        import recovery_test_source
+        paths = hosted.source_inputs()
+        names = {str(path.relative_to(hosted.ROOT)) for path in paths}
+        expected = set(recovery.FOUNDATION_INPUTS) | {
+            'infra/production/database/libpq-version.c', 'infra/production/database/versions.json',
+            'infra/observability/umami/recovery-cache.lock.json',
+            'scripts/observability-umami/recovery_test_source.py',
+        }
+        fixtures = recovery_test_source.FIXTURES
+        expected.update(str((fixtures/name).relative_to(hosted.ROOT)) for name in
+                        ('Dockerfile', 'init-production-databases.sh', 'restore-entrypoint.sh',
+                         'pgbackrest.conf', 'provenance.json'))
+        self.assertTrue(expected <= names, sorted(expected - names))
+        self.assertEqual(len(paths), len(names))
+        workflow = (hosted.ROOT/'.github/workflows/observability-umami.yml').read_text()
+        routes = [line.strip()[2:] for line in workflow.split('    paths:')[1].split('permissions:')[0].splitlines()
+                  if line.strip().startswith('- ')]
+        for name in expected:
+            with self.subTest(path=name):
+                self.assertTrue(any(fnmatch.fnmatchcase(name, route) for route in routes), name)
+
     def test_admission_and_curated_collection_bind_exact_eager_privacy_helper_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)

@@ -6,9 +6,13 @@ import unittest
 
 import recovery
 import recovery_runtime
+from recovery_test_source import historical_foundation_source
 
 
 class SourceAdmission(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(historical_foundation_source())
+
     def test_wrong_cached_image_never_acquires_a_container_or_volume(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'owned'
@@ -59,6 +63,9 @@ class SourceAdmission(unittest.TestCase):
 
 
 class ReaderTransition(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(historical_foundation_source())
+
     def test_running_offline_postmaster_refuses_second_server_and_both_sql_actors(self):
         calls = []
         project = recovery.PROJECT_PREFIX + 'a' * 12
@@ -170,7 +177,7 @@ class PublicMacPreparationBinding(unittest.TestCase):
         from unittest.mock import Mock, patch
         import subprocess
         pilot = recovery_runtime.pilot
-        with tempfile.TemporaryDirectory() as directory:
+        with historical_foundation_source(), tempfile.TemporaryDirectory() as directory:
             backing = Path(directory) / 'owned.raw'
             backing.touch()
             output = Path(directory) / 'owned-output'
