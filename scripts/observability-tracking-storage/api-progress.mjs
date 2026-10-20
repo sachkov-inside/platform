@@ -29,12 +29,12 @@ const milestones = [
  * @returns {(milestone:string)=>void}
  */
 export function createApiProgress(scope) {
-  const path = process.env.INSIDE_PRODUCER_PHASE_PATH;
-  const source = process.env.INSIDE_PRODUCER_PHASE_SOURCE;
+  const path = process.env["INSIDE_PRODUCER_PHASE_PATH"];
+  const source = process.env["INSIDE_PRODUCER_PHASE_SOURCE"];
   if (
     path === undefined ||
     source === undefined ||
-    process.env.INSIDE_PRODUCER_PHASE_SCOPE !== scope ||
+    process.env["INSIDE_PRODUCER_PHASE_SCOPE"] !== scope ||
     !/^[0-9a-f]{40}$/u.test(source)
   )
     return () => {};

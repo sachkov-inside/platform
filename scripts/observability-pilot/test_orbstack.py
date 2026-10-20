@@ -304,6 +304,24 @@ class OrbStackAdmissionTest(unittest.TestCase):
                 self.assertGreaterEqual(len(requests),2)
                 self.assertEqual(len(requests),len(set(requests)))
 
+    def test_public_mac_fixture_low_disk_refuses_before_preparation(self):
+        import subprocess
+        import sys
+        import pilot
+        fixture = Path(__file__).parent/'fixtures/mac-run.py'
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            foreign = state/'foreign-resource'
+            foreign.write_text('foreign')
+            result = subprocess.run([sys.executable, str(fixture), 'parent', directory, 'low_disk'],
+                                    capture_output=True, text=True, timeout=SUPERVISED_FIXTURE_BUDGET_SECONDS)
+            self.assertEqual(result.returncode, 1)
+            admission = json.loads(result.stdout)['disk_admission']
+            self.assertEqual(admission, pilot.check_disk(total=100*GIB, free=GIB))
+            self.assertFalse(admission['ready'])
+            self.assertFalse((state/'run').exists())
+            self.assertEqual(foreign.read_text(), 'foreign')
+
     def test_identity_rejects_non_object_daemon_metadata_before_bootstrap(self):
         import socket
         with tempfile.TemporaryDirectory() as directory:
