@@ -50,9 +50,9 @@
     "build:storybook": "bash scripts/heavy-check.sh pnpm --filter @inside/web build-storybook",
     "check": "bash scripts/heavy-check.sh bash -c 'pnpm check:static && pnpm check:unit && pnpm check:ui && pnpm check:web-e2e \"$@\"' --",
     "check:static": "pnpm docs:check && pnpm format:check && pnpm build:generated && pnpm api:check && pnpm lint && pnpm typecheck && pnpm guardrails",
-    "check:unit": "pnpm test:tooling && pnpm test:authoring && pnpm test:practice-review && pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module && pnpm check:contracts",
+    "check:unit": "pnpm check:unit:tooling && pnpm check:unit:modules && pnpm check:contracts",
     "check:ui": "bash scripts/heavy-check.sh bash -c 'pnpm --filter @inside/web test:browser-engines && pnpm test:storybook && pnpm build:storybook \"$@\"' --",
-    "check:web-e2e": "bash scripts/heavy-check.sh bash -c 'pnpm build && pnpm --filter @inside/web test:prerendered-handlers && pnpm --filter @inside/web test:standalone-config && pnpm test:e2e && pnpm test:navigation \"$@\"' --",
+    "check:web-e2e": "bash scripts/heavy-check.sh bash -c 'pnpm build && pnpm --filter @inside/web test:prerendered-handlers && pnpm --filter @inside/web test:standalone-config && pnpm test:e2e \"$@\" && pnpm test:navigation \"$@\"' --",
     "compose:up": "docker compose up -d --build --wait",
     "compose:smoke": "bash scripts/heavy-check.sh bash scripts/compose-stack-smoke.sh",
     "compose:production:smoke": "bash scripts/heavy-check.sh bash scripts/production-compose-smoke.sh",
@@ -97,7 +97,9 @@
     "telemetry:measure": "pnpm --filter @inside/backend telemetry:measure",
     "release:course:preflight": "node scripts/course-release-preflight.mjs",
     "release:restore:check": "bash scripts/heavy-check.sh python3 scripts/isolated-database-restore.py",
-    "release:restore:test": "bash scripts/heavy-check.sh python3 -m unittest discover -s scripts -p test_isolated_database_restore_docker.py"
+    "release:restore:test": "bash scripts/heavy-check.sh python3 -m unittest discover -s scripts -p test_isolated_database_restore_docker.py",
+    "check:unit:tooling": "pnpm test:tooling && pnpm test:authoring && pnpm test:practice-review",
+    "check:unit:modules": "pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module"
   },
   "dependencies": {
     "zod": "4.6.5"

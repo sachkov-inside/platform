@@ -61,7 +61,7 @@ describe("ordinal release workflow contract", () => {
     );
     assert.match(
       ciWorkflow,
-      /Build and inspect release images\n {8}if: \$\{\{ github\.event_name == 'pull_request' \}\}/u,
+      /Build and inspect release images\n {8}if: \$\{\{ matrix\.part == 'cold' && github\.event_name == 'pull_request' \}\}/u,
     );
   });
 
