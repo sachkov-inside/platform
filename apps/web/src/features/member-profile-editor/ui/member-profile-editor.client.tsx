@@ -68,11 +68,8 @@ export function MemberProfileEditor({
       <h2 className="text-lg font-semibold" id={`${id}-heading`}>
         Личные данные
       </h2>
-      <p className="mt-1 text-sm leading-6 text-muted-foreground">
-        Как к вам обращаться на платформе.
-      </p>
       <form
-        className="mt-5 max-w-xl"
+        className="mt-4 max-w-xl"
         onSubmit={(event) => {
           event.preventDefault();
           if (displayNameLengthIsValid(name)) save.mutate();

@@ -289,10 +289,10 @@ describe("local development offer catalog", () => {
       },
     ]);
     // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
-    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(4);
+    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(2);
     await expect(
       testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(3);
+    ).resolves.toBe(1);
   });
 
   test("leaves an offer the owner took off sale off the storefront", async () => {
@@ -341,7 +341,7 @@ describe("local development offer catalog", () => {
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
     await expect(
       testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(3);
+    ).resolves.toBe(1);
   });
 
   test("brings a changed price back to the seeded catalog on the next run", async () => {
@@ -370,7 +370,7 @@ describe("local development offer catalog", () => {
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
     await expect(
       testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(3);
+    ).resolves.toBe(1);
   });
 });
 

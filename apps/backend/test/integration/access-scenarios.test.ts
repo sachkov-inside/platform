@@ -294,6 +294,7 @@ describe("таблица сценариев доступа (реальный Pos
     bank = new BankFixture(config);
     const client = bank.client();
     payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -301,6 +302,7 @@ describe("таблица сценариев доступа (реальный Pos
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,

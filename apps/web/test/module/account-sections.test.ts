@@ -27,7 +27,7 @@ it("прячет «Подписку», пока её не продают и её
   ]);
 });
 
-it("показывает управление существующей подпиской, но не предлагает её покупку", () => {
+it("не показывает подписки даже при исторических данных или старом каталоге", () => {
   const offered = visibleAccountSections({
     subscriptionOffered: true,
     subscriptionOwned: false,
@@ -38,5 +38,5 @@ it("показывает управление существующей подп�
   });
 
   expect(offered.some((section) => section.id === "subscription")).toBe(false);
-  expect(owned.some((section) => section.id === "subscription")).toBe(true);
+  expect(owned.some((section) => section.id === "subscription")).toBe(false);
 });

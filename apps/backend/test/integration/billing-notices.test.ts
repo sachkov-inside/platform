@@ -217,6 +217,7 @@ describe("служебные сообщения подписки (реальны
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -229,6 +230,7 @@ describe("служебные сообщения подписки (реальны
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,

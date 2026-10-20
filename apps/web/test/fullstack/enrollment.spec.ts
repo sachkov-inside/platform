@@ -96,9 +96,9 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   ).toBeVisible();
   const cabinet = await context.newPage();
   await cabinet.goto("/account");
-  async function expectSubscription() {
+  async function expectProducts() {
     await expect(
-      cabinet.getByRole("heading", { name: "Подписка", exact: true }),
+      cabinet.getByRole("heading", { name: "Мои продукты", exact: true }),
     ).toBeVisible();
   }
   await expect(
@@ -156,21 +156,18 @@ test("owner assigns course tariff and the open cabinet converges through real BF
       has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
     }),
   ).toBeVisible();
-  await expectSubscription();
+  await expectProducts();
   await expect(cabinet).toHaveURL(/\/account$/u);
-  const card = cabinet.getByRole("article").filter({
-    has: cabinet.getByRole("heading", { name: tierName, exact: true }),
-  });
-  // Право без даты окончания не называет срок: кабинет его не показывает (Workspace #183).
-  await expect(card.getByText("Срок", { exact: true })).toHaveCount(0);
+  const card = cabinet.locator(
+    '[data-account-product="62000000-0000-4000-8000-000000000701"]',
+  );
   await expect(
-    card.getByText("Следующего списания нет", { exact: true }),
+    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
   ).toBeVisible();
-  const composition = card.locator("..");
-  await composition.getByText("Посмотреть состав", { exact: true }).click();
+  await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
   await expect(
-    composition.getByRole("link", { name: "Инженерная практика" }),
-  ).toHaveAttribute("href", "/products/engineering-practice");
+    card.getByRole("link", { name: "Открыть продукт" }),
+  ).toHaveAttribute("href", "/products/engineering-practice/programme");
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(cabinet, {
       path: info.outputPath("cabinet-enrollment.png"),
@@ -192,7 +189,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   });
   await expect(otherCard.getByText("Отозвано", { exact: true })).toBeVisible();
   await cabinet.goto("/account");
-  await expectSubscription();
+  await expectProducts();
   await expect(card.getByText("Отозвано", { exact: true })).toBeVisible();
   await changes
     .getByRole("combobox", { name: "Действие" })
@@ -201,7 +198,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическое восстановление");
   await changes.getByRole("button", { name: "Применить изменение" }).click();
-  await expect(card.getByText("Действует", { exact: true })).toBeVisible();
+  await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
   // Unrelated catalog edits preserve finite benefit periods through real tiers.list and save.
   const catalogRow = page
     .getByText(`${tierName} · назначается`, { exact: true })
@@ -265,7 +262,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     }),
   ).toBeVisible();
   await expect(
-    cabinet.getByRole("heading", { name: `${tierName} обновлён`, exact: true }),
+    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
   ).toBeVisible();
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(cabinet, {

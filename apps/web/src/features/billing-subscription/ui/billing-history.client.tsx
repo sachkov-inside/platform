@@ -11,6 +11,7 @@ import {
 
 export interface BillingHistoryProps {
   readonly notices: readonly NoticeView[];
+  readonly embedded?: boolean;
   readonly payments: readonly OwnPayment[];
 }
 
@@ -18,19 +19,32 @@ export interface BillingHistoryProps {
  * История денег: собственные списания и служебные поводы. Ссылка на конкретную операцию нужна
  * поддержке, поэтому она показана рядом с платежом.
  */
-export function BillingHistory({ notices, payments }: BillingHistoryProps) {
+export function BillingHistory({
+  notices,
+  payments,
+  embedded = false,
+}: BillingHistoryProps) {
   return (
     <section
       aria-labelledby="billing-history"
-      className="rounded-2xl border border-border bg-card p-6 shadow-card"
+      className={
+        embedded
+          ? undefined
+          : "rounded-2xl border border-border bg-card p-6 shadow-card"
+      }
     >
-      <h2 className="text-xl font-semibold" id="billing-history">
+      <h2
+        className={embedded ? "sr-only" : "text-xl font-semibold"}
+        id="billing-history"
+      >
         История
       </h2>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Последние 50 попыток списания и 20 служебных сообщений.
+      <p
+        className={embedded ? "sr-only" : "mt-2 text-sm text-muted-foreground"}
+      >
+        Последние 50 попыток оплаты и 20 служебных сообщений.
       </p>
-      <h3 className="mt-4 text-base font-semibold">Списания и чеки</h3>
+      <h3 className="mt-4 text-base font-semibold">Оплаты и чеки</h3>
       {payments.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">
           Списаний по этому Account ещё не было.

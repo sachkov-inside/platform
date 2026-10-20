@@ -279,6 +279,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     });
     const runtimeWith = (projector = grants) =>
       new BillingPayments({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank,
         contact,

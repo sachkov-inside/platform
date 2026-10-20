@@ -642,7 +642,7 @@ describe("Billing pricing HTTP", () => {
     expect(stale.json()).toMatchObject({ code: "revision_conflict" });
   });
 
-  test("Offer для прежних подписчиков Tribute требует и подтверждённый период, и приглашение", async () => {
+  test("текущий процесс не продаёт подписку даже по историческому приглашению Tribute", async () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
     async function member(subject: string) {
       const headers = {
@@ -690,23 +690,33 @@ describe("Billing pricing HTTP", () => {
         })
       ).statusCode,
     ).toBe(200);
-    expect(
-      (
-        await admin({
-          operation: "paymentOptions.save",
-          value: { id: optionId, offerId, months: 1, priceKopecks: 90_000 },
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(
-      (
-        await admin({
-          operation: "offers.publish",
-          expectedRevision: 1,
-          id: offerId,
-        })
-      ).statusCode,
-    ).toBe(200);
+    const refusedOption = await admin({
+      operation: "paymentOptions.save",
+      value: {
+        id: optionId,
+        offerId,
+        mode: "subscription",
+        months: 1,
+        priceKopecks: 90_000,
+      },
+    });
+    expect(refusedOption.statusCode).toBe(422);
+    expect(refusedOption.json()).toMatchObject({ code: "method_unavailable" });
+    // Fixture from before subscription commerce was withdrawn. No current command creates it.
+    await database.prisma.billingPaymentOption.create({
+      data: {
+        id: optionId,
+        offerId,
+        revision: 1,
+        mode: "subscription",
+        months: 1,
+        priceKopecks: 90_000,
+      },
+    });
+    await database.prisma.billingOffer.update({
+      where: { id: offerId },
+      data: { published: true },
+    });
     async function listed(headers?: Record<string, string>) {
       const response = await server.inject({
         method: "GET",
@@ -735,8 +745,8 @@ describe("Billing pricing HTTP", () => {
     const stranger = await member("tribute-stranger-001");
     expect(await listed(stranger.headers)).toBe(false);
     const refused = await quote(stranger.headers);
-    expect(refused.statusCode).toBe(403);
-    expect(refused.json()).toMatchObject({ code: "not_eligible" });
+    expect(refused.statusCode).toBe(503);
+    expect(refused.json()).toMatchObject({ code: "method_unavailable" });
 
     // Подтверждённый период Tribute — основание, в том числе после окончания периода.
     const subscriber = await member("tribute-subscriber-001");
@@ -745,19 +755,19 @@ describe("Billing pricing HTTP", () => {
       subscriber.accountId,
     );
     expect(await listed(subscriber.headers)).toBe(false);
-    expect((await quote(subscriber.headers)).statusCode).toBe(403);
+    expect((await quote(subscriber.headers)).statusCode).toBe(503);
     await seedPurchaseInvitation(
       database.prisma,
       subscriber.accountId,
       offerId,
     );
-    expect(await listed(subscriber.headers)).toBe(true);
-    expect((await quote(subscriber.headers)).statusCode).toBe(200);
+    expect(await listed(subscriber.headers)).toBe(false);
+    expect((await quote(subscriber.headers)).statusCode).toBe(503);
 
     // Отозванный источник основанием не является.
     await source.revoke();
     expect(await listed(subscriber.headers)).toBe(false);
-    expect((await quote(subscriber.headers)).statusCode).toBe(403);
+    expect((await quote(subscriber.headers)).statusCode).toBe(503);
   });
 
   test("владелец переключает поток продукта в каталоге, страница читает его без входа", async () => {

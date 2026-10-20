@@ -5,7 +5,7 @@ import { BillingPricing } from "../modules/billing/index.js";
 import { productCapability } from "@inside/access-capabilities";
 
 /**
- * Каталог предложений локального стенда: две подписки и разовая покупка засеянного руководства.
+ * Каталог предложений локального стенда: разовая покупка демонстрационного продукта.
  * Без него покупку нельзя пройти сразу после seed — предложение, вариант оплаты и включённую
  * продажу приходится заводить руками перед каждой проверкой.
  *
@@ -53,32 +53,6 @@ interface CatalogOffer {
 function localCatalog(productId: string): readonly CatalogOffer[] {
   return [
     {
-      offerId: "72000000-0000-4000-8000-000000000501",
-      name: "Материалы",
-      benefits: ["materials"],
-      coverage: { productIds: [productId], materialIds: [] },
-      benefitPeriods: [],
-      option: {
-        id: "72000000-0000-4000-8000-000000000511",
-        mode: "subscription",
-        months: 1,
-        priceKopecks: localStandPriceKopecks.materials,
-      },
-    },
-    {
-      offerId: "72000000-0000-4000-8000-000000000502",
-      name: "Материалы + сопровождение",
-      benefits: ["materials", "support"],
-      coverage: { productIds: [productId], materialIds: [] },
-      benefitPeriods: [],
-      option: {
-        id: "72000000-0000-4000-8000-000000000512",
-        mode: "subscription",
-        months: 1,
-        priceKopecks: localStandPriceKopecks.materialsWithSupport,
-      },
-    },
-    {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
       benefits: [productCapability(productId), "support"],
@@ -123,7 +97,7 @@ export async function seedLocalOfferCatalog(
   const pricing = new BillingPricing({
     prisma,
     // Стенд продаёт через двойника банка с обоими подтверждениями и перехватчиком писем.
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true, subscriptions: false },
     accounts: standOwnerPermission(target.actor),
   });
   // Стартовый тариф задаёт миграция 0068: все продукты платформы, сопровождение и общая группа.

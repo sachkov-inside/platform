@@ -241,6 +241,7 @@ describe("подписка: продление, отмена, смена вар�
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -254,6 +255,7 @@ describe("подписка: продление, отмена, смена вар�
     });
     function assembleSubscriptions() {
       return new BillingSubscriptions({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank: client,
         contact,
@@ -264,6 +266,22 @@ describe("подписка: продление, отмена, смена вар�
       });
     }
     const subscriptions = assembleSubscriptions();
+    const currentPayments = new BillingPayments({
+      prisma: db.prisma,
+      bank: client,
+      contact,
+      grants,
+      clock: () => now,
+    });
+    const currentSubscriptions = new BillingSubscriptions({
+      prisma: db.prisma,
+      bank: client,
+      contact,
+      grants,
+      payments: currentPayments,
+      notices,
+      clock: () => now,
+    });
 
     async function consentFor(
       contextRef: string,
@@ -378,6 +396,8 @@ describe("подписка: продление, отмена, смена вар�
       value(await subscriptions.read(buyer)).subscription;
     return {
       buyer,
+      currentPayments,
+      currentSubscriptions,
       offerId,
       optionId,
       bank,
@@ -494,6 +514,72 @@ describe("подписка: продление, отмена, смена вар�
       await client.close();
       await mcp.close();
     }
+  });
+
+  test("current Product commerce rejects a historical invited subscription quote without a bank call", async () => {
+    const s = await scenario();
+    const quote = value(
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: s.optionId,
+          optionRevision: 1,
+        }),
+      ),
+    );
+    expect(
+      await s.currentPayments.purchase(s.buyer, {
+        operationId: randomUUID(),
+        quoteRef: quote.quoteRef,
+        contactRevision: 1,
+        consentEvidenceRefs: await s.consentFor(quote.quoteRef, {
+          snapshot: quote.snapshot,
+        }),
+        acknowledgeExistingAccess: false,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    expect(s.bank.initCalls).toBe(0);
+    expect(
+      await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } }),
+    ).toBe(0);
+  });
+
+  test("current Product commerce retains historical rights and reconciliation without starting renewals or card binding", async () => {
+    const s = await scenario();
+    const purchaseRef = await s.buy();
+    const rights = await db.prisma.accessGrant.findMany({
+      where: { accountId: s.buyer },
+      orderBy: { id: "asc" },
+    });
+    expect(
+      await s.currentPayments.notification(
+        s.bank.notify(purchaseRef, "CONFIRMED"),
+      ),
+    ).toMatchObject({ ok: true });
+    const current = value(await s.currentSubscriptions.read(s.buyer));
+    expect(current.subscription?.periodIndex).toBe(1);
+    expect(
+      await s.currentSubscriptions.changeMethod(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: current.subscription?.revision,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(value(await s.currentPayments.renew())).toMatchObject({
+      status: "configuration_idle",
+      started: 0,
+      closed: 0,
+    });
+    expect(s.bank.initCalls).toBe(1);
+    expect(s.bank.chargeCalls).toBe(0);
+    expect(s.bank.addCardCalls).toBe(0);
+    expect(
+      await db.prisma.accessGrant.findMany({
+        where: { accountId: s.buyer },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(rights);
   });
 
   test("покупка отличает отказ чтения согласия от его отсутствия", async () => {
@@ -783,6 +869,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -835,6 +922,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -842,6 +930,7 @@ describe("подписка: продление, отмена, смена вар�
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -936,6 +1025,7 @@ describe("подписка: продление, отмена, смена вар�
       const payments = withBank
         ? s.payments
         : new BillingPayments({
+            sale: { payments: true, subscriptions: true },
             prisma: db.prisma,
             bank: undefined,
             contact,
@@ -957,6 +1047,7 @@ describe("подписка: продление, отмена, смена вар�
     await s.buy();
     const bank = new BankFixture({ ...config, recurringCardConfirmed: false });
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: bank.client(),
       contact,
@@ -1134,6 +1225,7 @@ describe("подписка: продление, отмена, смена вар�
     const active = await s.view();
     await withExhaustedPool(db, async (pool) => {
       const subscriptions = new BillingSubscriptions({
+        sale: { payments: true, subscriptions: true },
         prisma: pool,
         bank: s.bank.client(),
         contact,
@@ -1633,6 +1725,7 @@ describe("подписка: продление, отмена, смена вар�
         recurringCardConfirmed: false,
       });
       const payments = new BillingPayments({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank: unreadyBank,
         contact,

@@ -182,6 +182,7 @@ test("подтверждённая оплата доходит до обоих �
 
   const bank = new BankFixture(config);
   const payments = new BillingPayments({
+    sale: { payments: true, subscriptions: true },
     prisma: database.prisma,
     bank: bank.client(),
     contact,

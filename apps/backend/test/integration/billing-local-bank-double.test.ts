@@ -212,6 +212,7 @@ describe("локальная продажа через двойника банк
       );
     const bank = new Tbank(config, request);
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank,
       contact,
@@ -225,6 +226,7 @@ describe("локальная продажа через двойника банк
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank,
       contact,

@@ -54,13 +54,9 @@ export const accountSections: readonly AccountSection[] =
 /**
  * Раздел подписки доступен для управления уже купленной подпиской.
  */
-export function visibleAccountSections({
-  subscriptionOwned,
-}: {
+export function visibleAccountSections(_input: {
   readonly subscriptionOffered: boolean;
   readonly subscriptionOwned: boolean;
 }): readonly AccountSection[] {
-  return accountSections.filter(
-    (section) => section.id !== "subscription" || subscriptionOwned,
-  );
+  return accountSections.filter((section) => section.id !== "subscription");
 }
