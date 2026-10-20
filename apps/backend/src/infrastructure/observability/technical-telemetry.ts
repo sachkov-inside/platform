@@ -55,6 +55,7 @@ class TechnicalScope {
         | PostgresOperation
         | TbankOperation
         | "jwks"
+        | CommunityOperation
         | "communications.execute",
       failed: boolean,
       seconds: number,
@@ -76,6 +77,62 @@ class TechnicalScope {
       seconds: number,
     ) => void,
   ) {}
+}
+
+type CommunityOperation = "community.set" | "community.status";
+
+/** One admitted community POST, including its existing JSON and correlation checks. */
+export async function observeCommunityExchange<Value>(
+  operation: CommunityOperation,
+  work: (observation: {
+    response(status: number): void;
+    fail(): void;
+  }) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope))
+    return work({ response: () => undefined, fail: () => undefined });
+  const span = scope.dependencyTracer.startSpan(
+    `telegram ${operation}`,
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "telegram",
+        "dependency.operation": operation,
+        "http.request.method": "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), () =>
+      work({
+        response: (status) => {
+          if (Number.isInteger(status) && status >= 100 && status <= 599)
+            span.setAttribute("http.response.status_code", status);
+        },
+        fail: () => {
+          failed = true;
+        },
+      }),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "telegram",
+      operation,
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
 }
 
 /** Native JWKS fetch through response headers; JOSE owns later body/validation work. */
@@ -784,6 +841,7 @@ export function createTechnicalTelemetry(
         | PostgresOperation
         | TbankOperation
         | "jwks"
+        | CommunityOperation
         | "communications.execute",
       failed: boolean,
       seconds: number,
