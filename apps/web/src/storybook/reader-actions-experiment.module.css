@@ -1,0 +1,124 @@
+.experiment {
+  min-width: 0;
+}
+.controls {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: 0.75rem;
+}
+.choices label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+.controls p {
+  margin-top: 0.5rem;
+}
+.feedback {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--body-muted);
+}
+.slot {
+  container-type: inline-size;
+  margin-bottom: 1.5rem;
+}
+.panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+}
+.left {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 0;
+}
+.panel .action {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 44px;
+  padding-inline: 0.625rem;
+  font-size: 0.875rem;
+  border-radius: var(--radius-lg);
+  gap: 0.375rem;
+}
+.action[aria-pressed="true"] {
+  background: var(--secondary);
+  color: var(--action);
+}
+.panel .next {
+  color: var(--accent-foreground);
+  background: var(--action);
+}
+.panel .next:hover {
+  background: var(--action-hover);
+}
+.action:focus-visible,
+.choices button:focus-visible,
+.choices input:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 2px;
+}
+.panel[data-variant="compact"] .secondaryLabel {
+  display: none;
+}
+.heading [aria-label^="Поделиться материалом"] {
+  display: none;
+}
+@container (max-width: 620px) {
+  .secondaryLabel {
+    display: none;
+  }
+}
+@container (max-width: 390px) {
+  .studyLabel {
+    display: none;
+  }
+  .panel .action {
+    padding-inline: 0.5rem;
+  }
+  .panel {
+    gap: 0.25rem;
+  }
+}
+@container (max-width: 290px) {
+  .navigationLabel {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .experiment *,
+  .experiment *::before,
+  .experiment *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.choices button[aria-pressed="true"] {
+  background: var(--secondary);
+  border-color: var(--action);
+}
+@media (max-width: 1023px) {
+  .secondaryLabel {
+    display: none;
+  }
+}
