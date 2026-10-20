@@ -623,21 +623,25 @@ async function prove(
       await database.prisma.telegramLinkTransaction.findUniqueOrThrow({
         where: { principalRef },
       });
-    await database.prisma.telegramAccountLinkState.create({
-      data: {
-        accountId,
-        linkRef: receipt.linkRef,
-        revision: 1,
-        principalRef,
-        identityRef: telegramIdentityRef,
-        updatedAt: new Date(fixedTestInstant()),
-      },
-    });
+    // Migration0039 owns the current projection and its independently generated linkRef.
+    const current =
+      await database.prisma.telegramAccountLinkState.findUniqueOrThrow({
+        where: { accountId },
+      });
+    assert.equal(current.accountId, accountId);
+    assert.equal(current.accountId, receipt.accountId);
+    assert.equal(current.principalRef, receipt.principalRef);
+    assert.equal(current.principalRef, principalRef);
+    assert.equal(current.identityRef, receipt.providerIdentityRef);
+    assert.equal(current.identityRef, telegramIdentityRef);
+    assert.equal(current.revision, 1);
+    z.uuid().parse(current.linkRef);
     expectedContact = { accountRef: principalRef, telegramIdentityRef };
     privateValues.push(
       principalRef,
       telegramIdentityRef,
       receipt.linkRef,
+      current.linkRef,
       receipt.tokenDigest,
       receipt.returnCorrelation,
     );

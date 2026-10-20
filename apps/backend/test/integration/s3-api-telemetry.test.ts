@@ -327,7 +327,9 @@ test("public file delivery through production API parents one complete private-s
       filename,
       checksum,
       ...Object.values(buckets),
-      ...Object.values(credentials),
+      // The SDK adds enumerable credential attribution metadata after resolution.
+      credentials.accessKeyId,
+      credentials.secretAccessKey,
       storageEndpoint,
       actor,
       materialId,

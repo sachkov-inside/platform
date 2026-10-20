@@ -15,8 +15,12 @@ import sdk_storage
 
 @contextlib.contextmanager
 def receiver():
-    counts = {'traces': 0, 'metrics': 0}
+    counts = {'traces': 0, 'metrics': 0, 'persistent_requests': 0}
     class Handler(http.server.BaseHTTPRequestHandler):
+        # Keep the server side open until the reaped CLI closes its HTTP agents.
+        # HTTP/1.0 would leave server-port TIME_WAIT and poison pilot admission.
+        protocol_version = 'HTTP/1.1'
+
         def log_message(self, *_):
             pass
 
@@ -53,6 +57,8 @@ def receiver():
                     self.send_error(400)
                     return
             counts[self.path.rsplit('/', 1)[-1]] += 1
+            if self.request_version == 'HTTP/1.1' and self.headers.get('connection', '').lower() != 'close':
+                counts['persistent_requests'] += 1
             self.send_response(200)
             self.send_header('content-type', 'application/json')
             self.send_header('content-length', '2')
@@ -80,7 +86,6 @@ def receiver():
         if server.fileno() != -1:
             raise RuntimeError('owned OTLP receiver socket remained')
         with socket.socket() as probe:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             probe.bind(('127.0.0.1', 14318))
 
 
@@ -93,6 +98,7 @@ class ProductionEmitterContract(unittest.TestCase):
             self.assertEqual(observed['body_read'], 'passed')
             self.assertEqual(counts['traces'], 1)
             self.assertGreaterEqual(counts['metrics'], 1)
+            self.assertEqual(counts['persistent_requests'], counts['traces']+counts['metrics'])
             modules = observed['runtime_modules']
             self.assertIs(type(modules), dict)
             for name in ('technical-telemetry-runtime', 'technical-telemetry'):

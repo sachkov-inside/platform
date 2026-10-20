@@ -6,7 +6,8 @@ from source_status import decode_json, InvalidResponse
 
 MAX_BYTES = 512
 FAILURE = 'S3 API privacy diagnostic unavailable'
-REASONS = {'capture_shape', 'corpus_shape', 'document_count', 'document_bytes',
+REASONS = {'capture_shape', 'corpus_shape', 'corpus_type', 'corpus_empty_string',
+           'corpus_string_limit', 'corpus_entry_count', 'document_count', 'document_bytes',
            'total_bytes', 'node_budget', 'depth_budget', 'malformed_json',
            'private_match', 'signing_match'}
 PHASES = {'input', 'raw', 'token', 'decoded'}

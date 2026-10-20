@@ -1178,9 +1178,24 @@ Pinned [rollups](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd
 map `timestamp_with_name` to the last input timestamp and preserve the metric name. Applying
 it directly to each raw selector avoids the implicit subquery.
 
+FRESH-STAMP-02 сохраняет эту обработку исходных timestamps и согласует состав двух
+векторов при stale marker. Уже вычисленные raw timestamps пересекаются с текущими
+значениями через `and on(__name__,job,instance,receiver,exporter,data_type,format,path,type,reason)`
+и `keep_metric_names`. В pinned VM обычный `and` сбрасывает имя при сопоставлении,
+поэтому одного `on(__name__,...)` недостаточно. Итоговый `label_replace` выполняется
+после пересечения. Закрытый decoder и точная проверка одинакового состава векторов не меняются.
+Проверка через локальный HTTP-макет воспроизводит stale-marker расхождение до исправления,
+но не заменяет отдельный native прогон семи переходов.
+
+Основание для pinned VM `29c43cd2fee05409499a4d1b38e950e1b7f13bd4`:
+[instant Exec и удаление пустых NaN series](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/exec.go#L65-L74),
+[set intersection и сопоставление имён](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/binary_op.go#L725-L748).
+
+
 Owned HTTP tests exercise the actual private reader, credentials and full validators with
 a model of those pinned rules. The old plan reproduces malformed down-state acquisition
-and falsely reports an actual 105.2s sample as fresh with age 5.2s. The direct-selector plan
+and falsely reports an actual 105.2s sample as fresh with age 5.2s. The ungated raw-timestamp
+plan still fails the stale-marker identity join. The current gated direct-selector plan
 reports `fresh_down` and the correct `stale` age. Private, unknown and mismatched rows still
 fail closed. These models do not execute native VM. The failed CI did not archive its raw
 query responses, so the unique runtime cause remains unknown. All seven native outage phases
@@ -1376,3 +1391,31 @@ this storage composition has executed. Even a successful hosted result covers on
 retry, failed/rootless delivery, process-crash recovery, OFF/503, resource/cost acceptance, production
 and seven actual days remain separate requirements. The fixed storage visibility budget is 60 seconds;
 the existing native query/supervisor caps are retained.
+
+### Isolated hosted short resource proof (#1566)
+
+`observability-resource.yml` runs separately from the main application gate on disposable
+Ubuntu 24.04. It admits a clean provider checkout with PR head/base, execution SHA/tree,
+run ID and attempt, and hashes the conservative tracked backend/build/helper closure.
+`hosted.py prepare` builds only `backend-production` from `apps/backend/Dockerfile` with
+`INSIDE_RELEASE_VERSION=v1` and the actual checkout SHA, plus the unchanged foundation
+Dockerfile using `infra/production/database` as its context. Unique run/attempt tags resolve
+to two distinct immutable image IDs in a private five-field manifest. Seven digest-pinned
+services are pulled before the runtime, whose Compose services retain `pull_policy: never`.
+Builds and pulls have finite individual deadlines. No backup or restore is run.
+
+The shared heavy-check guard surrounds preparation and the existing resource runner.
+Its external worker budget remains 600 seconds. Recovery runs on every outcome for only the
+registered random project. Collection retains actual admission metadata and the fixed
+resource artifact whitelist. Compose/env, JWTs, query keys, TLS private material and raw
+Engine bodies are never uploaded. Missing project acquisition makes collection fail and
+records `no_registered_project`, without manufacturing a measurement. Missing or changed
+source metadata is refused. Failed recovery and worker outcomes remain separate artifacts.
+
+A green workflow is not resource acceptance. Inspect `resource-proof.json.state`, mode
+validity, counter availability, lifecycle, worker outcome, cleanup and recovery together.
+`partial` stays partial; even `completed_short_profile` retains `acceptance: pending`.
+The proposed short synthetic SDK-only workload cannot size the Timeweb server or establish
+representative production load, full retention, whole-host reserve or seven actual days.
+The workflow adds no mandatory release gate. Native image builds and runtime compatibility
+must be observed in a source-bound hosted attempt before claiming they work.
