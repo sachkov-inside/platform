@@ -33,7 +33,7 @@ def source_inputs():
     # Deliberately conservative: whole production source and every workspace manifest,
     # build/toolchain/config/patch input, not the synthetic Core23 manifest.
     selected = [name for name in paths if (
-        name.startswith(('apps/backend/src/', 'apps/backend/prisma/', 'packages/', 'patches/', 'scripts/observability-pilot/',
+        name.startswith(('apps/backend/src/', 'apps/backend/prisma/', 'packages/', 'docs/contracts/', 'patches/', 'scripts/observability-pilot/',
                          'scripts/observability-sdk-storage/', 'infra/observability/pilot/', '.github/actions/setup-platform/'))
         or name.endswith('/package.json') or name.startswith('tsconfig')
         or name in ('package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', '.node-version',
@@ -108,7 +108,7 @@ def witness(value):
             raise ValueError('invalid module witness')
         name, digest = row['path'], row['sha256']
         if (type(name) is not str or len(name) > 512 or name.startswith('/') or '..' in name.split('/')
-                or not name.startswith(('apps/backend/dist/', 'node_modules/', 'packages/'))
+                or not name.startswith(('apps/backend/dist/', 'node_modules/', 'packages/', 'docs/contracts/dist/'))
                 or any(marker in name for marker in oracle.PRIVATE)
                 or type(digest) is not str or re.fullmatch(r'[0-9a-f]{64}', digest) is None):
             raise ValueError('invalid module witness')

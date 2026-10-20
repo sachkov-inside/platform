@@ -95,6 +95,23 @@ class PrivateWireWitness(unittest.TestCase):
         self.assertEqual(json.dumps(value), original)
         self.assertIs(type(value['runtime_modules']), list)
 
+    def test_compiled_contract_package_is_bound_without_admitting_other_documents(self):
+        path = 'docs/contracts/dist/runtime/diagnostic-error.js'
+        value = self.wire()
+        value['runtime_modules'].append({'path': path, 'sha256': 'b'*64})
+        self.assertEqual(self.parse(value)['runtime_modules'][path], 'b'*64)
+        selected = {str(item.relative_to(sdk_storage.pilot.ROOT)) for item in sdk_storage.source_inputs()}
+        self.assertTrue({'docs/contracts/runtime/diagnostic-error.ts',
+                         'docs/contracts/tsconfig.build.json', 'docs/contracts/package.json'} <= selected)
+        for rejected in ('docs/legal/privacy-v5.md', 'docs/contracts/runtime/diagnostic-error.ts',
+                         'docs/contracts/dist-other/module.js', 'docs/contracts/dist/../private.js',
+                         'docs/contracts/dist/sdk-storage-private.js'):
+            with self.subTest(path=rejected):
+                invalid = self.wire()
+                invalid['runtime_modules'].append({'path': rejected, 'sha256': 'b'*64})
+                with self.assertRaises(ValueError):
+                    self.parse(invalid)
+
     def test_module_count_and_path_size_boundaries(self):
         self.assertEqual(len(self.parse(self.wire(1000))['runtime_modules']), 1000)
         self.assertEqual(len(self.parse(self.wire(5, 512))['runtime_modules']), 5)

@@ -1340,3 +1340,9 @@ JSON decoder, credential reader, metric/trace oracles, privacy и supervisor н�
 Реальный обмен между CLI и Python сначала проверяется через собственный OTLP receiver, который
 принимает chunked transfer с ограничением размера. Успех отдельного Node function test не доказывает этот
 обмен. Успешный локальный receiver также не доказывает приём pinned Alloy или запись VM/VT.
+
+Проверка SDK также допускает compiled modules из `docs/contracts/dist/`. Этот runtime
+package использует production-код очистки диагностических сообщений. Его отслеживаемые
+исходники `docs/contracts/`, package manifest и настройки компилятора входят в полный
+набор входных файлов SDK. Остальные пути `docs/` не допускаются в module witness.
+Пределы private protocol и схема public artifact не меняются.
