@@ -299,6 +299,37 @@ class Preparation(unittest.TestCase):
                 with self.assertRaises((OSError,ValueError)):self.exercise(root,**options)
                 self.assertFalse((root/'images.json').exists())
 
+    def test_successful_write_cleanup_refusal_still_blocks_manifest(self):
+        original=Path.is_file;error=OSError('owned cleanup refusal')
+        def inspect(path):
+            if path.name=='.resource-disk-samples.new':raise error
+            return original(path)
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with patch.object(Path,'is_file',autospec=True,side_effect=inspect):
+                with self.assertRaises(OSError) as caught:self.exercise(root)
+            self.assertIs(caught.exception,error)
+            self.assertFalse((root/'images.json').exists())
+            # The canonical diagnostic may exist; it cannot authorize a usable image manifest.
+            self.assertTrue((root/hosted.disk_feedback.NAME).is_file())
+
+    def test_stopping_first_pull_and_unsealed_prefix_are_recorded_without_safety_promotion(self):
+        import disk_feedback as numeric
+        from disk_samples import DiskSamples
+        for sealed in (False,True):
+            with self.subTest(sealed=sealed):
+                view=DiskSamples();view._baseline(20*1024**3)
+                view._safe(view._point(19*1024**3));view._stopping(view._point(16*1024**3))
+                record=numeric.Record('a'*40);record.attempt();record.entered(view);record.first_pull()
+                if sealed:view._seal()
+                record.seal();value=record.value
+                self.assertEqual(value['last_observed_before_first_pull'],{'state':'stopping','sample':{'id':2,'free_bytes':16*1024**3}})
+                self.assertEqual(value['latest_safe']['id'],1)
+                self.assertEqual(value['cutoff'],'after_bounded_join' if sealed else 'unsealed_exit')
+                if not sealed:
+                    self.assertEqual(value['state'],'unavailable')
+                    with self.assertRaises(ValueError):record.require()
+
     def test_known_type_only_and_first_numeric_refusal_remains_terminal(self):
         import disk_feedback as numeric
         from disk_samples import DiskSamples
