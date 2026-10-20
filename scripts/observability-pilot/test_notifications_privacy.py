@@ -77,7 +77,9 @@ class NotificationCatalog(unittest.TestCase):
         point = actual.split('context = "datapoint"',1)[1].split('log_statements',1)[0]
         statements = re.findall(r'`([^`]+)`',point)
         keep = [line for line in statements if line.startswith('keep_keys')]
-        self.assertEqual(len(keep),3)
+        self.assertEqual(len(keep),4)
+        self.assertTrue(keep[2].startswith('keep_keys(attributes, []) where (IsMatch(metric.name,'))
+        self.assertIn('postgresql',keep[2])
         self.assertIn('not (IsMatch(metric.name,',keep[0])
         self.assertNotIn('"operation"',keep[0])
         self.assertIn('keep_keys(attributes, ["operation", "outcome"]) where (IsMatch(metric.name,',keep[1])

@@ -133,6 +133,7 @@ expectFailure(
     "capability implementation cannot import Nest adapters",
     "material document blocks belong to the shared block registry",
     "raw persistence imports",
+    "src/infrastructure/prisma/unowned-pool.ts: raw persistence imports require an approved postgres owner path",
     "Kysely is forbidden",
     "src/infrastructure/operational-readiness.ts",
     "src/infrastructure/pg-boss-queue-diagnostics.ts: application schema references must stay inside the owning Module (accounts.accounts)",

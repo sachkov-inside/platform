@@ -461,7 +461,7 @@ def fixture_trace_rows(compose, fixture):
         boundary = 'fixture'
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
-                   **{'dependency-'+key:(value,10) for key,value in dependency_privacy.TRACE_IDS.items()}}
+                   **{'dependency-'+key:(value,16) for key,value in dependency_privacy.TRACE_IDS.items()}}
         trace_id, limit = queries[fixture]
         boundary = 'identity_before'
         assert_docker_identity(deadline=deadline)

@@ -20,8 +20,9 @@ and cross-capability schema access are forbidden.
 One application-scoped Prisma lifecycle owns `@prisma/adapter-pg` and its bounded connection pool.
 Capability-scoped client types expose only the delegates and transaction surface owned by that
 module. Nest DI binds this lifecycle at composition seams; use cases remain plain functions. The
-`pg` package is limited to the migration runner and isolated database administration in tests—it
-is not a second application data-access path.
+`pg` package is not a second application data-access path. The Prisma adapter owns its transport
+pool and observes acquisition and driver execution through public methods; it issues no capability
+SQL. Other narrow lifecycle and test owners are enumerated in the backend coding standards.
 
 Feature-specific persistence stays beside the use case. A persistence function is extracted only
 after real reuse or when it hides one cohesive, non-trivial query such as revision hydration. This

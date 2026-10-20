@@ -627,15 +627,53 @@ Span содержит только фиксированные `dependency.name=k
 provider request ID, названия/идентификаторы видео и произвольные ошибки туда не попадают.
 К провайдеру не добавляются trace headers. OFF подавляет сбор и внутри другого включённого SDK.
 
-`privacy-policy.json` и сгенерированный Alloy допускают этот фиксированный каталог.
-Для внешних отправителей каждый из трёх metric dimensions имеет отдельный `_OTHER`:
-максимум 24 сочетания на инструмент и resource identity. Это граница каталога, не измеренное
-число хранимых рядов. Corpus ожидает 70 рядов для двух фиксированных releases
-и семи сочетаний, включая общий fallback, по пяти экспортируемым histogram/counter series;
-это ожидаемое число конкретного corpus, которое должен подтвердить runtime gate. `scripts/observability-pilot/dependency_privacy.py` содержит фиксированный
-OTLP JSON/protobuf corpus с шестью известными сочетаниями и неизвестными, отсутствующими и неверно
-типизированными полями. Runtime controller проверяет его отдельным gate: logging-none до ingest, только два
-фиксированных trace IDs, максимум десять полных строк на запрос и закрытый итоговый
-`dependency-collector.json` без raw данных. Исполнение этого gate в pinned collector,
-настоящий API/deletion worker с PostgreSQL, причинная цепочка и ресурсная приёмка остаются
-отдельными незавершёнными проверками #1566. Loopback SDK/HTTP/OTLP проверки их не заменяют.
+`privacy-policy.json` и сгенерированный Alloy допускают фиксированный каталог Kinescope
+и PostgreSQL. Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
+`_OTHER`: максимум 63 сочетания на инструмент и resource identity. Это граница каталога,
+не измеренное число хранимых рядов. Общий corpus ожидает 130 dependency series для двух
+фиксированных releases и 13 сочетаний (12 известных и общий fallback), по пяти
+histogram/counter series. Ещё десять series проверяют пять pool gauges для двух releases.
+Итого ожидаются 140 series. Это ожидаемые числа конкретного corpus, которые должен
+подтвердить runtime gate точной версии исходников.
+
+`scripts/observability-pilot/dependency_privacy.py` содержит фиксированный OTLP JSON/protobuf
+corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL и три adversarial spans с
+неизвестными, отсутствующими и неверно типизированными полями. Controller проверяет
+logging-none до ingest, только два фиксированных trace IDs, максимум 16 полных строк на
+запрос для 15 ожидаемых spans и закрытый `dependency-collector.json` без raw данных.
+Pool metric dimensions удаляются полностью. Runtime нового corpus в pinned collector,
+настоящие API/worker с PostgreSQL, причинная цепочка и ресурсная приёмка фиксируются отдельно
+для точного source commit. Loopback SDK/HTTP/OTLP проверки их не заменяют.
+
+### Наблюдение Prisma PostgreSQL
+
+Кандидат SQL-наблюдения использует отдельный pool на каждый `PrismaPg.connect()`.
+Фабрика передаёт pool в vendor adapter после локального наблюдения его публичного `connect`.
+Только клиенты этого pool получают наблюдение публичного `query`, без замены объекта клиента
+или `release`. Vendor adapter владеет завершением через `disposeExternalPool: true`.
+Новый `connect()` создаёт новый наблюдаемый pool. Лимиты остаются 10 соединений и 5 секунд
+на получение соединения. Телеметрия не читает SQL, параметры, имена таблиц, DSN или ошибки.
+
+Фиксированные операции `postgresql acquire` и `postgresql query` считают получение соединения
+и фактическое выполнение driver query отдельно. Длительность `query` включает работу клиента
+и сети, это не чистое время PostgreSQL. Управление транзакцией и savepoints также проходят
+через driver query. Фиксированная операция `postgresql material-slug-lock` измеряет вызов
+известного lock helper; она не является дополнительным SQL statement или мониторингом всех
+блокировок PostgreSQL. Остальные ключи advisory lock не попадают в телеметрию.
+
+Пять gauges `inside.postgresql.pool.*` не имеют labels. `available=1` означает, что при сборе
+есть наблюдаемый живой Prisma pool и registry не переполнен. Только при этом значении можно
+интерпретировать сумму `total`, `idle` и `waiting`. При `available=0` их нули являются
+placeholders, а не здоровым пустым pool. Dashboard, MCP и проверка приёмки обязаны учитывать
+`available`. Получение старого metric sample не доказывает свежесть источника.
+
+Локальный бюджет SDK удерживает до 16 pool references, независимо от connection limits.
+Закрытые pool удаляются при следующей регистрации; последовательные reconnect не расходуют
+этот бюджет навсегда. При переполнении `registry_overflow=1`, `available=0` до перезапуска SDK.
+Так неполный набор pool не выдаётся за полный. Эта граница не меняет business lifecycle.
+
+Прямые `pg` owners, pg-boss, Telegram, bootstrap/migration SQL, shadow database и Submittable
+query streams вне этого покрытия. Наблюдение начинается внутри собственного включённого SDK
+scope; default OFF сохраняется. Source-тесты и внешний JSON/protobuf corpus не доказывают
+реальные PostgreSQL, retained collector, resource overhead или всю причинную цепочку #1566.
+Такие результаты фиксируются отдельно для точного source commit после runtime-проверки.
