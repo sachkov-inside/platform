@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import pilot
+import core_timing
 import orbstack
 
 from pilot import CONFIG, ROOT, check_disk, cleanup_project, write_json
@@ -28,6 +29,11 @@ METADATA_ARTIFACTS = ("source.json", "admission.json")
 
 def collect(output, metadata, destination, *, artifacts=None):
     """Copy only regular bounded JSON evidence, never a private report directory."""
+    timing=None
+    if artifacts is None:
+        if output.is_symlink() or metadata.is_symlink():raise ValueError('unsafe core timing source')
+        timing_source=core_timing.source_from_metadata(metadata/'source.json')
+        timing=core_timing.read(output/core_timing.NAME,timing_source)
     destination.mkdir(mode=0o700, parents=True, exist_ok=False)
     for source_root, names in ((metadata, METADATA_ARTIFACTS), (output, PILOT_ARTIFACTS if artifacts is None else artifacts)):
         if source_root.is_symlink():
@@ -47,6 +53,8 @@ def collect(output, metadata, destination, *, artifacts=None):
             else:
                 json.loads(content)
             (destination / name).write_text(content)
+
+    if timing is not None:core_timing.write(destination/core_timing.NAME,timing,timing_source)
 
 
 def recover(output, *, project_prefix="inside-observability-pilot-", services=None):
@@ -106,7 +114,7 @@ def admission(metadata, *, inputs=None, scope=None):
         raise ValueError("checkout SHA does not match provider execution SHA")
     inputs = inputs or (CONFIG / "inputs.lock.json", CONFIG / "config.alloy", CONFIG / "privacy-policy.json", CONFIG / "Caddyfile",
               CONFIG / "vmauth.routes.json", CONFIG / 'probe.lock.json', Path(__file__),
-              Path(__file__).with_name("source_status.py"), Path(__file__).with_name("source_status_query.py"), Path(__file__).with_name("source_status_scenario.py"), Path(__file__).with_name("pilot.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("email_privacy.py"), Path(__file__).with_name("telegram_http_storage.py"), Path(__file__).with_name("telegram_runtime_privacy.py"), Path(__file__).with_name("telegram_runtime_oracle.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
+              Path(__file__).with_name("core_timing.py"), Path(__file__).with_name("source_status.py"), Path(__file__).with_name("source_status_query.py"), Path(__file__).with_name("source_status_scenario.py"), Path(__file__).with_name("pilot.py"), Path(__file__).with_name("native_cpu.py"), Path(__file__).with_name("privacy_config.py"), Path(__file__).with_name("collector_privacy.py"), Path(__file__).with_name("link_privacy.py"), Path(__file__).with_name("notification_privacy.py"), Path(__file__).with_name("dependency_privacy.py"), Path(__file__).with_name("email_privacy.py"), Path(__file__).with_name("telegram_http_storage.py"), Path(__file__).with_name("telegram_runtime_privacy.py"), Path(__file__).with_name("telegram_runtime_oracle.py"), Path(__file__).with_name("daemon.py"), Path(__file__).with_name('orbstack.py'), Path(__file__).with_name('storage_policy.py'),
               ROOT / ".github/workflows/observability-pilot.yml", ROOT / "apps/backend/openapi/platform-api.json")
     write_json(metadata / "source.json", {
         "checkout_sha": sha,

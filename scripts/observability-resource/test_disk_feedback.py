@@ -77,7 +77,7 @@ class SameReadGuard(unittest.TestCase):
     def test_numeric_artifact_exists_as_closed_same_source_schema(self):
         import disk_feedback as numeric
         view,_=self.run_guard(20*1024**3,[19*1024**3])
-        record=numeric.Record('a'*40);record.entered(view);record.first_pull();record.seal()
+        record=numeric.Record('a'*40);record.entered(view);record.after_backend_build();record.first_pull();record.seal()
         value=record.value
         self.assertEqual(value['last_observed_before_first_pull']['state'],'safe')
         with tempfile.TemporaryDirectory() as directory:
@@ -217,7 +217,7 @@ class Artifact(unittest.TestCase):
         import disk_feedback as numeric
         from disk_samples import DiskSamples
         view=DiskSamples();view._baseline(20*1024**3);view._safe(view._point(19*1024**3))
-        record=numeric.Record('a'*40);record.entered(view);record.first_pull()
+        record=numeric.Record('a'*40);record.entered(view);record.after_backend_build();record.first_pull()
         view._safe(view._point(18*1024**3));view._seal();record.seal();return record.value
 
     def test_source_integer_schema_and_checkpoint_relationships_refuse_before_copy(self):
@@ -405,7 +405,7 @@ class Preparation(unittest.TestCase):
             with self.subTest(sealed=sealed):
                 view=DiskSamples();view._baseline(20*1024**3)
                 view._safe(view._point(19*1024**3));view._stopping(view._point(16*1024**3))
-                record=numeric.Record('a'*40);record.attempt();record.entered(view);record.first_pull()
+                record=numeric.Record('a'*40);record.attempt();record.entered(view);record.after_backend_build();record.first_pull()
                 if sealed:view._seal()
                 record.seal();value=record.value
                 self.assertEqual(value['last_observed_before_first_pull'],{'state':'stopping','sample':{'id':2,'free_bytes':16*1024**3}})
@@ -421,10 +421,10 @@ class Preparation(unittest.TestCase):
         class Foreign:
             @property
             def current(self):raise AssertionError('foreign getter inspected')
-        record=numeric.Record('a'*40);record.entered(Foreign());record.first_pull();record.seal()
+        record=numeric.Record('a'*40);record.entered(Foreign());record.after_backend_build();record.first_pull();record.seal()
         self.assertEqual(record.value['state'],'refused')
         with self.assertRaises(ValueError):record.require()
         view=DiskSamples();view._baseline(100);view._point(True);view._baseline_failure();view._safe((1,90));view._seal()
         self.assertEqual(view.final[:2],('refused','numeric_refused'))
-        record=numeric.Record('a'*40);record.entered(view);record.first_pull();record.seal()
+        record=numeric.Record('a'*40);record.entered(view);record.after_backend_build();record.first_pull();record.seal()
         self.assertEqual(record.value['reason'],'numeric_refused')

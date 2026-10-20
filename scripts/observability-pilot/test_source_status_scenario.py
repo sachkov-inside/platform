@@ -332,9 +332,11 @@ class ScenarioTests(unittest.TestCase):
             output = Path(directory).resolve()
             (output / 'owner.json').write_text(json.dumps({'supervisor_pid': pilot.os.getppid(), 'project': PROJECT}))
             (output / 'auth.json').write_text(json.dumps({'users': [{'bearer_token': 'private-token'}]}))
-            (output / 'evidence.json').write_text('{}')
+            (output / 'evidence.json').write_text(json.dumps({'source':'a'*40,'scope':pilot.core_timing.EVIDENCE_SCOPE}))
             order = []
-            def smoke(*_):
+            def smoke(*_,timing=None):
+                for name in pilot.core_timing.STAGES[3:21]:
+                    with timing.stage(name):pass
                 order.append('original smoke')
                 return {}
             def freshness(*_, **kwargs):
