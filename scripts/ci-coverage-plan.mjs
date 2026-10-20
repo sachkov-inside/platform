@@ -44,6 +44,43 @@ export const ciJobNames = {
   fullstack: "Full-stack smoke",
   "ci-gate": "CI Gate",
 };
+// Stable coverage identities remain the release/recovery boundary; each aggregate requires
+// every matrix member. The recovery workflow has a checkout-free copy checked by contracts.
+export const ciMatrixJobs = {
+  unit: {
+    prefix: "Unit checks",
+    names: [
+      "Unit checks (tooling)",
+      "Unit checks (modules)",
+      "Unit checks (contracts)",
+    ],
+  },
+  integration: {
+    prefix: "Integration checks",
+    names: [
+      "Integration checks (database)",
+      "Integration checks (enrollments)",
+      "Integration checks (buyer-journey)",
+    ],
+  },
+  "web-e2e": {
+    prefix: "Web browser",
+    names: ["Web browser (desktop-chromium)", "Web browser (mobile-chromium)"],
+  },
+  "compose-production": {
+    prefix: "Production checks",
+    names: ["Production checks (cold)", "Production checks (cache)"],
+  },
+  fullstack: {
+    prefix: "Full-stack browser",
+    names: [
+      "Full-stack browser (desktop-chromium, 1)",
+      "Full-stack browser (desktop-chromium, 2)",
+      "Full-stack browser (mobile-chromium, 1)",
+      "Full-stack browser (mobile-chromium, 2)",
+    ],
+  },
+};
 // Existing package commands own these focused checks as part of their larger stage.
 export const coverageSupersets = { docs: "static", contracts: "unit" };
 /** @param {unknown} value */

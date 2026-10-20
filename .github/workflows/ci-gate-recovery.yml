@@ -51,15 +51,26 @@ jobs:
               'Integration', 'Integration serial', 'Development Compose',
               'Production Compose', 'Telegram full checks', 'Full-stack smoke',
             ];
-            const browserNames = ['Full-stack browser (desktop-chromium)', 'Full-stack browser (mobile-chromium)'];
-            const browserJobs = jobs.filter(job => browserNames.includes(job.name) || job.name === 'Full-stack browser ()');
-            const prerequisites = jobs.filter(job => !browserJobs.includes(job));
-            const fullstack = prerequisites.find(job => job.name === 'Full-stack smoke');
-            const browsersComplete = fullstack?.conclusion === 'skipped'
-              ? browserJobs.length > 0 && browserJobs.every(job => job.status === 'completed' && job.conclusion === 'skipped')
-              : browserJobs.length === browserNames.length && browserNames.every(name => browserJobs.filter(job =>
-                  job.name === name && job.status === 'completed' && job.conclusion === 'success').length === 1);
-            if (!browsersComplete || prerequisites.length !== requiredNames.length ||
+            // This privileged workflow never reads candidate code. Contracts bind this copy to ciMatrixJobs.
+            const matrixGroups = [
+              { aggregate: 'Unit tests', prefix: 'Unit checks', names: ['Unit checks (tooling)', 'Unit checks (modules)', 'Unit checks (contracts)'] },
+              { aggregate: 'Integration', prefix: 'Integration checks', names: ['Integration checks (database)', 'Integration checks (enrollments)', 'Integration checks (buyer-journey)'] },
+              { aggregate: 'Web E2E', prefix: 'Web browser', names: ['Web browser (desktop-chromium)', 'Web browser (mobile-chromium)'] },
+              { aggregate: 'Production Compose', prefix: 'Production checks', names: ['Production checks (cold)', 'Production checks (cache)'] },
+              { aggregate: 'Full-stack smoke', prefix: 'Full-stack browser', names: ['Full-stack browser (desktop-chromium, 1)', 'Full-stack browser (desktop-chromium, 2)', 'Full-stack browser (mobile-chromium, 1)', 'Full-stack browser (mobile-chromium, 2)'] },
+            ];
+            const matrixJobs = jobs.filter(job => matrixGroups.some(group =>
+              group.names.includes(job.name) || job.name === (group.prefix === 'Full-stack browser' ? 'Full-stack browser (, )' : `${group.prefix} ()`)));
+            const prerequisites = jobs.filter(job => !matrixJobs.includes(job));
+            const matricesComplete = matrixGroups.every(group => {
+              const aggregate = prerequisites.find(job => job.name === group.aggregate);
+              const members = matrixJobs.filter(job => group.names.includes(job.name) || job.name === (group.prefix === 'Full-stack browser' ? 'Full-stack browser (, )' : `${group.prefix} ()`));
+              return aggregate?.conclusion === 'skipped'
+                ? members.length > 0 && members.every(job => job.status === 'completed' && job.conclusion === 'skipped')
+                : members.length === group.names.length && group.names.every(name => members.filter(job =>
+                    job.name === name && job.status === 'completed' && job.conclusion === 'success').length === 1);
+            });
+            if (!matricesComplete || prerequisites.length !== requiredNames.length ||
                 !requiredNames.every(name => prerequisites.filter(job =>
                   job.name === name && job.status === 'completed' &&
                   (name === 'Coverage plan (isolated reruns)' ?

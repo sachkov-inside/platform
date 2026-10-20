@@ -112,12 +112,16 @@ jobs:
       - name: Run static checks
         run: pnpm check:static
 
-  unit:
+  unit-checks:
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'unit') }}
-    name: Unit tests
+    name: Unit checks (${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [tooling, modules, contracts]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -126,8 +130,27 @@ jobs:
           persist-credentials: false
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
-      - name: Run unit tests
-        run: pnpm check:unit
+      - name: Run tooling, authoring and practice-review tests
+        if: ${{ matrix.part == 'tooling' }}
+        run: pnpm check:unit:tooling
+      - name: Run application and package unit tests
+        if: ${{ matrix.part == 'modules' }}
+        run: pnpm check:unit:modules
+      - name: Run release, deployment and process contracts
+        if: ${{ matrix.part == 'contracts' }}
+        run: pnpm check:contracts
+
+  unit:
+    name: Unit tests
+    needs: [plan, unit-checks]
+    if: ${{ always() && contains(fromJSON(needs.plan.outputs.required), 'unit') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all selected parts
+        env:
+          RESULT: ${{ needs.unit-checks.result }}
+        run: test "$RESULT" = success
 
   ui:
     needs: plan
@@ -158,12 +181,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  web-e2e:
+  web-e2e-browser:
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'web-e2e') }}
-    name: Web E2E
+    name: Web browser (${{ matrix.project }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop-chromium, mobile-chromium]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -175,24 +202,40 @@ jobs:
         with:
           browsers: chromium
       - name: Build once and run browser checks on it
-        run: pnpm check:web-e2e
+        run: pnpm check:web-e2e --project=${{ matrix.project }}
       - name: Upload Playwright diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: web-e2e-playwright-${{ github.run_attempt }}
+          name: web-e2e-playwright-${{ matrix.project }}-${{ github.run_attempt }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
           if-no-files-found: ignore
           retention-days: 7
 
-  integration:
+  web-e2e:
+    name: Web E2E
+    needs: [plan, web-e2e-browser]
+    if: ${{ always() && contains(fromJSON(needs.plan.outputs.required), 'web-e2e') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all selected parts
+        env:
+          RESULT: ${{ needs.web-e2e-browser.result }}
+        run: test "$RESULT" = success
+
+  integration-checks:
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'integration') }}
-    name: Integration
+    name: Integration checks (${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [database, enrollments, buyer-journey]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -204,24 +247,30 @@ jobs:
         with:
           browsers: chromium
       - name: Verify production SQL contracts on an isolated PostgreSQL
+        if: ${{ matrix.part == 'database' }}
         run: pnpm production:verify:sql-test
       - name: Verify restore cleanup with synthetic Docker data
+        if: ${{ matrix.part == 'database' }}
         run: |
           restore_test_image=ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
           docker pull "$restore_test_image"
-          export RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
+          RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
+          export RESTORE_TEST_IMAGE
           pnpm release:restore:test
       - name: Run isolated integration tests
+        if: ${{ matrix.part == 'database' }}
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
+        if: ${{ matrix.part == 'enrollments' }}
         run: pnpm smoke:enrollments
       - name: Run buyer journey from product page to access
+        if: ${{ matrix.part == 'buyer-journey' }}
         run: pnpm smoke:buyer-journey
       - name: Upload Playwright diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: integration-playwright-${{ github.run_attempt }}
+          name: integration-playwright-${{ matrix.part }}-${{ github.run_attempt }}
           path: |
             apps/web/test-results
             apps/web/.next/dev/logs
@@ -229,6 +278,18 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
+
+  integration:
+    name: Integration
+    needs: [plan, integration-checks]
+    if: ${{ always() && contains(fromJSON(needs.plan.outputs.required), 'integration') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require all selected parts
+        env:
+          RESULT: ${{ needs.integration-checks.result }}
+        run: test "$RESULT" = success
 
   integration-serial:
     needs: plan
@@ -317,32 +378,34 @@ jobs:
         if: ${{ always() }}
         run: docker compose down --volumes --remove-orphans
 
-  compose-production:
+  compose-production-checks:
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'compose-production') }}
-    name: Production Compose
+    name: Production checks (${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [cold, cache]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
-      - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-      - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
       - name: Run isolated production smoke
+        if: ${{ matrix.part == 'cold' }}
         env:
           PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production
         run: pnpm compose:production:smoke
       - name: Build and inspect release images
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ matrix.part == 'cold' && github.event_name == 'pull_request' }}
         run: pnpm release:images:smoke
       - name: Prove exact-source production runtime from admitted cache
+        if: ${{ matrix.part == 'cache' }}
         env:
           PRODUCTION_SMOKE_ARTIFACT_DIR: ci-artifacts/compose-production-cache
         run: bash scripts/heavy-check.sh bash scripts/production-cache-smoke-ci.sh
@@ -350,12 +413,24 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: compose-production-diagnostics-${{ github.run_attempt }}
+          name: compose-production-diagnostics-${{ matrix.part }}-${{ github.run_attempt }}
           path: |
             ci-artifacts/compose-production
             ci-artifacts/compose-production-cache
           if-no-files-found: ignore
           retention-days: 7
+
+  compose-production:
+    name: Production Compose
+    needs: [plan, compose-production-checks]
+    if: ${{ always() && contains(fromJSON(needs.plan.outputs.required), 'compose-production') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require cold and admitted-cache runtime proofs
+        env:
+          RESULT: ${{ needs.compose-production-checks.result }}
+        run: test "$RESULT" = success
 
   telegram:
     needs: plan
@@ -411,7 +486,7 @@ jobs:
           '
 
   fullstack-browser:
-    name: Full-stack browser (${{ matrix.project }})
+    name: Full-stack browser (${{ matrix.project }}, ${{ matrix.shard }})
     needs: plan
     if: ${{ contains(fromJSON(needs.plan.outputs.required), 'fullstack') }}
     runs-on: ubuntu-24.04
@@ -420,9 +495,11 @@ jobs:
       fail-fast: false
       matrix:
         project: [desktop-chromium, mobile-chromium]
+        shard: [1, 2]
     env:
-      COMPOSE_PROJECT_NAME: inside-platform-fullstack-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.project }}
+      COMPOSE_PROJECT_NAME: inside-platform-fullstack-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.project }}-${{ matrix.shard }}
       FULLSTACK_TEST_PROJECT: ${{ matrix.project }}
+      FULLSTACK_TEST_SHARD: ${{ matrix.shard }}/2
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -447,7 +524,7 @@ jobs:
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: fullstack-diagnostics-${{ matrix.project }}-${{ github.run_attempt }}
+          name: fullstack-diagnostics-${{ matrix.project }}-${{ matrix.shard }}-${{ github.run_attempt }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
