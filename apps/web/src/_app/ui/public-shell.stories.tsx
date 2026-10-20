@@ -211,6 +211,29 @@ export const MobileTopNavigation: Story = {
   },
 };
 
+/** Кнопка входа остаётся в пределах узкой шапки при увеличении текста. */
+export const MobileSignInEnlargedText: Story = {
+  ...MobileTopNavigation,
+  render: () => null,
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      const button = within(canvasElement).getByRole("button", {
+        name: "Войти через Telegram",
+      });
+      await expect(button).toBeVisible();
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      await expect(button.getBoundingClientRect().right).toBeLessThanOrEqual(
+        root.clientWidth,
+      );
+    } finally {
+      root.style.fontSize = fontSize;
+    }
+  },
+};
+
 /** Короткая страница: подвал стоит внизу экрана, а не сразу под текстом. */
 function shortPageFooter(viewport: typeof desktop | typeof mobile): Story {
   return {
