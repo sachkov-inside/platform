@@ -328,6 +328,111 @@ it("automatically completes in the original tab after approval and respects redu
   await page.close();
 });
 
+it("recovers from a temporary unavailable status without reloading", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install();
+    await open(page, "pending");
+    state = { status: "unavailable" };
+    await poll(page);
+    await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
+    state = {
+      status: "approved",
+      callback: `${origin}/callback?fixture=recovered`,
+    };
+    await poll(page);
+    await page.waitForURL(`${origin}/callback?fixture=recovered`);
+  } finally {
+    await page.close();
+  }
+});
+
+it.each(["focus", "pageshow", "online", "visibilitychange"])(
+  "checks approval immediately on %s without waiting for a suspended timer",
+  async (event) => {
+    const page = await browser.newPage();
+    try {
+      await page.clock.install();
+      await open(page, "pending");
+      state = {
+        status: "approved",
+        callback: `${origin}/callback?fixture=return`,
+      };
+      await page.evaluate((name) => {
+        (name === "visibilitychange" ? document : window).dispatchEvent(
+          new Event(name),
+        );
+      }, event);
+      await page.waitForURL(`${origin}/callback?fixture=return`);
+    } finally {
+      await page.close();
+    }
+  },
+);
+
+it("expires locally while the provider remains unavailable", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install();
+    await open(page, "pending");
+    const expiresAt = await page.evaluate(() =>
+      new Date(Date.now() + 2000).toISOString(),
+    );
+    state = { status: "unavailable", expiresAt };
+    await poll(page);
+    await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
+    offline = true;
+    await page.clock.runFor(clockStepMs);
+    await page
+      .getByRole("status")
+      .filter({ hasText: "Время ожидания вышло" })
+      .waitFor();
+    const stoppedAt = requests;
+    await page.clock.runFor(severalPollsMs);
+    expect(requests).toBe(stoppedAt);
+  } finally {
+    await page.close();
+  }
+});
+
+it("coalesces return events while one status request is in flight", async () => {
+  const page = await browser.newPage();
+  const responseGate = Promise.withResolvers<void>();
+  const requestStarted = Promise.withResolvers<void>();
+  let calls = 0;
+  try {
+    await page.clock.install();
+    await open(page, "pending");
+    await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
+      calls += 1;
+      requestStarted.resolve();
+      await responseGate.promise;
+      await route.fulfill({
+        json: {
+          status: "approved",
+          callback: `${origin}/callback?fixture=single`,
+        },
+      });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await requestStarted.promise;
+    await page.evaluate(() => {
+      for (const name of ["focus", "pageshow", "online"])
+        window.dispatchEvent(new Event(name));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    // The first request is held at the response boundary; no other fetch may start meanwhile.
+    await page.clock.runFor(severalPollsMs);
+    expect(calls).toBe(1);
+    responseGate.resolve();
+    await page.waitForURL(`${origin}/callback?fixture=single`);
+    expect(calls).toBe(1);
+  } finally {
+    responseGate.resolve();
+    await page.close();
+  }
+});
+
 it("offers a keyboard-accessible return during persistent connection failure, including the first poll", async () => {
   const page = await browser.newPage();
   await page.clock.install();

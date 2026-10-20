@@ -118,6 +118,91 @@ afterAll(async () => {
 });
 
 describe("bot sign-in provider", () => {
+  it("acknowledges approval durably before the browser consumes it and deduplicates repeated presses", async () => {
+    const challenge = await register();
+    await start(challenge, 42);
+    await Promise.all([callback(challenge, 42), callback(challenge, 42)]);
+    expect(await status(challenge)).toMatchObject({ status: "approved" });
+    const messages: TelegramTextMessage[] = [];
+    const worker = new StartResponseDeliveryProcessor(
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
+      {
+        sendText(message) {
+          messages.push(message);
+          return Promise.resolve({
+            kind: "delivered",
+            providerMessageId: "101",
+          });
+        },
+        editText() {
+          throw new Error("Success must still wait for account finalization");
+        },
+      },
+      new RuntimeMetrics(),
+      config,
+    );
+    expect(await worker.processAvailable()).toBe(1);
+    expect(messages).toMatchObject([
+      {
+        text: "Подтверждение принято. Вернитесь в браузер, где вы начали вход.",
+        buttons: [],
+      },
+    ]);
+    await callback(challenge, 42);
+    expect(await worker.processAvailable()).toBe(0);
+    expect(
+      await database.selectFrom("platform_links").selectAll().execute(),
+    ).toEqual([]);
+  });
+
+  it.each(["linked", "expired"] as const)(
+    "does not retry an approval receipt after the request is %s",
+    async (outcome) => {
+      const challenge = await register();
+      await start(challenge, 42);
+      await callback(challenge, 42);
+      const queue = new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      );
+      // deterministic-test-allow wall-clock: registerFixedClock fixes Date for both the producer and queue.
+      const now = new Date();
+      const receipt = await queue.claimNext(now, true);
+      expect(receipt?.messageText).toBe(
+        "Подтверждение принято. Вернитесь в браузер, где вы начали вход.",
+      );
+      if (!receipt) throw new Error("Expected approval receipt");
+      await queue.recordResult(receipt, { kind: "transport_unknown" }, now);
+      let retryAt = new Date(now.getTime() + 1001);
+      if (outcome === "linked") {
+        const proof = await status(challenge, true);
+        if (proof.status !== "verified") throw new Error("Expected proof");
+        expect(
+          (
+            await request(`/${challenge.requestRef}/account-link`, {
+              contractVersion,
+              subjectRef: proof.subjectRef,
+              accountRef: randomUUID(),
+            })
+          ).json(),
+        ).toMatchObject({ status: "linked" });
+        expect(await queue.claimNext(retryAt, true)).toMatchObject({
+          editMessageId: "100",
+        });
+      } else {
+        retryAt = new Date(challenge.envelope.expiresAt);
+      }
+      expect(await queue.claimNext(retryAt, true)).toBeUndefined();
+    },
+  );
+
   it("does not enter marketing when a sign-in start arrives while marketing is enabled", async () => {
     const marketing = application.get(MarketingEntry);
     const enabled = vi.spyOn(marketing, "enabled").mockReturnValue(true);
@@ -448,7 +533,13 @@ describe("bot sign-in provider", () => {
       );
       if (failurePoint === "before") {
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-        expect(await queue.claimNext(new Date(), true)).toBeUndefined();
+        expect(
+          await queue.claimNext(
+            new Date(),
+            true,
+            `sign-in-result:${challenge.requestRef}`,
+          ),
+        ).toBeUndefined();
         expect((await bind()).json()).toMatchObject({ status: "linked" });
       }
       // After commit no request replay is needed: a fresh worker sees the durable result.
@@ -538,7 +629,7 @@ describe("bot sign-in provider", () => {
           ).toMatchObject({ status: "unavailable" });
       }
       expect(await worker.processAvailable()).toBe(
-        outcome === "denied" ? 1 : 0,
+        ["denied", "unfinalized", "wrong-subject"].includes(outcome) ? 1 : 0,
       );
       expect(edits).toEqual(
         outcome === "denied"
