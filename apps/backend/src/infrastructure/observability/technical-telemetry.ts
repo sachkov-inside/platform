@@ -765,6 +765,10 @@ export interface HttpObservation {
 export interface TechnicalTelemetry {
   pgBoss(queues: readonly string[]): OpenTelemetryOptions;
   runJob<Value>(work: () => Value): Value;
+  runTrackingDelivery<Value>(
+    parent: unknown,
+    work: (observation: { fail(): void }) => Promise<Value>,
+  ): Promise<Value>;
   startHttp(input: {
     readonly method: string;
     readonly route?: string;
@@ -791,6 +795,8 @@ export function createTechnicalTelemetry(
       pgBoss: () => ({ enabled: false }),
       runJob: (work) =>
         context.with(context.active().deleteValue(technicalScopeKey), work),
+      runTrackingDelivery: (_parent, work) =>
+        context.with(ROOT_CONTEXT, () => work({ fail: () => undefined })),
       startHttp: () => ({
         run: (work) =>
           context.with(context.active().deleteValue(technicalScopeKey), work),
@@ -1053,6 +1059,11 @@ export function createTechnicalTelemetry(
       notificationCount.add(1, attributes);
       notificationDuration.record(seconds, attributes);
     };
+    const trackingTracer = traces.getTracer("inside-tracking");
+    const trackingCount = meter.createCounter("inside.tracking.operations");
+    const trackingDuration = meter.createHistogram("inside.tracking.duration", {
+      unit: "s",
+    });
     let closing: Promise<void> | undefined;
     return {
       pgBoss: (names) => {
@@ -1084,6 +1095,71 @@ export function createTechnicalTelemetry(
             ),
           work,
         ),
+      runTrackingDelivery: async (parent, work) => {
+        // A claimed HTTP outbox row resumes its immutable source, never the pump's ambient context.
+        const root = ROOT_CONTEXT.setValue(
+          technicalScopeKey,
+          new TechnicalScope(
+            identity,
+            dependencyTracer,
+            recordDependency,
+            emailTracer,
+            recordEmail,
+            observePool,
+            notificationTracer,
+            recordNotification,
+          ),
+        );
+        const valid = notificationTraceparent(parent);
+        const causal =
+          valid === undefined
+            ? root
+            : pgBossTracePropagator().extract(
+                root,
+                { traceparent: valid },
+                {
+                  keys: () => ["traceparent"],
+                  get: (
+                    carrier: Readonly<Record<string, string>>,
+                    key: string,
+                  ) =>
+                    key === "traceparent" ? carrier["traceparent"] : undefined,
+                },
+              );
+        const span = trackingTracer.startSpan(
+          "tracking deliver",
+          {
+            kind: SpanKind.INTERNAL,
+            attributes: { "tracking.operation": "deliver" },
+          },
+          causal,
+        );
+        const started = performance.now();
+        let failed = false;
+        try {
+          return await context.with(trace.setSpan(causal, span), () =>
+            work({
+              fail: () => {
+                failed = true;
+              },
+            }),
+          );
+        } catch (error) {
+          failed = true;
+          throw error;
+        } finally {
+          const outcome = failed ? "failed" : "completed";
+          span.setAttribute("tracking.outcome", outcome);
+          if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+          const attributes = { operation: "deliver", outcome };
+          trackingCount.add(1, attributes);
+          trackingDuration.record(
+            (performance.now() - started) / 1_000,
+            attributes,
+          );
+          span.end();
+        }
+      },
       startHttp: (input) => {
         activeRequests++;
         const method = [

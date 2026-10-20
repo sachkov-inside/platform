@@ -17,7 +17,7 @@ from pilot import CONFIG, ROOT, check_disk, cleanup_project, write_json
 CI_COMMAND_TIMEOUT_SECONDS = 10
 PUBLIC_ARTIFACT_MAX_BYTES = 1024 * 1024
 PILOT_ARTIFACTS = (
-    "source-freshness.json", "evidence.json", "cleanup.json", "worker-outcome.json", "native-mcp.json",
+    "source-freshness.json", "evidence.json", "cleanup.json", "worker-outcome.json", "native-mcp.json", "native-mcp-progress.json",
     "query-timings.json", "negative-failures.json", "recovery.json",
     "container-states.json", "readiness.json", "storage-host.json", "storage-vm.json", "monitor-failure.json", "collector-privacy.json", "collector-link-privacy.json", "trace-store-health.json", "trace-store-logging.json", "notification-collector.json", "dependency-collector.json", "email-collector.json",
     "phase-idle.json", "phase-steady.json", "phase-spike.json",
@@ -39,7 +39,9 @@ def collect(output, metadata, destination, *, artifacts=None):
             if source.is_symlink() or not source.is_file() or source.stat().st_size > PUBLIC_ARTIFACT_MAX_BYTES:
                 raise ValueError("unsafe public artifact file")
             content = source.read_text()
-            if source.suffix == ".jsonl":
+            if name == "native-mcp-progress.json":
+                pilot.read_native_mcp_progress(content)
+            elif source.suffix == ".jsonl":
                 for line in content.splitlines():
                     json.loads(line)
             else:

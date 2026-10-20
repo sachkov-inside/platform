@@ -179,7 +179,7 @@ def downloaded_asset(asset):
     return archive
 
 
-def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=()):
+def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, validate_result=None, additional=(), progress=None):
     """Exercise native MCP, keeping stderr and credentials out of diagnostics."""
     # The helper and native process stay in the externally supervised worker group.
     with native_cpu.measured_process(argv or [str(executable)], environment) as (process, measurement):
@@ -215,17 +215,24 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
                         raise RuntimeError("native MCP response exceeds pilot budget")
             raise RuntimeError("native MCP response deadline exceeded")
 
+        def report(phase,outcome):
+            if progress is not None:progress(phase,outcome)
+
+        report("initialize","running")
         rpc(1, "initialize", {"protocolVersion": "2024-11-05", "capabilities": {},
                              "clientInfo": {"name": "platform-pilot", "version": "1"}})
         rpc(None, "notifications/initialized", {})
+        report("discovery","running")
         discovery = rpc(2, "tools/list", {})
         if not isinstance(discovery, dict) or not isinstance(discovery.get("tools"), list):
             raise RuntimeError("native MCP tool discovery failed")
         names = [entry.get("name") for entry in discovery["tools"] if isinstance(entry, dict)]
         if tool not in names:
             raise RuntimeError("required native MCP query tool unavailable")
+        report("primary","running")
         result = rpc(3, "tools/call", {"name": tool, "arguments": arguments})
         if not isinstance(result, dict) or result.get("isError") or marker not in json.dumps(result):
+            report("primary","invalid_result" if not isinstance(result,dict) else "tool_error" if result.get("isError") else "fixture_absent")
             raise RuntimeError("native MCP failed to return known fixture")
         if validate_result is not None:
             validate_result(result)
@@ -234,8 +241,11 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
         for index,(extra_tool,extra_arguments,extra_marker,validate) in enumerate(additional):
             if extra_tool not in names:
                 raise RuntimeError('required additional native MCP tool unavailable')
+            phase="additional_"+str(index+1)
+            report(phase,"running")
             extra = rpc(index+4,'tools/call',{'name':extra_tool,'arguments':extra_arguments})
             if not isinstance(extra,dict) or extra.get('isError') or extra_marker not in json.dumps(extra):
+                report(phase,'invalid_result' if not isinstance(extra,dict) else 'tool_error' if extra.get('isError') else 'fixture_absent')
                 raise RuntimeError('additional native MCP fixture unavailable')
             validate(extra)
             collector_privacy.assert_clean(extra)
@@ -244,44 +254,110 @@ def stdio_probe(executable, environment, tool, arguments, marker, *, argv=None, 
     return {**proof, **measurement}
 
 
+def native_mcp_progress(records, *, failed=False):
+    """Project only fixed native-plan progress; incomplete or failed work never passes."""
+    try:
+        if type(records) is not list or len(records)>3 or type(failed) is not bool:raise ValueError()
+        projected=[]
+        for index,record in enumerate(records):
+            if type(record) is not dict or set(record)!={'route','phase','outcome'}:raise ValueError()
+            if any(type(value) is not str for value in record.values()):raise ValueError()
+            if record['route']!=('metrics','logs','traces')[index]:raise ValueError()
+            phase=record['phase'];outcome=record['outcome']
+            phases=('download','initialize','discovery','primary','additional_1','complete')
+            if record['route']=='traces':phases+=('additional_2',)
+            if phase not in phases or record['route']=='logs' and phase=='additional_1':raise ValueError()
+            if outcome not in ('running','passed','failed','invalid_result','tool_error','fixture_absent'):raise ValueError()
+            if (phase=='complete')!=(outcome=='passed'):raise ValueError()
+            if index<len(records)-1 and outcome!='passed':raise ValueError()
+            projected.append(dict(record))
+        outcome='failed' if failed or any(r['outcome'] not in ('running','passed') for r in projected) else (
+            'passed' if len(projected)==3 and all(r['outcome']=='passed' for r in projected) else 'incomplete')
+        return {'outcome':outcome,'probes':projected}
+    except (ValueError,TypeError,KeyError):
+        raise RuntimeError('native MCP progress contract failed; raw values withheld') from None
+
+
+def read_native_mcp_progress(raw):
+    """Validate the complete curated artifact before any public copy, including duplicates."""
+    def unique(pairs):
+        result={}
+        for key,value in pairs:
+            if key in result:raise ValueError()
+            result[key]=value
+        return result
+    try:
+        if type(raw) is not str or len(raw.encode('utf-8',errors='strict'))>4096:raise ValueError()
+        value=json.loads(raw,object_pairs_hook=unique)
+        if type(value) is not dict or set(value)!={'outcome','probes'}:raise ValueError()
+        projected=native_mcp_progress(value['probes'],failed=value['outcome']=='failed')
+        if value!=projected:raise ValueError()
+        return projected
+    except (ValueError,TypeError,KeyError,UnicodeError,RecursionError):
+        raise RuntimeError('native MCP progress contract failed; raw values withheld') from None
+
+
 def native_probes(token, output):
-    import notification_privacy
-    system = platform.system()
-    if system not in ("Darwin", "Linux") or platform.machine() not in ("arm64", "aarch64", "x86_64"):
-        raise RuntimeError("native MCP pilot supports Darwin/Linux arm64/x86_64 only")
-    architecture = "arm64" if platform.machine() in ("arm64", "aarch64") else "x86_64"
-    lock = json.loads((CONFIG / "inputs.lock.json").read_text())
-    probes = [
-        ("mcp-victoriametrics", "metrics", "VM", "query", {"query": "pilot_requests"}, "pilot_requests"),
-        ("mcp-victorialogs", "logs", "VL", "query", {"query": "_time:5m", "start": "0", "limit": 10}, "pilot.known_failure"),
-        ("mcp-victoriatraces", "traces", "VT", "trace", {"trace_id": "00000000000000000000000000000001"}, "worker.retry"),
-    ]
-    results = {}
-    for name, route, prefix, tool, arguments, marker in probes:
-        asset = next(item for item in lock["artifacts"][name]["assets"]
-                     if item["name"] == f"{name}_{system}_{architecture}.tar.gz")
-        executable = output / name
-        with tarfile.open(fileobj=io.BytesIO(downloaded_asset(asset)), mode="r:gz") as archive:
-            entry = next(item for item in archive.getmembers() if Path(item.name).name == name and item.isfile())
-            if entry.size > 256 * 1024 * 1024:
-                raise RuntimeError("MCP executable exceeds unpacked pilot budget")
-            with archive.extractfile(entry) as source, executable.open("wb") as target:
-                shutil.copyfileobj(source, target)
-        executable.chmod(0o700)
-        environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(output), "MCP_SERVER_MODE": "stdio",
-                       f"{prefix}_INSTANCE_ENTRYPOINT": f"http://127.0.0.1:18427/{route}",
-                       f"{prefix}_INSTANCE_BEARER_TOKEN": token, "VM_INSTANCE_TYPE": "single"}
-        additional = ()
-        if route=='metrics':
-            additional = (('query',{'query':notification_privacy.METRIC_QUERY},
-                           'inside.notification.operations',notification_privacy.mcp_metrics),)
-        elif route=='traces':
-            additional = tuple(('trace',{'trace_id':trace_id},trace_id,
-                lambda result, transport=transport: notification_privacy.mcp_trace(result,transport))
-                for transport,trace_id in notification_privacy.TRACE_IDS.items())
-        results[name] = stdio_probe(executable, environment, tool, arguments, marker,additional=additional)
-        results[name]["host_os"] = system
-        executable.unlink()
+    records=[];results={}
+    def persist(*, failed=False):
+        try:write_json(output/'native-mcp-progress.json',native_mcp_progress(records,failed=failed))
+        except (OSError,ValueError,TypeError):
+            raise RuntimeError('native MCP progress persistence failed; raw diagnostics withheld') from None
+    def report(route,phase,outcome):
+        record={'route':route,'phase':phase,'outcome':outcome}
+        candidate=records[:-1]+[record] if records and records[-1]['route']==route else records+[record]
+        checked=native_mcp_progress(candidate)
+        records[:]=checked['probes']
+        persist()
+    try:
+        persist()
+        import notification_privacy
+        system = platform.system()
+        if system not in ("Darwin", "Linux") or platform.machine() not in ("arm64", "aarch64", "x86_64"):
+            raise RuntimeError("native MCP pilot supports Darwin/Linux arm64/x86_64 only")
+        architecture = "arm64" if platform.machine() in ("arm64", "aarch64") else "x86_64"
+        lock = json.loads((CONFIG / "inputs.lock.json").read_text())
+        probes = [
+            ("mcp-victoriametrics", "metrics", "VM", "query", {"query": "last_over_time(pilot_requests[10m])", "nocache": True}, "pilot_requests"),
+            ("mcp-victorialogs", "logs", "VL", "query", {"query": "_time:10m", "start": "0", "limit": 10}, "pilot.known_failure"),
+            ("mcp-victoriatraces", "traces", "VT", "trace", {"trace_id": "00000000000000000000000000000001"}, "worker.retry"),
+        ]
+        for name, route, prefix, tool, arguments, marker in probes:
+            report(route,'download','running')
+            asset = next(item for item in lock["artifacts"][name]["assets"]
+                         if item["name"] == f"{name}_{system}_{architecture}.tar.gz")
+            executable = output / name
+            with tarfile.open(fileobj=io.BytesIO(downloaded_asset(asset)), mode="r:gz") as archive:
+                entry = next(item for item in archive.getmembers() if Path(item.name).name == name and item.isfile())
+                if entry.size > 256 * 1024 * 1024:
+                    raise RuntimeError("MCP executable exceeds unpacked pilot budget")
+                with archive.extractfile(entry) as source, executable.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+            executable.chmod(0o700)
+            environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(output), "MCP_SERVER_MODE": "stdio",
+                           f"{prefix}_INSTANCE_ENTRYPOINT": f"http://127.0.0.1:18427/{route}",
+                           f"{prefix}_INSTANCE_BEARER_TOKEN": token, "VM_INSTANCE_TYPE": "single"}
+            additional = ()
+            if route=='metrics':
+                additional = (('query',{'query':'last_over_time('+notification_privacy.METRIC_QUERY+'[10m])','nocache':True},
+                               'inside.notification.operations',notification_privacy.mcp_metrics),)
+            elif route=='traces':
+                additional = tuple(('trace',{'trace_id':trace_id},trace_id,
+                    lambda result, transport=transport: notification_privacy.mcp_trace(result,transport))
+                    for transport,trace_id in notification_privacy.TRACE_IDS.items())
+            report(route,'initialize','running')
+            results[name] = stdio_probe(executable, environment, tool, arguments, marker,additional=additional,
+                progress=lambda phase,outcome: report(route,phase,outcome))
+            report(route,'complete','passed')
+            results[name]["host_os"] = system
+            executable.unlink()
+
+    except BaseException:
+        if records and records[-1]['outcome']=='running':records[-1]['outcome']='failed'
+        try:persist(failed=True)
+        except RuntimeError:pass  # Preserve the original failure or interruption; no success is returned.
+        raise
+    persist()
     return results
 
 

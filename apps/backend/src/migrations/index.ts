@@ -1,4 +1,8 @@
 import {
+  name as trackingTraceName,
+  statement as trackingTraceStatement,
+} from "../modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.js";
+import {
   name as waitlistConfirmationsName,
   statement as waitlistConfirmationsStatement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-waitlist-confirmations.js";
@@ -711,6 +715,7 @@ export const platformMigrations = [
   { name: materialTraceName, statement: materialTraceStatement },
   { name: notificationTraceName, statement: notificationTraceStatement },
   { name: emailTraceName, statement: emailTraceStatement },
+  { name: trackingTraceName, statement: trackingTraceStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -149,6 +149,39 @@ auth/method/mutation/encoded traversal, перезапускает Alloy, дож
 Три native Victoria MCP скачиваются с проверкой SHA256 и запускаются по stdio на платформе runner
 (Linux либо Darwin arm64 для OrbStack):
 initialize → tools/list → query известного fixture. Tools discovery сохраняется; stderr не сохраняется.
+Native MCP проверяет сохранённую историю конечного fixture в пределах исходного worker
+600s. Только его VM caller использует `last_over_time(pilot_requests[10m])` и boolean
+`nocache: true`; дополнительный notification selector обёрнут в такой же `last_over_time`
+и получает тот же boolean. Глобальный notification selector не меняется. Закреплённый
+[MCP v1.20.2 принимает boolean и переводит его в HTTP `nocache=1`](https://github.com/VictoriaMetrics/mcp-victoriametrics/blob/fb45b04fbb93bdeda4ea7117ea50420a5ad4cb7e/cmd/mcp-victoriametrics/tools/query.go).
+Logs caller использует `_time:10m`, сохраняя `start: "0"` и `limit: 10`; trace ID и
+validators остаются прежними. Это совместимость чтения истории, не свежесть источника.
+Серии старше окна не засчитываются. Размеры ответа, RPC deadlines, read-only routes,
+credentials и управление процессами не расширяются.
+
+CI39405217200 прошёл все 13 E metric checkpoints, но завершился общим отказом основной
+MCP fixture. Прежний artifact писался только после всех трёх native probes. Поэтому
+точный инструмент и причину этого CI установить нельзя: тот же отказ объединял
+необъектный result, `isError` и отсутствие маркера. Отдельная модель закреплённых
+временных правил воспроизводит потерю одноразового sample при старом запросе.
+Это доказанный недостаток конечной проверки, а не доказанная единственная причина CI.
+
+`native-mcp-progress.json` сохраняет закрытый итог и последний этап каждого начатого
+инструмента, включая отказ. Допустимы только фиксированные `route`, `phase`, `outcome`.
+Он различает `invalid_result`, `tool_error`, `fixture_absent` и общий `failed`, сохраняет
+предыдущие завершённые probes. Дополнительные проверки имеют этапы `additional_1` и
+`additional_2`; второй допустим только для traces. Только завершение всех трёх probes
+даёт `passed`; частичное выполнение остаётся `incomplete` или `failed`. Payloads,
+обнаруженные имена инструментов, trace IDs, URL, credentials и ошибки туда не входят.
+Перед публичным копированием CI снова проверяет всю схему, включая повторные JSON keys,
+неизвестные значения и лимит 4096 bytes. Невозможность сохранить progress не даёт PASS.
+
+Host tests вызывают настоящий `native_probes` и его stdio boundary с собственными
+дочерними процессами, проверяя finite-history модель, отказ за окном, закрытую
+проекцию и фактическое завершение детей. Vendor MCP и Docker в этих tests не запускаются.
+Новый native exact-source CI остаётся необходимым; прежний generic отказ не доказывает
+выполнение последующих семи фаз проверки свежести.
+
 На Darwin/Linux каждый native MCP запускается через stdlib helper `native_cpu.py`, который создаёт
 только этого ребёнка и вызывает `Popen.wait()`. После reap он читает свой kernel
 [`RUSAGE_CHILDREN`](https://docs.python.org/3/library/resource.html#resource.RUSAGE_CHILDREN):
@@ -1196,3 +1229,77 @@ Core `source.json` добавляет `source_status.py`, `source_status_query.p
 с pinned engines, семь реальных переходов и длительность hosted worker остаются непроверенными
 до отдельного успешного Core CI на точном source. Прежние corpus/privacy gates сохраняются.
 Эта проверка не доказывает ingestion lag, persisted delivery или end-to-end loss accounting.
+
+### Tracking hit delivery context, prepared source for #1566
+
+The API registers its existing technical SDK with `TrackingHitPump` before bootstrap.
+`TrackingVisits.resolve` persists only the current owned W3C v00 traceparent with the durable hit.
+Each successfully claimed row starts one INTERNAL `tracking deliver` attempt from that original
+carrier. Missing or invalid historical carriers create independent roots. Empty polls and lost
+claims do not create delivery spans. This HTTP outbox has no RabbitMQ destination or messaging labels.
+
+`inside.tracking.operations` and `inside.tracking.duration` use only `operation=deliver` and
+`outcome=completed|failed`. A negative provider result marks that attempt failed; it does not
+change the existing event ID, operation ID, payload, claim, retry or ambiguous-ACK handling.
+The API stops the pump and drains every started row callback, including pending claims after a sibling failure, before shutting down its SDK. The normal batch remains fail-fast and retains its existing polling cadence. Telemetry remains optional, and the
+existing five-second polling and provider timeout stay authoritative.
+
+Apply append-only `0112_communications_tracking_trace_context` before the new application binary.
+It is the 114th registry entry and adds one nullable `varchar(55)` column without changing the
+first 113 entries. An old binary can ignore the column, but a database with all 114 ledger entries
+must retain the compatible registry during rollback. Historical NULL is supported; an absent
+column means migrations have not been applied and is not treated as NULL.
+
+The genuine API/timer/PostgreSQL tests are prepared for CI. Host SDK tests alone do not prove
+PostgreSQL, timer delivery, restart, shutdown or migration behavior. The existing pinned collector
+policy does not yet retain these tracking fields and metrics; direct owned OTLP export is not
+pinned-storage proof. This source does not activate production tracking or add user permissions.
+
+
+## Первый срез production SDK S3 через хранилища
+
+Отдельный workflow `.github/workflows/observability-sdk-storage.yml` подготавливает один
+cold read через `technicalTelemetryFromEnvironment` и `createS3ObjectStorage`, с настоящими
+Smithy HTTP handler и чтением body. Его HTTP scope принадлежит тесту. Это композиция SDK,
+Alloy, VictoriaMetrics и VictoriaTraces, а не настоящий запрос API. Проверка API с PostgreSQL
+и S3 остаётся отдельным доказательством.
+
+Workflow использует pinned setup-platform, frozen lockfile, сборку workspace packages и backend.
+Emitter направляет штатные OTLP exporters прямо в pinned Alloy. Он не подменяет `send`,
+подписание, exporters или handler. Собственный HTTP fixture использует закрытые sentinel
+значения для bucket, key, credentials, body и metadata. Наружу выходят только закрытые результаты,
+числа и хеши исходников и загруженных модулей. Сырые OTLP и ответы хранилищ не сохраняются.
+
+В отдельном disposable project используется весь неизменённый `pilot.SERVICES`, сейчас семь
+сервисов. План, лимиты, pinned images, private auth, закрытый gateway и `logging: none` у Alloy
+и VictoriaTraces берутся из существующего pilot. Перед передачей sentinel значений проверяются
+Docker daemon, CID, project, service, image, Compose config, mounts и networks. Публичный
+supervisor сохраняет общий бюджет worker в 600 секунд и завершает группу процессов, затем
+проверяет удаление своих контейнеров, volumes и networks. Отдельный Node child владеет native
+HTTP listener и закрывается при успехе, ошибке, timeout и interruption. Всегда выполняется
+точное восстановление только зарегистрированного project. Core23 и его бюджет не меняются.
+
+VM читается целиком фиксированным `last_over_time({__name__=~".+"}[10m])` с `nocache=1`.
+Это ограниченное чтение сохранённой истории, оно не доказывает свежесть или задержку доставки.
+Oracle проверяет каждый полученный ряд до состояния pending. Для успешных `getObject.read`
+и `http.GET` ожидаются 38 dependency series: для каждой операции counter, histogram count,
+sum и 16 buckets, включая `+Inf`. Независимые границы соответствуют SDK 2.12. Отдельный
+закрытый владелец проверяет 29 других SDK series. Дополнительные collector и trace-store
+self-scrapes имеют свой закрытый набор имён и меток и учитываются отдельно. Число 38 не
+описывает полный вектор. Неизвестные, повторные и приватные поля отклоняются.
+
+VT читается полными строками только для trace, полученного от emitter. Проверяются три span,
+их поля, kind, outcome и связи test-owned root → INTERNAL `getObject.read` → CLIENT `http.GET`.
+Missing строки дают pending только после проверки всех уже наблюдаемых строк. В artifact нет
+trace ID, объектов, signed URLs или необработанных ошибок.
+
+`source.json` связывает checkout и tree с provider run, attempt, PR head/base и хешами реальных
+входов: весь production backend source, packages, package manifests, lockfile, patches,
+toolchain, build inputs, emitter, supervisor, закрытые oracles и pinned конфигурацию. Файл
+`runtime-modules.json` содержит хеши действительно загруженных compiled production modules
+и зависимостей. Синтетический Core23 manifest не заменяет эту связь.
+
+Первый срез включает только enabled success. Ошибки S3, retries, OFF, collector 503, другие
+SDK producers, причинность настоящего API до хранилища, полный ресурсный опыт и production
+остаются отдельными проверками. Наличие workflow и локальные loopback tests не означают,
+что native hosted прогон или полная спецификация уже прошли.

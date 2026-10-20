@@ -226,6 +226,8 @@ TELEGRAM_HEALTH_GAUGES = [
     'inside_telegram_community_due', 'inside_telegram_community_oldest_due_seconds',
     'inside_telegram_community_effect_backlog',
 ]
+TELEGRAM_WAITING_GAUGE = 'inside_telegram_community_effect_waiting_for_join'
+TELEGRAM_SAMPLE_METRICS = TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES + [TELEGRAM_WAITING_GAUGE]
 
 
 def telegram_metrics():
@@ -254,7 +256,7 @@ def telegram_snapshot():
     app = collect_containers('inside-production-telegram')['app']
     status, values = telegram_metrics()
     if status != 200 or any(not math.isfinite(values.get(name, float('nan'))) or values[name] < 0
-                            for name in TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES):
+                            for name in TELEGRAM_SAMPLE_METRICS):
         raise RuntimeError('metrics unavailable')
     ready_status, ready = http('http://127.0.0.1:3303/ready')
     current = collect_containers('inside-production-telegram')['app']
@@ -265,7 +267,7 @@ def telegram_snapshot():
             'restartCount': app['RestartCount'],
             'ready': ready_status == 200 and json.loads(ready).get('status') == 'ready' and
                      app['State'].get('Running') is True and app['State'].get('Health', {}).get('Status') == 'healthy',
-            'metrics': {name: values.get(name) for name in TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES}}
+            'metrics': {name: values.get(name) for name in TELEGRAM_SAMPLE_METRICS}}
 
 
 def telegram_observation_checks(before, after, logs):
@@ -274,13 +276,19 @@ def telegram_observation_checks(before, after, logs):
 
     counters = all(valid(before['metrics'].get(name)) and valid(after['metrics'].get(name)) and
                    before['metrics'][name] == after['metrics'][name] for name in TELEGRAM_ERROR_COUNTERS)
-    gauges = all(snapshot['metrics'].get(name) == 0 for snapshot in [before, after] for name in TELEGRAM_HEALTH_GAUGES)
+    backlog_name = 'inside_telegram_community_effect_backlog'
+    gauges = all(snapshot['metrics'].get(name) == 0 for snapshot in [before, after]
+                 for name in TELEGRAM_HEALTH_GAUGES if name != backlog_name)
+    for snapshot in [before, after]:
+        backlog, waiting = snapshot['metrics'].get(backlog_name), snapshot['metrics'].get(TELEGRAM_WAITING_GAUGE)
+        gauges = gauges and valid(backlog) and valid(waiting) and backlog == waiting
+
     return [
         check('observation process continuity', all(before[key] == after[key] for key in
               ['containerId', 'startedAt', 'restartCount']), 'same container, start time and restart count at both samples'),
         check('observation readiness', before['ready'] and after['ready'], 'ready and healthy at both samples'),
         check('observation error counters', counters, 'five finite nonnegative counters unchanged between samples; resets fail'),
-        check('observation queue gauges', gauges, 'reconciliation/community/confirmation due, age, backlog and unknown gauges zero at both samples'),
+        check('observation queue gauges', gauges, 'due, age and unknown gauges zero; total effect backlog equals verified live invitations waiting for voluntary join at both samples'),
         check('observation logs', not error_logs(logs), 'no matching error log lines within the reported bounds'),
     ]
 

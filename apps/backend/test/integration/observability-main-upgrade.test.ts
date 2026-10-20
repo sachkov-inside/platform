@@ -29,6 +29,7 @@ const appendedNames = [
   "0109_materials_notification_trace_context",
   "0110_notifications_notification_trace_context",
   "0111_notifications_email_trace_context",
+  "0112_communications_tracking_trace_context",
 ];
 
 // Frozen from canonical main2f530002, including its committed waitlist migration.
@@ -36,14 +37,14 @@ const currentMainCount = 102;
 const currentMainDigest =
   "6e88fc6f9aac093fa2deb0da67dcf20c9502339d23d271a2d28d9c881c8199e7";
 
-it("upgrades exact current main0101 to all 113 migrations without changing its ledger prefix", async () => {
+it("upgrades exact current main0101 to all 114 migrations without changing its ledger prefix", async () => {
   const mainRegistry = platformMigrations.slice(0, currentMainCount);
   expect(
     createHash("sha256").update(JSON.stringify(mainRegistry)).digest("hex"),
   ).toBe(currentMainDigest);
   expect(mainRegistry.at(-1)?.name).toBe("0101_waitlist_confirmations");
-  expect(platformMigrations).toHaveLength(113);
-  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(113);
+  expect(platformMigrations).toHaveLength(114);
+  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(114);
   const database = await createTestDatabase();
   const ledger = async () =>
     parseAppliedMigrations(
@@ -170,7 +171,9 @@ const carrierChecksums = [
 ];
 it("retains the frozen historical root0108 upgrade and rejects its divergent ledger against current main", async () => {
   const preparedRegistry = platformMigrations.filter(
-    ({ name }) => name !== "0101_waitlist_confirmations",
+    ({ name }) =>
+      name !== "0101_waitlist_confirmations" &&
+      name !== "0112_communications_tracking_trace_context",
   );
   const rootRegistry = preparedRegistry.slice(0, preparedRootCount);
   expect(
@@ -277,6 +280,62 @@ it("retains the frozen historical root0108 upgrade and rejects its divergent led
       "not an exact registry prefix at position 102",
     );
     expect(await ledger()).toEqual(after);
+  } finally {
+    await database.dispose();
+  }
+});
+
+// Frozen from the exact prepared registry at root88301c77, before the nullable tracking carrier.
+it("appends nullable tracking context after the exact 113-entry ledger without changing historical hits", async () => {
+  const prefix = platformMigrations.slice(0, 113);
+  expect(
+    createHash("sha256").update(JSON.stringify(prefix)).digest("hex"),
+  ).toBe("e3176346cb0b8c9d7509554dc5f04fc6f614489051faeaed750006c49d2c38e8");
+  const database = await createTestDatabase();
+  try {
+    await runMigrationsToLatest(database.url, prefix);
+    await database.prisma.$executeRaw(Prisma.sql`
+      insert into communications.tracking_hits (event_id, token, occurred_at, traffic, available_at)
+      values ('9f30cb17-16d4-4683-92f7-425003956a10'::uuid, 'historical-tracking-token-0000000000000000',
+        '2026-10-07T09:00:00Z'::timestamptz, 'unknown', '2026-10-07T09:00:00Z'::timestamptz)
+    `);
+    const before = parseAppliedMigrations(
+      await database.prisma.$queryRaw(Prisma.sql`
+      select name, checksum, position from public.platform_migrations order by position
+    `),
+    );
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: ["0112_communications_tracking_trace_context"],
+    });
+    const after = parseAppliedMigrations(
+      await database.prisma.$queryRaw(Prisma.sql`
+      select name, checksum, position from public.platform_migrations order by position
+    `),
+    );
+    expect(after.slice(0, 113)).toEqual(before);
+    expect(after).toHaveLength(114);
+    const hit =
+      await database.prisma.communicationTrackingHit.findUniqueOrThrow({
+        where: { eventId: "9f30cb17-16d4-4683-92f7-425003956a10" },
+      });
+    expect(hit.traceparent).toBeNull();
+    expect(hit.token).toBe("historical-tracking-token-0000000000000000");
+    expect(hit.availableAt.toISOString()).toBe("2026-10-07T09:00:00.000Z");
+    expect(hit.claimId).toBeNull();
+    expect(hit.deliveredAt).toBeNull();
+    // An old writer names only its original columns; the new nullable carrier does not require a value.
+    expect(
+      await database.prisma.$executeRaw(Prisma.sql`
+      update communications.tracking_hits set claim_id = null
+      where event_id = '9f30cb17-16d4-4683-92f7-425003956a10'::uuid
+    `),
+    ).toBe(1);
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: [],
+    });
+    await expect(runMigrationsToLatest(database.url, prefix)).rejects.toThrow(
+      "not an exact registry prefix at position 114",
+    );
   } finally {
     await database.dispose();
   }

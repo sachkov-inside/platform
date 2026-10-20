@@ -1,3 +1,4 @@
+import { TrackingHitPump } from "../../modules/communications/index.js";
 import type { NestApplicationOptions } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
@@ -45,9 +46,18 @@ export async function createApiApplication(
     mode: runtimeConfig.mode,
     identity: app.get<RuntimeIdentity>(RUNTIME_IDENTITY),
   });
+  const trackingPump = app.get(TrackingHitPump);
+  trackingPump.observeDeliveries(telemetry);
   const fastify = app.getHttpAdapter().getInstance();
   observeHttpRequests(fastify, "api", telemetry);
-  fastify.addHook("onClose", async () => telemetry.shutdown());
+  fastify.addHook("onClose", async () => {
+    // Nest disposes Fastify before OnApplicationShutdown. Drain the API-owned pump before its SDK.
+    try {
+      await trackingPump.onApplicationShutdown();
+    } finally {
+      await telemetry.shutdown();
+    }
+  });
   await app.register(multipart, {
     limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },
   });

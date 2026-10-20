@@ -88,6 +88,25 @@ export async function findPlatformLink(
   return row && platformLink(row);
 }
 
+/** Owner-scoped current binding predicate for a caller's correlated diagnostic query. */
+export function currentPlatformContactLink(
+  database: Executor,
+  botIdentity: string,
+  accountReference: string,
+  identityReference: string,
+) {
+  return sql<boolean>`exists (${database
+    .selectFrom("platform_links")
+    .select("telegram_identity_ref")
+    .where("bot_identity", "=", botIdentity)
+    .where("account_ref", "=", sql<string>`${sql.ref(accountReference)}`)
+    .where(
+      "telegram_identity_ref",
+      "=",
+      sql<string>`${sql.ref(identityReference)}`,
+    )})`;
+}
+
 /** Exact contact bindings of one bot, aligned with the requested Account/identity pairs. */
 export async function findPlatformContactLinks(
   database: Executor,
