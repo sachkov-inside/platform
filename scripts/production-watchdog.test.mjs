@@ -275,6 +275,25 @@ describe("production watchdog", () => {
     }
   });
 
+  it("uses direct Telegram access when the relay address is empty", () => {
+    const fixture = createFixture();
+    try {
+      fixture.config(
+        "WATCHDOG_TELEGRAM_RELAY_ADDRESS=\nWATCHDOG_TELEGRAM_BOT_TOKEN=signals-test-token\nWATCHDOG_TELEGRAM_CHAT_ID=42\n",
+      );
+      fixture.fake(
+        "df",
+        "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda1 100 90 10 90% /\n",
+      );
+      assertRun(fixture);
+      const sent = fixture.sent();
+      assert.match(sent, /chat_id=42/u);
+      assert.doesNotMatch(sent, /--resolve|signals-test-token/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("delivers failure and recovery through email when Telegram is unavailable", () => {
     const fixture = createFixture();
     try {

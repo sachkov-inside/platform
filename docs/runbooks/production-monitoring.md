@@ -102,14 +102,17 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 | Ключ | Назначение |
 |---|---|
 | `WATCHDOG_TELEGRAM_BOT_TOKEN`, `WATCHDOG_TELEGRAM_CHAT_ID` | бот сигналов и личный чат владельца |
-| `WATCHDOG_TELEGRAM_RELAY_ADDRESS` | адрес relay `telegram-transport`, по умолчанию `172.30.244.2` |
+| `WATCHDOG_TELEGRAM_RELAY_ADDRESS` | адрес relay `telegram-transport`, по умолчанию `172.30.244.2`; явная пустая строка включает прямой DNS-маршрут |
 | `WATCHDOG_SMTP_URL`, `WATCHDOG_SMTP_USER`, `WATCHDOG_SMTP_PASSWORD` | почта запасным путём, например `smtps://smtp.example:465` |
 | `WATCHDOG_EMAIL_FROM`, `WATCHDOG_EMAIL_TO` | отправитель и адрес владельца |
 
-Сервер не достаёт `api.telegram.org` напрямую. Сторож идёт в Bot API тем же relay, что и бот:
+На российской площадке сторож идёт в Bot API тем же relay, что и бот:
 `curl --resolve api.telegram.org:443:<relay>`. Поэтому при поломке relay
 ([inside-telegram#126](https://github.com/sachkov-inside/inside-telegram/issues/126)) сигнал через
-Telegram не дойдёт; его донесёт почта, а `getWebhookInfo` сам станет сигналом.
+Telegram не дойдёт; его донесёт настроенная почта, а `getWebhookInfo` сам станет сигналом.
+На [AMS](production-amsterdam.md) бот использует прямой маршрут. Файл настройки сторожа содержит
+`WATCHDOG_TELEGRAM_RELAY_ADDRESS=`; тогда все его Bot API запросы используют обычный DNS без
+`--resolve`. Если строку пропустить, старый default сохранится и проверки AMS будут неверными.
 
 Пока ни один канал не настроен, сигналы только копятся в журнале. Если канал настроен, но доставка не
 удалась, сообщение ждёт в `/var/lib/inside/watchdog/outbox` и уходит следующим запуском; outbox

@@ -358,13 +358,15 @@ check_telegram() {
   fi
 }
 
-# Bot API доступен серверу только через relay telegram-transport; запрос идёт тем же путём, что у бота.
+# Пустой relay address использует обычный DNS и прямой маршрут, как бот на зарубежном сервере.
 telegram_api() {
   local token="$1" method="$2"
   shift 2
+  if [[ -n "$WATCHDOG_TELEGRAM_RELAY_ADDRESS" ]]; then
+    set -- --resolve "api.telegram.org:443:$WATCHDOG_TELEGRAM_RELAY_ADDRESS" "$@"
+  fi
   printf 'url = "https://api.telegram.org/bot%s/%s"\n' "$token" "$method" |
-    curl --config - --fail --silent --max-time 10 \
-      --resolve "api.telegram.org:443:$WATCHDOG_TELEGRAM_RELAY_ADDRESS" "$@"
+    curl --config - --fail --silent --max-time 10 "$@"
 }
 
 check_telegram_webhook() {
@@ -378,7 +380,7 @@ check_telegram_webhook() {
     ! pending="$(jq --exit-status --raw-output '.result.pending_update_count // 0' <<<"$info" 2>/dev/null)" ||
     ! last_error="$(jq --exit-status --raw-output '.result.last_error_date // 0' <<<"$info" 2>/dev/null)"; then
     hold telegram.webhook
-    observe telegram.api 2 "Сторож не получил getWebhookInfo через relay"
+    observe telegram.api 2 "Сторож не получил getWebhookInfo"
     return
   fi
   if [[ "$last_error" =~ ^[0-9]+$ ]] && (( last_error > 0 && now - last_error < 600 )); then
