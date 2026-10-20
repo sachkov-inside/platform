@@ -91,6 +91,41 @@ class FirstFailure(unittest.TestCase):
 
 
 class StoredBoundaries(unittest.TestCase):
+    def test_actual_urllib_http_wrapper_timeout_is_deadline_for_both_query_owners(self):
+        import diagnostics
+        import http.client
+        import sdk_storage
+        import tracking_storage
+        import urllib.error
+        from unittest.mock import patch
+        for scope,module in (('sdk',sdk_storage),('tracking',tracking_storage)):
+            for cause,expected in ((TimeoutError('private-timeout-sentinel'),'deadline'),
+                                   (ConnectionRefusedError('private-refused-sentinel'),'transport'),
+                                   (OSError('timed out private-text-sentinel'),'transport')):
+                with self.subTest(scope=scope,cause=type(cause).__name__):
+                    value=diagnostics.Diagnostic(scope)
+                    kwargs={'release':'c'*40} if scope=='sdk' else {}
+                    # Actual public stdlib connection seam; real urllib do_open owns wrapping.
+                    with patch.object(http.client.HTTPConnection,'connect',side_effect=cause) as connect:
+                        with self.assertRaises(urllib.error.URLError) as caught:
+                            module.stored_metrics_and_traces(token='private-token',compose=[],targets=None,
+                                observed={'trace_id':'a'*32,'root_id':'b'*16},result={},diagnostic=value,**kwargs)
+                    connect.assert_called_once_with()
+                    self.assertIs(caught.exception.reason,cause)
+                    self.assertIsInstance(caught.exception,OSError)
+                    snapshot=value.snapshot()
+                    self.assertEqual((snapshot['phase'],snapshot['outcome'],snapshot['reason']),('metric_query','failed',expected))
+                    self.assertEqual(snapshot['attempts'],1)
+                    value.fail('unknown');value.start('complete')
+                    self.assertEqual(value.snapshot(),snapshot)
+                    self.assertNotIn('private',json.dumps(snapshot))
+        for error,expected in ((TimeoutError('private'),'deadline'),
+                               (urllib.error.URLError('timed out'),'transport'),
+                               (urllib.error.URLError(OSError('timed out')),'transport'),
+                               (urllib.error.URLError(urllib.error.URLError(TimeoutError())),'transport')):
+            with self.subTest(error=type(error).__name__,expected=expected):
+                self.assertEqual(diagnostics.query_reason(error),expected)
+
     def test_query_failure_is_not_a_previous_pending_or_oracle_refusal(self):
         import diagnostics
         import sdk_storage

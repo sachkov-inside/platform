@@ -5,6 +5,7 @@ import stat
 import subprocess
 import sys
 import json
+import urllib.error
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'observability-pilot'))
 import source_status
@@ -142,6 +143,7 @@ class QueryReadFailure(RuntimeError):
 
 def query_reason(error):
     if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)): return 'deadline'
+    if isinstance(error, urllib.error.URLError) and isinstance(error.reason, TimeoutError): return 'deadline'
     if isinstance(error, (ResponseDecode, UnicodeError)): return 'response_decode'
     if isinstance(error, (OSError, subprocess.SubprocessError, QueryReadFailure)): return 'transport'
     return 'unknown'
