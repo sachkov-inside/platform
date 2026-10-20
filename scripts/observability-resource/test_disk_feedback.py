@@ -5,7 +5,7 @@ from pathlib import Path
 import signal
 import tempfile
 import unittest
-from types import SimpleNamespace
+from types import FunctionType,SimpleNamespace
 from unittest.mock import Mock,patch
 import hosted
 
@@ -101,38 +101,53 @@ class SameReadGuard(unittest.TestCase):
         self.assertEqual(view._point(90),(65535,90));self.assertIsNone(view._point(80));view._seal()
         self.assertEqual(view.final[:2],('refused','numeric_refused'))
 
-    def late_monitor(self,early_failure=None,cleanup_failure=None):
+    def late_monitor(self,early_failure=None,cleanup_failure=None,join_mode='normal',state=None):
         import sys
         import threading
-        pilot=hosted.runtime.pilot;started=threading.Event();release=threading.Event();threads=[]
+        pilot=hosted.runtime.pilot;started=threading.Event();release=threading.Event();finish=threading.Event();threads=[]
         real_thread=threading.Thread;reads=[0]
+        state={} if state is None else state
+        state.update(threads=threads,release=release,finish=finish)
+        if join_mode=='normal':finish.set()
         class OwnedThread(real_thread):
             def join(self,timeout=None):
+                if release.is_set():
+                    if join_mode=='timeout':return
+                    if join_mode=='early_error':raise cleanup_failure
                 super().join(timeout)
                 if release.is_set() and cleanup_failure is not None:raise cleanup_failure
         def create(**kwargs):
+            target=kwargs['target']
+            # Execute the actual monitor code/closure with permanently signal-safe worker globals.
+            # Restoring a process-wide patch cannot expose this still-live target to real os.kill.
+            worker_globals={**target.__globals__,'os':SimpleNamespace(getpid=os.getpid,kill=kill),
+                            'shutil':SimpleNamespace(disk_usage=disk)}
+            kwargs['target']=FunctionType(target.__code__,worker_globals,target.__name__,target.__defaults__,target.__closure__)
             thread=OwnedThread(**kwargs);threads.append(thread);return thread
         def disk(path):
             reads[0]+=1
             if reads[0]==1:return SimpleNamespace(free=20*1024**3)
             started.set()
-            if not release.wait(4):raise OSError('owned late fixture timeout')
+            if not release.wait(4) or not finish.wait(4):raise OSError('owned late fixture timeout')
             return SimpleNamespace(free=16*1024**3)
         with patch.object(pilot.threading,'Thread',side_effect=create),patch.object(pilot.shutil,'disk_usage',side_effect=disk),patch.object(pilot.os,'kill') as kill:
+            state['kill']=kill
             try:
                 with pilot.disk_budget(Path('/synthetic'),observe_samples=True) as view:
                     self.assertTrue(started.wait(2))
                 frozen=view.final;self.assertTrue(threads[0].is_alive())
                 if early_failure is not None:raise early_failure
             finally:
-                # Release/reap while every monitor patch, particularly kill, is still active.
                 primary=sys.exc_info()[0] is not None;cleanup_error=None
                 release.set()
                 for thread in threads:
                     try:thread.join(2)
                     except BaseException as error:
                         if cleanup_error is None:cleanup_error=error
-                    self.assertFalse(thread.is_alive(),'owned late monitor did not exit')
+                state['alive_at_patch_exit']=any(thread.is_alive() for thread in threads)
+                if state['alive_at_patch_exit'] and cleanup_error is None:
+                    cleanup_error=RuntimeError('owned late monitor cleanup incomplete')
+                state['cleanup_error']=cleanup_error
                 if cleanup_error is not None and not primary:raise cleanup_error
             self.assertEqual(view.final,frozen);kill.assert_called_once_with(os.getpid(),signal.SIGUSR1)
 
@@ -155,6 +170,33 @@ class SameReadGuard(unittest.TestCase):
         with patch.object(hosted.runtime.pilot.os,'kill') as escaped:
             with self.assertRaises(OSError) as caught:self.late_monitor(cleanup_failure=secondary)
             self.assertIs(caught.exception,secondary);escaped.assert_not_called()
+
+    def test_still_live_join_timeout_and_pretermination_join_error_cannot_escape_containment(self):
+        import threading
+        for mode in ('timeout','early_error'):
+            for failing in (False,True):
+                with self.subTest(mode=mode,primary=failing):
+                    state={};primary=AssertionError('owned primary') if failing else None
+                    secondary=OSError('owned pretermination join refusal')
+                    with patch.object(hosted.runtime.pilot.os,'kill') as escaped:
+                        try:
+                            try:self.late_monitor(primary,secondary,mode,state)
+                            except BaseException as caught:
+                                if primary is not None:self.assertIs(caught,primary)
+                                elif mode=='early_error':self.assertIs(caught,secondary)
+                                else:self.assertIsInstance(caught,RuntimeError)
+                            else:self.fail('cleanup refusal lost')
+                            self.assertTrue(state['alive_at_patch_exit'])
+                            self.assertTrue(state['threads'][0].is_alive())
+                            self.assertIsNotNone(state['cleanup_error'])
+                        finally:
+                            state['release'].set();state['finish'].set()
+                            for thread in state['threads']:
+                                # Base join bypasses only the deliberate test-owned join refusal.
+                                threading.Thread.join(thread,2)
+                                self.assertFalse(thread.is_alive())
+                        escaped.assert_not_called()
+                        state['kill'].assert_called_once_with(os.getpid(),signal.SIGUSR1)
 
     def test_baseline_interrupt_is_original_before_handler_or_thread_and_default_has_no_view(self):
         from disk_samples import DiskSamples
@@ -241,6 +283,19 @@ class Artifact(unittest.TestCase):
             path.unlink();path.mkdir()
             with self.assertRaises(ValueError):numeric.read(path,'a'*40)
             with self.assertRaises(ValueError):numeric.write(path,value,'a'*40)
+
+    def test_committed_writer_does_not_delete_recreated_foreign_temp(self):
+        import disk_feedback as numeric
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);path=root/numeric.NAME;temporary=root/'.resource-disk-samples.new'
+            original=numeric.os.replace
+            def replace(source,destination):
+                original(source,destination)
+                temporary.write_text('next writer owns this file')
+            with patch.object(numeric.os,'replace',side_effect=replace):numeric.write(path,self.value(),'a'*40)
+            self.assertTrue(temporary.is_file(),'committed writer deleted another writer temporary')
+            self.assertEqual(temporary.read_text(),'next writer owns this file')
+            self.assertEqual(numeric.read(path,'a'*40),self.value())
 
     def test_atomic_temp_collision_and_cleanup_never_replace_primary(self):
         import disk_feedback as numeric
@@ -331,18 +386,16 @@ class Preparation(unittest.TestCase):
                 with self.assertRaises((OSError,ValueError)):self.exercise(root,**options)
                 self.assertFalse((root/'images.json').exists())
 
-    def test_successful_write_cleanup_refusal_still_blocks_manifest(self):
-        original=Path.is_file;error=OSError('owned cleanup refusal')
+    def test_committed_write_never_probes_released_temp_path(self):
+        original=Path.is_file
         def inspect(path):
-            if path.name=='.resource-disk-samples.new':raise error
+            if path.name=='.resource-disk-samples.new':raise AssertionError('released path probed')
             return original(path)
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
             with patch.object(Path,'is_file',autospec=True,side_effect=inspect):
-                with self.assertRaises(OSError) as caught:self.exercise(root)
-            self.assertIs(caught.exception,error)
-            self.assertFalse((root/'images.json').exists())
-            # The canonical diagnostic may exist; it cannot authorize a usable image manifest.
+                self.exercise(root)
+            self.assertTrue((root/'images.json').is_file())
             self.assertTrue((root/hosted.disk_feedback.NAME).is_file())
 
     def test_stopping_first_pull_and_unsealed_prefix_are_recorded_without_safety_promotion(self):

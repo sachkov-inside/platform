@@ -90,13 +90,15 @@ def write(path,value,source):
     if len(raw)>MAX_BYTES or path.is_symlink() or path.exists() and not path.is_file():refuse()
     temporary=path.with_name('.resource-disk-samples.new')
     descriptor=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    committed=False
     try:
         with os.fdopen(descriptor,'wb') as stream:stream.write(raw)
         os.replace(temporary,path)
+        committed=True
     finally:
         primary=sys.exc_info()[0] is not None
         try:
-            if temporary.is_file() and not temporary.is_symlink():temporary.unlink()
+            if not committed and temporary.is_file() and not temporary.is_symlink():temporary.unlink()
         except OSError:
             if not primary:raise
 
