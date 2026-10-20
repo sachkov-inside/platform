@@ -40,7 +40,7 @@ function submit(
   request?.write(typeof body === "string" ? Buffer.from(body) : body);
   request?.complete();
 }
-const numbered = (value: number) => `{"resourceSpans":[],"value":${value}}`;
+const numbered = (value: number) => `{"resourceSpans":[{"value":${value}}]}`;
 
 test("refuses the 33rd distinct payload when two admitted requests finish across the parallel quota boundary", async () => {
   const capture = assembleEmailExportCapture();
@@ -134,8 +134,8 @@ test("refuses double completion instead of manufacturing or hiding a request mul
 
 test("keeps a one-byte difference and JSON whitespace as distinct evidence", () => {
   const capture = assembleEmailExportCapture();
-  const first = '{"resourceSpans":[],"marker":"a"}';
-  const second = '{"resourceSpans":[],"marker":"b"}';
+  const first = '{"resourceSpans":[{"marker":"a"}]}';
+  const second = '{"resourceSpans":[{"marker":"b"}]}';
   for (const body of [first, second, `${first} `]) submit(capture, body);
   capture.assertComplete({ traces: 3, metrics: 0, other: 0 });
   expect(capture.payloads()).toEqual([first, second, `${first} `]);
@@ -148,9 +148,7 @@ test("retains a late sentinel in the 32nd distinct body after 186 earlier native
       submit(capture, numbered(value));
   const sentinel = "late-private-email-sentinel@example.test";
   const body = JSON.stringify({
-    resourceSpans: [],
-    padding: "x".repeat(1_048_400),
-    tail: sentinel,
+    resourceSpans: [{ padding: "x".repeat(1_048_400), tail: sentinel }],
   });
   submit(capture, body);
   capture.assertComplete({ traces: 187, metrics: 0, other: 0 });
@@ -163,8 +161,8 @@ test("retains a late sentinel in the 32nd distinct body after 186 earlier native
 
 test("admits an exact byte-limit payload and counts repeats when all 32 distinct slots are occupied", () => {
   const capture = assembleEmailExportCapture();
-  const prefix = '{"resourceSpans":[],"padding":"';
-  const suffix = '"}';
+  const prefix = '{"resourceSpans":[{"padding":"';
+  const suffix = '"}]}';
   const body =
     prefix + "x".repeat(1024 * 1024 - prefix.length - suffix.length) + suffix;
   submit(capture, body);
@@ -178,7 +176,7 @@ test("admits an exact byte-limit payload and counts repeats when all 32 distinct
 
 test("validates UTF8 after all chunks without replacing a split multibyte codepoint", () => {
   const capture = assembleEmailExportCapture();
-  const body = '{"resourceSpans":[],"value":"é"}';
+  const body = '{"resourceSpans":[{"value":"é"}]}';
   const bytes = Buffer.from(body);
   const split = bytes.indexOf(0xc3) + 1;
   const request = capture.begin("/v1/traces");
@@ -222,7 +220,7 @@ test("does not strip a leading BOM to merge a different byte sequence", () => {
 test("keeps BOM inside JSON strings and Unicode normalization differences byte-distinct", () => {
   const capture = assembleEmailExportCapture();
   const bodies = ["é", "e\u0301", "\uFEFF"].map((value) =>
-    JSON.stringify({ resourceSpans: [], value }),
+    JSON.stringify({ resourceSpans: [{ value }] }),
   );
   for (const body of bodies) submit(capture, body);
   capture.assertComplete({ traces: 3, metrics: 0, other: 0 });
@@ -312,3 +310,29 @@ test("preserves a complete signal-category multiset across distinct metric and t
     { signal: "metrics", multiplicity: 1 },
   ]);
 });
+
+test.each([
+  ["/v1/traces", '{"resourceSpans":[],"resourceLogs":[]}'],
+  ["/v1/metrics", '{"resourceMetrics":[],"resourceLogs":[]}'],
+  ["/v1/traces", '{"resourceSpans":[],"arbitrary":"private-body-sentinel"}'],
+  ["/v1/metrics", '{"resourceMetrics":[],"resourceProfiles":[]}'],
+  ["/v1/traces", '{"resourceSpans":[],"__proto__":{}}'],
+  ["/v1/metrics", '{"resourceMetrics":[],"constructor":{}}'],
+])(
+  "refuses every unsupported top-level field for the fixed signal %s",
+  (path, body) => {
+    const capture = assembleEmailExportCapture();
+    submit(capture, body, path);
+    expect(capture.payloads()).toEqual([]);
+    expect(() =>
+      capture.assertComplete({
+        traces: path === "/v1/traces" ? 1 : 0,
+        metrics: path === "/v1/metrics" ? 1 : 0,
+        other: 0,
+      }),
+    ).toThrow("malformed");
+    expect(JSON.stringify(capture.summary())).not.toContain(
+      "private-body-sentinel",
+    );
+  },
+);

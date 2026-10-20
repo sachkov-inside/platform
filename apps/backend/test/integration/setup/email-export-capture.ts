@@ -11,6 +11,10 @@ export const EMAIL_EXPORT_CAPTURE_LIMITS = {
   highWaterMark: 16 * 1024,
   headerBytes: 16 * 1024,
 } as const;
+const envelopes = {
+  traces: z.strictObject({ resourceSpans: z.array(z.unknown()) }),
+  metrics: z.strictObject({ resourceMetrics: z.array(z.unknown()) }),
+};
 type Signal = "traces" | "metrics" | "other";
 export type ExportRequestCounts = Record<Signal, number>;
 interface CapturedBody {
@@ -136,18 +140,7 @@ export function assembleEmailExportCapture() {
               refused[signal]++;
               return;
             }
-            const shape = z
-              .record(z.string(), z.unknown())
-              .parse(JSON.parse(body));
-            const field =
-              signal === "metrics" ? "resourceMetrics" : "resourceSpans";
-            const other =
-              signal === "metrics" ? "resourceSpans" : "resourceMetrics";
-            if (!Array.isArray(shape[field]) || Object.hasOwn(shape, other)) {
-              fault("malformed");
-              refused[signal]++;
-              return;
-            }
+            envelopes[signal].parse(JSON.parse(body));
             const previous = retained.find((entry) => entry.body === body);
             if (previous === undefined) {
               if (
