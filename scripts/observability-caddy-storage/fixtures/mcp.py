@@ -11,7 +11,7 @@ listener=socket.socket();listener.bind(('127.0.0.1',0));listener.listen()
 report.with_suffix('.tmp').write_text(json.dumps({'pid':os.getpid(),'child':os.getpid(),'helper':os.getppid(),'python':int(os.environ.get('CADDY_TEST_PARENT_PID',os.getppid())),'port':listener.getsockname()[1]}))
 report.with_suffix('.tmp').replace(report)
 if os.environ.get('CADDY_TEST_CASE')=='failure':sys.exit(3)
-if os.environ.get('CADDY_TEST_CASE') in ('timeout','interruption'):
+if os.environ.get('CADDY_TEST_CASE') in ('timeout','interruption','early_exit'):
     signal.signal(signal.SIGTERM,signal.SIG_IGN)
     while True:signal.pause()
 for line in sys.stdin:

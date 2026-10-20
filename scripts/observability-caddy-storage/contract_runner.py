@@ -13,20 +13,20 @@ import caddy_mcp
 
 def main():
     if sys.argv[1:2]==['--held-fixture']:
-        if len(sys.argv)!=4 or sys.argv[2] not in ('success','failure','timeout','interruption'):raise ValueError('closed Caddy fixture')
+        if len(sys.argv)!=4 or sys.argv[2] not in ('success','failure','timeout','interruption','early_exit'):raise ValueError('closed Caddy fixture')
         import request_hold
         from test_request_hold import peer
         case,report=sys.argv[2:]
         with peer(status=500 if case=='failure' else 200) as (port,prefixed,_):
             environment={'PATH':os.environ.get('PATH',''),'CADDY_HOLD_TOKEN':'owned_token','CADDY_TEST_HTTP_PORT':str(port),
-                'CADDY_TEST_REPORT':report,'CADDY_TEST_PARENT_PID':str(os.getpid())}
+                'CADDY_TEST_REPORT':report,'CADDY_TEST_CASE':case,'CADDY_TEST_PARENT_PID':str(os.getpid())}
             fixture=([sys.executable,'-B',str(Path(__file__).with_name('fixtures')/'held.py')],environment)
             with request_hold.Held('owned_token',_fixture=fixture) as held:
                 if not prefixed.wait(1):raise ValueError('closed Caddy fixture')
-                if case in ('timeout','interruption'):signal.pause()
+                if case in ('timeout','interruption','early_exit'):signal.pause()
                 held.finish()
     elif sys.argv[1:2]==['--fixture']:
-        if len(sys.argv)!=4 or sys.argv[2] not in ('success','failure','timeout','interruption'):raise ValueError('closed Caddy fixture')
+        if len(sys.argv)!=4 or sys.argv[2] not in ('success','failure','timeout','interruption','early_exit'):raise ValueError('closed Caddy fixture')
         case,report=sys.argv[2:]
         from test_observation import acquisition
         with tempfile.TemporaryDirectory() as directory:
