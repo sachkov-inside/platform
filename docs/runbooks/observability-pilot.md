@@ -1371,6 +1371,13 @@ package использует production-код очистки диагности
 Пределы private protocol и схема public artifact не меняются.
 
 
+Tracking and waitlist module witnesses additionally admit exactly
+`docs/contracts/notifications-v1/schema.json`, imported directly by the production notification
+transport. Neighbouring JSON files and path suffixes remain refused. The existing path, digest,
+duplicate, required-module and privacy checks still run before publishing the map. A real Node
+JSON import exercises the owning load hook in the contract tests. This source correction does not
+identify the withheld leaf of an earlier native failure or prove stored runtime acceptance.
+
 ### Closed SDK, tracking and waitlist failure diagnostics (#1566)
 
 The SDK and tracking workers publish a separate `storage-diagnostic.json` (schema1, at most2048bytes).
