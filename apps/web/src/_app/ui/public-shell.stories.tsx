@@ -214,7 +214,7 @@ export const MobileTopNavigation: Story = {
 /** Кнопка входа остаётся в пределах узкой шапки при увеличении текста. */
 export const MobileSignInEnlargedText: Story = {
   ...MobileTopNavigation,
-  render: () => null,
+  render: () => <></>,
   play: async ({ canvasElement }) => {
     const root = canvasElement.ownerDocument.documentElement;
     const fontSize = root.style.fontSize;
