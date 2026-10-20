@@ -11,6 +11,8 @@ on:
       - scripts/observability-tracking-storage/**
       - scripts/observability-tracking-storage.test.mjs
       - scripts/observability-pilot/**
+      - scripts/observability-umami/process-owner.mjs
+      - scripts/process-group-signal.mjs
       - scripts/heavy-check.sh
       - apps/backend/src/**
       - apps/backend/prisma/**
@@ -65,9 +67,9 @@ jobs:
       - name: Verify closed oracles and native child ownership
         timeout-minutes: 2
         run: |
-          bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-tracking-storage -p 'test_*.py'
-          bash scripts/heavy-check.sh python3 scripts/observability-tracking-storage/logging_contract.py
-          bash scripts/heavy-check.sh python3 scripts/observability-tracking-storage/trace_flags_contract.py
+          bash scripts/heavy-check.sh node --test scripts/observability-tracking-storage.test.mjs
+          bash scripts/heavy-check.sh node scripts/observability-tracking-storage/contract-runner.mjs --script logging_contract.py
+          bash scripts/heavy-check.sh node scripts/observability-tracking-storage/contract-runner.mjs --script trace_flags_contract.py
       - name: Bind source and measure disk admission
         timeout-minutes: 1
         run: |

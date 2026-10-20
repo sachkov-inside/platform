@@ -1403,6 +1403,11 @@ and SQL CLIENT spans. The new delivery span has a local context, so its provider
 inherit the remote-parent bit. The compiled public TechnicalTelemetry context/serialization contract
 checks actual pinned JSON and protobuf encoders, then feeds both flag results into the full-row oracle.
 That focused contract does not execute the genuine API, PostgreSQL or pinned storage vertical.
+The Node contract launcher owns a separate Python process group with bounded TERM/KILL cleanup.
+Its Python entry point unwinds on TERM so native-child cleanup can finish before escalation.
+Real outer-launcher tests acquire a native HTTP listener before timeout or interruption and verify
+child/Python absence and port release, alongside successful and failed execution. Nested test owners
+handle forwarded signals for their own groups; producer children never create detached sessions.
 
 Run the isolated workflow for native acceptance. Pure contract tests and prepared source do not prove
 this storage composition has executed. Even a successful hosted result covers only this one success;

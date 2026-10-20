@@ -81,7 +81,9 @@ class TrackingOwnership(unittest.TestCase):
             '.github/actions/setup-platform/action.yml','pnpm-lock.yaml','.github/workflows/observability-tracking-storage.yml',
             'scripts/observability-tracking-storage/producer.mjs','scripts/observability-tracking-storage/tracking_oracle.py',
             'scripts/observability-tracking-storage/logging-fixture.mjs','scripts/observability-tracking-storage/logging_contract.py',
-            'scripts/observability-tracking-storage/trace_flags_contract.py','scripts/observability-sdk-storage/test_trace_flags.py'}
+            'scripts/observability-tracking-storage/trace_flags_contract.py','scripts/observability-sdk-storage/test_trace_flags.py',
+            'scripts/observability-tracking-storage/contract_runner.py','scripts/observability-tracking-storage/contract-runner.mjs',
+            'scripts/observability-umami/process-owner.mjs','scripts/process-group-signal.mjs'}
         self.assertFalse(required-paths)
         for path in sorted(paths):
             with self.subTest(path=path):

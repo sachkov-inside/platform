@@ -31,7 +31,8 @@ def source_inputs():
     paths=ci.read_command(['git','-C',str(pilot.ROOT),'ls-files']).splitlines()
     selected.update(pilot.ROOT/name for name in paths if name.startswith('scripts/observability-tracking-storage/') or name in (
         'scripts/observability-tracking-storage.test.mjs','.github/workflows/observability-tracking-storage.yml',
-        'apps/backend/test/support/proof-dependencies.ts'))
+        'apps/backend/test/support/proof-dependencies.ts','scripts/observability-umami/process-owner.mjs',
+        'scripts/process-group-signal.mjs'))
     return tuple(sorted(selected))
 
 
