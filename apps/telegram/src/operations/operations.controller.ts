@@ -1,3 +1,4 @@
+import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import {
   Controller,
   Get,
@@ -18,6 +19,8 @@ import { RuntimeMetrics } from "./runtime-metrics.js";
 @Controller()
 export class OperationsController {
   constructor(
+    @Inject(WaitlistConfirmations)
+    private readonly waitlistConfirmations: WaitlistConfirmations,
     @Inject(DATABASE) private readonly database: Database,
     @Inject(RuntimeMetrics) private readonly metrics: RuntimeMetrics,
     @Inject(APPLICATION_CONFIG)
@@ -51,7 +54,10 @@ export class OperationsController {
 
   @Get("metrics")
   @Header("content-type", "text/plain; version=0.0.4; charset=utf-8")
-  metricsText(): string {
+  async metricsText(): Promise<string> {
+    this.metrics.recordWaitlistConfirmations(
+      await this.waitlistConfirmations.snapshot(),
+    );
     return this.metrics.render();
   }
 }

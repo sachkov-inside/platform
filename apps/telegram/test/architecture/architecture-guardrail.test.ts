@@ -84,6 +84,7 @@ const currentTableOwners = {
   communication_author_compositions: "communications",
   communication_author_drafts: "communications",
   communication_author_modes: "communications",
+  waitlist_confirmations: "communications",
   communication_author_outbox: "communications",
   communication_author_receipts: "communications",
   communication_author_sessions: "communications",

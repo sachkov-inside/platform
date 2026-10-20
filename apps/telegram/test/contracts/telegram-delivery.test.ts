@@ -32,7 +32,7 @@ function plan(input: unknown) {
 }
 
 describe("Telegram delivery across the repository transition", () => {
-  it("records learner activation, private announcement and waitlist notification migration identity", () => {
+  it("records learner activation, waitlist notification and service confirmation migration identity", () => {
     const result = runOwnedCommandSync(
       process.execPath,
       ["scripts/release-contract.mjs", "migrations-identity"],
@@ -41,9 +41,9 @@ describe("Telegram delivery across the repository transition", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       identity:
-        "sha256:79e8209de224fe2904a00ff5447112c423d6a4206fc6f9818b1265096e278dc3",
-      count: 35,
-      latest: "034-waitlist-audience-result.ts",
+        "sha256:48a194deff0121f3a74859b27ea5f83c7466345e3bf77a08363b270a0c1cd163",
+      count: 36,
+      latest: "035-waitlist-confirmations.ts",
     });
   });
 

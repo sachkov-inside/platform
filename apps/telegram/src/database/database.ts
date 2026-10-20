@@ -1,3 +1,4 @@
+import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
 import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
 import type { ActivationTables } from "../modules/subscription-activation/activation-storage.js";
@@ -338,6 +339,24 @@ export interface DatabaseSchema
   communication_author_receipts: {
     bot_identity: string;
     update_id: BigIntColumn;
+  };
+  waitlist_confirmations: {
+    bot_identity: string;
+    event_id: string;
+    command: JsonColumn<WaitlistConfirmation>;
+    created_at: Timestamp;
+    available_at: Timestamp;
+    attempted_at: Timestamp | null;
+    attempt_count: Generated<number>;
+    provider_message_id: string | null;
+    diagnostic_code: string | null;
+    state:
+      | "pending"
+      | "sending"
+      | "delivered"
+      | "suppressed"
+      | "rejected"
+      | "unknown";
   };
   communication_author_outbox: {
     sequence_id: Generated<string>;
