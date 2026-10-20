@@ -1425,8 +1425,10 @@ unknown, abrupt exit may retain running, and malformed present markers refuse co
 Collection now intentionally tightens the internal evidence contract: both SDK and tracking require
 the complete bounded11-key `source.json` receipt before creating a public destination, even for
 legacy output with no phase marker. Its checkout SHA must equal the provider execution SHA;
-tracking also requires the current checkout to match that receipt. Valid existing admission receipts
-remain supported. Direct calls with arbitrary, null-provider or absent metadata, formerly accepted
+tracking also requires the current checkout to match that receipt. Valid existing admission receipts in canonical, owned0700 metadata directories
+remain supported. Relative or symlinked metadata paths also refuse under the explicit canonical
+path contract; the hosted workflows already pass canonical absolute paths. Direct calls with
+arbitrary, null-provider or absent metadata, formerly accepted
 by generic artifact copying, now refuse. The existing admission CLI already required
 `HEAD == GITHUB_SHA` before writing its receipt; no local environment fallback is introduced.
 The SDK collector derives authority only from that receipt. Raw phase files are excluded from
