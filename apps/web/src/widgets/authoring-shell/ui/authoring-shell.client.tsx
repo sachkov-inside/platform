@@ -106,7 +106,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
         <nav aria-label="Редактор">{navigation()}</nav>
       </aside>
       <div className="authoring-main">
-        <div className="authoring-mobile-bar">
+        <header className="authoring-mobile-bar">
           <Link className="authoring-mobile-brand" href="/authoring/products">
             Sachkov Dev
           </Link>
@@ -122,7 +122,7 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
             <Menu size={18} aria-hidden="true" />
             {menuOpen ? "Закрыть меню" : "Меню"}
           </button>
-        </div>
+        </header>
         {menuOpen ? (
           <nav
             className="authoring-mobile-menu"
