@@ -1572,3 +1572,11 @@ named-column writer and no-op migration are checked separately. Native PostgreSQ
 checks require their hosted CI evidence. Failure/retry/rootless/OFF/503 through pinned storage,
 Telegram receipt/worker/reverse authorization/BotAPI causal continuation, production and seven
 actual days remain outside this success proof. No deployment is authorized for this work.
+
+## Isolated native Caddy observation
+
+[The Caddy pilot](observability-caddy-pilot.md) adds an opt-in native registry, fixed partition,
+strict canonical/VM MCP readers and a separate hosted observation/cleanup matrix over Core7.
+Core defaults and production Caddy are unchanged. Source and protocol checks do not establish
+Linux/native acceptance; the bound hosted matrix is required. This scope adds no production,
+server-sizing, resource-saving or #1579 acceptance.
