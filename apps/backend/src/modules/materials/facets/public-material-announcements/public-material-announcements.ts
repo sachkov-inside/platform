@@ -43,7 +43,6 @@ export class PublicMaterialAnnouncements {
           id: { in: page.map((row) => row.materialId) },
           publicationState: "published",
           access: "free",
-          showInFeed: true,
           notifyTelegram: true,
         },
         select: { id: true, title: true, summary: true, slug: true },

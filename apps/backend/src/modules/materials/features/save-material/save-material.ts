@@ -471,14 +471,10 @@ export function assembleSaveMaterial(
                     readerPath: materialReaderPath(publishable.value.slug),
                   },
                   firstPublication: locked.lifecycle.firstPublishedAt === null,
-                  telegramManaged:
-                    publishable.value.access === "free" &&
-                    (source?.showInFeed ?? locked.showInFeed),
+                  telegramManaged: publishable.value.access === "free",
                   telegramEnabled:
                     (command.notifyTelegram ?? locked.notifyTelegram) ===
-                      true &&
-                    publishable.value.access === "free" &&
-                    (source?.showInFeed ?? locked.showInFeed),
+                      true && publishable.value.access === "free",
                 },
                 savedAt,
               );

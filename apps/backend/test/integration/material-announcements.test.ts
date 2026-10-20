@@ -231,7 +231,7 @@ describe("анонс первой публикации материала", () =
     ).toEqual([]);
   });
 
-  test("публичный анонс отзывается при снятии, скрытии из ленты, закрытии и истечении срока", async () => {
+  test("публичный анонс следует действующей ленте: legacy showInFeed не скрывает, снятие и закрытие отзывают", async () => {
     const id = await draft("Telegram current eligibility");
     value(
       await materials().authoring.saveMaterial({
@@ -247,8 +247,20 @@ describe("анонс первой публикации материала", () =
     );
     const announcement = await announcedOccurrence(id);
     const source = publicAnnouncements();
+    await database.prisma.material.update({
+      where: { id },
+      data: { showInFeed: false },
+    });
+    expect(
+      (
+        await source.read(
+          { announcementRef: announcement.id },
+          "https://inside.example",
+          announcement.occurredAt,
+        )
+      ).items,
+    ).toHaveLength(1);
     for (const change of [
-      { showInFeed: false },
       { access: "closed" },
       { publicationState: "unpublished" },
     ]) {
