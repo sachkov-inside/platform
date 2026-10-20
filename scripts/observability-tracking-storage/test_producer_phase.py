@@ -56,4 +56,28 @@ class TrackingPhaseTest(unittest.TestCase):
             self.assertFalse(destination.exists())
 
 
+    def test_collection_requires_matching_admission_receipt_even_without_marker(self):
+        import tracking_storage as storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700)
+            metadata=root/'metadata';metadata.mkdir(mode=0o700);path=metadata/'source.json'
+            value=dict(checkout_sha=SOURCE,checkout_tree='b'*40,repository=None,run_id=None,run_attempt=None,event=None,
+                       provider_execution_sha=SOURCE,provider_pr_head_sha=None,provider_pr_base_sha=None,inputs={},scope='fixture')
+            with patch.object(storage.ci,'read_command',return_value=SOURCE):
+                for index,receipt in enumerate([None,{**value,'provider_execution_sha':None},
+                        {**value,'checkout_sha':'c'*40,'provider_execution_sha':'c'*40},value]):
+                    if receipt is None:
+                        if path.exists():path.unlink()
+                    else:path.write_text(json.dumps(receipt));path.chmod(0o600)
+                    destination=root/('public-'+str(index))
+                    if receipt!=value:
+                        with self.assertRaises(ValueError):storage.collect(output,metadata,destination)
+                        self.assertFalse(destination.exists())
+                    else:
+                        storage.collect(output,metadata,destination)
+                        self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),record('unknown','unknown','unavailable'))
+                        self.assertEqual(json.loads((destination/'source.json').read_text()),value)
+                        self.assertTrue((destination/storage.api_progress.NAME).is_file())
+
+
 if __name__=='__main__':unittest.main()

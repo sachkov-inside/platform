@@ -449,6 +449,29 @@ class SdkMetadataAndCollectionTest(unittest.TestCase):
                 self.assertTrue(collect.call_count==0,'raw private phase reached public collection')
             self.assertFalse((root/'refused').exists())
 
+    def test_legacy_absent_marker_requires_admission_source_before_public_copy(self):
+        import sdk_storage
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata,path,value=self.metadata(root)
+            output=root/'private';output.mkdir(mode=0o700)
+            # Reproduce the former direct collection boundary: generic copying did not
+            # interpret source authority when passed the application artifact list.
+            path.write_text(json.dumps({**value,'provider_execution_sha':None}))
+            legacy=root/'legacy'
+            sdk_storage.ci.collect(output,metadata,legacy,artifacts=())
+            self.assertIsNone(json.loads((legacy/'source.json').read_text())['provider_execution_sha'])
+            for index,receipt in enumerate([None,{**value,'provider_execution_sha':None},value]):
+                if receipt is None:path.unlink()
+                else:path.write_text(json.dumps(receipt))
+                destination=root/('public-'+str(index))
+                if receipt!=value:
+                    with self.assertRaises(ValueError):sdk_storage.collect(output,metadata,destination)
+                    self.assertFalse(destination.exists())
+                else:
+                    sdk_storage.collect(output,metadata,destination)
+                    self.assertEqual(phase.read(destination/phase.NAME,source=SOURCE),record('unknown','unknown','unavailable'))
+                    self.assertEqual(json.loads((destination/'source.json').read_text()),value)
+
     def test_unobservable_parent_and_disappearing_present_file_are_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve()

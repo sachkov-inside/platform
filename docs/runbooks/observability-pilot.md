@@ -1411,6 +1411,35 @@ active primary exception or its traceback. The worker's existing result-writer b
 Before public copying, collectors strictly read present metadata, exclude its raw files from generic
 collection and write only canonical projections. Invalid present metadata refuses collection.
 
+SDK and tracking additionally prepare separate `sdk-emitter-phase.json` and
+`tracking-producer-phase.json` observations. Each closed record is at most512bytes and contains
+only schema1, fixed scope, captured source SHA, state, phase and reason. The child writes a private
+atomic marker through an owned directory descriptor; the parent reads it only after the unchanged
+capture owner has reaped the child. These source-specific owners never inspect error text, args,
+properties or stack traces. `emit` and `produce` keep their default null observer and unchanged
+capture APIs. The first observed operation or cleanup failure is retained even if later original
+cleanup replaces the thrown exception. `completed` is written only after all original cleanup;
+a later stdout/IPC failure can therefore coexist with a completed marker. Missing markers remain
+unknown, abrupt exit may retain running, and malformed present markers refuse collection.
+
+Collection now intentionally tightens the internal evidence contract: both SDK and tracking require
+the complete bounded11-key `source.json` receipt before creating a public destination, even for
+legacy output with no phase marker. Its checkout SHA must equal the provider execution SHA;
+tracking also requires the current checkout to match that receipt. Valid existing admission receipts
+remain supported. Direct calls with arbitrary, null-provider or absent metadata, formerly accepted
+by generic artifact copying, now refuse. The existing admission CLI already required
+`HEAD == GITHUB_SHA` before writing its receipt; no local environment fallback is introduced.
+The SDK collector derives authority only from that receipt. Raw phase files are excluded from
+generic copying and rewritten as canonical validated records.
+
+Local library fixtures exercise insertion, first-failure and cleanup semantics using controlled
+module ports and owned loopback listeners. On Mac, unsupported directory-FD path anchoring disables
+the genuine child writer; an explicitly test-owned FD-path shim does not prove OS anchoring or
+native SDK/API behavior. The existing Linux source routes execute the genuine anchored writer and
+actual entrypoint controls without that shim. Fresh hosted Linux results, compiled native modules,
+genuine PostgreSQL and pinned storage remain separate acceptance evidence. No phase observation
+establishes the cause of an earlier run or completes the whole specification.
+
 Trace validation in SDK, tracking and waitlist admits only a constructor-owned fixed reason:
 `trace_decode` at the whole-row decode-contract boundary, or `trace_gate_01` through `trace_gate_20`
 for the original semantic refusal sites. SDK admits only01–12. The checked-in

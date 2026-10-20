@@ -100,6 +100,6 @@ class WitnessReasons(unittest.TestCase):
                 patch.object(producer_protocol,'capture',return_value=wire()), \
                 patch.object(producer_protocol,'witness',side_effect=error):
             with self.assertRaises(ValueError) as caught:
-                tracking_storage.producer_observation(Path(directory),environment={},diagnostic=diagnostic)
+                tracking_storage.producer_observation(Path(directory).resolve(),environment={},diagnostic=diagnostic)
         self.assertIs(caught.exception,error)
         self.assertEqual(diagnostic.snapshot()['reason'],'witness_required')
