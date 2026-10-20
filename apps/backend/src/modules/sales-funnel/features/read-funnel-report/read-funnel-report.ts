@@ -1,3 +1,4 @@
+import type { AccountRights } from "../../../account-rights/index.js";
 import { ProductWaitlists } from "../../facets/product-waitlists/product-waitlists.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -24,6 +25,10 @@ import {
 
 export type ReadFunnelReportDependencies = {
   readonly prisma: SalesFunnelPrismaClient;
+  readonly rights: Pick<
+    AccountRights,
+    "resolveForAccess" | "resolveForAccessAccounts"
+  >;
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly links: Pick<
     TelegramAccountLinks,

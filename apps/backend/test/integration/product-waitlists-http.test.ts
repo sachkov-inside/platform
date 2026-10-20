@@ -1,3 +1,4 @@
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -78,6 +79,10 @@ beforeAll(async () => {
   const links = new TelegramAccountLinks(db.prisma);
   const dependencies = {
     prisma: db.prisma,
+    rights: assembleAccountRights({
+      prisma: db.prisma,
+      clock: () => new Date("2030-03-05T12:00:00Z"),
+    }),
     links,
     clock: () => new Date("2030-03-05T00:00:00Z"),
   };

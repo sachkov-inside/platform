@@ -64,9 +64,6 @@ export async function PersonalCohortCall({
             ),
           }}
         />
-        {slug === "ai-engineering" ? (
-          <ProductWaitlistSlot existingOnly />
-        ) : null}
       </>
     );
   }
@@ -94,7 +91,11 @@ export async function PersonalCohortCall({
           })}
         />
       )}
-      {slug === "ai-engineering" ? <ProductWaitlistSlot existingOnly /> : null}
+      {slug === "ai-engineering" &&
+      sale.kind !== "unavailable" &&
+      sale.access !== "open" ? (
+        <ProductWaitlistSlot existingOnly />
+      ) : null}
     </>
   );
 }
@@ -134,7 +135,11 @@ export async function PersonalCohortStatus({
   return (
     <>
       {status === null ? null : <CohortStatusView status={status} />}
-      {slug === "ai-engineering" ? <ProductWaitlistSlot existingOnly /> : null}
+      {slug === "ai-engineering" &&
+      sale.kind !== "unavailable" &&
+      sale.access !== "open" ? (
+        <ProductWaitlistSlot existingOnly />
+      ) : null}
     </>
   );
 }
