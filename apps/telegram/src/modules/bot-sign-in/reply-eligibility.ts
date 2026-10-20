@@ -14,7 +14,7 @@ export const signInReplyEligibility: SignInReplyEligibility = (
     .where("request_ref", "=", sql<string>`${sql.ref(reply.requestRef)}`)
     .where(sql<boolean>`(
       (${sql.ref(reply.editMessageId)} is null and expires_at > ${now} and
-        ((${sql.ref(reply.sourceKey)} = 'sign-in:' || request_ref::text and state = 'awaiting_approval')
+        ((state = 'awaiting_approval')
           or (${sql.ref(reply.sourceKey)} = 'sign-in-approved:' || request_ref::text
             and state in ('approved', 'consumed')
             and not ${linkedSignInProof(database, "sign_in_requests.request_ref")})))
