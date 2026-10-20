@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  observeTelegramHttp,
+  type TelegramHttpObservation,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
 import type {
   ConfirmTelegramLinkRequest,
   RegisterTelegramLinkRequest,
@@ -55,68 +59,81 @@ export class HttpTelegramLinkProvider implements TelegramLinkProvider {
   async register(
     request: RegisterTelegramLinkRequest,
   ): Promise<TelegramLinkProviderRegistration> {
-    const response = await this.post(this.endpoint, {
-      accountRef: request.accountRef,
-      contractVersion: CONTRACT_VERSION,
-      expiresAt: request.expiresAt.toISOString(),
-      returnCorrelation: request.returnCorrelation,
-      tokenDigest: request.tokenDigest,
+    return observeTelegramHttp("link.register", async (observation) => {
+      const response = await this.post(
+        this.endpoint,
+        {
+          accountRef: request.accountRef,
+          contractVersion: CONTRACT_VERSION,
+          expiresAt: request.expiresAt.toISOString(),
+          returnCorrelation: request.returnCorrelation,
+          tokenDigest: request.tokenDigest,
+        },
+        observation,
+      );
+      if (response === undefined) {
+        return { kind: "unavailable" };
+      }
+      const parsed = registrationSchema.safeParse(response);
+      if (parsed.success) observation.completed();
+      return parsed.success
+        ? {
+            expiresAt: new Date(parsed.data.expiresAt),
+            kind: "registered",
+            linkTransactionRef: parsed.data.linkTransactionRef,
+            returnCorrelation: parsed.data.returnCorrelation,
+          }
+        : { kind: "recovery_required" };
     });
-    if (response === undefined) {
-      return { kind: "unavailable" };
-    }
-    const parsed = registrationSchema.safeParse(response);
-    return parsed.success
-      ? {
-          expiresAt: new Date(parsed.data.expiresAt),
-          kind: "registered",
-          linkTransactionRef: parsed.data.linkTransactionRef,
-          returnCorrelation: parsed.data.returnCorrelation,
-        }
-      : { kind: "recovery_required" };
   }
 
   async confirm(
     request: ConfirmTelegramLinkRequest,
   ): Promise<TelegramLinkProviderConfirmation> {
-    const response = await this.post(
-      `${this.endpoint}/${encodeURIComponent(request.linkTransactionRef)}/confirm`,
-      {
-        accountRef: request.accountRef,
-        contractVersion: CONTRACT_VERSION,
-        returnCorrelation: request.returnCorrelation,
-      },
-    );
-    if (response === undefined) {
-      return { kind: "unavailable" };
-    }
-    const linked = linkedSchema.safeParse(response);
-    if (linked.success) {
-      return {
-        kind: "linked",
-        linkTransactionRef: linked.data.linkTransactionRef,
-        returnCorrelation: linked.data.returnCorrelation,
-        telegramIdentityRef: linked.data.telegramIdentityRef,
-      };
-    }
-    const pending = pendingConfirmationSchema.safeParse(response);
-    if (pending.success) {
-      return {
-        kind:
-          pending.data.status === "recovery-required"
-            ? "recovery_required"
-            : pending.data.status,
-      };
-    }
-    return { kind: "recovery_required" };
+    return observeTelegramHttp("link.confirm", async (observation) => {
+      const response = await this.post(
+        `${this.endpoint}/${encodeURIComponent(request.linkTransactionRef)}/confirm`,
+        {
+          accountRef: request.accountRef,
+          contractVersion: CONTRACT_VERSION,
+          returnCorrelation: request.returnCorrelation,
+        },
+        observation,
+      );
+      if (response === undefined) {
+        return { kind: "unavailable" };
+      }
+      const linked = linkedSchema.safeParse(response);
+      if (linked.success) {
+        observation.completed();
+        return {
+          kind: "linked",
+          linkTransactionRef: linked.data.linkTransactionRef,
+          returnCorrelation: linked.data.returnCorrelation,
+          telegramIdentityRef: linked.data.telegramIdentityRef,
+        };
+      }
+      const pending = pendingConfirmationSchema.safeParse(response);
+      if (pending.success) {
+        observation.completed();
+        return {
+          kind:
+            pending.data.status === "recovery-required"
+              ? "recovery_required"
+              : pending.data.status,
+        };
+      }
+      return { kind: "recovery_required" };
+    });
   }
 
   private async post(
     url: string,
     body: Readonly<Record<string, unknown>>,
+    observation: TelegramHttpObservation,
   ): Promise<unknown> {
     try {
-      const response = await this.fetcher(url, {
+      const init = {
         body: JSON.stringify(body),
         headers: {
           authorization: `Bearer ${this.secret}`,
@@ -124,7 +141,10 @@ export class HttpTelegramLinkProvider implements TelegramLinkProvider {
         },
         method: "POST",
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
+      };
+      observation.admit();
+      const response = await this.fetcher(url, init);
+      observation.response(response.status);
       if (!response.ok) {
         return undefined;
       }

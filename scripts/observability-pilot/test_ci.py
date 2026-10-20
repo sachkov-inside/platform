@@ -119,7 +119,7 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py','email_privacy.py'):
+            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py','email_privacy.py','telegram_http_storage.py'):
                 relative = 'scripts/observability-pilot/'+name
                 helper = ci.ROOT / relative
                 self.assertEqual(proof['inputs'][relative], hashlib.sha256(helper.read_bytes()).hexdigest())

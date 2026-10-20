@@ -316,7 +316,11 @@
       "jwks",
       "community.set",
       "community.status",
-      "communications.execute"
+      "communications.execute",
+      "link.register",
+      "link.confirm",
+      "contacts.read",
+      "signin.bindAccount"
     ],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.dependency.operations", "inside.dependency.duration"]

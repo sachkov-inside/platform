@@ -8,6 +8,7 @@ import {
   SpanStatusCode,
   type Attributes,
   type Tracer,
+  type Span,
 } from "@opentelemetry/api";
 import type { OpenTelemetryOptions } from "pg-boss";
 import {
@@ -57,6 +58,7 @@ class TechnicalScope {
         | TbankOperation
         | "jwks"
         | CommunityOperation
+        | TelegramHttpOperation
         | S3Operation
         | "communications.execute",
       failed: boolean,
@@ -334,6 +336,69 @@ export async function observeCommunicationsRequest<Value>(
       (performance.now() - started) / 1_000,
     );
     span.end();
+  }
+}
+
+type TelegramHttpOperation =
+  "link.register" | "link.confirm" | "contacts.read" | "signin.bindAccount";
+
+export interface TelegramHttpObservation {
+  admit(): void;
+  response(status: number): void;
+  completed(): void;
+}
+
+/** One admitted native fetch invocation through existing protocol validation, not a socket count. */
+export async function observeTelegramHttp<Value>(
+  operation: TelegramHttpOperation,
+  work: (observation: TelegramHttpObservation) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  let span: Span | undefined;
+  let started = 0;
+  const outcome = { failed: true };
+  try {
+    return await work({
+      admit() {
+        if (!(scope instanceof TechnicalScope)) return;
+        started = performance.now();
+        span = scope.dependencyTracer.startSpan(
+          `telegram ${operation}`,
+          {
+            kind: SpanKind.CLIENT,
+            attributes: {
+              "dependency.name": "telegram",
+              "dependency.operation": operation,
+              "http.request.method": "POST",
+            },
+          },
+          current,
+        );
+      },
+      response(status) {
+        if (Number.isInteger(status) && status >= 100 && status <= 599)
+          span?.setAttribute("http.response.status_code", status);
+      },
+      completed() {
+        outcome.failed = false;
+      },
+    });
+  } finally {
+    if (span !== undefined && scope instanceof TechnicalScope) {
+      span.setAttribute(
+        "dependency.outcome",
+        outcome.failed ? "failed" : "completed",
+      );
+      if (outcome.failed) span.setStatus({ code: SpanStatusCode.ERROR });
+      scope.recordDependency(
+        "telegram",
+        operation,
+        outcome.failed,
+        (performance.now() - started) / 1_000,
+      );
+      span.end();
+    }
   }
 }
 
@@ -903,6 +968,7 @@ export function createTechnicalTelemetry(
         | TbankOperation
         | "jwks"
         | CommunityOperation
+        | TelegramHttpOperation
         | S3Operation
         | "communications.execute",
       failed: boolean,

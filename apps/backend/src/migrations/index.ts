@@ -1,4 +1,8 @@
 import {
+  name as waitlistConfirmationsName,
+  statement as waitlistConfirmationsStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-waitlist-confirmations.js";
+import {
   name as emailTraceName,
   statement as emailTraceStatement,
 } from "../modules/notifications/infrastructure/postgres/migrations/0111-email-trace-context.js";
@@ -692,6 +696,10 @@ export const platformMigrations = [
   { name: materialTaskName, statement: materialTaskStatement },
   { name: chapterSupplementaryName, statement: chapterSupplementaryStatement },
   { name: productWaitlistsName, statement: productWaitlistsStatement },
+  {
+    name: waitlistConfirmationsName,
+    statement: waitlistConfirmationsStatement,
+  },
   { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
   { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },
   { name: funnelDiagnostic2Name, statement: funnelDiagnostic2Statement },

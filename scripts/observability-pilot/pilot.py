@@ -464,6 +464,7 @@ def fixture_trace_rows(compose, fixture):
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
                    **{'dependency-'+key:(value,36) for key,value in dependency_privacy.TRACE_IDS.items()},
                    **{'communications-'+key:(value,30) for key,value in dependency_privacy.COMMUNICATIONS_TRACE_IDS.items()},
+                   **{'telegram-http-'+key:(value,30) for key,value in dependency_privacy.TELEGRAM_HTTP_TRACE_IDS.items()},
                    **{'email-known-'+key:(value,23) for key,value in email_privacy.TRACE_IDS.items()},
                    **{'email-adversarial-'+key:(value,9) for key,value in email_privacy.ADVERSARIAL_IDS.items()}}
         trace_id, limit = queries[fixture]
@@ -598,11 +599,12 @@ def dependency_catalog_corpus(token, output, compose):
     proof = {'outcome':'failed','stage':'logging','cases':[]}
     try:
         verify_trace_store_logging(output,compose)
-        for communications in (False,True):
-            partition = 'communications' if communications else 'dependency'
-            payloads = dependency_privacy.communications_payloads if communications else dependency_privacy.payloads
+        for partition,payloads in (('dependency',dependency_privacy.payloads),
+                                   ('communications',dependency_privacy.communications_payloads),
+                                   ('telegram-http',dependency_privacy.telegram_http_payloads)):
             for transport in ('json','protobuf'):
-                batches = (payloads(transport,time.time_ns()),) if communications else dependency_privacy.payload_batches(transport,time.time_ns())
+                now_ns = time.time_ns()
+                batches = dependency_privacy.payload_batches(transport,now_ns) if partition == 'dependency' else (payloads(transport,now_ns),)
                 for batch in batches:
                     for signal,body in batch.items():
                         proof['stage']='ingest_'+partition+'_'+transport+'_'+signal
@@ -611,7 +613,7 @@ def dependency_catalog_corpus(token, output, compose):
                             raise RuntimeError('dependency OTLP rejected')
                 proof['stage']='storage_'+partition+'_'+transport
                 stored = await_fact(lambda: dependency_privacy.stored_traces(
-                    fixture_trace_rows(compose,partition+'-'+transport),transport,communications=communications),bool,
+                    fixture_trace_rows(compose,partition+'-'+transport),transport,communications=partition=='communications',telegram_http=partition=='telegram-http',now_ns=now_ns),bool,
                     probe=partition+'_full_storage_'+transport,output=output)
                 proof['cases'].append({**stored,'partition':partition})
         proof['stage']='metrics'

@@ -1,3 +1,4 @@
+import { waitlistConfirmationsMigration } from "./migrations/035-waitlist-confirmations.js";
 import { waitlistAudienceResultMigration } from "./migrations/034-waitlist-audience-result.js";
 import { waitlistNotificationsMigration } from "./migrations/033-waitlist-notifications.js";
 import { learnerActivationMigration } from "./migrations/031-learner-activation.js";
@@ -44,6 +45,7 @@ import { communicationsTemplatesMigration } from "./migrations/010-communication
 import { authorAdminMigration } from "./migrations/014-author-admin.js";
 
 const migrations = {
+  "035-waitlist-confirmations": waitlistConfirmationsMigration,
   "034-waitlist-audience-result": waitlistAudienceResultMigration,
   "033-waitlist-notifications": waitlistNotificationsMigration,
   "031-learner-activation": learnerActivationMigration,
