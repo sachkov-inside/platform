@@ -812,6 +812,35 @@ Legacy verdict сохраняется отдельно: глобальный и�
 содержит лишь закрытые стадии и проверенные числовые verdicts. Отказ сохраняет только
 достигнутые стадии; raw ответы, credentials и ошибки не сохраняются.
 
+E-METRIC-02 зафиксирован после CI39400084517: baseline и JSON marker 1 прошли,
+а marker 2 не стал полным за исходные 60s (230 чтений). Raw ответ не сохранялся,
+поэтому точная причина этого CI неизвестна. Отдельный host replay выявил дефект
+конечной схемы проверки: одноразовые legacy series могут выйти из стандартного
+5m окна, пока 13 последовательных checkpoints ждут данные. Закреплённый VM
+[по умолчанию сдвигает instant-query evaluation на 30s назад](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/prometheus.go).
+
+Только E checkpoints теперь отправляют фиксированный query
+`last_over_time({__name__=~".+"}[10m])` и `nocache=1`. Окно 600s соответствует
+существующему worker deadline; `nocache` убирает указанное смещение времени.
+Query сохраняет все имена и labels серий, выбирая последний обычный sample в
+`(evaluation time − 600s, evaluation time]`. Закреплённые
+[rollup](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/rollup.go)
+и [evaluation](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/eval.go)
+сохраняют metric name, исключают нижнюю границу и игнорируют Prometheus stale markers
+для `last_over_time`. Поэтому это проверка сохранённой истории fixture, а не
+свежести, непрерывности или текущей доступности источника. E/C fixtures stale markers
+не отправляют. Старые marker значения по-прежнему дают pending, пропущенные series
+не становятся PASS, приватные и неизвестные поля дают отказ. Оба reader получают
+один полный raw vector. Тайм-ауты, caps, timestamps uploads и остальные queries
+сохранены. История старше окна не считается полной; время в будущем не запрашивается.
+
+Host regression вызывает настоящий `email_catalog_corpus` с моделью закреплённых
+правил query time и полный существующий corpus. Она проверяет 20 uploads и 13
+checkpoints при возрасте одноразового legacy 0s, 241s и 599s, а также отказ на нижней
+границе 600s. Это не native VM execution. Новый exact-source CI остаётся необходимым.
+Внутренний caller не принимает произвольные query parameters; HTTP fixture проверяет
+точно два отправленных параметра. Полномочия существующих vmauth/Caddy routes не меняются.
+
 Даже будущий PASS этого внешнего corpus не доказывает actual SDK → pinned storage,
 реальную HTTP/PG/Rabbit/SMTP causality в storage или ресурсную приёмку. Для текущего
 source-кандидата collector runtime ещё не выполнялся.

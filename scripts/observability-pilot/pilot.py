@@ -635,7 +635,9 @@ def email_catalog_corpus(token, output, compose):
     import email_privacy
     proof={'outcome':'failed','stage':'logging','uploads':0,'cases':[],'metric_checkpoints':[]}
     stages={'json':0,'protobuf':0};previous={'json':0,'protobuf':0}
-    path='/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})
+    # Retain one-shot fixture history throughout the existing 600s worker, not source freshness.
+    path='/metrics/api/v1/query?'+urllib.parse.urlencode({
+        'query':'last_over_time({__name__=~".+"}[10m])','nocache':'1'})
     def upload(signal,body):
         assert_docker_identity()
         if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
