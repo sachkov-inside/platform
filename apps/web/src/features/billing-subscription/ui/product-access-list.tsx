@@ -154,6 +154,8 @@ export function ProductAccessList({
                     key={assignment.id}
                     className="mt-2 text-sm text-muted-foreground"
                   >
+                    {assignment.tier.name} ·{" "}
+                    {enrollmentStateLabels[assignment.state]} ·{" "}
                     {enrollmentSourceLabels[assignment.origin]} ·{" "}
                     {formatBillingDate(assignment.startsAt)}
                   </p>

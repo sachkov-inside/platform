@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import {
   cabinetProduct,
   cabinetProductGround,
@@ -31,3 +31,28 @@ export const Revoked: Story = {
   },
 };
 export const Empty: Story = { args: { grounds: [] } };
+export const ActiveProductWithRevokedAssignment: Story = {
+  args: {
+    enrollments: [
+      {
+        ...courseEnrollment,
+        state: "revoked",
+        content: [cabinetProduct],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Доступ открыт", { exact: true }),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Доступ и покупка" }),
+    );
+    await expect(
+      canvas.getByText(`${courseEnrollment.tier.name} · Отозвано`, {
+        exact: false,
+      }),
+    ).toBeVisible();
+  },
+};

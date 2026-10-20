@@ -35,8 +35,8 @@ const productA = {
 const productB = {
   closedBody: "FULLSTACK_PRIVATE_PRACTICE_BODY",
 } as const;
-/** Сидовое предложение «Материалы»: существующий ресурс для запрещённой Billing mutation. */
-const seededOfferId = "72000000-0000-4000-8000-000000000501";
+/** Сидовое разовое предложение продукта: существующий ресурс для запрещённой Billing mutation. */
+const seededOfferId = "72000000-0000-4000-8000-000000000503";
 /** Сидовый опубликованный бесплатный материал: существующий ресурс для Materials mutation. */
 const publishedMaterial = {
   slug: "kak-ustroen-inside-platform",

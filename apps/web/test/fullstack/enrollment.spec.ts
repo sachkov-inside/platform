@@ -183,14 +183,24 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .getByLabel("Причина", { exact: true })
     .fill("Синтетический отзыв");
   await changes.getByRole("button", { name: "Применить изменение" }).click();
-  await expect(card.getByText("Отозвано", { exact: true })).toBeVisible();
+  await card
+    .getByRole("button", { name: "Доступ и покупка", exact: true })
+    .click();
+  await expect(
+    card.getByText(`${tierName} · Отозвано`, { exact: false }),
+  ).toBeVisible();
   const otherCard = otherOwner.getByRole("article").filter({
     has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
   });
   await expect(otherCard.getByText("Отозвано", { exact: true })).toBeVisible();
   await cabinet.goto("/account");
   await expectProducts();
-  await expect(card.getByText("Отозвано", { exact: true })).toBeVisible();
+  await card
+    .getByRole("button", { name: "Доступ и покупка", exact: true })
+    .click();
+  await expect(
+    card.getByText(`${tierName} · Отозвано`, { exact: false }),
+  ).toBeVisible();
   await changes
     .getByRole("combobox", { name: "Действие" })
     .selectOption("restore");
@@ -198,6 +208,12 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическое восстановление");
   await changes.getByRole("button", { name: "Применить изменение" }).click();
+  await expect(
+    card.getByText(`${tierName} · Отозвано`, { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    card.getByText(`${tierName} · Действует`, { exact: false }),
+  ).toBeVisible();
   await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
   // Unrelated catalog edits preserve finite benefit periods through real tiers.list and save.
   const catalogRow = page
