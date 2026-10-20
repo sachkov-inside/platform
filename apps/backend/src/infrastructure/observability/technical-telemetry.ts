@@ -50,7 +50,8 @@ class TechnicalScope {
         | PostgresOperation
         | TbankOperation
         | "jwks"
-        | CommunityOperation,
+        | CommunityOperation
+        | "communications.execute",
       failed: boolean,
       seconds: number,
     ) => void,
@@ -212,6 +213,52 @@ export async function observeTbankRequest<Value>(
     scope.recordDependency(
       "tbank",
       operation,
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
+
+/** Existing communications POST plus its single JSON read, before protocol validation. */
+export async function observeCommunicationsRequest<Value>(
+  work: (response: (status: number) => void) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work(() => undefined);
+  const span = scope.dependencyTracer.startSpan(
+    "telegram communications.execute",
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "telegram",
+        "dependency.operation": "communications.execute",
+        "http.request.method": "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), () =>
+      work((status) => {
+        if (Number.isInteger(status) && status >= 100 && status <= 599) {
+          span.setAttribute("http.response.status_code", status);
+          if (status >= 400) failed = true;
+        }
+      }),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "telegram",
+      "communications.execute",
       failed,
       (performance.now() - started) / 1_000,
     );
@@ -678,7 +725,8 @@ export function createTechnicalTelemetry(
         | PostgresOperation
         | TbankOperation
         | "jwks"
-        | CommunityOperation,
+        | CommunityOperation
+        | "communications.execute",
       failed: boolean,
       seconds: number,
     ) => {

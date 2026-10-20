@@ -1,5 +1,6 @@
 """Source admission contracts, not execution of the pinned collector."""
 import json
+import hashlib
 import re
 import unittest
 import tempfile
@@ -13,7 +14,7 @@ class DependencyCatalog(unittest.TestCase):
     def test_fixed_sdk_dependency_catalog_has_no_request_or_status_metric_dimensions(self):
         policy = json.loads((privacy_config.CONFIG/'privacy-policy.json').read_text())
         self.assertEqual(policy['dependencies'], {
-            'names':['kinescope','postgresql','tbank','logto','telegram'], 'operations':['delete','find','initUpload','query','acquire','material-slug-lock','Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState','jwks','community.set','community.status'],
+            'names':['kinescope','postgresql','tbank','logto','telegram'], 'operations':['delete','find','initUpload','query','acquire','material-slug-lock','Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState','jwks','community.set','community.status','communications.execute'],
             'outcomes':['completed','failed'],
             'metrics':['inside.dependency.operations','inside.dependency.duration']})
         actual = privacy_config.render()
@@ -103,12 +104,21 @@ def trace_rows(transport='json'):
     return rows
 
 
+def communications_rows(transport='json'):
+    rows=trace_rows(transport)[:2]
+    for index,row in enumerate(rows):
+        row.update({'trace_id':('d'*31+'5') if transport=='json' else ('d'*31+'6'),
+            'name':'telegram communications.execute','span_attr:dependency.name':'telegram',
+            'span_attr:dependency.operation':'communications.execute','span_attr:http.request.method':'POST'})
+    return rows
+
+
 def metric_rows():
     rows=[]
     for release in ('a'*40,'b'*40):
         for dependency,operation,outcome in (('kinescope','delete','completed'),('kinescope','delete','failed'),
                 ('kinescope','find','completed'),('kinescope','find','failed'),('kinescope','initUpload','completed'),
-                ('kinescope','initUpload','failed'),('postgresql','query','completed'),('postgresql','query','failed'),('postgresql','acquire','completed'),('postgresql','acquire','failed'),('postgresql','material-slug-lock','completed'),('postgresql','material-slug-lock','failed'),('tbank', 'Init', 'completed'),('tbank', 'Init', 'failed'),('tbank', 'GetState', 'completed'),('tbank', 'GetState', 'failed'),('tbank', 'CheckOrder', 'completed'),('tbank', 'CheckOrder', 'failed'),('tbank', 'Charge', 'completed'),('tbank', 'Charge', 'failed'),('tbank', 'Cancel', 'completed'),('tbank', 'Cancel', 'failed'),('tbank', 'AddCard', 'completed'),('tbank', 'AddCard', 'failed'),('tbank', 'GetAddCardState', 'completed'),('tbank', 'GetAddCardState', 'failed'),('logto','jwks','completed'),('logto','jwks','failed'),('telegram','community.set','completed'),('telegram','community.set','failed'),('telegram','community.status','completed'),('telegram','community.status','failed'),('_OTHER','_OTHER','_OTHER')):
+                ('kinescope','initUpload','failed'),('postgresql','query','completed'),('postgresql','query','failed'),('postgresql','acquire','completed'),('postgresql','acquire','failed'),('postgresql','material-slug-lock','completed'),('postgresql','material-slug-lock','failed'),('tbank', 'Init', 'completed'),('tbank', 'Init', 'failed'),('tbank', 'GetState', 'completed'),('tbank', 'GetState', 'failed'),('tbank', 'CheckOrder', 'completed'),('tbank', 'CheckOrder', 'failed'),('tbank', 'Charge', 'completed'),('tbank', 'Charge', 'failed'),('tbank', 'Cancel', 'completed'),('tbank', 'Cancel', 'failed'),('tbank', 'AddCard', 'completed'),('tbank', 'AddCard', 'failed'),('tbank', 'GetAddCardState', 'completed'),('tbank', 'GetAddCardState', 'failed'),('logto','jwks','completed'),('logto','jwks','failed'),('telegram','community.set','completed'),('telegram','community.set','failed'),('telegram','community.status','completed'),('telegram','community.status','failed'),('telegram','communications.execute','completed'),('telegram','communications.execute','failed'),('_OTHER','_OTHER','_OTHER')):
             for name,le,value in (('inside.dependency.operations',None,1),('inside.dependency.duration_count',None,1),
                     ('inside.dependency.duration_sum',None,.25),('inside.dependency.duration_bucket','1',1),
                     ('inside.dependency.duration_bucket','+Inf',1)):
@@ -171,7 +181,7 @@ class DependencyRuntimeContract(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'raw response withheld'):
                 fixture.stored_traces('\n'.join(json.dumps(row) for row in rows),'json')
         response=lambda rows:(200,json.dumps({'status':'success','data':{'resultType':'vector','result':rows}}))
-        self.assertEqual(fixture.stored_metrics(response(metric_rows())),{'stored_series':340,'metric_labelsets':66,'pool_series':10,'privacy':'passed'})
+        self.assertEqual(fixture.stored_metrics(response(metric_rows())),{'stored_series':360,'metric_labelsets':70,'pool_series':10,'privacy':'passed'})
         self.assertIsNone(fixture.stored_metrics(response(metric_rows()[:-1])))
         for key,value in (('__name__','inside.dependency.private'),('url.full','private-value'),('operation','private-value'),
                           ('http.response.status_code','200'),('scope.version','private-value')):
@@ -209,19 +219,79 @@ class DependencyRuntimeContract(unittest.TestCase):
             if args[1]=='compose': return 'c'*64
             if args[1]=='inspect':
                 return 'owned|none' if '.HostConfig.LogConfig.Type' in args[3] else project+'|gateway|true'
-            self.assertEqual(args[1],'exec'); self.assertIn('limit=36',args[-1]); self.assertNotIn('fields',args[-1])
-            transport='json' if fixture.TRACE_IDS['json'] in args[-1] else 'protobuf'
-            self.assertIn(fixture.TRACE_IDS[transport],args[-1])
-            return '\n'.join(json.dumps(row) for row in trace_rows(transport))
+            self.assertEqual(args[1],'exec'); self.assertNotIn('fields',args[-1])
+            communications = any(trace_id in args[-1] for trace_id in fixture.COMMUNICATIONS_TRACE_IDS.values())
+            self.assertIn('limit=30' if communications else 'limit=36',args[-1])
+            ids = fixture.COMMUNICATIONS_TRACE_IDS if communications else fixture.TRACE_IDS
+            transport='json' if ids['json'] in args[-1] else 'protobuf'
+            self.assertIn(ids[transport],args[-1])
+            rows = communications_rows(transport) if communications else trace_rows(transport)
+            return '\n'.join(json.dumps(row) for row in rows)
         with tempfile.TemporaryDirectory() as directory, patch.object(pilot,'FROZEN_DOCKER_ENDPOINT',identity['endpoint']), \
                 patch.object(pilot,'FROZEN_DOCKER_IDENTITY',identity),patch('pilot.daemon.identify',return_value=identity), \
                 patch('pilot.command',side_effect=docker),patch('pilot.request',side_effect=http):
             pilot.dependency_catalog_corpus('private-token',Path(directory),compose)
             proof=json.loads((Path(directory)/'dependency-collector.json').read_text())
-            self.assertEqual(proof['outcome'],'passed'); self.assertEqual(proof['metrics']['stored_series'],340)
-            self.assertEqual([case['transport'] for case in proof['cases']],['json','protobuf'])
-            self.assertEqual(emitted,[dict,dict,dict,dict,bytes,bytes,bytes,bytes]); self.assertNotIn('private-token',json.dumps(proof))
+            self.assertEqual(proof['outcome'],'passed'); self.assertEqual(proof['metrics']['stored_series'],360)
+            self.assertEqual([case['transport'] for case in proof['cases']],['json','protobuf','json','protobuf'])
+            self.assertEqual(emitted,[dict,dict,dict,dict,bytes,bytes,bytes,bytes,dict,dict,bytes,bytes]); self.assertNotIn('private-token',json.dumps(proof))
 
+
+class CommunicationsPartition(unittest.TestCase):
+    def test_new_fixed_partition_preserves_core_bytes_and_existing_size_and_query_caps(self):
+        import dependency_privacy as fixture
+        policy=json.loads((privacy_config.CONFIG/'privacy-policy.json').read_text())
+        self.assertIn('telegram',policy['dependencies']['names'])
+        self.assertIn('communications.execute',policy['dependencies']['operations'])
+        for transport in ('json','protobuf'):
+            body=fixture.communications_payloads(transport,1790000000000000000)
+            if transport=='json':
+                spans=body['traces']['resourceSpans'][0]['scopeSpans'][0]['spans']
+                self.assertEqual(len(spans),2)
+                self.assertEqual({span['traceId'] for span in spans},{fixture.COMMUNICATIONS_TRACE_IDS[transport]})
+                attrs=[{attr['key']:attr['value'] for attr in span['attributes']} for span in spans]
+                self.assertEqual([row['dependency.outcome']['stringValue'] for row in attrs],['completed','failed'])
+                for row in attrs:
+                    self.assertEqual(row['dependency.name'],{'stringValue':'telegram'})
+                    self.assertEqual(row['dependency.operation'],{'stringValue':'communications.execute'})
+                    self.assertIn('authorization',row)
+            else:
+                self.assertLess(len(body['traces']),65536)
+                self.assertLess(len(body['metrics']),65536)
+
+    def test_tiny_partition_matches_immutable_reviewed_parent_bytes(self):
+        import dependency_privacy as fixture
+        expected = {'json': {'traces': 'bce6545240e74026f8f5164cebba13d87076887188331488c4bc2e65b0d43908', 'metrics': 'e1020204fc2566815d4561a1136d4cf049048bce9d77cf6e70b3372e1c7b3535'}, 'protobuf': {'traces': '9ac01ca149d263dd23f27e81d667b4e55f4a9ac9ffeaf756e4072e74e525364e', 'metrics': 'fa4292d907db926fddab5e339c12ed70f1731f5cb300d6e0f4187f1785ec2d1d'}}
+        for transport,signals in expected.items():
+            for signal,body in fixture.communications_payloads(transport,1790000000000000000).items():
+                raw = body if isinstance(body,bytes) else json.dumps(body).encode()
+                self.assertEqual(hashlib.sha256(raw).hexdigest(),signals[signal])
+
+    def test_tiny_partition_rejects_extra_private_missing_and_uncorrelated_rows(self):
+        import dependency_privacy as fixture
+        for transport in ('json','protobuf'):
+            raw=lambda rows:'\n'.join(json.dumps(row) for row in rows)
+            self.assertEqual(fixture.stored_traces(raw(communications_rows(transport)),transport,communications=True),
+                {'transport':transport,'stored_spans':2,'registered_completions':2,'causality':'passed','fallback':'not_applicable','privacy':'passed'})
+            self.assertIsNone(fixture.stored_traces(raw(communications_rows(transport)[:1]),transport,communications=True))
+            for field,value in (('span_attr:authorization','private'),('span_attr:dependency.operation','other'),('parent_span_id','c'*16),('trace_id','c'*32)):
+                rows=communications_rows(transport);rows[0][field]=value
+                with self.assertRaises(RuntimeError):fixture.stored_traces(raw(rows),transport,communications=True)
+            with self.assertRaises(RuntimeError):fixture.stored_traces(raw(communications_rows(transport)+communications_rows(transport)[:1]),transport,communications=True)
+
+class CombinedCatalogProjection(unittest.TestCase):
+    def test_logto_and_communications_keep_both_fixed_partitions_and_exact_global_cardinality(self):
+        import dependency_privacy as fixture
+        self.assertEqual(len(fixture.REGISTERED),32)
+        self.assertEqual(len(fixture.COMMUNICATIONS),2)
+        response=(200,json.dumps({'status':'success','data':{'resultType':'vector','result':metric_rows()}}))
+        self.assertEqual(fixture.stored_metrics(response),
+            {'stored_series':360,'metric_labelsets':70,'pool_series':10,'privacy':'passed'})
+        for transport in ('json','protobuf'):
+            first=fixture.stored_traces('\n'.join(json.dumps(row) for row in trace_rows(transport)),transport)
+            second=fixture.stored_traces('\n'.join(json.dumps(row) for row in communications_rows(transport)),transport,communications=True)
+            self.assertEqual((first['stored_spans'],first['registered_completions']),(35,32))
+            self.assertEqual((second['stored_spans'],second['registered_completions']),(2,2))
 
 if __name__ == '__main__':
     unittest.main()
