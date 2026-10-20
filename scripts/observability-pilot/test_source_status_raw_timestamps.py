@@ -156,10 +156,12 @@ class RawTimestampQueries(unittest.TestCase):
         current={'__name__':'vt_http_requests_total','job':'platform-trace-store','instance':'pilot',
                  'format':'protobuf','path':'/insert/opentelemetry/v1/traces'}
         stale={**current,'__name__':'vt_http_errors_total'}
-        for plan,expected in ((None,'observed'),(ungated_plan,'malformed'),
-                              (weakened_plan(omit='__name__'),'malformed'),
-                              (weakened_plan(keep_names=False),'malformed')):
-            with self.subTest(expected=expected,plan=plan):
+        for plan_label,plan,expected in (
+                ('complete_identity',None,'observed'),
+                ('ungated',ungated_plan,'malformed'),
+                ('missing_metric_name',weakened_plan(omit='__name__'),'malformed'),
+                ('without_keep_names',weakened_plan(keep_names=False),'malformed')):
+            with self.subTest(expected=expected,plan_label=plan_label):
                 report,_=observe('baseline',T,current_extra=[current],stale_extra=[stale],plan=plan)
                 self.assertEqual(report['query']['state'],expected)
 
