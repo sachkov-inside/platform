@@ -1,3 +1,4 @@
+import { deferred } from "../support/deferred.js";
 import { runtimeTestClock } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
@@ -203,6 +204,116 @@ afterAll(async () => {
   await db.destroy();
 }, 30000);
 describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
+  for (const outcome of ["commit", "reject"] as const)
+    it(`terminal drain preserves admitted inbox work and cannot reopen (${outcome})`, async () => {
+      const release = deferred();
+      const original = new Error("synthetic terminal inbox failure");
+      const failures: unknown[] = [];
+      let firstFailureStage: string | undefined;
+      let cleanupFailures = 0;
+      let stage = "acquisition";
+      let admitted = 0;
+      const broker = new NotificationBroker(
+        url(users.provider),
+        {
+          receive: async (bytes, envelope, category) => {
+            admitted += 1;
+            await release.promise;
+            if (outcome === "reject") throw original;
+            return provider.receive(bytes, envelope, category);
+          },
+        },
+        2,
+        () => undefined,
+      );
+      brokers.push(broker);
+      try {
+        await broker.open();
+        const producer = await connection(users.producer);
+        const publisher = await producer.createConfirmChannel();
+        const initial = command();
+        stage = "admission";
+        await publish(publisher, initial);
+        await expect.poll(() => admitted).toBe(1);
+        broker.beginStop();
+        const draining = broker.drain();
+        expect(broker.drain()).toBe(draining);
+        expect(broker.isQuiescent()).toBe(false);
+        stage = "drain";
+        release.resolve();
+        const report = await draining;
+        expect(report.quiescent).toBe(true);
+        expect(report.failures).toEqual(outcome === "reject" ? [original] : []);
+        expect(broker.isQuiescent()).toBe(true);
+        stage = "commit_ack_redelivery";
+        const saved = await db
+          .selectFrom("notification_commands")
+          .select("operation_id")
+          .where("operation_id", "=", initial.operationId)
+          .executeTakeFirst();
+        const admin = await connection();
+        const inspector = await admin.createChannel();
+        const queueName = "telegram.notifications.subscription.v1";
+        const queue = await inspector.checkQueue(queueName);
+        expect(queue.consumerCount).toBe(0);
+        expect(queue.messageCount).toBe(outcome === "reject" ? 1 : 0);
+        if (outcome === "commit")
+          expect(saved?.operation_id).toBe(initial.operationId);
+        else {
+          expect(saved).toBeUndefined();
+          const redelivered = await inspector.get(queueName, { noAck: false });
+          if (redelivered === false)
+            throw new Error("Expected owned redelivery");
+          expect(redelivered.fields.redelivered).toBe(true);
+          expect(redelivered.properties.messageId).toBe(initial.operationId);
+          inspector.ack(redelivered);
+        }
+        stage = "terminal_reopen";
+        await broker.open();
+        expect(broker.connected).toBe(false);
+        for (const category of ["subscription", "material"] as const)
+          expect(
+            (
+              await inspector.checkQueue(
+                `telegram.notifications.${category}.v1`,
+              )
+            ).consumerCount,
+          ).toBe(0);
+        const later = command();
+        await publish(publisher, later);
+        const untouched = await inspector.get(queueName, { noAck: false });
+        if (untouched === false)
+          throw new Error("Terminal broker consumed new command");
+        expect(untouched.properties.messageId).toBe(later.operationId);
+        expect(untouched.fields.redelivered).toBe(false);
+        inspector.ack(untouched);
+        expect((await inspector.checkQueue(queueName)).messageCount).toBe(0);
+        expect(admitted).toBe(1);
+      } catch (error: unknown) {
+        failures.push(error);
+        firstFailureStage ??= stage;
+      } finally {
+        release.resolve();
+        try {
+          await broker.drain();
+        } catch (error: unknown) {
+          failures.push(error);
+          firstFailureStage ??= "cleanup_drain";
+          cleanupFailures += 1;
+        }
+      }
+      if (failures.length > 0)
+        throw new Error(
+          JSON.stringify({
+            proof: "telegram_rabbit_terminal_receive",
+            outcome: "failed",
+            stage: firstFailureStage,
+            failures: failures.length,
+            cleanup_failures: cleanupFailures,
+          }),
+        );
+    }, 25_000);
+
   it("runtime worker delivers both lanes under sustained backlog and delayed HTTP preflight", async () => {
     const runtimeClock = runtimeTestClock();
     await sql`truncate platform_links, link_transactions, bot_contacts, telegram_transport_slots cascade`.execute(

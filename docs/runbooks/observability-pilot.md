@@ -1616,3 +1616,9 @@ errors stay local; public failures contain only the first fixed observation stag
 The separate benign-child source tests prove only the test harness's PID, signal, acquisition-failure
 and cleanup observations. Native PostgreSQL execution, every business lane, RabbitMQ and the complete
 shutdown failure-order matrix still require exact-source hosted evidence.
+
+The genuine RabbitMQ suite prepares two terminal-receive cases: held work commits through the real
+PostgreSQL provider and is acknowledged, or fails before commit and is re-delivered by RabbitMQ.
+They inspect actual queue consumers and retrieve a new confirmed message after terminal `open`,
+without a duration-based absence claim. These cases are not locally executed native evidence.
+Blocked connection opening and original publication/confirm still require separate scenarios.
