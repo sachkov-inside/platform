@@ -151,11 +151,11 @@ def traces(raw, *, trace_id, root_id):
                 sql[operation] += 1
             else: raise ValueError()
             expected = {'trace_id':trace_id,'resource_attr:service.name':'platform-api','resource_attr:deployment.environment.name':'test',
-                        'resource_attr:service.version':'_OTHER','scope_name':'inside-collector','kind':kind,'status_code':'0','_msg':'-',
+                        'resource_attr:service.version':'_OTHER','scope_name':'inside-collector','kind':kind,'status_code':'0','flags':'769' if role=='delivery' else '257','_msg':'-',
                         '_stream':'{name='+json.dumps(name)+',resource_attr:service.name="platform-api"}',
                         **{'span_attr:'+key:value for key,value in attrs.items()}}
             mandatory = {*expected,'name','span_id','start_time_unix_nano','end_time_unix_nano','duration','_time','_stream_id'}
-            optional = {'scope_version':'','trace_state':'','status_message':'','flags':'1','dropped_attributes_count':'0','dropped_events_count':'0','dropped_links_count':'0'}
+            optional = {'scope_version':'','trace_state':'','status_message':'','dropped_attributes_count':'0','dropped_events_count':'0','dropped_links_count':'0'}
             if role == 'root': optional['parent_span_id']=''
             else: mandatory.add('parent_span_id')
             if (not mandatory <= set(row) or set(row)-mandatory-set(optional) or any(row.get(k) != v for k,v in expected.items())

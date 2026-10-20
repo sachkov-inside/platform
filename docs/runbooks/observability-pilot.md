@@ -1397,6 +1397,12 @@ A separate regression makes a real HTTP request through freshly compiled product
 and `writeLog`, then checks the strict Python IPC, including restoration after rejected work.
 SQL spans may be children only of the original HTTP SERVER or tracking delivery INTERNAL span.
 Visible provider/SQL parents are rejected even while other required rows are still pending.
+Pinned OTLP flags are required canonical strings: `769` only on tracking delivery, whose immediate
+parent was restored by the official W3C carrier extractor, and `257` on HTTP SERVER, provider CLIENT
+and SQL CLIENT spans. The new delivery span has a local context, so its provider/SQL children do not
+inherit the remote-parent bit. The compiled public TechnicalTelemetry context/serialization contract
+checks actual pinned JSON and protobuf encoders, then feeds both flag results into the full-row oracle.
+That focused contract does not execute the genuine API, PostgreSQL or pinned storage vertical.
 
 Run the isolated workflow for native acceptance. Pure contract tests and prepared source do not prove
 this storage composition has executed. Even a successful hosted result covers only this one success;

@@ -67,6 +67,7 @@ jobs:
         run: |
           bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-tracking-storage -p 'test_*.py'
           bash scripts/heavy-check.sh python3 scripts/observability-tracking-storage/logging_contract.py
+          bash scripts/heavy-check.sh python3 scripts/observability-tracking-storage/trace_flags_contract.py
       - name: Bind source and measure disk admission
         timeout-minutes: 1
         run: |
