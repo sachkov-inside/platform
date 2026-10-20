@@ -178,9 +178,14 @@ it("upgrades exact prepared root0108 with unchanged SQL and retains canonical ca
           name:
             index === 0
               ? "0108_materials_notification_trace_context"
-              : "0109_notifications_notification_trace_context",
+              : index === 1
+                ? "0109_notifications_notification_trace_context"
+                : migration.name,
         })),
     ];
+    expect(new Set(oldAllocation.map(({ name }) => name)).size).toBe(
+      oldAllocation.length,
+    );
     await expect(
       runMigrationsToLatest(database.url, oldAllocation),
     ).rejects.toThrow("not an exact registry prefix at position 110");

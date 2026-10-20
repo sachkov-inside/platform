@@ -531,6 +531,117 @@ test("aggregate diagnostics confine malformed/nonfinite results and preserve zer
   );
 });
 
+// deterministic-test-allow unit-process: a bounded synchronous child isolates virtual clock/timers and the HTTP boundary double; the exported probe runs unchanged and child exit reaps all mocks.
+test("metric probe exhausts its batch on timeout before the floating deadline", () => {
+  const result = replayMetricProbe("timeout");
+  assert.equal(result.requests, 1);
+  assert.equal(result.destroyed, 1);
+  assert.deepEqual(result.scheduled, [100]);
+  assert.equal(result.cancelled, true);
+  assert.deepEqual(result.value, {
+    schema: 1,
+    queries: {
+      current: { state: "unknown", value: null },
+      normalized: { state: "unknown", value: null },
+      dotted: { state: "unknown", value: null },
+      dotted_service: { state: "unknown", value: null },
+      receiver: { state: "unknown", value: null },
+      exporter: { state: "unknown", value: null },
+    },
+  });
+});
+
+// deterministic-test-allow unit-process: the same bounded child verifies independent queries continue after a fast HTTP refusal without real network or shared global mocks.
+test("metric probe keeps independent queries after a fast unknown response", () => {
+  const result = replayMetricProbe("fast503");
+  assert.equal(result.requests, 6);
+  assert.equal(result.destroyed, 0);
+  assert.equal(result.cancelled, true);
+  assert.deepEqual(result.value, {
+    schema: 1,
+    queries: {
+      current: { state: "unknown", value: null },
+      normalized: { state: "known", value: 123 },
+      dotted: { state: "known", value: 123 },
+      dotted_service: { state: "known", value: 123 },
+      receiver: { state: "known", value: 123 },
+      exporter: { state: "known", value: 123 },
+    },
+  });
+});
+
+/** @param {"timeout"|"fast503"} mode */
+function replayMetricProbe(mode) {
+  /** @type {unknown} */ const result = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+        import http from 'node:http';
+        import { EventEmitter } from 'node:events';
+        import { syncBuiltinESMExports } from 'node:module';
+        let clock = 0;
+        let requests = 0;
+        let destroyed = 0;
+        const timers = [];
+        const mode = ${JSON.stringify(mode)};
+        Object.defineProperty(globalThis, 'performance', { value: { now: () => clock } });
+        globalThis.setTimeout = (callback, milliseconds) => {
+          const timer = { callback, milliseconds, cancelled: false };
+          timers.push(timer);
+          return timer;
+        };
+        globalThis.clearTimeout = timer => { timer.cancelled = true; };
+        http.request = (_options, onResponse) => {
+          requests++;
+          const request = new EventEmitter();
+          request.destroy = () => { destroyed++; };
+          request.end = () => queueMicrotask(() => {
+            if (mode === 'timeout') {
+              clock = requests === 1 ? 98.5 : 100.1;
+              timers.at(-1).callback();
+              return;
+            }
+            clock += 5;
+            const response = new EventEmitter();
+            response.statusCode = requests === 1 ? 503 : 200;
+            onResponse(response);
+            response.emit('data', Buffer.from(JSON.stringify({
+              status: 'success', data: { resultType: 'vector', result: [
+                { metric: { private: 'must-not-escape' }, value: [1, '123'] }
+              ] }
+            })));
+            response.emit('end');
+          });
+          return request;
+        };
+        syncBuiltinESMExports();
+        const { metricProbe } = await import('./scripts/observability-resource/client.mjs');
+        const value = await metricProbe('A'.repeat(43), {
+          host: 'owned.invalid', port: 1, timeoutMs: 100
+        });
+        console.log(JSON.stringify({ requests, destroyed,
+          scheduled: timers.map(timer => timer.milliseconds),
+          cancelled: timers.every(timer => timer.cancelled), value }));
+        `,
+      ],
+      { encoding: "utf8", timeout: 5000, maxBuffer: 4096 },
+    ),
+  );
+  assert.ok(
+    result !== null &&
+      typeof result === "object" &&
+      "requests" in result &&
+      "destroyed" in result &&
+      "scheduled" in result &&
+      "cancelled" in result &&
+      "value" in result,
+  );
+  return result;
+}
+
 // deterministic-test-allow unit-io: fixed diagnostic queries use one owned loopback server; an absolute batch deadline bounds continuous byte progress and finally closes server/sockets.
 test("closed metric probe preserves only aggregates and owns one total query deadline", async () => {
   let mode = "ok";
