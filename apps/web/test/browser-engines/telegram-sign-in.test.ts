@@ -151,28 +151,31 @@ async function open(
 
 it("opens Telegram once, keeps a usable fallback when blocked, and completes in the original tab", async () => {
   const page = await browser.newPage();
-  await page.clock.install();
-  await open(page, "pending");
-  const launches = () =>
-    page.evaluate(() => Reflect.get(window, "telegramLaunches"));
-  expect(await launches()).toEqual([
-    {
-      url: "tg://resolve?domain=inside_fixture_bot&start=test-only",
-      target: "_self",
-    },
-  ]);
-  expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
-  expect(page.url()).toBe(`${origin}/api/inside-telegram`);
-  await poll(page);
-  offline = true;
-  await poll(page);
-  offline = false;
-  await poll(page);
-  expect(await launches()).toHaveLength(1);
-  state = { status: "approved", callback: `${origin}/callback?code=fixture` };
-  await poll(page);
-  await page.waitForURL(`${origin}/callback?code=fixture`);
-  await page.close();
+  try {
+    await page.clock.install();
+    await open(page, "pending");
+    const launches = () =>
+      page.evaluate((): unknown => Reflect.get(window, "telegramLaunches"));
+    expect(await launches()).toEqual([
+      {
+        url: "tg://resolve?domain=inside_fixture_bot&start=test-only",
+        target: "_self",
+      },
+    ]);
+    expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
+    expect(page.url()).toBe(`${origin}/api/inside-telegram`);
+    await poll(page);
+    offline = true;
+    await poll(page);
+    offline = false;
+    await poll(page);
+    expect(await launches()).toHaveLength(1);
+    state = { status: "approved", callback: `${origin}/callback?code=fixture` };
+    await poll(page);
+    await page.waitForURL(`${origin}/callback?code=fixture`);
+  } finally {
+    await page.close();
+  }
 });
 
 it.each([
@@ -197,7 +200,9 @@ it.each([
   try {
     await open(page, "pending", undefined, deepLink);
     expect(
-      await page.evaluate(() => Reflect.get(window, "telegramLaunches")),
+      await page.evaluate((): unknown =>
+        Reflect.get(window, "telegramLaunches"),
+      ),
     ).toEqual([]);
     expect(await page.locator("#bot").count()).toBe(0);
     expect(page.url()).toBe(`${origin}/api/inside-telegram`);
