@@ -1548,3 +1548,36 @@ named-column writer and no-op migration are checked separately. Native PostgreSQ
 checks require their hosted CI evidence. Failure/retry/rootless/OFF/503 through pinned storage,
 Telegram receipt/worker/reverse authorization/BotAPI causal continuation, production and seven
 actual days remain outside this success proof. No deployment is authorized for this work.
+
+
+### Telegram runtime collector partition (prepared, before deployment)
+
+`inside-telegram` has a separate finite collector catalog for receipt, authorization, committed
+attempt and `sendMessage`, its HTTP routes, and nine metric families. Backend span and datapoint
+instructions retain their previous predicates and order outside this partition. Telegram spans
+retain only their technical operation/outcome or finite HTTP attributes. Events, links, tracestate,
+private status messages, metric exemplars and unrelated attributes are removed. Authorization alone
+may retain a numeric HTTP status between 100 and 599. No user, chat, message or provider identifiers
+are permitted.
+
+The existing pilot smoke prepares an external unsafe JSON and independently encoded protobuf corpus.
+Before uploading either, it observes the actual `none` logging driver on the same owned, running
+VictoriaTraces and Alloy containers. Frozen daemon identity, Compose project and fixed service labels
+are checked; missing, ambiguous, foreign, stopped or retaining containers prevent every upload.
+It never reads container logs. `trace-store-logging.json` and `collector-logging.json` contain separate
+closed verdicts. `telegram-runtime-collector.json` contains only bounded transport/count verdicts.
+Raw OTLP and stored rows are not public artifacts.
+
+The closed reader queries three fixed trace IDs per transport with an eleven-row limit, including
+one duplicate-detection slot. Its independent oracle validates every observed column, all ten spans,
+root and parent relationships, timestamps, resource/scope attributes and private-field absence before
+accepting completeness. The metrics oracle validates the complete service/release vector, including
+all fifty expected counter, gauge and histogram series; it never hides unknown metrics with a positive
+metric-name selector. The synthetic corpus versions identify fixtures, not application image releases.
+
+Source contracts exercise these boundaries with controlled Docker/HTTP adapters and worked stored
+examples. They do not execute Docker, the pinned Alloy parser or native storage. A hosted exact-source
+run must establish JSON/protobuf ingestion and stored verdicts. This external corpus does not prove
+actual Telegram SDK serialization through storage, genuine PostgreSQL/RabbitMQ lifecycle behavior,
+receipt-to-worker-to-authorization-to-BotAPI causality, server capacity or production readiness.
+The prepared native database and lifecycle scenarios remain separate. No deployment is authorized.
