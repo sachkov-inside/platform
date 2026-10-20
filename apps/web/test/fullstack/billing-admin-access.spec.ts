@@ -188,10 +188,11 @@ test("current runtime refuses a subscription option through the real API", async
     ok: false,
     code: "method_unavailable",
   });
+  await page.getByRole("tab", { name: "Приглашения", exact: true }).click();
   await expect(
-    page.getByRole("option", { name: "Подписка", exact: true }),
-  ).toHaveCount(0);
+    page.getByRole("heading", { name: "Выданные приглашения", exact: true }),
+  ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Выдать приглашение", exact: true }),
+    page.getByRole("heading", { name: "Новое приглашение", exact: true }),
   ).toHaveCount(0);
 });
