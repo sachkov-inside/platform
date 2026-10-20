@@ -11,14 +11,13 @@ import { createApiApplication } from "../../src/entrypoints/api/create-api-appli
 import { createS3ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
-import { registerFixedClock } from "../support/fixed-clock.js";
 import {
   assertPrivateS3Exports,
   summarizeS3Attempts,
 } from "../support/s3-api-diagnostics.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
 
-registerFixedClock();
+// Real SigV4 storage I/O shares the provider wall clock; no domain calendar instant is asserted here.
 
 const attributesSchema = z.array(
   z.object({

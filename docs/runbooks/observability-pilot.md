@@ -1327,7 +1327,11 @@ self-scrapes имеют свой закрытый набор имён и мет�
 VT читается полными строками только для trace, полученного от emitter. Проверяются три span,
 их поля, kind, outcome и связи test-owned root → INTERNAL `getObject.read` → CLIENT `http.GET`.
 Missing строки дают pending только после проверки всех уже наблюдаемых строк. В artifact нет
-trace ID, объектов, signed URLs или необработанных ошибок.
+trace ID, объектов, signed URLs или необработанных ошибок. Локальные sampled spans этого SDK
+обязаны иметь OTLP flags `257` (`0x101`): sampled bit и признак известного parent context.
+JSON и protobuf serializer проверяются на реальном pinned SDK. Простое значение `1`,
+отсутствующие flags, remote-parent `769` и неизвестные bits в этом локальном сценарии
+отклоняются. Это не расширяет набор допустимых remote spans и не меняет collector policy.
 
 `source.json` связывает checkout и tree с provider run, attempt, PR head/base и хешами реальных
 входов: весь production backend source, packages, package manifests, lockfile, patches,
