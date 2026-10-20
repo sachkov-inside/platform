@@ -224,6 +224,7 @@ describe("application CI workflow contract", () => {
     )?.[1];
     assert.ok(body);
     for (const profile of fullStackProjects) {
+      /** @type {import("node:child_process").SpawnSyncReturns<string>} */
       const result = spawnSync(
         "bash",
         [
