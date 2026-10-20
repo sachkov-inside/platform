@@ -319,6 +319,10 @@ test("privacy refusal emits one bounded closed reason while keeping the public e
 const guardReasons = [
   "capture_shape",
   "corpus_shape",
+  "corpus_type",
+  "corpus_empty_string",
+  "corpus_string_limit",
+  "corpus_entry_count",
   "document_count",
   "document_bytes",
   "total_bytes",
@@ -492,19 +496,63 @@ test.each([
 );
 
 test("invalid private corpus is classified before raw inspection and bounded on refusal", () => {
-  for (const secrets of [
-    [""],
-    Array.from({ length: 65 }, () => privateValue),
-    ["x".repeat(2049)],
+  const missingEntry: string[] = [];
+  Object.defineProperty(missingEntry, "0", { value: undefined });
+  for (const { secrets, reason } of [
+    { secrets: missingEntry, reason: "corpus_type" },
+    { secrets: [""], reason: "corpus_empty_string" },
+    {
+      secrets: Array.from({ length: 65 }, () => privateValue),
+      reason: "corpus_entry_count",
+    },
+    { secrets: ["x".repeat(2049)], reason: "corpus_string_limit" },
   ]) {
     expect(
       checkedRefusal([JSON.stringify({ secret: privateValue })], secrets),
     ).toMatchObject({
-      reason: "corpus_shape",
+      reason,
       phase: "input",
       nodes: 0,
       totalBytes: 0,
     });
+  }
+});
+
+test("corpus type classification never re-reads malformed entry getters or emits their values", () => {
+  for (const value of [undefined, null, true, 42, {}, []]) {
+    let reads = 0;
+    const secrets: string[] = [];
+    Object.defineProperty(secrets, "0", {
+      get() {
+        reads++;
+        return value;
+      },
+    });
+    expect(checkedRefusal(["{}"], secrets)).toMatchObject({
+      reason: "corpus_type",
+      phase: "input",
+    });
+    expect(reads).toBe(1);
+  }
+});
+
+test("corpus reasons follow only the first owned schema issue and never replace a sink refusal", () => {
+  for (const [secrets, reason] of [
+    [["", "x".repeat(2049)], "corpus_empty_string"],
+    [["x".repeat(2049), ""], "corpus_string_limit"],
+  ] as const) {
+    expect(checkedRefusal(["{}"], secrets)).toMatchObject({
+      reason,
+      phase: "input",
+    });
+    let attempts = 0;
+    expect(() =>
+      assertPrivateS3Exports(["{}"], secrets, () => {
+        attempts++;
+        throw new Error(privateValue);
+      }),
+    ).toThrow("S3 API privacy validation failed");
+    expect(attempts).toBe(1);
   }
 });
 
