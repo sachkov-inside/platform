@@ -1,13 +1,17 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
 import { z } from "zod";
 
-import { readPackageManifest } from "../package-manifest.mjs";
+import {
+  packageManifestSchema,
+  readPackageManifest,
+} from "../package-manifest.mjs";
+import { parse as parseShell } from "shell-quote";
 
 const repositoryRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -42,6 +46,113 @@ describe("release image contract", () => {
           `${path} must supply root workspace importer ${importer} before frozen install`,
         );
       }
+    }
+  });
+
+  it("installs the complete backend workspace closure and root tooling without Web or Telegram", () => {
+    const dockerfile = read("apps/backend/Dockerfile");
+    const installLines = dockerfile
+      .split("\n")
+      .filter((line) => line.trim().startsWith("pnpm install "));
+    assert.equal(installLines.length, 1);
+    const installLine = z.string().parse(installLines[0]);
+    const install = z.array(z.string()).parse(parseShell(installLine));
+    const filters = install.flatMap((word, index) =>
+      word === "--filter" ? [install[index + 1]] : [],
+    );
+    assert.equal(
+      filters.length,
+      1,
+      "backend image must select one dependency closure",
+    );
+    const selector = z.string().parse(filters[0]);
+    assert.equal(selector, "@inside/backend...");
+    assert.ok(install.includes("--frozen-lockfile"));
+    assert.ok(install.includes("--store-dir=/pnpm/store"));
+    assert.ok(install.includes("--package-import-method=copy"));
+    for (const flag of [
+      "--prod",
+      "--production",
+      "--ignore-scripts",
+      "--exclude-workspace-root",
+    ]) {
+      assert.ok(
+        !install.includes(flag),
+        `backend build must retain dev dependencies, lifecycle and root tooling: ${flag}`,
+      );
+    }
+
+    const manifestSchema = packageManifestSchema.extend({
+      name: z.string(),
+      optionalDependencies: z.record(z.string(), z.string()).default({}),
+    });
+    const manifestPaths = [
+      "package.json",
+      ...globSync(
+        [
+          "apps/*/package.json",
+          "packages/*/package.json",
+          "docs/contracts/package.json",
+        ],
+        { cwd: repositoryRoot },
+      ),
+    ];
+    const projects = new Map(
+      manifestPaths.map((path) => {
+        const manifest = manifestSchema.parse(JSON.parse(read(path)));
+        return [manifest.name, { path, manifest }];
+      }),
+    );
+    const root = manifestSchema.parse(JSON.parse(read("package.json")));
+    // Pinned pnpm keeps the workspace root importer in a filtered install by default.
+    const pending = [selector.slice(0, -3), root.name];
+    /** @type {Set<string>} */
+    const selected = new Set();
+    while (pending.length > 0) {
+      const name = z.string().parse(pending.pop());
+      if (selected.has(name)) continue;
+      const project = projects.get(name);
+      assert.ok(project, `selected workspace dependency is missing: ${name}`);
+      selected.add(name);
+      for (const [dependency, version] of Object.entries({
+        ...project.manifest.dependencies,
+        ...project.manifest.devDependencies,
+        ...project.manifest.optionalDependencies,
+      })) {
+        if (version.startsWith("workspace:")) pending.push(dependency);
+      }
+    }
+    assert.deepEqual([...selected].sort(), [
+      "@inside/access-capabilities",
+      "@inside/backend",
+      "@inside/contracts",
+      "@inside/legal",
+      "@inside/material-blocks",
+      "@inside/platform",
+      "@inside/runtime-identity",
+    ]);
+    const beforeInstall = dockerfile.slice(0, dockerfile.indexOf(installLine));
+    const copiedSources = beforeInstall
+      .split("\n")
+      .filter((line) => line.startsWith("COPY "))
+      .flatMap((line) =>
+        z
+          .array(z.string())
+          .parse(parseShell(line))
+          .slice(1)
+          .filter((word) => !word.startsWith("--"))
+          .slice(0, -1),
+      );
+    for (const name of selected) {
+      const project = projects.get(name);
+      assert.ok(project);
+      assert.ok(
+        copiedSources.some(
+          (source) =>
+            project.path === source || project.path.startsWith(`${source}/`),
+        ),
+        `backend dependency stage must supply selected importer ${project.path}`,
+      );
     }
   });
 
