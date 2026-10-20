@@ -38,7 +38,9 @@ def main():
     elif sys.argv[1:]:raise ValueError('closed Caddy contracts')
     else:
         suite=unittest.defaultTestLoader.discover(str(Path(__file__).parent),pattern='test_*.py')
-        if not unittest.TextTestRunner().run(suite).wasSuccessful():return 1
+        import source_progress
+        source_progress.verify_inventory(suite)
+        if not unittest.TextTestRunner(resultclass=source_progress.ProgressResult).run(suite).wasSuccessful():return 1
     return 0
 
 
