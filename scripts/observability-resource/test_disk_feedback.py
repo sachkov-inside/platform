@@ -101,28 +101,60 @@ class SameReadGuard(unittest.TestCase):
         self.assertEqual(view._point(90),(65535,90));self.assertIsNone(view._point(80));view._seal()
         self.assertEqual(view.final[:2],('refused','numeric_refused'))
 
-    def test_late_monitor_read_after_bounded_join_cannot_mutate_final_or_suppress_original_kill(self):
+    def late_monitor(self,early_failure=None,cleanup_failure=None):
+        import sys
         import threading
         pilot=hosted.runtime.pilot;started=threading.Event();release=threading.Event();threads=[]
         real_thread=threading.Thread;reads=[0]
+        class OwnedThread(real_thread):
+            def join(self,timeout=None):
+                super().join(timeout)
+                if release.is_set() and cleanup_failure is not None:raise cleanup_failure
         def create(**kwargs):
-            thread=real_thread(**kwargs);threads.append(thread);return thread
+            thread=OwnedThread(**kwargs);threads.append(thread);return thread
         def disk(path):
             reads[0]+=1
             if reads[0]==1:return SimpleNamespace(free=20*1024**3)
             started.set()
             if not release.wait(4):raise OSError('owned late fixture timeout')
             return SimpleNamespace(free=16*1024**3)
-        try:
-            with patch.object(pilot.threading,'Thread',side_effect=create),patch.object(pilot.shutil,'disk_usage',side_effect=disk),patch.object(pilot.os,'kill') as kill:
+        with patch.object(pilot.threading,'Thread',side_effect=create),patch.object(pilot.shutil,'disk_usage',side_effect=disk),patch.object(pilot.os,'kill') as kill:
+            try:
                 with pilot.disk_budget(Path('/synthetic'),observe_samples=True) as view:
                     self.assertTrue(started.wait(2))
                 frozen=view.final;self.assertTrue(threads[0].is_alive())
-                release.set();threads[0].join(2);self.assertFalse(threads[0].is_alive())
-                self.assertEqual(view.final,frozen);kill.assert_called_once_with(os.getpid(),signal.SIGUSR1)
-        finally:
-            release.set()
-            for thread in threads:thread.join(2)
+                if early_failure is not None:raise early_failure
+            finally:
+                # Release/reap while every monitor patch, particularly kill, is still active.
+                primary=sys.exc_info()[0] is not None;cleanup_error=None
+                release.set()
+                for thread in threads:
+                    try:thread.join(2)
+                    except BaseException as error:
+                        if cleanup_error is None:cleanup_error=error
+                    self.assertFalse(thread.is_alive(),'owned late monitor did not exit')
+                if cleanup_error is not None and not primary:raise cleanup_error
+            self.assertEqual(view.final,frozen);kill.assert_called_once_with(os.getpid(),signal.SIGUSR1)
+
+    def test_late_monitor_read_after_bounded_join_cannot_mutate_final_or_suppress_original_kill(self):
+        self.late_monitor()
+
+    def test_early_fixture_failure_reaps_monitor_before_kill_patch_restoration(self):
+        error=AssertionError('owned early failure')
+        # Safety net makes the pre-fix real late signal observable without sending it.
+        with patch.object(hosted.runtime.pilot.os,'kill') as escaped:
+            with self.assertRaises(AssertionError) as caught:self.late_monitor(error)
+            self.assertIs(caught.exception,error)
+            escaped.assert_not_called()
+
+    def test_early_fixture_error_remains_primary_after_owned_cleanup_bookkeeping_failure(self):
+        primary=AssertionError('owned early failure');secondary=OSError('owned joined cleanup failure')
+        with patch.object(hosted.runtime.pilot.os,'kill') as escaped:
+            with self.assertRaises(AssertionError) as caught:self.late_monitor(primary,secondary)
+            self.assertIs(caught.exception,primary);escaped.assert_not_called()
+        with patch.object(hosted.runtime.pilot.os,'kill') as escaped:
+            with self.assertRaises(OSError) as caught:self.late_monitor(cleanup_failure=secondary)
+            self.assertIs(caught.exception,secondary);escaped.assert_not_called()
 
     def test_baseline_interrupt_is_original_before_handler_or_thread_and_default_has_no_view(self):
         from disk_samples import DiskSamples
