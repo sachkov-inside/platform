@@ -1,0 +1,128 @@
+name: Foundation recovery proof
+
+on:
+  pull_request:
+    paths:
+      - infra/production/database/**
+      - scripts/foundation-recovery-proof*
+      - scripts/test_foundation_recovery_proof.py
+      - scripts/test_foundation_recovery_lifecycle_docker.py
+      - .github/workflows/foundation-recovery.yml
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: foundation-recovery-${{ github.event.pull_request.number || github.ref }}-${{ github.run_attempt }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      required: ${{ steps.paths.outputs.required }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select only foundation recovery changes
+        id: paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          set -euo pipefail
+          status=0
+          git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
+            infra/production/database scripts/foundation-recovery-proof.py \
+            scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \
+            .github/workflows/foundation-recovery.yml || status=$?
+          case "$status" in
+            0) echo 'required=false' >>"$GITHUB_OUTPUT" ;;
+            1) echo 'required=true' >>"$GITHUB_OUTPUT" ;;
+            *) exit "$status" ;;
+          esac
+  recover:
+    needs: plan
+    if: ${{ needs.plan.outputs.required == 'true' }}
+    name: Native encrypted recovery (${{ matrix.architecture }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            architecture: amd64
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run admission and ownership contracts
+        run: python3 -B -m unittest discover -s scripts -p test_foundation_recovery_proof.py
+      - name: Build the native foundation image
+        run: |
+          set -euo pipefail
+          docker build --iidfile "$RUNNER_TEMP/foundation-image.id" infra/production/database
+      - name: Check out the frozen pre-upgrade database source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 9a17509d802f8fa165b5988962f20ae18155fd73
+          path: legacy-foundation
+          sparse-checkout: infra/production/database
+          persist-credentials: false
+      - name: Build the ordinary legacy backup writer
+        run: |
+          set -euo pipefail
+          docker build --iidfile "$RUNNER_TEMP/legacy-foundation-image.id" legacy-foundation/infra/production/database
+      - name: Prove ordinary encrypted recovery and negative cases
+        run: |
+          set -euo pipefail
+          image="$(cat "$RUNNER_TEMP/foundation-image.id")"
+          python3 -B scripts/foundation-recovery-proof.py \
+            --image "$image" \
+            --state-directory "$RUNNER_TEMP/foundation-proof" \
+            --receipt "$RUNNER_TEMP/foundation-recovery.json"
+      - name: Prove ordinary encrypted backup compatibility from 2.57.0
+        run: |
+          set -euo pipefail
+          python3 -B scripts/foundation-recovery-proof.py \
+            --image "$(cat "$RUNNER_TEMP/foundation-image.id")" \
+            --legacy-source-image "$(cat "$RUNNER_TEMP/legacy-foundation-image.id")" \
+            --state-directory "$RUNNER_TEMP/foundation-legacy-proof" \
+            --receipt "$RUNNER_TEMP/foundation-legacy-recovery.json"
+      - name: Verify real resource cleanup on success, failure, timeout and interruption
+        run: |
+          set -euo pipefail
+          export FOUNDATION_PROOF_IMAGE="$(cat "$RUNNER_TEMP/foundation-image.id")"
+          python3 -B scripts/test_foundation_recovery_lifecycle_docker.py
+          python3 - <<'PY'
+          import json, os, pathlib
+          path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'foundation-recovery.json'
+          receipt = json.loads(path.read_text())
+          receipt['lifecycleCasesPassed'] = 5
+          path.write_text(json.dumps(receipt, indent=2) + '\n')
+          PY
+      - name: Clean only journaled proof resources after success or interruption
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          for state in "$RUNNER_TEMP/foundation-proof" "$RUNNER_TEMP/foundation-legacy-proof" "$RUNNER_TEMP/foundation-lifetime"/*; do
+            test -d "$state" || continue
+            python3 -B scripts/foundation-recovery-proof.py --cleanup-only --state-directory "$state"
+          done
+      - name: Retain recovery verdict without synthetic secrets
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: foundation-recovery-${{ matrix.architecture }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/foundation-recovery.json
+            ${{ runner.temp }}/foundation-legacy-recovery.json
+          if-no-files-found: ignore
