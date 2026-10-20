@@ -139,7 +139,13 @@ export class NotificationBroker {
       // Storage/quarantine failure: close consumer, retain unacked work, alert; reconnect has backoff.
       reportFailure("notification.broker-receive", error);
       this.fail();
-      if (this.intakeClosed()) this.terminalFailures.push(error);
+      if (this.intakeClosed()) {
+        this.terminalFailures.push(error);
+        // An admitted rejection must not close over an outstanding BasicCancel RPC.
+        // Later cancellation belongs to finishTerminal, not this receive operation.
+        const cancelling = [...this.cancelling];
+        await Promise.all(cancelling);
+      }
       await channel.close().catch((closeError: unknown) => {
         if (this.intakeClosed()) this.terminalFailures.push(closeError);
       });

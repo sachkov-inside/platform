@@ -3,6 +3,7 @@ import { createServer, request, type ClientRequest } from "node:http";
 import { once } from "node:events";
 import { sql } from "kysely";
 import { z } from "zod";
+import { NestApplication } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterEach, expect, test, vi } from "vitest";
 import { createTelegramApplication } from "../../src/application/create-telegram-application.js";
@@ -659,7 +660,10 @@ for (const outcome of ["clean", "cleanup_failures"] as const)
       const database = ctx.application.get<Database>(DATABASE);
       const shutdown = telemetry.shutdown.bind(telemetry);
       const destroy = database.destroy.bind(database);
-      const close = ctx.application.close.bind(ctx.application);
+      // Public Nest proxies resolve methods lazily. Spy on the real prototype so
+      // the original method receives Nest's original receiver, not its public Proxy.
+      // oxlint-disable-next-line typescript/unbound-method -- Called below with Nest's original receiver.
+      const close = NestApplication.prototype.close;
       // Public lifetime boundaries call their original native cleanup before fault injection.
       const sdk = vi
         .spyOn(telemetry, "shutdown")
@@ -676,96 +680,102 @@ for (const outcome of ["clean", "cleanup_failures"] as const)
         if (outcome === "cleanup_failures") throw pgError;
       });
       const framework = vi
-        .spyOn(ctx.application, "close")
-        .mockImplementation(async () => {
+        .spyOn(NestApplication.prototype, "close")
+        .mockImplementation(async function (this: NestApplication) {
           order.push("framework");
-          await close();
+          await close.call(this);
           order.push("framework.quiet");
           if (outcome === "cleanup_failures") throw nestError;
         });
-      ctx.stage("genuine_pg_handler_wait");
-      const pending = post(ctx.port, body, ["traceparent", CANONICAL]);
-      const client = pending.client;
-      ctx.beforeClose(async () => {
+      try {
+        ctx.stage("genuine_pg_handler_wait");
+        const pending = post(ctx.port, body, ["traceparent", CANONICAL]);
+        const client = pending.client;
+        ctx.beforeClose(async () => {
+          client.destroy();
+          release.resolve();
+          await held;
+        });
+        void pending.result.catch(() => undefined);
+        await expect
+          .poll(
+            async () => {
+              const waiting = await sql<{
+                count: number;
+              }>`select count(*)::int as count from pg_stat_activity where application_name=${ctx.applicationName} and wait_event_type='Lock' and wait_event='advisory'`.execute(
+                ctx.observer,
+              );
+              return waiting.rows[0]?.count;
+            },
+            { timeout: FACT_BUDGET_MS },
+          )
+          .toBe(1);
+        const disconnected = deferred();
+        client.once("close", () => disconnected.resolve());
         client.destroy();
+        await disconnected.promise;
+        const closing = ctx.handle.close();
+        const observed = closing.then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        expect(ctx.handle.close()).toBe(closing);
+        expect(sdk).not.toHaveBeenCalled();
+        expect(pg).not.toHaveBeenCalled();
+        expect(framework).not.toHaveBeenCalled();
+        const stillWaiting = await sql<{
+          count: number;
+        }>`select count(*)::int as count from pg_stat_activity where application_name=${ctx.applicationName} and wait_event_type='Lock' and wait_event='advisory'`.execute(
+          ctx.observer,
+        );
+        expect(stillWaiting.rows[0]?.count).toBe(1);
+        expect(sdk).not.toHaveBeenCalled();
+        ctx.stage("actual_cleanup_and_original_failures");
         release.resolve();
         await held;
-      });
-      void pending.result.catch(() => undefined);
-      await expect
-        .poll(
-          async () => {
-            const waiting = await sql<{
-              count: number;
-            }>`select count(*)::int as count from pg_stat_activity where application_name=${ctx.applicationName} and wait_event_type='Lock' and wait_event='advisory'`.execute(
-              ctx.observer,
-            );
-            return waiting.rows[0]?.count;
-          },
-          { timeout: FACT_BUDGET_MS },
-        )
-        .toBe(1);
-      const disconnected = deferred();
-      client.once("close", () => disconnected.resolve());
-      client.destroy();
-      await disconnected.promise;
-      const closing = ctx.handle.close();
-      const observed = closing.then(
-        () => undefined,
-        (error: unknown) => error,
-      );
-      expect(ctx.handle.close()).toBe(closing);
-      expect(sdk).not.toHaveBeenCalled();
-      expect(pg).not.toHaveBeenCalled();
-      expect(framework).not.toHaveBeenCalled();
-      const stillWaiting = await sql<{
-        count: number;
-      }>`select count(*)::int as count from pg_stat_activity where application_name=${ctx.applicationName} and wait_event_type='Lock' and wait_event='advisory'`.execute(
-        ctx.observer,
-      );
-      expect(stillWaiting.rows[0]?.count).toBe(1);
-      expect(sdk).not.toHaveBeenCalled();
-      ctx.stage("actual_cleanup_and_original_failures");
-      release.resolve();
-      await held;
-      const result = await observed;
-      if (outcome === "cleanup_failures") {
-        if (!(result instanceof AggregateError))
-          throw new Error("Expected private original cleanup aggregate");
-        const originals: readonly unknown[] = result.errors;
-        expect(originals).toEqual([sdkError, pgError, nestError]);
-        ctx.expectedCloseFailure(result);
-      } else expect(result).toBeUndefined();
-      expect(sdk).toHaveBeenCalledOnce();
-      expect(pg).toHaveBeenCalledOnce();
-      expect(framework).toHaveBeenCalledOnce();
-      expect(order).toEqual([
-        "sdk",
-        "sdk.quiet",
-        "pg",
-        "pg.quiet",
-        "framework",
-        "framework.quiet",
-      ]);
-      expect(
-        (
-          await ctx.observer
-            .selectFrom("waitlist_confirmations")
-            .select("state")
-            .where("bot_identity", "=", BOT)
-            .where("event_id", "=", body.eventId)
-            .executeTakeFirstOrThrow()
-        ).state,
-      ).toBe("pending");
-      expect(ctx.spans.some((span) => span.name === "waitlist receipt")).toBe(
-        true,
-      );
-      expect(ctx.metricNames).toContain("inside.telegram.operations");
-      const sessions = await sql<{
-        count: number;
-      }>`select count(*)::int as count from pg_stat_activity where application_name=${ctx.applicationName}`.execute(
-        ctx.observer,
-      );
-      expect(sessions.rows[0]?.count).toBe(0);
+        const result = await observed;
+        if (outcome === "cleanup_failures") {
+          if (!(result instanceof AggregateError))
+            throw new Error("Expected private original cleanup aggregate");
+          const originals: readonly unknown[] = result.errors;
+          expect(originals).toEqual([sdkError, pgError, nestError]);
+          ctx.expectedCloseFailure(result);
+        } else expect(result).toBeUndefined();
+        expect(sdk).toHaveBeenCalledOnce();
+        expect(pg).toHaveBeenCalledOnce();
+        expect(framework).toHaveBeenCalledOnce();
+        expect(order).toEqual([
+          "sdk",
+          "sdk.quiet",
+          "pg",
+          "pg.quiet",
+          "framework",
+          "framework.quiet",
+        ]);
+        expect(
+          (
+            await ctx.observer
+              .selectFrom("waitlist_confirmations")
+              .select("state")
+              .where("bot_identity", "=", BOT)
+              .where("event_id", "=", body.eventId)
+              .executeTakeFirstOrThrow()
+          ).state,
+        ).toBe("pending");
+        expect(ctx.spans.some((span) => span.name === "waitlist receipt")).toBe(
+          true,
+        );
+        expect(ctx.metricNames).toContain("inside.telegram.operations");
+        const sessions = await sql<{
+          count: number;
+        }>`select count(*)::int as count from pg_stat_activity where application_name=${ctx.applicationName}`.execute(
+          ctx.observer,
+        );
+        expect(sessions.rows[0]?.count).toBe(0);
+      } finally {
+        framework.mockRestore();
+        pg.mockRestore();
+        sdk.mockRestore();
+      }
     });
   }, 25_000);

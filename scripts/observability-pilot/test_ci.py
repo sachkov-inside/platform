@@ -119,15 +119,74 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            self.assertEqual(len(proof['inputs']), 24)
+            expected = {
+                'infra/observability/pilot/' + name for name in (
+                    'inputs.lock.json', 'config.alloy', 'privacy-policy.json',
+                    'Caddyfile', 'vmauth.routes.json', 'probe.lock.json')
+            } | {
+                'scripts/observability-pilot/' + name for name in (
+                    'ci.py', 'source_status.py', 'source_status_query.py',
+                    'source_status_scenario.py', 'pilot.py', 'native_cpu.py',
+                    'privacy_config.py', 'collector_privacy.py', 'link_privacy.py',
+                    'notification_privacy.py', 'dependency_privacy.py', 'email_privacy.py',
+                    'telegram_http_storage.py', 'daemon.py', 'orbstack.py', 'storage_policy.py',
+                    'telegram_runtime_privacy.py', 'telegram_runtime_oracle.py')
+            } | {'.github/workflows/observability-pilot.yml', 'apps/backend/openapi/platform-api.json'}
+            self.assertEqual(set(proof['inputs']), expected)
+            self.assertEqual(len(proof['inputs']), 26)
             relative = 'apps/backend/openapi/platform-api.json'
             self.assertEqual(proof['inputs'][relative], hashlib.sha256((ci.ROOT/relative).read_bytes()).hexdigest())
             workflow = (ci.ROOT/'.github/workflows/observability-pilot.yml').read_text()
             self.assertIn('      - ' + relative + '\n', workflow)
-            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py','email_privacy.py','telegram_http_storage.py', 'source_status.py', 'source_status_query.py', 'source_status_scenario.py'):
+            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py','email_privacy.py','telegram_http_storage.py', 'telegram_runtime_privacy.py', 'telegram_runtime_oracle.py', 'source_status.py', 'source_status_query.py', 'source_status_scenario.py'):
                 relative = 'scripts/observability-pilot/'+name
                 helper = ci.ROOT / relative
                 self.assertEqual(proof['inputs'][relative], hashlib.sha256(helper.read_bytes()).hexdigest())
+
+    def test_executed_telegram_modules_change_their_named_source_binding(self):
+        import hashlib
+        import io
+        original_read = Path.read_bytes
+        for name in ('telegram_runtime_privacy.py', 'telegram_runtime_oracle.py'):
+            with self.subTest(module=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                metadata = root / 'metadata'
+                relative = 'scripts/observability-pilot/' + name
+                changed = ci.ROOT / relative
+                def command(args):
+                    if args[-1] == 'HEAD':
+                        return 'a' * 40
+                    if args[-1] == '--porcelain':
+                        return ''
+                    if args[-1] == 'HEAD^{tree}':
+                        return 'b' * 40
+                    return str(root)
+                def read_bytes(path):
+                    return b'changed executed module' if path == changed else original_read(path)
+                with patch.object(ci, 'read_command', side_effect=command), \
+                        patch.dict(os.environ, {'GITHUB_SHA': 'a' * 40}), \
+                        patch.object(Path, 'read_bytes', read_bytes), \
+                        patch.object(ci.shutil, 'disk_usage', return_value=SimpleNamespace(total=200 * 1024**3, free=100 * 1024**3)), \
+                        patch('sys.stdout', new=io.StringIO()):
+                    self.assertEqual(ci.admission(metadata), 0)
+                proof = json.loads((metadata / 'source.json').read_text())
+                self.assertIn(relative, proof['inputs'])
+                self.assertEqual(proof['inputs'][relative], hashlib.sha256(b'changed executed module').hexdigest())
+                self.assertNotEqual(proof['inputs'][relative], hashlib.sha256(original_read(changed)).hexdigest())
+
+    def test_source_binding_refuses_dirty_checkout_and_provider_mismatch_before_docker(self):
+        for dirty, provider in ((True, 'a' * 40), (False, 'c' * 40)):
+            with self.subTest(dirty=dirty), tempfile.TemporaryDirectory() as directory:
+                def command(args):
+                    if args[-1] == 'HEAD':
+                        return 'a' * 40
+                    if args[-1] == '--porcelain':
+                        return ' M fixture.py' if dirty else ''
+                    raise AssertionError('source rejection must precede Docker admission')
+                with patch.object(ci, 'read_command', side_effect=command), \
+                        patch.dict(os.environ, {'GITHUB_SHA': provider}), \
+                        self.assertRaises(ValueError):
+                    ci.admission(Path(directory) / 'metadata')
 
     def test_artifact_collection_excludes_keys_binaries_and_raw_diagnostics(self):
         with tempfile.TemporaryDirectory() as directory:
