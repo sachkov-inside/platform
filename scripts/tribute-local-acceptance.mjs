@@ -462,12 +462,14 @@ try {
   report.scenarios.push(
     "PASS pending registry import after actual private ingress creates neither Account nor grant",
   );
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
   await page.goto(`${web}/account`);
   await page
     .locator("[data-application-content]")
-    .getByRole("button", { name: "Войти", exact: true })
+    .getByRole("button", { name: "Войти через Telegram", exact: true })
     .click();
-  await page.getByRole("button", { name: /Telegram/u }).click();
   await expect(page.locator("#bot")).toBeVisible();
   const botLink = await page.locator("#bot").getAttribute("href");
   if (botLink === null) throw new Error("Telegram sign-in link is missing");

@@ -1,0 +1,162 @@
+{
+  "scope": "normal owner Mac VPN, unchanged VPN settings; no SSH proxy for these requests",
+  "samples": [
+    {
+      "utc": "2026-10-20T05:55:38.181092+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 212,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.006604"
+    },
+    {
+      "utc": "2026-10-20T05:56:07.355670+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 199,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.001477"
+    },
+    {
+      "utc": "2026-10-20T05:56:36.530501+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 139,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.006746"
+    },
+    {
+      "utc": "2026-10-20T05:57:05.718391+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 77,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.006183"
+    },
+    {
+      "utc": "2026-10-20T05:57:34.909011+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 62,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.006123"
+    },
+    {
+      "utc": "2026-10-20T05:58:04.070616+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 82,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.003799"
+    },
+    {
+      "utc": "2026-10-20T05:58:33.241784+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 22,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.004862"
+    },
+    {
+      "utc": "2026-10-20T05:59:02.390334+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 600,
+          "data": "185.125.101.90"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.006604"
+    },
+    {
+      "utc": "2026-10-20T05:59:31.580327+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 221,
+          "data": "185.125.101.90"
+        }
+      ],
+      "curl_exit": 0,
+      "curl_result": "200 0.451979"
+    },
+    {
+      "utc": "2026-10-20T05:59:57.195937+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 600,
+          "data": "185.125.101.90"
+        }
+      ],
+      "curl_exit": 28,
+      "curl_result": "000 4.005698"
+    },
+    {
+      "utc": "2026-10-20T06:00:26.403405+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 8,
+          "data": "201.24.126.23"
+        }
+      ],
+      "curl_exit": 0,
+      "curl_result": "200 0.400981"
+    },
+    {
+      "utc": "2026-10-20T06:00:51.988337+00:00",
+      "google_doh": [
+        {
+          "name": "auth.sachkov.dev.",
+          "type": 1,
+          "TTL": 545,
+          "data": "185.125.101.90"
+        }
+      ],
+      "curl_exit": 0,
+      "curl_result": "200 0.469513"
+    }
+  ],
+  "limitation": "Transition includes failures while some recursive DNS answers retained old origin IP; individual new-answer samples also failed. No claim of per-sample causation."
+}

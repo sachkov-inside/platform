@@ -606,7 +606,7 @@ function OrderFeedback({
             value={authoringProductEditorHref(seriesId)}
           />
           <Button size="sm" type="submit">
-            Войти
+            Войти через Telegram
           </Button>
         </form>
       ) : null}

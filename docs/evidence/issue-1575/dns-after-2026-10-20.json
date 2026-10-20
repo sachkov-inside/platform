@@ -1,0 +1,95 @@
+{
+  "source": "origin SSH; authoritative ns1.timeweb.ru over TCP, avoiding stale UDP responses",
+  "records": [
+    {
+      "name": "sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "185.125.101.90"
+    },
+    {
+      "name": "sachkov.dev.",
+      "ttl": 600,
+      "type": "TXT",
+      "rdata": "\"v=spf1 include:_spf.timeweb.ru ~all\""
+    },
+    {
+      "name": "sachkov.dev.",
+      "ttl": 600,
+      "type": "MX",
+      "rdata": "10 mx1.timeweb.ru."
+    },
+    {
+      "name": "sachkov.dev.",
+      "ttl": 600,
+      "type": "MX",
+      "rdata": "20 mx2.timeweb.ru."
+    },
+    {
+      "name": "www.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "185.125.101.90"
+    },
+    {
+      "name": "inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "185.125.101.90"
+    },
+    {
+      "name": "inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "TXT",
+      "rdata": "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+    },
+    {
+      "name": "auth.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "185.125.101.90"
+    },
+    {
+      "name": "auth.sachkov.dev.",
+      "ttl": 600,
+      "type": "TXT",
+      "rdata": "\"v=spf1 include:_spf.timeweb.ru ~all\""
+    },
+    {
+      "name": "telegram.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "201.24.126.23"
+    },
+    {
+      "name": "telegram.sachkov.dev.",
+      "ttl": 600,
+      "type": "TXT",
+      "rdata": "\"v=spf1 include:_spf.timeweb.ru ~all\""
+    },
+    {
+      "name": "_dmarc.inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "TXT",
+      "rdata": "\"v=spf1 include:_spf.timeweb.ru ~all\""
+    },
+    {
+      "name": "_dmarc.inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "TXT",
+      "rdata": "\"v=DMARC1;p=none\""
+    },
+    {
+      "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "CNAME",
+      "rdata": "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+    },
+    {
+      "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "CNAME",
+      "rdata": "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+    }
+  ]
+}

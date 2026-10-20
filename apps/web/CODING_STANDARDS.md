@@ -228,38 +228,36 @@ These rules require review. An effect count or a passing dependency linter canno
 
 ## Reader controls
 
-Owner corrections 2026-10-10 (#1336) and accepted dimensions 2026-10-12 (#1362): Reader actions stay compact.
+Owner decision #1591 (accepted prototype A, desktop and mobile): Material action panels group
+Back, Save, Studied and Share at the left, with Next at the right. Repeat the same panel before
+the title and after practice/workspace, before course navigation. Omit Next when no successor
+exists. Preserve the computed Back destination, canonical sharing address and existing mutation
+adapters. The article has no automatic contents disclosure.
 
-At normal phone text size, keep this size contract. Enlarged text can reflow; never clip it.
+Use 44 px controls with 16 px icons, 14 px labels and a 54 px panel at normal text size.
+Allow the panel and action group to wrap whenever enlarged text, recovery actions or narrow
+embedding cannot fit one row. Keep accessible names when labels
+become visually hidden. Desktop shows labels; below 64rem viewport width or at most 620 px panel
+container width, hide Save/Share labels. At most 390 px container width, hide Studied's label;
+at most 290 px also hide Back/Next labels. The accepted 390 px phone view keeps Back/Next text.
+Compact study controls remain ghost buttons; saved actions use the existing semantic state tokens.
+Both panels share saved state, pending commands and failures. Loading/access frames reserve the
+same top panel geometry. Share feedback and its manual-copy field appear beside the activated panel.
+These rules supersede the earlier #1336/#1362 action-panel layout and sizes only.
+
+The existing lesson navigation and typography remain unchanged:
 
 | Reader element | Phone size |
 | --- | --- |
-| Upper and lower action panels | 38 px high |
-| Visible panel controls / clickable area | 32 px / at least 44 px high |
-| Panel labels / icons | 12 px / 16 px |
-| Floating lesson pager | 146 × 46 px; 44 px arrow controls |
-| Title / prose | 22 px / 15 px |
+| Floating standalone lesson pager | 146 × 46 px; 44 px arrow controls |
+| Standalone title / prose | 22 px / 15 px |
 | Quiz heading, question and choices | 14 px |
-
-Reader panel controls are 36 px high on desktop; their icons are 16 px on both device classes.
-Standalone panels place bookmark and study actions at the right edge, with return at the left.
-
-Compact reading actions use the ghost button variant, with no visible border or filled pill.
-Keep their written label, state icon and focus indicator. Mobile geometry stories enforce panel,
-control and pager sizes; Reader and quiz stories enforce typography.
-For available Materials, place the return, bookmark and study actions in matching panels before
-the title and after the practice/workspace, before course navigation. Keep the article free of
-an automatic contents disclosure. Both panels share saved state, pending commands and failures.
-The known-course loading and access frames reserve the same top panel geometry.
 
 The reading button keeps its geometry and the reader's scroll position while saving. Use the
 shared fast motion token for press feedback and a crossfade between unread and saved icons;
 do not spin the icon. Keep the current saved state until the command succeeds, expose pending
 with `aria-busy` and the status message, and remove transitions under reduced motion.
 
-- Use `text-xs` (12 px) on phones and `text-sm` (14 px) from `sm` for Reader navigation and
-  action labels, with 16–20 px icons. Keep the reading-state label visible; an empty circle
-  alone does not explain the action.
 - Keep touch targets at least 44 px high. Size ordinary action buttons to their labels with
   12 px horizontal padding and 8 px gaps; do not add a fixed broad width or oversized vertical
   padding. Full-width actions need a named layout reason.
@@ -289,14 +287,9 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
   routes retain their access gates. Material ordinals/progress stay separate from mixed positions.
   Save, error, denial,
   unavailable, protected-body and standalone behavior remains unchanged.
-- Outside checked programme context, the upper lesson panel sits before metadata and the heading.
-  Both panels retain lesson arrows, programme, bookmark and the written study action.
-  Allow reflow when text is enlarged. Both panels keep previous/next
-  arrows at the left/right edges and the written reading action centred
-  on desktop and phones (#1362). At normal phone text size, the visible panel is 38 px high;
-  its 32 px controls extend their clickable area to 44 px with an invisible pseudo-element.
-  Keep the lesson number on one line in the compact floating mobile panel. Do not repeat
-  the ordinal, product heading or large next button beneath the material on phones.
+- Outside checked programme context, keep the existing floating lesson pager and its one-line
+  lesson number. The action panels follow #1591 above; the pager retains adjacent-lesson and
+  programme navigation. Do not add a separate ordinal or product heading beneath the material.
 - Outside checked course context, use 22 px on phones for the Reader title and 15 px with a 1.65 line height for its
   prose. Keep the established desktop sizes from their breakpoints. Learning outcomes remain in
   metadata and the editor; the reader has no outcomes panel.

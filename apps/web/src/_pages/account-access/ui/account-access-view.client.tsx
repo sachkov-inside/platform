@@ -71,7 +71,7 @@ export function AccountAccessView({
           <form action="/auth/sign-in" className="mt-4" method="post">
             <input name="returnTo" type="hidden" value="/account" />
             <Button className="min-h-11 px-4" type="submit">
-              Войти
+              Войти через Telegram
             </Button>
           </form>
         </div>

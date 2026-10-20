@@ -13,7 +13,7 @@ export function AccountSignInRequired() {
           className="min-h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
           type="submit"
         >
-          Войти
+          Войти через Telegram
         </button>
       </form>
     </section>

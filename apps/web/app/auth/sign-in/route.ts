@@ -20,18 +20,27 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const client = new LogtoClient(config);
+    const form = await readSignInForm(request);
     const postRedirectUri = safePostSignInReturnUri(
-      await readReturnTo(request),
+      form?.get("returnTo"),
       config.baseUrl,
     );
     await beginWaitlistSignIn(postRedirectUri);
-    const { url } = await client.handleSignIn({
+    const options = {
       redirectUri: `${config.baseUrl}/callback`,
       // Account establishment needs a fresh email or Telegram verification after a failed callback.
       // Preserve consent as well: Logto needs it to issue the refresh token used by the BFF.
       prompt: [Prompt.Login, Prompt.Consent],
       ...(postRedirectUri === undefined ? {} : { postRedirectUri }),
-    });
+    };
+    const { url } = await client.handleSignIn(
+      form?.get("entry") === "account-choice"
+        ? options
+        : {
+            ...options,
+            directSignIn: { method: "social", target: "inside-telegram" },
+          },
+    );
     return redirect(url);
   } catch {
     await discardWaitlistSignIn();
@@ -39,9 +48,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-async function readReturnTo(
-  request: Request,
-): Promise<FormDataEntryValue | undefined> {
+async function readSignInForm(request: Request): Promise<FormData | undefined> {
   const contentType = request.headers.get("content-type") ?? "";
   if (
     !contentType.includes("application/x-www-form-urlencoded") &&
@@ -49,7 +56,7 @@ async function readReturnTo(
   ) {
     return undefined;
   }
-  return (await request.formData()).get("returnTo") ?? undefined;
+  return request.formData();
 }
 
 function redirect(url: string): Response {

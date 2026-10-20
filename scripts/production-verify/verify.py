@@ -241,6 +241,15 @@ def telegram_error_check(status, values):
                  'five counters are zero since start; community_effects_unknown gauge is currently zero')
 
 
+def verify_telegram_webhook(webhook):
+    allowed = ['message', 'chat_member', 'my_chat_member', 'chat_join_request', 'callback_query']
+    return check('Telegram webhook', webhook['protocol'] == 'https:' and webhook['host'] == 'telegram.sachkov.dev' and
+                 webhook['port'] in ['', '88'] and webhook['path'] == '/webhooks/telegram' and
+                 webhook['hasPinnedIp'] is True and webhook['pending'] == 0 and
+                 webhook['lastError'] is False and sorted(webhook['allowedUpdates']) == sorted(allowed),
+                 'direct HTTPS or existing relay registration, allowed updates, no pending/errors; never setWebhook')
+
+
 def telegram_snapshot():
     app = collect_containers('inside-production-telegram')['app']
     status, values = telegram_metrics()
@@ -330,7 +339,7 @@ if(config.communityWelcomeCohort){
   (typeof selected.startsOn==='string' && details.streamStartsOn===selected.startsOn);
  cohorts={configured:true,readPassed:validResponse && dateAccepted};
 }
-console.log(JSON.stringify({identityMatches:me.is_bot===true && String(me.id)===botTelegramUserIdFromToken(config.botToken),cohorts,webhook:{host:url.hostname,port:url.port,
+console.log(JSON.stringify({identityMatches:me.is_bot===true && String(me.id)===botTelegramUserIdFromToken(config.botToken),cohorts,webhook:{protocol:url.protocol,host:url.hostname,port:url.port,
  path:url.pathname,hasPinnedIp:!!wh.ip_address,pending:wh.pending_update_count,
  allowedUpdates:wh.allowed_updates,lastError:!!wh.last_error_message},chat:{supergroup:chat.type==='supergroup',
  administrator:member.status==='administrator',invite:member.can_invite_users===true,restrict:member.can_restrict_members===true}}));
@@ -390,11 +399,7 @@ def verify_telegram(manifest, state, record):
     telegram = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=TELEGRAM_READ, timeout=60))
     record.append(verify_bot_identity(telegram))
     webhook = telegram['webhook']
-    allowed = ['message', 'chat_member', 'my_chat_member', 'chat_join_request', 'callback_query']
-    record.append(check('Telegram webhook', webhook['host'] == 'telegram.sachkov.dev' and webhook['port'] == '88' and
-                        webhook['path'] == '/webhooks/telegram' and webhook['hasPinnedIp'] is True and
-                        webhook['pending'] == 0 and webhook['lastError'] is False and sorted(webhook['allowedUpdates']) == sorted(allowed),
-                        'existing relay registration, allowed updates, no pending/errors; never setWebhook'))
+    record.append(verify_telegram_webhook(webhook))
     record.append(check('Telegram bot administration', all(telegram['chat'].values()), 'supergroup administrator with invite/restrict rights'))
     record.append(verify_cohort_config(telegram['cohorts']))
     activation = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=ACTIVATION_READ))

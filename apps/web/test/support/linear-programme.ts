@@ -39,7 +39,7 @@ export async function expectLinearProgrammeReturn(
   for (const actions of [top, bottom]) {
     await expect(actions).toHaveCount(1);
     await expect(
-      actions.getByRole("link", { name: "Открыть программу", exact: true }),
+      actions.getByRole("link", { name: "Назад", exact: true }),
     ).toHaveAttribute("href", href);
   }
   const dock = page.getByRole("navigation", {
@@ -53,7 +53,7 @@ export async function expectLinearProgrammeReturn(
     ).toHaveAttribute("href", href);
   } else await expect(dock).toBeHidden();
   const action = top.getByRole("link", {
-    name: "Открыть программу",
+    name: "Назад",
     exact: true,
   });
   await action.scrollIntoViewIfNeeded();

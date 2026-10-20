@@ -117,10 +117,20 @@ async function open(
   page: Page,
   status: InsideTelegramPresentation["status"],
   step: BrowserStep = (_name, operation) => Promise.resolve(operation()),
+  deepLink = botLink,
 ) {
+  // Intercept the OS boundary: synthetic tests must never open the owner's Telegram app.
+  await page.addInitScript(() => {
+    const launches: { url: string; target: string | undefined }[] = [];
+    Object.assign(window, { telegramLaunches: launches });
+    window.open = (url, target) => {
+      launches.push({ url: String(url), target });
+      return null;
+    };
+  });
   offline = false;
   requests = 0;
-  state = { status, deepLink: botLink };
+  state = { status, deepLink };
   if (hasText(process.env["TELEGRAM_UI_ORIGIN"])) {
     await page.unrouteAll();
     await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
@@ -138,6 +148,68 @@ async function open(
   );
   await step("fonts-ready", () => page.evaluate(() => document.fonts.ready));
 }
+
+it("opens Telegram once, keeps a usable fallback when blocked, and completes in the original tab", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install();
+    await open(page, "pending");
+    const launches = () =>
+      page.evaluate((): unknown => Reflect.get(window, "telegramLaunches"));
+    expect(await launches()).toEqual([
+      {
+        url: "tg://resolve?domain=inside_fixture_bot&start=test-only",
+        target: "_self",
+      },
+    ]);
+    expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
+    expect(page.url()).toBe(`${origin}/api/inside-telegram`);
+    await poll(page);
+    offline = true;
+    await poll(page);
+    offline = false;
+    await poll(page);
+    expect(await launches()).toHaveLength(1);
+    state = { status: "approved", callback: `${origin}/callback?code=fixture` };
+    await poll(page);
+    await page.waitForURL(`${origin}/callback?code=fixture`);
+  } finally {
+    await page.close();
+  }
+});
+
+it.each([
+  [
+    "external host",
+    "https://attacker.example/inside_fixture_bot?start=fixture",
+  ],
+  ["credentials", "https://attacker@t.me/inside_fixture_bot?start=fixture"],
+  ["script", "javascript:alert(1)"],
+  ["Telegram action", "https://t.me/share?start=fixture"],
+  [
+    "extra parameter",
+    "https://t.me/inside_fixture_bot?start=fixture&text=hello",
+  ],
+  [
+    "duplicate token",
+    "https://t.me/inside_fixture_bot?start=first&start=second",
+  ],
+  ["missing token", "https://t.me/inside_fixture_bot"],
+])("never opens or renders a bot link with %s", async (_label, deepLink) => {
+  const page = await browser.newPage();
+  try {
+    await open(page, "pending", undefined, deepLink);
+    expect(
+      await page.evaluate((): unknown =>
+        Reflect.get(window, "telegramLaunches"),
+      ),
+    ).toEqual([]);
+    expect(await page.locator("#bot").count()).toBe(0);
+    expect(page.url()).toBe(`${origin}/api/inside-telegram`);
+  } finally {
+    await page.close();
+  }
+});
 
 it("renders every production state without overflow or accessibility violations on desktop and narrow mobile", async () => {
   const statuses = [
@@ -506,6 +578,9 @@ it.each(["headers", "body"] as const)(
   "leaves loading and retries when the first status response stalls at %s",
   async (stage) => {
     const page = await browser.newPage();
+    await page.addInitScript(() => {
+      window.open = () => null;
+    });
     stalledStatus = stage;
     state = { status: "pending", deepLink: botLink };
     offline = false;

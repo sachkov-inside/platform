@@ -1,0 +1,17 @@
+; User records exported from ns1.timeweb.ru via origin SSH on 2026-10-19.
+; SOA/NS intentionally excluded: the new DNS provider must own these.
+sachkov.dev. 600 IN A 201.24.126.23
+sachkov.dev. 600 IN TXT "v=spf1 include:_spf.timeweb.ru ~all"
+sachkov.dev. 600 IN MX 20 mx2.timeweb.ru.
+sachkov.dev. 600 IN MX 10 mx1.timeweb.ru.
+www.sachkov.dev. 600 IN A 201.24.126.23
+inside.sachkov.dev. 600 IN A 201.24.126.23
+inside.sachkov.dev. 600 IN TXT "v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all"
+auth.sachkov.dev. 600 IN A 201.24.126.23
+auth.sachkov.dev. 600 IN TXT "v=spf1 include:_spf.timeweb.ru ~all"
+telegram.sachkov.dev. 600 IN A 201.24.126.23
+telegram.sachkov.dev. 600 IN TXT "v=spf1 include:_spf.timeweb.ru ~all"
+_dmarc.inside.sachkov.dev. 600 IN TXT "v=DMARC1;p=none"
+_dmarc.inside.sachkov.dev. 600 IN TXT "v=spf1 include:_spf.timeweb.ru ~all"
+egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev. 600 IN CNAME egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru.
+egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev. 600 IN CNAME egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru.

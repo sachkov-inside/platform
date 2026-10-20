@@ -18,7 +18,7 @@ export function BillingSignIn({
       <form action="/auth/sign-in" className="mt-4" method="post">
         <input name="returnTo" type="hidden" value={returnTo} />
         <Button className={billingActionClass} type="submit">
-          Войти
+          Войти через Telegram
         </Button>
       </form>
       <LegalDocumentLinks

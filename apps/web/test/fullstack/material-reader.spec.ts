@@ -551,7 +551,9 @@ test("requires sign-in to save a video reading mark and does not create anonymou
   await signIn.click();
   await expect(page).toHaveURL(/\/account$/u);
   await expect(
-    page.getByRole("main").getByRole("button", { name: "Войти", exact: true }),
+    page
+      .getByRole("main")
+      .getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
   expect(readingWrites).toEqual([]);
   expect(
@@ -965,7 +967,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
 function readerNextLink(page: Page) {
   return page
     .getByRole("navigation", { name: "Действия материала", exact: true })
-    .getByRole("link", { name: "Следующий урок", exact: true });
+    .getByRole("link", { name: "Дальше", exact: true });
 }
 
 async function expectProductLandingNavigation(page: Page, testInfo: TestInfo) {

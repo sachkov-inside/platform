@@ -1507,7 +1507,9 @@ test("a hidden tariff survives sign-in and resolves its own product", async ({
   const link = `/payment/checkout?offer=${offer}&promo=COURSE`;
   await page.goto(`/subscription?offer=${offer}&promo=COURSE`);
   await expect(
-    page.getByRole("main").getByRole("button", { name: "Войти", exact: true }),
+    page
+      .getByRole("main")
+      .getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
   await expect(page.locator('input[name="returnTo"]')).toHaveValue(link);
   await signInAsMember(context, baseURL);

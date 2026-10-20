@@ -1,0 +1,18 @@
+{"claimed_source": null, "error": "ConnectionResetError", "passed": true, "proxy": "none", "seconds": 0.062, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "8.8.8.8", "passed": true, "proxy": "v1", "seconds": 0.159, "sni": "sachkov.dev", "status": 200, "target": "201.24.126.23:8443", "tls": "TLSv1.3"}
+{"claimed_source": "8.8.8.8", "passed": true, "proxy": "v2", "seconds": 0.168, "sni": "sachkov.dev", "status": 200, "target": "201.24.126.23:8443", "tls": "TLSv1.3"}
+{"claimed_source": null, "passed": true, "proxy": "unknown", "seconds": 0.163, "sni": "sachkov.dev", "status": 200, "target": "201.24.126.23:8443", "tls": "TLSv1.3"}
+{"claimed_source": null, "passed": true, "proxy": "local", "seconds": 0.164, "sni": "sachkov.dev", "status": 200, "target": "201.24.126.23:8443", "tls": "TLSv1.3"}
+{"claimed_source": "127.0.0.1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.048, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "127.2.3.4", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.048, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "10.1.2.3", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.098, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "100.64.0.1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.046, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "169.254.1.1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.044, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "192.168.1.1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.043, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "224.0.0.1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.101, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "0.0.0.0", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.042, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "::1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.101, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "fc00::1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.099, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "fe80::1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.098, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "::ffff:127.0.0.1", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.044, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}
+{"claimed_source": "::ffff:10.1.2.3", "error": "SSLEOFError", "passed": true, "proxy": "v2", "seconds": 0.045, "sni": "sachkov.dev", "target": "201.24.126.23:8443"}

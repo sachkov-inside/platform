@@ -1,0 +1,32 @@
+{
+  "synthetic_challenge_only": true,
+  "forced_acme_issuance": false,
+  "source": "Aeza requests to its public HTTP80 with original Host; temporary origin challenge response",
+  "results": [
+    {
+      "host": "sachkov.dev",
+      "status": 200,
+      "token_matches": true
+    },
+    {
+      "host": "www.sachkov.dev",
+      "status": 200,
+      "token_matches": true
+    },
+    {
+      "host": "inside.sachkov.dev",
+      "status": 200,
+      "token_matches": true
+    },
+    {
+      "host": "auth.sachkov.dev",
+      "status": 200,
+      "token_matches": true
+    }
+  ],
+  "cleanup": {
+    "unit_stopped": true,
+    "origin_http_challenge_after_restore": 308,
+    "operation_lock_held": true
+  }
+}

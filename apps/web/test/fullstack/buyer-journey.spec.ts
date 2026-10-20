@@ -48,7 +48,9 @@ async function signInWithTelegram(
       .getByRole("button", { name: "Войти и оплатить", exact: true })
       .click();
   } else {
-    await page.getByRole("button", { name: "Войти", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Войти через Telegram", exact: true })
+      .click();
   }
   await expect(
     page.getByRole("heading", { name: "Тестовый провайдер входа" }),

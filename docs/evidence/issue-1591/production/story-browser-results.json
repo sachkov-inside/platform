@@ -1,0 +1,25 @@
+{
+  "source": "92683d4c962e5b95d621ae9d62041f58ee126200",
+  "cases": [
+    {
+      "width": 1440,
+      "scroll": 1440,
+      "violations": []
+    },
+    {
+      "width": 820,
+      "scroll": 820,
+      "violations": []
+    },
+    {
+      "width": 390,
+      "scroll": 390,
+      "violations": []
+    },
+    {
+      "width": 320,
+      "scroll": 320,
+      "violations": []
+    }
+  ]
+}

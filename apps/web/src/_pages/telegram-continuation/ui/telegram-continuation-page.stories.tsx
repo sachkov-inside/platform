@@ -147,6 +147,9 @@ export const SignIn: Story = {
     await expect(
       button.closest("form")?.querySelector("input[name=returnTo]"),
     ).toHaveValue(`/telegram/continue?attempt=${attemptId}`);
+    await expect(
+      button.closest("form")?.querySelector("input[name=entry]"),
+    ).toHaveValue("account-choice");
   },
 };
 export const Conflict: Story = {
