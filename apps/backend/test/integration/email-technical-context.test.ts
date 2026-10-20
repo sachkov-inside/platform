@@ -142,6 +142,52 @@ for (const initial of [original, null] as const) {
                 ) as unknown,
               },
       });
+      // A corrupt mutable replay pointer keeps the business payload but cannot borrow this command's origin.
+      for (const patch of [
+        { operationId: randomUUID() },
+        { deliveryRef: randomUUID() },
+        { commandRevision: 2 },
+        { payloadDigest: "f".repeat(64) },
+        {
+          state: "unknown",
+          attemptRef: randomUUID(),
+          reason: "interrupted_attempt",
+        },
+      ]) {
+        const corrupted = resultSchema.parse({
+          ...JSON.parse(outbox.payload),
+          ...patch,
+        });
+        await database.prisma.notificationEmailEffect.update({
+          where: { operationId: command.operationId },
+          data: { resultPayload: JSON.stringify(corrupted) },
+        });
+        await database.prisma.notificationOutbox.delete({
+          where: {
+            scope_messageId: { scope: "email", messageId: corrupted.messageId },
+          },
+        });
+        expect(
+          await telemetry.runJob(() =>
+            acceptEmailCommand(database.prisma, command, "emailMaterial", now, {
+              traceparent: duplicate,
+            }),
+          ),
+        ).toBe("duplicate");
+        expect(
+          await database.prisma.notificationOutbox.findUniqueOrThrow({
+            where: {
+              scope_messageId: {
+                scope: "email",
+                messageId: corrupted.messageId,
+              },
+            },
+          }),
+        ).toMatchObject({
+          traceparent: null,
+          payload: encodeNotification("emailResult", corrupted).payload,
+        });
+      }
     } finally {
       await finishFixtureCleanup([
         () => telemetry.shutdown(),
@@ -396,6 +442,34 @@ test("email retries retain the owning attempt context while separate durable row
     await database.prisma.notificationEmailAttempt.update({
       where: { id: owningAttempt.id },
       data: { operationId: randomUUID() },
+    });
+    await database.prisma.notificationOutbox.delete({
+      where: {
+        scope_messageId: { scope: "email", messageId: result.messageId },
+      },
+    });
+    await telemetry.runJob(() =>
+      acceptEmailCommand(database.prisma, command, "emailSubscription", now, {
+        traceparent: duplicate,
+      }),
+    );
+    expect(
+      await database.prisma.notificationOutbox.findUniqueOrThrow({
+        where: {
+          scope_messageId: { scope: "email", messageId: result.messageId },
+        },
+      }),
+    ).toMatchObject({ traceparent: null });
+    const otherAttempt = attempts.find(
+      (attempt) => attempt.id !== owningAttempt.id,
+    );
+    if (otherAttempt === undefined) throw new Error("other attempt absent");
+    await database.prisma.notificationEmailAttempt.update({
+      where: { id: owningAttempt.id },
+      data: {
+        operationId: result.operationId,
+        deliveryId: otherAttempt.deliveryId,
+      },
     });
     await database.prisma.notificationOutbox.delete({
       where: {

@@ -660,7 +660,7 @@ sourceEventId источником служит соответствующий i
 payload и digest. Отсутствие такого источника даёт `NULL`. Каждая попытка начинает отдельный
 `dispatch` до записи `unknown` и до внешнего I/O. Её carrier записывается вместе
 с попыткой. Результат использует carrier соответствующей попытки, а результат без
-attemptRef использует email inbox. Проверяются operation, delivery и command revision
+attemptRef использует email inbox. Проверяются operation, delivery, payload digest и command revision
 через исходный inbox. Несовпадение даёт разрыв контекста. При восстановлении
 отсутствующей строки result outbox берётся тот же сохранённый carrier, без текущего
 контекста повторного входящего сообщения. Контекст mutable email effect не расширяется.

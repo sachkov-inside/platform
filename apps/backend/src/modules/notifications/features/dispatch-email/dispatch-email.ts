@@ -26,7 +26,11 @@ async function resultTraceparent(
   transaction: NotificationsPrisma,
   result: Pick<
     DeliveryResult,
-    "operationId" | "deliveryRef" | "commandRevision" | "attemptRef"
+    | "operationId"
+    | "deliveryRef"
+    | "commandRevision"
+    | "attemptRef"
+    | "payloadDigest"
   >,
 ): Promise<string | null> {
   const inbox = await transaction.notificationEmailInbox.findUnique({
@@ -35,7 +39,8 @@ async function resultTraceparent(
   if (
     !inbox ||
     inbox.deliveryId !== result.deliveryRef ||
-    inbox.commandRevision !== result.commandRevision
+    inbox.commandRevision !== result.commandRevision ||
+    inbox.digest !== `sha256:${result.payloadDigest}`
   )
     return null;
   if (!hasText(result.attemptRef))
