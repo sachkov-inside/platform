@@ -531,11 +531,12 @@ describe("bot sign-in provider", () => {
         undefined,
         signInReplyEligibility,
       );
+      // deterministic-test-allow wall-clock: registerFixedClock fixes Date for the producer and queue.
+      const now = new Date();
       if (failurePoint === "before") {
-        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         expect(
           await queue.claimNext(
-            new Date(),
+            now,
             true,
             `sign-in-result:${challenge.requestRef}`,
           ),
@@ -543,13 +544,11 @@ describe("bot sign-in provider", () => {
         expect((await bind()).json()).toMatchObject({ status: "linked" });
       }
       // After commit no request replay is needed: a fresh worker sees the durable result.
-      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-      expect(await queue.claimNext(new Date(), true)).toMatchObject({
+      expect(await queue.claimNext(now, true)).toMatchObject({
         editMessageId: "100",
         messageText: "Вход подтверждён. Вернитесь на сайт.",
       });
-      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
-      expect(await queue.claimNext(new Date(), true)).toBeUndefined();
+      expect(await queue.claimNext(now, true)).toBeUndefined();
     },
   );
 

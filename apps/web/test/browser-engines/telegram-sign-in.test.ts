@@ -373,11 +373,9 @@ it.each(["focus", "pageshow", "online", "visibilitychange"])(
 it("expires locally while the provider remains unavailable", async () => {
   const page = await browser.newPage();
   try {
-    await page.clock.install();
+    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
     await open(page, "pending");
-    const expiresAt = await page.evaluate(() =>
-      new Date(Date.now() + 2000).toISOString(),
-    );
+    const expiresAt = "2026-01-01T00:00:02.000Z";
     state = { status: "unavailable", expiresAt };
     await poll(page);
     await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
