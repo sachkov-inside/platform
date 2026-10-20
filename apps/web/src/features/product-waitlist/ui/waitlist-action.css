@@ -172,8 +172,8 @@
   cursor: pointer;
 }
 .waitlist-action .waitlist-ticket-button:disabled {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--accent);
+  color: var(--accent-foreground);
   opacity: 1;
   cursor: default;
 }
