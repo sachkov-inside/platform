@@ -97,6 +97,9 @@ describe("release workflow", () => {
     const image = job(release, "image");
     expect(image).toContain("file: apps/telegram/infra/production/Dockerfile");
     expect(image).toContain(
+      "RELEASE_VERSION=${{ needs.plan.outputs.version }}",
+    );
+    expect(image).toContain(
       "SOURCE_COMMIT=${{ needs.plan.outputs.source_sha }}",
     );
     expect(image).toContain("ref: ${{ needs.plan.outputs.source_sha }}");
