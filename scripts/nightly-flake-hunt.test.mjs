@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { z } from "zod";
 import nodeReporter from "./nightly-node-reporter.mjs";
-import { planSuite } from "./run-nightly-flake-hunt.mjs";
+import { planSuite, rootNodeCommands } from "./run-nightly-flake-hunt.mjs";
 import {
   aggregate,
   normalizeVitest,
@@ -120,6 +120,113 @@ test("identically named parameterized cases retain separate outcomes and stable 
   assert.equal(issues.size, 1);
   assert.match([...issues.values()][0] ?? "", /run\/2/u);
   assert.match([...issues.values()][0] ?? "", /\[case 1\]/u);
+});
+
+test("the exact tooling build wrapper retains every native test and refuses unknown shell", () => {
+  const native = "node --test --test-concurrency=2 scripts/*.test.mjs";
+  const guarded = `bash scripts/heavy-check.sh bash -c 'pnpm --filter @inside/backend build && ${native}'`;
+  const expected = rootNodeCommands("test:tooling", native);
+  assert.deepEqual(rootNodeCommands("test:tooling", guarded), expected);
+  assert.equal(expected.length, 1);
+  assert.equal(expected[0]?.name, "tooling");
+  assert.ok(expected[0]?.args.includes("--test-concurrency=2"));
+  assert.ok(
+    expected[0]?.args.some((arg) =>
+      arg.endsWith("observability-waitlist-storage.test.mjs"),
+    ),
+  );
+  for (const source of [
+    guarded.replace("&&", ";"),
+    guarded.replace("&&", "||"),
+    guarded.replace("@inside/backend", "@inside/web"),
+    guarded.replace(" build &&", " build --force &&"),
+    guarded.replace("node --test", "node --test --import=private.mjs"),
+    guarded + " && node --test private.mjs",
+    guarded.replace("bash -c '", 'bash -c "').slice(0, -1) + '"',
+    "bash -c 'echo private && node --test scripts/*.test.mjs'",
+    "node --test scripts/*.test.mjs; echo private",
+  ])
+    assert.throws(
+      () => rootNodeCommands("test:tooling", source),
+      /Unsupported Node test command/u,
+    );
+  assert.throws(
+    () => rootNodeCommands("test:authoring", guarded),
+    /Unsupported Node test command/u,
+  );
+  assert.throws(
+    () => rootNodeCommands("test:missing", undefined),
+    /Missing root test script/u,
+  );
+});
+
+test("the unit job builds backend prerequisites once and a failure prevents sampling", () => {
+  const workflow = readFileSync(
+    resolve(".github/workflows/nightly-flake-hunt.yml"),
+    "utf8",
+  );
+  /** @param {string} source */
+  function check(source) {
+    const steps = source.split(/^ {6}- name: /mu).slice(1);
+    const buildIndex = steps.findIndex((step) =>
+      step.startsWith("Build unit prerequisites once\n"),
+    );
+    const sampleIndex = steps.findIndex((step) =>
+      step.startsWith("Run five independent samples without retries\n"),
+    );
+    assert.ok(buildIndex >= 0 && sampleIndex > buildIndex);
+    const build = steps[buildIndex];
+    const sample = steps[sampleIndex];
+    assert.ok(build && sample);
+    assert.match(build, /^ {8}if: \$\{\{ matrix\.suite == 'unit' \}\}$/mu);
+    assert.match(build, /^ {8}run: pnpm --filter @inside\/backend build$/mu);
+    assert.doesNotMatch(
+      build,
+      /continue-on-error|always\(|failure\(|cancelled\(/u,
+    );
+    assert.doesNotMatch(sample, /^ {8}(?:if|continue-on-error):/mu);
+    const web = steps.find((step) =>
+      step.startsWith("Build production applications once\n"),
+    );
+    assert.ok(web);
+    assert.match(web, /^ {8}if: \$\{\{ matrix\.suite == 'web-e2e' \}\}$/mu);
+    assert.match(web, /^ {8}run: pnpm build$/mu);
+    return build;
+  }
+  const build = check(workflow);
+  // Exact unit-only condition excludes fixture and every other matrix suite.
+  for (const suite of [
+    "fixture",
+    "web-e2e",
+    "storybook",
+    "browser-engines",
+    "integration",
+  ])
+    assert.ok(!build.includes(`matrix.suite == '${suite}'`));
+  for (const changed of [
+    workflow.replace(build, ""),
+    workflow
+      .replace("      - name: " + build, "")
+      .replace(
+        "      - name: Summarize observed test outcomes",
+        "      - name: " +
+          build +
+          "      - name: Summarize observed test outcomes",
+      ),
+
+    workflow.replace(build, build.replace("== 'unit'", "== 'web-e2e'")),
+    workflow.replace(
+      build,
+      build.replace("pnpm --filter @inside/backend build", "pnpm build"),
+    ),
+    workflow.replace(build, build + "        continue-on-error: true\n"),
+    workflow.replace(
+      "      - name: Run five independent samples without retries\n",
+      "      - name: Run five independent samples without retries\n        if: ${{ always() }}\n",
+    ),
+    workflow.replace(build, build.replace("== 'unit'", "!= 'web-e2e'")),
+  ])
+    assert.throws(() => check(changed));
 });
 
 test("unit samples use workspace package test scripts and the root native launcher", () => {

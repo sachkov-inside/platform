@@ -1,5 +1,7 @@
 """Private grouped IPC bounds and native child cleanup, without PG/Docker."""
 import copy
+import hashlib
+import subprocess
 import json
 import os
 from pathlib import Path
@@ -50,6 +52,53 @@ class GroupedWitness(unittest.TestCase):
                 elif case=='identity': value['trace_id']='0'*32
                 else: value['runtime_module_groups']='anything'
                 with self.assertRaises(ValueError): self.parse(value)
+
+    def test_real_node_json_schema_label_and_exact_admission(self):
+        root=Path(__file__).resolve().parents[2]
+        producer=Path(__file__).with_name('producer.mjs').read_text()
+        # Execute the owning production load hook, without the API/PG producer.
+        hook=producer[producer.index('  const hooks = registerHooks({'):producer.index('\n\n  /** @type',producer.index('  const hooks = registerHooks({'))]
+        script="""
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {readFileSync,realpathSync} from 'node:fs';
+import {registerHooks} from 'node:module';
+import {relative,sep} from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+const root=process.cwd();const loaded=new Map();
+"""+hook+"""
+try {
+  await import(pathToFileURL(root+'/docs/contracts/notifications-v1/schema.json').href,{with:{type:'json'}});
+  process.stdout.write(JSON.stringify([...loaded].map(([path,sha256])=>({path,sha256}))));
+} finally { hooks.deregister(); }
+"""
+        result=subprocess.run(['node','--input-type=module','-e',script],cwd=root,
+            check=True,capture_output=True,timeout=10)
+        rows=json.loads(result.stdout)
+        canonical='docs/contracts/notifications-v1/schema.json'
+        self.assertEqual(rows,[{'path':canonical,'sha256':hashlib.sha256((root/canonical).read_bytes()).hexdigest()}])
+        value=wire(len(producer_protocol.REQUIRED))
+        self.parse(value)  # Required-only control remains valid.
+        value['runtime_module_groups'][-1] += rows
+        self.assertIn(canonical,self.parse(value)['runtime_modules'])
+        bad_paths={
+            'neighbour':'docs/contracts/notifications-v1/other.json',
+            'suffix':canonical+'.js','absolute':'/'+canonical,
+            'traversal':'docs/contracts/notifications-v1/../notifications-v1/schema.json',
+            'private':'docs/contracts/private-waitlist/schema.json',
+            'control':canonical+'\x00','query':canonical+'?private=1',
+        }
+        for case,name in bad_paths.items():
+            with self.subTest(case=case):
+                bad=copy.deepcopy(value);bad['runtime_module_groups'][-1][-1]['path']=name
+                with self.assertRaises(ValueError): self.parse(bad)
+        for case in ('digest','duplicate','required'):
+            with self.subTest(case=case):
+                bad=copy.deepcopy(value)
+                if case=='digest': bad['runtime_module_groups'][-1][-1]['sha256']='x'*64
+                elif case=='duplicate': bad['runtime_module_groups'][-1].append(rows[0])
+                else: bad['runtime_module_groups'][0].pop(0)
+                with self.assertRaises(ValueError): self.parse(bad)
 
     def test_one_mebibyte_wire_and_duplicate_json_key_are_refused(self):
         with self.assertRaises(ValueError): producer_protocol.source_status.decode_json(b' '*1048577)

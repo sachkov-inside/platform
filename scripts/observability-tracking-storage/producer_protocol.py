@@ -145,7 +145,8 @@ def witness(value):
             if type(row) is not dict or set(row) != {'path','sha256'}: raise WitnessRefusal('witness_row')
             name,digest=row['path'],row['sha256']
             if (type(name) is not str or not 1 <= len(name) <= 512 or name.startswith('/') or '..' in name.split('/')
-                    or not name.startswith(('apps/backend/dist/','node_modules/','packages/','docs/contracts/dist/'))
+                    or (not name.startswith(('apps/backend/dist/','node_modules/','packages/','docs/contracts/dist/'))
+                        and name != 'docs/contracts/notifications-v1/schema.json')
                     or any(marker in name for marker in ('private_tracking_token','private-tracking-storage-provider-secret','tracking-storage.example.test'))
                     or any(ord(char) < 32 or ord(char)==127 for char in name)):
                 raise WitnessRefusal('witness_path')

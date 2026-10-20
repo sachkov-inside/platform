@@ -593,6 +593,13 @@ When parameterized cases have identical full names, the report keeps the full na
 case index within that file/name group. Vitest JSON retains declaration order; Node observations
 are sorted by testId. Unrelated tests do not affect this index. Reordering identically named cases
 or removing duplicate names can change their identity; give cases distinct names to avoid that limit.
+The nightly planner recognizes the exact guarded `test:tooling` backend-build wrapper and runs its
+native Node test command after the unit job's mandatory backend build. That build runs once before
+the five samples, and its failure prevents sampling. The separate full build remains exclusive to
+Web E2E. The planner preserves file globs,
+concurrency and reporters. Other shell wrappers remain errors. Ordinary `test:tooling` still builds
+the backend first and stops before serializers when that prerequisite fails.
+
 The unit-job inventory comes from the workspace package manifests, root Node test scripts and
 the `check:contracts` aggregate,
 the same sources `check:unit` uses; unsupported new command syntax fails visibly.
