@@ -103,15 +103,20 @@ describe("published editions", () => {
     ).toEqual([1]);
   });
 
-  it("puts privacy v4 in force with guide task submissions and keeps v3 at its address", () => {
+  it("puts privacy v5 in force with actual hosting and preserves accepted v4 and v3", () => {
     const privacy = currentLegalEdition("privacy");
-    expect(privacy.version).toBe(4);
+    expect(privacy.version).toBe(5);
+    expect(privacy.text).toContain("Амстердаме, Нидерланды");
+    expect(privacy.text).toContain("Yandex");
+    expect(findLegalEdition("privacy", 4)?.digest).toBe(
+      "efe67ec68fb394b9a83329dc4eed620289e9584ed1f2e3bc86083ecafee054f2",
+    );
     expect(privacy.text).toContain("профиль виден только ему самому");
     expect(privacy.text).toContain("Сдача учебного задания и отзыв автора");
     expect(privacy.text).toContain("не обращается по адресу репозитория");
     expect(
       supersededLegalEditions("privacy").map((edition) => edition.version),
-    ).toEqual([3, 2]);
+    ).toEqual([4, 3, 2]);
     expect(findLegalEdition("privacy", 3)?.text).toContain(
       "Версия 3. Действует с 24 сентября 2026 года.",
     );
