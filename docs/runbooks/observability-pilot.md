@@ -1366,6 +1366,55 @@ package использует production-код очистки диагности
 набор входных файлов SDK. Остальные пути `docs/` не допускаются в module witness.
 Пределы private protocol и схема public artifact не меняются.
 
+
+### Genuine tracking success storage candidate (#1566)
+
+`.github/workflows/observability-tracking-storage.yml` prepares a separate Linux hosted vertical.
+It sends one real HTTP `POST /communications/tracking/resolve` through the compiled production API,
+observes the persisted carrier, waits for the production five-second timer and atomic claim, and
+closes the API normally before querying pinned Alloy/VM/VT. Its private provider handles exactly
+one resolve and one recordHit command. No trace headers are sent to that provider.
+
+The disposable project owns eight containers, five volumes and two networks, including PostgreSQL.
+The original Core7 ownership/absence proof remains unchanged; an additional exact PG container and
+volume proof produces the combined typed count. Host API/provider listeners live inside one bounded
+Node child owned by the unchanged 600-second external worker supervisor. API/pump shutdown and SDK
+flush precede collector shutdown. No local shared stand or Testcontainers/Ryuk resource participates.
+
+The separate tracking collector owner admits `deliver` with `completed|failed`, two metric families,
+and only operation/outcome metric labels. The success oracle checks the complete raw metric vector
+before projection, all stored rows in the privately derived trace, both provider edges and SQL counts.
+A genuine test-mode API has release `test`; the existing collector maps it to `_OTHER`. Source/build
+identity comes from the complete input manifest and every actual loaded module hash, rather than an
+injected SDK release. Private IPC uses at most eight groups of 512 path/hash rows (4096 total), at most
+1MiB, with duplicate/path/digest checks before the public map. This API fixture has its own grouped protocol; the separate SDK fixture's 1000-row cap and
+decoder remain unchanged.
+
+The isolated producer reserves stdout for its single JSON witness. Production `writeLog` still
+uses its existing global Console; only this child redirects Console output to a private diagnostic
+stream, which Python discards. Nest's `logger: false` does not suppress that production logger.
+A separate regression makes a real HTTP request through freshly compiled production request hooks
+and `writeLog`, then checks the strict Python IPC, including restoration after rejected work.
+SQL spans may be children only of the original HTTP SERVER or tracking delivery INTERNAL span.
+Visible provider/SQL parents are rejected even while other required rows are still pending.
+Pinned OTLP flags are required canonical strings: `769` only on tracking delivery, whose immediate
+parent was restored by the official W3C carrier extractor, and `257` on HTTP SERVER, provider CLIENT
+and SQL CLIENT spans. The new delivery span has a local context, so its provider/SQL children do not
+inherit the remote-parent bit. The compiled public TechnicalTelemetry context/serialization contract
+checks actual pinned JSON and protobuf encoders, then feeds both flag results into the full-row oracle.
+That focused contract does not execute the genuine API, PostgreSQL or pinned storage vertical.
+The Node contract launcher owns a separate Python process group with bounded TERM/KILL cleanup.
+Its Python entry point unwinds on TERM so native-child cleanup can finish before escalation.
+Real outer-launcher tests acquire a native HTTP listener before timeout or interruption and verify
+child/Python absence and port release, alongside successful and failed execution. Nested test owners
+handle forwarded signals for their own groups; producer children never create detached sessions.
+
+Run the isolated workflow for native acceptance. Pure contract tests and prepared source do not prove
+this storage composition has executed. Even a successful hosted result covers only this one success;
+retry, failed/rootless delivery, process-crash recovery, OFF/503, resource/cost acceptance, production
+and seven actual days remain separate requirements. The fixed storage visibility budget is 60 seconds;
+the existing native query/supervisor caps are retained.
+
 ### Isolated hosted short resource proof (#1566)
 
 `observability-resource.yml` runs separately from the main application gate on disposable
