@@ -205,6 +205,7 @@ export async function produce(databaseUrl, progress = () => {}) {
         TELEGRAM_COMMUNICATIONS_ENDPOINT:
           endpoint + "/integrations/platform/v1/communications",
         TELEGRAM_COMMUNICATIONS_SECRET: secret,
+        TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "private-waitlist-author-secret",
         TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "waitlist_storage_bot",
       });
       // Existing missing-configuration admission makes the producer-only lifecycle perform zero provider I/O.
