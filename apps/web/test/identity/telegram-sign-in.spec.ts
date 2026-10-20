@@ -16,6 +16,13 @@ import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 let webBaseUrl: string;
 let logtoEndpoint: string;
+test.beforeEach(async ({ page }) => {
+  // Synthetic bot updates prove the protocol without opening a real Telegram app.
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
+});
+
 test.beforeAll(() => {
   webBaseUrl = requiredEnvironment("WEB_BASE_URL");
   logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
@@ -40,8 +47,9 @@ function nextUpdateId() {
 
 async function start(page: Page) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Войти", exact: true }).click();
-  await page.getByRole("button", { name: /Telegram/u }).click();
+  await page
+    .getByRole("button", { name: "Войти через Telegram", exact: true })
+    .click();
   await expect(page.locator("#bot")).toBeVisible();
   const link = z.url().parse(await page.locator("#bot").getAttribute("href"));
   const token = z
@@ -171,7 +179,7 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   ).toBeVisible();
   await page.getByRole("button", { name: "Выйти", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Войти", exact: true }),
+    page.getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
   const repeat = await start(page);
   expect(repeat.requestRef).not.toBe(challenge.requestRef);
@@ -193,7 +201,7 @@ test("declined Telegram confirmation remains signed out and offers email", async
   await expect(page.getByRole("link", { name: "Через почту" })).toBeVisible();
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: "Войти", exact: true }),
+    page.getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
 });
 
@@ -246,7 +254,11 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
   const userId = 29910000 + randomInt(1_000_000);
   const email = `telegram-${String(userId)}@example.test`;
   await page.goto("/");
-  await page.getByRole("button", { name: "Войти", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Войти через Telegram", exact: true })
+    .click();
+  await page.waitForURL(`${logtoEndpoint}/api/inside-telegram`);
+  await page.goto(`${logtoEndpoint}/sign-in`);
   await page.locator('input[type="email"]').fill(email);
   await page.locator('button[type="submit"]').click();
   const messagesSchema = z.object({
@@ -335,7 +347,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
   if (await dismiss.isVisible()) await dismiss.click();
   await page.getByRole("button", { name: "Выйти", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Войти", exact: true }),
+    page.getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
   await confirm(page, request, await start(page), "approve", userId);
   await expect(

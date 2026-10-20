@@ -78,7 +78,7 @@ export const GuestDesktop: Story = {
       within(header).getByRole("link", { name: "Sachkov Dev" }),
     ).toBeVisible();
     await expect(
-      within(header).getByRole("button", { name: "Войти" }),
+      within(header).getByRole("button", { name: "Войти через Telegram" }),
     ).toBeVisible();
     const navigation = within(header).getByRole("navigation", {
       name: "Основная",
@@ -186,7 +186,9 @@ export const MobileTopNavigation: Story = {
     await expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
       "Закладки",
     ]);
-    const signIn = within(navigation).getByRole("button", { name: "Войти" });
+    const signIn = within(navigation).getByRole("button", {
+      name: "Войти через Telegram",
+    });
     await expect(signIn).toBeVisible();
     await expect(signIn.getBoundingClientRect().height).toBe(36);
     await expect(

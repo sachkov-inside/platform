@@ -81,6 +81,11 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
+Fork revision `inside.9` adds the automatic Telegram app handoff on the existing waiting page.
+The HTTPS fallback and the app URI share one validator; polling and the browser-bound proof are
+unchanged. The site starts this connector directly through the official SDK. Revision `inside.8`
+is reserved by the independently prepared first-email attachment work (#1583).
+
 Fork revision `inside.7` moves the fork to upstream `1.44.0` (#938); the learner access script keeps
 its dynamic apps (CIMD) off. The
 four Experience files and the issue #299 patches carry over unchanged in substance. Upstream 1.42

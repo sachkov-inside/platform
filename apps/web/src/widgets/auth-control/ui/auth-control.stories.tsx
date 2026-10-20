@@ -23,7 +23,16 @@ const meta = {
 } satisfies Meta<typeof HeaderAuthControl>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Guest: Story = {};
+export const Guest: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas
+        .getByRole("button", { name: "Войти через Telegram", exact: true })
+        .closest("form"),
+    ).toHaveAttribute("action", "/auth/sign-in");
+  },
+};
 export const Authenticated: Story = { args: { state: "authenticated" } };
 export const Unavailable: Story = {
   args: { state: "unavailable" },

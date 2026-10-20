@@ -158,7 +158,7 @@ export const SessionExpired: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("button", { name: "Войти" }),
+      canvas.getByRole("button", { name: "Войти через Telegram" }),
     ).toBeInTheDocument();
     await expect(
       canvas.queryByRole("button", { name: "Выйти из аккаунта" }),

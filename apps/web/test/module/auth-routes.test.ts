@@ -148,6 +148,7 @@ describe("Logto BFF route orchestration", () => {
     );
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
+      directSignIn: { method: "social", target: "inside-telegram" },
       prompt: ["login", "consent"],
     });
   });
@@ -198,6 +199,7 @@ describe("Logto BFF route orchestration", () => {
     );
     expect(parameters.get("scope")?.split(" ")).toContain("offline_access");
     expect(parameters.get("resource")).toBe(fakes.config.audience);
+    expect(parameters.get("direct_sign_in")).toBe("social:inside-telegram");
     expect(parameters.get("code_challenge_method")).toBe("S256");
     expect(parameters.get("state")).toBeTruthy();
   });
@@ -219,6 +221,7 @@ describe("Logto BFF route orchestration", () => {
     expect(response.status).toBe(200);
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
+      directSignIn: { method: "social", target: "inside-telegram" },
       prompt: ["login", "consent"],
       postRedirectUri:
         "https://inside.example.test/authoring/playlists/playlist-id",

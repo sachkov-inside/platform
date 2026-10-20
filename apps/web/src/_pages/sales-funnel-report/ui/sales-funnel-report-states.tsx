@@ -22,7 +22,7 @@ export function SalesFunnelReportState({
               <input name="returnTo" type="hidden" value={reportHref} />
               <Button type="submit">
                 <LogIn aria-hidden="true" data-icon="inline-start" />
-                Войти
+                Войти через Telegram
               </Button>
             </form>
           }

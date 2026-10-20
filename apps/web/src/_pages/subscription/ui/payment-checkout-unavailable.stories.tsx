@@ -35,7 +35,9 @@ export const GuestSignIn: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     await expect(
-      routeContent(canvasElement).getByRole("button", { name: "Войти" }),
+      routeContent(canvasElement).getByRole("button", {
+        name: "Войти через Telegram",
+      }),
     ).toBeEnabled();
     const input = canvasElement.querySelector<HTMLInputElement>(
       'main input[name="returnTo"]',

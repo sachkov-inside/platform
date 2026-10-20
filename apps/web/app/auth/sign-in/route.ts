@@ -27,6 +27,7 @@ export async function POST(request: Request): Promise<Response> {
     await beginWaitlistSignIn(postRedirectUri);
     const { url } = await client.handleSignIn({
       redirectUri: `${config.baseUrl}/callback`,
+      directSignIn: { method: "social", target: "inside-telegram" },
       // Account establishment needs a fresh email or Telegram verification after a failed callback.
       // Preserve consent as well: Logto needs it to issue the refresh token used by the BFF.
       prompt: [Prompt.Login, Prompt.Consent],
