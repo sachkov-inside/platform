@@ -13,6 +13,7 @@ import type { ValidateSourceOperation } from "../../features/import-source-mater
 import type {
   ReserveSourceOperation,
   ApplySourceOperation,
+  DeleteSourceDraftOperation,
 } from "../../features/import-source-material/import-source-material.contract.js";
 import type { LoadHomePinOperation } from "../../features/load-home-pin/load-home-pin.contract.js";
 import type { SetHomePinOperation } from "../../features/set-home-pin/set-home-pin.contract.js";
@@ -43,6 +44,7 @@ export interface MaterialAuthoring {
   readonly validateSourceContent: ValidateSourceOperation;
   readonly reserveSourceMaterial: ReserveSourceOperation;
   readonly applySourceMaterial: ApplySourceOperation;
+  readonly deleteSourceDraft: DeleteSourceDraftOperation;
   readonly loadHomePin: LoadHomePinOperation;
   readonly setHomePin: SetHomePinOperation;
   readonly createContentCollection: CreateContentCollectionOperation;

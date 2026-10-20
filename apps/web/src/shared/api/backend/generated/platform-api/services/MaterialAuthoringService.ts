@@ -629,6 +629,39 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Delete a never-published draft belonging to the exact source
+   * @returns any
+   * @throws ApiError
+   */
+  public deleteSourceMaterialDraft({
+    idempotencyKey,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    requestBody: {
+      expectedContentVersion: number;
+      expectedLegacyPractices: Array<{
+        definitionDigest: string;
+        practiceId: string;
+        practiceVersion: number;
+      }>;
+      materialId: string;
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    materialId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/materials/delete-draft',
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Identify the receiving runtime before local synchronization
    * @returns any
    * @throws ApiError
@@ -1452,6 +1485,11 @@ export class MaterialAuthoringService {
       title: string;
       videoId: string;
     } | null;
+    legacyPractices?: Array<{
+      definitionDigest: string;
+      practiceId: string;
+      practiceVersion: number;
+    }>;
     materialId: string;
     metadata: {
       access: 'free' | 'closed';

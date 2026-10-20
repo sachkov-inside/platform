@@ -1,4 +1,5 @@
 import type { AuthoringSource } from "../../domain/authoring-source.js";
+import type { LegacyPracticeSelection } from "../../domain/practice-definition.js";
 import type {
   MaterialAccess,
   MaterialDifficulty,
@@ -38,6 +39,7 @@ export interface MaterialMetadataDto extends Omit<
 }
 
 export interface MaterialDto {
+  readonly legacyPractices?: readonly LegacyPracticeSelection[];
   readonly source?: AuthoringSource;
   readonly materialId: string;
   readonly contentVersion: number;

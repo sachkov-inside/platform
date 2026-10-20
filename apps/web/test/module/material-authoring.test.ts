@@ -187,6 +187,13 @@ describe("Material Authoring action workflow", () => {
           },
           contentVersion: 7,
           cover: null,
+          legacyPractices: [
+            {
+              practiceId: "inside-content:retired-practice",
+              practiceVersion: 1,
+              definitionDigest: "a".repeat(64),
+            },
+          ],
           firstPublishedAt: "2026-08-30T08:00:00.000Z",
           materialId,
           metadata: {

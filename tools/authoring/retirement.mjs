@@ -17,6 +17,7 @@ import {
   assertTargetEnvironment,
   authoringTarget,
   transportFor,
+  failureStatus,
 } from "./target.mjs";
 
 const sourceSchema = z
@@ -27,11 +28,20 @@ const sourceSchema = z
     showInFeed: z.boolean(),
   })
   .strict();
+const legacyPracticeSchema = z
+  .object({
+    practiceId: z.string().min(1),
+    practiceVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    definitionDigest: z.hash("sha256"),
+  })
+  .strict();
 const snapshotSchema = z
   .object({
+    legacyPractices: z.array(legacyPracticeSchema).max(100).optional(),
     materialId: z.uuid(),
     contentVersion: z.number().int().positive(),
     publicationState: z.enum(["published", "unpublished", "draft"]),
+    firstPublishedAt: z.iso.datetime().nullable(),
     primaryVideoId: z.uuid().nullable(),
     source: sourceSchema,
     metadata: z
@@ -67,7 +77,7 @@ const protectedSchema = z
 export const retirementPreviewSchema = z
   .object({
     schemaVersion: z.literal(1),
-    scope: z.literal("material-retirement"),
+    scope: z.enum(["material-retirement", "source-draft-deletion"]),
     target: z.string(),
     environment: z.string(),
     packageId: z.hash("sha256"),
@@ -80,6 +90,23 @@ export const retirementPreviewSchema = z
 
 /** @typedef {z.infer<typeof retirementPreviewSchema>} RetirementPreview */
 /** @typedef {import("./target.mjs").LocalTransport} Transport */
+
+/** @param {z.infer<typeof snapshotSchema>} row @param {string} namespace @param {boolean} deleting */
+function eligible(row, namespace, deleting) {
+  const owned =
+    row.source.id.startsWith(`${namespace}:`) ||
+    (deleting && row.source.id.startsWith(`inside-task-page:${namespace}:`));
+  return (
+    owned &&
+    (deleting
+      ? row.legacyPractices !== undefined &&
+        row.publicationState === "draft" &&
+        row.firstPublishedAt === null &&
+        row.primaryVideoId === null &&
+        row.metadata.seriesMemberships.length === 0
+      : row.publicationState !== "draft")
+  );
+}
 
 /** @param {Awaited<ReturnType<typeof loadPackage>>} pkg */
 function protectedSourceIds(pkg) {
@@ -116,7 +143,7 @@ async function checkEnvironment(request, target) {
 
 /** Read-only production comparison; missing journal history is never invented.
  * @param {string} packagePath @param {string} state
- * @param {{ origin: string; materialIds: string[]; request?: Transport | undefined; accessToken?: import("./target.mjs").AccessToken | undefined }} options
+ * @param {{ origin: string; materialIds: string[]; deleteDrafts?: boolean; request?: Transport | undefined; accessToken?: import("./target.mjs").AccessToken | undefined }} options
  */
 export async function previewRetirement(packagePath, state, options) {
   const target = authoringTarget(options.origin);
@@ -157,15 +184,24 @@ export async function previewRetirement(packagePath, state, options) {
         protectedMaterials.some((row) => row.materialId === id)
       )
         throw new Error("Cannot retire a canonical Material");
-      if (!current.source.id.startsWith(`${pkg.manifest.sourceNamespace}:`))
-        throw new Error("Retirement source namespace mismatch");
-      if (current.publicationState === "draft")
-        throw new Error("Retirement cannot delete or unpublish a draft");
+      if (
+        !eligible(
+          current,
+          pkg.manifest.sourceNamespace,
+          options.deleteDrafts === true,
+        )
+      )
+        throw new Error(
+          "Retirement namespace, draft lifecycle, video or membership is outside scope",
+        );
       materials.push(current);
     }
     const plan = {
       schemaVersion: 1,
-      scope: "material-retirement",
+      scope:
+        options.deleteDrafts === true
+          ? "source-draft-deletion"
+          : "material-retirement",
       target: target.id,
       environment,
       packageId: pkg.id,
@@ -189,6 +225,17 @@ export async function previewRetirement(packagePath, state, options) {
  * a lost response to this exact reviewed retirement always reuses this operation and key.
  * @param {RetirementPreview} preview @param {z.infer<typeof snapshotSchema>} material */
 function operation(preview, material) {
+  if (preview.scope === "source-draft-deletion")
+    return {
+      reviewedRetirement: preview.fingerprint,
+      path: "/authoring/import/materials/delete-draft",
+      body: {
+        expectedLegacyPractices: material.legacyPractices ?? [],
+        sourceId: material.source.id,
+        materialId: material.materialId,
+        expectedContentVersion: material.contentVersion,
+      },
+    };
   const { seriesMemberships, ...metadata } = material.metadata;
   return {
     reviewedRetirement: preview.fingerprint,
@@ -238,10 +285,13 @@ export async function applyRetirement(previewPath, state, options = {}) {
     throw new Error("Canonical package differs from the reviewed preview");
   for (const row of preview.materials) {
     if (
-      row.publicationState === "draft" ||
       keep.includes(row.source.id) ||
       preview.protected.some((item) => item.materialId === row.materialId) ||
-      !row.source.id.startsWith(`${pkg.manifest.sourceNamespace}:`)
+      !eligible(
+        row,
+        pkg.manifest.sourceNamespace,
+        preview.scope === "source-draft-deletion",
+      )
     )
       throw new Error("Retirement target is outside reviewed scope");
   }
@@ -250,6 +300,15 @@ export async function applyRetirement(previewPath, state, options = {}) {
       /** @type {ReturnType<typeof operation>} */ action,
       /** @type {string} */ key,
     ) => {
+      if (action.path === "/authoring/import/materials/delete-draft") {
+        const receipt = z
+          .object({ materialId: z.uuid() })
+          .strict()
+          .parse(await request(action.path, action.body, key));
+        if (receipt.materialId !== action.body.materialId)
+          throw new Error("Deleted source identity mismatch");
+        return receipt;
+      }
       const receipt = materialReceiptSchema
         .extend({ publicationState: z.literal("unpublished") })
         .parse(await request(action.path, action.body, key));
@@ -291,10 +350,26 @@ export async function applyRetirement(previewPath, state, options = {}) {
         );
     }
     for (const row of preview.materials) {
-      const current = await load(request, row.materialId);
       const action = operation(preview, row);
       const entry =
         context.journal.operations[`authoring:${checksum(canonical(action))}`];
+      const completed = isJournalOperation(entry) && entry.status === "applied";
+      if (preview.scope === "source-draft-deletion" && completed) {
+        const receipt = z
+          .object({ materialId: z.uuid() })
+          .strict()
+          .parse(entry.result);
+        if (receipt.materialId !== row.materialId)
+          throw new Error("Deleted source identity mismatch");
+        try {
+          await load(request, row.materialId);
+        } catch (error) {
+          if (failureStatus(error) === 404) continue;
+          throw error;
+        }
+        throw new Error("Deleted source Material unexpectedly exists");
+      }
+      const current = await load(request, row.materialId);
       const ownReceipt =
         isJournalOperation(entry) && entry.status === "applied"
           ? materialReceiptSchema.parse(entry.result)
@@ -312,28 +387,40 @@ export async function applyRetirement(previewPath, state, options = {}) {
           "Retirement target changed after preview; preview again",
         );
     }
+    /** @type {{sourceId: string}[]} */
     const archived = [];
+    /** @type {{sourceId: string}[]} */
+    const deleted = [];
     for (const row of preview.materials) {
       if (row.publicationState !== "unpublished") {
-        const saved = materialReceiptSchema.parse(
-          await applyJournaled(context, operation(preview, row), send),
+        const result = await applyJournaled(
+          context,
+          operation(preview, row),
+          send,
         );
+        const savedVersion =
+          preview.scope === "source-draft-deletion"
+            ? row.contentVersion
+            : materialReceiptSchema.parse(result).contentVersion;
         const entry = context.journal.materials[row.source.id];
         if (entry?.materialId === row.materialId) {
           Object.assign(entry, {
-            contentVersion: saved.contentVersion,
+            contentVersion: savedVersion,
             archived: true,
           });
           await context.persist();
         }
       }
-      archived.push({ sourceId: row.source.id });
+      (preview.scope === "source-draft-deletion" ? deleted : archived).push({
+        sourceId: row.source.id,
+      });
     }
     return {
-      scope: "material-retirement",
-      applied: archived.length,
+      scope: preview.scope,
+      applied: archived.length + deleted.length,
       unchanged: 0,
       archived,
+      deleted,
       products: [],
       tasks: [],
     };

@@ -18,6 +18,7 @@ export function stubMaterialAuthoring(
     validateSourceContent: () => Promise.resolve(forbiddenAuthoringResult),
     reserveSourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),
     applySourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),
+    deleteSourceDraft: () => Promise.resolve(forbiddenAuthoringResult),
     loadHomePin: () => Promise.resolve(forbiddenAuthoringResult),
     setHomePin: () => Promise.resolve(forbiddenAuthoringResult),
     createContentCollection: () => Promise.resolve(forbiddenAuthoringResult),

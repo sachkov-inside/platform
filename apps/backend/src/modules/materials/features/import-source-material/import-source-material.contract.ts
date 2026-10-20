@@ -1,6 +1,9 @@
 import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { z } from "zod";
-import { authoringSourceSchema } from "../../domain/authoring-source.js";
+import {
+  authoringSourceSchema,
+  authoringSourceIdSchema,
+} from "../../domain/authoring-source.js";
 import {
   materialBodySnapshotWireSchema,
   materialMetadataSelectionWireSchema,
@@ -10,6 +13,25 @@ import type {
   SaveMaterialError,
 } from "../save-material/save-material.contract.js";
 import type { Result } from "../../result.js";
+import type { DeleteDraftOperation } from "../delete-draft/delete-draft.contract.js";
+import { legacyPracticeSelectionsSchema } from "../../domain/practice-definition.js";
+
+export const deleteSourceDraftBodySchema = z
+  .object({
+    expectedLegacyPractices: legacyPracticeSelectionsSchema
+      .optional()
+      .default([]),
+    sourceId: authoringSourceIdSchema,
+    materialId: z.uuid(),
+    expectedContentVersion: z.number().int().positive(),
+  })
+  .strict();
+export type DeleteSourceDraftOperation = (
+  command: z.input<typeof deleteSourceDraftBodySchema> & {
+    readonly actor: string;
+    readonly idempotencyKey: string;
+  },
+) => ReturnType<DeleteDraftOperation>;
 
 export const reserveSourceBodySchema = z
   .object({ source: authoringSourceSchema })

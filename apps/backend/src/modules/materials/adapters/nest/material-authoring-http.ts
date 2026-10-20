@@ -1,4 +1,5 @@
 import { authoringSourceSchema } from "../../domain/authoring-source.js";
+import { legacyPracticeSelectionSchema } from "../../domain/practice-definition.js";
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
 import {
@@ -66,6 +67,7 @@ export const materialMutationReceiptSchema = z
 
 export const materialSchema = z
   .object({
+    legacyPractices: z.array(legacyPracticeSelectionSchema).optional(),
     source: authoringSourceSchema.optional(),
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,

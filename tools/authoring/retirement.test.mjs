@@ -94,12 +94,14 @@ async function fixture(t) {
     showInFeed: true,
   };
   const old = {
+    legacyPractices:
+      /** @type {{practiceId:string;practiceVersion:number;definitionDigest:string}[]} */ ([]),
     materialId: oldId,
     contentVersion: 2,
     publicationState: "published",
-    firstPublishedAt: "2026-10-01T00:00:00.000Z",
-    publishedAt: "2026-10-01T00:00:00.000Z",
-    primaryVideoId: null,
+    firstPublishedAt: /** @type {string | null} */ ("2026-10-01T00:00:00.000Z"),
+    publishedAt: /** @type {string | null} */ ("2026-10-01T00:00:00.000Z"),
+    primaryVideoId: /** @type {string | null} */ (null),
     primaryVideo: null,
     cover: null,
     source,
@@ -122,7 +124,8 @@ async function fixture(t) {
       topicId: null,
       formatId: "note",
       tagIds: [],
-      seriesMemberships: [],
+      seriesMemberships:
+        /** @type {{seriesId: string; ordinal: number}[]} */ ([]),
     },
   };
   const keep = {
@@ -149,6 +152,22 @@ async function fixture(t) {
     }
     writes.push({ key, body: structuredClone(body) });
     if (receipts.has(key)) return receipts.get(key);
+    if (path === "/authoring/import/materials/delete-draft") {
+      assert.deepEqual(body, {
+        expectedLegacyPractices: old.legacyPractices,
+        sourceId: old.source.id,
+        materialId: oldId,
+        expectedContentVersion: 2,
+      });
+      records.delete(oldId);
+      const receipt = { materialId: oldId };
+      receipts.set(key, receipt);
+      if (loseReceipt) {
+        loseReceipt = false;
+        throw new Error("Lost receipt");
+      }
+      return receipt;
+    }
     assert.equal(path, "/authoring/import/materials/apply");
     assert.deepEqual(body, {
       source: old.source,
@@ -234,6 +253,37 @@ test("retirement preserves the original and replays a lost receipt with the same
   assert.equal(setup.writes.length, 2);
 });
 
+test("source draft deletion is reviewed separately, preserves canonical Materials and recovers a lost receipt", async (t) => {
+  const setup = await fixture(t);
+  setup.old.publicationState = "draft";
+  setup.old.firstPublishedAt = null;
+  setup.old.publishedAt = null;
+  setup.old.source.id = "inside-task-page:inside-content:obsolete";
+  const options = { ...setup.options, deleteDrafts: true };
+  const { path, preview } = await previewRetirement(
+    setup.packagePath,
+    setup.state,
+    options,
+  );
+  assert.equal(preview.scope, "source-draft-deletion");
+  const keep = structuredClone(setup.keep);
+  setup.loseNextReceipt();
+  await assert.rejects(
+    applyRelease(path, setup.state, { request: options.request }),
+    /Lost receipt/u,
+  );
+  const result = await applyRelease(path, setup.state, {
+    request: options.request,
+  });
+  assert.ok("deleted" in result);
+  assert.deepEqual(result.deleted, [{ sourceId: setup.old.source.id }]);
+  assert.equal(setup.records.has(oldId), false);
+  assert.deepEqual(setup.keep, keep);
+  assert.equal(setup.writes[0]?.key, setup.writes[1]?.key);
+  await applyRelease(path, setup.state, { request: options.request });
+  assert.equal(setup.writes.length, 2);
+});
+
 test("canonical, foreign, unknown, duplicate and draft targets fail without a write", async (t) => {
   const setup = await fixture(t);
   for (const materialIds of [
@@ -258,6 +308,65 @@ test("canonical, foreign, unknown, duplicate and draft targets fail without a wr
   await assert.rejects(
     previewRetirement(setup.packagePath, setup.state, setup.options),
     /draft/u,
+  );
+  assert.equal(setup.writes.length, 0);
+});
+
+test("draft deletion refuses published history, Product membership, videos and foreign sources", async (t) => {
+  const setup = await fixture(t);
+  const options = { ...setup.options, deleteDrafts: true };
+  await assert.rejects(
+    previewRetirement(setup.packagePath, setup.state, options),
+  );
+  setup.old.publicationState = "draft";
+  await assert.rejects(
+    previewRetirement(setup.packagePath, setup.state, options),
+  );
+  setup.old.firstPublishedAt = null;
+  setup.old.primaryVideoId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  await assert.rejects(
+    previewRetirement(setup.packagePath, setup.state, options),
+  );
+  setup.old.primaryVideoId = null;
+  setup.old.metadata.seriesMemberships = [
+    { seriesId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", ordinal: 1 },
+  ];
+  await assert.rejects(
+    previewRetirement(setup.packagePath, setup.state, options),
+  );
+  setup.old.metadata.seriesMemberships = [];
+  setup.old.source.id = "inside-task-page:foreign:old";
+  await assert.rejects(
+    previewRetirement(setup.packagePath, setup.state, options),
+  );
+  assert.equal(setup.writes.length, 0);
+});
+
+test("legacy practice drift stops deletion before writing even when Material version is unchanged", async (t) => {
+  const setup = await fixture(t);
+  setup.old.publicationState = "draft";
+  setup.old.firstPublishedAt = null;
+  setup.old.legacyPractices = [
+    {
+      practiceId: "inside-content:old",
+      practiceVersion: 1,
+      definitionDigest: "a".repeat(64),
+    },
+  ];
+  const { path } = await previewRetirement(setup.packagePath, setup.state, {
+    ...setup.options,
+    deleteDrafts: true,
+  });
+  setup.old.legacyPractices = [
+    {
+      practiceId: "inside-content:old",
+      practiceVersion: 2,
+      definitionDigest: "b".repeat(64),
+    },
+  ];
+  await assert.rejects(
+    applyRelease(path, setup.state, { request: setup.options.request }),
+    /changed after preview/u,
   );
   assert.equal(setup.writes.length, 0);
 });

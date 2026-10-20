@@ -9,6 +9,24 @@ export const practiceIdSchema = authoringSourceIdSchema.regex(
   /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/u,
 );
 
+export const legacyPracticeSelectionSchema = z
+  .object({
+    practiceId: practiceIdSchema,
+    practiceVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    definitionDigest: z.hash("sha256"),
+  })
+  .strict();
+export const legacyPracticeSelectionsSchema = z
+  .array(legacyPracticeSelectionSchema)
+  .max(100)
+  .refine(
+    (rows) => new Set(rows.map((row) => row.practiceId)).size === rows.length,
+    "Duplicate legacy practice selection",
+  );
+export type LegacyPracticeSelection = z.infer<
+  typeof legacyPracticeSelectionSchema
+>;
+
 const text = z.string().trim().min(1).max(16_000);
 const criterionId = z
   .string()
