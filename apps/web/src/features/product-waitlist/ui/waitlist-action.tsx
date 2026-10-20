@@ -2,7 +2,6 @@ import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import "./waitlist-action.css";
-import "@/features/ai-engineering-course.styles";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 export type WaitlistState =
   "idle" | "loading" | "saving" | "success" | "error" | "linking" | "expired";
