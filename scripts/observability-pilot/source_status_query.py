@@ -37,7 +37,7 @@ def query_plan(evaluated_at):
     select = '(' + selector(status.SOURCES['collector'], collector_names) + ' or ' + selector(status.SOURCES['trace_store'], trace_names) + ')'
     stamps = 'timestamp(label_replace(' + select + ',"source_metric","$1","__name__","(.+)"))'
     return ['/metrics/api/v1/query?' + urllib.parse.urlencode({
-        'query': expression, 'time': str(evaluated_at), 'timeout': QUERY_SERVER_TIMEOUT})
+        'query': expression, 'time': str(evaluated_at), 'timeout': QUERY_SERVER_TIMEOUT, 'nocache': '1'})
         for expression in (select, stamps)]
 
 

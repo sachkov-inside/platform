@@ -1111,6 +1111,20 @@ Metadata проверяется и отбрасывается для текущ�
 Неизвестные поля, дубликаты и некорректная metadata дают `malformed`, включая позднюю
 ошибку после корректного ряда. Это совместимость source-контракта, а не native runtime proof.
 
+Оба фиксированных запроса передают `nocache=1`. В закреплённом VM1.154
+[QueryHandler](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/prometheus.go)
+без этого параметра сдвигает evaluation около текущего времени на стандартные 30s назад.
+Позже он восстанавливает внешние timestamps точек, но не значения `timestamp(...)`.
+Поэтому внешний timestamp не исправляет возраст исходного sample: результат мог бы
+оставаться `stale` при действующем источнике и пределе свежести 10s. FRESH-SPEC-01
+устраняет этот сдвиг для двух текущих чтений. Параметр задан литералом, без новой
+настройки, изменения selectors, хранения истории или применения E history window.
+Host regression через публичный `evaluate` и частный loopback reader с настоящим
+чтением credentials моделирует исходный сдвиг: прежний запрос даёт age31/`stale`,
+исправленный age1/`fresh_up`. Это проверка адаптера и source-контракта, а не запуск
+native VM или доказательство семи фаз. Проверки исходного sample timestamp, возраста,
+deadline и закрытых labels сохраняются.
+
 The view pairs values with the original source timestamps returned by a second fixed query.
 An instant query's outer evaluation timestamp alone does not establish scrape freshness.
 Metric names are copied into a fixed temporary query-result label before the timestamp

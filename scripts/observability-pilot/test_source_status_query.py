@@ -46,7 +46,75 @@ def server(callback):
                     raise AssertionError('owned HTTP reader did not stop')
 
 
+def native_near_now_vector(parameters):
+    """Model pinned VM's 30s adjustment and restored outer point timestamp, not a native run."""
+    evaluated_at = int(parameters['time'][0])
+    effective_at = evaluated_at if parameters.get('nocache') == ['1'] else evaluated_at - 30
+    timestamp_query = parameters['query'][0].startswith('timestamp(')
+    rows = [{'metric': {'job': job, 'instance': 'pilot',
+                        'source_metric' if timestamp_query else '__name__': 'up'},
+             'value': [evaluated_at, str(effective_at - 1) if timestamp_query else '1']}
+            for job in ('platform-collector', 'platform-trace-store')]
+    return json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': rows},
+                       'stats': {'seriesFetched': '2', 'executionTimeMsec': 0}}).encode()
+
+
 class QueryTests(unittest.TestCase):
+    def test_public_evaluate_fixed_plan_avoids_native_near_now_timestamp_shift(self):
+        parameters = [urllib.parse.parse_qs(urllib.parse.urlsplit(path).query)
+                      for path in source_status_query.query_plan(100)]
+        report = source_status_query.status.evaluate(
+            *(native_near_now_vector(query) for query in parameters),
+            evaluated_at=100, completed_at=100)
+        for source in report['sources'].values():
+            self.assertEqual(source['state'], 'fresh_up')
+            self.assertEqual(source['measured_at'], 99)
+            self.assertEqual(source['sample_age_seconds'], 1)
+        # A restored outer result timestamp does not repair timestamp(...) evaluated
+        # against an older source sample. Preserve that failure as a negative control.
+        prior = [{key: value for key, value in query.items() if key != 'nocache'}
+                 for query in parameters]
+        stale = source_status_query.status.evaluate(
+            *(native_near_now_vector(query) for query in prior),
+            evaluated_at=100, completed_at=100)
+        for source in stale['sources'].values():
+            self.assertEqual(source['state'], 'stale')
+            self.assertEqual(source['measured_at'], 69)
+            self.assertEqual(source['sample_age_seconds'], 31)
+
+    def test_private_reader_fixed_requests_avoid_native_near_now_shift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            credential = output / 'auth.json'
+            credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+            credential.chmod(0o600)
+            requests = []
+            def reply(handler):
+                parsed = urllib.parse.urlsplit(handler.path)
+                parameters = urllib.parse.parse_qs(parsed.query)
+                requests.append((parsed.path, parameters, handler.headers.get('Authorization')))
+                payload = native_near_now_vector(parameters)
+                handler.send_response(200)
+                handler.send_header('Content-Length', str(len(payload)))
+                handler.end_headers()
+                handler.wfile.write(payload)
+            with server(reply) as port:
+                report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+            for source in report['sources'].values():
+                self.assertEqual(source['state'], 'fresh_up')
+                self.assertEqual(source['measured_at'], 99)
+                self.assertEqual(source['sample_age_seconds'], 1)
+            self.assertEqual(len(requests), 2)
+            for path, parameters, authorization in requests:
+                self.assertEqual(path, '/metrics/api/v1/query')
+                self.assertEqual(set(parameters), {'query', 'time', 'timeout', 'nocache'})
+                self.assertEqual(parameters['time'], ['100'])
+                self.assertEqual(parameters['timeout'], ['2s'])
+                self.assertEqual(parameters['nocache'], ['1'])
+                self.assertEqual(authorization, 'Bearer private-token')
+                self.assertNotIn('last_over_time', parameters['query'][0])
+            self.assertNotIn('private-token', json.dumps(report))
+
     def test_two_fixed_authenticated_queries_return_source_status(self):
         requests = []
         def reply(handler):
