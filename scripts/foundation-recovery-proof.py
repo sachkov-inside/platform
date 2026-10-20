@@ -278,6 +278,20 @@ def runtime_identity(resources, container, directory):
             "stackProtectorSymbol": True}
 
 
+def refusal_detail(result, *envfiles):
+    output = result.stdout + result.stderr
+    error = next((line for line in output.splitlines()
+                  if re.search(r"ERROR:\s+\[\d+\]", line)), "no structured error")
+    for envfile in envfiles:
+        for line in envfile.read_text().splitlines():
+            key, _, value = line.partition("=")
+            if key.endswith("_PASS") and value:
+                error = error.replace(value, "<REDACTED>")
+    error = re.sub(r"[^\x20-\x7e]", "?", error)
+    classes = sorted(set(re.findall(r"\b[A-Z][A-Za-z]+Error\b", output)))
+    return "exit " + str(result.returncode) + ": " + error[:400] + "; classes=" + ",".join(classes)
+
+
 def restore_case(resources, image, repository, envfile, suffix, target, expected_rows):
     data = resources.volume(suffix + "-data")
     _, result = resources.container(
@@ -287,14 +301,8 @@ def restore_case(resources, image, repository, envfile, suffix, target, expected
         "--archive-mode=off --target-action=promote " + target + " restore",
         repository_readonly=True)
     if result.returncode:
-        error = next((line for line in (result.stdout + result.stderr).splitlines()
-                      if re.search(r"ERROR:\s+\[\d+\]", line)), "no structured error")
-        for line in envfile.read_text().splitlines():
-            key, _, value = line.partition("=")
-            if key.endswith("_PASS") and value:
-                error = error.replace(value, "<REDACTED>")
-        raise RuntimeError("ordinary restore failed (exit " + str(result.returncode)
-                           + "): " + error[:400])
+        raise RuntimeError("ordinary restore failed: " + refusal_detail(result, envfile))
+
     container, result = resources.container(
         suffix + "-postgres", image, data, repository, envfile,
         "install -d -o postgres -g postgres /var/run/postgresql; "
@@ -441,7 +449,8 @@ def proof(image, receipt, directory, legacy_source=None):
         if result.returncode == 0 or not re.search(
                 r"unable to decrypt|invalid passphrase|bad decrypt|cipher header invalid",
                 result.stdout + result.stderr, re.I):
-            raise RuntimeError("wrong cipher did not refuse decryption")
+            raise RuntimeError("wrong cipher did not refuse decryption: "
+                               + refusal_detail(result, wrong, envfile))
         missing = resources.volume("missing-wal-repository")
         # Copy only our repository, then remove exactly the selected synthetic WAL from the copy.
         name = resources.register("container", "copy-repository")
