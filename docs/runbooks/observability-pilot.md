@@ -1415,7 +1415,9 @@ Trace validation in SDK, tracking and waitlist admits only a constructor-owned f
 `trace_decode` at the whole-row decode-contract boundary, or `trace_gate_01` through `trace_gate_20`
 for the original semantic refusal sites. SDK admits only01–12. The checked-in
 `trace-predicates.json` binds each scope+gate to its permanent semantic predicate and preserves the
-original predicate order. Moving source lines never renumbers or repurposes a gate. Compound
+original predicate order. The test-only AST serialization copies each predicate and omits only
+exactly empty list fields, preserving the compact fixture format across Python versions without
+changing the parsed source or fixture hashes. Moving source lines never renumbers or repurposes a gate. Compound
 predicates remain compound; the code does not identify their failing operand, field, value or row.
 Malformed JSON keeps `response_decode`; unexpected errors keep the aggregate fallback. Only exact
 owning types and valid scope/gate fields are classified, without foreign getters or formatting.
@@ -1559,6 +1561,23 @@ stop even if observation fails. Existing acquisition deadlines, identity checks,
 and 600-second worker budget remain unchanged. These diagnostics cannot retrospectively
 establish the cause of runs 39433543633 or 39441411789.
 
+The resource-only `observe_samples=True` guard option retains the same already-read free-byte
+values in a read-only memory view. Default callers still receive `None`. The source-bound
+`resource-disk-samples.json` contains only a baseline, latest safe observation, stopping observation
+and the last observation copied before the first pull command. Baseline sequence 0 is not safe.
+The first-pull observation may be stale; it is copied once before command identity/start work and
+does not measure a pull or image. The closed nine-field record is limited to 4096 bytes, validates
+before public copying and is written canonically. Missing legacy metadata means unavailable;
+invalid present metadata refuses collection. Numeric observation or persistence refusal blocks an
+otherwise successful image manifest, while the original command/guard failure stays primary.
+
+The final snapshot is sealed after the existing bounded monitor join returns. This cutoff does not
+prove monitor termination, all reads or absence of a later signal. Late metadata cannot change the
+sealed snapshot; the inherited late-monitor/SIGUSR1 hazard is unchanged. No extra disk or clock
+read, monitor callback, threshold, poll, timeout or cleanup change is introduced. These facts do not
+attribute filesystem growth to an image/process or establish savings, production sizing or resource
+acceptance. Exact-source hosted feedback remains required; the previous numeric history is unknown.
+
 ### Platform waitlist receipt causality (prepared, before deployment)
 
 The opt-in API records one nullable technical `traceparent` only when its existing transaction
@@ -1590,6 +1609,115 @@ named-column writer and no-op migration are checked separately. Native PostgreSQ
 checks require their hosted CI evidence. Failure/retry/rootless/OFF/503 through pinned storage,
 Telegram receipt/worker/reverse authorization/BotAPI causal continuation, production and seven
 actual days remain outside this success proof. No deployment is authorized for this work.
+
+
+### Telegram runtime collector partition (prepared, before deployment)
+
+`inside-telegram` has a separate finite collector catalog for receipt, authorization, committed
+attempt and `sendMessage`, its HTTP routes, and nine metric families. Backend span and datapoint
+instructions retain their previous order outside this partition. The existing B waitlist
+`authorize` operation extends the backend enum alongside `deliver`; this is a separate explicit
+delta from accepted ROOT, not byte equivalence to that baseline. Non-Telegram services, including
+missing or unknown service names, retain the old metric catalog. Only `inside-telegram` admits
+the Telegram catalog. Telegram spans
+retain only their technical operation/outcome or finite HTTP attributes. Events, links, tracestate,
+private status messages, metric exemplars and unrelated attributes are removed. Authorization alone
+may retain a numeric HTTP status between 100 and 599. No user, chat, message or provider identifiers
+are permitted.
+
+The existing pilot smoke prepares an external unsafe JSON and independently encoded protobuf corpus.
+Before uploading either, it observes the actual `none` logging driver on the same owned, running
+VictoriaTraces and Alloy containers. Frozen daemon identity, Compose project and fixed service labels
+are checked; missing, ambiguous, foreign, stopped or retaining containers prevent every upload.
+It never reads container logs. `trace-store-logging.json` and `collector-logging.json` contain separate
+closed verdicts. `telegram-runtime-collector.json` contains only bounded transport/count verdicts.
+Raw OTLP and stored rows are not public artifacts.
+
+The closed reader queries three fixed trace IDs per transport with an eleven-row limit, including
+one duplicate-detection slot. Its independent oracle validates every observed column, all ten spans,
+root and parent relationships, timestamps, resource/scope attributes and private-field absence before
+accepting completeness. The metrics oracle validates the complete service/release vector, including
+all fifty expected counter, gauge and histogram series; it never hides unknown metrics with a positive
+metric-name selector. The synthetic corpus versions identify fixtures, not application image releases.
+
+Source contracts exercise these boundaries with controlled Docker/HTTP adapters and worked stored
+examples. They do not execute Docker, the pinned Alloy parser or native storage. A hosted exact-source
+run must establish JSON/protobuf ingestion and stored verdicts. This external corpus does not prove
+actual Telegram SDK serialization through storage, genuine PostgreSQL/RabbitMQ lifecycle behavior,
+receipt-to-worker-to-authorization-to-BotAPI causality, server capacity or production readiness.
+The prepared native database and lifecycle scenarios remain separate. No deployment is authorized.
+
+`apps/telegram/test/integration/managed-main-lifecycle.integration.test.ts` also prepares real built
+`main` cases for SIGTERM after readiness and during a genuine PostgreSQL migration-lock wait.
+The existing Telegram `check:full` builds before running integration tests. These cases use the
+managed factory, explicit disabled provider modes, an owned loopback OTLP receiver and supervised
+pinned Node children. They check clean process exit and released PostgreSQL sessions. Periodic SDK
+exports are allowed, so observed traffic does not establish SDK shutdown ordering. Original test
+errors stay local; public failures contain only the first fixed observation stage and cleanup counts.
+The separate benign-child source tests prove only the test harness's PID, signal, acquisition-failure
+and cleanup observations. Native PostgreSQL execution, every business lane, RabbitMQ and the complete
+shutdown failure-order matrix still require exact-source hosted evidence.
+
+The genuine RabbitMQ suite prepares two terminal-receive cases: held work commits through the real
+PostgreSQL provider and is acknowledged, or fails before commit and is re-delivered by RabbitMQ.
+They inspect actual queue consumers and retrieve a new confirmed message after terminal `open`,
+without a duration-based absence claim. These cases are not locally executed native evidence.
+The separate prepared opening and publication scenarios are described below.
+
+A further genuine RabbitMQ case prepares terminal stop while native TCP admission is held before
+the AMQP handshake completes. Its test-only opening gate forwards through native sockets after
+release and captures no payloads. Owned echo-peer tests verify only that TCP gate and its cleanup.
+The genuine broker case must complete against hosted RabbitMQ, leave both queues without consumers
+and refuse another connection after terminal drain. The broker's existing connection timeout stays
+unchanged. Native AMQP execution is not established by the echo-peer results.
+
+Two further RabbitMQ cases prepare an actual queued-result witness while the original publish
+confirmation is held by native inbound socket forwarding. They then release confirmation or drop
+only the owned TCP gate to exercise a genuine transport failure after publication. Terminal drain
+must settle that original promise and retain its original private rejection. The native publisher
+deadline and product retry/outbox policy stay unchanged. Additional echo-peer controls cover holding
+inbound forwarding before and after connection establishment. They remain TCP harness evidence;
+the genuine RabbitMQ publication cases require hosted execution.
+
+`native-waitlist-factory.integration.test.ts` prepares five genuine PostgreSQL cases through the
+actual managed Nest/Fastify factory. Its raw HTTP corpus distinguishes Node-normalized surrounding
+OWS from whitespace remaining in parsed values, duplicate/coalesced headers, malformed parents,
+strict-body rejection and failed bearer authentication. First receipt parents, including NULL,
+remain immutable on replay; conflicts retain 409. Actual SDK JSON must continue only admitted
+receipt parents while generic HTTP spans remain local roots. The pure parsed-header protocol has
+one owner, `@inside/contracts/internal-waitlist-parent`; app adapters retain authentication and
+strict-body admission timing. Its single corpus compares the exact nonzero-ID semantics with the
+pinned official parser without adding an SDK dependency to the shared package. OFF and ratio zero cannot be forced
+by a remote sampled flag; ratio zero keeps the independent operation counter with finite
+`operation`/`outcome` labels.
+
+The remaining two factory cases disconnect an actual request held on a genuine PostgreSQL advisory
+lock. SDK, database and framework cleanup must not start before that handler settles. One case
+injects fixed failures after each real cleanup completes and checks the original private error
+order. These are prepared native cases, not local execution results. Their bounded SDK JSON
+observation rejects private markers but is not the independent full stored-row collector oracle.
+The separate receipt-037 PostgreSQL case uses actual owned callback HTTP and native fetch to
+acquire the same row lock after preparation rollback. It retains a controlled send port, so it
+does not establish native BotAPI delivery.
+
+The first hosted execution path is `.github/workflows/ci.yml`, job `telegram`, on the reviewed
+exact source. Its owned PostgreSQL and non-guest RabbitMQ serve
+`pnpm --filter @inside/telegram check:full`, which builds the actual `main` before running all
+integration files serially. This includes the two built-main, five RabbitMQ terminal-lifetime and
+five native factory cases above, plus the receipt persistence/rollback cases. The coverage planner
+selects `telegram` for Telegram application changes; shared collector, workflow, package and pilot
+changes require the full shared coverage selection as well. Source-bound check output must record
+the exact selected paths and checkout. No historical CI result accepts this new source.
+
+Remaining acceptance gaps are explicit: genuine execution of these prepared PostgreSQL/RabbitMQ
+cases; every concurrently active production lane and activation-timeout descendant through the
+full factory, including the complete startup/drain/cleanup fault matrix; the actual SDK through
+pinned Alloy and both stores; and the cross-application receipt, worker, reverse authorization and
+owned BotAPI HTTP stored graph with source/image witnesses. Existing actual Grammy loopback tests
+exercise its pinned transport separately. Synthetic collector corpora, controlled send ports,
+periodic exports and benign child/TCP controls cannot close those gaps. Native execution and
+independent HIGH-risk review remain pending; production capacity has not been measured and this
+preparation authorizes no deployment.
 
 ## Isolated native Caddy observation
 

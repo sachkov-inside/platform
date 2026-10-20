@@ -75,14 +75,14 @@ class NotificationCatalog(unittest.TestCase):
     def test_new_datapoint_dimensions_are_scoped_and_have_a_single_missing_unknown_bucket(self):
         actual = privacy_config.render()
         point = actual.split('context = "datapoint"',1)[1].split('log_statements',1)[0]
-        statements = re.findall(r'`([^`]+)`',point)
+        statements = [rule for rule in re.findall(r'`([^`]+)`',point) if 'not ('+privacy_config.TELEGRAM_SERVICE+')' in rule]
         keep = [line for line in statements if line.startswith('keep_keys')]
         self.assertEqual(len(keep),7)
         pool = next(line for line in keep if line.startswith('keep_keys(attributes, [])'))
         self.assertIn('postgresql',pool)
         self.assertIn('not (IsMatch(metric.name,',keep[0])
         self.assertNotIn('"operation"',keep[0])
-        self.assertIn('keep_keys(attributes, ["operation", "outcome"]) where (IsMatch(metric.name,',keep[1])
+        self.assertIn('keep_keys(attributes, ["operation", "outcome"]) where (not ('+privacy_config.TELEGRAM_SERVICE+')) and ((IsMatch(metric.name,',keep[1])
         for key in ('operation','outcome'):
             rules = [line for line in statements if line.startswith('set(attributes["'+key+'"]') and 'dependency' not in line and 'email' not in line and 'tracking' not in line and 'waitlist' not in line]
             self.assertEqual(len(rules),2)
@@ -93,7 +93,7 @@ class NotificationCatalog(unittest.TestCase):
         self.assertIn('inside',span)
         self.assertIn('notification_operation_failed',span)
         notification_rules = [line for line in re.findall(r'`([^`]+)`',span)
-                              if 'where (attributes["messaging.system"] == "rabbitmq" and not (' in line]
+                              if 'attributes["messaging.system"] == "rabbitmq" and not (' in line]
         self.assertEqual(len(notification_rules),2)
         for line in notification_rules:
             literal = re.search(r'not IsMatch\(attributes\["messaging\.[^\"]+"\], ("(?:\\.|[^"\\])*")\)',line)[1]

@@ -36,6 +36,10 @@
     "./material-announcements": {
       "types": "./dist/runtime/material-announcements.d.ts",
       "default": "./dist/runtime/material-announcements.js"
+    },
+    "./internal-waitlist-parent": {
+      "types": "./dist/runtime/internal-waitlist-parent.d.ts",
+      "default": "./dist/runtime/internal-waitlist-parent.js"
     }
   },
   "files": [

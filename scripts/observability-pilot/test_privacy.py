@@ -248,7 +248,7 @@ class CollectorPrivacyContract(unittest.TestCase):
         actual = privacy_config.render()
         # The rendered collector catalogue must keep its exact anchored allowlist.
         rule = privacy_config.enum_rule('http.route', policy['routes'])
-        self.assertIn(rule, actual)
+        self.assertIn(privacy_config.only(rule, 'not ('+privacy_config.TELEGRAM_SERVICE+')'), actual)
         pattern = privacy_config.pattern(policy['routes'])
         self.assertIsNotNone(re.fullmatch(pattern, route))
         for rejected in (route + '/private', route + '?token=SECRET', route + 'suffix',

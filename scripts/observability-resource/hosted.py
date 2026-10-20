@@ -10,6 +10,7 @@ import sys
 import binding
 import acquisition
 import runtime
+import disk_feedback
 
 SCOPE = 'hosted short synthetic SDK-only comparison; acceptance pending; not physical-host capacity'
 REPOSITORY = 'sachkov-inside/platform'
@@ -82,10 +83,12 @@ def collect(output, destination, *, metadata):
     source, _disk = metadata_source(metadata)
     acquisition_path = metadata / acquisition.NAME
     outcome = acquisition.read(acquisition_path, source['checkout_sha']) if acquisition_path.exists() or acquisition_path.is_symlink() else None
-    # The shared collector enforces regular files, symlinks, size and JSON checks.
+    numeric = disk_feedback.read(metadata / disk_feedback.NAME, source['checkout_sha'])
+    # Typed numeric validation precedes generic copying; the raw file is never selected.
     runtime.ci.collect(output, metadata, destination, artifacts=binding.ARTIFACTS)
     if outcome is not None:
         acquisition.write(destination / acquisition.NAME, outcome, source['checkout_sha'])
+    disk_feedback.write(destination / disk_feedback.NAME,numeric,source['checkout_sha'])
     owner_path = output / 'owner.json'
     acquired = False
     if owner_path.exists():
@@ -191,14 +194,17 @@ def command(args, timeout, *, recorder=None, stage=None, kind=None):
 def prepare(metadata, images):
     source, disk = metadata_source(metadata)
     recorder = acquisition.Recorder(metadata, source['checkout_sha'])
+    numeric = disk_feedback.Record(source['checkout_sha'])
     try:
-        prepare_images(source, disk, images, recorder)
+        prepare_images(source, disk, images, recorder, numeric)
     except BaseException as error:
         record_failure(recorder, error)
         raise
+    finally:
+        numeric.persist(metadata / disk_feedback.NAME)
 
 
-def prepare_images(source, disk, images, recorder):
+def prepare_images(source, disk, images, recorder, numeric):
     if not isinstance(disk, dict) or disk.get('ready') is not True:
         raise ValueError('resource_disk_admission_required')
     if images.exists() or images.is_symlink():
@@ -220,7 +226,9 @@ def prepare_images(source, disk, images, recorder):
     runtime.pilot.FROZEN_DOCKER_ENDPOINT = identity['endpoint']
     runtime.pilot.FROZEN_DOCKER_IDENTITY = identity
     recorder.passed()
-    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop):
+    numeric.attempt()
+    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop,observe_samples=True) as samples:
+        numeric.entered(samples)
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],
                  '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds')
@@ -228,6 +236,7 @@ def prepare_images(source, disk, images, recorder):
                  '--tag', owner + '-foundation:local', 'infra/production/database'], 180,
                  recorder=recorder, stage='foundation_build', kind='builds')
         for service, image in pins.items():
+            numeric.first_pull()
             command(['docker', 'pull', image], 90, recorder=recorder, stage='preload_'+service, kind='pulls')
         value = {'schema': 1, 'source': source['checkout_sha'], 'owner': owner}
         for key, suffix in (('backend', '-backend:v1'), ('foundation', '-foundation:local')):
@@ -236,6 +245,8 @@ def prepare_images(source, disk, images, recorder):
             recorder.start(key+'_inspect', 'inspection', kind='inspections')
             value[key] = runtime.pilot.command(['docker', 'image', 'inspect', owner + suffix, '--format', '{{.Id}}'], timeout=10).strip()
             recorder.passed(kind='inspections')
+    numeric.persist(recorder.path.parent / disk_feedback.NAME)
+    numeric.require()
     recorder.start('manifest_validate', 'validation')
     runtime.fixture.images(value, source['checkout_sha'])
     recorder.start('manifest_write', 'publication')

@@ -1,3 +1,5 @@
+import { createTcpOpeningGate } from "../support/tcp-opening-gate.js";
+import { deferred } from "../support/deferred.js";
 import { runtimeTestClock } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
@@ -12,7 +14,13 @@ import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { seedNotificationRecipient } from "../support/notification-recipient.js";
 import { randomUUID } from "node:crypto";
 import { text as readText } from "node:stream/consumers";
-import { connect, type ChannelModel, type ConfirmChannel } from "amqplib";
+import {
+  connect,
+  type ChannelModel,
+  type ConfirmChannel,
+  type Channel,
+  type GetMessage,
+} from "amqplib";
 import { sql } from "kysely";
 import {
   beforeAll,
@@ -203,6 +211,368 @@ afterAll(async () => {
   await db.destroy();
 }, 30000);
 describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
+  for (const outcome of ["confirmed", "transport_failed"] as const)
+    it(`terminal drain settles original real result publication (${outcome})`, async () => {
+      let gate: Awaited<ReturnType<typeof createTcpOpeningGate>> | undefined;
+      let broker: NotificationBroker | undefined;
+      let inspector: Channel | undefined;
+      let witness: GetMessage | undefined;
+      const failures: unknown[] = [];
+      let firstFailureStage: string | undefined;
+      let cleanupFailures = 0;
+      let stage = "acquisition";
+      try {
+        const endpoint = new URL(url(users.provider));
+        const openedGate = await createTcpOpeningGate({
+          host: endpoint.hostname,
+          port: Number(endpoint.port === "" ? "5672" : endpoint.port),
+        });
+        gate = openedGate;
+        openedGate.release();
+        endpoint.hostname = "127.0.0.1";
+        endpoint.port = String(openedGate.port);
+        const ownedBroker = new NotificationBroker(
+          endpoint.toString(),
+          provider,
+          2,
+          () => undefined,
+        );
+        broker = ownedBroker;
+        brokers.push(ownedBroker);
+        await ownedBroker.open();
+        const producer = await connection(users.producer);
+        const publisher = await producer.createConfirmChannel();
+        const initial = command();
+        stage = "real_inbox_commit";
+        await publish(publisher, initial);
+        await expect
+          .poll(
+            async () =>
+              (await db
+                .selectFrom("notification_commands")
+                .select("operation_id")
+                .where("operation_id", "=", initial.operationId)
+                .executeTakeFirst()) !== undefined,
+          )
+          .toBe(true);
+        const result = (
+          await db
+            .selectFrom("notification_commands")
+            .select("result")
+            .where("operation_id", "=", initial.operationId)
+            .executeTakeFirstOrThrow()
+        ).result;
+        const admin = await connection();
+        const control = await admin.createChannel();
+        inspector = control;
+        openedGate.holdInbound();
+        let settled = false;
+        const original = ownedBroker.publish(result);
+        const observed = original.then(
+          () => {
+            settled = true;
+            return { outcome: "fulfilled" as const };
+          },
+          (error: unknown) => {
+            settled = true;
+            return { outcome: "rejected" as const, error };
+          },
+        );
+        stage = "real_publication_witness";
+        await expect
+          .poll(async () => {
+            const value = await control.get(
+              "platform.notification-results.telegram.v1",
+              { noAck: false },
+            );
+            if (value === false) return false;
+            witness = value;
+            return true;
+          })
+          .toBe(true);
+        expect(required<GetMessage>(witness).properties.messageId).toBe(
+          result.messageId,
+        );
+        expect(settled).toBe(false);
+        ownedBroker.beginStop();
+        const draining = ownedBroker.drain();
+        expect(ownedBroker.isQuiescent()).toBe(false);
+        stage = "original_confirm_and_drain";
+        if (outcome === "confirmed") openedGate.releaseInbound();
+        else await openedGate.close();
+        const publication = await observed;
+        const report = await draining;
+        expect(report.quiescent).toBe(true);
+        expect(ownedBroker.isQuiescent()).toBe(true);
+        if (outcome === "confirmed") {
+          expect(publication.outcome).toBe("fulfilled");
+          expect(report.failures).toEqual([]);
+        } else {
+          if (publication.outcome !== "rejected")
+            throw new Error("Expected original publication rejection");
+          expect(report.failures).toContain(publication.error);
+        }
+        stage = "terminal_reopen";
+        await ownedBroker.open();
+        expect(ownedBroker.connected).toBe(false);
+        expect(openedGate.acceptedCount()).toBe(1);
+        for (const category of ["subscription", "material"] as const)
+          expect(
+            (await control.checkQueue(`telegram.notifications.${category}.v1`))
+              .consumerCount,
+          ).toBe(0);
+      } catch (error: unknown) {
+        failures.push(error);
+        firstFailureStage ??= stage;
+      } finally {
+        gate?.releaseInbound();
+        for (const [label, cleanup] of [
+          [
+            "cleanup_broker",
+            async () => {
+              await broker?.drain();
+            },
+          ],
+          [
+            "cleanup_tcp_gate",
+            async () => {
+              await gate?.close();
+            },
+          ],
+          [
+            "cleanup_admin",
+            async () => {
+              if (inspector !== undefined) {
+                if (witness !== undefined) inspector.ack(witness);
+                await inspector.close();
+              }
+            },
+          ],
+        ] as const) {
+          try {
+            await cleanup();
+          } catch (error: unknown) {
+            failures.push(error);
+            firstFailureStage ??= label;
+            cleanupFailures += 1;
+          }
+        }
+      }
+      if (failures.length > 0)
+        throw new Error(
+          JSON.stringify({
+            proof: "telegram_rabbit_terminal_publish",
+            outcome: "failed",
+            stage: firstFailureStage,
+            failures: failures.length,
+            cleanup_failures: cleanupFailures,
+          }),
+        );
+    }, 25_000);
+
+  it("settles a genuine AMQP opening after terminal stop without installing consumers or reopening", async () => {
+    let gate: Awaited<ReturnType<typeof createTcpOpeningGate>> | undefined;
+    let broker: NotificationBroker | undefined;
+    const failures: unknown[] = [];
+    let firstFailureStage: string | undefined;
+    let cleanupFailures = 0;
+    let stage = "acquisition";
+    try {
+      const endpoint = new URL(url(users.provider));
+      const openedGate = await createTcpOpeningGate({
+        host: endpoint.hostname,
+        port: Number(endpoint.port === "" ? "5672" : endpoint.port),
+      });
+      gate = openedGate;
+      endpoint.hostname = "127.0.0.1";
+      endpoint.port = String(openedGate.port);
+      const ownedBroker = new NotificationBroker(
+        endpoint.toString(),
+        provider,
+        2,
+        () => undefined,
+      );
+      broker = ownedBroker;
+      brokers.push(ownedBroker);
+      const opening = ownedBroker.open();
+      void opening.catch(() => undefined);
+      stage = "native_tcp_admission";
+      await Promise.race([
+        openedGate.admitted,
+        opening.then(() => {
+          throw new Error("AMQP opening completed before gate release");
+        }),
+      ]);
+      expect(openedGate.acceptedCount()).toBe(1);
+      ownedBroker.beginStop();
+      const draining = ownedBroker.drain();
+      expect(ownedBroker.isQuiescent()).toBe(false);
+      stage = "native_amqp_release";
+      openedGate.release();
+      await opening;
+      expect(await draining).toEqual({ quiescent: true, failures: [] });
+      expect(ownedBroker.isQuiescent()).toBe(true);
+      stage = "terminal_reopen";
+      await ownedBroker.open();
+      expect(openedGate.acceptedCount()).toBe(1);
+      expect(ownedBroker.connected).toBe(false);
+      const admin = await connection();
+      const inspector = await admin.createChannel();
+      for (const category of ["subscription", "material"] as const)
+        expect(
+          (await inspector.checkQueue(`telegram.notifications.${category}.v1`))
+            .consumerCount,
+        ).toBe(0);
+    } catch (error: unknown) {
+      failures.push(error);
+      firstFailureStage ??= stage;
+    } finally {
+      gate?.release();
+      for (const [label, cleanup] of [
+        [
+          "cleanup_broker",
+          async () => {
+            await broker?.drain();
+          },
+        ],
+        [
+          "cleanup_tcp_gate",
+          async () => {
+            await gate?.close();
+          },
+        ],
+      ] as const) {
+        try {
+          await cleanup();
+        } catch (error: unknown) {
+          failures.push(error);
+          firstFailureStage ??= label;
+          cleanupFailures += 1;
+        }
+      }
+    }
+    if (failures.length > 0)
+      throw new Error(
+        JSON.stringify({
+          proof: "telegram_rabbit_terminal_open",
+          outcome: "failed",
+          stage: firstFailureStage,
+          failures: failures.length,
+          cleanup_failures: cleanupFailures,
+        }),
+      );
+  }, 25_000);
+
+  for (const outcome of ["commit", "reject"] as const)
+    it(`terminal drain preserves admitted inbox work and cannot reopen (${outcome})`, async () => {
+      const release = deferred();
+      const original = new Error("synthetic terminal inbox failure");
+      const failures: unknown[] = [];
+      let firstFailureStage: string | undefined;
+      let cleanupFailures = 0;
+      let stage = "acquisition";
+      let admitted = 0;
+      const broker = new NotificationBroker(
+        url(users.provider),
+        {
+          receive: async (bytes, envelope, category) => {
+            admitted += 1;
+            await release.promise;
+            if (outcome === "reject") throw original;
+            return provider.receive(bytes, envelope, category);
+          },
+        },
+        2,
+        () => undefined,
+      );
+      brokers.push(broker);
+      try {
+        await broker.open();
+        const producer = await connection(users.producer);
+        const publisher = await producer.createConfirmChannel();
+        const initial = command();
+        stage = "admission";
+        await publish(publisher, initial);
+        await expect.poll(() => admitted).toBe(1);
+        broker.beginStop();
+        const draining = broker.drain();
+        expect(broker.drain()).toBe(draining);
+        expect(broker.isQuiescent()).toBe(false);
+        stage = "drain";
+        release.resolve();
+        const report = await draining;
+        expect(report.quiescent).toBe(true);
+        expect(report.failures).toEqual(outcome === "reject" ? [original] : []);
+        expect(broker.isQuiescent()).toBe(true);
+        stage = "commit_ack_redelivery";
+        const saved = await db
+          .selectFrom("notification_commands")
+          .select("operation_id")
+          .where("operation_id", "=", initial.operationId)
+          .executeTakeFirst();
+        const admin = await connection();
+        const inspector = await admin.createChannel();
+        const queueName = "telegram.notifications.subscription.v1";
+        const queue = await inspector.checkQueue(queueName);
+        expect(queue.consumerCount).toBe(0);
+        expect(queue.messageCount).toBe(outcome === "reject" ? 1 : 0);
+        if (outcome === "commit")
+          expect(saved?.operation_id).toBe(initial.operationId);
+        else {
+          expect(saved).toBeUndefined();
+          const redelivered = await inspector.get(queueName, { noAck: false });
+          if (redelivered === false)
+            throw new Error("Expected owned redelivery");
+          expect(redelivered.fields.redelivered).toBe(true);
+          expect(redelivered.properties.messageId).toBe(initial.operationId);
+          inspector.ack(redelivered);
+        }
+        stage = "terminal_reopen";
+        await broker.open();
+        expect(broker.connected).toBe(false);
+        for (const category of ["subscription", "material"] as const)
+          expect(
+            (
+              await inspector.checkQueue(
+                `telegram.notifications.${category}.v1`,
+              )
+            ).consumerCount,
+          ).toBe(0);
+        const later = command();
+        await publish(publisher, later);
+        const untouched = await inspector.get(queueName, { noAck: false });
+        if (untouched === false)
+          throw new Error("Terminal broker consumed new command");
+        expect(untouched.properties.messageId).toBe(later.operationId);
+        expect(untouched.fields.redelivered).toBe(false);
+        inspector.ack(untouched);
+        expect((await inspector.checkQueue(queueName)).messageCount).toBe(0);
+        expect(admitted).toBe(1);
+      } catch (error: unknown) {
+        failures.push(error);
+        firstFailureStage ??= stage;
+      } finally {
+        release.resolve();
+        try {
+          await broker.drain();
+        } catch (error: unknown) {
+          failures.push(error);
+          firstFailureStage ??= "cleanup_drain";
+          cleanupFailures += 1;
+        }
+      }
+      if (failures.length > 0)
+        throw new Error(
+          JSON.stringify({
+            proof: "telegram_rabbit_terminal_receive",
+            outcome: "failed",
+            stage: firstFailureStage,
+            failures: failures.length,
+            cleanup_failures: cleanupFailures,
+          }),
+        );
+    }, 25_000);
+
   it("runtime worker delivers both lanes under sustained backlog and delayed HTTP preflight", async () => {
     const runtimeClock = runtimeTestClock();
     await sql`truncate platform_links, link_transactions, bot_contacts, telegram_transport_slots cascade`.execute(

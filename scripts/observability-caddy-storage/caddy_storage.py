@@ -90,6 +90,7 @@ def worker(output):
             outcome['status']='passed: isolated native Caddy metrics and query scope only'
             pilot.write_json(output/'evidence.json',outcome)
     except BaseException as error:
+        original_traceback=sys.exc_info()[2]
         try:
             phase=run.snapshot()['phase']
             if isinstance(error,KeyboardInterrupt):reason='interrupted'
@@ -102,6 +103,7 @@ def worker(output):
             run.fail(reason);persist()
         except BaseException:
             pass  # A terminal metadata refusal cannot replace the active primary or traceback.
+        BaseException.with_traceback(error,original_traceback)
         raise
     else:persist()
 

@@ -19,7 +19,7 @@ PUBLIC_ARTIFACT_MAX_BYTES = 1024 * 1024
 PILOT_ARTIFACTS = (
     "source-freshness.json", "evidence.json", "cleanup.json", "worker-outcome.json", "native-mcp.json", "native-mcp-progress.json",
     "query-timings.json", "negative-failures.json", "recovery.json",
-    "container-states.json", "readiness.json", "storage-host.json", "storage-vm.json", "monitor-failure.json", "collector-privacy.json", "collector-link-privacy.json", "trace-store-health.json", "trace-store-logging.json", "notification-collector.json", "dependency-collector.json", "email-collector.json",
+    "container-states.json", "readiness.json", "storage-host.json", "storage-vm.json", "monitor-failure.json", "collector-privacy.json", "collector-link-privacy.json", "trace-store-health.json", "trace-store-logging.json", "notification-collector.json", "dependency-collector.json", "email-collector.json", "telegram-runtime-collector.json", "collector-logging.json",
     "phase-idle.json", "phase-steady.json", "phase-spike.json",
     "stats-idle.jsonl", "stats-steady.jsonl", "stats-spike.jsonl",
 )

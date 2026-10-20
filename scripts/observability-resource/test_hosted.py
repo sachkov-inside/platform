@@ -1,6 +1,7 @@
 """Hosted evidence trust at its public filesystem/provider boundary, without Docker."""
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
 import hosted
@@ -62,7 +63,7 @@ class EvidenceTrust(unittest.TestCase):
             hosted.collect(output, root / 'public', metadata=admitted)
             public = root / 'public'
             self.assertEqual(set(path.name for path in public.iterdir()),
-                             {'source.json', 'admission.json', 'resource-proof.json', 'resource-hosted.json'})
+                             {'source.json', 'admission.json', 'resource-proof.json', 'resource-hosted.json',hosted.disk_feedback.NAME})
             self.assertNotIn('sentinel', ''.join(path.read_text() for path in public.iterdir()))
             self.assertEqual(json.loads((public / 'resource-proof.json').read_text())['state'], 'partial')
             self.assertEqual(json.loads((public / 'source.json').read_text())['run_id'], '123')
@@ -221,7 +222,8 @@ elif args[:1] not in (['build'], ['pull']):
                     with patch.dict(os.environ, {'PATH': str(root)+os.pathsep+os.environ['PATH'],
                             'DOCKER_HOST': '', 'DOCKER_TLS_VERIFY': '', 'DOCKER_CERT_PATH': '',
                             'RESOURCE_TEST_FAIL_STAGE': failure or ''}), \
-                            patch.object(hosted.runtime.ci, 'read_command', side_effect=git_boundary):
+                            patch.object(hosted.runtime.ci, 'read_command', side_effect=git_boundary), \
+                            patch.object(hosted.runtime.pilot.shutil,'disk_usage',return_value=SimpleNamespace(free=20*1024**3)):
                         if failure:
                             import subprocess
                             with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):

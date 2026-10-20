@@ -24,13 +24,14 @@ class EmailCatalog(unittest.TestCase):
         for name in ('inside.email.private', 'inside.email.operations.private', 'smtp.message.id'):
             self.assertIsNone(re.fullmatch(allowed, name))
         points = actual.split('context = "datapoint"',1)[1].split('log_statements',1)[0]
-        self.assertIn('keep_keys(attributes, ["operation", "outcome"]) where (IsMatch(metric.name, "^(inside\\\\.email', points)
+        expected = privacy_config.only(privacy_config.only('keep_keys(attributes, ["operation", "outcome"])', 'IsMatch(metric.name, '+privacy_config.literal(privacy_config.pattern(email['metrics']))+')'), 'not ('+privacy_config.TELEGRAM_SERVICE+')')
+        self.assertIn(expected, points)
         self.assertIn('smtpSend', points)
         self.assertIn('not_sent', points)
         self.assertIn('email.lane', actual)
         self.assertIn('email_operation_failed', actual)
         span = actual.split('context = "span"',1)[1].split('metric_statements',1)[0]
-        closed = [line for line in re.findall(r'`([^`]+)`',span) if line.startswith('keep_keys') and ('email.lane' in line or 'where (attributes["dependency.name"] == "smtp")' in line)]
+        closed = [line for line in re.findall(r'`([^`]+)`',span) if line.startswith('keep_keys') and ('email.lane' in line or 'attributes["dependency.name"] == "smtp"' in line)]
         self.assertEqual(len(closed),3)
         for line in closed[1:]:
             for forbidden in ('messaging.message.id','pgboss.job.retry_count','http.route','authorization','user.email'):

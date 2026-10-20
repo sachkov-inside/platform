@@ -160,7 +160,9 @@ The optional Core checkpoint callback defaults to `None`; existing Core callers 
 read commands, guards, exception arguments and rejection order. Caddy records predicate gates
 in memory and persists before existing blocking reads/witness writes and at terminal failure.
 Registration callbacks are disabled after the full witness attempt. Later scenario phases stay
-unchanged. A secondary metadata-write refusal preserves the original failure and traceback.
+unchanged. A secondary metadata-write refusal preserves the original failure and traceback. The worker saves
+the active traceback before terminal metadata persistence and restores it through the built-in
+`BaseException.with_traceback`, including when that persistence rethrows the same exception object.
 Known ownership exception types map to fixed contract/transport/timeout categories; unknown
 subclasses remain unknown. No exception text or foreign diagnostic properties are inspected.
 
