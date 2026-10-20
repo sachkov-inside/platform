@@ -1,5 +1,5 @@
-import { createApiProgress } from "../observability-tracking-storage/api-progress.mjs";
 // @ts-check
+import { createApiProgress } from "../observability-tracking-storage/api-progress.mjs";
 // Genuine loopback API -> persisted carrier -> production timer, with owned provider/PG.
 import { writeProducerWitness } from "../observability-tracking-storage/producer.mjs";
 import assert from "node:assert/strict";
@@ -138,7 +138,9 @@ export async function produce(databaseUrl, progress = () => {}) {
     const address = provider.address();
     assert.ok(address !== null && typeof address !== "string");
     const endpoint = `http://127.0.0.1:${address.port}`;
-    /** @type {{bootstrapOwnerAccount: typeof import("../../apps/backend/src/modules/accounts/features/bootstrap-owner-account/bootstrap-owner-account.js").bootstrapOwnerAccount}} */
+    // Only this fixture call shape crosses the scripts compiler boundary. Importing
+    // the implementation's type also imports the decorated PrismaModule barrel.
+    /** @type {{bootstrapOwnerAccount(prisma: import("../../apps/backend/src/infrastructure/prisma/prisma-client.js").AccountsPrismaClient, identity: {issuer: string, subject: string}, permission: "materials:manage"): Promise<{readonly accountId: string}>}} */
     // oxlint-disable-next-line typescript/no-unsafe-assignment -- Fixed compiled owning module, independently hashed.
     const accounts = await import(
       pathToFileURL(
