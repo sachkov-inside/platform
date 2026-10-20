@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 import { test } from "node:test";
 import { z } from "zod";
 import nodeReporter from "./nightly-node-reporter.mjs";
-import { planSuite } from "./run-nightly-flake-hunt.mjs";
+import { planSuite, rootNodeCommands } from "./run-nightly-flake-hunt.mjs";
 import {
   aggregate,
   normalizeVitest,
@@ -120,6 +120,54 @@ test("identically named parameterized cases retain separate outcomes and stable 
   assert.equal(issues.size, 1);
   assert.match([...issues.values()][0] ?? "", /run\/2/u);
   assert.match([...issues.values()][0] ?? "", /\[case 1\]/u);
+});
+
+test("the exact tooling build wrapper retains every native test and refuses unknown shell", () => {
+  const native = "node --test --test-concurrency=2 scripts/*.test.mjs";
+  const guarded = `bash scripts/heavy-check.sh bash -c 'pnpm --filter @inside/backend build && ${native}'`;
+  const expected = rootNodeCommands("test:tooling", native);
+  assert.deepEqual(rootNodeCommands("test:tooling", guarded), expected);
+  const workflow = readFileSync(
+    resolve(".github/workflows/nightly-flake-hunt.yml"),
+    "utf8",
+  );
+  const build = workflow.indexOf("run: pnpm build");
+  const run = workflow.indexOf("run: node scripts/run-nightly-flake-hunt.mjs");
+  assert.ok(
+    build >= 0 && run > build,
+    "nightly must build before executing the native plan",
+  );
+  assert.equal(expected.length, 1);
+  assert.equal(expected[0]?.name, "tooling");
+  assert.ok(expected[0]?.args.includes("--test-concurrency=2"));
+  assert.ok(
+    expected[0]?.args.some((arg) =>
+      arg.endsWith("observability-waitlist-storage.test.mjs"),
+    ),
+  );
+  for (const source of [
+    guarded.replace("&&", ";"),
+    guarded.replace("&&", "||"),
+    guarded.replace("@inside/backend", "@inside/web"),
+    guarded.replace(" build &&", " build --force &&"),
+    guarded.replace("node --test", "node --test --import=private.mjs"),
+    guarded + " && node --test private.mjs",
+    guarded.replace("bash -c '", 'bash -c "').slice(0, -1) + '"',
+    "bash -c 'echo private && node --test scripts/*.test.mjs'",
+    "node --test scripts/*.test.mjs; echo private",
+  ])
+    assert.throws(
+      () => rootNodeCommands("test:tooling", source),
+      /Unsupported Node test command/u,
+    );
+  assert.throws(
+    () => rootNodeCommands("test:authoring", guarded),
+    /Unsupported Node test command/u,
+  );
+  assert.throws(
+    () => rootNodeCommands("test:missing", undefined),
+    /Missing root test script/u,
+  );
 });
 
 test("unit samples use workspace package test scripts and the root native launcher", () => {

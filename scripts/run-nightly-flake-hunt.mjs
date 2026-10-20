@@ -61,16 +61,21 @@ function workspaceUnitCommands() {
 
 /** Root Node test scripts own both the launcher and file patterns.
  * Complex new shell syntax needs an explicit adapter instead of silently skipping tests.
- * @param {string} script @returns {Command[]}
+ * @param {string} script @param {string | undefined} source @returns {Command[]}
  */
-function rootNodeCommands(script) {
-  const source = readPackageManifest(resolve(root, "package.json")).scripts[
-    script
-  ];
+export function rootNodeCommands(script, source) {
   if (source === undefined)
     throw new Error(`Missing root test script: ${script}`);
   // CI runs the native launcher directly; only this known local admission prefix is removed.
-  const launcher = source.replace(/^bash scripts\/heavy-check\.sh /u, "");
+  let launcher = source.replace(/^bash scripts\/heavy-check\.sh /u, "");
+  // Nightly builds the workspace before running the plan. Ordinary test:tooling
+  // keeps its guarded backend build prerequisite and failure propagation.
+  if (
+    script === "test:tooling" &&
+    launcher ===
+      "bash -c 'pnpm --filter @inside/backend build && node --test --test-concurrency=2 scripts/*.test.mjs'"
+  )
+    launcher = "node --test --test-concurrency=2 scripts/*.test.mjs";
   return launcher.split(" && ").map((command, index) => {
     const [executable, ...tokens] = command.split(/\s+/u);
     if (
@@ -103,7 +108,11 @@ function unitCommands(script = "check:unit") {
       )?.[1];
     if (group !== undefined) return unitCommands(group);
     const rootScript = /^pnpm (test:[\w-]+)$/u.exec(command)?.[1];
-    if (rootScript !== undefined) return rootNodeCommands(rootScript);
+    if (rootScript !== undefined)
+      return rootNodeCommands(
+        rootScript,
+        readPackageManifest(resolve(root, "package.json")).scripts[rootScript],
+      );
     if (
       command === "pnpm --recursive --if-present --filter '!@inside/web' test"
     )
