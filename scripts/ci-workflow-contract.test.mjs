@@ -251,7 +251,7 @@ describe("application CI workflow contract", () => {
     assert.match(production, /part: \[cold, cache\]/u);
     assert.match(
       production,
-      /- name: Run isolated production smoke\n        if: \$\{\{ matrix.part == 'cold' \}\}/u,
+      /- name: Run isolated production smoke\n {8}if: \$\{\{ matrix.part == 'cold' \}\}/u,
     );
     assert.match(
       production,
@@ -259,7 +259,7 @@ describe("application CI workflow contract", () => {
     );
     assert.match(
       production,
-      /- name: Prove exact-source production runtime from admitted cache\n        if: \$\{\{ matrix.part == 'cache' \}\}/u,
+      /- name: Prove exact-source production runtime from admitted cache\n {8}if: \$\{\{ matrix.part == 'cache' \}\}/u,
     );
     assert.match(
       production,
