@@ -4,7 +4,10 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from "@nestjs/common";
-import { waitlistConfirmationResultSchema } from "@inside/contracts/waitlist-confirmation";
+import {
+  waitlistConfirmationResultSchema,
+  type WaitlistConfirmation,
+} from "@inside/contracts/waitlist-confirmation";
 import {
   PLATFORM_CONFIG,
   type PlatformConfig,
@@ -33,37 +36,11 @@ export class WaitlistConfirmationPump
   private schedule() {
     this.timer = setTimeout(() => {
       this.active = this.waitlists
-        .dispatchConfirmations(async (command) => {
+        .dispatchConfirmations((command) => {
           const config = this.config.communications;
-          if (!config) return "unavailable";
-          try {
-            const response = await fetch(config.endpoint, {
-              method: "POST",
-              redirect: "error",
-              signal: AbortSignal.timeout(CONFIRMATION_REQUEST_TIMEOUT_MS),
-              headers: {
-                authorization: `Bearer ${config.secret}`,
-                "content-type": "application/json",
-              },
-              body: JSON.stringify(command),
-            });
-            if (!response.ok) return "unavailable";
-            const parsed = waitlistConfirmationResultSchema.safeParse(
-              await response.json(),
-            );
-            return parsed.success && parsed.data.eventId === command.eventId
-              ? parsed.data.status
-              : "unavailable";
-          } catch (error) {
-            reportDependencyFailure(
-              {
-                module: "sales-funnel",
-                operation: "deliverWaitlistConfirmation",
-              },
-              error,
-            );
-            return "unavailable";
-          }
+          return config === undefined
+            ? Promise.resolve("unavailable" as const)
+            : deliverWaitlistConfirmation(config, command);
         })
         .catch((error: unknown) => {
           reportDependencyFailure(
@@ -81,5 +58,44 @@ export class WaitlistConfirmationPump
     this.stopped = true;
     clearTimeout(this.timer);
     await this.active;
+  }
+}
+
+/** One provider HTTP boundary, with redacted cause diagnostics for every unavailable response. */
+export async function deliverWaitlistConfirmation(
+  config: Pick<
+    NonNullable<PlatformConfig["communications"]>,
+    "endpoint" | "secret"
+  >,
+  command: WaitlistConfirmation,
+  fetcher: typeof fetch = fetch,
+): Promise<"accepted" | "suppressed" | "unavailable"> {
+  try {
+    const response = await fetcher(config.endpoint, {
+      method: "POST",
+      redirect: "error",
+      signal: AbortSignal.timeout(CONFIRMATION_REQUEST_TIMEOUT_MS),
+      headers: {
+        authorization: `Bearer ${config.secret}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(command),
+    });
+    if (!response.ok)
+      throw new Error(`Waitlist confirmation provider HTTP ${response.status}`);
+    const parsed = waitlistConfirmationResultSchema.safeParse(
+      await response.json(),
+    );
+    if (!parsed.success)
+      throw new Error("Waitlist confirmation provider malformed response");
+    if (parsed.data.eventId !== command.eventId)
+      throw new Error("Waitlist confirmation provider event mismatch");
+    return parsed.data.status;
+  } catch (error) {
+    reportDependencyFailure(
+      { module: "sales-funnel", operation: "deliverWaitlistConfirmation" },
+      error,
+    );
+    return "unavailable";
   }
 }
