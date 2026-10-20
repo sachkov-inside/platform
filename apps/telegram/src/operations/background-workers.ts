@@ -1,3 +1,4 @@
+import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";
 import { InvitationRedemption } from "../modules/subscription-activation/invitation-redemption.js";
@@ -73,6 +74,8 @@ export class BackgroundWorkers
     @Inject(StartResponseDeliveryProcessor)
     private readonly deliveries: StartResponseDeliveryProcessor,
     @Inject(AuthorDelivery) private readonly authorDelivery: AuthorDelivery,
+    @Inject(WaitlistConfirmations)
+    private readonly waitlistConfirmations: WaitlistConfirmations,
     @Inject(FunnelScheduler) private readonly funnels: FunnelScheduler,
     @Inject(InitialMembershipCheckProcessor)
     private readonly membershipChecks: InitialMembershipCheckProcessor,
@@ -127,7 +130,12 @@ export class BackgroundWorkers
               signal,
             );
             const posts = await this.authorDelivery.processAvailable();
-            return replies + posts > 0 || (await this.turnPending("general"));
+            const confirmations =
+              await this.waitlistConfirmations.processAvailable();
+            return (
+              replies + posts + confirmations > 0 ||
+              (await this.turnPending("general"))
+            );
           })
         : undefined;
 

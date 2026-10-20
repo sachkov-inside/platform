@@ -1,3 +1,7 @@
+import {
+  waitlistConfirmationSchema,
+  waitlistConfirmationResultSchema,
+} from "@inside/contracts/waitlist-confirmation";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import {
   Body,
@@ -73,8 +77,19 @@ export class ReadWaitlistAudienceController {
     summary:
       "Derive an active intake notification audience or recheck one dispatch recipient",
   })
-  @ApiBody({ schema: toOpenApiSchema(waitlistAudienceRequestSchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(waitlistAudienceResponseSchema) })
+  @ApiBody({
+    schema: toOpenApiSchema(
+      z.union([waitlistAudienceRequestSchema, waitlistConfirmationSchema]),
+    ),
+  })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      z.union([
+        waitlistAudienceResponseSchema,
+        waitlistConfirmationResultSchema,
+      ]),
+    ),
+  })
   @ApiResponse({ status: 400, content: problemDetailsContent(problemSchema) })
   @ApiResponse({ status: 401, content: problemDetailsContent(problemSchema) })
   @ApiResponse({ status: 403, content: problemDetailsContent(problemSchema) })
@@ -96,6 +111,19 @@ export class ReadWaitlistAudienceController {
         "unauthorized",
         "Service authentication required",
       );
+    const confirmation = waitlistConfirmationSchema.safeParse(body);
+    if (confirmation.success) {
+      const status = await this.waitlists.confirmationCurrent(
+        confirmation.data,
+      );
+      if (status === "unavailable")
+        throw problemException(
+          503,
+          "validation_unavailable",
+          "Waitlist confirmation unavailable",
+        );
+      return { eventId: confirmation.data.eventId, status };
+    }
     const parsed = waitlistAudienceRequestSchema.safeParse(body);
     if (!parsed.success)
       throw problemException(

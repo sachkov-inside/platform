@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-from queries import DOMAIN_CATALOG, logto_secret_inventory
+from queries import DOMAIN_CATALOG, WAITLIST_CONFIRMATIONS, logto_secret_inventory
 
 
 def check(name, passed, reason):
@@ -167,6 +167,9 @@ def verify_platform(manifest, state, record):
     timer = run(['systemctl', 'list-timers', 'inside-watchdog.timer', '--no-pager'])
     record.append(check('watchdog timer', 'inside-watchdog.timer' in timer, 'watchdog timer listed'))
     record.extend(verify_catalog(sql(DOMAIN_CATALOG)))
+    confirmations = sql(WAITLIST_CONFIRMATIONS)
+    record.append(check('waitlist confirmation relay backlog', confirmations.get('pending') == 0,
+                        'committed service confirmations accepted by provider or suppressed; not a delivery claim'))
 
 
 def verify_public_routes(record):
@@ -216,6 +219,8 @@ TELEGRAM_ERROR_COUNTERS = [
     'inside_telegram_reconciliation_degraded_total',
 ]
 TELEGRAM_HEALTH_GAUGES = [
+    'inside_telegram_waitlist_confirmation_pending',
+    'inside_telegram_waitlist_confirmation_unknown',
     'inside_telegram_community_effects_unknown', 'inside_telegram_reconciliation_due',
     'inside_telegram_reconciliation_oldest_due_seconds', 'inside_telegram_evidence_delivery_backlog',
     'inside_telegram_community_due', 'inside_telegram_community_oldest_due_seconds',
@@ -266,7 +271,7 @@ def telegram_observation_checks(before, after, logs):
               ['containerId', 'startedAt', 'restartCount']), 'same container, start time and restart count at both samples'),
         check('observation readiness', before['ready'] and after['ready'], 'ready and healthy at both samples'),
         check('observation error counters', counters, 'five finite nonnegative counters unchanged between samples; resets fail'),
-        check('observation queue gauges', gauges, 'reconciliation/community due, age, backlog and unknown gauges zero at both samples'),
+        check('observation queue gauges', gauges, 'reconciliation/community/confirmation due, age, backlog and unknown gauges zero at both samples'),
         check('observation logs', not error_logs(logs), 'no matching error log lines within the reported bounds'),
     ]
 
