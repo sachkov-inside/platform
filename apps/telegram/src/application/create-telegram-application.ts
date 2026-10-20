@@ -9,7 +9,8 @@ import { createDatabase } from "../database/create-database.js";
 import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";
 import { BackgroundWorkers } from "../operations/background-workers.js";
 import { NotificationWorker } from "../operations/notification-worker.js";
-import { disabledTelegramObservability } from "../observability/telegram-observability.js";
+import { telegramObservabilityFromEnvironment } from "../observability/telegram-telemetry-runtime.js";
+import { installTelegramHttpObservation } from "./http-observation.js";
 import type { DrainReport } from "../shared/drain-report.js";
 import {
   ApplicationClose,
@@ -27,7 +28,16 @@ export function createTelegramApplication(
   config: ApplicationConfig,
 ): TelegramApplicationHandle {
   const database = createDatabase(config.databaseUrl);
-  const telemetry = disabledTelegramObservability;
+  const mode =
+    process.env["NODE_ENV"] === "production"
+      ? "production"
+      : process.env["NODE_ENV"] === "test"
+        ? "test"
+        : "development";
+  const telemetry = telegramObservabilityFromEnvironment({
+    environment: process.env,
+    mode,
+  });
   const startupFailures: unknown[] = [];
   let adapter: FastifyAdapter | undefined;
   let http: HttpLifetime | undefined;
@@ -99,10 +109,11 @@ export function createTelegramApplication(
   const startup = (async () => {
     try {
       adapter = new FastifyAdapter({ bodyLimit: 1024 * 1024 });
+      installTelegramHttpObservation(adapter.getInstance(), telemetry);
       http = new HttpLifetime(adapter.getInstance());
       if (isClosing()) http.closeAdmission();
       application = await NestFactory.create<NestFastifyApplication>(
-        AppModule.registerManaged(config, database),
+        AppModule.registerManaged(config, database, telemetry),
         adapter,
         { abortOnError: false, logger: ["error", "warn", "log"] },
       );

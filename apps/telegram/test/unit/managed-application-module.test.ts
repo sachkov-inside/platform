@@ -1,4 +1,8 @@
 import { expect, it } from "vitest";
+import {
+  TELEGRAM_OBSERVABILITY,
+  disabledTelegramObservability,
+} from "../../src/observability/telegram-observability.js";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
@@ -24,7 +28,19 @@ it("managed composition installs one supplied database and no independent destro
   const database = createDatabase(config.databaseUrl);
   try {
     const providers =
-      AppModule.registerManaged(config, database).providers ?? [];
+      AppModule.registerManaged(config, database, disabledTelegramObservability)
+        .providers ?? [];
+    expect(
+      providers.filter(
+        (provider) =>
+          "provide" in provider && provider.provide === TELEGRAM_OBSERVABILITY,
+      ),
+    ).toEqual([
+      {
+        provide: TELEGRAM_OBSERVABILITY,
+        useValue: disabledTelegramObservability,
+      },
+    ]);
     expect(
       providers.filter((provider) => provider === DatabaseLifecycle),
     ).toHaveLength(0);

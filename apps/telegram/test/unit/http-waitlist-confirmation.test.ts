@@ -1,3 +1,6 @@
+import { ExportResultCode } from "@opentelemetry/core";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import { createTelegramObservability } from "../../src/observability/telegram-sdk.js";
 import { randomUUID } from "node:crypto";
 import { expect, test, vi } from "vitest";
 import { HttpWaitlistConfirmationAdapter } from "../../src/adapters/platform/http-waitlist-confirmation.adapter.js";
@@ -47,4 +50,65 @@ test("receipt dispatch authorization binds the service response to its exact eve
     Response.json({ eventId: command.eventId, status: "suppressed" }),
   );
   expect(await adapter.current(command)).toBe("suppressed");
+});
+
+test("actual authorization exports one CLIENT child of the persisted receipt and sends only its canonical carrier", async () => {
+  const spans: ReadableSpan[] = [];
+  const telemetry = createTelegramObservability({
+    identity: {
+      release: "test",
+      sourceSha: "0000000000000000000000000000000000000000",
+    },
+    mode: "test",
+    sampleRatio: 1,
+    exporters: {
+      spans: {
+        export: (batch, callback) => {
+          spans.push(...batch);
+          callback({ code: ExportResultCode.SUCCESS });
+        },
+        shutdown: () => Promise.resolve(),
+      },
+      metrics: {
+        export: (_batch, callback) =>
+          callback({ code: ExportResultCode.SUCCESS }),
+        forceFlush: () => Promise.resolve(),
+        shutdown: () => Promise.resolve(),
+      },
+    },
+  });
+  const fetcher = vi.fn<typeof fetch>(() =>
+    Promise.resolve(
+      Response.json({ eventId: command.eventId, status: "accepted" }),
+    ),
+  );
+  const adapter = new HttpWaitlistConfirmationAdapter(
+    "https://platform.test/authorize/",
+    "synthetic-secret",
+    fetcher,
+    telemetry,
+  );
+  try {
+    expect(
+      await adapter.current(
+        command,
+        "00-1234567890abcdef1234567890abcdef-1234567890abcdef-00",
+      ),
+    ).toBe("accepted");
+  } finally {
+    await telemetry.shutdown();
+  }
+  expect(spans).toHaveLength(1);
+  const span = spans[0]!;
+  expect(span.name).toBe("platform waitlist.confirm");
+  expect(span.kind).toBe(2);
+  expect(span.parentSpanContext?.spanId).toBe("1234567890abcdef");
+  expect(span.spanContext().traceId).toBe("1234567890abcdef1234567890abcdef");
+  expect(span.attributes["http.response.status_code"]).toBe(200);
+  expect(span.attributes["telegram.outcome"]).toBe("accepted");
+  expect(fetcher.mock.calls[0]?.[1]?.headers).toEqual({
+    authorization: "Bearer synthetic-secret",
+    "content-type": "application/json",
+    traceparent: `00-1234567890abcdef1234567890abcdef-${span.spanContext().spanId}-01`,
+  });
 });

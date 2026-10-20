@@ -1,3 +1,6 @@
+// deterministic-test-allow unit-io: owned native collector proves factory SDK cleanup order; existing1000ms exporter budget and finally closes receiver.
+import { createServer, type ServerResponse } from "node:http";
+import { once } from "node:events";
 import { NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { Kysely } from "kysely";
@@ -9,7 +12,10 @@ import { createTelegramApplication } from "../../src/application/create-telegram
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { deferred } from "../support/deferred.js";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 it("exposes cached close before failed Nest acquisition and destroys its real lazy database exactly once", async () => {
   const config = configuration();
@@ -101,5 +107,61 @@ it("closes newly acquired real Nest owners before init/listen when startup was a
     release.resolve();
     await observed;
     await closing;
+  }
+});
+
+it("failed managed Nest acquisition flushes its actual SDK before destroying the database", async () => {
+  const metricsSeen = deferred();
+  const acquisition = deferred<NestFastifyApplication>();
+  const original = new Error("synthetic failed managed acquisition");
+  let pending: ServerResponse | undefined;
+  const receiver = createServer((request, response) => {
+    request.resume();
+    request.once("end", () => {
+      pending = response;
+      response.writeHead(200, { "content-type": "application/json" });
+      metricsSeen.resolve();
+    });
+  });
+  let handle: ReturnType<typeof createTelegramApplication> | undefined;
+  let observed: Promise<unknown> | undefined;
+  vi.spyOn(NestFactory, "create").mockReturnValue(acquisition.promise);
+  const destroy = vi.spyOn(Kysely.prototype, "destroy");
+  try {
+    receiver.listen(0, "127.0.0.1");
+    await once(receiver, "listening");
+    const address = receiver.address();
+    if (address === null || typeof address === "string")
+      throw new Error("Owned collector address unavailable");
+    for (const key of Object.keys(process.env))
+      if (key.startsWith("OTEL_EXPORTER_OTLP")) vi.stubEnv(key, undefined);
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("INSIDE_OTEL_ENABLED", "true");
+    vi.stubEnv("INSIDE_OTEL_ENDPOINT", `http://127.0.0.1:${address.port}`);
+    handle = createTelegramApplication(configuration());
+    observed = handle.application.catch((error: unknown) => error);
+    acquisition.reject(original);
+    const first = await Promise.race([
+      metricsSeen.promise.then(() => "telemetry"),
+      observed.then(() => "startup"),
+    ]);
+    expect(first).toBe("telemetry");
+    expect(destroy).not.toHaveBeenCalled();
+    pending?.end("{}");
+    expect(await observed).toBe(original);
+    expect(destroy).toHaveBeenCalledOnce();
+    const closing = handle.close();
+    expect(handle.close()).toBe(closing);
+    await expect(closing).rejects.toBe(original);
+  } finally {
+    acquisition.reject(original);
+    pending?.end("{}");
+    await observed;
+    await handle?.close().catch(() => undefined);
+    await new Promise<void>((resolve, reject) =>
+      receiver.close((error) =>
+        error === undefined ? resolve() : reject(error),
+      ),
+    );
   }
 });

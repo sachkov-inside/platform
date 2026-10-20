@@ -1,5 +1,7 @@
 import type { TelegramDeliveryResult } from "../modules/outbound/telegram-messages.js";
 
+export const TELEGRAM_OBSERVABILITY = Symbol("TELEGRAM_OBSERVABILITY");
+
 export interface WaitlistHttpObservation {
   traceparent(): string | undefined;
   response(status: number): void;

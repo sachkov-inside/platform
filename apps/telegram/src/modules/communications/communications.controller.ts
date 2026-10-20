@@ -1,3 +1,5 @@
+import type { FastifyRequest } from "fastify";
+import { admitInternalWaitlistParent } from "../../observability/internal-waitlist-parent.js";
 import { waitlistConfirmationSchema } from "@inside/contracts/waitlist-confirmation";
 import {
   WaitlistConfirmations,
@@ -14,6 +16,7 @@ import {
   HttpException,
   Inject,
   Post,
+  Req,
 } from "@nestjs/common";
 import {
   APPLICATION_CONFIG,
@@ -44,13 +47,17 @@ export class CommunicationsController {
   async execute(
     @Headers("authorization") authorization: string | undefined,
     @Body() body: unknown,
+    @Req() request: FastifyRequest,
   ) {
     try {
       if (!bearerMatches(authorization, this.config.communicationsSecret))
         throw new CommunicationsError("unauthorized");
       const confirmation = waitlistConfirmationSchema.safeParse(body);
       if (confirmation.success)
-        return await this.waitlistConfirmations.receive(confirmation.data);
+        return await this.waitlistConfirmations.receive(
+          confirmation.data,
+          admitInternalWaitlistParent(request.raw.rawHeaders),
+        );
       if (!validRequest(body)) throw new CommunicationsError("malformed");
       return {
         contractVersion: COMMUNICATIONS_VERSION,

@@ -1,3 +1,8 @@
+import {
+  TELEGRAM_OBSERVABILITY,
+  disabledTelegramObservability,
+  type TelegramObservability,
+} from "./observability/telegram-observability.js";
 import { MaterialAnnouncements } from "./modules/communications/material-announcements.js";
 import {
   MATERIAL_ANNOUNCEMENT_SOURCE,
@@ -165,13 +170,15 @@ export class AppModule {
   static registerManaged(
     config: ApplicationConfig,
     database: Database,
+    telemetry: TelegramObservability,
   ): DynamicModule {
-    return this.compose(config, database);
+    return this.compose(config, database, telemetry);
   }
 
   private static compose(
     config: ApplicationConfig,
     database?: Database,
+    telemetry: TelegramObservability = disabledTelegramObservability,
   ): DynamicModule {
     return {
       module: AppModule,
@@ -185,12 +192,17 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        { provide: TELEGRAM_OBSERVABILITY, useValue: telemetry },
         {
           provide: WAITLIST_CONFIRMATION_AUTHORIZATION,
-          useValue: new HttpWaitlistConfirmationAdapter(
-            config.platformAuthorAuthorizationUrl,
-            config.platformAuthorAuthorizationSecret,
-          ),
+          inject: [TELEGRAM_OBSERVABILITY],
+          useFactory: (telemetry: TelegramObservability) =>
+            new HttpWaitlistConfirmationAdapter(
+              config.platformAuthorAuthorizationUrl,
+              config.platformAuthorAuthorizationSecret,
+              fetch,
+              telemetry,
+            ),
         },
         {
           provide: WaitlistConfirmations,
@@ -200,6 +212,7 @@ export class AppModule {
             CLOCK,
             WAITLIST_CONFIRMATION_AUTHORIZATION,
             COMMUNICATION_TRANSPORT,
+            TELEGRAM_OBSERVABILITY,
           ],
           useFactory: (
             database: Database,
@@ -207,6 +220,7 @@ export class AppModule {
             clock: Clock,
             authorization: WaitlistConfirmationAuthorization,
             transport: CommunicationTransport,
+            telemetry: TelegramObservability,
           ) =>
             new WaitlistConfirmations(
               database,
@@ -214,6 +228,7 @@ export class AppModule {
               clock,
               authorization,
               transport,
+              telemetry,
             ),
         },
 
