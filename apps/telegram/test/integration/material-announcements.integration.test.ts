@@ -1,3 +1,4 @@
+import { closeIfStarted } from "../support/close-if-started.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
 import {
@@ -94,11 +95,14 @@ beforeAll(async () => {
   );
   await app.init();
 });
-beforeEach(async () => {
+async function clearHistory() {
   await sql`truncate communication_broadcasts, communication_contacts, communication_preferences, bot_contacts, bot_contact_events,
     telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates cascade`.execute(
     db,
   );
+}
+beforeEach(async () => {
+  await clearHistory();
   now = new Date(instant);
   item = {
     announcementRef: randomUUID(),
@@ -121,7 +125,11 @@ beforeEach(async () => {
       ),
     );
   transport.send.mockClear();
-  Object.assign(config, { materialAnnouncements: { mode: "all" } });
+  Object.assign(config, {
+    materialAnnouncements: { mode: "all" },
+    platformTrackingRedirectUrl: undefined,
+    platformTrackingTargetPrefixes: undefined,
+  });
   announcements = new MaterialAnnouncements(db, config, source, clock);
   scheduler = new FunnelScheduler(
     db,
@@ -149,9 +157,13 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   try {
-    await app.close();
+    await clearHistory();
   } finally {
-    await db.destroy();
+    try {
+      await closeIfStarted(app);
+    } finally {
+      await db.destroy();
+    }
   }
 });
 async function tick() {
@@ -289,4 +301,18 @@ test("concurrent planners commit one audience snapshot", async () => {
       .where("kind", "=", "broadcast")
       .execute(),
   ).toHaveLength(2);
+});
+
+test("preview retains the public reader URL while the button uses its tracked link", async () => {
+  Object.assign(config, {
+    platformTrackingRedirectUrl: "https://inside.example/communications/visit",
+    platformTrackingTargetPrefixes: ["https://inside.example/materials/"],
+  });
+  await tick();
+  await tick();
+  const message = transport.send.mock.calls[0]?.[0];
+  expect(message?.linkPreviewUrl).toBe(item.url);
+  expect(message?.content.buttons[0]?.url).toMatch(
+    /^https:\/\/inside\.example\/communications\/visit\?token=/u,
+  );
 });

@@ -90,6 +90,7 @@ type Claim = {
   content: TemplateContent;
   waitlist?: WaitlistDispatchQuery;
   materialAnnouncement?: string;
+  materialPreviewUrl?: string | undefined;
 };
 // `capacity_busy`: the bot's shared lane or fairness turn refuses every chat, so stop scanning.
 // `released`: a locked contact turned out unsendable; commit now so its /start never waits
@@ -226,10 +227,7 @@ export class FunnelScheduler {
         result = await this.transport.send({
           chatId: claimed.chatId,
           content: claimed.content,
-          linkPreviewUrl:
-            claimed.materialAnnouncement === undefined
-              ? undefined
-              : claimed.content.buttons[0]?.url,
+          linkPreviewUrl: claimed.materialPreviewUrl,
           offerStart: claimed.delivery.kind === "fallback",
         });
       } catch (error) {
@@ -634,7 +632,12 @@ export class FunnelScheduler {
       kind: "claimed",
       claim: {
         startedAt: now,
-        ...(materialAnnouncement === undefined ? {} : { materialAnnouncement }),
+        ...(materialAnnouncement === undefined
+          ? {}
+          : {
+              materialAnnouncement,
+              materialPreviewUrl: content.buttons[0]?.url,
+            }),
         ...(waitlistQuery === undefined ? {} : { waitlist: waitlistQuery }),
         delivery,
         attemptId,
