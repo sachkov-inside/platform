@@ -282,6 +282,8 @@ signal.signal(signal.SIGTERM, interrupt)
 create = subprocess.Popen
 def register(*args, **kwargs):
     child = create(*args, **kwargs)
+    if kwargs.get('start_new_session') is not True:
+        return child
     try:
         path = pathlib.Path(sys.argv[4])
         path.with_suffix('.new').write_text(json.dumps({'pid': child.pid, 'group': child.pid}))
