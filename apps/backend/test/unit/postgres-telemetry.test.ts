@@ -4,7 +4,8 @@ import {
   AggregationTemporality,
   InMemoryMetricExporter,
 } from "@opentelemetry/sdk-metrics";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+import { Client, Pool, type PoolClient } from "pg";
 import {
   beginPostgresObservation,
   createTechnicalTelemetry,
@@ -514,4 +515,130 @@ test("pool sources belong to their active runtime, including worker scope, and s
       disabled.shutdown(),
     ]);
   }
+});
+
+test("owned pg decoration preserves native Promise, callback and synchronous error identity and release", async (context) => {
+  const { createPrismaPgAdapter } =
+    await import("../../src/infrastructure/prisma/prisma-adapter.js");
+  const failure = new Error("private-native-driver-error-sentinel");
+  const release = vi.fn<PoolClient["release"]>();
+  const client: PoolClient = Object.assign(new Client(), { release });
+  let mode: "promise" | "callback" | "synchronous" = "promise";
+  const nativeQuery = vi
+    .spyOn(client, "query")
+    .mockImplementation((...args: unknown[]): unknown => {
+      if (mode === "synchronous") throw failure;
+      if (mode === "promise") return Promise.reject(failure);
+      const callback = args.at(-1);
+      if (typeof callback !== "function")
+        throw new Error("Callback contract expected");
+      queueMicrotask(() => {
+        Reflect.apply(callback, client, [failure, undefined]);
+      });
+      return undefined;
+    });
+  context.onTestFinished(() => nativeQuery.mockRestore());
+  const connect = vi
+    .spyOn(Pool.prototype, "connect")
+    .mockImplementation(
+      (callback?: Parameters<Pool["connect"]>[0]): unknown => {
+        if (callback === undefined) return Promise.resolve(client);
+        callback(undefined, client, release);
+        return undefined;
+      },
+    );
+  context.onTestFinished(() => connect.mockRestore());
+  const spans = new InMemorySpanExporter();
+  const telemetry = createTechnicalTelemetry({
+    enabled: true,
+    service: "platform-api",
+    environment: "test",
+    release: "proof",
+    sampleRatio: 1,
+    exporters: {
+      spans,
+      metrics: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
+    },
+  });
+  context.onTestFinished(() => telemetry.shutdown());
+  const adapter = await createPrismaPgAdapter(
+    "postgresql://unused.invalid/private-database",
+  ).connect();
+  context.onTestFinished(() => adapter.dispose());
+  const root = telemetry.startHttp({ method: "GET", route: "/proof" });
+  const acquired = await root.run(() => adapter.underlyingDriver().connect());
+  expect(acquired).toBe(client);
+  const actualRelease: unknown = Reflect.get(acquired, "release");
+  expect(actualRelease).toBe(release);
+  const descriptor = Object.getOwnPropertyDescriptor(acquired, "query");
+  expect(descriptor).toMatchObject({
+    configurable: true,
+    enumerable: false,
+    writable: true,
+  });
+  await expect(
+    root.run(() => acquired.query("private-query-sentinel")),
+  ).rejects.toBe(failure);
+  mode = "callback";
+  let callbackReturn: unknown;
+  const callbackReceivers: unknown[] = [];
+  const callbackFailure = new Promise<unknown>((resolve) => {
+    callbackReturn = root.run(() =>
+      acquired.query(
+        "private-query-sentinel",
+        function (this: unknown, error: Error) {
+          callbackReceivers.push(this);
+          resolve(error);
+        },
+      ),
+    );
+  });
+  expect(callbackReturn).toBeUndefined();
+  expect(await callbackFailure).toBe(failure);
+  expect(callbackReceivers).toEqual([client]);
+  mode = "synchronous";
+  let thrown: unknown;
+  try {
+    void root.run(() => acquired.query("private-query-sentinel"));
+  } catch (error) {
+    thrown = error;
+  }
+  expect(thrown).toBe(failure);
+  acquired.release();
+  expect(release).toHaveBeenCalledTimes(1);
+  const queryIdentity: unknown = Reflect.get(acquired, "query");
+  let callbackCalled = false;
+  const callbackConnectReturn = root.run(() =>
+    adapter.underlyingDriver().connect((error, value, done) => {
+      callbackCalled = true;
+      expect(error).toBeUndefined();
+      expect(value).toBe(client);
+      expect(done).toBe(release);
+      expect(Reflect.get(client, "query")).toBe(queryIdentity);
+      done();
+    }),
+  );
+  expect(callbackCalled).toBe(true);
+  expect(callbackConnectReturn).toBeUndefined();
+  expect(release).toHaveBeenCalledTimes(2);
+  root.finish(500, 1);
+  await telemetry.flush();
+  expect(
+    spans.getFinishedSpans().filter((span) => span.name === "postgresql query"),
+  ).toHaveLength(3);
+  expect(
+    spans
+      .getFinishedSpans()
+      .filter((span) => span.name === "postgresql query")
+      .every((span) => span.attributes["dependency.outcome"] === "failed"),
+  ).toBe(true);
+  expect(
+    JSON.stringify(
+      spans.getFinishedSpans().map((span) => ({
+        attributes: span.attributes,
+        events: span.events,
+        status: span.status,
+      })),
+    ),
+  ).not.toContain("private-");
 });
