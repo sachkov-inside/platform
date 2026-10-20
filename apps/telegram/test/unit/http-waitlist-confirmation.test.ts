@@ -99,7 +99,8 @@ test("actual authorization exports one CLIENT child of the persisted receipt and
     await telemetry.shutdown();
   }
   expect(spans).toHaveLength(1);
-  const span = spans[0]!;
+  const span = spans[0];
+  if (span === undefined) throw new Error("Expected one authorization span");
   expect(span.name).toBe("platform waitlist.confirm");
   expect(span.kind).toBe(2);
   expect(span.parentSpanContext?.spanId).toBe("1234567890abcdef");
