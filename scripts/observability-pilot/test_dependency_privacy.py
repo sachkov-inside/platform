@@ -31,7 +31,7 @@ class DependencyCatalog(unittest.TestCase):
         self.assertNotIn('http.response.status_code',dependency[0])
         self.assertNotIn('http.request.method',dependency[0])
         self.assertNotIn('inside[.]postgresql',dependency[0])
-        pool=[line for line in re.findall(r'`([^`]+)`',points) if line.startswith('keep_keys(attributes, [])')]
+        pool=[line for line in re.findall(r'`([^`]+)`',points) if line.startswith('keep_keys(attributes, [])') and 'not ('+privacy_config.TELEGRAM_SERVICE+')' in line]
         self.assertEqual(len(pool),1)
         expression=json.loads(re.search(r'IsMatch\(metric.name, ("(?:\\.|[^"\\])*")\)',pool[0])[1])
         for suffix in ('available','total','idle','waiting','registry_overflow'):

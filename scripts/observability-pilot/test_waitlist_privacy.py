@@ -14,7 +14,7 @@ class WaitlistPrivacyContract(unittest.TestCase):
             'metrics': ['inside.waitlist.operations', 'inside.waitlist.duration']})
         self.assertNotIn('deliver', policy['operations'])
         actual = privacy_config.render()
-        metric_filter = re.search(r'metric = \[`not IsMatch\(name, ("(?:\\.|[^"\\])*")\)`\]', actual)[1]
+        metric_filter = re.search(r'metric = \[`not IsMatch\(name, ("(?:\\.|[^"\\])*")\)', actual)[1]
         expression = json.loads(metric_filter)
         for name in ('inside.waitlist.operations', 'inside.waitlist.duration'):
             self.assertRegex(name, expression)
@@ -25,6 +25,7 @@ class WaitlistPrivacyContract(unittest.TestCase):
         span = privacy_config.render().split('context = "span"', 1)[1].split('metric_statements', 1)[0]
         statements = re.findall(r'`([^`]+)`', span)
         keep = 'keep_keys(attributes, ["waitlist.operation", "waitlist.outcome"]) where (attributes["waitlist.operation"] != nil or attributes["waitlist.outcome"] != nil)'
+        keep = privacy_config.only(keep, 'not ('+privacy_config.TELEGRAM_SERVICE+')')
         self.assertIn(keep, statements)
         for key, values in (('waitlist.operation', ['deliver', 'authorize']), ('waitlist.outcome', ['completed', 'failed'])):
             rules = [rule for rule in statements if rule.startswith('set(attributes["'+key+'"], "_OTHER")')]
@@ -38,6 +39,7 @@ class WaitlistPrivacyContract(unittest.TestCase):
                     self.assertIsNone(re.fullmatch(expression, value))
             self.assertTrue(any('not IsString' in rule for rule in rules))
         rename = 'set(name, Concat(["waitlist", attributes["waitlist.operation"]], " ")) where attributes["waitlist.operation"] != nil'
+        rename = privacy_config.only(rename, 'not ('+privacy_config.TELEGRAM_SERVICE+')')
         self.assertIn(rename, statements)
         self.assertLess(statements.index(keep), statements.index(rename))
 
