@@ -1622,3 +1622,10 @@ PostgreSQL provider and is acknowledged, or fails before commit and is re-delive
 They inspect actual queue consumers and retrieve a new confirmed message after terminal `open`,
 without a duration-based absence claim. These cases are not locally executed native evidence.
 Blocked connection opening and original publication/confirm still require separate scenarios.
+
+A further genuine RabbitMQ case prepares terminal stop while native TCP admission is held before
+the AMQP handshake completes. Its test-only opening gate forwards through native sockets after
+release and captures no payloads. Owned echo-peer tests verify only that TCP gate and its cleanup.
+The genuine broker case must complete against hosted RabbitMQ, leave both queues without consumers
+and refuse another connection after terminal drain. The broker's existing connection timeout stays
+unchanged. Native AMQP execution is not established by the echo-peer results.

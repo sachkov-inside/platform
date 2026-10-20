@@ -1,3 +1,4 @@
+import { createTcpOpeningGate } from "../support/tcp-opening-gate.js";
 import { deferred } from "../support/deferred.js";
 import { runtimeTestClock } from "../support/fixed-clock.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
@@ -204,6 +205,99 @@ afterAll(async () => {
   await db.destroy();
 }, 30000);
 describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
+  it("settles a genuine AMQP opening after terminal stop without installing consumers or reopening", async () => {
+    let gate: Awaited<ReturnType<typeof createTcpOpeningGate>> | undefined;
+    let broker: NotificationBroker | undefined;
+    const failures: unknown[] = [];
+    let firstFailureStage: string | undefined;
+    let cleanupFailures = 0;
+    let stage = "acquisition";
+    try {
+      const endpoint = new URL(url(users.provider));
+      const openedGate = await createTcpOpeningGate({
+        host: endpoint.hostname,
+        port: Number(endpoint.port === "" ? "5672" : endpoint.port),
+      });
+      gate = openedGate;
+      endpoint.hostname = "127.0.0.1";
+      endpoint.port = String(openedGate.port);
+      const ownedBroker = new NotificationBroker(
+        endpoint.toString(),
+        provider,
+        2,
+        () => undefined,
+      );
+      broker = ownedBroker;
+      brokers.push(ownedBroker);
+      const opening = ownedBroker.open();
+      void opening.catch(() => undefined);
+      stage = "native_tcp_admission";
+      await Promise.race([
+        openedGate.admitted,
+        opening.then(() => {
+          throw new Error("AMQP opening completed before gate release");
+        }),
+      ]);
+      expect(openedGate.acceptedCount()).toBe(1);
+      ownedBroker.beginStop();
+      const draining = ownedBroker.drain();
+      expect(ownedBroker.isQuiescent()).toBe(false);
+      stage = "native_amqp_release";
+      openedGate.release();
+      await opening;
+      expect(await draining).toEqual({ quiescent: true, failures: [] });
+      expect(ownedBroker.isQuiescent()).toBe(true);
+      stage = "terminal_reopen";
+      await ownedBroker.open();
+      expect(openedGate.acceptedCount()).toBe(1);
+      expect(ownedBroker.connected).toBe(false);
+      const admin = await connection();
+      const inspector = await admin.createChannel();
+      for (const category of ["subscription", "material"] as const)
+        expect(
+          (await inspector.checkQueue(`telegram.notifications.${category}.v1`))
+            .consumerCount,
+        ).toBe(0);
+    } catch (error: unknown) {
+      failures.push(error);
+      firstFailureStage ??= stage;
+    } finally {
+      gate?.release();
+      for (const [label, cleanup] of [
+        [
+          "cleanup_broker",
+          async () => {
+            await broker?.drain();
+          },
+        ],
+        [
+          "cleanup_tcp_gate",
+          async () => {
+            await gate?.close();
+          },
+        ],
+      ] as const) {
+        try {
+          await cleanup();
+        } catch (error: unknown) {
+          failures.push(error);
+          firstFailureStage ??= label;
+          cleanupFailures += 1;
+        }
+      }
+    }
+    if (failures.length > 0)
+      throw new Error(
+        JSON.stringify({
+          proof: "telegram_rabbit_terminal_open",
+          outcome: "failed",
+          stage: firstFailureStage,
+          failures: failures.length,
+          cleanup_failures: cleanupFailures,
+        }),
+      );
+  }, 25_000);
+
   for (const outcome of ["commit", "reject"] as const)
     it(`terminal drain preserves admitted inbox work and cannot reopen (${outcome})`, async () => {
       const release = deferred();
