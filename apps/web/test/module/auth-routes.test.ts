@@ -238,6 +238,29 @@ describe("Logto BFF route orchestration", () => {
     );
   });
 
+  it("preserves explicit existing-account method selection and the Telegram continuation", async () => {
+    const response = await signIn(
+      new Request("https://inside.example.test/auth/sign-in", {
+        method: "POST",
+        headers: {
+          origin: "https://inside.example.test",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          entry: "account-choice",
+          returnTo: "/telegram/continue?attempt=fixture",
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(fakes.handleSignIn).toHaveBeenCalledWith({
+      redirectUri: "https://inside.example.test/callback",
+      prompt: ["login", "consent"],
+      postRedirectUri:
+        "https://inside.example.test/telegram/continue?attempt=fixture",
+    });
+  });
+
   it("establishes the Account after the SDK callback", async () => {
     const response = await callback(
       new Request("http://localhost:3000/callback?code=opaque&state=opaque"),

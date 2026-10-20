@@ -73,6 +73,7 @@ export function TelegramContinuationPage({
           </p>
           <form action="/auth/sign-in" method="post">
             <input name="returnTo" type="hidden" value={returnTo} />
+            <input name="entry" type="hidden" value="account-choice" />
             <Button type="submit">Войти через Telegram или почту</Button>
           </form>
           <p className="text-sm text-muted-foreground">

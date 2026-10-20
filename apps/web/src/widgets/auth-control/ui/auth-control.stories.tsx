@@ -28,7 +28,7 @@ export const Guest: Story = {
     const canvas = within(canvasElement);
     await expect(
       canvas
-        .getByRole("button", { name: "Войти через Telegram", exact: true })
+        .getByRole("button", { name: "Войти через Telegram" })
         .closest("form"),
     ).toHaveAttribute("action", "/auth/sign-in");
   },
