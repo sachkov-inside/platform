@@ -1,3 +1,4 @@
+import { WaitlistConfirmations } from "../../src/modules/communications/waitlist-confirmations.js";
 import {
   contactLock,
   schedulerLock,
@@ -114,7 +115,7 @@ beforeAll(async () => {
   await app.getHttpAdapter().getInstance().ready();
 });
 async function clearOwnedHistory() {
-  await sql`truncate communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_funnels, communication_intro, platform_links, link_transactions cascade`.execute(
+  await sql`truncate waitlist_confirmations, communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_funnels, communication_intro, platform_links, link_transactions cascade`.execute(
     database,
   );
 }
@@ -780,3 +781,239 @@ test("a recovered lease cannot send or become pending after delayed final eligib
     statistics: { deliveries: { pending: 0, unknown: 1, sent: 0 } },
   });
 });
+
+test("a service confirmation is idempotent and never resends an unknown Telegram effect", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  const authorization = { current: () => Promise.resolve("accepted" as const) };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  );
+  await receipts.receive(confirmation);
+  await receipts.receive(confirmation);
+  transport.send.mockResolvedValueOnce({ kind: "transport_unknown" });
+  await receipts.processAvailable();
+  currentTime = new Date(instant.getTime() + 120_000);
+  await receipts.processAvailable();
+  expect(transport.send).toHaveBeenCalledTimes(1);
+  expect(await receipts.snapshot()).toMatchObject({ unknown: 1 });
+  expect((await app.inject({ method: "GET", url: "/metrics" })).body).toContain(
+    "inside_telegram_waitlist_confirmation_unknown 1",
+  );
+  expect(transport.send).toHaveBeenCalledWith({
+    chatId: "42",
+    content: {
+      type: "text",
+      text: "Вы находитесь в списке ожидания.",
+      entities: [],
+      buttons: [],
+    },
+  });
+});
+
+test("fixed service receipts require service authentication and reject caller text, recipients and conflicting replays", async () => {
+  const payload = {
+    contractVersion: "inside.waitlist-confirmation.v1",
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  const post = (body: object, authorization?: string) =>
+    app.inject({
+      method: "POST",
+      url: "/integrations/platform/v1/communications",
+      headers: authorization === undefined ? {} : { authorization },
+      payload: body,
+    });
+  expect((await post(payload)).statusCode).toBe(401);
+  expect((await post(payload, "Bearer foreign-secret")).statusCode).toBe(401);
+  const authorization = `Bearer ${config.communicationsSecret}`;
+  expect(
+    (await post({ ...payload, text: "Injected text" }, authorization))
+      .statusCode,
+  ).toBe(400);
+  expect(
+    (await post({ ...payload, chatId: "43" }, authorization)).statusCode,
+  ).toBe(400);
+  expect((await post(payload, authorization)).json()).toEqual({
+    eventId: payload.eventId,
+    status: "accepted",
+  });
+  expect((await post(payload, authorization)).statusCode).toBe(200);
+  expect(
+    (await post({ ...payload, accountRef: "other-account" }, authorization))
+      .statusCode,
+  ).toBe(409);
+  expect(transport.send).not.toHaveBeenCalled();
+});
+
+test.each(["withdrawn", "transferred"])(
+  "a queued receipt is suppressed after %s instead of asserting stale membership",
+  async (reason) => {
+    await app.get(BotContacts).observeStart(
+      {
+        botIdentity: "inside",
+        telegramUserId: "42",
+        privateChatId: "42",
+        updateId: "1",
+        observedAt: instant,
+      },
+      "none",
+    );
+    const confirmation = {
+      contractVersion: "inside.waitlist-confirmation.v1" as const,
+      eventId: randomUUID(),
+      intakeId,
+      ...member,
+      linkRevision: 1,
+    };
+    const authorization = {
+      current: vi.fn(() => Promise.resolve("suppressed" as const)),
+    };
+    const receipts = new WaitlistConfirmations(
+      database,
+      { ...config, deliveryMode: "live" },
+      clock,
+      authorization,
+      transport,
+    );
+    await receipts.receive(confirmation);
+    if (reason === "transferred")
+      await database
+        .updateTable("platform_links")
+        .set({ account_ref: "new-account" })
+        .where("telegram_identity_ref", "=", member.telegramIdentityRef)
+        .execute();
+    expect(await receipts.processAvailable()).toBe(1);
+    expect(transport.send).not.toHaveBeenCalled();
+  },
+);
+
+test("service receipt safely retries known rate limits and preserves uncertain attempts across worker restart", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  const authorization = { current: () => Promise.resolve("accepted" as const) };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  );
+  await receipts.receive(confirmation);
+  transport.send.mockResolvedValueOnce({
+    kind: "api_retryable",
+    providerErrorCode: 429,
+    retryAfterSeconds: 2,
+  });
+  await receipts.processAvailable();
+  currentTime = new Date(instant.getTime() + 3_000);
+  await new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  ).processAvailable();
+  expect(transport.send).toHaveBeenCalledTimes(2);
+  await receipts.processAvailable();
+  expect(transport.send).toHaveBeenCalledTimes(2);
+});
+
+test("an abandoned sending lease remains unknown and a late worker cannot turn it into a resend", async () => {
+  await app.get(BotContacts).observeStart(
+    {
+      botIdentity: "inside",
+      telegramUserId: "42",
+      privateChatId: "42",
+      updateId: "1",
+      observedAt: instant,
+    },
+    "none",
+  );
+  const confirmation = {
+    contractVersion: "inside.waitlist-confirmation.v1" as const,
+    eventId: randomUUID(),
+    intakeId,
+    ...member,
+    linkRevision: 1,
+  };
+  const authorization = { current: () => Promise.resolve("accepted" as const) };
+  const receipts = new WaitlistConfirmations(
+    database,
+    { ...config, deliveryMode: "live" },
+    clock,
+    authorization,
+    transport,
+  );
+  await receipts.receive(confirmation);
+  const started = deferredResult<boolean>();
+  const outcome = deferredResult<TelegramDeliveryResult>();
+  transport.send.mockImplementationOnce(() => {
+    started.resolve(true);
+    return outcome.promise;
+  });
+  const first = receipts.processAvailable();
+  try {
+    await started.promise;
+    expect(await receipts.snapshot()).toMatchObject({ sending: 1 });
+    currentTime = new Date(instant.getTime() + 61_000);
+    await new WaitlistConfirmations(
+      database,
+      { ...config, deliveryMode: "live" },
+      clock,
+      authorization,
+      transport,
+    ).processAvailable();
+  } finally {
+    outcome.resolve({ kind: "delivered", providerMessageId: "late-synthetic" });
+    await first;
+  }
+  expect(await receipts.snapshot()).toMatchObject({ unknown: 1 });
+  expect(transport.send).toHaveBeenCalledTimes(1);
+});
+
+function deferredResult<Value>() {
+  let resolve: (value: Value) => void = () => {
+    throw new Error("Deferred resolver not initialized");
+  };
+  const promise = new Promise<Value>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}

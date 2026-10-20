@@ -267,6 +267,7 @@ describe("Platform migrations", () => {
         "0098_material_task",
         "0099_chapter_supplementary_materials",
         "0100_product_waitlists",
+        "0101_waitlist_confirmations",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -295,6 +296,7 @@ describe("Platform migrations", () => {
       "product_waitlist_memberships",
       "product_waitlist_events",
       "product_waitlist_operations",
+      "product_waitlist_confirmations",
     ]);
     await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
@@ -966,6 +968,7 @@ describe("Platform migrations", () => {
           "0098_material_task",
           "0099_chapter_supplementary_materials",
           "0100_product_waitlists",
+          "0101_waitlist_confirmations",
         ],
       });
 

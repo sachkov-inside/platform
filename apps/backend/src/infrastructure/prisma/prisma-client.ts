@@ -171,6 +171,7 @@ export type SalesFunnelPrisma = Pick<
   | "productWaitlistMembership"
   | "productWaitlistEvent"
   | "productWaitlistOperation"
+  | "productWaitlistConfirmation"
   // Passed only to TelegramAccountLinks inside the waitlist transaction.
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"

@@ -44,6 +44,7 @@ const tableOwners = {
   communication_author_compositions: "modules/communications",
   communication_author_drafts: "modules/communications",
   communication_author_modes: "modules/communications",
+  waitlist_confirmations: "modules/communications",
   communication_author_outbox: "modules/communications",
   communication_author_receipts: "modules/communications",
   communication_author_sessions: "modules/communications",

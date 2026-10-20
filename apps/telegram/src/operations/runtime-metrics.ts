@@ -9,6 +9,9 @@ import {
 } from "../shared/runtime-counters.js";
 
 type Gauge =
+  | "waitlist_confirmation_pending"
+  | "waitlist_confirmation_unknown"
+  | "waitlist_confirmation_rejected"
   | "activation_pending"
   | "activation_oldest_pending_seconds"
   | "community_due"
@@ -21,6 +24,9 @@ type Gauge =
   | "reconciliation_oldest_due_seconds";
 
 const gaugeNames: readonly Gauge[] = [
+  "waitlist_confirmation_pending",
+  "waitlist_confirmation_unknown",
+  "waitlist_confirmation_rejected",
   "activation_pending",
   "activation_oldest_pending_seconds",
   "reconciliation_due",
@@ -72,6 +78,15 @@ export class RuntimeMetrics implements RuntimeCounters {
       "activation_oldest_pending_seconds",
       snapshot.oldestSeconds,
     );
+  }
+
+  recordWaitlistConfirmations(states: Readonly<Record<string, number>>): void {
+    this.gauges.set(
+      "waitlist_confirmation_pending",
+      (states["pending"] ?? 0) + (states["sending"] ?? 0),
+    );
+    this.gauges.set("waitlist_confirmation_unknown", states["unknown"] ?? 0);
+    this.gauges.set("waitlist_confirmation_rejected", states["rejected"] ?? 0);
   }
 
   render(): string {
