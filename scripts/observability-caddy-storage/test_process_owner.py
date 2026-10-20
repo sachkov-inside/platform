@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -26,7 +27,8 @@ def cleanup_launcher(owner,state):
             if state is not None:rescue_registered(state)
     except Exception:
         if primary is None:raise
-        primary.add_note('closed fixture cleanup failed')
+        if hasattr(primary,'add_note'):primary.add_note('closed fixture cleanup failed')
+        else:primary.__notes__=[*getattr(primary,'__notes__',[]),'closed fixture cleanup failed']
 
 
 def rescue_registered(state):
@@ -102,6 +104,42 @@ class OutsideOwner(unittest.TestCase):
                     with socket.socket() as probe:
                         probe.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);probe.bind(('127.0.0.1',state['port']))
                 finally:
-                    if state is not None:rescue_registered(state)
-                    if owner.poll() is None:owner.kill()
-                    owner.wait(timeout=3)
+                    cleanup_launcher(owner,state)
+
+    def test_outer_rescue_failure_reaps_launcher_and_preserves_primary_or_remains_visible(self):
+        actual_popen=subprocess.Popen;actual_rescue=rescue_registered
+        for has_primary in (True,False):
+            with self.subTest(primary=has_primary):
+                launchers=[];states=[];calls=0
+                primary=AssertionError('owned original assertion')
+                cleanup_error=RuntimeError('controlled cleanup refusal')
+                class ControlledAssertion(OutsideOwner):
+                    def assertEqual(self,*args,**kwargs):
+                        if has_primary:raise primary
+                        return super().assertEqual(*args,**kwargs)
+                def launch(*args,**kwargs):
+                    process=actual_popen(*args,**kwargs)
+                    if args[0][0]=='node':launchers.append(process)
+                    return process
+                def rescue(state):
+                    nonlocal calls
+                    calls+=1;states.append(state)
+                    if has_primary or calls==2:raise cleanup_error
+                    return actual_rescue(state)
+                try:
+                    with patch.object(subprocess,'Popen',side_effect=launch),patch(__name__+'.rescue_registered',side_effect=rescue):
+                        try:ControlledAssertion().test_early_exited_launcher_does_not_skip_registered_group_cleanup_or_mask_assertion()
+                        except BaseException as error:caught=error
+                        else:self.fail('cleanup refusal unexpectedly passed')
+                    self.assertIs(caught,primary if has_primary else cleanup_error)
+                    self.assertEqual(len(launchers),1)
+                    self.assertIsNotNone(launchers[0].poll())
+                    if has_primary:self.assertEqual(primary.__notes__,['closed fixture cleanup failed'])
+                    for state in states:
+                        for name in ('child','helper','python'):
+                            with self.assertRaises(ProcessLookupError):os.kill(state[name],0)
+                        with socket.socket() as probe:
+                            probe.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);probe.bind(('127.0.0.1',state['port']))
+                finally:
+                    for owner in launchers:
+                        cleanup_launcher(owner,states[0] if states else None)
