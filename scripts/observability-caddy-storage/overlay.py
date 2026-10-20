@@ -68,10 +68,49 @@ prometheus.relabel "caddy_native" {
     return base+block+'}\n'
 
 
+def _file_identity(value):
+    return (value.st_dev,value.st_ino,value.st_uid,value.st_gid,value.st_mode,value.st_nlink,
+            value.st_size,value.st_mtime_ns,value.st_ctime_ns)
+
+
+def private_owner(output):
+    """One verified owner for the three fixed private bind readers; no payload reads."""
+    import artifact
+    try:
+        with artifact.directory(output) as directory_fd:
+            descriptors=[]
+            try:
+                owner=None
+                for name in ('config.alloy','Caddyfile','auth.json'):
+                    descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=directory_fd)
+                    descriptors.append((name,descriptor,None))
+                    info=os.fstat(descriptor)
+                    pair=(info.st_uid,info.st_gid)
+                    if (not stat.S_ISREG(info.st_mode) or stat.S_IMODE(info.st_mode)!=0o600 or info.st_nlink!=1
+                            or info.st_uid!=os.getuid()
+                            or any(type(v) is not int or not 0<=v<=4294967294 for v in pair)
+                            or owner is not None and pair!=owner):artifact.refuse()
+                    owner=pair;descriptors[-1]=(name,descriptor,info)
+                for name,descriptor,info in descriptors:
+                    final=os.fstat(descriptor);linked=os.stat(name,dir_fd=directory_fd,follow_symlinks=False)
+                    if _file_identity(info)!=_file_identity(final) or _file_identity(final)!=_file_identity(linked):artifact.refuse()
+                return owner
+            finally:
+                primary=sys.exc_info()[0] is not None
+                close_error=None
+                for _,descriptor,_ in reversed(descriptors):
+                    try:os.close(descriptor)
+                    except OSError as error:
+                        if close_error is None:close_error=error
+                if close_error is not None and not primary:artifact.refuse()
+    except OSError:artifact.refuse()
+
+
 def plan(output):
-    auth=(output/'auth.json').stat()
+    owner=private_owner(output)
     images=json.loads((pilot.CONFIG/'inputs.lock.json').read_text())['images']
-    result=pilot.compose_plan(pilot.CONFIG,output,images,credential_owner=(auth.st_uid,auth.st_gid))
+    result=pilot.compose_plan(pilot.CONFIG,output,images,credential_owner=owner)
+    for role in ('alloy','gateway'):result['services'][role]['user']=f'{owner[0]}:{owner[1]}'
     result['services']['gateway']['logging']={'driver':'none'}
     result['services']['gateway']['volumes']=[f'{output}/Caddyfile:/etc/caddy/Caddyfile:ro']
     result['services']['alloy']['volumes']=[f'{output}/config.alloy:/etc/alloy/config.alloy:ro']
@@ -103,5 +142,5 @@ def verify(output):
                         or before.st_size!=len(expected)):artifact.refuse()
                 raw=stream.read(len(expected)+1)
                 after=os.fstat(stream.fileno());linked=os.stat(name,dir_fd=directory_fd,follow_symlinks=False)
-                identity=lambda value:(value.st_dev,value.st_ino,value.st_size,value.st_mtime_ns,value.st_ctime_ns,value.st_mode,value.st_nlink)
+                identity=_file_identity
                 if raw!=expected or identity(before)!=identity(after) or identity(after)!=identity(linked):artifact.refuse()

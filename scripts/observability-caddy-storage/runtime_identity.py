@@ -1,14 +1,15 @@
 """Live, closed authority projection in addition to Core image/mount/network ownership."""
 import caddy_status
+import re
 
 FIELDS={'logging','ports','cap_add','cap_drop','security','privileged','read_only','publish_all',
-        'pid_mode','ipc_mode','uts_mode','devices','device_requests','device_rules','volumes_from','links','extra_hosts'}
+        'pid_mode','ipc_mode','uts_mode','devices','device_requests','device_rules','volumes_from','links','extra_hosts','user'}
 INSPECT='{' + ','.join('"'+name+'":{{json .HostConfig.'+field+'}}' for name,field in (
     ('logging','LogConfig.Type'),('ports','PortBindings'),('cap_add','CapAdd'),('cap_drop','CapDrop'),
     ('security','SecurityOpt'),('privileged','Privileged'),('read_only','ReadonlyRootfs'),
     ('publish_all','PublishAllPorts'),('pid_mode','PidMode'),('ipc_mode','IpcMode'),('uts_mode','UTSMode'),
     ('devices','Devices'),('device_requests','DeviceRequests'),('device_rules','DeviceCgroupRules'),
-    ('volumes_from','VolumesFrom'),('links','Links'),('extra_hosts','ExtraHosts'))) + '}'
+    ('volumes_from','VolumesFrom'),('links','Links'),('extra_hosts','ExtraHosts'))) + ',"user":{{json .Config.User}}}'
 
 
 def refuse():
@@ -41,5 +42,12 @@ def validate(raw,role,plan):
             host,source,target=publication.split(':')
             ports[target+'/tcp']=[{'HostIp':host,'HostPort':source}]
         if value['ports'] not in (None,{}) if not ports else value['ports']!=ports:refuse()
+        user=value['user']
+        if type(user) is not str or len(user.encode('utf-8'))>128:refuse()
+        if role in ('alloy','gateway','vmauth'):
+            expected=service.get('user')
+            if (type(expected) is not str or re.fullmatch(r'(0|[1-9][0-9]{0,9}):(0|[1-9][0-9]{0,9})',expected) is None
+                    or any(int(v)>4294967294 for v in expected.split(':')) or user!=expected):refuse()
+        elif 'user' in service:refuse()
         return True
     except (ValueError,TypeError,KeyError,AttributeError):refuse()

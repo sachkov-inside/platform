@@ -35,7 +35,7 @@ class Runtime:
             for value in service.get('ports',[]):
                 host,source,target=value.split(':');ports[target+'/tcp']=[{'HostIp':host,'HostPort':source}]
             value={**GATEWAY,'logging':service['logging']['driver'],'ports':ports,
-                   'cap_add':['CAP_NET_BIND_SERVICE'] if role=='gateway' else None}
+                   'cap_add':['CAP_NET_BIND_SERVICE'] if role=='gateway' else None,'user':service.get('user','')}
             result=json.dumps(value)
             return self.change(argv,result) if self.change is not None else result
         if argv[:2]==['docker','exec'] and self.change is not None:return self.change(argv,'')
@@ -454,3 +454,19 @@ class OwnershipDiagnostics(unittest.TestCase):
             caught_tb=BaseException.__traceback__.__get__(error)
             self.assertIs(caught_tb.tb_next,original[0])
             self.assertNotIn('private-controlled',json.dumps(run))
+
+    def test_wrong_private_live_user_refuses_without_publishing_identity(self):
+        for role in ('alloy','gateway','vmauth'):
+            with self.subTest(role=role),tempfile.TemporaryDirectory() as directory:
+                runtime=Runtime(directory)
+                def change(argv,result):
+                    if argv[:4]==['docker','inspect','--format',runtime_identity.INSPECT] and argv[-1]==runtime.fake.ids[role]:
+                        value=json.loads(result);value['user']='private-user-canary';return json.dumps(value)
+                    return result
+                runtime.change=change
+                error,run=runtime.fail_worker(self)
+                self.assertIs(type(error),ValueError)
+                self.assertEqual(run['phase'],'ownership_'+role+'_runtime_contract')
+                self.assertEqual(set(run['cases'].values()),{'unrun'})
+                self.assertNotIn('private-user',json.dumps(run))
+                self.assertFalse(any(argv[:2]==['docker','exec'] for argv in runtime.commands))

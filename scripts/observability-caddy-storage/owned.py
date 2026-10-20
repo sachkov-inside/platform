@@ -20,7 +20,8 @@ class Targets(core.OwnedTargets):
         for role in core.CORE_ROLES:self.check(role,ownership_checkpoint=ownership_checkpoint)
 
     def check(self,role,*,ownership_checkpoint=None):
-        if role not in core.CORE_ROLES:runtime_identity.refuse()
+        if type(role) is not str or role not in core.CORE_ROLES:runtime_identity.refuse()
+        if self.plan!=overlay.plan(self.output):runtime_identity.refuse()
         if ownership_checkpoint is not None:ownership_checkpoint(role,'runtime_read')
         target=self.targets[role]
         current=self.read(self.compose+['ps','--all','-q',role]).strip()

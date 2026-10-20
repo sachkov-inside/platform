@@ -170,3 +170,18 @@ These source diagnostics do not identify the earlier native failure's cause or f
 runtime. A fixed role/gate in new exact-source hosted evidence is needed before a corresponding
 source counterexample or native acceptance can be claimed. All original privacy, authority,
 cleanup, query and time budgets remain in force.
+
+## Private configuration readers
+
+The opt-in overlay verifies one owner for its three fixed private files (`config.alloy`,
+`Caddyfile`, `auth.json`) before deriving reader identities. The files remain regular, single-link,
+owner-only `0600` files in the protected `0700` output directory. Alloy and gateway explicitly use
+that numeric UID:GID; vmauth keeps the same owner identity it already requires for its private auth
+file. Core defaults remain unchanged. The overlay refreshes protected owner facts before runtime
+checks and compares the three configured readers with the required private `.Config.User` fact.
+The other four roles retain their pinned-image default users. No user identity enters public
+artifacts, and no file permission, capability, port or deadline is widened.
+
+These source checks do not establish the earlier native Alloy exit cause. Exact pinned Linux
+file readability, Alloy config parsing, both services' startup and the four native modes still
+need hosted CI evidence before runtime acceptance.
