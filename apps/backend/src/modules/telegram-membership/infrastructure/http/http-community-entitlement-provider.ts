@@ -1,3 +1,4 @@
+import { observeCommunityExchange } from "../../../../infrastructure/observability/technical-telemetry.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   COMMUNITY_V2_CONTRACT_VERSION,
@@ -31,11 +32,12 @@ export class HttpCommunityEntitlementProvider implements CommunityEntitlementPro
   set(command: CommunitySetCommand): Promise<CommunityDeliveryOutcome> {
     if (command.contractVersion !== COMMUNITY_V2_CONTRACT_VERSION)
       return Promise.resolve({ kind: "error", error: "unsupported_contract" });
-    return this.exchange(command, command);
+    return this.exchange("community.set", command, command);
   }
 
   status(command: CommunitySetCommand): Promise<CommunityDeliveryOutcome> {
     return this.exchange(
+      "community.status",
       {
         contractVersion: command.contractVersion,
         operation: "entitlement.status",
@@ -46,6 +48,7 @@ export class HttpCommunityEntitlementProvider implements CommunityEntitlementPro
   }
 
   private async exchange(
+    operation: "community.set" | "community.status",
     body: unknown,
     command: CommunitySetCommand,
   ): Promise<CommunityDeliveryOutcome> {
@@ -53,49 +56,60 @@ export class HttpCommunityEntitlementProvider implements CommunityEntitlementPro
     if (Buffer.byteLength(serialized) > COMMUNITY_MAXIMUM_BODY_BYTES) {
       return { kind: "unavailable" };
     }
-    let response: Response;
-    try {
-      response = await this.fetcher(this.endpoint, {
-        body: serialized,
-        headers: {
-          authorization: `Bearer ${this.secret}`,
-          "content-type": "application/json",
-        },
-        method: "POST",
-        redirect: "error",
-        signal: AbortSignal.timeout(COMMUNITY_REQUEST_TIMEOUT_MS),
-      });
-    } catch (error) {
-      return dependencyFailure(
-        { module: "telegram-membership", operation: "exchange" },
-        error,
-        { kind: "unavailable" },
-      );
-    }
-    let payload: unknown;
-    try {
-      payload = await response.json();
-    } catch (error) {
-      return dependencyFailure(
-        { module: "telegram-membership", operation: "exchange" },
-        error,
-        { kind: "unavailable" },
-      );
-    }
-    if (response.status === 200) {
-      const result = communityResultSchema.safeParse(payload);
-      return result.success && correlates(result.data, command)
-        ? { kind: "result", result: result.data }
-        : { kind: "unavailable" };
-    }
-    const failure = communityErrorSchema.safeParse(payload);
-    // A status that contradicts its own body is an unknown outcome, not a decision.
-    return failure.success &&
-      failure.data.contractVersion === command.contractVersion &&
-      failure.data.operationId === command.operationId &&
-      communityErrorStatus[failure.data.error] === response.status
-      ? { kind: "error", error: failure.data.error }
-      : { kind: "unavailable" };
+    return observeCommunityExchange(operation, async (observation) => {
+      let response: Response;
+      try {
+        response = await this.fetcher(this.endpoint, {
+          body: serialized,
+          headers: {
+            authorization: `Bearer ${this.secret}`,
+            "content-type": "application/json",
+          },
+          method: "POST",
+          redirect: "error",
+          signal: AbortSignal.timeout(COMMUNITY_REQUEST_TIMEOUT_MS),
+        });
+      } catch (error) {
+        observation.fail();
+        return dependencyFailure(
+          { module: "telegram-membership", operation: "exchange" },
+          error,
+          { kind: "unavailable" },
+        );
+      }
+      observation.response(response.status);
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch (error) {
+        observation.fail();
+        return dependencyFailure(
+          { module: "telegram-membership", operation: "exchange" },
+          error,
+          { kind: "unavailable" },
+        );
+      }
+      if (response.status === 200) {
+        const result = communityResultSchema.safeParse(payload);
+        if (result.success && correlates(result.data, command))
+          return { kind: "result", result: result.data };
+        observation.fail();
+        return { kind: "unavailable" };
+      }
+      const failure = communityErrorSchema.safeParse(payload);
+      // A status that contradicts its own body is an unknown outcome, not a decision.
+      if (
+        failure.success &&
+        failure.data.contractVersion === command.contractVersion &&
+        failure.data.operationId === command.operationId &&
+        communityErrorStatus[failure.data.error] === response.status
+      ) {
+        if (failure.data.error === "unavailable") observation.fail();
+        return { kind: "error", error: failure.data.error };
+      }
+      observation.fail();
+      return { kind: "unavailable" };
+    });
   }
 }
 

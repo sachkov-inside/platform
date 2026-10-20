@@ -11,12 +11,12 @@ RELEASES = {'json':'a'*40,'protobuf':'b'*40}
 CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUTCOMES)
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
     ('postgresql',op,out) for op in ('query','acquire','material-slug-lock') for out in OUTCOMES) + tuple(
-    ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES)
+    ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES) + tuple(('telegram',op,out) for op in ('community.set','community.status') for out in OUTCOMES)
 POOL = {'available':1,'total':2,'idle':1,'waiting':3,'registry_overflow':0}
 METRICS = ('inside.dependency.operations','inside.dependency.duration')
 
 
-def _json(now_ns):
+def _json(now_ns, batch=None):
     def attr(key, value):
         return {'key':key,'value':{'stringValue':value}}
     resource = {'attributes':[attr('service.name','platform-api'),
@@ -37,12 +37,12 @@ def _json(now_ns):
                 result.append({'key':key,'value':wire})
             return result
         unsafe = [attr(key,SENTINEL) for key in ('url.full','provider.request_id','http.request.body',
-            'http.response.body','authorization','user.email','exception.message','exception.stacktrace','db.statement','db.query.text','db.query.parameters','db.connection_string','db.response.status_code','TerminalKey','Token','PaymentId','OrderId','RebillId','Amount')]
+            'http.response.body','authorization','user.email','exception.message','exception.stacktrace','db.statement','db.query.text','db.query.parameters','db.connection_string','db.response.status_code','TerminalKey','Token','PaymentId','OrderId','RebillId','Amount','operationId','accountRef','telegramIdentityRef','linkRef','correlationRef','entitlementRevision','access','groupUrl')]
         spans.append({'traceId':TRACE_IDS['json'],'spanId':f'{index+1:016x}','parentSpanId':'b'*16,
             'name':SENTINEL,'kind':1 if operation=='material-slug-lock' else 3,'startTimeUnixNano':str(now_ns),'endTimeUnixNano':str(now_ns+1_000_000),
             'traceState':'private='+SENTINEL,
             'attributes':dimensions(('dependency.name','dependency.operation','dependency.outcome'))+
-                [attr('http.request.method', 'GET' if dependency=='logto' else 'POST' if dependency=='tbank' else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,SENTINEL)),
+                [attr('http.request.method', 'GET' if dependency=='logto' else 'POST' if dependency in ('tbank','telegram') else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,SENTINEL)),
                  {'key':'http.response.status_code','value':{'intValue':'200' if index < 6 or dependency=='logto' else '999'}}]+unsafe,
             'events':[{'timeUnixNano':str(now_ns),'name':SENTINEL,'attributes':unsafe}],
             'status':{'code':0 if known and outcome=='completed' else 2,'message':SENTINEL}})
@@ -60,6 +60,14 @@ def _json(now_ns):
     for name,value in POOL.items():
         metrics.append({'name':'inside.postgresql.pool.'+name,'gauge':{'dataPoints':[
             {'timeUnixNano':str(now_ns),'asInt':str(value),'attributes':unsafe}]}})
+    if batch is not None:
+        # Two fixed disjoint halves preserve every challenge without raising wire budgets.
+        selected = slice(0,18) if batch == 0 else slice(18,None)
+        spans = spans[selected]
+        metrics[0]['sum']['dataPoints'] = metrics[0]['sum']['dataPoints'][selected]
+        metrics[1]['histogram']['dataPoints'] = metrics[1]['histogram']['dataPoints'][selected]
+        if batch == 1:
+            metrics = metrics[:2]
     return {'traces':{'resourceSpans':[{'resource':resource,'scopeSpans':[{
                 'scope':{'name':SENTINEL,'version':SENTINEL,'attributes':[attr('private',SENTINEL)]},'spans':spans}]}]},
             'metrics':{'resourceMetrics':[{'resource':resource,'scopeMetrics':[{
@@ -93,9 +101,9 @@ def _attribute(attribute):
     return _text(1,key)+_field(2,encoded)
 
 
-def _protobuf(now_ns):
+def _protobuf(now_ns, batch=None):
     """Literal proto v1.5 field encoding of this fixed corpus; no arbitrary serialization API."""
-    body = _json(now_ns)
+    body = _json(now_ns, batch)
     resource = body['traces']['resourceSpans'][0]['resource']
     resource['attributes'][2]['value']['stringValue']=RELEASES['protobuf']
     encoded_resource = b''.join(_field(1,_attribute(attr)) for attr in resource['attributes'])
@@ -135,6 +143,16 @@ def payloads(transport,now_ns):
     return {'json':_json,'protobuf':_protobuf}[transport](now_ns)
 
 
+def payload_batches(transport,now_ns):
+    """Exactly two fixed, disjoint ingest batches; no challenge field is dropped."""
+    batches = tuple({'json':_json,'protobuf':_protobuf}[transport](now_ns,batch) for batch in (0,1))
+    for batch in batches:
+        for body in batch.values():
+            if (isinstance(body,bytes) and len(body)>=65536) or (isinstance(body,dict) and len(json.dumps(body).encode())>1_048_576):
+                raise RuntimeError('fixed dependency batch exceeds original wire budget')
+    return batches
+
+
 def _unique(pairs):
     result = {}
     for key,value in pairs:
@@ -161,7 +179,7 @@ def stored_traces(raw,transport):
             raise ValueError('lost identities')
         for index,(dependency,operation,outcome) in enumerate((*REGISTERED,('_OTHER','_OTHER','_OTHER'),('_OTHER','_OTHER','_OTHER'),(None,None,None))):
             row = by_id[f'{index+1:016x}']
-            attributes = {'span_attr:http.request.method':'GET' if dependency=='logto' else 'POST' if dependency=='tbank' else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,'_OTHER')}
+            attributes = {'span_attr:http.request.method':'GET' if dependency=='logto' else 'POST' if dependency in ('tbank','telegram') else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,'_OTHER')}
             if index < len(REGISTERED)+2:
                 attributes.update({'span_attr:dependency.name':dependency,
                     'span_attr:dependency.operation':operation,'span_attr:dependency.outcome':outcome})
@@ -181,7 +199,7 @@ def stored_traces(raw,transport):
                     any(key.startswith(('scope_attr:','event:','link:')) for key in row) or
                     any(row.get(key,'')!='' for key in ('status_message','trace_state','scope_version'))):
                 raise ValueError('extra resource/scope/error field')
-        return {'transport':transport,'stored_spans':31,'registered_completions':28,
+        return {'transport':transport,'stored_spans':35,'registered_completions':32,
             'causality':'passed','fallback':'passed','privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency full-storage contract failed; raw response withheld') from None
@@ -244,6 +262,6 @@ def stored_metrics(response):
             seen.add(key)
         if seen!=expected or pool_seen!={(release,name) for release in RELEASES.values() for name in POOL}:
             return None
-        return {'stored_series':300,'metric_labelsets':58,'pool_series':10,'privacy':'passed'}
+        return {'stored_series':340,'metric_labelsets':66,'pool_series':10,'privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency metric contract failed; raw response withheld') from None

@@ -461,7 +461,7 @@ def fixture_trace_rows(compose, fixture):
         boundary = 'fixture'
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
-                   **{'dependency-'+key:(value,32) for key,value in dependency_privacy.TRACE_IDS.items()}}
+                   **{'dependency-'+key:(value,36) for key,value in dependency_privacy.TRACE_IDS.items()}}
         trace_id, limit = queries[fixture]
         boundary = 'identity_before'
         assert_docker_identity(deadline=deadline)
@@ -595,11 +595,12 @@ def dependency_catalog_corpus(token, output, compose):
     try:
         verify_trace_store_logging(output,compose)
         for transport in ('json','protobuf'):
-            for signal,body in dependency_privacy.payloads(transport,time.time_ns()).items():
-                proof['stage']='ingest_'+transport+'_'+signal
-                assert_docker_identity()
-                if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
-                    raise RuntimeError('dependency OTLP rejected')
+            for batch in dependency_privacy.payload_batches(transport,time.time_ns()):
+                for signal,body in batch.items():
+                    proof['stage']='ingest_'+transport+'_'+signal
+                    assert_docker_identity()
+                    if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+                        raise RuntimeError('dependency OTLP rejected')
             proof['stage']='storage_'+transport
             stored = await_fact(lambda: dependency_privacy.stored_traces(
                 fixture_trace_rows(compose,'dependency-'+transport),transport),bool,
