@@ -736,8 +736,8 @@ Rabbit, worker, SMTP и применение результата. Эти про
 `scripts/observability-pilot/email_privacy.py` проверяет отдельные фиксированные JSON/protobuf
 входы. Два known trace IDs оканчиваются на `d7`/`d8`, два adversarial IDs на `d9`/`da`.
 Каждый содержит 32 hex-символа; первые 31 равны `d`. Reader допускает только эти четыре
-запроса: limit 23 для 22 known spans и limit 9 для 8 adversarial spans. Старые L/C payloads,
-их query limits 32/30, protobuf limit 65,536 B, response limit 1 MiB и vector limit 1,000
+запроса: limit 23 для 22 known spans и limit 9 для 8 adversarial spans. Текущие C payloads,
+их query limits 36/30, protobuf limit 65,536 B, response limit 1 MiB и vector limit 1,000
 не меняются. Email JSON ограничен 262,144 B; каждый фактически сформированный body
 проверяется до отправки. Независимый host wire-reader проверяет OTLP field numbers, все
 span IDs/parents, атрибуты, counter и histogram. Это source-проверка кодека, не запуск storage.
