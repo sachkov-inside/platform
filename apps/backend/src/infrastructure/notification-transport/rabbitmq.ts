@@ -1,6 +1,9 @@
 import { context } from "@opentelemetry/api";
 import { notificationTraceparent } from "../observability/notification-trace.js";
-import { observeNotification } from "../observability/technical-telemetry.js";
+import {
+  observeEmailNotification,
+  observeNotification,
+} from "../observability/technical-telemetry.js";
 import { readFile } from "node:fs/promises";
 import {
   connect,
@@ -41,10 +44,14 @@ export async function publishNotification(
   const channel = await connection.createConfirmChannel();
   channel.on("error", () => undefined);
   const route = lanes[envelope.lane];
-  const traceparent =
-    envelope.lane === "materials"
-      ? notificationTraceparent(metadata?.traceparent)
-      : undefined;
+  const traceparent = [
+    "materials",
+    "emailMaterial",
+    "emailSubscription",
+    "emailResult",
+  ].includes(envelope.lane)
+    ? notificationTraceparent(metadata?.traceparent)
+    : undefined;
   let returned = false;
   channel.on("return", () => {
     returned = true;
@@ -170,7 +177,23 @@ export async function consumeNotificationLane(
                     traceparent === undefined ? undefined : { traceparent },
                   ),
               )
-            : await receiver.accept(envelope);
+            : lane === "emailMaterial" ||
+                lane === "emailSubscription" ||
+                lane === "emailResult"
+              ? await observeEmailNotification(
+                  lane === "emailMaterial"
+                    ? "receiveMaterial"
+                    : lane === "emailSubscription"
+                      ? "receiveSubscription"
+                      : "receiveResult",
+                  message.properties.headers?.["traceparent"],
+                  (traceparent) =>
+                    receiver.accept(
+                      envelope,
+                      traceparent === undefined ? undefined : { traceparent },
+                    ),
+                )
+              : await receiver.accept(envelope);
         if (result === "conflict")
           await receiver.quarantine(lane, message.content, "payload_conflict");
         // A failed durable write or quarantine admission never reaches this ack.

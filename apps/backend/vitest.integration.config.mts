@@ -13,6 +13,7 @@ const serialFiles = [
   "test/integration/pg-boss-telemetry.test.ts",
   "test/integration/worker-technical-telemetry.test.ts",
   "test/integration/notification-technical-context.test.ts",
+  "test/integration/email-runtime-telemetry.test.ts",
   "test/integration/billing-notices-broker.test.ts",
   "test/integration/billing-payments.test.ts",
   "test/integration/material-announcement-broker.test.ts",

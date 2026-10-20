@@ -1,7 +1,9 @@
 import {
   captureNotificationTraceparent,
   observeNotification,
+  observeEmailNotification,
 } from "../observability/technical-telemetry.js";
+import { notificationTraceparent } from "../observability/notification-trace.js";
 import type { Prisma } from "../prisma/index.js";
 import {
   encodeNotification,
@@ -11,7 +13,10 @@ import {
 } from "./wire.js";
 
 // Three module-owned tables have the same transport columns; callers pass only their own delegate.
-type OutboxRow = Prisma.NotificationOutboxGetPayload<Record<never, never>> & {
+type OutboxRow = Omit<
+  Prisma.NotificationOutboxGetPayload<Record<never, never>>,
+  "traceparent"
+> & {
   traceparent?: string | null;
 };
 type OutboxKey = { scope_messageId: { scope: string; messageId: string } };
@@ -55,6 +60,7 @@ export async function stageNotification(
   table: NotificationOutboxTable,
   lane: NotificationLane,
   input: unknown,
+  metadata?: { readonly traceparent: string | null },
 ): Promise<void> {
   const envelope = encodeNotification(lane, input);
   const scope = lanes[lane].publisher;
@@ -66,8 +72,18 @@ export async function stageNotification(
       lane,
       payload: envelope.payload,
       digest: envelope.digest,
-      ...(lane === "materials"
-        ? { traceparent: captureNotificationTraceparent() ?? null }
+      ...([
+        "materials",
+        "emailMaterial",
+        "emailSubscription",
+        "emailResult",
+      ].includes(lane)
+        ? {
+            traceparent:
+              metadata === undefined
+                ? (captureNotificationTraceparent() ?? null)
+                : (notificationTraceparent(metadata.traceparent) ?? null),
+          }
         : {}),
     },
     update: {},
@@ -106,6 +122,24 @@ export function assembleNotificationOutbox(
               envelope,
               traceparent === undefined ? undefined : { traceparent },
             ),
+          );
+        } else if (
+          lane === "emailMaterial" ||
+          lane === "emailSubscription" ||
+          lane === "emailResult"
+        ) {
+          await observeEmailNotification(
+            lane === "emailMaterial"
+              ? "publishMaterial"
+              : lane === "emailSubscription"
+                ? "publishSubscription"
+                : "publishResult",
+            row.traceparent,
+            (traceparent) =>
+              publish(
+                envelope,
+                traceparent === undefined ? undefined : { traceparent },
+              ),
           );
         } else await publish(envelope);
         // A crash here deliberately republishes the same immutable ID after restart.

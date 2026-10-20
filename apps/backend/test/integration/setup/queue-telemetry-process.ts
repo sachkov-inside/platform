@@ -34,7 +34,10 @@ export interface QueueTelemetryProcess {
   readonly exited: Promise<readonly [number | null, NodeJS.Signals | null]>;
   readonly messages: unknown[];
   readonly output: string[];
+  readonly outputOverflow: boolean;
+  readonly protocolFailed: boolean;
   stop(): Promise<void>;
+  finish(): Promise<readonly [number | null, NodeJS.Signals | null]>;
 }
 
 /** The independent Python supervisor survives test-worker exit/SIGKILL and reaps the command tree. */
@@ -67,6 +70,24 @@ export function launchQueueTelemetryProcess(
         };
       }
     | {
+        readonly mode: "email";
+        readonly brokerUrls: {
+          readonly billing: string;
+          readonly materials: string;
+          readonly notifications: string;
+          readonly email: string;
+        };
+        readonly enabled: boolean;
+        readonly phase:
+          | "normal"
+          | "before-smtp"
+          | "after-smtp"
+          | "before-result-ack"
+          | "legacy-command";
+        readonly smtpPort: number;
+        readonly encryptionKey: string;
+      }
+    | {
         readonly mode: "worker";
         readonly worker:
           | "profile-avatars-worker"
@@ -84,25 +105,30 @@ export function launchQueueTelemetryProcess(
       "tsx",
       fileURLToPath(
         new URL(
-          input.mode === "notification"
-            ? "../fixtures/notification-technical-worker.ts"
-            : input.mode === "worker"
-              ? "../fixtures/technical-worker.ts"
-              : "../fixtures/pg-boss-telemetry-worker.ts",
+          input.mode === "email"
+            ? "../fixtures/email-technical-worker.ts"
+            : input.mode === "notification"
+              ? "../fixtures/notification-technical-worker.ts"
+              : input.mode === "worker"
+                ? "../fixtures/technical-worker.ts"
+                : "../fixtures/pg-boss-telemetry-worker.ts",
           import.meta.url,
         ),
       ),
     ],
     {
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [input.mode === "email" ? "pipe" : "ignore", "pipe", "pipe"],
       env: {
-        ...(input.mode === "worker" || input.mode === "notification"
+        ...(input.mode === "worker" ||
+        input.mode === "notification" ||
+        input.mode === "email"
           ? {
               PATH: process.env["PATH"],
               NODE_ENV: "test",
               DATABASE_URL: input.databaseUrl,
               KINESCOPE_PROVIDER_MODE: "test",
-              ...(input.mode === "worker" && input.enabled
+              ...((input.mode === "worker" || input.mode === "email") &&
+              input.enabled
                 ? { INSIDE_OTEL_ENABLED: "true" }
                 : {}),
               ...(input.brokerUrls === undefined
@@ -111,12 +137,21 @@ export function launchQueueTelemetryProcess(
                     NOTIFICATIONS_BROKER_URLS: JSON.stringify(input.brokerUrls),
                   }),
               ...(input.mode === "notification" ||
+              input.mode === "email" ||
               input.worker === "notifications-worker"
                 ? {
                     NOTIFICATIONS_PLATFORM_ORIGIN:
                       "https://inside.example.test",
                     NOTIFICATIONS_TELEGRAM_SECRET:
                       "synthetic-notification-secret-00000",
+                  }
+                : {}),
+              ...(input.mode === "email"
+                ? {
+                    BILLING_CONTACT_ENCRYPTION_KEY: input.encryptionKey,
+                    BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
+                    BILLING_CONTACT_SMTP_PORT: String(input.smtpPort),
+                    BILLING_CONTACT_FROM: "noreply@example.test",
                   }
                 : {}),
               INSIDE_OTEL_ENDPOINT: input.endpoint,
@@ -151,9 +186,26 @@ export function launchQueueTelemetryProcess(
       });
     },
   );
+  let outputBytes = 0;
+  let outputOverflow = false;
+  let protocolFailed = false;
+  const retainChunk = (chunk: string) => {
+    if (input.mode !== "email") return true;
+    outputBytes += Buffer.byteLength(chunk);
+    if (outputBytes <= 1024 * 1024) return true;
+    outputOverflow = true;
+    rejectMessage?.(new Error("email fixture output quota exceeded"));
+    return false;
+  };
+  if (input.mode === "email")
+    child.stdin?.on("error", () => {
+      protocolFailed = true;
+      rejectMessage?.(new Error("email fixture stop pipe failed"));
+    });
   let buffered = "";
   child.stdout?.setEncoding("utf8");
   child.stdout?.on("data", (chunk: string) => {
+    if (!retainChunk(chunk)) return;
     buffered += chunk;
     for (;;) {
       const end = buffered.indexOf("\n");
@@ -169,14 +221,34 @@ export function launchQueueTelemetryProcess(
           message?.(record);
         } else output.push(`${line}\n`);
       } catch {
+        if (input.mode === "email") {
+          protocolFailed = true;
+          output.push(`${line}\n`);
+        }
         rejectMessage?.(new Error("invalid queue fixture protocol"));
       }
     }
   });
-  if (input.mode === "worker" || input.mode === "notification") {
+  if (input.mode === "email")
+    child.stdout?.on("end", () => {
+      if (buffered !== "") {
+        protocolFailed = true;
+        output.push(buffered);
+      }
+    });
+  if (
+    input.mode === "worker" ||
+    input.mode === "notification" ||
+    input.mode === "email"
+  ) {
     let errors = "";
     child.stderr?.setEncoding("utf8");
+    if (input.mode === "email")
+      child.stderr?.on("end", () => {
+        if (errors !== "") output.push(errors);
+      });
     child.stderr?.on("data", (chunk: string) => {
+      if (!retainChunk(chunk)) return;
       errors += chunk;
       for (;;) {
         const end = errors.indexOf("\n");
@@ -195,6 +267,18 @@ export function launchQueueTelemetryProcess(
     exited,
     messages,
     output,
+    get outputOverflow() {
+      return outputOverflow;
+    },
+    get protocolFailed() {
+      return protocolFailed;
+    },
+    finish: async () => {
+      if (input.mode !== "email")
+        throw new Error("fixture has no graceful stop protocol");
+      child.stdin?.end("stop\n");
+      return boundedProcessFact(exited, PROCESS_CLEANUP_BUDGET_MS);
+    },
     stop: async () => {
       await boundedProcessFact(stopOwned(child, 0), PROCESS_CLEANUP_BUDGET_MS);
       await boundedProcessFact(exited, PROCESS_CLEANUP_BUDGET_MS);

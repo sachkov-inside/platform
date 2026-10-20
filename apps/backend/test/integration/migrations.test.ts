@@ -277,6 +277,7 @@ describe("Platform migrations", () => {
         "0108_submission_activity_period",
         "0109_materials_notification_trace_context",
         "0110_notifications_notification_trace_context",
+        "0111_notifications_email_trace_context",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -990,6 +991,7 @@ describe("Platform migrations", () => {
           "0108_submission_activity_period",
           "0109_materials_notification_trace_context",
           "0110_notifications_notification_trace_context",
+          "0111_notifications_email_trace_context",
         ],
       });
 
