@@ -185,7 +185,6 @@ export function MaterialMetadataPanel({
           </Select>
         </Field>
       </div>
-      <FormGuidance presentation={presentation} />
       {presentation.draft.canDelete &&
       presentation.draft.materialId !== null &&
       presentation.draft.contentVersion !== null ? (
@@ -346,7 +345,7 @@ function TaxonomySelect({
   );
 }
 
-function FormGuidance({
+export function MaterialFormGuidance({
   presentation,
 }: {
   readonly presentation: MaterialAuthoringPresentation;

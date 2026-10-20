@@ -95,6 +95,9 @@ export const Editing: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Редактирование и автосохранение",
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await expect(
       canvas.getByRole("group", { name: /^Продукты/u }),
@@ -152,6 +155,9 @@ export const EditingMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Редактирование · мобильный",
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     await expect(within(canvasElement).getByLabelText("Название")).toHaveValue(
       "Developer Pipeline без магии",
     );
@@ -181,6 +187,9 @@ export const Submitting: Story = {
   name: "Сохранение",
   beforeEach: materialBeforeRender({ PUT: "pending" }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("Название"), "!", {
       delay: null,
@@ -202,6 +211,9 @@ export const Conflict: Story = {
     PUT: { currentContentVersion: 4, kind: "conflict", staleContentVersion: 3 },
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("Название"), "!", {
       delay: null,
@@ -215,6 +227,7 @@ export const Conflict: Story = {
     for (const name of ["Сравнить", "Открыть текущую"])
       await expect(canvas.getByRole("button", { name })).toBeEnabled();
     await expect(canvas.getByLabelText("Название")).toBeEnabled();
+    await userEvent.click(canvas.getByRole("tab", { name: "Содержимое" }));
     await expect(
       canvas.getByRole("button", { name: "Добавить блок" }),
     ).toBeEnabled();
@@ -228,6 +241,9 @@ export const InfrastructureError: Story = {
     PUT: [{ httpStatus: 503 }, savedReply()],
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("Название"), "!", {
       delay: null,
@@ -248,6 +264,9 @@ export const NotFoundWhileSaving: Story = {
   name: "Материал удалён во время правки",
   beforeEach: materialBeforeRender({ PUT: { kind: "not_found" } }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("Название"), "!", {
       delay: null,
@@ -266,6 +285,9 @@ export const SignedOutWhileSaving: Story = {
   name: "Сессия закончилась во время правки",
   beforeEach: materialBeforeRender({ PUT: { httpStatus: 401 } }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.type(canvas.getByLabelText("Название"), "!", {
       delay: null,
@@ -326,6 +348,9 @@ export const PublicationIssues: Story = {
 export const DeleteDraftConfirmation: Story = {
   name: "Удаление безопасного черновика",
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.click(
       canvas.getByText("Удалить черновик", { selector: "summary" }),
@@ -414,6 +439,9 @@ export const ProductRemovalCancelled: Story = {
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({ PUT: removalRequired }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await userEvent.click(
       canvas.getByRole("button", { name: "Снять с публикации" }),
@@ -450,6 +478,9 @@ export const Unpublished: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await expect(
       canvas.getAllByText("Снят с публикации").length,
@@ -473,6 +504,9 @@ export const SyncedFromInsideContent: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await expect(
       canvas.getByText("materials/developer-pipeline.md"),
@@ -1005,6 +1039,7 @@ export const VariantStepEditor: Story = {
         "Учебный проект: пройдите шаг на подготовленном репозитории.",
       ),
     ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Параметры" }));
     // Сложность и обещание урока автор заполняет там же, где остальные параметры.
     await expect(canvas.getByText("Сложность")).toBeVisible();
     await expect(canvas.getByText("Чему научишься")).toBeVisible();
@@ -1036,6 +1071,9 @@ export const SearchableSeries: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     const series = within(canvas.getByLabelText("Выбор продуктов"));
     await expect(series.getAllByRole("checkbox")).toHaveLength(20);
@@ -1220,6 +1258,7 @@ export const WorkspaceTyping: Story = {
     ).toBeGreaterThan(0);
     await expect(savedField("document")).toContain(text.trim());
     // Positive control: metadata changes still reach every dependent part and the next save.
+    await userEvent.click(canvas.getByRole("tab", { name: "Параметры" }));
     const title = canvas.getByLabelText("Название");
     await userEvent.type(title, "!", { delay: null });
     await expect(
@@ -1247,6 +1286,9 @@ export const SavedAfterActivity: Story = {
     </AutosaveActivity>
   ),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await autosaveWhileHidden(
       canvasElement,
@@ -1264,6 +1306,9 @@ export const SavedAfterActivity: Story = {
 export const FailedAfterActivity: Story = {
   ...SavedAfterActivity,
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     await autosaveWhileHidden(
       canvasElement,
@@ -1285,6 +1330,9 @@ export const FailedAfterActivity: Story = {
 export const NewerEditAfterActivity: Story = {
   ...SavedAfterActivity,
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     const title = canvas.getByRole("textbox", { name: "Название" });
     await autosaveWhileHidden(
@@ -1366,6 +1414,7 @@ export const ImportedCollapsibleAdvice: Story = {
     );
     await expect(collapsed).not.toBeNull();
     await expect(expanded).not.toBeNull();
+    await userEvent.click(canvas.getByRole("tab", { name: "Параметры" }));
     await userEvent.type(canvas.getByLabelText("Название"), "!", {
       delay: null,
     });
@@ -1421,6 +1470,9 @@ function referenceSelectorWorkload(size: number): Story {
       </Profiler>
     ),
     play: async ({ canvasElement }) => {
+      await userEvent.click(
+        within(canvasElement).getByRole("tab", { name: "Параметры" }),
+      );
       const page = routeContent(canvasElement);
       const tags = within(page.getByRole("group", { name: "Теги" }));
       await expect(tags.getAllByRole("checkbox")).toHaveLength(
@@ -1468,6 +1520,9 @@ export const ReferenceSelectorMobileControls: Story = {
   ...referenceSelectorWorkload(100),
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const page = routeContent(canvasElement);
     const search = page.getByRole("searchbox", { name: "Поиск тегов" });
     await expect(search).toBeVisible();

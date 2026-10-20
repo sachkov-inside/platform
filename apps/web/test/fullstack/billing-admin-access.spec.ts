@@ -57,6 +57,7 @@ async function createTariff(
   );
   expect(await priced.json()).toMatchObject({ ok: true });
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   return { id, name, row: page.getByRole("listitem", { name, exact: true }) };
 }
 const saleCommandSchema = z.object({
@@ -223,6 +224,9 @@ test("saved eligibility controls confirmation, cancellation, revision and reload
     await signInFullStack(reopened, "OWNER");
     const reopenedPage = await reopened.newPage();
     await reopenedPage.goto("/authoring/access");
+    await reopenedPage
+      .getByRole("tab", { name: "Тарифы", exact: true })
+      .click();
     await expect(
       reopenedPage
         .getByRole("listitem", { name: tariff.name, exact: true })
@@ -244,6 +248,7 @@ test("saved eligibility controls confirmation, cancellation, revision and reload
   ]);
   // Publication was synthetic; the database still holds the saved invitation and an unpublished tariff.
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   await expect(select).toHaveValue("invitation_only");
   await expect(
     tariff.row.getByText("Не продаётся", { exact: true }),
@@ -261,6 +266,7 @@ test("saved eligibility controls confirmation, cancellation, revision and reload
     page.getByRole("status").filter({ hasText: "допуск сохранён" }),
   ).toBeVisible();
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   await expect(select).toHaveValue("everyone");
   await enable.click();
   await expect(dialog).toBeVisible();

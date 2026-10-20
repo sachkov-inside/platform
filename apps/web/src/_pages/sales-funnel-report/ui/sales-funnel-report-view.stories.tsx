@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import {
   authoringPageEnvironment,
@@ -137,6 +137,7 @@ export const Ready: Story = {
     await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue(
       chapterId,
     );
+    await userEvent.click(page.getByRole("tab", { name: "Анкетные скидки" }));
     const survey = page.getByRole("region", { name: "Респонденты анкеты" });
     await expect(survey).toHaveTextContent("Выдано личных ссылок48");
     await expect(survey).toHaveTextContent("21 из 48 получивших ссылку");
@@ -262,6 +263,9 @@ export const WaitlistDemand: Story = {
     ),
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Ожидание набора" }),
+    );
     await expect(
       canvasElement.querySelector("#waitlist-report-title"),
     ).toHaveTextContent("Ожидание набора");
@@ -285,6 +289,9 @@ export const WaitlistEmpty: Story = {
     ),
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Ожидание набора" }),
+    );
     await expect(canvasElement).toHaveTextContent(
       "В этом наборе пока нет записей.",
     );

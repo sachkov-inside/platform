@@ -1,0 +1,236 @@
+[
+  {
+    "name": "products",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Продукты 4",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "products",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Продукты 4",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "product-editor",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Demo · От проекта до первого релиза",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "product-editor",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Demo · От проекта до первого релиза",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "materials",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Материалы",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "materials",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Материалы",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "material-editor",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Новая версия Developer Pipeline",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "material-editor",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Новая версия Developer Pipeline",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "topics",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Темы 2",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "topics",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Темы 2",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "people",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Люди и доступ",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "people",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Люди и доступ",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "payments",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Продажи и платежи",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "payments",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Продажи и платежи",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "analytics",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Воронка продаж",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "analytics",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Воронка продаж",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "submissions",
+    "width": 1440,
+    "metrics": {
+      "width": 1440,
+      "scroll": 1440,
+      "heading": "Сдачи",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  },
+  {
+    "name": "submissions",
+    "width": 390,
+    "metrics": {
+      "width": 390,
+      "scroll": 390,
+      "heading": "Сдачи",
+      "phases": [
+        "finished"
+      ]
+    },
+    "violations": []
+  }
+]

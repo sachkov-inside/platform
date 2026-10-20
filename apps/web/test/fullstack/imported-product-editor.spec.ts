@@ -21,9 +21,13 @@ test("imported product opens read-only in the editor and lets the author leave",
   await page.getByRole("link", { name: /^Synthetic practice/u }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[a-f0-9-]{36}$/u);
 
+  await page
+    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .click();
   await expect(page.getByRole("note")).toContainText(
     "Продукт перенесён из источника.",
   );
+  await page.getByRole("tab", { name: "Программа", exact: true }).click();
   const composition = page.getByRole("list", { name: "Материалы продукта" });
   await expect(composition).toContainText("Synthetic practice reference");
   await expect(composition.getByRole("button")).toHaveCount(0);

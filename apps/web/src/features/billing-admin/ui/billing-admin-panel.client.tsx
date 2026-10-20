@@ -1,4 +1,5 @@
 "use client";
+import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import { TributeOperationsPanel } from "./tribute-operations-panel.client";
 import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
 import { PaymentLinksPanel } from "./payment-links-panel.client";
@@ -49,10 +50,12 @@ import type {
   GrantBatchOutcome,
   GrantPreviewOutcome,
   GrantsOutcome,
+  ListPaymentsInput,
   PaymentOutcome,
   PaymentView,
   RefundsOutcome,
 } from "../model/admin-operations";
+import type { AdminCommand } from "./admin-command";
 import { BillingAdminView } from "./billing-admin-view.client";
 
 type TaskOutcome =
@@ -101,6 +104,8 @@ export function BillingAdminPanel({
   );
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
+  const [paymentsFilters, setPaymentsFilters] =
+    useState<AdminCommand<ListPaymentsInput> | null>(null);
   const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
   const [refunds, setRefunds] = useState<RefundsOutcome["result"] | null>(null);
   const [grants, setGrants] = useState<GrantsOutcome["result"]["value"] | null>(
@@ -188,12 +193,31 @@ export function BillingAdminPanel({
       catalogError={content.error?.message ?? tiers.error?.message}
       cohorts={cohorts}
       enrollmentControls={
-        <>
-          <EnrollmentAdminPanel />
-          <ActivationRulesPanel />
-          <SubscriptionSourcePanel />
-          <TributeOperationsPanel />
-        </>
+        <WorkspaceTabs
+          label="Назначения и перенос доступа"
+          tabs={[
+            {
+              id: "enrollments",
+              label: "Назначения",
+              panel: <EnrollmentAdminPanel />,
+            },
+            {
+              id: "activation",
+              label: "Активация курса",
+              panel: <ActivationRulesPanel />,
+            },
+            {
+              id: "sources",
+              label: "Подтверждения курса",
+              panel: <SubscriptionSourcePanel />,
+            },
+            {
+              id: "tribute",
+              label: "Перенос Tribute",
+              panel: <TributeOperationsPanel />,
+            },
+          ]}
+        />
       }
       paymentLinkControls={
         <PaymentLinksPanel offers={catalog} content={content.data ?? []} />
@@ -316,6 +340,7 @@ export function BillingAdminPanel({
               operationId: operationId("payments.list", input),
             }),
           (value) => {
+            setPaymentsFilters(input);
             setPayments(value.result.items);
             setPaymentsCursor(value.result.nextCursor);
           },
@@ -512,6 +537,7 @@ export function BillingAdminPanel({
       payment={payment}
       payments={payments}
       paymentsCursor={paymentsCursor}
+      paymentsFilters={paymentsFilters}
       pending={command.isPending}
       preview={preview}
       refunds={refunds}

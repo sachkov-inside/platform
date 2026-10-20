@@ -129,7 +129,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Раздел «Оплата и права» в production-составе: назначения, ссылки активации, перенос из " +
+          "Раздел «Продажи и платежи» в production-составе: назначения, ссылки активации, перенос из " +
           "Tribute, каталог, потоки, скидка респондентам, платежи и права. Панели читают и пишут " +
           "через подменённый BFF billing.",
       },
@@ -150,69 +150,30 @@ export const Catalog: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Оплата и права" }),
+      page.getByRole("heading", { level: 1, name: "Продажи и платежи" }),
     ).toBeVisible();
-    const sections = [
-      "Тарифы и назначения",
-      "Ссылки активации курса",
-      "Подтверждение до регистрации",
-      "Перенос доступа из Tribute",
-      "Действующий каталог",
-      "Поток продукта",
-      "Ссылки на оплату",
-      "Архив анкетных скидок",
-      "Платежи",
-      "Кто этот покупатель",
-      "Права участника",
-    ];
-    const headings = sections.map((name) =>
-      page.getByRole("heading", { name }),
-    );
-    for (const [index, heading] of headings.entries()) {
-      const next = headings[index + 1];
-      if (next === undefined) break;
-      await expect(
-        heading.compareDocumentPosition(next) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    }
+    await expect(page.getByRole("heading", { name: "Платежи" })).toBeVisible();
+    await userEvent.click(page.getByRole("tab", { name: "Предложения" }));
     await expect(page.getAllByText("В продаже")).toHaveLength(2);
     await expect(
       page.getAllByRole("button", { name: "Снять с продажи" }),
     ).toHaveLength(2);
+    await userEvent.click(page.getByRole("tab", { name: "Состав тарифа" }));
     await expect(
       await page.findByText("Подписка Inside · назначается"),
     ).toBeVisible();
+    await userEvent.click(page.getByRole("button", { name: "Новый тариф" }));
     await expect(
       page.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
     ).toBeInTheDocument();
-
     await settleStoryFrame(1440);
     const main = page.getByRole("main");
-    const skipLink = page.getByRole("link", { name: "Перейти к содержанию" });
-    await expect(skipLink).toHaveAttribute("href", `#${main.id}`);
+    await expect(
+      page.getByRole("link", { name: "Перейти к содержанию" }),
+    ).toHaveAttribute("href", `#${main.id}`);
     main.focus();
     await expect(main).toHaveFocus();
-
-    const lastSection = page.getByRole("heading", { name: "Права участника" });
-    await expect(lastSection.getBoundingClientRect().top).toBeGreaterThan(
-      main.getBoundingClientRect().bottom,
-    );
     await expect(getComputedStyle(main).overflowY).toBe("auto");
-    lastSection.scrollIntoView({ block: "start" });
-    await expect(main.scrollTop).toBeGreaterThan(0);
-    await expect(
-      // Scroll positioning rounds fractional layout coordinates to a physical pixel.
-      Math.round(
-        lastSection.getBoundingClientRect().top * window.devicePixelRatio,
-      ),
-    ).toBeGreaterThanOrEqual(
-      Math.round(main.getBoundingClientRect().top * window.devicePixelRatio),
-    );
-    await expect(
-      lastSection.getBoundingClientRect().bottom,
-    ).toBeLessThanOrEqual(main.getBoundingClientRect().bottom);
-    main.scrollTop = 0;
   },
 };
 
@@ -224,6 +185,9 @@ export const CatalogNotOnSale: Story = {
     })),
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
     const page = within(canvasElement);
     await expect(page.getAllByText("Не продаётся")).toHaveLength(2);
     await expect(
@@ -252,6 +216,9 @@ export const SaleToggled: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
     const page = within(canvasElement);
     await expect(page.getAllByText("В продаже")).toHaveLength(1);
     await userEvent.click(
@@ -274,6 +241,9 @@ export const CommandRefused: Story = {
     "offers/unpublish": billingRefused("revision_conflict"),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
     const page = within(canvasElement);
     const [first] = page.getAllByRole("button", { name: "Снять с продажи" });
     if (first === undefined) throw new Error("Каталог без тумблера продажи");
@@ -290,6 +260,15 @@ export const CommandRefused: Story = {
 export const CatalogLoading: Story = {
   beforeEach: withReplies({ "content/list": billingNeverAnswers }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Состав тарифа" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "Новый тариф" }),
+    );
     await expect(
       within(canvasElement).getByText("Загружаем каталог…"),
     ).toBeVisible();
@@ -303,10 +282,19 @@ export const PermissionDenied: Story = {
     "tiers/list": billingRefused("forbidden"),
   }),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    const notices = await page.findAllByText(
-      "У вас нет права на это действие.",
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
     );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Состав тарифа" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "Новый тариф" }),
+    );
+    const page = within(canvasElement);
+    const notices = await within(
+      page.getByRole("tabpanel", { name: "Состав тарифа" }),
+    ).findAllByText("У вас нет права на это действие.");
     for (const notice of notices) await expect(notice).toBeVisible();
     await expect(
       page.queryByText("Сессия завершилась. Войдите снова."),
@@ -317,6 +305,15 @@ export const PermissionDenied: Story = {
 export const CatalogUnavailable: Story = {
   beforeEach: withReplies({ "content/list": billingRefused("unavailable") }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Состав тарифа" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "Новый тариф" }),
+    );
     const catalog = within(
       within(canvasElement)
         .getByRole("heading", { name: "Предложение" })
@@ -335,6 +332,9 @@ export const ProductCohort: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Наборы" }),
+    );
     const page = within(canvasElement);
     await expect(
       await page.findByText(/AI Engineering · Поток 1 · Предзаказ до старта/u),
@@ -364,6 +364,9 @@ export const ProductCohort: Story = {
 /** Цена после старта не положительна: форма объясняет ошибку и не отправляет поток. */
 export const ProductCohortInvalidPriceAfterStart: Story = {
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Наборы" }),
+    );
     const page = within(canvasElement);
     await userEvent.click(
       await page.findByRole("button", { name: "Изменить" }),
@@ -387,6 +390,9 @@ export const ProductCohortInvalidPriceAfterStart: Story = {
 export const ProductCohortUnavailable: Story = {
   args: { cohorts: null },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Наборы" }),
+    );
     const page = within(canvasElement);
     await expect(
       page.getByText(/Не удалось прочитать текущие потоки/u),
@@ -435,6 +441,7 @@ export const Payments: Story = {
     await expect(
       page.queryByRole("button", { name: "Исполнить возврат" }),
     ).not.toBeInTheDocument();
+    await userEvent.click(page.getByText("История возвратов", { exact: true }));
     await expect(
       page.getByText(/Продавец выполняет возврат только в кабинете Т-Банка/u),
     ).toBeVisible();
@@ -461,6 +468,14 @@ export const ClassificationUnknown: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Служебные операции" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", {
+        name: "Классификация аккаунта",
+      }),
+    );
     const section = within(
       within(canvasElement)
         .getByRole("heading", { name: "Кто этот покупатель" })
@@ -494,6 +509,9 @@ export const GrantPreview: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Служебные операции" }),
+    );
     const section = within(
       within(canvasElement)
         .getByRole("heading", { name: "Массовая выдача и классификация" })
@@ -520,8 +538,39 @@ export const Mobile: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Оплата и права" }),
+      page.getByRole("heading", { level: 1, name: "Продажи и платежи" }),
     ).toBeVisible();
+    await expect(
+      canvasElement.ownerDocument.documentElement.scrollWidth,
+    ).toBeLessThanOrEqual(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
+  },
+};
+
+export const PaymentsMobile: Story = {
+  ...Payments,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      page.getByRole("button", { name: "Показать платежи" }),
+    );
+    const list = await page.findByRole("list", { name: "Платежи" });
+    await expect(within(list).getByText("Оплачен")).toBeVisible();
+    await expect(within(list).getByText("2 800 ₽")).toBeVisible();
+    await expect(within(list).getByText("Готов")).toBeVisible();
+    const row = within(list).getByRole("listitem");
+    await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(1000);
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    const account = within(
+      page.getByText("Дополнительные фильтры").parentElement ?? canvasElement,
+    ).getByLabelText("Account");
+    await userEvent.type(account, accountId);
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    await expect(account).toHaveValue(accountId);
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
     await expect(
       canvasElement.ownerDocument.documentElement.scrollWidth,
     ).toBeLessThanOrEqual(

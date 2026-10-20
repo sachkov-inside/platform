@@ -103,10 +103,13 @@ export const Tariffs: Story = {
   }),
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Тарифы" }),
+    );
     const page = routeContent(canvasElement);
     await expect(
       page.getAllByRole("tab").map((tab) => tab.textContent),
-    ).toEqual(["Тарифы", "Приглашения", "Люди и доступ", "Сводка"]);
+    ).toEqual(["Люди и доступ", "Тарифы", "Приглашения", "Сводка"]);
     const panel = await openTab(canvasElement, "Тарифы");
     const materials = within(
       panel.getByRole("listitem", { name: materialsOffer.offer.name }),
@@ -154,6 +157,9 @@ export const SaleRefused: Story = {
     "offers/publish": billingRefused("method_unavailable"),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Тарифы" }),
+    );
     const panel = currentPanel(canvasElement);
     const product = within(
       panel.getByRole("listitem", { name: productOnlyOffer.offer.name }),
@@ -201,6 +207,9 @@ export const SaveInvitationThenPublish: Story = {
     "offers/publish": publishedReply,
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Тарифы" }),
+    );
     const panel = currentPanel(canvasElement);
     const select = panel.getByLabelText("Кому продаётся");
     const sale = panel.getByRole("button", {
@@ -254,6 +263,9 @@ export const SaveEveryoneThenConfirm: Story = {
     "offers/publish": publishedReply,
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Тарифы" }),
+    );
     const panel = currentPanel(canvasElement);
     await userEvent.selectOptions(
       panel.getByLabelText("Кому продаётся"),
