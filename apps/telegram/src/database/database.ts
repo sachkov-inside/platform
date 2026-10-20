@@ -1,3 +1,4 @@
+import type { MaterialAnnouncement } from "@inside/contracts/material-announcements";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
 import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
@@ -386,6 +387,13 @@ export interface DatabaseSchema
     contact_id: string;
     account_ref: string;
     telegram_identity_ref: string;
+  };
+  communication_material_announcements: {
+    bot_identity: string;
+    announcement_ref: string;
+    audience_key: string;
+    broadcast_id: string;
+    snapshot: JsonColumn<MaterialAnnouncement>;
   };
   communication_broadcasts: {
     waitlist_active_count: Generated<number | null>;

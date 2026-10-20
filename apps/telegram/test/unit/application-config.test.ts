@@ -630,3 +630,44 @@ describe("application configuration", () => {
     ).toThrow("must be separate service secrets");
   });
 });
+
+it("material announcements require explicit rollout scope and an existing test recipient", () => {
+  expect(
+    loadApplicationConfig(validEnvironment).materialAnnouncements,
+  ).toBeUndefined();
+  const configured = {
+    ...validEnvironment,
+    PLATFORM_AUTHOR_AUTHORIZATION_URL: "https://platform.example/authorize",
+    PLATFORM_AUTHOR_AUTHORIZATION_SECRET:
+      "synthetic_authorization_secret_for_tests",
+  };
+  expect(() =>
+    loadApplicationConfig({
+      ...configured,
+      MATERIAL_ANNOUNCEMENTS_MODE: "yes",
+    }),
+  ).toThrow("MATERIAL_ANNOUNCEMENTS_MODE");
+  expect(() =>
+    loadApplicationConfig({
+      ...configured,
+      MATERIAL_ANNOUNCEMENTS_MODE: "test",
+    }),
+  ).toThrow("MATERIAL_ANNOUNCEMENTS_TEST_USER_ID");
+  expect(() =>
+    loadApplicationConfig({
+      ...validEnvironment,
+      MATERIAL_ANNOUNCEMENTS_MODE: "all",
+    }),
+  ).toThrow("authorization configuration");
+  expect(
+    loadApplicationConfig({
+      ...configured,
+      MATERIAL_ANNOUNCEMENTS_MODE: "test",
+      MATERIAL_ANNOUNCEMENTS_TEST_USER_ID: "42",
+    }).materialAnnouncements,
+  ).toEqual({ mode: "test", telegramUserId: "42" });
+  expect(
+    loadApplicationConfig({ ...configured, MATERIAL_ANNOUNCEMENTS_MODE: "all" })
+      .marketingEnabled,
+  ).toBe(false);
+});

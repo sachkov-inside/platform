@@ -38,6 +38,7 @@ export interface MaterialMetadataDto extends Omit<
 }
 
 export interface MaterialDto {
+  readonly notifyTelegram?: boolean | null;
   readonly source?: AuthoringSource;
   readonly materialId: string;
   readonly contentVersion: number;

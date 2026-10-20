@@ -103,6 +103,7 @@ const currentTableOwners = {
   communication_step_ids: "communications",
   communication_templates: "communications",
   communication_tracking_hits: "communications",
+  communication_material_announcements: "communications",
   communication_waitlist_openings: "communications",
   communication_waitlist_recipients: "communications",
   communication_tracking_tokens: "communications",

@@ -349,6 +349,7 @@ model HomeSeriesPin {
 }
 
 model Material {
+  notifyTelegram Boolean? @map("notify_telegram")
   videoChapters Json @default(dbgenerated("'[]'::jsonb")) @map("video_chapters")
   sourceId         String?   @unique(map: "materials_source_id_unique") @map("source_id")
   sourcePath       String?   @map("source_path")
@@ -1160,6 +1161,8 @@ model BillingNotificationOutbox {
 }
 
 model MaterialAnnouncement {
+  telegramManaged Boolean @default(false) @map("telegram_managed")
+  telegramEnabled Boolean @default(false) @map("telegram_enabled")
   id           String   @id @db.Uuid
   materialId   String   @unique @map("material_id") @db.Uuid
   revision     Int

@@ -268,6 +268,7 @@ describe("Platform migrations", () => {
         "0099_chapter_supplementary_materials",
         "0100_product_waitlists",
         "0101_waitlist_confirmations",
+        "0102_material_telegram_announcements",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -969,6 +970,7 @@ describe("Platform migrations", () => {
           "0099_chapter_supplementary_materials",
           "0100_product_waitlists",
           "0101_waitlist_confirmations",
+          "0102_material_telegram_announcements",
         ],
       });
 

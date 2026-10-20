@@ -91,6 +91,15 @@ export class GrammyCommunicationsAdapter implements CommunicationTransport {
             }
           }
           sent = await this.api.sendMessage(message.chatId, c.text, {
+            ...(message.linkPreviewUrl === undefined
+              ? {}
+              : {
+                  link_preview_options: {
+                    url: message.linkPreviewUrl,
+                    prefer_large_media: true,
+                    show_above_text: true,
+                  },
+                }),
             entities,
             reply_markup,
           });

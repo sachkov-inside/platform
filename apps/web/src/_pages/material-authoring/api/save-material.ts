@@ -23,6 +23,7 @@ import type { SaveMaterialResult } from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "closed"]),
+  notifyTelegram: z.enum(["true", "false"]).optional(),
   confirmedProductRemovals: z.array(z.uuid()).max(100),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   detachVideoIds: z.array(z.uuid()),
@@ -120,6 +121,7 @@ function parseForm(formData: FormData):
     } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
+    notifyTelegram: formData.get("notifyTelegram") ?? undefined,
     confirmedProductRemovals: formData.getAll("confirmedProductRemovals"),
     deleteVideoId: formData.get("deleteVideoId") ?? undefined,
     detachVideoIds: formData.getAll("detachVideoIds"),
@@ -171,6 +173,9 @@ function parseForm(formData: FormData):
       idempotencyKey: `web-save-${parsed.data.submissionId}`,
       materialId: parsed.data.materialId,
       publicationState: parsed.data.publicationState,
+      ...(parsed.data.notifyTelegram === undefined
+        ? {}
+        : { notifyTelegram: parsed.data.notifyTelegram === "true" }),
       primaryVideoId:
         parsed.data.primaryVideoId === "none"
           ? null

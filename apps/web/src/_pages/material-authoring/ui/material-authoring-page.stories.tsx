@@ -1483,3 +1483,51 @@ export const ReferenceSelectorMobileControls: Story = {
     ).toBeVisible();
   },
 };
+
+export const TelegramAnnouncement: Story = {
+  name: "Уведомление об открытом материале",
+  args: {
+    initialPresentation: {
+      ...materialAuthoringPresentation,
+      draft: {
+        ...materialAuthoringPresentation.draft,
+        access: "free",
+        notifyTelegram: false,
+        wasPublished: false,
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const checkbox = canvas.getByRole("checkbox", {
+      name: /Отправить при первой публикации/u,
+    });
+    await expect(checkbox).toBeEnabled();
+    await expect(checkbox).not.toBeChecked();
+    await userEvent.click(checkbox);
+    await expect(checkbox).toBeChecked();
+    await waitFor(() => expect(savedField("notifyTelegram")).toBe("true"));
+  },
+};
+export const TelegramAnnouncementPublished: Story = {
+  name: "Уведомление уже опубликованного материала",
+  args: {
+    initialPresentation: {
+      ...materialAuthoringPresentation,
+      draft: {
+        ...materialAuthoringPresentation.draft,
+        access: "free",
+        status: "published",
+        notifyTelegram: true,
+        wasPublished: true,
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const checkbox = within(canvasElement).getByRole("checkbox", {
+      name: /Отправить при первой публикации/u,
+    });
+    await expect(checkbox).toBeChecked();
+    await expect(checkbox).toBeDisabled();
+  },
+};
