@@ -117,14 +117,81 @@ function uniqueSpans(bodies: string[]) {
   }
   return [...unique.values()];
 }
+const privateFailure = "Telegram API proof validation failed";
+async function privateProof(work: () => Promise<void>): Promise<void> {
+  try {
+    await work();
+  } catch {
+    // A schema/transport/assertion error may contain credentials or a complete private body.
+    throw new Error(privateFailure);
+  }
+}
+function assertPrivateTelegramExports(
+  input: unknown,
+  privateValues: readonly string[],
+): void {
+  try {
+    const documents = z
+      .array(z.string().max(EMAIL_EXPORT_CAPTURE_LIMITS.bodyBytes))
+      .max(EMAIL_EXPORT_CAPTURE_LIMITS.distinctBodies)
+      .parse(input);
+    const secrets = z
+      .array(z.string().min(1).max(2048))
+      .max(64)
+      .parse(privateValues);
+    const forbidden = [
+      ...secrets,
+      "authorization",
+      "baggage",
+      "tracestate",
+      "tokenDigest",
+      "returnCorrelation",
+      "displayName",
+      "telegramIdentityRef",
+      "subjectRef",
+    ];
+    const inspect = (value: string) => {
+      if (forbidden.some((secret) => value.includes(secret))) throw new Error();
+    };
+    for (const raw of documents) {
+      if (Buffer.byteLength(raw) > EMAIL_EXPORT_CAPTURE_LIMITS.bodyBytes)
+        throw new Error();
+      inspect(raw);
+      // Every decoded string token, including overwritten duplicate members, is inspected BEFORE object construction.
+      // The existing capture byte/document limits bound this scan; no additional whole-corpus node budget is guessed.
+      let depth = 0;
+      for (let cursor = 0; cursor < raw.length; cursor++) {
+        const character = raw[cursor];
+        if (character === '"') {
+          let end = cursor + 1;
+          for (; end < raw.length; end++) {
+            if (raw[end] === "\\") end++;
+            else if (raw[end] === '"') break;
+          }
+          if (end >= raw.length) throw new Error();
+          inspect(z.string().parse(JSON.parse(raw.slice(cursor, end + 1))));
+          cursor = end;
+        } else if (character === "{" || character === "[") {
+          if (++depth > 32) throw new Error();
+        } else if (character === "}" || character === "]") {
+          if (--depth < 0) throw new Error();
+        }
+      }
+      // Syntax validation cannot print parser excerpts outside the constant-error boundary.
+      JSON.parse(raw);
+    }
+  } catch {
+    throw new Error(privateFailure);
+  }
+}
 // End pure wire oracle.
 
 for (const mode of ["ON", "OFF", "503"] as const) {
   test(`native API Telegram contacts preserve Account isolation and optional404: ${mode}`, async (owner) => {
-    await prove("contacts", mode, owner);
+    await privateProof(() => prove("contacts", mode, owner));
   });
   test(`native API Telegram sign-in preserves receipt ownership and terms-gated resume: ${mode}`, async (owner) => {
-    await prove("signin", mode, owner);
+    await privateProof(() => prove("signin", mode, owner));
   });
 }
 
@@ -150,16 +217,15 @@ async function prove(
 ) {
   const cleanup: (() => unknown)[] = [];
   owner.onTestFinished(async () => {
-    const failures: unknown[] = [];
+    let failures = 0;
     for (const dispose of cleanup.reverse()) {
       try {
         await dispose();
-      } catch (error) {
-        failures.push(error);
+      } catch {
+        failures++;
       }
     }
-    if (failures.length > 0)
-      throw new AggregateError(failures, "Owned Telegram API cleanup failed");
+    if (failures > 0) throw new Error(privateFailure);
   });
   const database = await createMigratedTestDatabase();
   cleanup.push(() => database.dispose());
@@ -272,7 +338,7 @@ async function prove(
   }, true);
   let nativeRequests = 0;
   const nativeBodies: string[] = [];
-  const handlerFailures: unknown[] = [];
+  let handlerFailures = 0;
   const handlers = new Set<Promise<void>>();
   // Listener shutdown precedes draining its independently observed DB reads; DB outlives both.
   cleanup.push(async () => {
@@ -375,8 +441,8 @@ async function prove(
       })();
       handlers.add(handling);
       void handling
-        .catch((error: unknown) => {
-          handlerFailures.push(error);
+        .catch(() => {
+          handlerFailures++;
           response.destroy();
         })
         .finally(() => handlers.delete(handling));
@@ -747,14 +813,16 @@ async function prove(
   }
   assert.equal(nativeRequests, 2);
   assert.equal(nativeBodies.length, 2);
-  assert.deepEqual(handlerFailures, []);
+  assert.equal(handlerFailures, 0);
   assert.equal(jwksRequests, 1);
   await application.close();
   application = undefined;
   assert.equal(logOverflow, false);
+  const bodies = capture.payloads();
+  // Full lossless raw privacy precedes all OTLP schema parsing, deduplication, cardinality and diffs.
+  assertPrivateTelegramExports(bodies, privateValues);
   capture.assertComplete(requests);
   assert.deepEqual(responses, requests);
-  const bodies = capture.payloads();
   if (mode === "OFF") {
     assert.deepEqual(bodies, []);
     assert.deepEqual(requests, { traces: 0, metrics: 0, other: 0 });
@@ -762,23 +830,6 @@ async function prove(
   }
   const spans = uniqueSpans(bodies);
   assertNativeWire(spans, bodies, completions, scenario);
-  const raw = bodies.join("\n");
-  for (const value of [
-    ...privateValues,
-    "authorization",
-    "baggage",
-    "tracestate",
-    "tokenDigest",
-    "returnCorrelation",
-    "displayName",
-    "telegramIdentityRef",
-    "subjectRef",
-  ])
-    assert.equal(
-      raw.includes(value),
-      false,
-      "private fixture value escaped to OTLP",
-    );
   const failedExports = logRows.filter(
     (row) => row["event"] === "telemetry_export_failed",
   );
