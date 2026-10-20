@@ -1,15 +1,23 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { accountPresentationBrowserQueryOptions } from "@/features/account-access";
+import {
+  useAccountPresentation,
+  accountProfileChanged,
+} from "@/features/account-access";
 import {
   acceptedDocumentItems,
   acceptedDocumentsQueryOptions,
   type AcceptedDocumentsPanelProps,
 } from "@/features/accepted-documents";
 
+import { AccountEmailPanel } from "@/features/account-email";
+import { MemberProfileEditor } from "@/features/member-profile-editor";
+import {
+  accountPresentationQueryKey,
+  type AccountPresentationResult,
+} from "@/features/account-access";
 import { LearningContinuation } from "@/features/reading-progress";
-import { useBillingContact } from "@/features/billing-contact";
 import { AccountBilling } from "./account-billing.client";
 
 import { AccountAccessView } from "./account-access-view.client";
@@ -20,8 +28,8 @@ export function AccountAccessPage({
 }: {
   readonly policies: AcceptedDocumentsPanelProps["policies"];
 }) {
-  const query = useQuery(accountPresentationBrowserQueryOptions());
-  const contact = useBillingContact({ enabled: query.data?.kind === "ready" });
+  const queryClient = useQueryClient();
+  const query = useAccountPresentation();
   const accepted = useQuery(acceptedDocumentsQueryOptions());
   const presentation =
     query.data?.kind === "ready" ? query.data.presentation : null;
@@ -31,13 +39,48 @@ export function AccountAccessPage({
 
   return (
     <AccountAccessView
+      displayName={
+        presentation === null
+          ? undefined
+          : presentation.profile.kind === "profile"
+            ? presentation.profile.profile.displayName
+            : (presentation.telegramMembership.contact?.displayName ??
+              "Участник")
+      }
+      telegramContact={presentation?.telegramMembership.contact}
+      profileSlot={
+        presentation === null ? null : (
+          <MemberProfileEditor
+            initialProfile={
+              presentation.profile.kind === "profile"
+                ? presentation.profile.profile
+                : null
+            }
+            suggestedName={
+              presentation.telegramMembership.contact?.displayName ?? null
+            }
+            onSaved={(profile) => {
+              accountProfileChanged.announce();
+              queryClient.setQueryData<AccountPresentationResult>(
+                accountPresentationQueryKey(),
+                (current) =>
+                  current?.kind === "ready"
+                    ? {
+                        ...current,
+                        presentation: {
+                          ...current.presentation,
+                          profile: { kind: "profile", profile },
+                        },
+                      }
+                    : current,
+              );
+            }}
+          />
+        )
+      }
+      emailSlot={showPrivateSections ? <AccountEmailPanel /> : null}
       billingSlot={showPrivateSections ? <AccountBilling /> : null}
       continuationSlot={showPrivateSections ? <LearningContinuation /> : null}
-      email={
-        query.data?.kind === "ready" && contact.data?.ok === true
-          ? contact.data.initialEmail
-          : undefined
-      }
       acceptedDocuments={{
         policies,
         state:

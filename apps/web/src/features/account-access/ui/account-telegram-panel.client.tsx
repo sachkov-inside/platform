@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  Check,
   CircleAlert,
   LoaderCircle,
   Send,
@@ -31,46 +30,64 @@ import {
 export function AccountTelegramPanel({
   link,
   onRefresh,
+  contact,
   retryLabel = "Попробовать снова",
+  headingLevel = 2,
 }: {
   readonly link: AccountTelegramMembership["link"];
+  readonly contact?: AccountTelegramMembership["contact"];
   readonly onRefresh: () => Promise<void>;
   readonly retryLabel?: string;
+  readonly headingLevel?: 2 | 3;
 }) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const flow = useTelegramLinkFlow(onRefresh);
   const presentation = telegramLinkPresentation(link);
-  const linked = link.kind === "linked";
 
   return (
     <section
       aria-labelledby="telegram-connection-heading"
-      className="grid gap-4"
+      className="grid gap-3"
     >
-      <h2 className="sr-only" id="telegram-connection-heading">
+      <Heading
+        className="flex items-center gap-2 text-base font-semibold"
+        id="telegram-connection-heading"
+      >
+        <Send aria-hidden="true" className="size-4 text-muted-foreground" />
         Telegram
-      </h2>
-      <article className="flex flex-col gap-5 rounded-2xl bg-muted/50 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="flex min-w-0 items-start gap-4 sm:items-center">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#229ED9] text-white shadow-sm [&_svg]:size-5">
-            {linked ? (
-              <Check aria-hidden="true" strokeWidth={2.5} />
-            ) : (
-              <Send aria-hidden="true" />
-            )}
-          </span>
+      </Heading>
+      <article className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
+        <div className="min-w-0 flex-1">
           <div className="min-w-0 [overflow-wrap:anywhere]">
-            <p className="text-sm font-medium text-muted-foreground">
-              Telegram
-            </p>
-            <h3 className="mt-1 text-lg font-bold tracking-[-0.025em]">
-              {presentation.account.title}
-            </h3>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {presentation.account.description}
-            </p>
+            <p className="text-sm font-medium">{presentation.account.title}</p>
+            {contact?.state === "available" ? (
+              <p className="mt-2 break-words text-sm">
+                {contact.displayName}
+                {contact.username === null ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · Username не задан
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · @{contact.username}
+                  </span>
+                )}
+              </p>
+            ) : contact?.state === "unavailable" ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Не удалось загрузить имя и username из Telegram.
+              </p>
+            ) : null}
+            {link.kind === "unlinked" ? null : (
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                {presentation.account.description}
+              </p>
+            )}
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+        <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">
           {telegramAction(presentation.action, flow, retryLabel)}
         </div>
       </article>
@@ -125,7 +142,7 @@ function telegramAction(
           {action.context === "linking" && flow.deepLink !== null ? (
             <Button
               asChild
-              className="h-10 rounded-xl border-[#229ED9]/30 bg-background/70 px-4 text-[#075985] hover:bg-background"
+              className="min-h-11 px-4"
               size="lg"
               variant="outline"
             >
@@ -159,11 +176,7 @@ function telegramAction(
       );
     case "support":
       return (
-        <Button
-          asChild
-          className="h-10 rounded-xl bg-[#0369A1] px-4 text-white hover:bg-[#075985]"
-          size="lg"
-        >
+        <Button asChild className="min-h-11 px-4" size="lg" variant="outline">
           <a href={action.url} rel="noopener noreferrer" target="_blank">
             Написать в поддержку
             <ArrowUpRight aria-hidden="true" data-icon="inline-end" />
@@ -189,16 +202,12 @@ function TelegramButton({
 }) {
   return (
     <Button
-      className={
-        secondary
-          ? "h-10 rounded-xl border-[#229ED9]/30 bg-background/70 px-4 text-[#075985] hover:bg-background"
-          : "h-10 rounded-xl bg-[#0369A1] px-4 text-white hover:bg-[#075985]"
-      }
+      className="min-h-11 px-4"
       disabled={pending}
       onClick={onClick}
       size="lg"
       type="button"
-      variant={secondary ? "outline" : "default"}
+      variant={secondary ? "ghost" : "outline"}
     >
       {label}
       {pending ? (

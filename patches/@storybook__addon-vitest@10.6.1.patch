@@ -21,3 +21,9 @@ index e620f9a611602369191ac5d04272caa8b8e1c4f5..5f7032155b3720fcf6d1b59488990e83
          env: {
            VITEST: "true",
            TEST: "true",
+diff --git a/dist/vitest-plugin/test-utils.js b/dist/vitest-plugin/test-utils.js
+--- a/dist/vitest-plugin/test-utils.js
++++ b/dist/vitest-plugin/test-utils.js
+@@ -75,1 +75,1 @@
+-var convertToFilePath = (url) => url.replace(/^file:\/\//, "").replace(/^\/+([a-zA-Z]:)/, "$1").replace(/%20/g, " "), testStory = ({
++var convertToFilePath = (url) => decodeURIComponent(url.replace(/^file:\/\//, "").replace(/^\/+([a-zA-Z]:)/, "$1")), testStory = ({

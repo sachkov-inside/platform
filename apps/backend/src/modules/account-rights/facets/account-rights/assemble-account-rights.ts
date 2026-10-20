@@ -29,7 +29,12 @@ export function assembleAccountRights(
 ): AccountRights {
   const clock = dependencies.clock ?? (() => new Date());
   const accountRights: AccountRights = {
-    async resolveForAccessAccounts(accountIds, productIds, materialId) {
+    async resolveForAccessAccounts(
+      accountIds,
+      productIds,
+      materialId,
+      transaction,
+    ) {
       try {
         return await resolveMembershipForAccessAccounts(
           dependencies.prisma,
@@ -37,6 +42,7 @@ export function assembleAccountRights(
           clock(),
           productIds,
           materialId,
+          transaction,
         );
       } catch (error) {
         return dependencyFailure(

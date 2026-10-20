@@ -65,6 +65,7 @@ export interface AccountRights {
     accountIds: readonly AccountId[],
     productIds?: readonly string[],
     materialId?: string,
+    transaction?: MembershipAccessPrisma,
   ): Promise<ReadonlyMap<string, MembershipAccessState>>;
   resolveManyForAccess?(
     accountId: AccountId,

@@ -1,3 +1,4 @@
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/facets/sales-funnel/sales-funnel.js";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { ProductOutlines } from "../../src/modules/materials/index.js";
@@ -12,6 +13,10 @@ import type { PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
 export function assembleTestFunnel(prisma: PlatformPrisma) {
   return new SalesFunnel({
     prisma,
+    rights: assembleAccountRights({
+      prisma,
+      clock: () => new Date("2026-10-19T12:00:00Z"),
+    }),
     accounts: assembleAccounts({
       prisma,
       emailFingerprintKey: "synthetic-funnel-diagnostic-fingerprint",

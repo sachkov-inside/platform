@@ -182,3 +182,9 @@ The Account interface still contains only `accountId`. Receipt email travels as 
 between the authentication adapter and checkout. Published hook configuration must be synchronized
 with `infra/identity/logto/custom-access-token.js` during delivery. Logto documents the user context
 and signed custom claims in its [custom-token script contract](https://docs.logto.io/developers/custom-token-claims/create-script).
+
+## First sign-in email attachment
+
+The authenticated profile's first-email flow follows [the Account profile contract](account-profile-v1.md).
+It uses the existing Logto user and user-bound verification records. The same-origin Web BFF
+forwards the attachment code to Logto; the sign-in email/code Experience flow above is unchanged.

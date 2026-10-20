@@ -9,6 +9,8 @@ OUTCOMES = ('completed','failed')
 TRACE_IDS = {'json':'d'*31+'3','protobuf':'d'*31+'4'}
 COMMUNICATIONS_TRACE_IDS = {'json':'d'*31+'5','protobuf':'d'*31+'6'}
 COMMUNICATIONS = (('telegram','communications.execute','completed'),('telegram','communications.execute','failed'))
+TELEGRAM_HTTP_TRACE_IDS = {'json':'e'*30+'71','protobuf':'e'*30+'72'}
+TELEGRAM_HTTP = tuple(('telegram',op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount') for out in OUTCOMES)
 RELEASES = {'json':'a'*40,'protobuf':'b'*40}
 CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUTCOMES)
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
@@ -18,16 +20,16 @@ POOL = {'available':1,'total':2,'idle':1,'waiting':3,'registry_overflow':0}
 METRICS = ('inside.dependency.operations','inside.dependency.duration')
 
 
-def _json(now_ns, batch=None, *, communications=False):
+def _json(now_ns, batch=None, *, communications=False, telegram_http=False):
     def attr(key, value):
         return {'key':key,'value':{'stringValue':value}}
     resource = {'attributes':[attr('service.name','platform-api'),
         attr('deployment.environment.name','isolated-pilot'),attr('service.version','a'*40),
         attr('authorization',SENTINEL)]}
-    registered = COMMUNICATIONS if communications else REGISTERED
-    ids = COMMUNICATIONS_TRACE_IDS if communications else TRACE_IDS
+    registered = TELEGRAM_HTTP if telegram_http else COMMUNICATIONS if communications else REGISTERED
+    ids = TELEGRAM_HTTP_TRACE_IDS if telegram_http else COMMUNICATIONS_TRACE_IDS if communications else TRACE_IDS
     cases = [(op,out,dep) for dep,op,out in registered]
-    if not communications:
+    if not (communications or telegram_http):
         cases += [(SENTINEL,SENTINEL,SENTINEL),(True,42,False),(None,None,None)]
     spans, points = [], []
     for index,(operation,outcome,dependency) in enumerate(cases):
@@ -43,10 +45,12 @@ def _json(now_ns, batch=None, *, communications=False):
             return result
         unsafe = [attr(key,SENTINEL) for key in ('url.full','provider.request_id','http.request.body',
             'http.response.body','authorization','user.email','exception.message','exception.stacktrace','db.statement','db.query.text','db.query.parameters','db.connection_string','db.response.status_code','TerminalKey','Token','PaymentId','OrderId','RebillId','Amount')]
-        if not communications:
+        if not (communications or telegram_http):
             unsafe += [attr(key,SENTINEL) for key in ('operationId','accountRef','telegramIdentityRef','linkRef','correlationRef','entitlementRevision','access','groupUrl')]
         if communications:
             unsafe += [attr(key,SENTINEL) for key in ('operationId','actor.accountRef','templateId','botIdentity','returnCorrelation','telegramIdentityRef')]
+        if telegram_http:
+            unsafe += [attr(key,SENTINEL) for key in ('accountRef','returnCorrelation','linkTransactionRef','telegramIdentityRef','tokenDigest','subjectRef','contacts')]
         spans.append({'traceId':ids['json'],'spanId':f'{index+1:016x}','parentSpanId':'b'*16,
             'name':SENTINEL,'kind':1 if operation=='material-slug-lock' else 3,'startTimeUnixNano':str(now_ns),'endTimeUnixNano':str(now_ns+1_000_000),
             'traceState':'private='+SENTINEL,
@@ -69,7 +73,7 @@ def _json(now_ns, batch=None, *, communications=False):
     for name,value in POOL.items():
         metrics.append({'name':'inside.postgresql.pool.'+name,'gauge':{'dataPoints':[
             {'timeUnixNano':str(now_ns),'asInt':str(value),'attributes':unsafe}]}})
-    if communications:
+    if communications or telegram_http:
         metrics = metrics[:2]
     if batch is not None:
         # Two fixed disjoint halves preserve every challenge without raising wire budgets.
@@ -112,10 +116,10 @@ def _attribute(attribute):
     return _text(1,key)+_field(2,encoded)
 
 
-def _protobuf(now_ns, batch=None, *, communications=False):
+def _protobuf(now_ns, batch=None, *, communications=False, telegram_http=False):
     """Literal proto v1.5 field encoding of this fixed corpus; no arbitrary serialization API."""
-    body = _json(now_ns, batch, communications=communications)
-    ids = COMMUNICATIONS_TRACE_IDS if communications else TRACE_IDS
+    body = _json(now_ns, batch, communications=communications, telegram_http=telegram_http)
+    ids = TELEGRAM_HTTP_TRACE_IDS if telegram_http else COMMUNICATIONS_TRACE_IDS if communications else TRACE_IDS
     resource = body['traces']['resourceSpans'][0]['resource']
     resource['attributes'][2]['value']['stringValue']=RELEASES['protobuf']
     encoded_resource = b''.join(_field(1,_attribute(attr)) for attr in resource['attributes'])
@@ -159,6 +163,10 @@ def communications_payloads(transport,now_ns):
     return {'json':_json,'protobuf':_protobuf}[transport](now_ns,communications=True)
 
 
+def telegram_http_payloads(transport,now_ns):
+    return {'json':_json,'protobuf':_protobuf}[transport](now_ns,telegram_http=True)
+
+
 def payload_batches(transport,now_ns):
     """Exactly two fixed, disjoint ingest batches; no challenge field is dropped."""
     batches = tuple({'json':_json,'protobuf':_protobuf}[transport](now_ns,batch) for batch in (0,1))
@@ -178,8 +186,11 @@ def _unique(pairs):
     return result
 
 
-def stored_traces(raw,transport, *, communications=False):
+def stored_traces(raw,transport, *, communications=False, telegram_http=False, now_ns=None):
     """Require full stored rows before a public projection can hide private fields."""
+    if telegram_http:
+        from telegram_http_storage import stored_traces as telegram_http_traces
+        return telegram_http_traces(raw,transport,now_ns)
     registered = COMMUNICATIONS if communications else REGISTERED
     ids = COMMUNICATIONS_TRACE_IDS if communications else TRACE_IDS
     extra = () if communications else (('_OTHER','_OTHER','_OTHER'),('_OTHER','_OTHER','_OTHER'),(None,None,None))
@@ -229,7 +240,7 @@ def stored_metrics(response):
     if response[0]!=200:
         return None
     expected = {(release,dependency,operation,outcome,name,le) for release in RELEASES.values()
-        for dependency,operation,outcome in (*REGISTERED,*COMMUNICATIONS,('_OTHER','_OTHER','_OTHER'))
+        for dependency,operation,outcome in (*REGISTERED,*COMMUNICATIONS,*TELEGRAM_HTTP,('_OTHER','_OTHER','_OTHER'))
         for name,le in ((METRICS[0],None),(METRICS[1]+'_count',None),(METRICS[1]+'_sum',None),
                        (METRICS[1]+'_bucket','1'),(METRICS[1]+'_bucket','+Inf'))}
     try:
@@ -282,6 +293,6 @@ def stored_metrics(response):
             seen.add(key)
         if seen!=expected or pool_seen!={(release,name) for release in RELEASES.values() for name in POOL}:
             return None
-        return {'stored_series':360,'metric_labelsets':70,'pool_series':10,'privacy':'passed'}
+        return {'stored_series':440,'metric_labelsets':86,'pool_series':10,'privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency metric contract failed; raw response withheld') from None

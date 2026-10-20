@@ -34,6 +34,7 @@ export type AccountRightsPrisma = Pick<
 /** What Membership reads to decide access; a caller's transaction lists these to hand itself over. */
 export type MembershipAccessPrisma = Pick<
   AccountRightsPrisma,
+  | "$queryRaw"
   | "accessChange"
   | "accessGrant"
   | "productAccessExclusion"

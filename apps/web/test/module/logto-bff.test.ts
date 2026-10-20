@@ -55,6 +55,7 @@ describe("Logto BFF configuration", () => {
       baseUrl: "https://inside.example.test",
       audience: "https://api.example.test",
       resources: ["https://api.example.test"],
+      scopes: ["email"],
     });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.resources)).toBe(true);

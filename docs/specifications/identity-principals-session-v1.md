@@ -239,8 +239,8 @@ Provider consume reserves an unlinked Telegram subject under a shared identity l
 email linking cannot take it between proof consumption and finalization. The reservation survives
 a lost response and a fresh bot proof repairs it. If email linking wins first, consume returns
 that confirmed link instead. Linking does not issue Membership
-or permissions. First email attachment to Telegram-only Accounts, merging, replacement and recovery
-are excluded. The owner simplified the sign-in UI on 2026-09-06: one bot-opening action,
+or permissions. First email attachment to Telegram-only Accounts follows the
+[Account profile contract](account-profile-v1.md). Merging, replacement and recovery remain excluded. The owner simplified the sign-in UI on 2026-09-06: one bot-opening action,
 a short waiting status, and explicit “Подтвердить вход” / “Отменить” bot buttons. Approval automatically
 returns the original browser to Platform. The screen omits account/recovery explanations and
 number matching; this changes presentation, not browser binding or one-time proof checks.
@@ -269,5 +269,6 @@ versus real message boundary are documented in
 
 [Billing contact #406](subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406) проверяет
 адрес для чеков и уведомлений уже вошедшего Account. Он не добавляет email identity в Logto,
-не обновляет login fingerprint и не меняет описанные выше ограничения first email sign-in
-attachment, merge или recovery. Коды контакта проходят через Platform; коды **входа** остаются в Logto.
+не обновляет login fingerprint и не выполняет first email sign-in attachment, merge или recovery.
+Коды контакта проходят через Platform; коды **входа** остаются в Logto. Код привязки первой почты
+передаётся через BFF в Logto по [контракту профиля](account-profile-v1.md).
