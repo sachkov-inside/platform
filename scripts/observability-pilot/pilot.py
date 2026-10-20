@@ -461,7 +461,8 @@ def fixture_trace_rows(compose, fixture):
         boundary = 'fixture'
         queries = {**{'link-'+key:(value,2) for key,value in link_privacy.TRACE_IDS.items()},
                    **{'notification-'+key:(value,8) for key,value in notification_privacy.TRACE_IDS.items()},
-                   **{'dependency-'+key:(value,32) for key,value in dependency_privacy.TRACE_IDS.items()}}
+                   **{'dependency-'+key:(value,32) for key,value in dependency_privacy.TRACE_IDS.items()},
+                   **{'communications-'+key:(value,30) for key,value in dependency_privacy.COMMUNICATIONS_TRACE_IDS.items()}}
         trace_id, limit = queries[fixture]
         boundary = 'identity_before'
         assert_docker_identity(deadline=deadline)
@@ -594,17 +595,20 @@ def dependency_catalog_corpus(token, output, compose):
     proof = {'outcome':'failed','stage':'logging','cases':[]}
     try:
         verify_trace_store_logging(output,compose)
-        for transport in ('json','protobuf'):
-            for signal,body in dependency_privacy.payloads(transport,time.time_ns()).items():
-                proof['stage']='ingest_'+transport+'_'+signal
-                assert_docker_identity()
-                if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
-                    raise RuntimeError('dependency OTLP rejected')
-            proof['stage']='storage_'+transport
-            stored = await_fact(lambda: dependency_privacy.stored_traces(
-                fixture_trace_rows(compose,'dependency-'+transport),transport),bool,
-                probe='dependency_full_storage_'+transport,output=output)
-            proof['cases'].append(stored)
+        for communications in (False,True):
+            partition = 'communications' if communications else 'dependency'
+            payloads = dependency_privacy.communications_payloads if communications else dependency_privacy.payloads
+            for transport in ('json','protobuf'):
+                for signal,body in payloads(transport,time.time_ns()).items():
+                    proof['stage']='ingest_'+partition+'_'+transport+'_'+signal
+                    assert_docker_identity()
+                    if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+                        raise RuntimeError('dependency OTLP rejected')
+                proof['stage']='storage_'+partition+'_'+transport
+                stored = await_fact(lambda: dependency_privacy.stored_traces(
+                    fixture_trace_rows(compose,partition+'-'+transport),transport,communications=communications),bool,
+                    probe=partition+'_full_storage_'+transport,output=output)
+                proof['cases'].append({**stored,'partition':partition})
         proof['stage']='metrics'
         # Inspect the whole bounded corpus too, so an unregistered metric cannot hide outside a positive selector.
         path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})
