@@ -1254,3 +1254,52 @@ The genuine API/timer/PostgreSQL tests are prepared for CI. Host SDK tests alone
 PostgreSQL, timer delivery, restart, shutdown or migration behavior. The existing pinned collector
 policy does not yet retain these tracking fields and metrics; direct owned OTLP export is not
 pinned-storage proof. This source does not activate production tracking or add user permissions.
+
+
+## Первый срез production SDK S3 через хранилища
+
+Отдельный workflow `.github/workflows/observability-sdk-storage.yml` подготавливает один
+cold read через `technicalTelemetryFromEnvironment` и `createS3ObjectStorage`, с настоящими
+Smithy HTTP handler и чтением body. Его HTTP scope принадлежит тесту. Это композиция SDK,
+Alloy, VictoriaMetrics и VictoriaTraces, а не настоящий запрос API. Проверка API с PostgreSQL
+и S3 остаётся отдельным доказательством.
+
+Workflow использует pinned setup-platform, frozen lockfile, сборку workspace packages и backend.
+Emitter направляет штатные OTLP exporters прямо в pinned Alloy. Он не подменяет `send`,
+подписание, exporters или handler. Собственный HTTP fixture использует закрытые sentinel
+значения для bucket, key, credentials, body и metadata. Наружу выходят только закрытые результаты,
+числа и хеши исходников и загруженных модулей. Сырые OTLP и ответы хранилищ не сохраняются.
+
+В отдельном disposable project используется весь неизменённый `pilot.SERVICES`, сейчас семь
+сервисов. План, лимиты, pinned images, private auth, закрытый gateway и `logging: none` у Alloy
+и VictoriaTraces берутся из существующего pilot. Перед передачей sentinel значений проверяются
+Docker daemon, CID, project, service, image, Compose config, mounts и networks. Публичный
+supervisor сохраняет общий бюджет worker в 600 секунд и завершает группу процессов, затем
+проверяет удаление своих контейнеров, volumes и networks. Отдельный Node child владеет native
+HTTP listener и закрывается при успехе, ошибке, timeout и interruption. Всегда выполняется
+точное восстановление только зарегистрированного project. Core23 и его бюджет не меняются.
+
+VM читается целиком фиксированным `last_over_time({__name__=~".+"}[10m])` с `nocache=1`.
+Это ограниченное чтение сохранённой истории, оно не доказывает свежесть или задержку доставки.
+Oracle проверяет каждый полученный ряд до состояния pending. Для успешных `getObject.read`
+и `http.GET` ожидаются 38 dependency series: для каждой операции counter, histogram count,
+sum и 16 buckets, включая `+Inf`. Независимые границы соответствуют SDK 2.12. Отдельный
+закрытый владелец проверяет 29 других SDK series. Дополнительные collector и trace-store
+self-scrapes имеют свой закрытый набор имён и меток и учитываются отдельно. Число 38 не
+описывает полный вектор. Неизвестные, повторные и приватные поля отклоняются.
+
+VT читается полными строками только для trace, полученного от emitter. Проверяются три span,
+их поля, kind, outcome и связи test-owned root → INTERNAL `getObject.read` → CLIENT `http.GET`.
+Missing строки дают pending только после проверки всех уже наблюдаемых строк. В artifact нет
+trace ID, объектов, signed URLs или необработанных ошибок.
+
+`source.json` связывает checkout и tree с provider run, attempt, PR head/base и хешами реальных
+входов: весь production backend source, packages, package manifests, lockfile, patches,
+toolchain, build inputs, emitter, supervisor, закрытые oracles и pinned конфигурацию. Файл
+`runtime-modules.json` содержит хеши действительно загруженных compiled production modules
+и зависимостей. Синтетический Core23 manifest не заменяет эту связь.
+
+Первый срез включает только enabled success. Ошибки S3, retries, OFF, collector 503, другие
+SDK producers, причинность настоящего API до хранилища, полный ресурсный опыт и production
+остаются отдельными проверками. Наличие workflow и локальные loopback tests не означают,
+что native hosted прогон или полная спецификация уже прошли.
