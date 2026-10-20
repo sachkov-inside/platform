@@ -397,15 +397,15 @@ it("expires locally while the provider remains unavailable", async () => {
 
 it("coalesces return events while one status request is in flight", async () => {
   const page = await browser.newPage();
-  const responseGate = Promise.withResolvers<void>();
-  const requestStarted = Promise.withResolvers<void>();
+  const responseGate = Promise.withResolvers<undefined>();
+  const requestStarted = Promise.withResolvers<undefined>();
   let calls = 0;
   try {
     await page.clock.install();
     await open(page, "pending");
     await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
       calls += 1;
-      requestStarted.resolve();
+      requestStarted.resolve(undefined);
       await responseGate.promise;
       await route.fulfill({
         json: {
@@ -424,11 +424,11 @@ it("coalesces return events while one status request is in flight", async () => 
     // The first request is held at the response boundary; no other fetch may start meanwhile.
     await page.clock.runFor(severalPollsMs);
     expect(calls).toBe(1);
-    responseGate.resolve();
+    responseGate.resolve(undefined);
     await page.waitForURL(`${origin}/callback?fixture=single`);
     expect(calls).toBe(1);
   } finally {
-    responseGate.resolve();
+    responseGate.resolve(undefined);
     await page.close();
   }
 });
