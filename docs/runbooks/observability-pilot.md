@@ -1559,6 +1559,23 @@ stop even if observation fails. Existing acquisition deadlines, identity checks,
 and 600-second worker budget remain unchanged. These diagnostics cannot retrospectively
 establish the cause of runs 39433543633 or 39441411789.
 
+The resource-only `observe_samples=True` guard option retains the same already-read free-byte
+values in a read-only memory view. Default callers still receive `None`. The source-bound
+`resource-disk-samples.json` contains only a baseline, latest safe observation, stopping observation
+and the last observation copied before the first pull command. Baseline sequence 0 is not safe.
+The first-pull observation may be stale; it is copied once before command identity/start work and
+does not measure a pull or image. The closed nine-field record is limited to 4096 bytes, validates
+before public copying and is written canonically. Missing legacy metadata means unavailable;
+invalid present metadata refuses collection. Numeric observation or persistence refusal blocks an
+otherwise successful image manifest, while the original command/guard failure stays primary.
+
+The final snapshot is sealed after the existing bounded monitor join returns. This cutoff does not
+prove monitor termination, all reads or absence of a later signal. Late metadata cannot change the
+sealed snapshot; the inherited late-monitor/SIGUSR1 hazard is unchanged. No extra disk or clock
+read, monitor callback, threshold, poll, timeout or cleanup change is introduced. These facts do not
+attribute filesystem growth to an image/process or establish savings, production sizing or resource
+acceptance. Exact-source hosted feedback remains required; the previous numeric history is unknown.
+
 ### Platform waitlist receipt causality (prepared, before deployment)
 
 The opt-in API records one nullable technical `traceparent` only when its existing transaction
