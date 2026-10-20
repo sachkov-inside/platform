@@ -20,7 +20,15 @@ owns authorization, deduplication and uncertain-result behavior.
 4. Deploy Telegram with additive migration `035-waitlist-confirmations` and the prepared copy.
    The existing communications service credentials and exact private ingress paths are reused.
    Current authorization suppresses withdrawn, superseded or transferred recipients before send.
-5. Perform a fresh canonical production verification for both exact sources. Record actual receipt
+5. After deployment, read only the three allowlisted loaded runtime values
+   `TELEGRAM_LINKED_MEMBER_TEXT`, `TELEGRAM_LINKED_NON_MEMBER_TEXT` and
+   `TELEGRAM_LINKED_UNAVAILABLE_TEXT` from the running Telegram application container. Compare each
+   to the prepared artifact's exact value `Telegram привязан.`. Record only a passed/failed result
+   per key, without exporting other environment values. A matching `.env.example` or the presence
+   of a configuration file does not prove the running application loaded the corrected copy.
+   A mismatch leaves this copy acceptance incomplete; do not change authentication or access
+   configuration to repair it.
+6. Perform a fresh canonical production verification for both exact sources. Record actual receipt
    delivery separately from queue acceptance. Historical failed verification remains historical;
    a recovered healthy interval does not erase it.
 
