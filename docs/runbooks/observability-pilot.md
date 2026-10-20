@@ -1303,3 +1303,19 @@ toolchain, build inputs, emitter, supervisor, закрытые oracles и pinned
 SDK producers, причинность настоящего API до хранилища, полный ресурсный опыт и production
 остаются отдельными проверками. Наличие workflow и локальные loopback tests не означают,
 что native hosted прогон или полная спецификация уже прошли.
+
+
+Private IPC между Node emitter и Python supervisor использует `schema: 2`. Поле
+`runtime_modules` содержит массив отсортированных записей с ровно двумя полями `path` и `sha256`.
+Пути передаются как строковые значения, поэтому они не становятся JSON keys. Общий decoder
+сохраняет предел длины key в 128 символов. Путь допускает до 512 символов, число уникальных модулей ограничено 1000,
+как и общий предел элементов JSON array. Это сужает прежний диагностический предел в 2000 модулей;
+предел stdout в 512 KiB действует независимо и может отклонить слишком большой суммарный witness.
+
+Python проверяет схему, типы, пути, digests, четыре обязательных production modules и отсутствие
+повторных путей, включая одинаковые digests, до построения map. Только после этого публикуется
+прежний `runtime-modules.json` с `schema: 1` и нормализованным `sha256` map. Пределы общего
+JSON decoder, credential reader, metric/trace oracles, privacy и supervisor не расширяются.
+Реальный обмен между CLI и Python сначала проверяется через собственный OTLP receiver, который
+принимает chunked transfer с ограничением размера. Успех отдельного Node function test не доказывает этот
+обмен. Успешный локальный receiver также не доказывает приём pinned Alloy или запись VM/VT.

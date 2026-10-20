@@ -90,25 +90,34 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS):
 
 
 def witness(value):
+    """Validate the private row protocol completely before the public map projection."""
     if (type(value) is not dict or set(value) != {'schema', 'trace_id', 'root_id', 'provider_requests', 'body_read', 'runtime_modules'}
-            or type(value['schema']) is not int or value['schema'] != 1
+            or type(value['schema']) is not int or value['schema'] != 2
             or type(value['provider_requests']) is not int or value['provider_requests'] != 1 or value['body_read'] != 'passed'
             or type(value['trace_id']) is not str or re.fullmatch(r'[0-9a-f]{32}', value['trace_id']) is None
             or type(value['root_id']) is not str or re.fullmatch(r'[0-9a-f]{16}', value['root_id']) is None
-            or type(value['runtime_modules']) is not dict or not 4 <= len(value['runtime_modules']) <= 2000):
+            or type(value['runtime_modules']) is not list or not 4 <= len(value['runtime_modules']) <= 1000):
         raise ValueError('invalid emitter witness')
-    required = {'apps/backend/dist/infrastructure/observability/'+name+'.js' for name in ('technical-telemetry-runtime', 'technical-telemetry')}
-    required |= {'apps/backend/dist/infrastructure/object-storage/'+name+'.js' for name in ('s3-object-storage', 's3-request-observation')}
-    if not required <= set(value['runtime_modules']):
-        raise ValueError('production module witness missing')
     if value['trace_id'] == '0'*32 or value['root_id'] == '0'*16:
         raise ValueError('invalid emitter identity')
-    for name, digest in value['runtime_modules'].items():
+    required = {'apps/backend/dist/infrastructure/observability/'+name+'.js' for name in ('technical-telemetry-runtime', 'technical-telemetry')}
+    required |= {'apps/backend/dist/infrastructure/object-storage/'+name+'.js' for name in ('s3-object-storage', 's3-request-observation')}
+    seen = set()
+    for row in value['runtime_modules']:
+        if type(row) is not dict or set(row) != {'path', 'sha256'}:
+            raise ValueError('invalid module witness')
+        name, digest = row['path'], row['sha256']
         if (type(name) is not str or len(name) > 512 or name.startswith('/') or '..' in name.split('/')
                 or not name.startswith(('apps/backend/dist/', 'node_modules/', 'packages/'))
+                or any(marker in name for marker in oracle.PRIVATE)
                 or type(digest) is not str or re.fullmatch(r'[0-9a-f]{64}', digest) is None):
             raise ValueError('invalid module witness')
-    return value
+        if name in seen:
+            raise ValueError('duplicate module witness')
+        seen.add(name)
+    if not required <= seen:
+        raise ValueError('production module witness missing')
+    return {**value, 'runtime_modules': {row['path']: row['sha256'] for row in value['runtime_modules']}}
 
 
 def metric_response(token, *, budget=10):
