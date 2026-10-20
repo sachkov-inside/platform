@@ -29,10 +29,11 @@ test("private request journal archive and offline recovery (Python/age adapter)"
   child.stderr?.on("data", (chunk) => {
     diagnostics += String(chunk);
   });
-  const [status] = await once(child, "exit", {
+  /** @type {readonly unknown[]} */
+  const outcome = await once(child, "exit", {
     signal: AbortSignal.timeout(120_000),
   });
-  assert.equal(status, 0, diagnostics);
+  assert.equal(outcome[0], 0, diagnostics);
 });
 
 for (const mode of ["deadline", "interruption"]) {
@@ -49,10 +50,11 @@ for (const mode of ["deadline", "interruption"]) {
     ]);
     t.after(() => stopOwned(child, 0));
     assert.ok(child.stdout);
-    const [data] = await once(child.stdout, "data", {
+    /** @type {readonly unknown[]} */
+    const output = await once(child.stdout, "data", {
       signal: AbortSignal.timeout(10_000),
     });
-    const descendant = Number(String(data).trim());
+    const descendant = Number(String(output[0]).trim());
     assert.ok(Number.isSafeInteger(descendant) && descendant > 1);
     const exited = once(child, "exit", { signal: AbortSignal.timeout(10_000) });
     if (mode === "deadline") await stopOwned(child, 0);
