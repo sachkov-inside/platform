@@ -1,7 +1,7 @@
 FROM ghcr.io/logto-io/logto:1.44.0@sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.44.0-inside.7"
+LABEL org.opencontainers.image.version="1.44.0-inside.8"
 LABEL inside.logto.upstream-revision="79e9e3b0d9f505260d09c80d8a015e56fbc0ec01"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx
@@ -56,3 +56,10 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && ln -s ../../connectors/connector-inside-telegram connectors/connector-inside-telegram \
   && sed -i "/outDir:/a\\  onSuccess: undefined," tsup.config.ts \
   && npm run check && ./node_modules/.bin/tsup
+
+COPY fork/packages/core/src/routes/account-first-email.ts packages/core/src/routes/account-first-email.ts
+COPY patches/account-first-email.patch /tmp/account-first-email.patch
+RUN apk add --no-cache --virtual .inside-patch-tools patch \
+  && patch --fuzz=0 -p1 < /tmp/account-first-email.patch \
+  && apk del .inside-patch-tools \
+  && cd packages/core && npm run check && ./node_modules/.bin/tsup

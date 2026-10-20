@@ -65,7 +65,7 @@ export function AccountBilling() {
   if (value === null) return failure;
 
   return (
-    <>
+    <div className="space-y-4">
       {failure}
       {hasSubscription ? <AccountSubscription /> : null}
       {hasPurchases ? (
@@ -78,7 +78,7 @@ export function AccountBilling() {
           <PurchasesPanel />
         </AccountDisclosure>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -88,7 +88,7 @@ function AccountSubscription() {
   return (
     <section
       aria-labelledby="account-subscription"
-      className="border-b border-border py-6"
+      className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6"
       id="subscription"
     >
       <h2 className="mb-4 text-lg font-semibold" id="account-subscription">

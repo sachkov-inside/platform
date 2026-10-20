@@ -3,7 +3,6 @@
 import { ProfileAvatar } from "@/entities/member-profile";
 import type { Route } from "next";
 import type { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 
 import {
   ApplicationShell,
@@ -15,7 +14,7 @@ import {
   HeaderAuthControl,
 } from "@/widgets/auth-control";
 import {
-  accountPresentationBrowserQueryOptions,
+  useAccountPresentation,
   AccountTelegramNotice,
 } from "@/features/account-access";
 
@@ -46,8 +45,7 @@ export function PublicApplicationFrame({
   children,
 }: PublicApplicationFrameProps) {
   const navigationItems = navigationItemsFor({ canManageMaterials });
-  const presentation = useQuery({
-    ...accountPresentationBrowserQueryOptions(),
+  const presentation = useAccountPresentation({
     enabled: authResolved && authState === "authenticated",
   });
   // Пока Telegram не подключён, напоминание висит в оболочке, а не только в кабинете.

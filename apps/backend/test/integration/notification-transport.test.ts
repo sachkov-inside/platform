@@ -2,16 +2,15 @@ import { fork, type ChildProcess } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import type { ChannelModel } from "amqplib";
+import { expect, onTestFinished } from "vitest";
 import {
   afterAll,
   afterEach,
   beforeAll,
   beforeEach,
   describe,
-  expect,
-  onTestFinished,
   test,
-} from "vitest";
+} from "../support/notification-suite-lifecycle.js";
 import { z } from "zod";
 import fixtures from "../../../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import {
