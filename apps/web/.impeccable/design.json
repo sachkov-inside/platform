@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-25T06:49:39Z",
+  "generatedAt": "2026-10-20T16:29:13Z",
   "title": "Design System: Sachkov Inside Platform",
   "extensions": {
     "colorMeta": {
@@ -351,10 +351,26 @@
       }
     ],
     "breakpoints": [
-      { "name": "application-navigation", "value": "48rem" },
-      { "name": "reader-local-navigation", "value": "40rem" },
-      { "name": "library-wide-composition", "value": "52rem" },
-      { "name": "authoring-two-column-container", "value": "68rem" }
+      {
+        "name": "application-navigation",
+        "value": "48rem"
+      },
+      {
+        "name": "reader-local-navigation",
+        "value": "40rem"
+      },
+      {
+        "name": "library-wide-composition",
+        "value": "52rem"
+      },
+      {
+        "name": "authoring-two-column-container",
+        "value": "68rem"
+      },
+      {
+        "name": "admin-desktop-navigation",
+        "value": "64rem"
+      }
     ]
   },
   "components": [
@@ -429,11 +445,25 @@
       "description": "Issue #38 candidate pattern pending owner visual/interaction GO; associated exact Preview now has desktop and 390 × 844 mobile evidence, not global approval.",
       "html": "<dl class=\"ds-revision-rail\"><div><dt>Редакция</dt><dd>rev_01JY7C6RE4M2W9PK5AHN</dd></div><div><dt>Сохранение</dt><dd>Сохранено 12:41</dd></div></dl>",
       "css": ".ds-revision-rail { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem; margin:0; border-radius:calc(var(--radius,.875rem)*1.35); background:var(--secondary); color:var(--foreground); padding:.75rem 1.25rem; font-family:var(--font-utility); font-size:.6875rem; } .ds-revision-rail div { min-width:0; } .ds-revision-rail dt { color:var(--muted-foreground); } .ds-revision-rail dd { overflow:hidden; margin:.25rem 0 0; font-weight:600; text-overflow:ellipsis; white-space:nowrap; } .ds-revision-rail:focus-within { outline:.1875rem solid var(--ring); outline-offset:.1875rem; } @media (max-width:39.999rem) { .ds-revision-rail { grid-template-columns:1fr; gap:.5rem; } }"
+    },
+    {
+      "name": "Admin Text Navigation",
+      "kind": "nav",
+      "description": "Prepared issue #1617 light authoring navigation; owner final production visual GO pending. Public/member navigation retains its existing composition.",
+      "html": "<nav class=\"ds-admin-nav\" aria-label=\"Редактор\"><p>Контент</p><a href=\"#\" aria-current=\"page\">Продукты</a><a href=\"#\">Материалы</a><a href=\"#\">Темы</a></nav>",
+      "css": ".ds-admin-nav { width:232px; padding:18px 12px; background:var(--background); color:var(--foreground); font-family:var(--font-body); border-right:1px solid var(--border); } .ds-admin-nav p { margin:0 0 6px; padding:0 12px; color:var(--muted-foreground); font-size:12px; } .ds-admin-nav a { display:flex; min-height:44px; align-items:center; padding:8px 12px; border-radius:7px; color:var(--muted-foreground); font-size:14px; text-decoration:none; } .ds-admin-nav a:hover { background:var(--muted); color:var(--foreground); } .ds-admin-nav a[aria-current] { background:var(--card); color:var(--foreground); box-shadow:inset 0 0 0 1px var(--border); font-weight:550; } .ds-admin-nav a:focus-visible { outline:2px solid var(--ring); outline-offset:3px; }"
+    },
+    {
+      "name": "Workspace Task Tabs",
+      "kind": "nav",
+      "description": "Prepared mounted task-panel navigation from #1617. Production tabs support arrows/Home/End and retain hidden panel state. This snippet previews their visual states.",
+      "html": "<div class=\"ds-workspace-tabs\" role=\"tablist\" aria-label=\"Задачи\"><button type=\"button\" role=\"tab\" aria-selected=\"true\">Содержимое</button><button type=\"button\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">Параметры</button><button type=\"button\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">Обложка и видео</button></div>",
+      "css": ".ds-workspace-tabs { display:flex; flex-wrap:wrap; gap:4px 16px; border-bottom:1px solid var(--border); margin-bottom:24px; font-family:var(--font-body); } .ds-workspace-tabs button { min-height:44px; padding:10px 2px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted-foreground); font-size:14px; font-weight:500; text-align:left; } .ds-workspace-tabs button:hover { color:var(--foreground); } .ds-workspace-tabs button[aria-selected=\"true\"] { color:var(--foreground); border-bottom-color:var(--accent); } .ds-workspace-tabs button:focus-visible { outline:2px solid var(--ring); outline-offset:2px; border-radius:3px; } @media (max-width:47.999rem) { .ds-workspace-tabs { gap:2px 12px; margin-bottom:20px; } }"
     }
   ],
   "narrative": {
     "northStar": "Soft Technical Workshop",
-    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.",
+    "overview": "Sachkov Inside Platform — спокойная светлая инженерная мастерская: тёплый canvas оставляет место контенту, charcoal-регионы собирают code, media и focused work, а orange появляется только там, где нужно доказать current state или следующий meaningful action. Интерфейс современный и мягко округлённый, но остаётся операционным: grouping, hierarchy и exact product facts важнее декоративной плотности.\n\nЭто документированная incumbent world, выросшая из owner-calibrated H1 и уже реализованных foundations и reusable primitives. Она не делает каждую поверхность карточкой, не переносит marketing composition в приложение и не выдаёт task-specific proof за глобальный system mandate. issue #38 завершил finish review со статусом `ship`; exact Preview теперь имеет bounded desktop и narrow-mobile evidence, но authoring layout и revision rail остаются candidate pattern до отдельного owner visual/interaction GO.\n\nThe prepared issue #1617 admin workspace follows owner-selected A: warm platform tokens, light text navigation, mounted task panels and responsive payment rows. Owner final production visual GO is pending. Public/member and Reader commitments remain scoped to their existing surfaces.",
     "keyCharacteristics": [
       "Warm light canvas with bounded charcoal work regions.",
       "Scarce orange proofing signal rather than ambient decoration.",

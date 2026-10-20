@@ -193,9 +193,16 @@ Sachkov Dev Platform — спокойная светлая инженерная 
 
 ## Layout
 
-The system is mobile-first. Narrow surfaces preserve content priority and a single semantic reading order, then add space-driven enhancements through min-width or container queries. The accepted application shell uses a continuous mobile canvas with a persistent compact bottom navigation; desktop adds the inset expandable charcoal sidebar and lets the main content own scrolling. Reading columns remain bounded near 70–72 characters, while application canvases use generous maximum widths appropriate to the task.
+The system is mobile-first. Narrow surfaces preserve content priority and a single semantic reading order, then add space-driven enhancements through min-width or container queries. The accepted public/member application shell uses a continuous mobile canvas with a persistent compact bottom navigation; desktop adds the inset expandable charcoal sidebar and lets the main content own scrolling. Reading columns remain bounded near 70–72 characters, while application canvases use generous maximum widths appropriate to the task.
 
 The issue #38 authoring proof keeps metadata → document in that order on narrow screens and expresses the same order as two desktop columns inside a bounded workbench. Intermediate widths keep the form near `52rem` and use a compact two-column metadata grid instead of stretching fields across the viewport. Current Preview has desktop and 390 × 844 mobile evidence with no horizontal overflow. The sticky author header keeps save state visible without exposing a technical version group.
+
+The prepared admin workspace from issue #1617 inherits the warm platform tokens and uses a
+light text-navigation sidebar (232px) from `64rem`. Below that breakpoint, a labelled «Меню»
+button exposes the same active routes. This authoring shell is a scoped replacement for the
+previous admin navigation, not a replacement for public/member navigation. Its grouped task
+panels and compact lists are documented in the [admin surface brief](.impeccable/surfaces/admin-workspace.md).
+The owner selected direction A; final production visual GO is still pending.
 
 **The Mobile Semantic Order Rule.** Responsive changes may add columns, rails or contextual controls, but they must preserve the narrow-screen information order and primary actions.
 
@@ -229,11 +236,35 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **State:** muted hover/open fill, semantic focus ring, checked item with secondary fill and orange check indicator, disabled value preserved.
 - **Overlay:** rounded popover with restrained card elevation and reduced-motion-safe entry/exit.
 
-### Application Shell and Navigation
+### Public/Member Application Shell and Navigation
 
 - **Desktop:** accepted inset full-height charcoal sidebar, collapsed by default, expanded by hover/focus or explicit pin; current location uses a restrained orange signal.
 - **Mobile:** accepted persistent three-item bottom navigation with safe-area padding and touch targets at least 44px high.
 - **Content:** reading/work surfaces remain visually dominant and global navigation never crowds local context.
+
+### Admin Workspace and Task Navigation
+
+- **Status:** prepared production implementation for issue #1617, following owner-selected A.
+  The three finish corrections are resolved; final owner production visual GO is pending.
+- **World:** warm background/card tokens, graphite text and primary buttons, and restrained orange
+  for task selection and focus. The light sidebar inherits `background`, not the dark `sidebar`
+  token. No new palette or type family is introduced.
+- **Navigation:** text links grouped as «Контент» and «Управление»; selected links use a card
+  surface, fine border and `aria-current`. Standard icons identify actions where useful, rather
+  than decorating every route. All active admin routes remain reachable through mobile «Меню».
+- **Task tabs:** `WorkspaceTabs` wraps labels onto additional lines on narrow screens, keeps a
+  visible orange underline for the current task, and provides 44px minimum tab height. Arrow keys,
+  Home and End move selection and focus. Inactive panels stay mounted with `hidden`, preserving
+  drafts, previews and operation state when switching tasks within the mounted page.
+- **Content:** product and topic lists show real covers when assigned and omit automatic empty-cover
+  artwork. Product and Material editors separate document work, metadata and media into named
+  tasks; imported content retains its source-owned restrictions.
+- **Payments:** narrow screens use payment rows with state, amount, kind, access and an opening
+  action. Desktop retains the table. The state filter stays visible; Account, kind and limit
+  remain in a native «Дополнительные фильтры» disclosure whose values survive collapse.
+- **Evidence:** the [surface brief](.impeccable/surfaces/admin-workspace.md) records implemented
+  task groups and the bounded 18-image review set. Captures establish named states, not unseen
+  controls or owner acceptance.
 
 ### Material Card
 
