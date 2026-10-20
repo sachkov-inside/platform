@@ -55,8 +55,10 @@ const revokeMessages: Partial<Record<BillingFailureCode, string>> = {
 
 export function InvitationsPanel({
   offers,
+  allowIssue = true,
 }: {
   readonly offers: readonly PriceSnapshot[];
+  readonly allowIssue?: boolean;
 }) {
   const cache = useQueryClient();
   useEffect(
@@ -150,6 +152,7 @@ export function InvitationsPanel({
   });
   return (
     <InvitationsView
+      allowIssue={allowIssue}
       busy={issuing.isPending || revoking.isPending}
       error={list.error?.message ?? null}
       failure={failure}

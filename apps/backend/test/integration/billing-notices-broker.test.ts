@@ -189,6 +189,7 @@ test("подтверждённая оплата доходит до обоих �
     grants,
   });
   const notices = new BillingNotices({
+    sale: { subscriptions: true },
     prisma: database.prisma,
     enrollments: grants,
   });

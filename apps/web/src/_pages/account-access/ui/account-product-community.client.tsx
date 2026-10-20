@@ -1,5 +1,6 @@
 "use client";
 
+import { useMaterialReading } from "@/entities/material";
 import { useProductCommunityEntry } from "@/features/community-entry";
 import { Button } from "@/shared/ui/button";
 
@@ -9,11 +10,25 @@ export function AccountProductCommunity({
 }: {
   readonly productId: string;
 }) {
-  const query = useProductCommunityEntry(productId, null, true);
+  const reading = useMaterialReading();
+  const enabled = reading.resolved && reading.accountId !== null;
+  const query = useProductCommunityEntry(productId, reading.accountId, enabled);
+  return (
+    <div className="mt-3 min-h-11" data-product-community>
+      {enabled ? <CommunityEntryContent query={query} /> : null}
+    </div>
+  );
+}
+
+function CommunityEntryContent({
+  query,
+}: {
+  readonly query: ReturnType<typeof useProductCommunityEntry>;
+}) {
   const entry = query.data?.ok === true ? query.data.value : null;
   if (query.isPending)
     return (
-      <p className="mt-3 text-sm text-muted-foreground" role="status">
+      <p className="text-sm text-muted-foreground" role="status">
         Проверяем сообщество…
       </p>
     );
@@ -21,7 +36,7 @@ export function AccountProductCommunity({
     return (
       <Button
         variant="link"
-        className="mt-2 px-0"
+        className="px-0"
         onClick={() => void query.refetch()}
       >
         Повторить проверку сообщества
@@ -33,7 +48,7 @@ export function AccountProductCommunity({
     (entry.kind === "member" && entry.groupUrl !== undefined)
   )
     return (
-      <Button asChild variant="outline" className="mt-3">
+      <Button asChild variant="outline" className="min-h-11">
         <a
           href={entry.kind === "join" ? entry.botUrl : entry.groupUrl}
           target="_blank"
@@ -46,7 +61,7 @@ export function AccountProductCommunity({
       </Button>
     );
   return (
-    <p className="mt-3 text-sm text-muted-foreground" role="status">
+    <p className="text-sm text-muted-foreground" role="status">
       {entry.kind === "link_telegram"
         ? "Подключите Telegram выше, чтобы вступить в сообщество."
         : entry.kind === "restricted"

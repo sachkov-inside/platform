@@ -483,6 +483,7 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: database.prisma,
       enrollments: grants,
       clock: () => now,
@@ -498,6 +499,7 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: options.operationsPrisma ?? database.prisma,
       accounts: fixtureAccounts,
       pricing: fixturePricing,

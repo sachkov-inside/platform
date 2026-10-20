@@ -240,6 +240,7 @@ describe("приёмка обоих источников Notifications (реал
       grants,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: platform.prisma,
       enrollments: grants,
     });
@@ -253,6 +254,7 @@ describe("приёмка обоих источников Notifications (реал
       notices,
     });
     operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: platform.prisma,
       accounts,
       pricing,

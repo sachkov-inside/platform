@@ -73,6 +73,8 @@ describe("приглашения: выдача владельцем и пога�
   let db: TestDatabase;
   let http: NestFastifyApplication;
   let operations: BillingOperations;
+  let currentOperations: BillingOperations;
+  let currentActivation: SubscriptionActivation;
   let grants: ReturnType<typeof assembleAccessGrants>;
   let now = new Date("2030-01-01T00:00:00.000Z");
   const owner = randomUUID();
@@ -104,7 +106,7 @@ describe("приглашения: выдача владельцем и пога�
         clock: () => now,
       }),
     };
-    operations = new BillingOperations({
+    const operationDependencies = {
       prisma: db.prisma,
       accounts,
       pricing: new BillingPricing({
@@ -121,15 +123,28 @@ describe("приглашения: выдача владельцем и пога�
       bank: undefined,
       clock: () => now,
       botStartUrl: "https://t.me/inside_test_bot",
+    };
+    operations = new BillingOperations({
+      ...operationDependencies,
+      sale: { subscriptions: true },
     });
-    const activation = new SubscriptionActivation({
+    currentOperations = new BillingOperations(operationDependencies);
+    const activationDependencies = {
       prisma: db.prisma,
       grants,
       bindings: links,
       readAdmission: () =>
-        Promise.resolve({ state: "checking", admissionRestriction: null }),
+        Promise.resolve({
+          state: "checking" as const,
+          admissionRestriction: null,
+        }),
       siteOrigin: "https://inside.example.test",
+    };
+    const activation = new SubscriptionActivation({
+      ...activationDependencies,
+      sale: { subscriptions: true },
     });
+    currentActivation = new SubscriptionActivation(activationDependencies);
     @Module({
       controllers: [InvitationRedemptionController],
       providers: [
@@ -160,6 +175,38 @@ describe("приглашения: выдача владельцем и пога�
   afterAll(async () => {
     await http.close();
     await db.dispose();
+  });
+
+  test("current Product commerce refuses new and replayed subscription invitations and old redeemed links", async () => {
+    const offerId = await offer();
+    const operationId = randomUUID();
+    const command = { offerId, mode: "purchase", note: null };
+    const legacy = invitation(await issue(command, operationId));
+    const identityRef = `current-policy-${randomUUID()}`;
+    await account(identityRef);
+    const request = {
+      contractVersion: version,
+      code: legacy.code,
+      identityRef,
+    };
+    expect(await currentActivation.redeemInvitation(request)).toMatchObject({
+      ok: true,
+      value: { state: "unavailable" },
+    });
+    await redeem(legacy.code, identityRef);
+    expect(await currentActivation.redeemInvitation(request)).toMatchObject({
+      ok: true,
+      value: { state: "unavailable" },
+    });
+    for (const id of [randomUUID(), operationId]) {
+      expect(
+        await currentOperations.execute(owner, {
+          operation: "invitations.issue",
+          operationId: id,
+          ...command,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    }
   });
 
   /** Offer подписки только по приглашению: продаётся и назначается, если не сказано иное. */

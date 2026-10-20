@@ -214,6 +214,7 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
     clock: () => now,
   });
   const notices = new BillingNotices({
+    sale: { subscriptions: true },
     prisma: observer.prisma,
     enrollments: {
       listEnrollmentEndings: unused,

@@ -602,6 +602,7 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
         linkAt === "after-sent" || linkAt === "after-unknown";
       const recipient = linked && !alreadyStarted ? linkedEmail : orderEmail;
       const notices = new BillingNotices({
+        sale: { subscriptions: true },
         prisma: db.prisma,
         enrollments: grants,
         clock: () => now,

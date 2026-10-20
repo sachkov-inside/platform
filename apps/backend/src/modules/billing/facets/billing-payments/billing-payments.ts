@@ -1099,13 +1099,29 @@ export class BillingPayments {
       )
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
-      const commerce = this.sale;
       if (
         paymentMode(priceSnapshotSchema.parse(row.snapshot).paymentOption) ===
           "subscription" &&
-        !commerce.subscriptions
-      )
-        return { status: "configuration_idle" } as const;
+        this.dependencies.sale?.subscriptions !== true
+      ) {
+        // Prepared proves Init has not been sent. Release this reservation so an obsolete
+        // subscription cannot block a later one-time Product purchase for the Account.
+        await tx.billingPurchase.update({
+          where: { id: attemptRef },
+          data: {
+            state: "failed",
+            lifecycleActive: false,
+            paymentUrl: null,
+            updatedAt: this.clock(),
+          },
+        });
+        if (isQuotedPurchase(kind))
+          await tx.billingPromoReservation.updateMany({
+            where: { purchaseRef: attemptRef },
+            data: { state: "failed" },
+          });
+        return { status: "retired" } as const;
+      }
       const now = this.clock();
       if (hasText(row.subscriptionRef)) {
         await lockBillingSubscription(tx, row.subscriptionRef);
@@ -1147,6 +1163,7 @@ export class BillingPayments {
       return { status: "prepared", row, kind } as const;
     });
     if (prepared?.status === "configuration_idle") return "configuration_idle";
+    if (prepared?.status === "retired") return "skipped";
     if (!prepared) return "skipped";
     const { row, kind } = prepared;
     try {

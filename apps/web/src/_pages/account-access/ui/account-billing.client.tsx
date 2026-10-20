@@ -28,7 +28,7 @@ export function AccountBilling() {
       />
     );
 
-  if (billing.isPending)
+  if (billing.isPending || enrollments.isPending)
     return (
       <p className="text-sm text-muted-foreground" role="status">
         Загружаем покупки…

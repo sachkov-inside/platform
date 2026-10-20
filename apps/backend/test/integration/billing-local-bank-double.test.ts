@@ -221,6 +221,7 @@ describe("локальная продажа через двойника банк
     });
     inbox.payments = payments;
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       enrollments: grants,
       clock: () => now,
@@ -236,6 +237,7 @@ describe("локальная продажа через двойника банк
       clock: () => now,
     });
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       accounts,
       pricing,

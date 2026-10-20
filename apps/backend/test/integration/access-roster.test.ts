@@ -93,6 +93,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       clock: () => now,
     });
     operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       accounts,
       pricing: new BillingPricing({

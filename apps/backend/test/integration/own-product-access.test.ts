@@ -411,6 +411,7 @@ test("a stale own-access callback cannot start synchronous community preparation
     throw new Error("Missing binding");
   const preparations: boolean[] = [];
   const activation = new SubscriptionActivation({
+    sale: { subscriptions: true },
     prisma: db.prisma,
     grants,
     bindings: links,
@@ -472,6 +473,7 @@ test("own-access explicitly requests Product navigation and preserves the previo
   if (!binding.ok || binding.binding === null)
     throw new Error("Missing binding");
   const activation = new SubscriptionActivation({
+    sale: { subscriptions: true },
     prisma: db.prisma,
     grants,
     bindings: links,
@@ -576,6 +578,7 @@ test("only configured Products expose community access and several Products shar
   });
   let rejectOwnerBoundary = false;
   const activation = new SubscriptionActivation({
+    sale: { subscriptions: true },
     prisma: db.prisma,
     grants,
     bindings: links,

@@ -745,7 +745,7 @@ describe("Billing pricing HTTP", () => {
     const stranger = await member("tribute-stranger-001");
     expect(await listed(stranger.headers)).toBe(false);
     const refused = await quote(stranger.headers);
-    expect(refused.statusCode).toBe(503);
+    expect(refused.statusCode).toBe(422);
     expect(refused.json()).toMatchObject({ code: "method_unavailable" });
 
     // Подтверждённый период Tribute — основание, в том числе после окончания периода.
@@ -755,19 +755,19 @@ describe("Billing pricing HTTP", () => {
       subscriber.accountId,
     );
     expect(await listed(subscriber.headers)).toBe(false);
-    expect((await quote(subscriber.headers)).statusCode).toBe(503);
+    expect((await quote(subscriber.headers)).statusCode).toBe(422);
     await seedPurchaseInvitation(
       database.prisma,
       subscriber.accountId,
       offerId,
     );
     expect(await listed(subscriber.headers)).toBe(false);
-    expect((await quote(subscriber.headers)).statusCode).toBe(503);
+    expect((await quote(subscriber.headers)).statusCode).toBe(422);
 
     // Отозванный источник основанием не является.
     await source.revoke();
     expect(await listed(subscriber.headers)).toBe(false);
-    expect((await quote(subscriber.headers)).statusCode).toBe(503);
+    expect((await quote(subscriber.headers)).statusCode).toBe(422);
   });
 
   test("владелец переключает поток продукта в каталоге, страница читает его без входа", async () => {

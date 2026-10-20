@@ -724,6 +724,7 @@ describe("оплата, выдача прав и доступ к материа�
       grants,
       payments,
       notices: new BillingNotices({
+        sale: { subscriptions: true },
         prisma: db.prisma,
         enrollments: grants,
         clock: () => now,
@@ -731,6 +732,7 @@ describe("оплата, выдача прав и доступ к материа�
       clock: () => now,
     });
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       accounts,
       pricing,

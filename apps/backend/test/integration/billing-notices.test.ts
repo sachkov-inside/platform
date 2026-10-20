@@ -225,6 +225,7 @@ describe("служебные сообщения подписки (реальны
       clock: () => now,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       enrollments: grants,
       clock: () => now,
@@ -974,6 +975,7 @@ describe("служебные сообщения подписки (реальны
       });
       await withExhaustedPool(isolated, async (prisma) => {
         const notices = new BillingNotices({
+          sale: { subscriptions: true },
           prisma,
           enrollments: assembleAccessGrants({
             prisma,

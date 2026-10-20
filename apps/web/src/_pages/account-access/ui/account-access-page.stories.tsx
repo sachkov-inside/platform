@@ -1,9 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
+import { MaterialReadingScope } from "@/entities/material";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 import {
   accountPresentationResponse,
+  memberAccountId,
   respondByPath,
   subscribedMemberRoutes,
 } from "@/storybook/account.fixtures";
@@ -13,6 +15,12 @@ import {
   enrollmentsResponse,
 } from "@/storybook/billing.fixtures";
 import { AccountAccessPage } from "./account-access-page.client";
+
+const courseContent = (courseEnrollment.content ?? []).map((entry) => ({
+  ...entry,
+  title: "Inside AI Engineering",
+  slug: "inside-ai-engineering",
+}));
 
 const environment = accountSectionEnvironment("/account", {
   fetch: () =>
@@ -27,7 +35,7 @@ const environment = accountSectionEnvironment("/account", {
               startsAt: courseEnrollment.startsAt,
               validUntil: null,
               active: true,
-              content: courseEnrollment.content ?? [],
+              content: courseContent,
             },
             {
               source: "manual",
@@ -35,9 +43,28 @@ const environment = accountSectionEnvironment("/account", {
               startsAt: courseEnrollment.startsAt,
               validUntil: "2027-03-14T10:00:00.000Z",
               active: true,
-              content: courseEnrollment.content ?? [],
+              content: courseContent,
             },
           ],
+        }),
+      "/api/personal-home": () =>
+        Response.json({
+          kind: "ready",
+          continuation: {
+            series: {
+              collection: {
+                id: "00000000-0000-4000-8000-000000000f01",
+                slug: "inside-ai-engineering",
+                name: "Inside AI Engineering",
+                summary: null,
+                cover: null,
+                count: 17,
+                previewItems: [],
+              },
+              read: 0,
+              total: 17,
+            },
+          },
         }),
       "/api/account/community-entry": () =>
         Response.json({
@@ -50,6 +77,22 @@ const meta = {
   component: AccountAccessPage,
   title: "Pages/Account/Live cabinet",
   args: { policies: [] },
+  decorators: [
+    (Story) => (
+      <MaterialReadingScope
+        value={{
+          accountId: memberAccountId,
+          resolved: true,
+          states: new Map(),
+          failed: false,
+          register: () => () => undefined,
+          refresh: () => Promise.resolve(),
+        }}
+      >
+        <Story />
+      </MaterialReadingScope>
+    ),
+  ],
 } satisfies Meta<typeof AccountAccessPage>;
 export default meta;
 type Story = StoryObj<typeof meta>;
