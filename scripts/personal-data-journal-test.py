@@ -100,7 +100,7 @@ class JournalTests(unittest.TestCase):
         import time
         executable = self.root / "age"
         ready = self.root / "crypto-ready"
-        executable.write_text("#!/usr/bin/env python3\nimport os,pathlib,signal\npathlib.Path(os.environ['JOURNAL_PROOF_READY']).write_text(str(os.getpid()))\nsignal.pause()\n")
+        executable.write_text("#!/usr/bin/env python3\nimport os,pathlib,signal\nready=pathlib.Path(os.environ['JOURNAL_PROOF_READY'])\ntemporary=ready.with_suffix('.tmp')\ntemporary.write_text(str(os.getpid()))\ntemporary.replace(ready)\nsignal.pause()\n")
         executable.chmod(0o700)
         harness = "import importlib.util,signal; s=importlib.util.spec_from_file_location('journal'," + repr(str(pathlib.Path(journal.__file__).resolve())) + "); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); signal.signal(signal.SIGTERM,m.terminate); m.age(b'synthetic')"
         parent = subprocess.Popen([__import__('sys').executable, "-c", harness], env={**os.environ, "PATH": str(self.root) + os.pathsep + os.environ["PATH"], "JOURNAL_PROOF_READY": str(ready)}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
