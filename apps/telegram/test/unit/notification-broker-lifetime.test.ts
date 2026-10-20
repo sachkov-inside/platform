@@ -197,3 +197,102 @@ it("owns late-acquired publisher error listeners before terminal cleanup", async
     await closing;
   }
 });
+
+it("settles existing cancellation before rejected receive closes, while drain owns later cancellation", async () => {
+  const receiving = deferred<undefined>();
+  const firstCancel = deferred();
+  const laterCancel = deferred();
+  const laterConsume = deferred<{ consumerTag: string }>();
+  const laterStarted = deferred();
+  const closed = deferred();
+  const original = new Error("synthetic receive");
+  const cancelError = new Error("synthetic cancellation");
+  const closeError = new Error("synthetic close");
+  let accept: ((message: unknown) => void) | undefined;
+  const consumers = [0, 1].map((index) => {
+    const channel = Object.assign(new EventEmitter(), {
+      prefetch: () => Promise.resolve(),
+      consume: (_queue: string, callback: (message: unknown) => void) => {
+        if (index === 0) {
+          accept = callback;
+          return Promise.resolve({ consumerTag: "first" });
+        }
+        laterStarted.resolve();
+        return laterConsume.promise;
+      },
+      cancel: vi.fn(() =>
+        index === 0 ? firstCancel.promise : laterCancel.promise,
+      ),
+      ack: vi.fn(),
+      close: vi.fn(() => {
+        channel.emit("close");
+        if (index === 0) {
+          closed.resolve();
+          return Promise.reject(closeError);
+        }
+        return Promise.resolve();
+      }),
+    });
+    return channel;
+  });
+  let index = 0;
+  const connection = Object.assign(new EventEmitter(), {
+    createConfirmChannel: () =>
+      Promise.resolve(
+        Object.assign(new EventEmitter(), { close: () => Promise.resolve() }),
+      ),
+    createChannel: () => Promise.resolve(consumers[index++]),
+    close: vi.fn(() => Promise.resolve()),
+  });
+  amqp.connect.mockResolvedValueOnce(connection);
+  const broker = new NotificationBroker(
+    "amqp://synthetic@127.0.0.1",
+    { receive: () => receiving.promise },
+    1,
+    () => undefined,
+  );
+  const opening = broker.open();
+  await laterStarted.promise;
+  if (accept === undefined) throw new Error("Missing admitted consumer");
+  accept({ content: Buffer.from("synthetic"), fields: {}, properties: {} });
+  // accept already awaits this exact promise; this later observer runs after its catch.
+  const rejected = receiving.promise.catch(() => undefined);
+  broker.beginStop();
+  const draining = broker.drain();
+  try {
+    receiving.reject(original);
+    await rejected;
+    expect(consumers[0]?.close).not.toHaveBeenCalled();
+    laterConsume.resolve({ consumerTag: "later" });
+    await opening;
+    expect(consumers[1]?.cancel).toHaveBeenCalledOnce();
+    firstCancel.reject(cancelError);
+    await closed.promise;
+    // accept owns the earlier snapshot, without waiting for the later cancel.
+    expect(connection.close).not.toHaveBeenCalled();
+    expect(broker.isQuiescent()).toBe(false);
+    laterCancel.resolve();
+    const report = await draining;
+    expect(report.quiescent).toBe(true);
+    expect(
+      report.failures.map((error) =>
+        error === original
+          ? "receive"
+          : error === cancelError
+            ? "cancel"
+            : error === closeError
+              ? "close"
+              : "unexpected",
+      ),
+    ).toEqual(["receive", "cancel", "close"]);
+    expect(consumers[0]?.ack).not.toHaveBeenCalled();
+    expect(connection.close).toHaveBeenCalledOnce();
+  } finally {
+    receiving.reject(original);
+    firstCancel.reject(cancelError);
+    laterCancel.resolve();
+    laterConsume.resolve({ consumerTag: "later" });
+    await opening;
+    await draining;
+  }
+});

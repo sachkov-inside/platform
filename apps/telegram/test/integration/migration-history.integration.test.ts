@@ -147,7 +147,15 @@ it.each(["communications-first", "sign-in-first"] as const)(
     const ledger = await sql<{
       count: string;
     }>`select count(*) from kysely_migration`.execute(database);
-    expect(ledger.rows[0]?.count).toBe("37");
+    expect(ledger.rows[0]?.count).toBe("38");
+    const receipt = await sql<{
+      name: string;
+    }>`select name from kysely_migration where name = '037-waitlist-receipt-tracing'`.execute(
+      database,
+    );
+    expect(receipt.rows.map((row) => row.name)).toEqual([
+      "037-waitlist-receipt-tracing",
+    ]);
   },
 );
 

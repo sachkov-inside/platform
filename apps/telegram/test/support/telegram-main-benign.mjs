@@ -1,3 +1,4 @@
+// @ts-check
 // Benign harness fixture, never application/native-service evidence.
 import { createServer } from "node:net";
 const server = createServer();

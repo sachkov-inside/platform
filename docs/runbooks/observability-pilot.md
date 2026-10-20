@@ -1658,6 +1658,15 @@ The separate benign-child source tests prove only the test harness's PID, signal
 and cleanup observations. Native PostgreSQL execution, every business lane, RabbitMQ and the complete
 shutdown failure-order matrix still require exact-source hosted evidence.
 
+During terminal shutdown, an admitted receive rejection records its original error and waits only
+for the snapshot of cancellation RPCs already started before closing its consumer channel. This
+prevents closing over an outstanding `BasicCancel` reply. Later cancellations remain drain-owned;
+genuine cancellation and close errors remain private failures in the drain report.
+
+The Core named source manifest preserves its original 24 entries and adds the executed
+`telegram_runtime_privacy.py` and `telegram_runtime_oracle.py` modules. The provider checkout/tree
+and dirty-checkout gates still apply; old 24-entry receipts do not enumerate these two modules.
+
 The genuine RabbitMQ suite prepares two terminal-receive cases: held work commits through the real
 PostgreSQL provider and is acknowledged, or fails before commit and is re-delivered by RabbitMQ.
 They inspect actual queue consumers and retrieve a new confirmed message after terminal `open`,
@@ -1709,8 +1718,8 @@ selects `telegram` for Telegram application changes; shared collector, workflow,
 changes require the full shared coverage selection as well. Source-bound check output must record
 the exact selected paths and checkout. No historical CI result accepts this new source.
 
-Remaining acceptance gaps are explicit: genuine execution of these prepared PostgreSQL/RabbitMQ
-cases; every concurrently active production lane and activation-timeout descendant through the
+Remaining acceptance gaps are explicit: a complete passing exact-source hosted rerun of these
+PostgreSQL/RabbitMQ cases; every concurrently active production lane and activation-timeout descendant through the
 full factory, including the complete startup/drain/cleanup fault matrix; the actual SDK through
 pinned Alloy and both stores; and the cross-application receipt, worker, reverse authorization and
 owned BotAPI HTTP stored graph with source/image witnesses. Existing actual Grammy loopback tests

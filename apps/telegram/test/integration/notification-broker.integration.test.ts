@@ -501,8 +501,11 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         stage = "drain";
         release.resolve();
         const report = await draining;
+        stage = "drain_report_quiescent";
         expect(report.quiescent).toBe(true);
+        stage = "drain_original_failures";
         expect(report.failures).toEqual(outcome === "reject" ? [original] : []);
+        stage = "drain_owner_quiescent";
         expect(broker.isQuiescent()).toBe(true);
         stage = "commit_ack_redelivery";
         const saved = await db
