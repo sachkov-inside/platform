@@ -78,7 +78,7 @@ it("local ratio0 ignores remote sampled flags while actual operations still incr
     .filter((metric) => metric.descriptor.name === "inside.telegram.operations")
     .flatMap((metric) =>
       metric.dataPoints.map((point) => ({
-        operation: point.attributes["telegram.operation"],
+        operation: point.attributes["operation"],
         value: point.value,
       })),
     );
@@ -350,4 +350,48 @@ it("partial official SDK construction releases acquired transports and leaves bu
   await runtime.shutdown();
   expect(tracesClosed).toBe(1);
   expect(metricsClosed).toBe(1);
+});
+
+it("business metric dimensions match the collector contract while span dimensions remain prefixed", async () => {
+  const sink = collector();
+  const runtime = createTelegramObservability({
+    identity: {
+      release: "test",
+      sourceSha: "0000000000000000000000000000000000000000",
+    },
+    mode: "test",
+    sampleRatio: 1,
+    exporters: sink.exporters,
+  });
+  try {
+    await runtime.runReceipt(
+      "00-1234567890abcdef1234567890abcdef-1234567890abcdef-01",
+      () => Promise.resolve(),
+    );
+  } finally {
+    await runtime.shutdown();
+  }
+  const business = sink.metrics
+    .flatMap((batch) => batch.scopeMetrics.flatMap((scope) => scope.metrics))
+    .filter(
+      (metric) =>
+        metric.descriptor.name === "inside.telegram.operations" ||
+        metric.descriptor.name === "inside.telegram.duration",
+    );
+  expect(business.map((metric) => metric.descriptor.name).sort()).toEqual([
+    "inside.telegram.duration",
+    "inside.telegram.operations",
+  ]);
+  for (const metric of business) {
+    expect(metric.dataPoints).toHaveLength(1);
+    expect(metric.dataPoints[0]?.attributes).toEqual({
+      operation: "receipt",
+      outcome: "completed",
+    });
+  }
+  expect(sink.spans).toHaveLength(1);
+  expect(sink.spans[0]?.attributes).toEqual({
+    "telegram.operation": "receipt",
+    "telegram.outcome": "completed",
+  });
 });

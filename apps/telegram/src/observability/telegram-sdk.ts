@@ -319,10 +319,7 @@ function createOwnedSdk(
     } finally {
       span?.setAttribute("telegram.outcome", outcome);
       span?.end();
-      const attributes = {
-        "telegram.operation": operation,
-        "telegram.outcome": outcome,
-      };
+      const attributes = { operation, outcome };
       count.add(1, attributes);
       duration.record((performance.now() - started) / 1000, attributes);
       if (ownership !== undefined) active.delete(ownership);
