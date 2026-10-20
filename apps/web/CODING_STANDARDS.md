@@ -235,7 +235,8 @@ exists. Preserve the computed Back destination, canonical sharing address and ex
 adapters. The article has no automatic contents disclosure.
 
 Use 44 px controls with 16 px icons, 14 px labels and a 54 px panel at normal text size.
-Allow reflow for enlarged text or a container below 240 px. Keep accessible names when labels
+Allow the panel and action group to wrap whenever enlarged text, recovery actions or narrow
+embedding cannot fit one row. Keep accessible names when labels
 become visually hidden. Desktop shows labels; below 64rem viewport width or at most 620 px panel
 container width, hide Save/Share labels. At most 390 px container width, hide Studied's label;
 at most 290 px also hide Back/Next labels. The accepted 390 px phone view keeps Back/Next text.

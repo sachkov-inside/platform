@@ -330,6 +330,27 @@ export const CourseStudyActionsMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+async function expectSeparatedActions(panel: HTMLElement) {
+  const actions = [
+    ...within(panel).getAllByRole("button"),
+    ...within(panel).getAllByRole("link"),
+  ];
+  for (let index = 0; index < actions.length; index += 1) {
+    const current = actions[index]?.getBoundingClientRect();
+    if (current === undefined) throw new Error("Missing action");
+    for (const other of actions.slice(index + 1)) {
+      const box = other.getBoundingClientRect();
+      await expect(
+        current.right <= box.left ||
+          box.right <= current.left ||
+          current.bottom <= box.top ||
+          box.bottom <= current.top,
+      ).toBe(true);
+    }
+  }
+  await expect(panel.scrollWidth).toBe(panel.clientWidth);
+}
+
 async function expectEdgeNavigation(panel: HTMLElement) {
   await panel.ownerDocument.fonts.ready;
   const actions = within(panel);
@@ -585,6 +606,10 @@ export const SharedConflictAndDenial: Story = {
       expect(
         within(study).getByRole("button", { name: "Обновить статус" }),
       ).toBeVisible(),
+    );
+    await expectSeparatedActions(top);
+    await expectSeparatedActions(
+      canvas.getByRole("navigation", { name: "Действия в конце материала" }),
     );
     await userEvent.click(
       within(study).getByRole("button", { name: "Обновить статус" }),
@@ -884,4 +909,37 @@ export const GroupedReaderActionsSmallMobile: Story = {
 export const GroupedReaderActionsTablet: Story = {
   ...GroupedReaderActions,
   globals: { viewport: { value: "tablet820", isRotated: false } },
+};
+
+export const SharedConflictAndDenialMobile: Story = {
+  ...SharedConflictAndDenial,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const SharedConflictAndDenialSmallMobile: Story = {
+  ...SharedConflictAndDenial,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+export const GroupedReaderActionsEnlargedMobile: Story = {
+  ...GroupedReaderActions,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const previous = document.documentElement.style.fontSize;
+    document.documentElement.style.fontSize = "200%";
+    try {
+      for (const name of ["Действия материала", "Действия в конце материала"]) {
+        const panel = within(canvasElement).getByRole("navigation", { name });
+        const slot = panel.parentElement;
+        if (slot === null) throw new Error("Missing panel slot");
+        const width = slot.style.width;
+        try {
+          slot.style.width = "262px";
+          await expectSeparatedActions(panel);
+        } finally {
+          slot.style.width = width;
+        }
+      }
+    } finally {
+      document.documentElement.style.fontSize = previous;
+    }
+  },
 };

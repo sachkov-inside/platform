@@ -4,6 +4,7 @@
 }
 .panel {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
@@ -15,6 +16,7 @@
 }
 .controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.125rem;
   min-width: 0;
@@ -125,10 +127,19 @@
     white-space: nowrap;
   }
 }
-/* Increased text and very narrow embedding can wrap instead of clipping actions. */
-@container reader-actions (width < 240px) {
-  .panel,
-  .controls {
-    flex-wrap: wrap;
-  }
+/* Recovery controls and enlarged labels can use another row without overlapping Next. */
+.forward {
+  margin-inline-start: auto;
+}
+.reading,
+.reading > div {
+  max-width: 100%;
+}
+.reading > div {
+  min-width: 0;
+}
+.reading button {
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
 }
