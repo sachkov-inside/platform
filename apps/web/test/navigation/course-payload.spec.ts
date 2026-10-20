@@ -134,7 +134,10 @@ test("programme reveals the next batch before the last loaded lesson reaches the
         options?: boolean | AddEventListenerOptions,
       ) => {
         if (listener === null) return;
-        if (type !== "change") return add(type, listener, options);
+        if (type !== "change") {
+          add(type, listener, options);
+          return;
+        }
         add(
           "change",
           (event) => {
