@@ -11,7 +11,7 @@ WORKDIR /workspace
 RUN chown node:node /workspace
 USER node
 
-FROM toolchain AS dependencies
+FROM toolchain AS dependency-inputs
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json ./
 COPY --chown=node:node patches ./patches
@@ -28,6 +28,9 @@ COPY --chown=node:node packages/legal ./packages/legal
 # Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
 COPY --chown=node:node docs/contracts ./docs/contracts
+
+FROM dependency-inputs AS dependencies
+
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
