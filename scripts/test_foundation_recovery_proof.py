@@ -144,6 +144,13 @@ class OwnedResources(unittest.TestCase):
         self.assertEqual(recovered.owner, self.resources.owner)
         self.assertEqual(recovered.names, self.resources.names)
 
+    def test_binary_metadata_stdout_is_not_persisted_by_docker_logging(self):
+        self.resources.container("private-reader", "sha256:" + "a" * 64, "data", "repo",
+                                 self.directory / "fixture.env", "true", binary=True,
+                                 data_readonly=True, repository_readonly=True)
+        run = self.calls[-1]
+        self.assertEqual(run[run.index("--log-driver") + 1], "none")
+
     def test_containers_have_no_network_ports_and_restore_mounts_are_readonly(self):
         self.resources.container("reader", "sha256:" + "a" * 64, "data", "repo",
                                  self.directory / "fixture.env", "true",

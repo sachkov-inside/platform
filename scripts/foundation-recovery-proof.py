@@ -167,6 +167,9 @@ class Resources:
                 "--mount", "type=volume,src=" + data + ",dst=/var/lib/postgresql" + (",readonly" if data_readonly else ""),
                 "--mount", "type=volume,src=" + repository + ",dst=/backup" + (",readonly" if repository_readonly else ""),
                 "--env-file", str(envfile), "--entrypoint", "sh"]
+        if binary:
+            # repo-get plaintext can contain stanza subkeys: attach stdout without persisting logs.
+            args.extend(["--log-driver", "none"])
         if detached:
             args.append("--detach")
         # tmpfs masks the image's postgres-owned directories; establish ownership in this fixture.

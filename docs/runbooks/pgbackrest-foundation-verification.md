@@ -28,6 +28,7 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
   код 75 без соответствующей цепочки ошибки не принимается. Целевой кластер должен
   отсутствовать. Правильный ключ повторно читает тот же plaintext и восстанавливает
   обе базы в тот же target, исключая ошибку прав доступа. Plaintext и subkeys не публикуются.
+  У binary metadata readers отключён Docker log driver, чтобы stdout не сохранялся в daemon logs.
 - Отказ PITR после удаления необходимого WAL
   только в отдельной копии synthetic repository.
 - Неизменность остановленного source volume и исходного repository. Восстановления читают
