@@ -9,6 +9,8 @@ export interface ProducerLifetime {
 }
 
 export interface TelegramCloseResources {
+  readonly acquired?: Promise<void>;
+  readonly startupFailures?: readonly unknown[];
   readonly http: ProducerLifetime;
   readonly background: ProducerLifetime;
   readonly notifications: ProducerLifetime;
@@ -56,6 +58,7 @@ export class ApplicationClose {
         stages[index]?.push(error);
       }
     }
+    await this.resources.acquired;
     const results = await Promise.allSettled(
       producers.map((owner) => Promise.resolve().then(() => owner.drain())),
     );
@@ -67,7 +70,10 @@ export class ApplicationClose {
     // A rejected drain wrapper cannot substitute for its independent actual-work barrier.
     // These owner methods fulfill only at closed admission and actual active-zero.
     await Promise.all(producers.map((owner) => owner.whenQuiescent()));
-    const failures = stages.flat();
+    const failures = [
+      ...(this.resources.startupFailures ?? []),
+      ...stages.flat(),
+    ];
     try {
       const actions = await this.resources.actions.drain();
       failures.push(...actions.failures);

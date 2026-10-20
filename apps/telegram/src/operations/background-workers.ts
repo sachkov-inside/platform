@@ -62,7 +62,7 @@ export class BackgroundWorkers
 {
   private loops: WorkerLoop[] = [];
   private stopping = false;
-  private readonly stops: Promise<void>[] = [];
+  private readonly stops: Promise<readonly unknown[]>[] = [];
   private drained: Promise<DrainReport> | undefined;
 
   constructor(
@@ -95,13 +95,17 @@ export class BackgroundWorkers
     private readonly invitations: InvitationRedemption,
   ) {}
 
+  private admissionClosed(): boolean {
+    return this.stopping;
+  }
+
   async onApplicationBootstrap(): Promise<void> {
-    if (this.stopping || !this.config.workersEnabled) {
+    if (this.admissionClosed() || !this.config.workersEnabled) {
       return;
     }
 
     await this.funnels.assertConfigured();
-    if (this.stopping) return;
+    if (this.admissionClosed()) return;
     const loops: WorkerLoop[] = [];
     const add = (
       name: string,
@@ -249,9 +253,14 @@ export class BackgroundWorkers
     for (const loop of this.loops) loop.beginStop();
     for (const loop of this.loops) {
       try {
-        this.stops.push(loop.stop());
+        this.stops.push(
+          loop.stop().then(
+            () => [],
+            (error: unknown) => [error],
+          ),
+        );
       } catch (error: unknown) {
-        this.stops.push(Promise.reject(error));
+        this.stops.push(Promise.resolve([error]));
       }
     }
   }
@@ -272,7 +281,9 @@ export class BackgroundWorkers
       return {
         quiescent: true,
         failures: results.flatMap((result) =>
-          result.status === "rejected" ? [result.reason as unknown] : [],
+          result.status === "rejected"
+            ? [result.reason as unknown]
+            : result.value,
         ),
       };
     })();

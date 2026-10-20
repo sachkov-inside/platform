@@ -4,15 +4,29 @@ import type { DrainReport } from "../shared/drain-report.js";
 /** Owns actual invoked route work, including handlers whose HTTP client disconnected. */
 export class HttpLifetime {
   private readonly active = new Set<Promise<unknown>>();
+  private admissionClosed = false;
   private readonly failures: unknown[] = [];
   private stopping: Promise<void> | undefined;
   private drained: Promise<DrainReport> | undefined;
 
   constructor(private readonly server: FastifyInstance) {
+    server.addHook("onRequest", (_request, reply, done) => {
+      if (this.admissionClosed) {
+        reply.header("Connection", "close").code(503).send({
+          error: "Service Unavailable",
+          message: "Service Unavailable",
+          statusCode: 503,
+        });
+        return;
+      }
+      done();
+    });
     server.addHook("onRoute", (route) => {
       const handler = route.handler;
       const active = this.active;
-      const failures = this.failures;
+      const recordFailure = (error: unknown): void => {
+        if (this.admissionClosed) this.failures.push(error);
+      };
       route.handler = function (request, reply) {
         const work = Promise.resolve().then(() =>
           handler.call(this, request, reply),
@@ -21,7 +35,7 @@ export class HttpLifetime {
         void work.then(
           () => active.delete(work),
           (error: unknown) => {
-            failures.push(error);
+            recordFailure(error);
             active.delete(work);
           },
         );
@@ -30,7 +44,12 @@ export class HttpLifetime {
     });
   }
 
+  closeAdmission(): void {
+    this.admissionClosed = true;
+  }
+
   beginStop(): void {
+    this.closeAdmission();
     if (this.stopping !== undefined) return;
     try {
       this.stopping = this.server.close().catch((error: unknown) => {

@@ -70,11 +70,14 @@ it("drains admitted receive and original rejected publication before closing AMQ
     }),
   );
   const publisher = Object.assign(new EventEmitter(), {
-    publish: (...args: unknown[]) => {
-      const confirm = args[4];
-      if (typeof confirm !== "function")
-        throw new Error("Missing confirm callback");
-      publishing.resolve((error: unknown) => confirm(error));
+    publish: (
+      _exchange: string,
+      _key: string,
+      _body: Buffer,
+      _options: unknown,
+      confirm: (error: unknown) => void,
+    ) => {
+      publishing.resolve(confirm);
     },
     close: vi.fn(() => Promise.resolve()),
   });
@@ -149,5 +152,48 @@ it("drains admitted receive and original rejected publication before closing AMQ
     confirm(null);
     await observedPublication;
     await draining;
+  }
+});
+
+it("owns late-acquired publisher error listeners before terminal cleanup", async () => {
+  const creating = deferred();
+  const channel = deferred<EventEmitter & { close(): Promise<void> }>();
+  const publisher = Object.assign(new EventEmitter(), {
+    close: () => {
+      publisher.emit("error", new Error("synthetic late publisher event"));
+      return Promise.resolve();
+    },
+  });
+  const connection = Object.assign(new EventEmitter(), {
+    createConfirmChannel: () => {
+      creating.resolve();
+      return channel.promise;
+    },
+    createChannel: vi.fn(),
+    close: vi.fn(() => Promise.resolve()),
+  });
+  amqp.connect.mockResolvedValueOnce(connection);
+  const broker = new NotificationBroker(
+    "amqp://synthetic@127.0.0.1",
+    {
+      receive: () => Promise.resolve(undefined),
+    },
+    1,
+    () => undefined,
+  );
+  const opened = broker.open();
+  await creating.promise;
+  broker.beginStop();
+  const closing = broker.drain();
+  try {
+    channel.resolve(publisher);
+    await opened;
+    expect((await closing).failures).toEqual([]);
+    expect(connection.createChannel).not.toHaveBeenCalled();
+    expect(connection.close).toHaveBeenCalledOnce();
+  } finally {
+    channel.resolve(publisher);
+    await opened;
+    await closing;
   }
 });

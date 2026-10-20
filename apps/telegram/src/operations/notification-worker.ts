@@ -34,7 +34,7 @@ export class NotificationWorker
   private broker?: NotificationBroker;
   private loops: WorkerLoop[] = [];
   private stopping = false;
-  private readonly stops: Promise<void>[] = [];
+  private readonly stops: Promise<readonly unknown[]>[] = [];
   private drained: Promise<DrainReport> | undefined;
 
   constructor(
@@ -140,9 +140,14 @@ export class NotificationWorker
     this.broker?.beginStop();
     for (const loop of this.loops) {
       try {
-        this.stops.push(loop.stop());
+        this.stops.push(
+          loop.stop().then(
+            () => [],
+            (error: unknown) => [error],
+          ),
+        );
       } catch (error: unknown) {
-        this.stops.push(Promise.reject(error));
+        this.stops.push(Promise.resolve([error]));
       }
     }
   }
@@ -165,7 +170,9 @@ export class NotificationWorker
         quiescent: true,
         failures: [
           ...results.flatMap((result) =>
-            result.status === "rejected" ? [result.reason as unknown] : [],
+            result.status === "rejected"
+              ? [result.reason as unknown]
+              : result.value,
           ),
           ...(broker?.failures ?? []),
         ],

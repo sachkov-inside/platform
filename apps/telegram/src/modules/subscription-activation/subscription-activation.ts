@@ -210,7 +210,7 @@ export class SubscriptionActivation {
       }
       await this.performAction(contact, action, onlyCode);
     })();
-    this.activeActions.track(work);
+    void this.activeActions.track(work);
     try {
       await Promise.race([
         work,

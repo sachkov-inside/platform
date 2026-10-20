@@ -60,17 +60,17 @@ it("starts all producer stops before awaiting any owner and preserves every elig
         await actions.promise;
       },
     },
-    telemetry: async () => {
+    telemetry: () => {
       stages.push("sdk");
-      throw sdkError;
+      return Promise.reject(sdkError);
     },
-    database: async () => {
+    database: () => {
       stages.push("pg");
       throw pgError;
     },
-    framework: async () => {
+    framework: () => {
       stages.push("framework");
-      throw frameworkError;
+      return Promise.reject(frameworkError);
     },
   });
   const closing = lifetime.close();
@@ -119,8 +119,7 @@ it("publishes the one close promise before a synchronous stop callback can reent
   for (const owner of [http, background, notification]) owner.held.resolve();
   let reentered: Promise<void> | undefined;
   let entered = false;
-  let lifetime!: ApplicationClose;
-  const beginStop = http.owner.beginStop;
+  const beginStop = http.owner.beginStop.bind(http.owner);
   http.owner.beginStop = () => {
     beginStop();
     if (!entered) {
@@ -129,7 +128,7 @@ it("publishes the one close promise before a synchronous stop callback can reent
     }
   };
   let disposals = 0;
-  lifetime = new ApplicationClose({
+  const lifetime = new ApplicationClose({
     http: http.owner,
     background: background.owner,
     notifications: notification.owner,

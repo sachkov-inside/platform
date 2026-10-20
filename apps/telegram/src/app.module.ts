@@ -100,6 +100,7 @@ import {
 import { createDatabase } from "./database/create-database.js";
 import { DATABASE, type Database } from "./database/database.js";
 import { DatabaseLifecycle } from "./database/database-lifecycle.js";
+import { DatabaseInitialization } from "./database/database-initialization.js";
 import { BotContacts } from "./modules/bot-contacts/bot-contacts.js";
 import { SignInAccountLink } from "./modules/bot-sign-in/sign-in-account-link.js";
 import { BotSignIn } from "./modules/bot-sign-in/bot-sign-in.js";
@@ -149,7 +150,23 @@ import { RUNTIME_COUNTERS } from "./shared/runtime-counters.js";
 
 @Module({})
 export class AppModule {
+  /** Legacy raw Nest fixtures retain their own isolated database cleanup. */
   static register(config: ApplicationConfig): DynamicModule {
+    return this.compose(config);
+  }
+
+  /** Production always supplies its one lifetime-owned database. */
+  static registerManaged(
+    config: ApplicationConfig,
+    database: Database,
+  ): DynamicModule {
+    return this.compose(config, database);
+  }
+
+  private static compose(
+    config: ApplicationConfig,
+    database?: Database,
+  ): DynamicModule {
     return {
       module: AppModule,
       controllers: [
@@ -248,12 +265,16 @@ export class AppModule {
         { provide: APPLICATION_CONFIG, useValue: config },
         { provide: CLOCK, useValue: systemClock },
         { provide: MONOTONIC_CLOCK, useValue: systemMonotonicClock },
-        {
-          provide: DATABASE,
-          inject: [APPLICATION_CONFIG],
-          useFactory: (applicationConfig: ApplicationConfig) =>
-            createDatabase(applicationConfig.databaseUrl),
-        },
+        ...(database === undefined
+          ? [
+              {
+                provide: DATABASE,
+                inject: [APPLICATION_CONFIG],
+                useFactory: (applicationConfig: ApplicationConfig) =>
+                  createDatabase(applicationConfig.databaseUrl),
+              },
+            ]
+          : [{ provide: DATABASE, useValue: database }]),
         {
           provide: TELEGRAM_MESSAGES,
           inject: [APPLICATION_CONFIG],
@@ -483,7 +504,9 @@ export class AppModule {
         BotContacts,
         BotSignIn,
         SignInAccountLink,
-        DatabaseLifecycle,
+        ...(database === undefined
+          ? [DatabaseLifecycle]
+          : [DatabaseInitialization]),
         IdentityLinking,
         IdentityLinkRecovery,
         InMemoryIdentityLinkingAdapter,

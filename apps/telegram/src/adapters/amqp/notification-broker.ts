@@ -45,8 +45,11 @@ export class NotificationBroker {
   get connected() {
     return this.healthy;
   }
+  private intakeClosed(): boolean {
+    return this.terminal;
+  }
   open(): Promise<void> {
-    if (this.terminal) return Promise.resolve();
+    if (this.intakeClosed()) return Promise.resolve();
     if (this.opening !== undefined) return this.opening;
     const opening = this.openConnection();
     this.opening = opening;
@@ -62,7 +65,7 @@ export class NotificationBroker {
   }
   private async openConnection(): Promise<void> {
     await this.close();
-    if (this.terminal) return;
+    if (this.intakeClosed()) return;
     this.closing = false;
     const endpoint = new URL(this.url);
     endpoint.searchParams.set("heartbeat", "10");
@@ -70,17 +73,17 @@ export class NotificationBroker {
     this.connection = connection;
     connection.on("error", () => this.fail());
     connection.on("close", () => this.fail());
-    if (this.terminal) return;
+    if (this.intakeClosed()) return;
     this.publisher = await connection.createConfirmChannel();
-    if (this.terminal) return;
     this.publisher.on("error", () => this.fail());
     this.publisher.on("close", () => this.fail());
     this.publisher.on("return", () => {
       this.returned = true;
     });
+    if (this.intakeClosed()) return;
     this.healthy = true;
     for (const category of ["subscription", "material"] as const) {
-      if (this.terminal) return;
+      if (this.intakeClosed()) return;
       const channel = await connection.createChannel();
       this.consumers.push(channel);
       channel.on("error", () => this.fail());
@@ -88,13 +91,13 @@ export class NotificationBroker {
         this.closedChannels.add(channel);
         this.fail();
       });
-      if (this.terminal) return;
+      if (this.intakeClosed()) return;
       await channel.prefetch(this.prefetch);
-      if (this.terminal) return;
+      if (this.intakeClosed()) return;
       const consumer = await channel.consume(
         `telegram.notifications.${category}.v1`,
         (message) => {
-          if (this.terminal) return;
+          if (this.intakeClosed()) return;
           if (!message) {
             this.fail();
             return;
@@ -109,7 +112,8 @@ export class NotificationBroker {
         { noAck: false },
       );
       this.consumerTags.set(channel, consumer.consumerTag);
-      if (this.terminal) this.cancelConsumer(channel, consumer.consumerTag);
+      if (this.intakeClosed())
+        this.cancelConsumer(channel, consumer.consumerTag);
     }
   }
   private async accept(
@@ -135,9 +139,9 @@ export class NotificationBroker {
       // Storage/quarantine failure: close consumer, retain unacked work, alert; reconnect has backoff.
       reportFailure("notification.broker-receive", error);
       this.fail();
-      if (this.terminal) this.terminalFailures.push(error);
+      if (this.intakeClosed()) this.terminalFailures.push(error);
       await channel.close().catch((closeError: unknown) => {
-        if (this.terminal) this.terminalFailures.push(closeError);
+        if (this.intakeClosed()) this.terminalFailures.push(closeError);
       });
     }
   }
@@ -148,7 +152,7 @@ export class NotificationBroker {
     void task.then(
       () => this.publications.delete(task),
       (error: unknown) => {
-        if (this.terminal) this.terminalFailures.push(error);
+        if (this.intakeClosed()) this.terminalFailures.push(error);
         this.publications.delete(task);
       },
     );
@@ -190,7 +194,7 @@ export class NotificationBroker {
   }
   /** Terminal intake exclusion is distinct from transient reconnect cleanup. */
   beginStop(): void {
-    if (this.terminal) return;
+    if (this.intakeClosed()) return;
     this.terminal = true;
     this.closing = true;
     for (const [channel, tag] of this.consumerTags)
