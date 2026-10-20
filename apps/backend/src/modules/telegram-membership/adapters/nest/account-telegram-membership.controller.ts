@@ -68,7 +68,8 @@ export class AccountTelegramMembershipController {
       ? reading.contacts.get(account.accountId)
       : undefined;
     return {
-      ...result.presentation,
+      link: result.presentation.link,
+      membership: result.presentation.membership,
       contact: {
         state: contact?.telegramContactState ?? "unavailable",
         displayName: contact?.displayName ?? null,

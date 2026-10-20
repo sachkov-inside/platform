@@ -117,7 +117,7 @@ export function AccountEmailForm({
                   className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3"
                   disabled={pending}
                   id={`${id}-email`}
-                  maxLength={254}
+                  maxLength={128}
                   name="email"
                   onChange={(event) => {
                     setAddress(event.currentTarget.value);

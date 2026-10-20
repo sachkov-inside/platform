@@ -20,7 +20,7 @@ allowBuilds:
 peerDependencyRules:
   allowedVersions:
     "@nestjs/swagger>typescript": "7"
-# #1023: discard Execa IPC history and stop Vitest after a parent abort. Remove once upstream fixes both.
+# #1023 / #1580: bound IPC history, stop abandoned Vitest and decode non-ASCII test paths.
 patchedDependencies:
   "@storybook/addon-vitest@10.6.1": patches/@storybook__addon-vitest@10.6.1.patch
   # #1160: preserve unique Playwright trace names. Remove when upstream scopes chunk names per context.

@@ -1,7 +1,10 @@
 "use client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { accountPresentationBrowserQueryOptions } from "@/features/account-access";
+import {
+  useAccountPresentation,
+  accountProfileChanged,
+} from "@/features/account-access";
 import {
   acceptedDocumentItems,
   acceptedDocumentsQueryOptions,
@@ -26,7 +29,7 @@ export function AccountAccessPage({
   readonly policies: AcceptedDocumentsPanelProps["policies"];
 }) {
   const queryClient = useQueryClient();
-  const query = useQuery(accountPresentationBrowserQueryOptions());
+  const query = useAccountPresentation();
   const accepted = useQuery(acceptedDocumentsQueryOptions());
   const presentation =
     query.data?.kind === "ready" ? query.data.presentation : null;
@@ -57,6 +60,7 @@ export function AccountAccessPage({
               presentation.telegramMembership.contact?.displayName ?? null
             }
             onSaved={(profile) => {
+              accountProfileChanged.announce();
               queryClient.setQueryData<AccountPresentationResult>(
                 accountPresentationQueryKey(),
                 (current) =>

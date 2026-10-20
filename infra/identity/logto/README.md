@@ -158,7 +158,7 @@ production infrastructure gates.
 
 ## First email attachment
 
-Fork `inside.8` adds authenticated, first-party `/api/my-account/first-email/start` and
+Fork `inside.8` adds authenticated, first-party `/api/my-account/first-email` read, `/api/my-account/first-email/start` and
 `/api/my-account/first-email/confirm` routes. The [Account profile contract](../../../docs/specifications/account-profile-v1.md)
 owns eligibility, proof ownership, collision/retry semantics and required Account Center/SMTP setup.
 The existing `inside.7` changes remain included. The disposable API proof runs with

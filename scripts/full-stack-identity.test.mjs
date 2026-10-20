@@ -175,6 +175,35 @@ for (const instant of ["2026-10-07T09:00:00Z", "2026-10-09T09:00:00Z"]) {
       );
     });
 
+    it("reads only the current user's sign-in email with a provider-scoped token", async () => {
+      const cookie = await identity.createSession(
+        await identity.createAccessToken(),
+      );
+      const renewed = await grant({
+        grant_type: "refresh_token",
+        refresh_token: await refreshTokenOf(cookie),
+        client_id: clientId,
+      });
+      assert.equal(renewed.status, 200);
+      const token = grantSchema.parse(await renewed.json()).access_token;
+      const endpoint = `${identity.environment.LOGTO_ENDPOINT}/api/my-account/first-email`;
+      const response = await fetch(endpoint, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        email: `${ownerSubject}@inside.test`,
+      });
+      assert.equal(
+        (
+          await fetch(endpoint, {
+            headers: { authorization: "Bearer unknown" },
+          })
+        ).status,
+        401,
+      );
+    });
+
     /** @param {Record<string, string>} parameters */
     function grant(parameters) {
       return fetch(tokenEndpoint, {

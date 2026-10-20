@@ -15,7 +15,7 @@ export function handleReadAccountEmail(): Promise<Response> {
 }
 export function handleStartAccountEmail(request: Request): Promise<Response> {
   return handleAuthenticatedMutation(request, async (form) => {
-    const email = z.email().max(254).safeParse(form.get("email"));
+    const email = z.email().max(128).safeParse(form.get("email"));
     if (!email.success) return { ok: false, code: "invalid_input" };
     try {
       return await (await identityAccount()).startEmail(email.data);

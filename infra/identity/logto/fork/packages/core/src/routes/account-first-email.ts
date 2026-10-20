@@ -22,8 +22,19 @@ const { table, fields } = convertToIdentifiers(Users);
 /** First attachment only. Never replaces a credential, merges users, or accepts a target user ID. */
 export default function accountFirstEmailRoutes<T extends UserRouter>(...[router, tenant]: RouterInitArgs<T>) {
   const { queries, libraries, sentinel } = tenant;
+  router.get('/my-account/first-email', koaGuard({
+    response: z.object({ email: z.string().nullable() }), status: [200, 401, 403],
+  }), async (ctx, next) => {
+    await assertFirstPartyClient(queries, ctx.auth.clientId);
+    assertThat(ctx.auth.scopes.has(UserScope.Email), new RequestError({ code: 'auth.unauthorized', status: 401 }));
+    assertThat(ctx.accountCenter.fields.email === AccountCenterControlValue.Edit, 'account_center.field_not_editable');
+    const user = await queries.users.findUserById(ctx.auth.id);
+    ctx.body = { email: user.primaryEmail };
+    return next();
+  });
+
   router.post('/my-account/first-email/start', koaGuard({
-    body: z.object({ email: z.string().regex(emailRegEx).max(254) }),
+    body: z.object({ email: z.string().regex(emailRegEx).max(128) }),
     response: z.object({ verificationRecordId: z.string(), expiresAt: z.string() }),
     status: [201, 400, 401, 403, 422, 429, 501],
   }), async (ctx, next) => {

@@ -4,8 +4,11 @@ import argparse
 import base64
 import concurrent.futures
 import json
+import os
+from pathlib import Path
 import re
 import socket
+import signal
 import subprocess
 import time
 import urllib.error
@@ -14,8 +17,8 @@ import urllib.request
 import uuid
 
 
-def docker(*args):
-    return subprocess.check_output(["docker", *args], text=True, stderr=subprocess.PIPE).strip()
+def docker(*args, timeout=120):
+    return subprocess.check_output(["docker", *args], text=True, stderr=subprocess.PIPE, timeout=timeout).strip()
 
 
 def port():
@@ -60,12 +63,19 @@ def main():
     args = parser.parse_args()
     task = "inside-profile-proof-" + uuid.uuid4().hex[:8]
     names = []
-    endpoint_port, admin_port, mail_port = port(), port(), port()
+    browser_process = None
+    endpoint_port, admin_port, mail_port, callback_port = port(), port(), port(), port()
+    callback_url = f"http://127.0.0.1:{callback_port}/callback"
     endpoint = f"http://127.0.0.1:{endpoint_port}"
     admin = f"http://127.0.0.1:{admin_port}"
     mail = f"http://127.0.0.1:{mail_port}"
-    docker("network", "create", task)
+    def interrupted(signum, _frame):
+        raise KeyboardInterrupt(f"Interrupted by signal {signum}")
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     try:
+        docker("network", "create", task)
+        print(f"Profile proof resources: {task}", flush=True)
         def run(name, *arguments):
             names.append(name)
             return docker("run", "-d", "--name", name, "--network", task, "--label", f"inside.task={task}", *arguments)
@@ -100,7 +110,8 @@ def main():
             "host": "mailpit", "port": 1025, "auth": {"type": "login"}, "fromEmail": "proof@example.test", "secure": False, "ignoreTLS": True,
             "templates": [{"usageType": usage, "contentType": "text/plain", "subject": "Profile proof", "content": "Code: {{code}}"} for usage in ["BindNewIdentifier", "SignIn", "Register", "ForgotPassword", "Generic"]]
         }})
-        application = api("/applications", {"name": "Profile proof", "type": "Traditional", "oidcClientMetadata": {"redirectUris": [endpoint + "/callback"], "postLogoutRedirectUris": [endpoint + "/"]}})
+        api("/sign-in-exp", {"signIn": {"methods": [{"identifier": "email", "password": False, "verificationCode": True, "isPasswordPrimary": False}]}, "signUp": {"identifiers": ["email"], "password": False, "verify": True}, "signInMode": "SignInAndRegister", "agreeToTermsPolicy": "Automatic"}, "PATCH")
+        application = api("/applications", {"name": "Profile proof", "type": "Traditional", "customClientMetadata": {"allowTokenExchange": True}, "oidcClientMetadata": {"redirectUris": [callback_url], "postLogoutRedirectUris": [endpoint + "/"]}})
         app_id = application["id"]
         app_secret = api("/applications/" + app_id + "/secrets")[0]["value"]
 
@@ -112,11 +123,12 @@ def main():
             api("/users/" + result["id"] + "/identities/inside-telegram", {"userId": str(uuid.uuid4()), "details": {"name": label}}, "PUT")
             return result["id"]
 
-        def user_token(user_id):
+        def user_token(user_id, scope="openid email"):
+
             subject = api("/subject-tokens", {"userId": user_id})["subjectToken"]
             status, data = request(endpoint + "/oidc/token", {
                 "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange", "subject_token": subject,
-                "subject_token_type": "urn:ietf:params:oauth:token-type:access_token", "scope": "openid email"
+                "subject_token_type": "urn:ietf:params:oauth:token-type:access_token", "scope": scope
             }, form=True, basic=app_id + ":" + app_secret)
             assert status == 200, (status, data)
             return data["access_token"]
@@ -146,6 +158,8 @@ def main():
         assert confirm(first, challenge, wrong)[0] >= 400, "Wrong code accepted"
         assert confirm(first, challenge, correct)[0] == 204
         assert confirm(first, challenge, correct)[0] == 204, "Lost-response retry failed"
+        status, identity_email = request(endpoint + "/api/my-account/first-email", token=first)
+        assert status == 200 and identity_email == {"email": address}
         status, info = request(endpoint + "/oidc/me", token=first)
         assert status == 200 and info["sub"] == first_id and info["email"] == address
         assert request(endpoint + "/api/my-account/first-email/start", {"email": "replacement@example.test"}, first)[0] >= 400
@@ -165,18 +179,67 @@ def main():
 
         expired = start(second, "expired@example.test")
         expired_code = code("expired@example.test")
-        docker("exec", db_name, "psql", "-U", "logto", "-c", f"update verification_records set expires_at=0 where id='{expired}'")
+        docker("exec", db_name, "psql", "-U", "logto", "-c", f"update verification_records set expires_at=now()-interval '1 second' where id='{expired}'")
         assert confirm(second, expired, expired_code)[0] >= 400
-        print("PASS: own email, same subject, wrong code, foreign challenge, occupied email, retry, no replacement, anonymous, concurrency, expiration", flush=True)
+        browser_process = subprocess.Popen(["node", str(Path(__file__).resolve().parent.parent / "apps/web/test/support/profile-email-sign-in.mjs")], start_new_session=True, env={
+            **os.environ, "PROFILE_PROOF_ENDPOINT": endpoint, "PROFILE_PROOF_MAIL": mail, "PROFILE_PROOF_CALLBACK": callback_url,
+            "PROFILE_PROOF_EMAIL": address, "PROFILE_PROOF_APP_ID": app_id, "PROFILE_PROOF_APP_SECRET": app_secret, "PROFILE_PROOF_SUBJECT": first_id,
+        })
+        exit_code = browser_process.wait(timeout=90)
+        if exit_code != 0:
+            raise RuntimeError("Fresh email-code sign-in proof failed")
+        # Proof failures and recipient throttling use the same native controls as sign-in.
+        guarded = start(second, "attempts@example.test")
+        guarded_code = code("attempts@example.test")
+        wrong_guarded = "000000" if guarded_code != "000000" else "111111"
+        for _ in range(110):
+            assert confirm(second, guarded, wrong_guarded)[0] >= 400
+        assert confirm(second, guarded, guarded_code)[0] >= 400, "Exhausted code accepted"
+        for attempt in range(11):
+            status, _ = request(endpoint + "/api/my-account/first-email/start", {"email": "limited@example.test"}, second)
+            assert status == (201 if attempt < 10 else 429), (attempt, status)
+        no_scope = user_token(second_id, "openid")
+        assert request(endpoint + "/api/my-account/first-email/start", {"email": "scope@example.test"}, no_scope)[0] >= 400
+        assert request(endpoint + "/api/my-account/first-email", token=no_scope)[0] == 401
+        assert request(endpoint + "/api/my-account/first-email/start", {"email": "a" * 64 + "@" + "b" * 59 + ".test"}, second)[0] == 400
+        password_id = user("password-exclusion")
+        api("/users/" + password_id + "/password", {"password": "ProfileProof-Password-938"}, "PATCH")
+        assert request(endpoint + "/api/my-account/first-email/start", {"email": "password@example.test"}, user_token(password_id))[0] == 422
+        phone_id = user("phone-exclusion")
+        api("/users/" + phone_id, {"primaryPhone": "15555550123"}, "PATCH")
+        assert request(endpoint + "/api/my-account/first-email/start", {"email": "phone@example.test"}, user_token(phone_id))[0] == 422
+        # Application party is immutable through Management API. Model a third-party caller
+        # by changing only this disposable provider fixture after its user token was minted.
+        assert re.fullmatch(r"[a-z0-9]+", app_id)
+        docker("exec", db_name, "psql", "-U", "logto", "-c", f"update applications set is_third_party=true where id='{app_id}'")
+        assert request(endpoint + "/api/my-account/first-email/start", {"email": "third-party@example.test"}, second)[0] == 403
+        docker("exec", db_name, "psql", "-U", "logto", "-c", f"update applications set is_third_party=false where id='{app_id}'")
+        print("PASS: own email, same subject, wrong code, foreign challenge, occupied email, retry, no replacement, anonymous, concurrency, expiration, exhausted attempts, send cap, scope, credential exclusions, third-party refusal", flush=True)
     except Exception:
         if task + "-idp" in names:
             print(docker("logs", "--tail", "35", task + "-idp"))
         raise
     finally:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        if browser_process is not None and browser_process.poll() is None:
+            os.killpg(browser_process.pid, signal.SIGTERM)
+            try:
+                browser_process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                os.killpg(browser_process.pid, signal.SIGKILL)
+                browser_process.wait(timeout=5)
+        cleanup_errors = []
         for name in reversed(names):
-            subprocess.run(["docker", "rm", "-f", "-v", name], check=False, capture_output=True)
-        docker("network", "rm", task)
-        assert not docker("ps", "-aq", "--filter", f"label=inside.task={task}")
+            try:
+                subprocess.run(["docker", "rm", "-f", "-v", name], check=False, capture_output=True, timeout=20)
+            except subprocess.TimeoutExpired:
+                cleanup_errors.append(name)
+        subprocess.run(["docker", "network", "rm", task], check=False, capture_output=True, timeout=20)
+        assert not docker("ps", "-aq", "--filter", f"label=inside.task={task}", timeout=20)
+        assert not docker("network", "ls", "--filter", f"name=^{task}$", "-q", timeout=20)
+        if cleanup_errors:
+            raise RuntimeError("A disposable container cleanup exceeded its deadline")
         print("Disposable profile proof containers and network removed.", flush=True)
 
 

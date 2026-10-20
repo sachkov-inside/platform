@@ -8,10 +8,7 @@ const startSchema = z.object({
   verificationRecordId: z.string().min(1).max(128),
   expiresAt: z.iso.datetime(),
 });
-const userInfoSchema = z.object({
-  sub: z.string().min(1),
-  email: z.email().optional(),
-});
+const userInfoSchema = z.object({ email: z.email().nullable() });
 const providerErrorSchema = z.object({ code: z.string() });
 
 /** Fixed, user-scoped Logto operations. Never accepts a user ID or a browser-selected provider URL. */
@@ -63,7 +60,7 @@ export function createIdentityAccountClient(
     async read(): Promise<
       { readonly ok: true; readonly email: string | null } | Failure
     > {
-      const response = await call("/oidc/me");
+      const response = await call("/api/my-account/first-email");
       if (!(response instanceof Response)) return response;
       if (!response.ok) return failure(response);
       try {
@@ -76,7 +73,7 @@ export function createIdentityAccountClient(
     async startEmail(
       email: string,
     ): Promise<{ readonly ok: true; readonly challengeRef: string } | Failure> {
-      const address = z.email().max(254).safeParse(email.trim().toLowerCase());
+      const address = z.email().max(128).safeParse(email.trim().toLowerCase());
       if (!address.success) return { ok: false, code: "invalid_input" };
       const response = await call("/api/my-account/first-email/start", {
         email: address.data,

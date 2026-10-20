@@ -44,3 +44,31 @@ it("reads the current sign-in email and attaches a verified address through the 
     JSON.stringify({ verificationRecordId: "challenge-1", code: "123456" }),
   );
 });
+
+it("rejects an email larger than the pinned provider field before sending a code", async () => {
+  const request = vi.fn<typeof fetch>().mockResolvedValue(
+    Response.json(
+      {
+        verificationRecordId: "length-boundary",
+        expiresAt: "2030-01-01T00:10:00.000Z",
+      },
+      { status: 201 },
+    ),
+  );
+  const account = createIdentityAccountClient(
+    "https://identity.example.test",
+    "opaque",
+    request,
+  );
+  const supported = `${"a".repeat(64)}@${"b".repeat(58)}.test`;
+  expect(supported.length).toBe(128);
+  expect(await account.startEmail(supported)).toEqual({
+    ok: true,
+    challengeRef: "length-boundary",
+  });
+  request.mockClear();
+  expect(
+    await account.startEmail(`${"a".repeat(64)}@${"b".repeat(59)}.test`),
+  ).toEqual({ ok: false, code: "invalid_input" });
+  expect(request).not.toHaveBeenCalled();
+});

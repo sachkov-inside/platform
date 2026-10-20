@@ -40,6 +40,15 @@ export function MemberProfileEditor({
       onSaved(result.profile);
     },
   });
+  const [sourceProfile, setSourceProfile] = useState(initialProfile);
+  if (sourceProfile !== initialProfile) {
+    setSourceProfile(initialProfile);
+    // A background read updates an untouched editor; a draft keeps its original conflict token.
+    if (!save.isPending && name.trim() === (profile?.displayName ?? "")) {
+      setProfile(initialProfile);
+      setName(initialProfile?.displayName ?? "");
+    }
+  }
   const result = save.data;
   const error = save.isError
     ? "Не удалось сохранить имя. Попробуйте ещё раз."

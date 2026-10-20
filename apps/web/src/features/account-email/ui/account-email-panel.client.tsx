@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
+import { factAnnouncement } from "@/shared/api/fact-announcement";
+import {
+  selfRefreshingRead,
+  unavailableRetryIntervalMs,
+} from "@/shared/api/self-refreshing-query";
 import type {
   EmailAttachmentFailure,
   IdentityEmail,
@@ -25,13 +29,25 @@ const errorMessage: Record<EmailAttachmentFailure["code"], string> = {
   rate_limited: "Слишком много попыток. Подождите перед повторным запросом.",
   unavailable: "Не удалось подтвердить почту. Повторите попытку позже.",
 };
+const emailAttached = factAnnouncement("inside.account-email.attached");
 export function AccountEmailPanel() {
   const client = useQueryClient();
   const query = useQuery({
     ...selfRefreshingRead,
     queryKey,
     queryFn: readAccountEmail,
+    refetchInterval: ({ state }) =>
+      state.data?.ok === false && state.data.code !== "unauthorized"
+        ? unavailableRetryIntervalMs
+        : false,
   });
+  useEffect(
+    () =>
+      emailAttached.subscribe(() => {
+        void client.invalidateQueries({ queryKey }, { cancelRefetch: false });
+      }),
+    [client],
+  );
   const [challenge, setChallenge] = useState<{
     email: string;
     challengeRef: string;
@@ -66,7 +82,8 @@ export function AccountEmailPanel() {
       setChallenge(null);
       setError(undefined);
       setVerified(true);
-      await client.invalidateQueries({ queryKey });
+      emailAttached.announce();
+      await client.invalidateQueries({ queryKey }, { cancelRefetch: false });
     },
   });
   return (

@@ -19,6 +19,8 @@ are returned by the account presentation endpoint. A username is presentation, n
 ## Sign-in email
 
 The profile email is Logto's current primary email, read with a user-scoped opaque OIDC token.
+A new address is limited to 128 characters, matching the pinned provider field.
+A missing `email` scope returns an authentication failure rather than an apparently missing address.
 It is separate from Billing Contact and Order Email. A confirmed Billing Contact alone never
 becomes a sign-in method. Existing email identities are read-only in this scope.
 
