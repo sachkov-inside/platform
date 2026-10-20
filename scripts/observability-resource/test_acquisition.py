@@ -87,9 +87,12 @@ class DiagnosticDiscrimination(unittest.TestCase):
         pilot = hosted.runtime.pilot
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            recorder = acquisition.Recorder(root, 'a'*40)
-            recorder.start('backend_build', 'child_wait')
-            for observer in (None, recorder.storage_stop, Mock(side_effect=ValueError('private-observer-sentinel'))):
+            for mode in ('default', 'recording', 'broken'):
+                case = root / mode
+                case.mkdir()
+                recorder = acquisition.Recorder(case, 'a'*40)
+                recorder.start('backend_build', 'child_wait')
+                observer = None if mode == 'default' else (recorder.storage_stop if mode == 'recording' else Mock(side_effect=ValueError('private-observer-sentinel')))
                 handlers = {}
                 thread = Mock()
                 target = []
@@ -102,7 +105,7 @@ class DiagnosticDiscrimination(unittest.TestCase):
                         patch.object(pilot.shutil, 'disk_usage', side_effect=[SimpleNamespace(free=20*1024**3), SimpleNamespace(free=16*1024**3)]), \
                         patch.object(pilot.signal, 'signal', side_effect=register_signal), \
                         patch.object(pilot.os, 'kill') as send:
-                    with pilot.disk_budget(root, **({} if observer is None else {'on_stop': observer})):
+                    with pilot.disk_budget(case, **({} if observer is None else {'on_stop': observer})):
                         target[0]()
                         send.assert_called_once_with(os.getpid(), signal.SIGUSR1)
                         with self.assertRaisesRegex(RuntimeError, '^pilot disk budget exceeded; stopping owned resources$') as stop:
@@ -110,9 +113,9 @@ class DiagnosticDiscrimination(unittest.TestCase):
                         # The real prepare/command boundary persists the passive signal marker.
                         hosted.record_failure(recorder, stop.exception)
                     thread.join.assert_called_once_with(timeout=pilot.MONITOR_SHUTDOWN_SECONDS)
-            value = acquisition.read(root/acquisition.NAME, 'a'*40)
-            self.assertEqual(value['outcome'], 'storage_guard_stop')
-            self.assertEqual((value['stage'], value['boundary']), ('backend_build', 'child_wait'))
+                value = acquisition.read(case/acquisition.NAME, 'a'*40)
+                self.assertEqual(value['outcome'], 'storage_guard_stop' if mode == 'recording' else 'unknown_failure')
+                self.assertEqual((value['stage'], value['boundary']), ('backend_build', 'child_wait'))
 
 
 class ClosedPublicProjection(unittest.TestCase):
