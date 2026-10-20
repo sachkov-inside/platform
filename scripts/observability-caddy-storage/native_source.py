@@ -28,7 +28,7 @@ def parse(raw):
         if 'PRIVACY_SENTINEL_1566' in text or 'private-caddy-sentinel' in text:refuse()
         lines=text.splitlines()
         if len(lines)>4096 or any(len(line.encode())>4096 for line in lines):refuse()
-        rows={};identities=set();types={};samples=0
+        by_role={};identities=set();types={};samples=0
         for line in lines:
             if not line:continue
             if line.startswith('# TYPE '):
@@ -66,8 +66,9 @@ def parse(raw):
             identity=(name,tuple(sorted(labels.items())))
             if identity in identities:refuse()
             identities.add(identity)
-            if role==('srv0','subroute'):
-                key=tuple(sorted({'__name__':name,'job':'platform-caddy','instance':'pilot',**labels}.items()));rows[key]=value
+            key=tuple(sorted({'__name__':name,'job':'platform-caddy','instance':'pilot',**labels}.items()))
+            by_role.setdefault(role,{})[key]=value
         # The same whole histogram/count rules apply to actual native values, not fabricated runtime metrics.
-        return status._observation(rows)
+        observations={role:status._observation(rows) for role,rows in by_role.items()}
+        return observations.get(('srv0','subroute'))
     except (ValueError,TypeError,KeyError,UnicodeError,RecursionError,OverflowError):refuse()

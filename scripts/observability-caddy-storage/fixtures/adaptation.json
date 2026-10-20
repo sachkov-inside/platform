@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "origin": "Official Mac arm64 Caddy2.11.4 pure adaptation, verified publisher archive. Not Linux/runtime evidence.",
+  "synthetic_config_sha256": "3ae3101ff0ae79ec591f3c965e76157599e957f6e7fbfcce370c89784492713d",
+  "adapted_canonical_sha256": "00a8d5fe3cef873218d140a5f374e203530afc975011f1ca03be59f5810c9ed3",
+  "servers": {
+    "srv0": {
+      "listen": [
+        ":8080"
+      ],
+      "routes": [
+        {
+          "path": "routes/0",
+          "match": [
+            {
+              "method": [
+                "GET",
+                "POST"
+              ],
+              "path": [
+                "/metrics/*",
+                "/logs/*",
+                "/traces/*"
+              ]
+            }
+          ],
+          "group": "group4",
+          "terminal": false,
+          "handlers": [
+            "subroute"
+          ]
+        },
+        {
+          "path": "routes/0/handle/0/routes/0",
+          "match": [],
+          "group": null,
+          "terminal": false,
+          "handlers": [
+            "request_body",
+            "reverse_proxy"
+          ]
+        },
+        {
+          "path": "routes/1",
+          "match": [],
+          "group": "group4",
+          "terminal": false,
+          "handlers": [
+            "subroute"
+          ]
+        },
+        {
+          "path": "routes/1/handle/0/routes/0",
+          "match": [],
+          "group": null,
+          "terminal": false,
+          "handlers": [
+            "static_response"
+          ]
+        }
+      ]
+    },
+    "srv1": {
+      "listen": [
+        ":9091"
+      ],
+      "routes": [
+        {
+          "path": "routes/0",
+          "match": [
+            {
+              "method": [
+                "GET"
+              ],
+              "path": [
+                "/metrics"
+              ]
+            }
+          ],
+          "group": "group6",
+          "terminal": false,
+          "handlers": [
+            "subroute"
+          ]
+        },
+        {
+          "path": "routes/0/handle/0/routes/0",
+          "match": [],
+          "group": null,
+          "terminal": false,
+          "handlers": [
+            "metrics"
+          ]
+        },
+        {
+          "path": "routes/1",
+          "match": [],
+          "group": "group6",
+          "terminal": false,
+          "handlers": [
+            "subroute"
+          ]
+        },
+        {
+          "path": "routes/1/handle/0/routes/0",
+          "match": [],
+          "group": null,
+          "terminal": false,
+          "handlers": [
+            "static_response"
+          ]
+        }
+      ]
+    }
+  }
+}

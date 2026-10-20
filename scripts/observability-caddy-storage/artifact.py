@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import stat
 import caddy_status as status
+import evidence
 
 NAME='caddy-observation.json'
 FIELDS={'schema','scope','partition','state','reason','sample_age_seconds','observation','comparison','transport','not_covered'}
@@ -103,32 +104,49 @@ def directory(root):
         for descriptor in reversed(descriptors):os.close(descriptor)
 
 
-def read(root):
+def _read(root, name, validator, cap):
     try:
         with directory(root) as directory_fd:
-            try:descriptor=os.open(NAME,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=directory_fd)
+            try:descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=directory_fd)
             except FileNotFoundError:return None
             with os.fdopen(descriptor,'rb') as stream:
                 info=os.fstat(stream.fileno())
                 if (not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_nlink!=1
-                        or stat.S_IMODE(info.st_mode)!=0o600 or info.st_size>status.MAX_OUTPUT_BYTES):refuse()
-                raw=stream.read(status.MAX_OUTPUT_BYTES+1)
-                final=os.fstat(stream.fileno());linked=os.stat(NAME,dir_fd=directory_fd,follow_symlinks=False)
+                        or stat.S_IMODE(info.st_mode)!=0o600 or info.st_size>cap):refuse()
+                raw=stream.read(cap+1)
+                final=os.fstat(stream.fileno());linked=os.stat(name,dir_fd=directory_fd,follow_symlinks=False)
                 identity=lambda v:(v.st_dev,v.st_ino,v.st_uid,v.st_mode,v.st_nlink,v.st_size,v.st_mtime_ns,v.st_ctime_ns)
-                if len(raw)>status.MAX_OUTPUT_BYTES or identity(info)!=identity(final) or identity(final)!=identity(linked):refuse()
-            return validate(status.source_status.decode_json(raw))
+                if len(raw)>cap or identity(info)!=identity(final) or identity(final)!=identity(linked):refuse()
+            return validator(status.source_status.decode_json(raw))
     except (OSError,ValueError,TypeError,RecursionError):refuse()
 
 
-def write(root,value):
-    value=validate(value);raw=(json.dumps(value,separators=(',',':'),allow_nan=False)+'\n').encode()
-    if len(raw)>status.MAX_OUTPUT_BYTES:refuse()
+def _write(root,value,name,validator,cap):
+    value=validator(value);raw=(json.dumps(value,separators=(',',':'),allow_nan=False)+'\n').encode()
+    if len(raw)>cap:refuse()
+    temporary="."+name+".new"
     with directory(root) as directory_fd:
         created=False
         try:
-            descriptor=os.open('.caddy-observation.new',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_CLOEXEC,0o600,dir_fd=directory_fd);created=True
+            descriptor=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_CLOEXEC,0o600,dir_fd=directory_fd);created=True
             with os.fdopen(descriptor,'wb') as stream:stream.write(raw)
-            os.replace('.caddy-observation.new',NAME,src_dir_fd=directory_fd,dst_dir_fd=directory_fd)
+            os.replace(temporary,name,src_dir_fd=directory_fd,dst_dir_fd=directory_fd)
             created=False
         finally:
-            if created:os.unlink('.caddy-observation.new',dir_fd=directory_fd)
+            if created:os.unlink(temporary,dir_fd=directory_fd)
+
+
+def read(root):
+    return _read(root,NAME,validate,status.MAX_OUTPUT_BYTES)
+
+
+def write(root,value):
+    _write(root,value,NAME,validate,status.MAX_OUTPUT_BYTES)
+
+
+def read_run(root):
+    return _read(root,'caddy-run.json',evidence.validate,evidence.MAX_BYTES)
+
+
+def write_run(root,value):
+    _write(root,value,'caddy-run.json',evidence.validate,evidence.MAX_BYTES)

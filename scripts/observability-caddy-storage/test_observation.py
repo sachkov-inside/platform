@@ -52,3 +52,23 @@ class WholeObservation(unittest.TestCase):
             previous={'values':json.dumps(old).encode(),'timestamps':json.dumps(old_stamps).encode(),'evaluated_at':95,'completed_at':96})
         self.assertEqual(result['state'],'observed')
         self.assertEqual(result['comparison'],{'state':'incomplete','requests_delta':None,'errors_delta':None,'duration':[]})
+
+    def test_visible_reset_survives_a_long_gap_but_never_produces_a_negative_delta(self):
+        old,old_stamps=acquisition(point=80,stamp=79)
+        values,stamps=acquisition()
+        for row in old['data']['result']:
+            if row['metric']['__name__'] not in ('up','caddy_http_requests_in_flight'):
+                row['value'][1]=str(float(row['value'][1])*2)
+        result=caddy_status.evaluate(json.dumps(values).encode(),json.dumps(stamps).encode(),evaluated_at=100,completed_at=101,
+            previous={'values':json.dumps(old).encode(),'timestamps':json.dumps(old_stamps).encode(),'evaluated_at':80,'completed_at':81})
+        self.assertEqual(result['comparison'],{'state':'reset_observed','requests_delta':None,'errors_delta':None,'duration':[]})
+
+    def test_visible_partial_histogram_contradiction_is_malformed_before_missing_availability(self):
+        values,stamps=acquisition()
+        rows=values['data']['result']
+        values['data']['result']=[row for row in rows if row['metric'].get('le') in ('0.005','0.01') and row['metric'].get('code')=='200']
+        values['data']['result'][0]['value'][1]='1'
+        stamps['data']['result']=[row for row in stamps['data']['result'] if row['metric'].get('le') in ('0.005','0.01') and row['metric'].get('code')=='200']
+        result=caddy_status.evaluate(json.dumps(values).encode(),json.dumps(stamps).encode(),evaluated_at=100,completed_at=101)
+        self.assertEqual(result['state'],'malformed')
+        self.assertIsNone(result['observation'])

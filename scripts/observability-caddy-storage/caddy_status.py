@@ -124,6 +124,12 @@ def _observation(rows):
     if len(groups)>MAX_GROUPS: refuse()
     complete=True;duration=[]
     for (method,code),group in sorted(groups.items()):
+        visible=[group[bound] for bound in BUCKETS if bound in group]
+        if any(a>b for a,b in zip(visible,visible[1:])):refuse()
+        if 'count' in group:
+            if (any(value>group['count'] for value in visible)
+                    or '+Inf' in group and group['+Inf']!=group['count']
+                    or group['count']==0 and group.get('sum',0)!=0):refuse()
         if set(group)!=set((*BUCKETS,'sum','count')):
             complete=False;continue
         buckets=[int(group[bound]) for bound in BUCKETS];count=int(group['count'])
@@ -173,9 +179,10 @@ def evaluate(values,timestamps,*,evaluated_at,completed_at,previous=None,complet
 def compare(rows,stamps,old,old_stamps):
     incomplete={'state':'incomplete','requests_delta':None,'errors_delta':None,'duration':[]}
     if rows.keys()!=old.keys() or _observation(old) is None:return incomplete
-    if any(not 0<stamps[key]-old_stamps[key]<=MAX_AGE_SECONDS for key in rows):return incomplete
+    if any(stamps[key]<=old_stamps[key] for key in rows):return incomplete
     counters=[key for key in rows if dict(key)['__name__'] not in ('up',FLIGHT)]
     if any(rows[key]<old[key] for key in counters):return {**incomplete,'state':'reset_observed'}
+    if any(stamps[key]-old_stamps[key]>MAX_AGE_SECONDS for key in rows):return incomplete
     delta={key:rows[key]-old[key] for key in counters}
     observation=_observation({**delta,**{key:rows[key] for key in rows if dict(key)['__name__'] in ('up',FLIGHT)}})
     if observation is None:return incomplete

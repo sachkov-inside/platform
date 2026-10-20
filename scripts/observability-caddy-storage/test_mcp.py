@@ -73,3 +73,11 @@ class StrictWire(unittest.TestCase):
                 self.assertTrue(report.exists())
                 pid=json.loads(report.read_text())['pid']
                 with self.assertRaises(ProcessLookupError): os.kill(pid,0)
+
+    def test_embedded_valid_vm_numeric_timestamp_does_not_fail_privacy_scan_serialization(self):
+        import caddy_mcp
+        from test_observation import acquisition
+        values,_=acquisition()
+        for row in values['data']['result']:row['value'][0]=100.0
+        raw=json.dumps(values)
+        self.assertEqual(caddy_mcp.body({'content':[{'type':'text','text':raw}]}),raw.encode())

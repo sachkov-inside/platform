@@ -19,7 +19,9 @@ for line in sys.stdin:
     if identifier is None: continue
     if identifier==1: result={'protocolVersion':'2024-11-05','capabilities':{},'serverInfo':{'name':'fixture','version':'1'}}
     elif identifier==2: result={'tools':[{'name':'query','inputSchema':{'type':'object','properties':{name:{'type':kind} for name,kind in (('query','string'),('time','string'),('step','string'),('timeout','string'),('trace','boolean'),('nocache','boolean'))},'required':['query']},'annotations':{'title':'Instant Query','readOnlyHint':True,'destructiveHint':False,'openWorldHint':True}}]}
-    else: result={'content':[{'type':'text','text':Path(os.environ['CADDY_TEST_BODY_FILE']).read_text() if 'CADDY_TEST_BODY_FILE' in os.environ else 'caddy_http_requests_total'}]}
+    else:
+        body_key='CADDY_TEST_TIMESTAMP_FILE' if identifier==4 and 'CADDY_TEST_TIMESTAMP_FILE' in os.environ else 'CADDY_TEST_BODY_FILE'
+        result={'content':[{'type':'text','text':Path(os.environ[body_key]).read_text() if body_key in os.environ else 'caddy_http_requests_total'}]}
     raw=json.dumps({'jsonrpc':'2.0','id':identifier,'result':result})
     if os.environ.get('CADDY_TEST_BAD')=='duplicate' and identifier==3:
         raw=raw.replace('"id": 3','"id":3,"i\\u0064":3')

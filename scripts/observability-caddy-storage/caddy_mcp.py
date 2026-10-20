@@ -53,7 +53,7 @@ def body(result):
         if len(raw)>MAX_BYTES:refuse()
         # The designated embedded string has a separate complete VM JSON contract.
         value=source_status.decode_json(raw)
-        collector_privacy.assert_clean(value)
+        collector_privacy.assert_clean(json.dumps(value,default=str))
         return raw
     except (ValueError,TypeError,KeyError,UnicodeError,RecursionError,OverflowError,RuntimeError):refuse()
 

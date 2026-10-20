@@ -23,3 +23,7 @@ class BeforeDeletion(unittest.TestCase):
         for extra in (b'private="private-caddy-sentinel"',b'host="unrecognized-host"'):
             poison=wire()+b'caddy_http_requests_total{server="srv1",handler="subroute",'+extra+b'} 1\n'
             with self.assertRaisesRegex(ValueError,'^closed Caddy native source refused$'):native_source.parse(poison)
+
+    def test_excluded_scrape_server_histogram_contradiction_is_checked_before_deletion(self):
+        poison=wire()+b'caddy_http_request_duration_seconds_bucket{server="srv1",handler="metrics",method="GET",code="200",le="0.005"} 1\n'+b'caddy_http_request_duration_seconds_bucket{server="srv1",handler="metrics",method="GET",code="200",le="0.01"} 0\n'
+        with self.assertRaisesRegex(ValueError,'^closed Caddy native source refused$'):native_source.parse(poison)
