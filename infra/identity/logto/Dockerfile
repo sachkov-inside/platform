@@ -56,3 +56,10 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && ln -s ../../connectors/connector-inside-telegram connectors/connector-inside-telegram \
   && sed -i "/outDir:/a\\  onSuccess: undefined," tsup.config.ts \
   && npm run check && ./node_modules/.bin/tsup
+
+COPY fork/packages/core/src/routes/account-first-email.ts packages/core/src/routes/account-first-email.ts
+COPY patches/account-first-email.patch /tmp/account-first-email.patch
+RUN apk add --no-cache --virtual .inside-patch-tools patch \
+  && patch --fuzz=0 -p1 < /tmp/account-first-email.patch \
+  && apk del .inside-patch-tools \
+  && cd packages/core && npm run check && ./node_modules/.bin/tsup

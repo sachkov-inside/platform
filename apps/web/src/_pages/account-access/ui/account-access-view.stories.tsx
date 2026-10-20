@@ -56,7 +56,7 @@ const acceptedDocuments: AcceptedDocumentsPanelProps = {
 const meta = {
   ...environment,
   args: {
-    email: "kirill@example.com",
+    displayName: "kirill@example.com",
     acceptedDocuments,
     link: { kind: "linked" },
     onTelegramRefresh: () => Promise.resolve(),
@@ -209,8 +209,8 @@ export const WithLearning: Story = {
     const telegram = canvas.getByRole("region", {
       name: /^Telegram$/,
     });
-    await expect(learning.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-      telegram.getBoundingClientRect().top,
+    await expect(telegram.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      learning.getBoundingClientRect().top,
     );
     await expect(getComputedStyle(learning).position).toBe("static");
     const documents = canvas.getByRole("button", { name: /Документы/ });
@@ -228,6 +228,12 @@ export const WithLearningMobile: Story = {
 };
 
 export const CourseAndVideo: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.hover(
+      canvas.getByRole("link", { name: /Как выбрать и настроить агента/u }),
+    );
+  },
   args: {
     continuationSlot: (
       <LearningContinuationView

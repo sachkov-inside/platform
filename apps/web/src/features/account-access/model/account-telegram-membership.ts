@@ -45,6 +45,14 @@ export const accountTelegramMembershipSchema = z
         })
         .strict(),
     ]),
+    contact: z
+      .object({
+        state: z.enum(["available", "not_linked", "unavailable"]),
+        displayName: z.string().nullable(),
+        username: z.string().nullable(),
+      })
+      .strict()
+      .optional(),
     membership: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("active") }).strict(),
       z.object({ kind: z.literal("inactive") }).strict(),

@@ -39,6 +39,14 @@ export async function startFullStackIdentity({
   /** Выданные refresh-токены: каждый помнит, чью сессию он продлевает. */
   /** @type {Map<string, string>} */
   const refreshTokens = new Map();
+  /** Opaque provider tokens never authenticate to Platform API. @type {Map<string, string>} */
+  const identityTokens = new Map();
+  /** @param {string} tokenSubject */
+  const mintIdentityToken = (tokenSubject) => {
+    const token = `fullstack-identity-${randomUUID()}`;
+    identityTokens.set(token, tokenSubject);
+    return token;
+  };
   /**
    * @param {string} tokenSubject
    * @param {number} issuedAt
@@ -69,17 +77,28 @@ export async function startFullStackIdentity({
   const createAccessToken = (tokenSubject = subject) =>
     mintAccessToken(tokenSubject, Math.floor(now() / 1_000));
   /** @param {{ token: string; expiresAt: number; refreshToken: string }} session */
-  const sessionCookie = ({ token, expiresAt, refreshToken }) =>
-    wrapSession(
+  const sessionCookie = ({ token, expiresAt, refreshToken }) => {
+    const tokenSubject = refreshTokens.get(refreshToken);
+    return wrapSession(
       {
         idToken: "fullstack.id.token",
         refreshToken,
         accessToken: JSON.stringify({
           [`@${audience}`]: { token, scope: "", expiresAt },
+          ...(tokenSubject === undefined
+            ? {}
+            : {
+                "@": {
+                  token: mintIdentityToken(tokenSubject),
+                  scope: "email",
+                  expiresAt,
+                },
+              }),
         }),
       },
       cookieSecret,
     );
+  };
   /** @param {string} tokenSubject */
   const issueRefreshToken = (tokenSubject) => {
     const refreshToken = `fullstack-refresh-${randomUUID()}`;
@@ -138,6 +157,23 @@ export async function startFullStackIdentity({
       });
       return;
     }
+    if (
+      request.url === "/api/my-account/first-email" &&
+      request.method === "GET"
+    ) {
+      const header = request.headers.authorization ?? "";
+      const tokenSubject = header.startsWith("Bearer ")
+        ? identityTokens.get(header.slice(7))
+        : undefined;
+      sendJson(
+        response,
+        tokenSubject === undefined ? 401 : 200,
+        tokenSubject === undefined
+          ? { code: "auth.unauthorized" }
+          : { email: `${tokenSubject}@inside.test` },
+      );
+      return;
+    }
     if (request.url === "/oidc/token" && request.method === "POST") {
       await issueRenewedToken(request, response);
       return;
@@ -184,7 +220,17 @@ export async function startFullStackIdentity({
     const resource = parameters.get("resource");
     const learning =
       learningResource !== undefined && resource === learningResource;
-    if (resource !== null && resource !== audience && !learning) {
+    if (resource === null) {
+      sendJson(response, 200, {
+        access_token: mintIdentityToken(tokenSubject),
+        refresh_token: presented,
+        expires_in: fullStackAccessTokenTtlSeconds,
+        scope: "openid email",
+        token_type: "Bearer",
+      });
+      return;
+    }
+    if (resource !== audience && !learning) {
       sendJson(
         response,
         400,

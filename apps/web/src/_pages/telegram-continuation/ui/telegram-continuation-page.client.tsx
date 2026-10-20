@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import {
   AccountTelegramPanel,
-  accountPresentationBrowserQueryOptions,
+  useAccountPresentation,
 } from "@/features/account-access";
 import { Button } from "@/shared/ui/button";
 import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
@@ -25,7 +25,7 @@ export function TelegramContinuationPage({
   };
 }) {
   const router = useRouter();
-  const account = useQuery(accountPresentationBrowserQueryOptions());
+  const account = useAccountPresentation();
   const query = useQuery({
     ...selfRefreshingRead,
     queryKey: ["telegram-activation", attemptId],

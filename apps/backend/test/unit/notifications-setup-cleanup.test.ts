@@ -27,10 +27,8 @@ const adapters = vi.hoisted(() => ({
 }));
 
 // Capture each real suite's definition; replay it with fresh state for each case.
-vi.mock("vitest", async (importOriginal) => {
-  const actual = await importOriginal<typeof Vitest>();
+vi.mock("../support/notification-suite-lifecycle.js", () => {
   return {
-    ...actual,
     describe: (_name: string, body: () => void) => {
       lifecycle.define = body;
     },
