@@ -1,4 +1,4 @@
-import type { DrainReport } from "../application/drain-report.js";
+import type { DrainReport } from "../shared/drain-report.js";
 import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import { isTruthy } from "../shared/truthiness.js";
 import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";

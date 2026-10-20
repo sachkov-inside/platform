@@ -1,4 +1,4 @@
-import type { DrainReport } from "../../application/drain-report.js";
+import type { DrainReport } from "../../shared/drain-report.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import {
   connect,
@@ -32,6 +32,10 @@ export class NotificationBroker {
   private readonly cancelling: Promise<void>[] = [];
   private readonly publications = new Set<Promise<void>>();
   private readonly terminalFailures: unknown[] = [];
+  private terminalQuiet!: () => void;
+  private readonly terminalQuiescence = new Promise<void>((resolve) => {
+    this.terminalQuiet = resolve;
+  });
   constructor(
     private readonly url: string,
     private readonly inbox: NotificationInbox,
@@ -216,6 +220,9 @@ export class NotificationBroker {
       this.connection === undefined
     );
   }
+  whenQuiescent(): Promise<void> {
+    return this.terminalQuiescence;
+  }
   drain(): Promise<DrainReport> {
     this.beginStop();
     this.drained ??= this.finishTerminal();
@@ -261,6 +268,7 @@ export class NotificationBroker {
       }
     }
     this.healthy = false;
+    this.terminalQuiet();
     return { quiescent: true, failures: [...this.terminalFailures] };
   }
   async close(): Promise<void> {

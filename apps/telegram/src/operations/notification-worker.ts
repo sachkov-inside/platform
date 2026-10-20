@@ -1,4 +1,4 @@
-import type { DrainReport } from "../application/drain-report.js";
+import type { DrainReport } from "../shared/drain-report.js";
 import {
   Inject,
   Injectable,
@@ -175,7 +175,8 @@ export class NotificationWorker
   }
 
   async whenQuiescent(): Promise<void> {
-    await this.drain();
+    await Promise.all(this.loops.map((loop) => loop.whenQuiescent()));
+    await this.broker?.whenQuiescent();
   }
 
   async onModuleDestroy(): Promise<void> {

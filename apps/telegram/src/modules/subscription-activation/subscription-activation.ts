@@ -1,3 +1,5 @@
+import type { DrainReport } from "../../shared/drain-report.js";
+import { ActivationActions } from "./activation-actions.js";
 import { StartResponseDeliveryProcessor } from "../outbound/start-response-delivery-processor.js";
 import {
   productList,
@@ -81,11 +83,23 @@ export type AccessAction =
 /** Durable Telegram continuation; Account and every grant remain Platform-owned. */
 @Injectable()
 export class SubscriptionActivation {
-  private readonly activeActions = new Set<Promise<void>>();
+  private readonly activeActions = new ActivationActions();
 
   async onModuleDestroy(): Promise<void> {
-    await Promise.allSettled([...this.activeActions]);
+    await this.drainActions();
   }
+  drainActions(): Promise<DrainReport> {
+    return this.activeActions.drain();
+  }
+
+  async whenActionsQuiescent(): Promise<void> {
+    await this.activeActions.drain();
+  }
+
+  actionsQuiescent(): boolean {
+    return this.activeActions.isQuiescent();
+  }
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
@@ -164,24 +178,26 @@ export class SubscriptionActivation {
     if (action !== "community" && action !== "retry")
       return this.performAction(contact, action, onlyCode);
     const failure = () =>
-      this.screen(contact, {
-        text: "Не удалось проверить доступ. Попробуйте ещё раз.",
-        buttons: [
-          {
-            text: "Повторить",
-            callbackData: hasText(onlyCode)
-              ? `access:${action}:${onlyCode}`
-              : "access:own",
-          },
-          {
-            text: "Помощь",
-            callbackData:
-              action === "community" && hasText(onlyCode)
-                ? `access:help:${onlyCode}`
-                : "access:help",
-          },
-        ],
-      });
+      this.activeActions.track(
+        this.screen(contact, {
+          text: "Не удалось проверить доступ. Попробуйте ещё раз.",
+          buttons: [
+            {
+              text: "Повторить",
+              callbackData: hasText(onlyCode)
+                ? `access:${action}:${onlyCode}`
+                : "access:own",
+            },
+            {
+              text: "Помощь",
+              callbackData:
+                action === "community" && hasText(onlyCode)
+                  ? `access:help:${onlyCode}`
+                  : "access:help",
+            },
+          ],
+        }),
+      );
     let timer: ReturnType<typeof setTimeout> | undefined;
     const work = (async () => {
       if (action === "community") {
@@ -194,11 +210,7 @@ export class SubscriptionActivation {
       }
       await this.performAction(contact, action, onlyCode);
     })();
-    this.activeActions.add(work);
-    void work.then(
-      () => this.activeActions.delete(work),
-      () => this.activeActions.delete(work),
-    );
+    this.activeActions.track(work);
     try {
       await Promise.race([
         work,

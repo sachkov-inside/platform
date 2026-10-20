@@ -55,3 +55,23 @@ it("keeps a disconnected native HTTP handler owned until its work settles", asyn
     await server.close();
   }
 });
+
+it("preserves a native framework close error after the listener has actually stopped", async () => {
+  const server = Fastify();
+  const lifetime = new HttpLifetime(server);
+  const original = new Error("synthetic native close");
+  server.addHook("onClose", async () => {
+    throw original;
+  });
+  await server.listen({ host: "127.0.0.1", port: 0 });
+  try {
+    lifetime.beginStop();
+    const report = await lifetime.drain();
+    expect(report.failures).toEqual([original]);
+    expect(report.failures[0]).toBe(original);
+    expect(lifetime.isQuiescent()).toBe(true);
+    await lifetime.whenQuiescent();
+  } finally {
+    await server.close().catch(() => undefined);
+  }
+});

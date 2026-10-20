@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { DrainReport } from "./drain-report.js";
+import type { DrainReport } from "../shared/drain-report.js";
 
 /** Owns actual invoked route work, including handlers whose HTTP client disconnected. */
 export class HttpLifetime {
@@ -54,6 +54,10 @@ export class HttpLifetime {
     this.beginStop();
     this.drained ??= this.finish();
     return this.drained;
+  }
+
+  async whenQuiescent(): Promise<void> {
+    await this.finish();
   }
 
   private async finish(): Promise<DrainReport> {
