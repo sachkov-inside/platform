@@ -27,6 +27,7 @@ const appendedNames = [
   "0108_submission_activity_period",
   "0109_materials_notification_trace_context",
   "0110_notifications_notification_trace_context",
+  "0111_notifications_email_trace_context",
 ];
 
 it("upgrades exact main0100 without changing canonical SQL/checksums/positions and retains a compatible rollback registry", async () => {
@@ -113,6 +114,7 @@ const preparedRootDigest =
 const carrierChecksums = [
   "ee7ee354bfe652213c914e47368f9e115ac14bbca2a994aa418a581dfeafac2b",
   "d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
+  "fb4ac34965f919b5086aa562637f11bafc8ec366950091e17e195f004d0fb679",
 ];
 it("upgrades exact prepared root0108 with unchanged SQL and retains canonical carrier positions and rollback ledger", async () => {
   const rootRegistry = platformMigrations.slice(0, preparedRootCount);
@@ -139,6 +141,7 @@ it("upgrades exact prepared root0108 with unchanged SQL and retains canonical ca
       appliedMigrations: [
         "0109_materials_notification_trace_context",
         "0110_notifications_notification_trace_context",
+        "0111_notifications_email_trace_context",
       ],
     });
     const after = await ledger();
@@ -153,6 +156,11 @@ it("upgrades exact prepared root0108 with unchanged SQL and retains canonical ca
         name: "0110_notifications_notification_trace_context",
         checksum: carrierChecksums[1],
         position: 111,
+      },
+      {
+        name: "0111_notifications_email_trace_context",
+        checksum: carrierChecksums[2],
+        position: 112,
       },
     ]);
     expect(await migrateToLatest(database.url)).toEqual({

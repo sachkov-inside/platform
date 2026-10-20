@@ -28,7 +28,7 @@ export async function acceptTransportMessage(
         payload: envelope.payload,
         digest: envelope.digest,
         traceparent:
-          envelope.lane === "materials"
+          envelope.lane === "materials" || envelope.lane === "emailResult"
             ? (notificationTraceparent(metadata?.traceparent) ?? null)
             : null,
       },
