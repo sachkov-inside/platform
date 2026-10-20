@@ -33,6 +33,7 @@ let release: (() => void) | undefined;
 let readingFailure: "unavailable" | "denied" | "conflict" | null = null;
 let bookmarkFailure: "unavailable" | "denied" | null = null;
 let initialReadFailure = false;
+let holdReadingSave = true;
 const initialReadReleases: (() => void)[] = [];
 const commands: string[] = [];
 function releaseReading() {
@@ -56,7 +57,8 @@ const meta = {
   ...environment,
   title: "Pages/Material Reader actions",
   component: MaterialReaderView,
-  beforeEach: () => {
+  beforeEach: ({ parameters }) => {
+    holdReadingSave = parameters["holdReadingSave"] !== false;
     getQueryClient().clear();
     environment.beforeEach();
     isRead = false;
@@ -95,9 +97,10 @@ const meta = {
         if (typeof commandId !== "string")
           throw new Error("Missing command ID");
         commands.push(commandId);
-        await new Promise<void>((resolve) => {
-          release = resolve;
-        });
+        if (holdReadingSave)
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
         if (readingFailure !== null)
           return Response.json(
             readingFailure === "conflict"
@@ -862,6 +865,7 @@ export const DesktopActionPanels: Story = {
 
 /** Accepted A: one group of named actions with the next step at the opposite edge. */
 export const GroupedReaderActions: Story = {
+  parameters: { holdReadingSave: false },
   args: {
     seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
   },
@@ -896,6 +900,24 @@ export const GroupedReaderActions: Story = {
         '[data-reader-header] button[aria-label^="Поделиться"]',
       ),
     ).toBeNull();
+    const top = canvas.getByRole("navigation", { name: "Действия материала" });
+    const bottom = canvas.getByRole("navigation", {
+      name: "Действия в конце материала",
+    });
+    const study = within(top).getByRole("button", { name: "Изучено" });
+    await waitFor(() =>
+      expect(study).toHaveAttribute("aria-disabled", "false"),
+    );
+    await userEvent.click(study);
+    await waitFor(() =>
+      expect(
+        within(bottom).getByRole("button", { name: "Изучено" }),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    await userEvent.click(
+      within(bottom).getByRole("button", { name: "Изучено" }),
+    );
+    await waitFor(() => expect(study).toHaveAttribute("aria-pressed", "false"));
   },
 };
 export const GroupedReaderActionsMobile: Story = {
