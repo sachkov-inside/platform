@@ -184,3 +184,46 @@ test("SDK input failure keeps its original error and commits the owning phase th
     fs.rmSync(directory, { recursive: true });
   }
 });
+
+// deterministic-test-allow unit-io: genuine owned directory-FD writer with no path shim; unsupported Mac anchoring remains absent.
+test("SDK genuine phase anchoring follows the host capability without a path fallback", async () => {
+  const fs = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { createSdkEmitterPhase } = await import("./emitter-phase.mjs");
+  const directory = fs.realpathSync(
+    fs.mkdtempSync(join(tmpdir(), "inside-sdk-phase-anchor-")),
+  );
+  const file = directory + "/phase.json";
+  try {
+    const phase = createSdkEmitterPhase({
+      INSIDE_SDK_EMITTER_PHASE_PATH: file,
+      INSIDE_SDK_EMITTER_PHASE_SOURCE: "a".repeat(40),
+    });
+    if (process.platform === "darwin") {
+      assert.equal(
+        phase,
+        null,
+        "unsupported genuine directory traversal must disable observation",
+      );
+      assert.equal(fs.existsSync(file), false);
+    } else {
+      assert.ok(
+        phase !== null,
+        "Linux source route requires a genuine anchored owner",
+      );
+      phase.enter("input_validation");
+      phase.failed();
+      assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), {
+        schema: 1,
+        scope: "sdk",
+        source: "a".repeat(40),
+        state: "failed",
+        phase: "input_validation",
+        reason: "operation_failed",
+      });
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true });
+  }
+});
