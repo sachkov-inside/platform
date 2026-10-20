@@ -97,8 +97,11 @@ function unitCommands(script = "check:unit") {
   ];
   if (aggregate === undefined) throw new Error(`Missing ${script} script`);
   return aggregate.split(" && ").flatMap((command) => {
-    if (command === "pnpm check:contracts")
-      return unitCommands("check:contracts");
+    const group =
+      /^pnpm (check:contracts|check:unit:(?:tooling|modules))$/u.exec(
+        command,
+      )?.[1];
+    if (group !== undefined) return unitCommands(group);
     const rootScript = /^pnpm (test:[\w-]+)$/u.exec(command)?.[1];
     if (rootScript !== undefined) return rootNodeCommands(rootScript);
     if (

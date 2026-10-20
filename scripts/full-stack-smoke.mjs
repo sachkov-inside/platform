@@ -453,6 +453,7 @@ function recordTiming(stage, startedAt, outcome) {
     `${JSON.stringify({
       kind: "fullstack-timing",
       project: process.env["FULLSTACK_TEST_PROJECT"] ?? "all",
+      shard: process.env["FULLSTACK_TEST_SHARD"] ?? "all",
       stage,
       durationMs: Math.round(performance.now() - startedAt),
       outcome,

@@ -41,3 +41,28 @@ test("an invalid or empty requested profile cannot silently run different covera
     );
   }
 });
+
+test("each isolated full-stack profile accepts exactly the complete pair of CI shards", () => {
+  for (const shard of ["1/2", "2/2"]) {
+    assert.deepEqual(
+      fullStackTestArguments({
+        FULLSTACK_TEST_PROJECT: "desktop-chromium",
+        FULLSTACK_TEST_SHARD: shard,
+      }),
+      [
+        "--filter",
+        "@inside/web",
+        "test:fullstack",
+        "--project",
+        "desktop-chromium",
+        "--shard",
+        shard,
+      ],
+    );
+  }
+  for (const shard of ["", "0/2", "3/2", "1/3", "1/2 --grep login"]) {
+    assert.throws(() =>
+      fullStackTestArguments({ FULLSTACK_TEST_SHARD: shard }),
+    );
+  }
+});
