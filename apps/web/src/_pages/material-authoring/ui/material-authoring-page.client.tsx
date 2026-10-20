@@ -103,6 +103,7 @@ export function MaterialAuthoringPageClient({
     materialId: _id,
     assetPreviewBlocks: _blocks,
     cover: _cover,
+    wasPublished: _wasPublished,
     ...editable
   } = draft;
   const autosave = useAutosave({
