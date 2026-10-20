@@ -1370,6 +1370,10 @@ package использует production-код очистки диагности
 набор входных файлов SDK. Остальные пути `docs/` не допускаются в module witness.
 Пределы private protocol и схема public artifact не меняются.
 
+The owning SDK workflow routes every selected source input, including the exact
+`apps/backend/prisma/schema.prisma` path. Its contract checks the full selection and refuses the
+same paths list when that exact entry is removed; contract-source/compiler assertions remain.
+
 
 Tracking and waitlist module witnesses additionally admit exactly
 `docs/contracts/notifications-v1/schema.json`, imported directly by the production notification
@@ -1397,15 +1401,29 @@ exception text, arguments, row values, paths or hashes to form metadata. All wit
 validation order, required modules and caps remain unchanged. The new categories belong only to
 tracking scope, not SDK or waitlist.
 
-The waitlist scope reuses the same bounded capture owner and optional diagnostic argument. Its
-record admits only `unknown`, `capture` and `protocol_decode` phases, covering native capture
-and private IPC decoding. A later SQL or stored-data failure
-is outside this record's coverage; a passed capture record does not accept those operations or
-identify their failure. Missing legacy records are explicitly unknown. Capture failure keeps its
-original exception even if diagnostic or milestone persistence fails. Before public copying, the
-waitlist collector strictly reads both present metadata records, excludes their raw files from
-generic collection and writes only canonical projections. Invalid present metadata refuses
-collection. No producer stderr, SQLSTATE, raw witness or inferred next-operation cause is published.
+The waitlist scope keeps the same bounded capture owner and its default signatures. After capture,
+full witness admission and module-map publication succeed, a separate observer covers the existing
+stored metrics/traces loop. It distinguishes entered query and validation boundaries, reconciliation
+and visibility expiry. A capture failure is terminal and never starts that storage observer. A passed
+capture or trace observation cannot infer a later failure's phase. The first actual failure remains
+terminal. Diagnostic persistence refuses successful collection when invalid, and cannot replace an
+active primary exception or its traceback. The worker's existing result-writer behavior is unchanged.
+Before public copying, collectors strictly read present metadata, exclude its raw files from generic
+collection and write only canonical projections. Invalid present metadata refuses collection.
+
+Trace validation in SDK, tracking and waitlist admits only a constructor-owned fixed reason:
+`trace_decode` at the whole-row decode-contract boundary, or `trace_gate_01` through `trace_gate_20`
+for the original semantic refusal sites. SDK admits only01–12. The checked-in
+`trace-predicates.json` binds each scope+gate to its permanent semantic predicate and preserves the
+original predicate order. Moving source lines never renumbers or repurposes a gate. Compound
+predicates remain compound; the code does not identify their failing operand, field, value or row.
+Malformed JSON keeps `response_decode`; unexpected errors keep the aggregate fallback. Only exact
+owning types and valid scope/gate fields are classified, without foreign getters or formatting.
+Original fixed RuntimeError-compatible messages, from-None suppression, pending results, full-row
+privacy checks and every cap/query/poll/deadline remain unchanged. No SQLSTATE, raw trace, stderr,
+exception text, ID, URL or inferred SQL/provider cause is published. The artifact still has seven
+fields, schema1 and its2048-byte cap. These feedback refinements do not reproduce or explain the
+withheld666 native trace refusals, or attribute later92e outcomes to another source change.
 
 The actual tracking and waitlist API producers also have a separate optional private milestone channel.
 Its canonical `api-producer-phase.json` is at most512bytes and contains only schema1, exact caller

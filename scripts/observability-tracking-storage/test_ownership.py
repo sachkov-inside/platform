@@ -73,7 +73,11 @@ class TrackingOwnership(unittest.TestCase):
         block=workflow.split('    paths:\n',1)[1].split('\n\n',1)[0]
         patterns=[line.removeprefix('      - ').strip('"') for line in block.splitlines()]
         paths={str(path.relative_to(root)) for path in tracking_storage.source_inputs()}
-        required={'apps/backend/src/entrypoints/api/create-api-application.ts',
+        required={'scripts/observability-sdk-storage/trace-predicates.json',
+            'scripts/observability-sdk-storage/trace_reason_contract.py',
+            'scripts/observability-sdk-storage/test_sdk_trace_reasons.py',
+            'scripts/observability-tracking-storage/test_tracking_trace_reasons.py',
+            'apps/backend/src/entrypoints/api/create-api-application.ts',
             'apps/backend/src/modules/communications/facets/tracking-visits/tracking-visits.ts',
             'apps/backend/src/modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.ts',
             'apps/backend/src/migrations/index.ts','apps/backend/prisma/schema.prisma',

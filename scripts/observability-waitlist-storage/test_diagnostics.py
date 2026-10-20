@@ -164,8 +164,8 @@ class WaitlistDiagnostics(unittest.TestCase):
                 self.assertEqual(diagnostic.snapshot()['reason'],reason)
                 self.assertNotIn('private-canary',json.dumps(diagnostic.snapshot()))
 
-    def test_waitlist_scope_refuses_phases_outside_its_native_capture_coverage(self):
-        for phase in sorted(set(diagnostics.FAILURES)-{'unknown','capture','protocol_decode'}):
+    def test_waitlist_scope_refuses_phases_outside_capture_and_observed_storage_coverage(self):
+        for phase in sorted(set(diagnostics.FAILURES)-{'unknown','capture','protocol_decode',*diagnostics.WAITLIST_STORAGE_PHASES}):
             with self.subTest(phase=phase),self.assertRaises(ValueError):
                 diagnostics.validate({**diagnostics.unknown('waitlist'),'phase':phase,
                                       'outcome':'passed','reason':'none'},scope='waitlist')
@@ -173,7 +173,13 @@ class WaitlistDiagnostics(unittest.TestCase):
     def test_new_capture_dependencies_and_contracts_are_source_bound_and_workflow_routed(self):
         import fnmatch
         names={str(path.relative_to(waitlist_storage.pilot.ROOT)) for path in waitlist_storage.source_inputs()}
-        required={'scripts/observability-sdk-storage/diagnostics.py',
+        required={'scripts/observability-sdk-storage/trace-predicates.json',
+                  'scripts/observability-sdk-storage/trace_reason_contract.py',
+                  'scripts/observability-sdk-storage/test_sdk_trace_reasons.py',
+                  'scripts/observability-tracking-storage/test_tracking_trace_reasons.py',
+                  'scripts/observability-waitlist-storage/test_waitlist_trace_reasons.py',
+                  'scripts/observability-waitlist-storage/test_storage_diagnostics.py',
+                  'scripts/observability-sdk-storage/diagnostics.py',
                   'scripts/observability-tracking-storage/producer_protocol.py',
                   'scripts/observability-waitlist-storage/producer_protocol.py',
                   'scripts/observability-waitlist-storage/waitlist_storage.py',
