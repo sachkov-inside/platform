@@ -246,6 +246,12 @@ class ProviderExecutionBoundary(unittest.TestCase):
 
 class AcquisitionInterruption(unittest.TestCase):
     def test_sigterm_to_preparation_closes_the_owned_command_socket(self):
+        self.exercise(fail_before_readiness=False)
+
+    def test_readiness_read_failure_before_facts_still_closes_the_actual_child_socket(self):
+        self.exercise(fail_before_readiness=True)
+
+    def exercise(self, *, fail_before_readiness):
         import signal
         import socket
         import subprocess
@@ -256,6 +262,7 @@ class AcquisitionInterruption(unittest.TestCase):
             root = Path(directory)
             worker = root / 'worker.py'
             record = root / 'ready.json'
+            ownership = root / 'command.json'
             worker.write_text('''import json, os, pathlib, socket, sys, time
 s = socket.socket()
 s.bind(('127.0.0.1', 0))
@@ -265,41 +272,94 @@ p.with_suffix('.new').write_text(json.dumps({'port': s.getsockname()[1], 'pid': 
 p.with_suffix('.new').replace(p)
 time.sleep(120)
 ''')
-            launch = '''import signal, sys
+            launch = '''import json, os, pathlib, signal, subprocess, sys
 sys.path.insert(0, sys.argv[1])
 import hosted
 def interrupt(_signum, _frame):
     raise KeyboardInterrupt()
 signal.signal(signal.SIGTERM, interrupt)
+# The fixture registers the actual external process acquisition before readiness.
+create = subprocess.Popen
+def register(*args, **kwargs):
+    child = create(*args, **kwargs)
+    try:
+        path = pathlib.Path(sys.argv[4])
+        path.with_suffix('.new').write_text(json.dumps({'pid': child.pid, 'group': child.pid}))
+        path.with_suffix('.new').replace(path)
+    except BaseException:
+        hosted.signal_group(child.pid, signal.SIGKILL)
+        child.wait(timeout=3)
+        raise
+    return child
+hosted.subprocess.Popen = register
 hosted.command([sys.executable, sys.argv[2], sys.argv[3]], 10)
 '''
-            process = subprocess.Popen([sys.executable, '-c', launch, str(binding.SCRIPTS), str(worker), str(record)],
+            process = subprocess.Popen([sys.executable, '-c', launch, str(binding.SCRIPTS), str(worker), str(record), str(ownership)],
                 start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             facts = None
+            registered = None
+            observed = None
+            def cleanup_launcher():
+                if process.poll() is None:
+                    process.terminate()
+                try:
+                    process.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    pass
+                finally:
+                    # Acquisition registration is independent of readiness and its parser.
+                    owned = registered
+                    if owned is None and ownership.is_file():
+                        owned = json.loads(ownership.read_text())
+                    groups = [process.pid]
+                    if owned is not None:
+                        if (set(owned) != {'pid', 'group'} or type(owned['pid']) is not int
+                                or owned['pid'] <= 0 or owned['pid'] != owned['group']):
+                            raise ValueError('invalid_owned_fixture_group')
+                        groups.append(owned['group'])
+                    for group in groups:
+                        hosted.signal_group(group, signal.SIGKILL)
+                    process.wait(timeout=3)
             try:
                 deadline = time.monotonic() + 5
+                while not ownership.exists():
+                    if process.poll() is not None or time.monotonic() >= deadline:
+                        self.fail('owned command did not register acquisition')
+                    threading.Event().wait(.01)
+                registered = json.loads(ownership.read_text())
+                self.assertEqual(registered['pid'], registered['group'])
+                self.assertGreater(registered['group'], 0)
                 while not record.exists():
                     if process.poll() is not None or time.monotonic() >= deadline:
                         self.fail('owned command did not acquire its socket')
                     threading.Event().wait(.01)
-                facts = json.loads(record.read_text())
-                process.terminate()
-                self.assertNotEqual(process.wait(timeout=5), 0)
+                # The external supervisor retains cleanup facts independently of readiness.
+                observed = json.loads(record.read_text())
+                self.assertEqual(observed['pid'], registered['pid'])
+                try:
+                    if fail_before_readiness:
+                        record.write_text('invalid-readiness-json')
+                        with self.assertRaises(json.JSONDecodeError):
+                            facts = json.loads(record.read_text())
+                        self.assertIsNone(facts)
+                    else:
+                        facts = json.loads(record.read_text())
+                        process.terminate()
+                        self.assertNotEqual(process.wait(timeout=5), 0)
+                finally:
+                    cleanup_launcher()
                 deadline = time.monotonic() + 3
                 while True:
                     try:
                         with socket.socket() as probe:
-                            probe.bind(('127.0.0.1', facts['port']))
+                            probe.bind(('127.0.0.1', observed['port']))
                         break
                     except OSError:
                         if time.monotonic() >= deadline:
                             raise
                         threading.Event().wait(.01)
             finally:
-                for group in (process.pid, facts['pid'] if facts else None):
-                    if group is not None:
-                        hosted.signal_group(group, signal.SIGKILL)
-                process.wait(timeout=3)
+                cleanup_launcher()
 
 
 class GroupSignalBoundary(unittest.TestCase):
@@ -314,6 +374,31 @@ class GroupSignalBoundary(unittest.TestCase):
                 patch.object(subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, 'S\n', '')):
             with self.assertRaises(PermissionError):
                 hosted.signal_group(12345, signal.SIGKILL)
+
+
+class DuplicateMetadata(unittest.TestCase):
+    def test_literal_and_escaped_overwritten_private_fields_are_refused_before_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            admitted = metadata(root)
+            output = root / 'private'
+            output.mkdir()
+            binding.write(output / 'owner.json', {'cwd': str(binding.ROOT), 'project': 'inside-observability-resource-012345abcdef'})
+            for index, (name, key) in enumerate((('source.json', 'scope'), ('source.json', 'sco\\u0070e'),
+                                                ('admission.json', 'reason'), ('admission.json', 'rea\\u0073on'))):
+                with self.subTest(document=name, key=key):
+                    path = admitted / name
+                    original = path.read_text()
+                    path.write_text('{"' + key + '":"private-duplicate-sentinel",' + original.lstrip()[1:])
+                    destination = root / ('public-' + str(index))
+                    try:
+                        with self.assertRaises(ValueError):
+                            hosted.collect(output, destination, metadata=admitted)
+                        self.assertFalse(destination.exists())
+                        self.assertFalse(any('private-duplicate-sentinel' in file.read_text()
+                            for file in root.glob('public-*/*') if file.is_file()))
+                    finally:
+                        path.write_text(original)
 
 
 if __name__ == '__main__':

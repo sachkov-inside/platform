@@ -30,6 +30,19 @@ def admission(metadata):
     return runtime.ci.admission(metadata, inputs=binding.inputs(), scope=SCOPE)
 
 
+def decode_metadata(encoded):
+    def unique_fields(pairs):
+        value = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError('resource_duplicate_metadata_key')
+            value[key] = item
+        return value
+    def nonfinite(_value):
+        raise ValueError('resource_nonfinite_metadata')
+    return json.loads(encoded, object_pairs_hook=unique_fields, parse_constant=nonfinite)
+
+
 def metadata_source(metadata):
     if metadata.is_symlink() or not metadata.is_dir():
         raise ValueError('resource_metadata_required')
@@ -38,7 +51,7 @@ def metadata_source(metadata):
         path = metadata / name
         if path.is_symlink() or not path.is_file() or path.stat().st_size > binding.MAX_BYTES:
             raise ValueError('resource_metadata_required')
-        values[name] = json.loads(path.read_text())
+        values[name] = decode_metadata(path.read_text())
     source = values['source.json']
     fields = {'checkout_sha', 'checkout_tree', 'repository', 'run_id', 'run_attempt', 'event',
               'provider_execution_sha', 'provider_pr_head_sha', 'provider_pr_base_sha', 'inputs', 'scope'}
