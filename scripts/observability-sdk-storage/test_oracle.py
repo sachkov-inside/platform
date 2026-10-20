@@ -109,7 +109,7 @@ def trace_fixture():
         stamp = {1800000000000000000: '2027-01-15T08:00:00Z', 1800000000001000000: '2027-01-15T08:00:00.001Z'}[start]
         rows.append({'trace_id': 'a'*32, 'span_id': span, **({'parent_span_id': parent} if parent else {}),
                      'resource_attr:service.name': 'platform-api', 'resource_attr:deployment.environment.name': 'test', 'resource_attr:service.version': 'c'*40,
-                     'scope_name': 'inside-collector', 'name': name, 'kind': kind, 'status_code': '0', 'flags': '1',
+                     'scope_name': 'inside-collector', 'name': name, 'kind': kind, 'status_code': '0', 'flags': '257',
                      'start_time_unix_nano': str(start), 'end_time_unix_nano': str(end), 'duration': str(end-start),
                      '_time': stamp, '_stream_id': '0'*16+str(len(rows)+1)*32,
                      '_stream': '{name='+json.dumps(name)+',resource_attr:service.name="platform-api"}', '_msg': '-',
