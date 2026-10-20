@@ -94,10 +94,17 @@ export class ReadMaterialAnnouncementsController {
         "unavailable",
         "Public origin is not configured",
       );
-    return this.announcements.read(
+    const result = await this.announcements.read(
       parsed.data,
       config.publicOrigin,
       new Date(),
     );
+    if (!result.ok)
+      throw problemException(
+        503,
+        "unavailable",
+        "Public announcements unavailable",
+      );
+    return { items: result.value.items, nextCursor: result.value.nextCursor };
   }
 }

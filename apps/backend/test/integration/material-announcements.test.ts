@@ -115,6 +115,33 @@ describe("анонс первой публикации материала", () =
     });
   }
 
+  function publicAnnouncements() {
+    const source = new PublicMaterialAnnouncements(database.prisma);
+    return {
+      read: async (...args: Parameters<PublicMaterialAnnouncements["read"]>) =>
+        value(await source.read(...args)),
+    };
+  }
+
+  test("повтор Save с другим выбором Telegram не маскируется прежним idempotency receipt", async () => {
+    const materialId = await draft("Telegram operation identity");
+    const command = {
+      actor: ownerId,
+      idempotencyKey: randomUUID(),
+      materialId,
+      expectedContentVersion: 1,
+      publicationState: "draft" as const,
+      notifyTelegram: false,
+      metadata: metadata("Telegram operation identity"),
+      body: representativeDocument(),
+    };
+    const authoring = materials().authoring;
+    value(await authoring.saveMaterial(command));
+    expect(
+      await authoring.saveMaterial({ ...command, notifyTelegram: true }),
+    ).toEqual({ ok: false, error: { code: "idempotency_key_reused" } });
+  });
+
   test("выбор Telegram сохраняется в черновике, а первая публикация создаёт публичный анонс", async () => {
     const id = await draft("Telegram selected draft");
     const authoring = materials().authoring;
@@ -138,7 +165,7 @@ describe("анонс первой публикации материала", () =
     value(await publish(id, 2, "Telegram selected draft"));
     const announcement = await announcedOccurrence(id);
     expect(announcement.telegramEnabled).toBe(true);
-    const source = new PublicMaterialAnnouncements(database.prisma);
+    const source = publicAnnouncements();
     const current = await source.read(
       { announcementRef: announcement.id },
       "https://inside.example",
@@ -195,7 +222,7 @@ describe("анонс первой публикации материала", () =
     expect(announcement.telegramEnabled).toBe(false);
     expect(
       (
-        await new PublicMaterialAnnouncements(database.prisma).read(
+        await publicAnnouncements().read(
           { announcementRef: announcement.id },
           "https://inside.example",
           announcement.occurredAt,
@@ -219,7 +246,7 @@ describe("анонс первой публикации материала", () =
       }),
     );
     const announcement = await announcedOccurrence(id);
-    const source = new PublicMaterialAnnouncements(database.prisma);
+    const source = publicAnnouncements();
     for (const change of [
       { showInFeed: false },
       { access: "closed" },

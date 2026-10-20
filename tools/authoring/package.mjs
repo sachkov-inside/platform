@@ -86,7 +86,7 @@ export const materialSchema = z
     topicId: identifier.nullable(),
     access: z.enum(["free", "closed"]).nullable(),
     showInFeed: z.boolean(),
-    notifyTelegram: z.boolean().optional().default(false),
+    notifyTelegram: z.boolean().optional(),
     difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
     outcomes: z.array(z.string()).nullable(),
     markdown: z.string(),

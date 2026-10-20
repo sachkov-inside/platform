@@ -236,7 +236,7 @@ export async function previewRelease(
       title: row.title,
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
-      notifyTelegram: row.notifyTelegram,
+      notifyTelegram: row.notifyTelegram ?? false,
       video: row.video?.kinescopeId ?? null,
       publication: publicationOfKey(key),
     };

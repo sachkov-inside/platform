@@ -1387,7 +1387,7 @@ export async function syncLocal(
         }
         const command = {
           source: source(row),
-          notifyTelegram: row.notifyTelegram,
+          notifyTelegram: row.notifyTelegram ?? false,
           materialId: current.materialId,
           expectedContentVersion: current.contentVersion,
           publicationState: publicationOf(row),

@@ -129,6 +129,9 @@ export function assembleSaveMaterial(
       materialId: command.materialId,
       expectedContentVersion: command.expectedContentVersion,
       publicationState: command.publicationState,
+      ...(command.notifyTelegram === undefined
+        ? {}
+        : { notifyTelegram: command.notifyTelegram }),
       metadata: selection.value.toValues(),
       body: body.value,
       primaryVideoId: command.primaryVideoId,

@@ -1,3 +1,4 @@
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -236,4 +237,24 @@ test("material announcements require the service credential and reject arbitrary
   });
   expect(response.statusCode).toBe(200);
   expect(response.json()).toEqual({ items: [], nextCursor: null });
+});
+
+test("material source persistence failure maps to retryable 503", async () => {
+  await db.prisma.$executeRaw(
+    Prisma.sql`alter table materials.publication_announcements rename to publication_announcements_unavailable`,
+  );
+  try {
+    const response = await app.inject({
+      method: "POST",
+      url: "/integrations/telegram/v1/communications/materials",
+      headers: { authorization: `Bearer ${secret}` },
+      payload: { contractVersion: "inside.material-announcements.v1" },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.json<{ code: string }>().code).toBe("unavailable");
+  } finally {
+    await db.prisma.$executeRaw(
+      Prisma.sql`alter table materials.publication_announcements_unavailable rename to publication_announcements`,
+    );
+  }
 });
