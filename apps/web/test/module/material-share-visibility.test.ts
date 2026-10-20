@@ -44,6 +44,7 @@ describe("Material share visibility", () => {
               access,
               availability: "available",
               seriesMemberships: [],
+              tags: [],
               format: material.format.name,
               topic: material.topic.name,
               topicSlug: material.topic.slug,
