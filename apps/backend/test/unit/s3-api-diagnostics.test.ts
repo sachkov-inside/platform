@@ -136,6 +136,31 @@ test("raw privacy gate rejects private values anywhere, signing material, malfor
   constantPrivacyFailure([JSON.stringify(deep)]);
 });
 
+test("privacy gate validates overwritten escaped tokens before duplicate members discard them", () => {
+  const escaped = JSON.stringify(privateValue).replace(
+    "private-",
+    "\\u0070rivate-",
+  );
+  for (const raw of [
+    `{"unknown":${escaped},"unknown":"safe"}`,
+    `{"unknown":${escaped},"\\u0075nknown":"safe"}`,
+    `{"outer":{"unknown":${escaped},"unknown":"safe"}}`,
+    `{"unknown":{"hidden":${escaped}},"unknown":{}}`,
+    `{"unknown":[{"name":${escaped}}],"unknown":[]}`,
+    `{"header":"\\u0058-Amz-Signature=synthetic","header":"safe"}`,
+    `{"unknown":${escaped},"unknown":`,
+  ])
+    constantPrivacyFailure([raw], [privateValue]);
+  assertPrivateS3Exports(
+    ['{"unknown":"first","\\u0075nknown":"safe"}'],
+    [privateValue],
+  );
+  assertPrivateS3Exports(
+    [JSON.stringify({ text: 'safe "quotes" { [ ] } \\ end' })],
+    [privateValue],
+  );
+});
+
 test("diagnostic output never serializes private fields, malformed attributes or unbounded input", () => {
   const original = chain();
   const poison: unknown[] = [

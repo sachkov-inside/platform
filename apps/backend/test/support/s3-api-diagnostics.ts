@@ -101,6 +101,30 @@ export function assertPrivateS3Exports(
         /X-Amz-|AWS4-HMAC-SHA256|Credential=|Signature=/i.test(raw)
       )
         throw new Error();
+      // Inspect every decoded string before object construction can discard an
+      // earlier duplicate member. This is a privacy scan, not a JSON parser:
+      // JSON.parse below still validates the complete document syntax.
+      let depth = 0;
+      for (let cursor = 0; cursor < raw.length; cursor++) {
+        const character = raw[cursor];
+        if (character === '"') {
+          let end = cursor + 1;
+          for (; end < raw.length; end++) {
+            if (raw[end] === "\\") end++;
+            else if (raw[end] === '"') break;
+          }
+          if (end >= raw.length) throw new Error();
+          const token: unknown = JSON.parse(raw.slice(cursor, end + 1));
+          inspect(token, 0);
+          cursor = end;
+        } else if (character === "{" || character === "[") {
+          depth++;
+          if (depth > 32) throw new Error();
+        } else if (character === "}" || character === "]") {
+          depth--;
+          if (depth < 0) throw new Error();
+        }
+      }
       // Never expose JSON parser excerpts, even for malformed private input.
       const decoded: unknown = JSON.parse(raw);
       inspect(decoded, 0);
