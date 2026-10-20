@@ -17,6 +17,7 @@ const mainCount = 101;
 const mainDigest =
   "00d864f15c5f7ea9668c2242d0fe418f7c02756c0361d372fdb8b4122d44cb9b";
 const appendedNames = [
+  "0101_waitlist_confirmations",
   "0101_funnel_diagnostic_candidates",
   "0102_billing_funnel_diagnostic_sources",
   "0103_reading_funnel_diagnostic_sources",
@@ -29,6 +30,57 @@ const appendedNames = [
   "0110_notifications_notification_trace_context",
   "0111_notifications_email_trace_context",
 ];
+
+// Frozen from canonical main2f530002, including its committed waitlist migration.
+const currentMainCount = 102;
+const currentMainDigest =
+  "6e88fc6f9aac093fa2deb0da67dcf20c9502339d23d271a2d28d9c881c8199e7";
+
+it("upgrades exact current main0101 to all 113 migrations without changing its ledger prefix", async () => {
+  const mainRegistry = platformMigrations.slice(0, currentMainCount);
+  expect(
+    createHash("sha256").update(JSON.stringify(mainRegistry)).digest("hex"),
+  ).toBe(currentMainDigest);
+  expect(mainRegistry.at(-1)?.name).toBe("0101_waitlist_confirmations");
+  expect(platformMigrations).toHaveLength(113);
+  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(113);
+  const database = await createTestDatabase();
+  const ledger = async () =>
+    parseAppliedMigrations(
+      await database.prisma.$queryRaw(Prisma.sql`
+        select name, checksum, position from public.platform_migrations order by position
+      `),
+    );
+  try {
+    await runMigrationsToLatest(database.url, mainRegistry);
+    const before = await ledger();
+    expect(before).toEqual(
+      mainRegistry.map((migration, index) => ({
+        name: migration.name,
+        checksum: migrationChecksum(migration.statement),
+        position: index + 1,
+      })),
+    );
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: appendedNames.slice(1),
+    });
+    const after = await ledger();
+    expect(after.slice(0, currentMainCount)).toEqual(before);
+    expect(after.slice(currentMainCount)).toEqual(
+      platformMigrations.slice(currentMainCount).map((migration, index) => ({
+        name: migration.name,
+        checksum: migrationChecksum(migration.statement),
+        position: currentMainCount + index + 1,
+      })),
+    );
+    expect(await migrateToLatest(database.url)).toEqual({
+      appliedMigrations: [],
+    });
+    expect(await ledger()).toEqual(after);
+  } finally {
+    await database.dispose();
+  }
+});
 
 it("upgrades exact main0100 without changing canonical SQL/checksums/positions and retains a compatible rollback registry", async () => {
   const mainRegistry = platformMigrations.slice(0, mainCount);
@@ -91,8 +143,8 @@ it("upgrades exact main0100 without changing canonical SQL/checksums/positions a
     expect(
       await runMigrationsToLatest(database.url, [...platformMigrations]),
     ).toEqual({ appliedMigrations: [] });
-    const changedSql = platformMigrations.map((migration, index) =>
-      index === mainCount
+    const changedSql = platformMigrations.map((migration) =>
+      migration.name === "0101_funnel_diagnostic_candidates"
         ? { ...migration, statement: migration.statement + "\n-- changed" }
         : migration,
     );
@@ -116,14 +168,17 @@ const carrierChecksums = [
   "d8f7fbb29735fd290bcf6fbcd0f2c8b79a6e469749f590e9a2764867f08da28c",
   "fb4ac34965f919b5086aa562637f11bafc8ec366950091e17e195f004d0fb679",
 ];
-it("upgrades exact prepared root0108 with unchanged SQL and retains canonical carrier positions and rollback ledger", async () => {
-  const rootRegistry = platformMigrations.slice(0, preparedRootCount);
+it("retains the frozen historical root0108 upgrade and rejects its divergent ledger against current main", async () => {
+  const preparedRegistry = platformMigrations.filter(
+    ({ name }) => name !== "0101_waitlist_confirmations",
+  );
+  const rootRegistry = preparedRegistry.slice(0, preparedRootCount);
   expect(
     createHash("sha256").update(JSON.stringify(rootRegistry)).digest("hex"),
   ).toBe(preparedRootDigest);
   expect(rootRegistry.at(-1)?.name).toBe("0108_submission_activity_period");
   expect(
-    platformMigrations
+    preparedRegistry
       .slice(preparedRootCount)
       .map(({ statement }) => migrationChecksum(statement)),
   ).toEqual(carrierChecksums);
@@ -137,13 +192,19 @@ it("upgrades exact prepared root0108 with unchanged SQL and retains canonical ca
   try {
     await runMigrationsToLatest(database.url, rootRegistry);
     const before = await ledger();
-    expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: [
-        "0109_materials_notification_trace_context",
-        "0110_notifications_notification_trace_context",
-        "0111_notifications_email_trace_context",
-      ],
-    });
+    await expect(migrateToLatest(database.url)).rejects.toThrow(
+      "not an exact registry prefix at position 102",
+    );
+    expect(await ledger()).toEqual(before);
+    expect(await runMigrationsToLatest(database.url, preparedRegistry)).toEqual(
+      {
+        appliedMigrations: [
+          "0109_materials_notification_trace_context",
+          "0110_notifications_notification_trace_context",
+          "0111_notifications_email_trace_context",
+        ],
+      },
+    );
     const after = await ledger();
     expect(after.slice(0, preparedRootCount)).toEqual(before);
     expect(after.slice(preparedRootCount)).toEqual([
@@ -163,33 +224,43 @@ it("upgrades exact prepared root0108 with unchanged SQL and retains canonical ca
         position: 112,
       },
     ]);
-    expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: [],
-    });
+    expect(await runMigrationsToLatest(database.url, preparedRegistry)).toEqual(
+      {
+        appliedMigrations: [],
+      },
+    );
     await expect(
       runMigrationsToLatest(database.url, rootRegistry),
     ).rejects.toThrow("not an exact registry prefix at position 110");
     const oldAllocation = [
       ...rootRegistry,
-      ...platformMigrations
-        .slice(preparedRootCount)
-        .map((migration, index) => ({
-          ...migration,
-          name:
-            index === 0
-              ? "0108_materials_notification_trace_context"
-              : index === 1
-                ? "0109_notifications_notification_trace_context"
-                : migration.name,
-        })),
+      ...preparedRegistry.slice(preparedRootCount).map((migration, index) => ({
+        ...migration,
+        name:
+          index === 0
+            ? "0108_materials_notification_trace_context"
+            : index === 1
+              ? "0109_notifications_notification_trace_context"
+              : migration.name,
+      })),
+      ...platformMigrations.filter(
+        ({ name }) => name === "0101_waitlist_confirmations",
+      ),
     ];
+    expect(oldAllocation).toHaveLength(113);
+    expect(oldAllocation.map(({ name }) => name).slice(-4)).toEqual([
+      "0108_materials_notification_trace_context",
+      "0109_notifications_notification_trace_context",
+      "0111_notifications_email_trace_context",
+      "0101_waitlist_confirmations",
+    ]);
     expect(new Set(oldAllocation.map(({ name }) => name)).size).toBe(
       oldAllocation.length,
     );
     await expect(
       runMigrationsToLatest(database.url, oldAllocation),
     ).rejects.toThrow("not an exact registry prefix at position 110");
-    const changedCarrier = platformMigrations.map((migration, index) =>
+    const changedCarrier = preparedRegistry.map((migration, index) =>
       index === preparedRootCount
         ? { ...migration, statement: migration.statement + "\n-- changed" }
         : migration,
@@ -200,8 +271,11 @@ it("upgrades exact prepared root0108 with unchanged SQL and retains canonical ca
       "Migration checksum mismatch: 0109_materials_notification_trace_context",
     );
     expect(
-      await runMigrationsToLatest(database.url, [...platformMigrations]),
+      await runMigrationsToLatest(database.url, [...preparedRegistry]),
     ).toEqual({ appliedMigrations: [] });
+    await expect(migrateToLatest(database.url)).rejects.toThrow(
+      "not an exact registry prefix at position 102",
+    );
     expect(await ledger()).toEqual(after);
   } finally {
     await database.dispose();

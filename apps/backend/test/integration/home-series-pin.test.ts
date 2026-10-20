@@ -91,6 +91,7 @@ beforeAll(async () => {
       "0098_material_task",
       "0099_chapter_supplementary_materials",
       "0100_product_waitlists",
+      "0101_waitlist_confirmations",
       "0101_funnel_diagnostic_candidates",
       "0102_billing_funnel_diagnostic_sources",
       "0103_reading_funnel_diagnostic_sources",
