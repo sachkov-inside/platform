@@ -14,6 +14,10 @@ Production-переход и откат в [platform#960](https://github.com/sac
 завершены. История и неизменяемые Releases исходного `inside-telegram` сохраняются.
 Все пути checkout и команды сборки ниже отсчитываются от корня platform.
 
+С 20.10.2026 рабочая площадка находится на AMS `147.45.166.174`, см.
+[перенос и восстановление](../../../../docs/runbooks/production-amsterdam.md). Bot API и webhook
+работают напрямую; прежние исходящий transport и входной relay отключены.
+
 ## Проверенный переход в platform
 
 На 06.10.2026 завершена следующая последовательность операций из platform:
@@ -52,7 +56,7 @@ Telegram, живой reconciliation, пользовательское связы
 - PostgreSQL 18: отдельная база Telegram в общем кластере.
 - RabbitMQ: брокер Platform на том же VPS ([Platform #527](https://github.com/sachkov-inside/platform/issues/527)).
   Telegram — один из его principals, см. [notifications.md](notifications.md#production).
-- Host Caddy с HTTPS и входной [relay](webhook-relay.md) на TCP 88.
+- Host Caddy с прямым HTTPS webhook на TCP 443. Прежний [relay](webhook-relay.md) отключён.
 
 ## Подготовка базы и файлов
 
@@ -344,7 +348,8 @@ SHA `10dfbee3c9dd39d2dacdc39f8c7926ecd4498820`, digest
 -f /srv/inside/telegram/releases/vN/compose.yaml -f /etc/inside/telegram/compose.override.yaml`.
 Образ передаётся переменной процесса `TELEGRAM_IMAGE=<image@digest>`: она сильнее значения в
 `compose.env`. Host-owned `compose.env`, `application.env` и override gateway не переписывает.
-Override обязателен: в нём transport до `api.telegram.org` через relay и сеть брокера.
+Override обязателен: в нём сеть брокера, доверие к его CA и host-specific настройки.
+На AMS `api.telegram.org` использует обычный DNS и egress, без `extra_hosts` и transport relay.
 
 Каждая фаза и итог операции пишутся в `/var/lib/inside/telegram-deployments/operation.json`.
 Перед `migrate` gateway создаёт `migration-guard.json`; его удаляет только успешная операция. Пока он
@@ -520,7 +525,7 @@ test -f /etc/inside/telegram/compose.override.yaml
 workers должны быть остановлены до migration: два поколения не работают одновременно.
 `restart: unless-stopped` возвращает запущенный сервис после reboot; явно остановленный
 maintenance-сервис требует явного `up`. После reboot выполните
-[проверку relay](#проверка-после-перезапуска-docker-или-сервера).
+[проверку приложения](#проверка-после-перезапуска-docker-или-сервера).
 
 ### Сеть до брокера
 
@@ -547,82 +552,30 @@ networks:
 
 ### Исходящий relay до Telegram
 
-На production исходящий трафик к `api.telegram.org` идёт через контейнер `telegram-transport`. Его
-добавляет host-owned override вместе с внутренней сетью `telegram-transport`; `app` получает запись
-в `/etc/hosts` с адресом relay. Это отдельный маршрут от входного [webhook relay](webhook-relay.md).
-Конфигурация самого relay остаётся на сервере вне Git.
-
-У обоих постоянных контейнеров адрес в этой сети закреплён:
-
-```yaml
-services:
-  app:
-    extra_hosts:
-      - "api.telegram.org:172.30.244.2"
-    networks:
-      telegram-transport:
-        ipv4_address: 172.30.244.3
-    depends_on:
-      telegram-transport:
-        condition: service_started
-  telegram-transport:
-    restart: unless-stopped
-    networks:
-      egress: {}
-      telegram-transport:
-        ipv4_address: 172.30.244.2
-networks:
-  telegram-transport:
-    internal: true
-    ipam:
-      config:
-        - subnet: 172.30.244.0/29
-```
-
-Адрес `app` закреплён намеренно. Docker выдаёт адрес без `ipv4_address` в порядке запуска, а после
-перезапуска демона или сервера запускает контейнеры сам, не учитывая `depends_on`. Если `app`
-поднимается первым, он занимает `172.30.244.2`, relay останавливается с `Address already in use`, и
-`restart: unless-stopped` его больше не запускает
-([#126](https://github.com/sachkov-inside/inside-telegram/issues/126)). Каждый новый постоянный
-сервис в этой сети получает свой `ipv4_address`. Одноразовые команды берут свободный адрес и
-запускаются, когда `app` и relay работают.
+На AMS исходящий Bot API использует прямой egress и DNS. Прежний `telegram-transport`,
+его Docker-сеть и `extra_hosts api.telegram.org` отключены при переносе #1575.
+Историческая схема российского сервера не устанавливается обычным release/deploy.
 
 #### Проверка после перезапуска Docker или сервера
 
-После `systemctl restart docker`, перезагрузки сервера или восстановления host проверьте:
+После перезапуска Docker или хоста проверьте состояние `app`, readiness и свежие ошибки Bot API:
 
 ```bash
 docker ps --all --filter label=com.docker.compose.project=inside-production-telegram \
   --format '{{.Names}}\t{{.Status}}'
-docker network inspect inside-production-telegram_telegram-transport \
-  --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{println}}{{end}}'
 curl --silent --output /dev/null --write-out '%{http_code}\n' \
   "http://127.0.0.1:$(sed -n 's/^TELEGRAM_LOOPBACK_PORT=//p' /etc/inside/telegram/compose.env)/ready"
 ```
 
-Ожидается: оба контейнера `Up`, relay на `172.30.244.2`, `app` на `172.30.244.3`, `/ready` отвечает
-`200`. Если relay в `Exited`, а его адрес занят другим контейнером, освободите адрес и верните
-порядок: `docker stop` для `app`, `docker start` для relay, `docker start` для `app`, затем
-повторите проверку. Пока relay не работает, бот не связывается с Telegram, а входящие события
-ждут в очереди Telegram.
+Ожидается здоровый `app` и HTTP `200`; readiness сама по себе не доказывает доставку Telegram.
+Дополнительно выполните штатную read-only verification, включая `getWebhookInfo` и counters.
+Полная перезагрузка AMS при переносе не проверялась.
 
 ### Relay для operations-команд
 
-Одноразовые команды профиля `operations`, которые обращаются к Bot API, получают тот же маршрут,
-что и `app`, иначе они не доходят до Telegram и останавливаются без подробностей:
-
-```yaml
-services:
-  webhook-registration:
-    extra_hosts:
-      - "api.telegram.org:172.30.244.2"
-    networks:
-      egress: {}
-      telegram-transport: {}
-```
-
-Проверено в Workspace #184: без этого блока `webhook-registration --preview` на production
-отвечал «Webhook registration stopped», с ним — `status` из списка ниже.
+На AMS `webhook-registration`, `group-members-report` и прочие Bot API команды используют обычную
+сеть egress. Отдельные `extra_hosts`, relay и подключение к `telegram-transport` не нужны.
+Сеть базы и брокера сохраняется по контракту конкретной operations-команды.
 
 ## HTTPS и маршруты
 
@@ -668,13 +621,13 @@ Telegram вызывает Platform по публичному HTTPS: `membership-
 `src/modules/webhook/telegram-webhook.ts`). Без `chat_join_request` бот не видит заявку по личной ссылке и не впускает
 покупателя. Регистрация webhook — операция владельца; обычный деплой и рестарт её не выполняют.
 
-**Production через relay.** Команда `webhook-registration` меняет только список `allowed_updates`.
-Точный URL с портом 88, `ip_address` relay и `max_connections` она читает из `getWebhookInfo` и
+**Текущий production, прямой HTTPS.** Команда `webhook-registration` меняет только список `allowed_updates`.
+Точный URL, `ip_address` рабочего AMS и `max_connections` она читает из `getWebhookInfo` и
 сохраняет; `drop_pending_updates=false`; секрет берётся из `application.env`. Токен не попадает в
 argv и вывод.
 
 ```bash
-telegram_url=https://<telegram-domain>:88/webhooks/telegram
+telegram_url=https://telegram.sachkov.dev/webhooks/telegram
 "${telegram_compose[@]}" --profile operations run --rm -T \
   -e TELEGRAM_WEBHOOK_URL="$telegram_url" webhook-registration --preview
 "${telegram_compose[@]}" --profile operations run --rm -T \
@@ -691,8 +644,8 @@ telegram_url=https://<telegram-domain>:88/webhooks/telegram
 - `not_confirmed` — ответ `setWebhook` потерян или чтение не совпало. Не повторяйте вслепую:
   выполните `--preview` и сверьте состояние.
 
-Перед `--apply` ожидается `ipAddressPreserved: true` и `port: "88"`. Сохраните прежний
-`getWebhookInfo` в operational record, как требует [webhook-relay.md](webhook-relay.md).
+Перед `--apply` ожидается `ipAddressPreserved: true` и `port: "443"`. Сохраните прежний
+`getWebhookInfo` в закрытом operational record. Исторический relay:88 не является текущим адресом.
 
 **Новый host без relay.** Начальная регистрация прямого webhook выполняется защищённым операторским
 Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
@@ -784,7 +737,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 Удаления останавливает отдельно `TELEGRAM_COMMUNITY_REMOVALS_ENABLED=false` с рестартом `app`.
 Данные, receipts и выданные права сохраняются. Версия v1 и downgrade migrations не используются.
 
-Только на production проверяются: права ботов в боевой группе, id бота Tribute, доставка через relay,
+Только на production проверяются: права ботов в боевой группе, id бота Tribute, доставка Bot API/webhook,
 TLS и ACL брокера, настоящие сообщения и вступление.
 
 ## Проверка и восстановление
