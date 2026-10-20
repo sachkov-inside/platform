@@ -149,6 +149,39 @@ auth/method/mutation/encoded traversal, перезапускает Alloy, дож
 Три native Victoria MCP скачиваются с проверкой SHA256 и запускаются по stdio на платформе runner
 (Linux либо Darwin arm64 для OrbStack):
 initialize → tools/list → query известного fixture. Tools discovery сохраняется; stderr не сохраняется.
+Native MCP проверяет сохранённую историю конечного fixture в пределах исходного worker
+600s. Только его VM caller использует `last_over_time(pilot_requests[10m])` и boolean
+`nocache: true`; дополнительный notification selector обёрнут в такой же `last_over_time`
+и получает тот же boolean. Глобальный notification selector не меняется. Закреплённый
+[MCP v1.20.2 принимает boolean и переводит его в HTTP `nocache=1`](https://github.com/VictoriaMetrics/mcp-victoriametrics/blob/fb45b04fbb93bdeda4ea7117ea50420a5ad4cb7e/cmd/mcp-victoriametrics/tools/query.go).
+Logs caller использует `_time:10m`, сохраняя `start: "0"` и `limit: 10`; trace ID и
+validators остаются прежними. Это совместимость чтения истории, не свежесть источника.
+Серии старше окна не засчитываются. Размеры ответа, RPC deadlines, read-only routes,
+credentials и управление процессами не расширяются.
+
+CI39405217200 прошёл все 13 E metric checkpoints, но завершился общим отказом основной
+MCP fixture. Прежний artifact писался только после всех трёх native probes. Поэтому
+точный инструмент и причину этого CI установить нельзя: тот же отказ объединял
+необъектный result, `isError` и отсутствие маркера. Отдельная модель закреплённых
+временных правил воспроизводит потерю одноразового sample при старом запросе.
+Это доказанный недостаток конечной проверки, а не доказанная единственная причина CI.
+
+`native-mcp-progress.json` сохраняет закрытый итог и последний этап каждого начатого
+инструмента, включая отказ. Допустимы только фиксированные `route`, `phase`, `outcome`.
+Он различает `invalid_result`, `tool_error`, `fixture_absent` и общий `failed`, сохраняет
+предыдущие завершённые probes. Дополнительные проверки имеют этапы `additional_1` и
+`additional_2`; второй допустим только для traces. Только завершение всех трёх probes
+даёт `passed`; частичное выполнение остаётся `incomplete` или `failed`. Payloads,
+обнаруженные имена инструментов, trace IDs, URL, credentials и ошибки туда не входят.
+Перед публичным копированием CI снова проверяет всю схему, включая повторные JSON keys,
+неизвестные значения и лимит 4096 bytes. Невозможность сохранить progress не даёт PASS.
+
+Host tests вызывают настоящий `native_probes` и его stdio boundary с собственными
+дочерними процессами, проверяя finite-history модель, отказ за окном, закрытую
+проекцию и фактическое завершение детей. Vendor MCP и Docker в этих tests не запускаются.
+Новый native exact-source CI остаётся необходимым; прежний generic отказ не доказывает
+выполнение последующих семи фаз проверки свежести.
+
 На Darwin/Linux каждый native MCP запускается через stdlib helper `native_cpu.py`, который создаёт
 только этого ребёнка и вызывает `Popen.wait()`. После reap он читает свой kernel
 [`RUSAGE_CHILDREN`](https://docs.python.org/3/library/resource.html#resource.RUSAGE_CHILDREN):
