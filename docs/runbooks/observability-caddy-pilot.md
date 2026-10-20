@@ -141,3 +141,30 @@ and per-file hashes. Assess each matrix member on its actual source and cleanup 
 Protocol fixtures, source checks and a green application CI job do not prove this native slice.
 The pilot provides no production deployment, server sizing, cost saving, seven-day or capacity
 acceptance, and performs no #1579 experiment.
+
+## Closed ownership diagnostics
+
+The first native run can fail before `logging` is marked passed. That checkpoint follows the
+whole ownership constructor, including Core registration and the overlay's live authority checks.
+A failed acquisition can leave no complete private witness, so generic `down`/`residue` results
+still cannot establish typed resource absence. The pilot retains that refusal.
+
+`caddy-run.json` keeps its exact six top-level fields and 8192-byte limit. Its phase allowlist
+adds 139 fixed ownership values: six global operations and nineteen gates for each of the seven
+source roles. Lookup read, empty/noncanonical/duplicate ID, inspect decode/shape/identity, mounts,
+networks, registry checks, witness commit and live authority can be distinguished without
+publishing any observed value. Role tokens come only from the fixed source list. No Docker IDs,
+images, project names, paths, raw fields, errors, stderr or arbitrary labels are added.
+
+The optional Core checkpoint callback defaults to `None`; existing Core callers retain their
+read commands, guards, exception arguments and rejection order. Caddy records predicate gates
+in memory and persists before existing blocking reads/witness writes and at terminal failure.
+Registration callbacks are disabled after the full witness attempt. Later scenario phases stay
+unchanged. A secondary metadata-write refusal preserves the original failure and traceback.
+Known ownership exception types map to fixed contract/transport/timeout categories; unknown
+subclasses remain unknown. No exception text or foreign diagnostic properties are inspected.
+
+These source diagnostics do not identify the earlier native failure's cause or fix a native
+runtime. A fixed role/gate in new exact-source hosted evidence is needed before a corresponding
+source counterexample or native acceptance can be claimed. All original privacy, authority,
+cleanup, query and time budgets remain in force.

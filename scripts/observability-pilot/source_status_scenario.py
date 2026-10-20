@@ -29,44 +29,84 @@ CORE_ROLES = ('metrics', 'logs', 'traces', 'alloy', 'vmauth', 'gateway', 'grafan
 
 
 class OwnedTargets:
-    def __init__(self, output, compose, plan, read):
+    def __init__(self, output, compose, plan, read, *, ownership_checkpoint=None):
         self.output, self.compose, self.plan, self.read = output, compose, plan, read
-        if (not isinstance(compose, list) or len(compose) != 6 or compose[:3] != ['docker', 'compose', '-p']
-                or compose[4] != '-f' or not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', compose[3])
-                or Path(compose[5]) != output / 'compose.json' or not output.is_absolute()
-                or set(plan['services']) != set(CORE_ROLES)
-                or set(plan['volumes']) != {'metrics', 'logs', 'traces', 'grafana'}
-                or set(plan['networks']) != {'pilot', 'ingress'}):
-            raise ScenarioFailed('ownership')
-        self.project = compose[3]
-        self.targets = {}
-        for role in CORE_ROLES:
-            cid = read(compose + ['ps', '-q', role]).strip()
-            if not re.fullmatch(r'[0-9a-f]{64}', cid) or cid in {item['id'] for item in self.targets.values()}:
+        self._ownership_observer = ownership_checkpoint
+        try:
+            self._ownership_stage(None, 'registry_shape')
+            if (not isinstance(compose, list) or len(compose) != 6 or compose[:3] != ['docker', 'compose', '-p']
+                    or compose[4] != '-f' or not re.fullmatch(r'inside-observability-pilot-[0-9a-f]{12}', compose[3])
+                    or Path(compose[5]) != output / 'compose.json' or not output.is_absolute()
+                    or set(plan['services']) != set(CORE_ROLES)
+                    or set(plan['volumes']) != {'metrics', 'logs', 'traces', 'grafana'}
+                    or set(plan['networks']) != {'pilot', 'ingress'}):
                 raise ScenarioFailed('ownership')
-            self.targets[role] = self.inspect(role, cid)
-        networks = {}
-        for item in self.targets.values():
-            for name, network in item['networks'].items():
-                if name in networks and networks[name] != network:
+            self.project = compose[3]
+            self.targets = {}
+            for role in CORE_ROLES:
+                self._ownership_stage(role, 'lookup_read')
+                cid = read(compose + ['ps', '-q', role]).strip()
+                if not re.fullmatch(r'[0-9a-f]{64}', cid):
+                    self._ownership_stage(role, 'lookup_empty' if cid == '' else 'lookup_id')
                     raise ScenarioFailed('ownership')
-                networks[name] = network
-        witness = {'project': self.project, 'containers': [item['id'] for item in self.targets.values()],
-                   'volumes': sorted({mount[1] for item in self.targets.values() for mount in item['mounts'] if mount[0] == 'volume'}),
-                   'networks': sorted(networks.values())}
-        if len(witness['volumes']) != 4 or len(witness['networks']) != 2:
-            raise ScenarioFailed('ownership')
-        (output / 'source-freshness-owned.json').write_text(json.dumps(witness, separators=(',', ':')))
+                self._ownership_stage(role, 'lookup_duplicate')
+                if cid in {item['id'] for item in self.targets.values()}:
+                    raise ScenarioFailed('ownership')
+                self.targets[role] = self.inspect(role, cid)
+            self._ownership_stage(None, 'registry_networks')
+            networks = {}
+            for item in self.targets.values():
+                for name, network in item['networks'].items():
+                    if name in networks and networks[name] != network:
+                        raise ScenarioFailed('ownership')
+                    networks[name] = network
+            witness = {'project': self.project, 'containers': [item['id'] for item in self.targets.values()],
+                       'volumes': sorted({mount[1] for item in self.targets.values() for mount in item['mounts'] if mount[0] == 'volume'}),
+                       'networks': sorted(networks.values())}
+            self._ownership_stage(None, 'registry_volumes')
+            if len(witness['volumes']) != 4:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(None, 'registry_network_count')
+            if len(witness['networks']) != 2:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(None, 'witness')
+            (output / 'source-freshness-owned.json').write_text(json.dumps(witness, separators=(',', ':')))
+        finally:
+            self._ownership_observer = None
+
+    def _ownership_stage(self, role, gate):
+        if self._ownership_observer is not None:
+            self._ownership_observer(role, gate)
 
     def inspect(self, role, cid):
         try:
-            item = source_status.decode_json(self.read(['docker', 'inspect', '--format', INSPECT, cid]).encode())
-            if (set(item) != {'id', 'image', 'project', 'service', 'config_files', 'mounts', 'networks'}
-                    or item['id'] != cid or item['image'] != self.plan['services'][role]['image']
-                    or item['project'] != self.project or item['service'] != role
-                    or item['config_files'] != self.compose[5] or not isinstance(item['mounts'], list)
-                    or len(item['mounts']) > 8 or not isinstance(item['networks'], dict)):
+            self._ownership_stage(role, 'inspect_read')
+            raw = self.read(['docker', 'inspect', '--format', INSPECT, cid]).encode()
+            self._ownership_stage(role, 'inspect_decode')
+            item = source_status.decode_json(raw)
+            self._ownership_stage(role, 'inspect_shape')
+            if set(item) != {'id', 'image', 'project', 'service', 'config_files', 'mounts', 'networks'}:
                 raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_id')
+            if item['id'] != cid:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_image')
+            if item['image'] != self.plan['services'][role]['image']:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_project')
+            if item['project'] != self.project:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_service')
+            if item['service'] != role:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_config')
+            if item['config_files'] != self.compose[5]:
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_shape')
+            if (not isinstance(item['mounts'], list) or len(item['mounts']) > 8
+                    or not isinstance(item['networks'], dict)):
+                raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_mount_plan')
             expected = []
             for value in self.plan['services'][role].get('volumes', []):
                 source, destination, *options = value.split(':')
@@ -75,6 +115,7 @@ class OwnedTargets:
                                  destination, 'ro' not in options))
             actual = []
             for mount in item['mounts']:
+                self._ownership_stage(role, 'inspect_mount_shape')
                 if mount['Type'] == 'tmpfs' and mount['Destination'] in {
                         value.split(':')[0] for value in self.plan['services'][role].get('tmpfs', [])} and mount['RW'] is True:
                     continue
@@ -82,11 +123,14 @@ class OwnedTargets:
                     raise ScenarioFailed('ownership')
                 actual.append((mount['Type'], mount['Name'] if mount['Type'] == 'volume' else mount['Source'],
                                mount['Destination'], mount['RW']))
+            self._ownership_stage(role, 'inspect_mount_set')
             if sorted(actual) != sorted(expected):
                 raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_network_set')
             names = {self.project + '_' + name for name in self.plan['services'][role]['networks']}
             if set(item['networks']) != names:
                 raise ScenarioFailed('ownership')
+            self._ownership_stage(role, 'inspect_network_ids')
             networks = {name: value['NetworkID'] for name, value in item['networks'].items()}
             if any(not re.fullmatch(r'[0-9a-f]{64}', value) for value in networks.values()):
                 raise ScenarioFailed('ownership')
