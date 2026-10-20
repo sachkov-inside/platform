@@ -1386,6 +1386,14 @@ injected SDK release. Private IPC uses at most eight groups of 512 path/hash row
 1MiB, with duplicate/path/digest checks before the public map. This API fixture has its own grouped protocol; the separate SDK fixture's 1000-row cap and
 decoder remain unchanged.
 
+The isolated producer reserves stdout for its single JSON witness. Production `writeLog` still
+uses its existing global Console; only this child redirects Console output to a private diagnostic
+stream, which Python discards. Nest's `logger: false` does not suppress that production logger.
+A separate regression makes a real HTTP request through freshly compiled production request hooks
+and `writeLog`, then checks the strict Python IPC, including restoration after rejected work.
+SQL spans may be children only of the original HTTP SERVER or tracking delivery INTERNAL span.
+Visible provider/SQL parents are rejected even while other required rows are still pending.
+
 Run the isolated workflow for native acceptance. Pure contract tests and prepared source do not prove
 this storage composition has executed. Even a successful hosted result covers only this one success;
 retry, failed/rootless delivery, process-crash recovery, OFF/503, resource/cost acceptance, production

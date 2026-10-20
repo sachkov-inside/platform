@@ -133,7 +133,7 @@ def traces(raw, *, trace_id, root_id):
                 or type(root_id) is not str or re.fullmatch(r'[0-9a-f]{16}',root_id) is None or root_id == '0'*16): raise ValueError()
         rows = [sdk_oracle.decode(line) for line in raw.splitlines() if line.strip()]
         if len(rows) > 68: raise ValueError()
-        parsed, main, providers, sql = {}, {}, [], {'query':0,'acquire':0}
+        parsed, roles, main, providers, sql = {}, {}, {}, [], {'query':0,'acquire':0}
         for row in rows:
             if type(row) is not dict or not all(type(v) is str for v in row.values()): raise ValueError()
             name, identity = row.get('name'), row.get('span_id')
@@ -173,6 +173,7 @@ def traces(raw, *, trace_id, root_id):
             parent = row.get('parent_span_id')
             if role != 'root' and (re.fullmatch(r'[0-9a-f]{16}',parent) is None or parent == '0'*16 or parent == identity): raise ValueError()
             parsed[identity]=row
+            roles[identity]=role
         if len(providers)>2 or sum(sql.values())>64: raise ValueError()
         delivery = main.get('delivery')
         for provider in providers:
@@ -180,7 +181,13 @@ def traces(raw, *, trace_id, root_id):
         if len({row['parent_span_id'] for row in providers}) != len(providers): raise ValueError()
         # Every visible neighboring edge is checked before returning pending.
         for row in rows:
-            parent = parsed.get(row.get('parent_span_id'))
+            parent_id=row.get('parent_span_id')
+            if roles[row['span_id']] == 'postgresql':
+                # Production driver observations run directly in HTTP or delivery TechnicalScope.
+                # The owned provider does no SQL, and nested SQL is not part of this vertical.
+                if parent_id in roles and roles[parent_id] not in ('root','delivery'): raise ValueError()
+                if delivery is not None and parent_id not in (root_id,delivery['span_id']): raise ValueError()
+            parent = parsed.get(parent_id)
             if parent is not None and row is not delivery:
                 if not int(parent['start_time_unix_nano']) <= int(row['start_time_unix_nano']) <= int(row['end_time_unix_nano']) <= int(parent['end_time_unix_nano']): raise ValueError()
             visited = set(); current=row

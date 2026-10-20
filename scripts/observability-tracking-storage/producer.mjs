@@ -1,6 +1,7 @@
 // @ts-check
 // Genuine loopback API -> persisted carrier -> production timer, with owned provider/PG.
 import assert from "node:assert/strict";
+import { Console } from "node:console";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { readFileSync, realpathSync } from "node:fs";
@@ -260,16 +261,40 @@ export async function produce(databaseUrl) {
   }
 }
 
+/**
+ * The isolated child reserves stdout for its single strict IPC document.
+ * Production writeLog uses the global Console independently of Nest's logger option.
+ * Python owns/discards stderr; no application diagnostic bytes enter public artifacts.
+ * @param {() => Promise<unknown>} work
+ * @param {import("node:stream").Writable} diagnostics
+ */
+export async function writeProducerWitness(work, diagnostics = process.stderr) {
+  const original = globalThis.console;
+  globalThis.console = new Console({
+    stdout: diagnostics,
+    stderr: diagnostics,
+  });
+  try {
+    process.stdout.write(JSON.stringify(await work()));
+  } finally {
+    globalThis.console = original;
+  }
+}
+
 if (
   process.argv[1] !== undefined &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
+  // This dedicated CLI owns Console until process exit, including late shutdown callbacks.
+  // writeProducerWitness restores this private Console, never a stdout-backed application sink.
+  globalThis.console = new Console({
+    stdout: process.stderr,
+    stderr: process.stderr,
+  });
   try {
-    process.stdout.write(
-      JSON.stringify(
-        await produce(
-          "postgresql://tracking:tracking_fixture@127.0.0.1:15432/tracking",
-        ),
+    await writeProducerWitness(() =>
+      produce(
+        "postgresql://tracking:tracking_fixture@127.0.0.1:15432/tracking",
       ),
     );
   } catch {

@@ -79,7 +79,8 @@ class TrackingOwnership(unittest.TestCase):
             'apps/backend/src/migrations/index.ts','apps/backend/prisma/schema.prisma',
             'apps/backend/prisma.config.ts','apps/backend/test/support/proof-dependencies.ts','docs/contracts/runtime/diagnostic-error.ts',
             '.github/actions/setup-platform/action.yml','pnpm-lock.yaml','.github/workflows/observability-tracking-storage.yml',
-            'scripts/observability-tracking-storage/producer.mjs','scripts/observability-tracking-storage/tracking_oracle.py'}
+            'scripts/observability-tracking-storage/producer.mjs','scripts/observability-tracking-storage/tracking_oracle.py',
+            'scripts/observability-tracking-storage/logging-fixture.mjs','scripts/observability-tracking-storage/logging_contract.py'}
         self.assertFalse(required-paths)
         for path in sorted(paths):
             with self.subTest(path=path):

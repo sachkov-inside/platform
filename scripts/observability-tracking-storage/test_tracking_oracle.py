@@ -146,4 +146,19 @@ class TraceContracts(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'^Tracking storage trace contract failed$'): self.parse(rows)
 
 
+class SqlParentRoles(unittest.TestCase):
+    def test_visible_provider_or_sql_cannot_parent_sql_even_when_main_roles_are_pending(self):
+        for parent in ('provider','sql'):
+            for visibility in ('complete','missing_delivery','missing_http','missing_neighboring_provider'):
+                with self.subTest(parent=parent,visibility=visibility):
+                    rows=trace_rows()
+                    rows[-1]['parent_span_id']=rows[3 if parent=='provider' else 4]['span_id']
+                    if visibility=='missing_delivery': rows.remove(rows[1])
+                    elif visibility=='missing_http': rows.remove(rows[0])
+                    elif visibility=='missing_neighboring_provider': rows.remove(rows[2])
+                    raw='\n'.join(json.dumps(row) for row in rows)
+                    with self.assertRaisesRegex(RuntimeError,'^Tracking storage trace contract failed$'):
+                        oracle.traces(raw,trace_id=TRACE,root_id=ROOT)
+
+
 if __name__ == '__main__': unittest.main()
