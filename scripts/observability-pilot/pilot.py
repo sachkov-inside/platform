@@ -865,6 +865,11 @@ def cleanup_project(compose, output, project, *, docker=("docker",), services=SE
         except (OSError, RuntimeError, subprocess.SubprocessError) as error:
             remaining.append(type(error).__name__)
     result["residue"] = "passed" if not remaining else "failed: " + ", ".join(remaining)
+    if (output / 'source-freshness-owned.json').exists():
+        import source_status_scenario
+        result['source_freshness'] = source_status_scenario.verify_cleanup(output, project, read=checked_command)
+        if result['source_freshness']['outcome'] != 'passed':
+            result['residue'] = 'failed: source freshness typed absence unproved'
     write_json(output / "cleanup.json", result)
     return result
 
@@ -872,6 +877,7 @@ def cleanup_project(compose, output, project, *, docker=("docker",), services=SE
 def supervise_worker(execute, compose, output, project, *, docker=("docker",),
                      deadline_seconds=PILOT_DEADLINE_SECONDS, cleanup_services=None):
     """Supervisor stays outside the worker group that owns all acquisition processes."""
+    started = time.monotonic()
     process = None
     status = 1
     monitor_failed = [False]
@@ -919,10 +925,11 @@ def supervise_worker(execute, compose, output, project, *, docker=("docker",),
                         pass
                     process.wait(timeout=WORKER_SHUTDOWN_SECONDS)
             finally:
+                worker_duration = time.monotonic() - started
                 cleanup = cleanup_project(compose, output, project, docker=docker, **({'services': cleanup_services} if cleanup_services is not None else {}))
                 if (monitor_failed[0] or cleanup['down'] != 'passed' or cleanup['residue'] != 'passed') and status == 0:
                     status = 1
-                write_json(output / 'worker-outcome.json', {'exit_code':status,
+                write_json(output / 'worker-outcome.json', {'exit_code':status, 'duration_seconds':worker_duration,
                            'monitor_failed':monitor_failed[0], 'cleanup':cleanup})
                 if cleanup['down'] != 'passed' or cleanup['residue'] != 'passed':
                     raise RuntimeError('owned pilot cleanup failed; inspect cleanup.json and owner.json')
@@ -1072,6 +1079,13 @@ def run_worker(output):
         command(compose + ["config", "--quiet"])
         command(compose + ["up", "-d"], timeout=ACQUISITION_TIMEOUT_SECONDS)
         result = smoke(token, output, compose)
+        import source_status_scenario
+        auth_owner = (output / 'auth.json').stat()
+        images = json.loads((CONFIG / 'inputs.lock.json').read_text())['images']
+        plan = compose_plan(CONFIG, output, images, credential_owner=(auth_owner.st_uid, auth_owner.st_gid))
+        freshness = source_status_scenario.run(output, compose, plan, command=command, assert_identity=assert_docker_identity)
+        result['source_freshness'] = 'passed'
+        result['source_freshness_duration_seconds'] = freshness['duration_seconds']
         evidence = json.loads((output / "evidence.json").read_text())
         evidence.update(result)
         if mac:

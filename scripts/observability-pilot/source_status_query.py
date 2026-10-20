@@ -176,18 +176,24 @@ def _read_private_token(output):
         return token
 
 
+def read_report(output, *, port=DEFAULT_QUERY_PORT, wall_clock=time.time,
+                deadline_seconds=QUERY_DEADLINE_SECONDS):
+    """Read current private credentials on every acquisition, including after rotation."""
+    try:
+        token = _read_private_token(output)
+        return query(token, port=port, wall_clock=wall_clock, deadline_seconds=deadline_seconds)
+    except KeyboardInterrupt:
+        return status.unavailable('interrupted')
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
+        return status.unavailable('credentials')
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path, help='Canonical absolute owned pilot output (0700), containing private auth.json (0600)')
     parser.add_argument('--port', default=DEFAULT_QUERY_PORT, type=int)
     args = parser.parse_args(argv)
-    try:
-        token = _read_private_token(args.output)
-        report = query(token, port=args.port)
-    except KeyboardInterrupt:
-        report = status.unavailable('interrupted')
-    except (OSError, ValueError, KeyError, TypeError, IndexError):
-        report = status.unavailable('credentials')
+    report = read_report(args.output, port=args.port)
     print(json.dumps(report, sort_keys=True, separators=(',', ':'), allow_nan=False))
     return 0 if all(source['state'] == 'fresh_up' for source in report['sources'].values()) else 1
 

@@ -490,6 +490,27 @@ class QueryTests(unittest.TestCase):
             http_read.assert_not_called()
             self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
 
+    def test_public_read_report_uses_the_current_private_rotated_token(self):
+        tokens = []
+        def reply(handler):
+            tokens.append(handler.headers.get('Authorization'))
+            payload = b'{"status":"success","data":{"resultType":"vector","result":[]}}'
+            handler.send_response(200)
+            handler.send_header('Content-Length', str(len(payload)))
+            handler.end_headers()
+            handler.wfile.write(payload)
+        with tempfile.TemporaryDirectory() as directory, server(reply) as port:
+            output = Path(directory).resolve()
+            credential = output / 'auth.json'
+            for token in ('original-token', 'rotated-token'):
+                credential.write_text(json.dumps({'users': [{'bearer_token': token}]}))
+                credential.chmod(0o600)
+                report = source_status_query.read_report(output, port=port, wall_clock=lambda: 100)
+                self.assertEqual(report['sources']['collector']['state'], 'missing')
+                self.assertNotIn(token, json.dumps(report))
+        self.assertEqual(tokens, ['Bearer original-token', 'Bearer original-token',
+                                  'Bearer rotated-token', 'Bearer rotated-token'])
+
 
 if __name__ == '__main__':
     unittest.main()

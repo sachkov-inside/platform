@@ -928,3 +928,42 @@ accepted/sent counters and VT ingest attempts do not prove persisted delivery or
 end-to-end loss. The report explicitly leaves continuous host/container, RabbitMQ, Logto,
 Caddy and backup/WAL/restore monitoring uncovered. It is a pilot query view, not a production
 rollout, operational alert or acceptance of the representative resource workload.
+
+
+### Core CI source-freshness scenario
+
+После существующего `smoke`, включая restart и rotation query key, Core pilot выполняет
+`source_status_scenario.py` в том же частном Compose project. Каждое чтение получает текущий
+ключ из `auth.json` через публичный `read_report`. Семь фаз проверяют: исходные свежие
+источники, остановленный VT и его восстановление, устаревшие или отсутствующие samples
+после остановки Alloy и его восстановление, недоступный query store и его восстановление.
+Переходы требуют состояний и более новых исходных timestamps. Сохранённый старый `up=1`
+не подтверждает восстановление. Остановка Alloy проверяет потерю scrape-наблюдений,
+а не остановку обоих наблюдаемых процессов. Недоступность query store не означает,
+что наблюдаемые источники остановлены.
+
+Перед каждой остановкой и запуском сверяются frozen daemon identity, текущий и сохранённый
+CID, Compose project/service/config source, pinned image, mounts и network IDs.
+Изменять состояние разрешено только для `traces`, `alloy` и `metrics`. Сохранённый частный
+witness содержит точные identities семи контейнеров, четырёх volumes и двух networks.
+После обычного `down` cleanup дополнительно требует их типизированного отсутствия.
+Ошибка daemon или неоднозначный ответ не доказывают очистку.
+
+У всех фаз один бюджет 180 секунд внутри прежнего worker cap 600 секунд. Бюджет включает
+чтения, проверки владения, stop/start и polling; допускается не более 720 acquisitions.
+Ни deadline, ни провал проверки не превращаются в skip. `source-freshness.json` ограничен
+1 MiB, содержит закрытое состояние, не более семи terminal reports, число попыток и время
+каждой завершённой фазы. Незавершённый запуск сохраняет `incomplete` или `failed`.
+`worker-outcome.json` дополнительно записывает фактическое время worker вместе с shutdown
+до начала cleanup. Частный witness не входит в публичные artifacts. Существующий supervisor
+по-прежнему завершает и собирает всю группу worker при успехе, ошибке, timeout и interruption.
+
+Core `source.json` добавляет `source_status.py`, `source_status_query.py` и
+`source_status_scenario.py` к прежним 18 hashed inputs, всего 21 в этом изолированном изменении.
+`source_status.py` использует уже включённый `collector_privacy.py`; остальные импорты
+нового сценария принадлежат стандартной библиотеке и этим трём файлам.
+После объединения независимых изменений число inputs определяется фактическим набором.
+Локальные Docker/query/clock doubles проверяют управление сценарием. Совместимость запросов
+с pinned engines, семь реальных переходов и длительность hosted worker остаются непроверенными
+до отдельного успешного Core CI на точном source. Прежние corpus/privacy gates сохраняются.
+Эта проверка не доказывает ingestion lag, persisted delivery или end-to-end loss accounting.

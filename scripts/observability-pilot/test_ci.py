@@ -119,7 +119,8 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py'):
+            self.assertEqual(len(proof['inputs']), 21)
+            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py', 'source_status.py', 'source_status_query.py', 'source_status_scenario.py'):
                 relative = 'scripts/observability-pilot/'+name
                 helper = ci.ROOT / relative
                 self.assertEqual(proof['inputs'][relative], hashlib.sha256(helper.read_bytes()).hexdigest())
@@ -132,13 +133,14 @@ class HostedEvidenceTest(unittest.TestCase):
             metadata.mkdir()
             (metadata / "source.json").write_text('{"checkout_sha":"fixture"}')
             (output / "evidence.json").write_text('{"status":"failed"}')
+            (output / 'source-freshness.json').write_text('{"state":"failed"}')
             (output / "trace-store-logging.json").write_text('{"outcome":"passed","ownership":"passed","driver":"none"}')
             (output / "notification-collector.json").write_text('{"outcome":"passed","cases":[]}')
             (output / "dependency-collector.json").write_text('{"outcome":"passed","cases":[]}')
-            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json", "notification-otlp.bin", "notification-storage.json", "dependency-otlp.bin", "dependency-storage.json"):
+            for forbidden in ("source-freshness-owned.json", "auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json", "notification-otlp.bin", "notification-storage.json", "dependency-otlp.bin", "dependency-storage.json"):
                 (output / forbidden).write_text("sentinel-secret")
             ci.collect(output, metadata, public)
-            self.assertEqual(sorted(path.name for path in public.iterdir()), ["dependency-collector.json", "evidence.json", "notification-collector.json", "source.json", "trace-store-logging.json"])
+            self.assertEqual(sorted(path.name for path in public.iterdir()), ["dependency-collector.json", "evidence.json", "notification-collector.json", "source-freshness.json", "source.json", "trace-store-logging.json"])
             self.assertNotIn("sentinel-secret", "".join(path.read_text() for path in public.iterdir()))
 
     def test_recovery_refuses_foreign_project_instead_of_executing_owner_argv(self):
