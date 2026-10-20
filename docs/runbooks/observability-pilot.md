@@ -1208,8 +1208,8 @@ Alloy, VictoriaMetrics и VictoriaTraces, а не настоящий запро�
 
 Workflow использует pinned setup-platform, frozen lockfile, сборку workspace packages и backend.
 Emitter направляет штатные OTLP exporters прямо в pinned Alloy. Он не подменяет `send`,
-подписание, exporters или handler. Один собственный HTTP fixture возвращает закрытые sentinel
-значения в bucket, key, credentials, body и metadata. Наружу выходят только закрытые результаты,
+подписание, exporters или handler. Собственный HTTP fixture использует закрытые sentinel
+значения для bucket, key, credentials, body и metadata. Наружу выходят только закрытые результаты,
 числа и хеши исходников и загруженных модулей. Сырые OTLP и ответы хранилищ не сохраняются.
 
 В отдельном disposable project используется весь неизменённый `pilot.SERVICES`, сейчас семь
