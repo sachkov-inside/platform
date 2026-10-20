@@ -37,7 +37,7 @@ class Artifacts(unittest.TestCase):
             admitted=metadata(root)
             binding.write(output/'owner.json',{'cwd':str(binding.ROOT),'project':'inside-observability-resource-012345abcdef'})
             hosted.collect(output,root/'public',metadata=admitted)
-            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['admission.json','resource-hosted.json','resource-proof.json','resource-sdk-diagnostics.json','source.json','startup-client.json'])
+            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['admission.json','resource-disk-samples.json','resource-hosted.json','resource-proof.json','resource-sdk-diagnostics.json','source.json','startup-client.json'])
             self.assertNotIn('sentinel',(root/'public/resource-proof.json').read_text())
             (output/'resource-current.json').symlink_to(output/'token.json')
             with self.assertRaises(ValueError):

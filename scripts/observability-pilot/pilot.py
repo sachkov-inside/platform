@@ -137,12 +137,19 @@ def corpus(*, now_ns, sequence):
 
 
 @contextmanager
-def disk_budget(path, *, on_stop=None, on_stop_reason=None):
-    """Bound no-build pilot growth on the identified Docker storage filesystem."""
+def disk_budget(path, *, on_stop=None, on_stop_reason=None, observe_samples=False):
+    """Bound growth on the identified Docker storage filesystem."""
+    if type(observe_samples) is not bool:raise ValueError('closed disk observation flag')
     initial = shutil.disk_usage(path).free
     stop_reason = None
     stop = threading.Event()
     previous = signal.getsignal(signal.SIGUSR1)
+    samples=None
+    if observe_samples:
+        from disk_samples import DiskSamples
+        samples=DiskSamples()
+        try:samples._baseline(initial)
+        except Exception:samples._baseline_failure()
 
     def exceeded(_signum, _frame):
         if on_stop_reason is not None:
@@ -158,20 +165,38 @@ def disk_budget(path, *, on_stop=None, on_stop_reason=None):
                 pass
         raise RuntimeError("pilot disk budget exceeded; stopping owned resources")
 
+    def observe(kind,value=None):
+        # Only guard-owned primitive bookkeeping, never caller-executable work.
+        try:
+            if kind=='point':return samples._point(value)
+            if kind=='safe':samples._safe(value)
+            elif kind=='stopping':samples._stopping(value)
+            else:samples._unavailable(kind)
+        except BaseException:
+            try:samples._baseline_failure()
+            except BaseException:pass
+        return None
+
     def monitor():
         nonlocal stop_reason
         while not stop.wait(POLL_INTERVAL_SECONDS):
+            point=None
             try:
                 free = shutil.disk_usage(path).free
+                if samples is not None:point=observe('point',free)
                 assert_budget(initial, free)
+                if samples is not None:observe('safe',point)
                 continue
             except StorageBudgetExceeded as error:
                 stop_reason = error.reason
+                if samples is not None:observe('stopping',point)
             except OSError:
                 stop_reason = 'read_failure'
+                if samples is not None:observe('read_unavailable')
             except RuntimeError:
                 # Preserve legacy stops whose cause was not classified by the policy.
                 stop_reason = None
+                if samples is not None:observe('legacy_stop')
             os.kill(os.getpid(), signal.SIGUSR1)
             break
 
@@ -179,11 +204,20 @@ def disk_budget(path, *, on_stop=None, on_stop_reason=None):
     worker = threading.Thread(target=monitor, daemon=True)
     worker.start()
     try:
-        yield
+        yield samples
     finally:
         stop.set()
         worker.join(timeout=MONITOR_SHUTDOWN_SECONDS)
-        signal.signal(signal.SIGUSR1, previous)
+        if samples is None:
+            signal.signal(signal.SIGUSR1, previous)
+        else:
+            primary_failure=sys.exc_info()[0] is not None
+            try:
+                try:samples._seal()
+                except BaseException:
+                    if not primary_failure:raise
+            finally:
+                signal.signal(signal.SIGUSR1, previous)
 
 
 def downloaded_asset(asset):
