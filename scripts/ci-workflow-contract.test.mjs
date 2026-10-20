@@ -218,6 +218,32 @@ describe("application CI workflow contract", () => {
       ),
     );
   });
+  it("forwards the selected browser profile to both real pnpm command boundaries", () => {
+    const body = rootScripts["check:web-e2e"]?.match(
+      /bash -c '([^']+)' --$/u,
+    )?.[1];
+    assert.ok(body);
+    for (const profile of fullStackProjects) {
+      const result = spawnSync(
+        "bash",
+        [
+          "-euc",
+          `pnpm() { printf '%s\\n' "$*"; };\n${body}`,
+          "--",
+          `--project=${profile}`,
+        ],
+        { encoding: "utf8", timeout: 5_000 },
+      );
+      assert.equal(result.status, 0, result.stderr);
+      assert.deepEqual(result.stdout.trim().split("\n"), [
+        "build",
+        "--filter @inside/web test:prerendered-handlers",
+        "--filter @inside/web test:standalone-config",
+        `test:e2e --project=${profile}`,
+        `test:navigation --project=${profile}`,
+      ]);
+    }
+  });
   it("excludes focused jobs only while selected package commands execute their complete coverage", () => {
     assert.deepEqual(coverageSupersets, { docs: "static", contracts: "unit" });
     assertFocusedSupersets(rootScripts);
