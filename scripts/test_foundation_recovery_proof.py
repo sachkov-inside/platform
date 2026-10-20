@@ -177,6 +177,13 @@ def verify_process_absence(test, processes):
 
 
 class RealProcessBoundary(unittest.TestCase):
+    def test_non_utf8_refusal_output_keeps_the_command_failure(self):
+        refused = proof.invoke([sys.executable, "-c",
+                                "import sys; sys.stderr.buffer.write(bytes([160])); sys.exit(7)"],
+                               check=False, timeout=5)
+        self.assertEqual(refused.returncode, 7)
+        self.assertEqual(refused.stderr, "\ufffd")
+
     def test_timeout_cleans_active_command_and_descendant(self):
         with tempfile.TemporaryDirectory() as directory:
             witness = pathlib.Path(directory) / "live"

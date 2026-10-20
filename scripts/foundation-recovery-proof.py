@@ -51,7 +51,8 @@ def invoke(arguments, *, text=None, timeout=120, check=True):
         for key in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
             environment.pop(key, None)
     child = subprocess.Popen(arguments, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, text=True, env=environment,
+                             stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace",
+                             env=environment,
                              start_new_session=True)
     try:
         stdout, stderr = child.communicate(input=text, timeout=timeout)
