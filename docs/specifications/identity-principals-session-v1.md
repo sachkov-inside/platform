@@ -245,6 +245,14 @@ a short waiting status, and explicit “Подтвердить вход” / “
 returns the original browser to Platform. The screen omits account/recovery explanations and
 number matching; this changes presentation, not browser binding or one-time proof checks.
 
+Approval queues a separate, deduplicated Telegram receipt in the same transaction as the decision.
+It asks the person to return to the original browser and does not claim Account finalization.
+Undelivered receipts stop being eligible after linking or request expiry. Final success still
+edits the original prompt only after the committed link; a late receipt cannot overwrite that edit.
+The waiting page retries transient `unavailable` and network failures, checks immediately on
+visible return or network restoration, and keeps at most one status request in flight. Waiting
+ends at the interaction expiry, with a five-minute browser budget if no expiry can be read.
+
 Unfinished Platform link transactions (`registering`, `pending`, `unavailable`) have a bounded
 membership-evidence delivery window: on ingress at or after `expiresAt`, Platform records `expired`
 under the same Account lock as link finalization and returns HTTP `410 link_expired`. Before that
