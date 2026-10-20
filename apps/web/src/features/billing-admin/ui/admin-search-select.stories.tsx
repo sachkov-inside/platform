@@ -49,3 +49,28 @@ export const SearchKeepsSelection: Story = {
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+
+export const DuplicateNamesRemainReachable: Story = {
+  args: {
+    defaultValue: "",
+    options: Array.from({ length: 23 }, (_, index) => ({
+      value: String(index),
+      label: "Одинаковое название",
+    })),
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const select = page.getByRole("combobox", { name: "Предложение" });
+    await userEvent.click(
+      page.getByRole("button", { name: "Следующие варианты: Предложение" }),
+    );
+    await userEvent.selectOptions(select, "22");
+    await userEvent.click(
+      page.getByRole("button", { name: "Предыдущие варианты: Предложение" }),
+    );
+    await expect(select).toHaveValue("22");
+    await expect(
+      within(select).getAllByRole("option").length,
+    ).toBeLessThanOrEqual(22);
+  },
+};

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/shared/ui/button";
 import { useId, useState } from "react";
 
 /** A complete owner list remains searchable without placing it all in the select DOM. */
@@ -23,6 +24,7 @@ export function AdminSearchSelect({
 }) {
   const id = useId();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const [selection, setSelection] = useState(defaultValue);
   const selected = value ?? selection;
   const matching = options.filter((option) =>
@@ -30,7 +32,9 @@ export function AdminSearchSelect({
       .toLocaleLowerCase("ru")
       .includes(search.trim().toLocaleLowerCase("ru")),
   );
-  const shown = matching.slice(0, 20);
+  const lastPage = Math.max(0, Math.ceil(matching.length / 20) - 1);
+  const currentPage = Math.min(page, lastPage);
+  const shown = matching.slice(currentPage * 20, (currentPage + 1) * 20);
   const chosen = options.find((option) => option.value === selected);
   const choices =
     chosen === undefined ||
@@ -53,6 +57,7 @@ export function AdminSearchSelect({
             value={search}
             onChange={(event) => {
               setSearch(event.currentTarget.value);
+              setPage(0);
             }}
             onKeyDown={(event) => {
               if (event.key === "Enter") event.preventDefault();
@@ -82,9 +87,35 @@ export function AdminSearchSelect({
         ))}
       </select>
       {matching.length > shown.length ? (
-        <p className="text-xs text-muted-foreground">
-          Показаны первые 20. Уточните название, чтобы найти остальные.
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentPage === 0}
+            aria-label={`Предыдущие варианты: ${label}`}
+            onClick={() => {
+              setPage(currentPage - 1);
+            }}
+          >
+            Назад
+          </Button>
+          <span className="text-xs text-muted-foreground" role="status">
+            {currentPage * 20 + 1}–
+            {Math.min((currentPage + 1) * 20, matching.length)} из{" "}
+            {matching.length}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={currentPage === lastPage}
+            aria-label={`Следующие варианты: ${label}`}
+            onClick={() => {
+              setPage(currentPage + 1);
+            }}
+          >
+            Далее
+          </Button>
+        </div>
       ) : null}
       {matching.length === 0 ? (
         <p className="text-xs text-muted-foreground">

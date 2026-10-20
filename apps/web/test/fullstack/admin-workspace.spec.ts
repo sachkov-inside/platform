@@ -3,6 +3,8 @@ import { ownerCatalogSchema } from "@/features/billing-admin/model/admin-operati
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
+  fullStackBaseUrl,
+  fullStackPageRequest,
   fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
@@ -134,5 +136,55 @@ test("owner creates a price and edits it twice without stale catalogue revisions
     await expect(
       page.getByRole("combobox", { name: "Вариант оплаты", exact: true }),
     ).toHaveValue(optionId);
+  }
+});
+
+test("owner catalogue GET keeps private headers for guest, non-owner and owner", async ({
+  page,
+  context,
+  browser,
+}) => {
+  const path = "/api/authoring/billing/catalog";
+  const guest = await browser.newContext();
+  try {
+    const response = await guest.request.get(`${fullStackBaseUrl()}${path}`);
+    expect(response.status()).toBe(401);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    expect(response.headers()["cache-control"]).toContain("private");
+    expect(response.headers()["vary"]?.toLowerCase()).toContain("cookie");
+  } finally {
+    await guest.close();
+  }
+  for (const [role, status] of [
+    ["OWNER", 200],
+    ["MEMBER", 403],
+    ["MATERIALS_ONLY", 403],
+  ] as const) {
+    await signInFullStack(context, role);
+    await page.goto("/");
+    const request = await fullStackPageRequest(page);
+    try {
+      const response = await request.get(path);
+      expect(response.status()).toBe(status);
+      expect(response.headers()["cache-control"]).toContain("no-store");
+      expect(response.headers()["cache-control"]).toContain("private");
+      expect(response.headers()["vary"]?.toLowerCase()).toContain("cookie");
+      if (status === 200) {
+        const body: unknown = await response.json();
+        expect(
+          typeof body === "object" &&
+            body !== null &&
+            "value" in body &&
+            ownerCatalogSchema.safeParse(body.value).success,
+        ).toBe(true);
+      } else {
+        expect(await response.json()).toMatchObject({
+          ok: false,
+          code: "forbidden",
+        });
+      }
+    } finally {
+      await request.dispose();
+    }
   }
 });

@@ -1500,7 +1500,6 @@ test("full-state Save is live and a stale editor preserves local input through l
 
   const localSummary = "Локальный ввод stale editor должен остаться на месте.";
   await stalePage.getByRole("tab", { name: "Параметры", exact: true }).click();
-  await stalePage.getByRole("tab", { name: "Параметры", exact: true }).click();
   await stalePage.getByLabel("Краткое описание").fill(localSummary);
   await expect(stalePage.getByRole("main").getByRole("alert")).toContainText(
     "Материал изменился в другой сессии",
