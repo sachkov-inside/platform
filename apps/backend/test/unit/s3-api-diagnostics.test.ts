@@ -246,4 +246,21 @@ test("diagnostic output never serializes private fields, malformed attributes or
       ]),
   ).toBe(true);
   expect(output.includes(privateValue)).toBe(false);
+  const emptyStatus = {
+    ...unknown,
+    attributes: [
+      attribute("dependency.name", "s3"),
+      attribute("dependency.operation", "http.GET"),
+      { key: "http.response.status_code", value: {} },
+    ],
+  };
+  expect(summarizeS3Attempts([emptyStatus]).includes('"status":"other"')).toBe(
+    true,
+  );
+  const wrongParentKind = chain().map((row, index) =>
+    index === 1 ? { ...row, kind: 3 } : row,
+  );
+  expect(
+    summarizeS3Attempts(wrongParentKind).includes('"parentRole":"other"'),
+  ).toBe(true);
 });

@@ -180,23 +180,27 @@ export function summarizeS3Attempts(input: unknown): string {
         parent === undefined
           ? "other"
           : attribute(parent, "dependency.name") === "s3" &&
-              parentOperation === "getObject.read"
+              parentOperation === "getObject.read" &&
+              parent.kind === 1
             ? "read"
             : attribute(parent, "dependency.name") === "s3" &&
-                parentOperation?.startsWith("http.") === true
+                parentOperation?.startsWith("http.") === true &&
+                parent.kind === 3
               ? "http"
-              : parent.kind === 2
+              : parent.kind === 2 &&
+                  attribute(parent, "dependency.name") !== "s3"
                 ? "server"
                 : "other";
       const cell = {
         operation: operation(span),
         outcome:
           outcome === "completed" || outcome === "failed" ? outcome : "other",
-        status:
-          code === undefined
-            ? "none"
-            : (statuses.find((candidate) => candidate === String(code)) ??
-              "other"),
+        status: !span.attributes.some(
+          (entry) => entry.key === "http.response.status_code",
+        )
+          ? "none"
+          : (statuses.find((candidate) => candidate === String(code)) ??
+            "other"),
         parentRole,
       };
       const key = JSON.stringify(cell);
