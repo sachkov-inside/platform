@@ -1,0 +1,232 @@
+{
+  "schema": 1,
+  "provenance_commit": "f578ec639c9ab537200e9551b999c1c7c592ae6d",
+  "scopes": {
+    "sdk": {
+      "source": "scripts/observability-sdk-storage/oracle.py",
+      "gates": {
+        "trace_gate_01": {
+          "semantic": "input_envelope",
+          "predicate_sha256": "1361230f4bc76ddd731ed3f4c0cc6b0a3a46c090164edcc2f26608b096ab9be4"
+        },
+        "trace_gate_02": {
+          "semantic": "row_bound",
+          "predicate_sha256": "bdc673f328871ab49fc78ffaf024838c2b309d6f8a171bdb10bce07f607cd432"
+        },
+        "trace_gate_03": {
+          "semantic": "row_and_registered_name",
+          "predicate_sha256": "200943b8be361b8b2cc80f6844d55c6a9af38852e52e6b627ae557a60958444b"
+        },
+        "trace_gate_04": {
+          "semantic": "span_identity_and_unique_role",
+          "predicate_sha256": "8cae33b567ea783e6951369141fb187f7c269768687c205a207abc0bbbff3688"
+        },
+        "trace_gate_05": {
+          "semantic": "complete_admitted_row_contract",
+          "predicate_sha256": "78841c4e2151bd9cbe9fa3dd4dbc1c6423a8d32cb77ff57fd7a71e8706399fee"
+        },
+        "trace_gate_06": {
+          "semantic": "number_spelling",
+          "predicate_sha256": "ac7356bfbb69d8592edba47cda66b701a35f80cbf6ca07c872802975a60e96f7"
+        },
+        "trace_gate_07": {
+          "semantic": "time_and_stream_contract",
+          "predicate_sha256": "e751a5821a35f9462ba04bddc7a710a99071dddc1599468de29f0faa57ee118e"
+        },
+        "trace_gate_08": {
+          "semantic": "root_identity",
+          "predicate_sha256": "17dd8be1ee022904a99f4069233626b8b0eb76cce3e2b2fbe3d7fa50473ff912"
+        },
+        "trace_gate_09": {
+          "semantic": "read_parent",
+          "predicate_sha256": "059f94f71f8ff9f98c304d848db5a771f81a18a37d325d7c1dd9b6809acbd744"
+        },
+        "trace_gate_10": {
+          "semantic": "http_parent",
+          "predicate_sha256": "5f13ac3b81b8a8c47d259c7c4fddeb13a58b730011a828505efe758df19a6c54"
+        },
+        "trace_gate_11": {
+          "semantic": "read_http_neighbor",
+          "predicate_sha256": "709d9c6cdbba359f4b6b7f971e59347e7f94a3f2ca6892a73d6d55dbc9a1432f"
+        },
+        "trace_gate_12": {
+          "semantic": "temporal_containment",
+          "predicate_sha256": "675fcab582afe15a669b3689556e76d9f2195e0201857732e90c6ed1fa59175e"
+        }
+      },
+      "ordered_predicates_sha256": "fbd757c233aaabc6e86aa788c7546b3603aa9dbfb1a2aec20c752e8646711864"
+    },
+    "tracking": {
+      "source": "scripts/observability-tracking-storage/tracking_oracle.py",
+      "gates": {
+        "trace_gate_01": {
+          "semantic": "input_envelope",
+          "predicate_sha256": "a45f2b449f2aec9609f7246b30056c57dc89fa88a33806939190ad3f739abd6f"
+        },
+        "trace_gate_02": {
+          "semantic": "row_bound",
+          "predicate_sha256": "007f204d49bb5c0bd043900e896d0df2dd616d1ffaecc75b6f3ddbefbe98a54f"
+        },
+        "trace_gate_03": {
+          "semantic": "row_type",
+          "predicate_sha256": "c059f741a8d4b37ee7dee63f84338f3cfe7913c9480d9b878aac66ab34a5ed6a"
+        },
+        "trace_gate_04": {
+          "semantic": "span_identity_and_duplicate",
+          "predicate_sha256": "c40c0abcfafb0924f3b9fc8a7088cd863c0c96e4c4e135279ecf077490c9b949"
+        },
+        "trace_gate_05": {
+          "semantic": "registered_name",
+          "predicate_sha256": "87f5acbf09863785dace3753901714b72e3ac97c027c83e83ceb9cf27d394de1"
+        },
+        "trace_gate_06": {
+          "semantic": "complete_admitted_row_contract",
+          "predicate_sha256": "78841c4e2151bd9cbe9fa3dd4dbc1c6423a8d32cb77ff57fd7a71e8706399fee"
+        },
+        "trace_gate_07": {
+          "semantic": "number_spelling",
+          "predicate_sha256": "8bb828d12c573786357873e88adbabbc7ddebe89f1bc973bee433052c0d20edb"
+        },
+        "trace_gate_08": {
+          "semantic": "time_and_stream_contract",
+          "predicate_sha256": "e751a5821a35f9462ba04bddc7a710a99071dddc1599468de29f0faa57ee118e"
+        },
+        "trace_gate_09": {
+          "semantic": "unique_main_role",
+          "predicate_sha256": "40053a9b2895321a379a1dcc68586e5b32bf5824cc5e969c1ce9f112cdd58609"
+        },
+        "trace_gate_10": {
+          "semantic": "root_delivery_edge",
+          "predicate_sha256": "2471a7d71a32eb843a3a187082ee91819f94854c0318cd7d04c6ebfda935c749"
+        },
+        "trace_gate_11": {
+          "semantic": "nonroot_parent_shape",
+          "predicate_sha256": "a49cf95e19b7444dea346c55b6764be9961f067139ae16c937d4ef41ec986ed9"
+        },
+        "trace_gate_12": {
+          "semantic": "cardinality_bound",
+          "predicate_sha256": "4f0515d25e1b3c35336ba24a92b0c3a3213355b5f4891cd97e56e46d75d5634a"
+        },
+        "trace_gate_13": {
+          "semantic": "provider_edge",
+          "predicate_sha256": "0720a0fb8dcf4a64f826b084009efc78739f59ecb075ce3868916f13f51825c2"
+        },
+        "trace_gate_14": {
+          "semantic": "provider_parent_uniqueness",
+          "predicate_sha256": "34c8a83016122d379bc1f0519c84c6a0c2d46a27d2fe9d76c0f7ad79f1c52a29"
+        },
+        "trace_gate_15": {
+          "semantic": "visible_sql_parent_role",
+          "predicate_sha256": "1cffe9bea29d361013c82265b17e6be59c8950de12304c057215a01c6072a4f8"
+        },
+        "trace_gate_16": {
+          "semantic": "sql_main_parent_membership",
+          "predicate_sha256": "1087be75ceb82e731063097b627ac87630ad5d2a06b6d6672e7c5ad3abcfa5b8"
+        },
+        "trace_gate_17": {
+          "semantic": "temporal_containment",
+          "predicate_sha256": "0e394a2b776c3a0d86c94f9f238789282686de5c4b410ec239aefb8af1fa58f5"
+        },
+        "trace_gate_18": {
+          "semantic": "cycle",
+          "predicate_sha256": "73a34e68925a6fe2c3d345fc2a9d1bf9f0c06c205dcbfefc32681ef13f836f53"
+        },
+        "trace_gate_19": {
+          "semantic": "delivery_chronology",
+          "predicate_sha256": "cdc010b85c769c7e984abdde0b0b0b6fadb16c3ba818b15380589f5a46d7b0b6"
+        },
+        "trace_gate_20": {
+          "semantic": "complete_provider_parent_set",
+          "predicate_sha256": "ee8fc9adeddb4f2e258fd37a6c9f0f11609a5584a5849440d285e5134c39a56f"
+        }
+      },
+      "ordered_predicates_sha256": "6d1bb92e7fb7ff242b2ab52586929991df7736a4dfd9428f99f1527c1846b6e1"
+    },
+    "waitlist": {
+      "source": "scripts/observability-waitlist-storage/waitlist_oracle.py",
+      "gates": {
+        "trace_gate_01": {
+          "semantic": "input_envelope",
+          "predicate_sha256": "a45f2b449f2aec9609f7246b30056c57dc89fa88a33806939190ad3f739abd6f"
+        },
+        "trace_gate_02": {
+          "semantic": "row_bound",
+          "predicate_sha256": "007f204d49bb5c0bd043900e896d0df2dd616d1ffaecc75b6f3ddbefbe98a54f"
+        },
+        "trace_gate_03": {
+          "semantic": "row_type",
+          "predicate_sha256": "c059f741a8d4b37ee7dee63f84338f3cfe7913c9480d9b878aac66ab34a5ed6a"
+        },
+        "trace_gate_04": {
+          "semantic": "span_identity_and_duplicate",
+          "predicate_sha256": "c40c0abcfafb0924f3b9fc8a7088cd863c0c96e4c4e135279ecf077490c9b949"
+        },
+        "trace_gate_05": {
+          "semantic": "registered_name",
+          "predicate_sha256": "87f5acbf09863785dace3753901714b72e3ac97c027c83e83ceb9cf27d394de1"
+        },
+        "trace_gate_06": {
+          "semantic": "complete_admitted_row_contract",
+          "predicate_sha256": "78841c4e2151bd9cbe9fa3dd4dbc1c6423a8d32cb77ff57fd7a71e8706399fee"
+        },
+        "trace_gate_07": {
+          "semantic": "number_spelling",
+          "predicate_sha256": "8bb828d12c573786357873e88adbabbc7ddebe89f1bc973bee433052c0d20edb"
+        },
+        "trace_gate_08": {
+          "semantic": "time_and_stream_contract",
+          "predicate_sha256": "e751a5821a35f9462ba04bddc7a710a99071dddc1599468de29f0faa57ee118e"
+        },
+        "trace_gate_09": {
+          "semantic": "unique_main_role",
+          "predicate_sha256": "40053a9b2895321a379a1dcc68586e5b32bf5824cc5e969c1ce9f112cdd58609"
+        },
+        "trace_gate_10": {
+          "semantic": "root_delivery_edge",
+          "predicate_sha256": "2471a7d71a32eb843a3a187082ee91819f94854c0318cd7d04c6ebfda935c749"
+        },
+        "trace_gate_11": {
+          "semantic": "nonroot_parent_shape",
+          "predicate_sha256": "a49cf95e19b7444dea346c55b6764be9961f067139ae16c937d4ef41ec986ed9"
+        },
+        "trace_gate_12": {
+          "semantic": "cardinality_bound",
+          "predicate_sha256": "b77eda32321c4c3ba99271e8ff9f2de75ecab37f6253e495ea80c45b1b429aeb"
+        },
+        "trace_gate_13": {
+          "semantic": "provider_edge",
+          "predicate_sha256": "b4b23f882f3965edb16a257445d1e72ce9813a227fe09b9cbb8eae6e2c8c9751"
+        },
+        "trace_gate_14": {
+          "semantic": "identity_cardinality_and_root_edge",
+          "predicate_sha256": "bed8c6c7a15bffb77a196abaa5be73c4e38b2178d016e1d3d16cea3dbfdebc0d"
+        },
+        "trace_gate_15": {
+          "semantic": "visible_sql_parent_role",
+          "predicate_sha256": "1cffe9bea29d361013c82265b17e6be59c8950de12304c057215a01c6072a4f8"
+        },
+        "trace_gate_16": {
+          "semantic": "sql_main_parent_membership",
+          "predicate_sha256": "1087be75ceb82e731063097b627ac87630ad5d2a06b6d6672e7c5ad3abcfa5b8"
+        },
+        "trace_gate_17": {
+          "semantic": "temporal_containment",
+          "predicate_sha256": "0e394a2b776c3a0d86c94f9f238789282686de5c4b410ec239aefb8af1fa58f5"
+        },
+        "trace_gate_18": {
+          "semantic": "cycle",
+          "predicate_sha256": "73a34e68925a6fe2c3d345fc2a9d1bf9f0c06c205dcbfefc32681ef13f836f53"
+        },
+        "trace_gate_19": {
+          "semantic": "delivery_chronology",
+          "predicate_sha256": "cdc010b85c769c7e984abdde0b0b0b6fadb16c3ba818b15380589f5a46d7b0b6"
+        },
+        "trace_gate_20": {
+          "semantic": "complete_provider_parent_set",
+          "predicate_sha256": "ee8fc9adeddb4f2e258fd37a6c9f0f11609a5584a5849440d285e5134c39a56f"
+        }
+      },
+      "ordered_predicates_sha256": "3487ab52e7004c31c7856ccf8c3caf880d053f4a49f7973c33ceacc9fabb5625"
+    }
+  }
+}

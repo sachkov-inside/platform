@@ -25,7 +25,7 @@ class OracleReasons(unittest.TestCase):
             with self.subTest(owner=message):
                 self.assertIsNone(call(partial))
                 for raw, reason in (('{"private-sentinel"', 'response_decode'),
-                                    (json.dumps({'private':'sdk-storage-private'}), 'oracle_refusal')):
+                                    (json.dumps({'private':'sdk-storage-private'}), 'trace_decode' if message in ('SDK storage trace contract failed','Tracking storage trace contract failed') else 'oracle_refusal')):
                     with self.subTest(reason=reason), self.assertRaisesRegex(RuntimeError, '^'+message+'$') as error:
                         call(raw)
                     self.assertEqual(getattr(error.exception, 'reason', 'unknown'), reason)
@@ -217,7 +217,7 @@ class ObservationOutcomes(unittest.TestCase):
                     else:
                         with self.assertRaises(TimeoutError if case=='deadline' else RuntimeError) as caught: observe()
                         if case=='unknown': self.assertIs(caught.exception,error)
-                        expected=('visibility','deadline') if case=='deadline' else ('trace_query','unknown') if case=='unknown' else ('trace_validation','response_decode' if case=='decode' else 'oracle_refusal')
+                        expected=('visibility','deadline') if case=='deadline' else ('trace_query','unknown') if case=='unknown' else ('trace_validation','response_decode' if case=='decode' else 'trace_gate_05' if scope=='sdk' else 'trace_gate_06')
                         state=diagnostic.snapshot()
                         self.assertEqual((state['phase'],state['reason']),expected)
                         self.assertEqual(state['outcome'],'failed');self.assertEqual(state['attempts'],1)

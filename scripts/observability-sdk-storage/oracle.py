@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'observability-pilot'))
 import source_status
-from diagnostics import ResponseDecode, OracleRefusal
+from diagnostics import ResponseDecode, OracleRefusal, TraceGateRefusal, trace_refusal
 from collector_privacy import TRACE_STORE_METRICS
 
 # SDK 2.12 default explicit histogram aggregation, independent of observed output.
@@ -182,20 +182,24 @@ def traces(raw, *, trace_id, root_id, release):
                 or re.fullmatch(r'[0-9a-f]{32}', trace_id) is None
                 or re.fullmatch(r'[0-9a-f]{16}', root_id) is None
                 or re.fullmatch(r'[0-9a-f]{40}', release) is None):
-            raise ValueError()
-        rows = [decode(line) for line in raw.splitlines() if line.strip()]
+            raise TraceGateRefusal('sdk','trace_gate_01')
+        try:
+            rows = [decode(line) for line in raw.splitlines() if line.strip()]
+        except ResponseDecode:raise
+        except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError):
+            raise TraceGateRefusal('sdk','trace_decode') from None
         if len(rows) > 3:
-            raise ValueError()
+            raise TraceGateRefusal('sdk','trace_gate_02')
         names = {'GET /pilot': ('root', '2'), 's3 getObject.read': ('read', '1'), 's3 http.GET': ('http', '3')}
         roles, identities = {}, set()
         for row in rows:
             if type(row) is not dict or not all(type(v) is str for v in row.values()) or row.get('name') not in names:
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_03')
             role, kind = names[row['name']]
             identity = row.get('span_id')
             if (identity is None or re.fullmatch(r'[0-9a-f]{16}', identity) is None or identity == '0'*16
                     or identity in identities or role in roles):
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_04')
             identities.add(identity)
             attrs = ({'span_attr:http.request.method': 'GET', 'span_attr:http.route': '/pilot',
                       'span_attr:http.request.outcome': 'completed', 'span_attr:http.response.status_code': '200'}
@@ -217,33 +221,32 @@ def traces(raw, *, trace_id, root_id, release):
             if (not mandatory <= set(row) or set(row)-mandatory-set(optional)
                     or any(row.get(k) != v for k, v in expected.items())
                     or any(row[k] != optional[k] for k in set(row)&set(optional))):
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_05')
             for key in ('start_time_unix_nano', 'end_time_unix_nano', 'duration'):
                 if re.fullmatch(r'[1-9][0-9]{0,18}|0', row[key]) is None:
-                    raise ValueError()
+                    raise TraceGateRefusal('sdk','trace_gate_06')
             start, end, duration = (int(row[k]) for k in ('start_time_unix_nano', 'end_time_unix_nano', 'duration'))
             if (not 0 < start <= end < 2**63 or duration != end-start or duration > 60_000_000_000
                     or not _timestamp_matches(row['_time'], start)
                     or re.fullmatch(r'0{16}[0-9a-f]{32}', row['_stream_id']) is None):
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_07')
             if role == 'root' and identity != root_id:
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_08')
             if role == 'read' and row['parent_span_id'] != root_id:
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_09')
             if role == 'http' and row['parent_span_id'] in (root_id, identity):
-                raise ValueError()
+                raise TraceGateRefusal('sdk','trace_gate_10')
             roles[role] = row
         # Validate known neighboring edges even while the third row is not visible yet.
         if 'http' in roles and 'read' in roles and roles['http']['parent_span_id'] != roles['read']['span_id']:
-            raise ValueError()
+            raise TraceGateRefusal('sdk','trace_gate_11')
         for parent, child in (('root', 'read'), ('read', 'http')):
             if parent in roles and child in roles:
                 p, c = roles[parent], roles[child]
                 if not int(p['start_time_unix_nano']) <= int(c['start_time_unix_nano']) <= int(c['end_time_unix_nano']) <= int(p['end_time_unix_nano']):
-                    raise ValueError()
+                    raise TraceGateRefusal('sdk','trace_gate_12')
         if len(roles) != 3:
             return None
         return {'stored_spans': 3, 'test_owned_root': 'passed', 's3_read_http_causality': 'passed', 'privacy': 'passed'}
-    except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError) as error:
-        raise OracleRefusal('SDK storage trace contract failed',
-                            'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None
+    except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError) as error:
+        raise trace_refusal(error,scope='sdk') from None

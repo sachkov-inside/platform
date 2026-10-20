@@ -113,7 +113,7 @@ class PrivateWireWitness(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     self.parse(invalid)
 
-    def test_contract_source_and_compiler_changes_trigger_the_bound_storage_workflow(self):
+    def test_all_bound_sources_including_contracts_trigger_the_storage_workflow(self):
         workflow = (sdk_storage.pilot.ROOT/'.github/workflows/observability-sdk-storage.yml').read_text()
         # This workflow owns one plain scalar paths list under pull_request.
         block = workflow.split('    paths:\n', 1)[1].split('\n\n', 1)[0]
@@ -121,15 +121,21 @@ class PrivateWireWitness(unittest.TestCase):
         for line in block.splitlines():
             self.assertTrue(line.startswith('      - '))
             patterns.append(line.removeprefix('      - ').strip('"'))
-        contracts = {str(path.relative_to(sdk_storage.pilot.ROOT))
-                     for path in sdk_storage.source_inputs()
-                     if path.is_relative_to(sdk_storage.pilot.ROOT/'docs/contracts')}
+        selected = {str(path.relative_to(sdk_storage.pilot.ROOT)) for path in sdk_storage.source_inputs()}
+        contracts = {path for path in selected if path.startswith('docs/contracts/')}
         self.assertTrue({'docs/contracts/runtime/diagnostic-error.ts',
                          'docs/contracts/tsconfig.build.json'} <= contracts)
-        for changed_path in sorted(contracts):
-            with self.subTest(changed_path=changed_path):
-                self.assertTrue(any(fnmatch.fnmatchcase(changed_path, pattern)
-                                    for pattern in patterns), 'bound contract input skips native storage CI')
+        def require_all_routed(candidate):
+            for changed_path in sorted(selected):
+                self.assertTrue(any(fnmatch.fnmatchcase(changed_path, pattern) for pattern in candidate),
+                                'bound input skips native storage CI: '+changed_path)
+        require_all_routed(patterns)
+        schema = 'apps/backend/prisma/schema.prisma'
+        self.assertIn(schema,selected)
+        self.assertIn(schema,patterns)
+        without_schema = [pattern for pattern in patterns if pattern != schema]
+        with self.assertRaises(AssertionError): require_all_routed(without_schema)
+        require_all_routed(patterns)
 
     def test_module_count_and_path_size_boundaries(self):
         self.assertEqual(len(self.parse(self.wire(1000))['runtime_modules']), 1000)
