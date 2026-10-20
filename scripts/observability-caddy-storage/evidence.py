@@ -5,9 +5,32 @@ MAX_BYTES = 8192
 CASES = ('logging', 'identity', 'native_labels', 'http_get', 'http_post',
          'unauthorized', 'fallback', 'body_limit', 'upstream_error', 'privacy',
          'partition', 'mcp', 'gateway_unavailable', 'alloy_stale', 'counter_reset', 'inflight')
+OWNERSHIP_ROLES = ('metrics', 'logs', 'traces', 'alloy', 'vmauth', 'gateway', 'grafana')
+OWNERSHIP_GATES = ('lookup_read', 'lookup_empty', 'lookup_id', 'lookup_duplicate',
+    'inspect_read', 'inspect_decode', 'inspect_shape', 'inspect_id', 'inspect_image',
+    'inspect_project', 'inspect_service', 'inspect_config', 'inspect_mount_plan',
+    'inspect_mount_shape', 'inspect_mount_set', 'inspect_network_set', 'inspect_network_ids',
+    'runtime_read', 'runtime_contract')
+OWNERSHIP_GLOBAL = ('plan', 'registry_shape', 'registry_networks', 'registry_volumes',
+                    'registry_network_count', 'witness')
+OWNERSHIP_PHASES = tuple('ownership_' + gate for gate in OWNERSHIP_GLOBAL) + tuple(
+    'ownership_' + role + '_' + gate for role in OWNERSHIP_ROLES for gate in OWNERSHIP_GATES)
+OWNERSHIP_IO = {'plan', 'witness', 'lookup_read', 'inspect_read', 'runtime_read'}
+
+
+def ownership_phase(role, gate):
+    if type(gate) is not str:
+        refuse()
+    if role is None and gate in OWNERSHIP_GLOBAL:
+        return 'ownership_' + gate
+    if type(role) is str and role in OWNERSHIP_ROLES and gate in OWNERSHIP_GATES:
+        return 'ownership_' + role + '_' + gate
+    refuse()
+
+
 PHASES = ('acquisition', 'ownership', 'identity', 'seed', 'partition',
           'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps',
-          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete')
+          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES
 FAILURES = ('contract', 'timeout', 'transport', 'budget', 'unknown')
 
 

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import subprocess
 import sys
 import artifact
 import collection
@@ -55,6 +56,9 @@ def worker(output):
         elif kind=='failure':run.fail(value)
         else:artifact.refuse()
         persist()
+    def ownership_checkpoint(role,gate):
+        run.start(evidence.ownership_phase(role,gate))
+        if gate in evidence.OWNERSHIP_IO:persist()
     persist()
     try:
         with pilot.worker_storage_guard(owner,compose,output):
@@ -66,7 +70,8 @@ def worker(output):
             def read(argv):
                 pilot.assert_docker_identity()
                 return pilot.command(argv,timeout=10)
-            targets=owned.Targets(output,compose,overlay.plan(output),read)
+            ownership_checkpoint(None,'plan')
+            targets=owned.Targets(output,compose,overlay.plan(output),read,ownership_checkpoint=ownership_checkpoint)
             progress('case','logging')
             progress('phase','identity')
             targets.caddy_identity()
@@ -85,10 +90,20 @@ def worker(output):
             outcome['status']='passed: isolated native Caddy metrics and query scope only'
             pilot.write_json(output/'evidence.json',outcome)
     except BaseException as error:
-        run.fail('interrupted' if isinstance(error,KeyboardInterrupt) else 'timeout' if isinstance(error,TimeoutError)
-            else 'contract' if isinstance(error,ValueError) else 'unknown')
+        try:
+            phase=run.snapshot()['phase']
+            if isinstance(error,KeyboardInterrupt):reason='interrupted'
+            elif phase in evidence.OWNERSHIP_PHASES:
+                if type(error) in (owned.core.ScenarioFailed,ValueError):reason='contract'
+                elif type(error) in (subprocess.CalledProcessError,FileNotFoundError,PermissionError,OSError):reason='transport'
+                elif type(error) in (subprocess.TimeoutExpired,TimeoutError):reason='timeout'
+                else:reason='unknown'
+            else:reason='timeout' if isinstance(error,TimeoutError) else 'contract' if isinstance(error,ValueError) else 'unknown'
+            run.fail(reason);persist()
+        except BaseException:
+            pass  # A terminal metadata refusal cannot replace the active primary or traceback.
         raise
-    finally:persist()
+    else:persist()
 
 
 def verify_cleanup(output):
