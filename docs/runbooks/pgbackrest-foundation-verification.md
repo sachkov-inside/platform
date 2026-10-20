@@ -18,7 +18,7 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
 
 - Версии PostgreSQL, pgBackRest и runtime libpq, выбранный build-time `libpq.pc`, digest
   distribution и бинарника, OpenSSL, ELF PIE/RELRO/NOW/NX stack и stack protector symbol.
-- Зашифрованный full backup, WAL и fresh restore обеих баз. Отдельный restore к именованной
+- Зашифрованный full backup с `--start-fast`, WAL и fresh restore обеих баз. Отдельный restore к именованной
   точке подтверждает наличие транзакций до неё и отсутствие транзакций после неё.
 - Обычную совместимость чтения копии pgBackRest 2.57.0. Legacy writer собирается отдельно
   из замороженного source `9a17509d802f8fa165b5988962f20ae18155fd73`, не из production image.
@@ -30,6 +30,10 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
   Команды запускаются в собственных process groups с ограниченным завершением всего дерева.
   SIGTERM и SIGKILL прерывают активную команду с дочерним процессом. Для SIGKILL внешний
   supervisor завершает её группу и отдельно восстанавливает очистку по журналу ресурсов.
+
+Synthetic backup запрашивает немедленный checkpoint через `--start-fast`, чтобы плановый
+checkpoint PostgreSQL не превышал ограниченный бюджет теста. Это штатная опция
+[pgBackRest](https://pgbackrest.org/user-guide.html); production backup policy не меняется.
 
 Секреты синтетической проверки находятся в приватном runner temp и не включаются в artifact.
 Общий Docker `prune` не используется. Cleanup проверяет labels и точный journal; недоступность

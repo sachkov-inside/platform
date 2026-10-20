@@ -399,7 +399,7 @@ def proof(image, receipt, directory, legacy_source=None):
                 "INSERT INTO proof_marker VALUES(1,'backup');")
         backrest(resources, container, "stanza-create")
         backrest(resources, container, "check")
-        backrest(resources, container, "--type=full", "backup")
+        backrest(resources, container, "--type=full", "--start-fast", "backup")
         sql(resources, container, "postgres", "SELECT pg_switch_wal();")
         for database in DATABASES:
             sql(resources, container, database, "INSERT INTO proof_marker VALUES(2,'before');")
