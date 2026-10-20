@@ -60,7 +60,8 @@ class TechnicalScope {
         | CommunityOperation
         | TelegramHttpOperation
         | S3Operation
-        | "communications.execute",
+        | "communications.execute"
+        | "waitlist.confirm",
       failed: boolean,
       seconds: number,
     ) => void,
@@ -332,6 +333,52 @@ export async function observeCommunicationsRequest<Value>(
     scope.recordDependency(
       "telegram",
       "communications.execute",
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
+
+/** Existing waitlist receipt POST and its existing response validation. */
+export async function observeWaitlistConfirmationRequest<Value>(
+  work: (response: (status: number) => void) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work(() => undefined);
+  const span = scope.dependencyTracer.startSpan(
+    "telegram waitlist.confirm",
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "telegram",
+        "dependency.operation": "waitlist.confirm",
+        "http.request.method": "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), () =>
+      work((status) => {
+        if (Number.isInteger(status) && status >= 100 && status <= 599) {
+          span.setAttribute("http.response.status_code", status);
+          if (status >= 400) failed = true;
+        }
+      }),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "telegram",
+      "waitlist.confirm",
       failed,
       (performance.now() - started) / 1_000,
     );
@@ -769,6 +816,10 @@ export interface TechnicalTelemetry {
     parent: unknown,
     work: (observation: { fail(): void }) => Promise<Value>,
   ): Promise<Value>;
+  runWaitlistDelivery<Value>(
+    parent: unknown,
+    work: (observation: { fail(): void }) => Promise<Value>,
+  ): Promise<Value>;
   startHttp(input: {
     readonly method: string;
     readonly route?: string;
@@ -796,6 +847,8 @@ export function createTechnicalTelemetry(
       runJob: (work) =>
         context.with(context.active().deleteValue(technicalScopeKey), work),
       runTrackingDelivery: (_parent, work) =>
+        context.with(ROOT_CONTEXT, () => work({ fail: () => undefined })),
+      runWaitlistDelivery: (_parent, work) =>
         context.with(ROOT_CONTEXT, () => work({ fail: () => undefined })),
       startHttp: () => ({
         run: (work) =>
@@ -976,7 +1029,8 @@ export function createTechnicalTelemetry(
         | CommunityOperation
         | TelegramHttpOperation
         | S3Operation
-        | "communications.execute",
+        | "communications.execute"
+        | "waitlist.confirm",
       failed: boolean,
       seconds: number,
     ) => {
@@ -1062,6 +1116,11 @@ export function createTechnicalTelemetry(
     const trackingTracer = traces.getTracer("inside-tracking");
     const trackingCount = meter.createCounter("inside.tracking.operations");
     const trackingDuration = meter.createHistogram("inside.tracking.duration", {
+      unit: "s",
+    });
+    const waitlistTracer = traces.getTracer("inside-waitlist");
+    const waitlistCount = meter.createCounter("inside.waitlist.operations");
+    const waitlistDuration = meter.createHistogram("inside.waitlist.duration", {
       unit: "s",
     });
     let closing: Promise<void> | undefined;
@@ -1154,6 +1213,71 @@ export function createTechnicalTelemetry(
           const attributes = { operation: "deliver", outcome };
           trackingCount.add(1, attributes);
           trackingDuration.record(
+            (performance.now() - started) / 1_000,
+            attributes,
+          );
+          span.end();
+        }
+      },
+      runWaitlistDelivery: async (parent, work) => {
+        // A committed waitlist outbox row resumes its immutable source, never the pump's ambient context.
+        const root = ROOT_CONTEXT.setValue(
+          technicalScopeKey,
+          new TechnicalScope(
+            identity,
+            dependencyTracer,
+            recordDependency,
+            emailTracer,
+            recordEmail,
+            observePool,
+            notificationTracer,
+            recordNotification,
+          ),
+        );
+        const valid = notificationTraceparent(parent);
+        const causal =
+          valid === undefined
+            ? root
+            : pgBossTracePropagator().extract(
+                root,
+                { traceparent: valid },
+                {
+                  keys: () => ["traceparent"],
+                  get: (
+                    carrier: Readonly<Record<string, string>>,
+                    key: string,
+                  ) =>
+                    key === "traceparent" ? carrier["traceparent"] : undefined,
+                },
+              );
+        const span = waitlistTracer.startSpan(
+          "waitlist deliver",
+          {
+            kind: SpanKind.INTERNAL,
+            attributes: { "waitlist.operation": "deliver" },
+          },
+          causal,
+        );
+        const started = performance.now();
+        let failed = false;
+        try {
+          return await context.with(trace.setSpan(causal, span), () =>
+            work({
+              fail: () => {
+                failed = true;
+              },
+            }),
+          );
+        } catch (error) {
+          failed = true;
+          throw error;
+        } finally {
+          const outcome = failed ? "failed" : "completed";
+          span.setAttribute("waitlist.outcome", outcome);
+          if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+          const attributes = { operation: "deliver", outcome };
+          waitlistCount.add(1, attributes);
+          waitlistDuration.record(
             (performance.now() - started) / 1_000,
             attributes,
           );

@@ -1,3 +1,4 @@
+import { observeWaitlistConfirmationRequest, type TechnicalTelemetry } from "../../../../infrastructure/observability/technical-telemetry.js";
 import {
   Inject,
   Injectable,
@@ -26,6 +27,8 @@ export class WaitlistConfirmationPump
   private timer?: ReturnType<typeof setTimeout>;
   private active?: Promise<unknown>;
   private stopped = false;
+  private telemetry: Pick<TechnicalTelemetry, "runWaitlistDelivery"> | undefined;
+  observeDeliveries(telemetry: Pick<TechnicalTelemetry, "runWaitlistDelivery">): void { this.telemetry = telemetry; }
   constructor(
     @Inject(ProductWaitlists) private readonly waitlists: ProductWaitlists,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
@@ -41,7 +44,7 @@ export class WaitlistConfirmationPump
           return config === undefined
             ? Promise.resolve("unavailable" as const)
             : deliverWaitlistConfirmation(config, command);
-        })
+        }, 20, this.telemetry)
         .catch((error: unknown) => {
           reportDependencyFailure(
             { module: "sales-funnel", operation: "dispatchConfirmations" },
@@ -71,6 +74,7 @@ export async function deliverWaitlistConfirmation(
   fetcher: typeof fetch = fetch,
 ): Promise<"accepted" | "suppressed" | "unavailable"> {
   try {
+    return await observeWaitlistConfirmationRequest(async (status) => {
     const response = await fetcher(config.endpoint, {
       method: "POST",
       redirect: "error",
@@ -81,6 +85,7 @@ export async function deliverWaitlistConfirmation(
       },
       body: JSON.stringify(command),
     });
+    status(response.status);
     if (!response.ok)
       throw new Error(`Waitlist confirmation provider HTTP ${response.status}`);
     const parsed = waitlistConfirmationResultSchema.safeParse(
@@ -91,6 +96,7 @@ export async function deliverWaitlistConfirmation(
     if (parsed.data.eventId !== command.eventId)
       throw new Error("Waitlist confirmation provider event mismatch");
     return parsed.data.status;
+    });
   } catch (error) {
     reportDependencyFailure(
       { module: "sales-funnel", operation: "deliverWaitlistConfirmation" },

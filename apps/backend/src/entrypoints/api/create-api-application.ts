@@ -1,3 +1,4 @@
+import { WaitlistConfirmationPump } from "../../modules/sales-funnel/index.js";
 import { TrackingHitPump } from "../../modules/communications/index.js";
 import type { NestApplicationOptions } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -48,12 +49,14 @@ export async function createApiApplication(
   });
   const trackingPump = app.get(TrackingHitPump);
   trackingPump.observeDeliveries(telemetry);
+  const waitlistPump = app.get(WaitlistConfirmationPump);
+  waitlistPump.observeDeliveries(telemetry);
   const fastify = app.getHttpAdapter().getInstance();
   observeHttpRequests(fastify, "api", telemetry);
   fastify.addHook("onClose", async () => {
     // Nest disposes Fastify before OnApplicationShutdown. Drain the API-owned pump before its SDK.
     try {
-      await trackingPump.onApplicationShutdown();
+      await Promise.all([trackingPump.onApplicationShutdown(), waitlistPump.onApplicationShutdown()]);
     } finally {
       await telemetry.shutdown();
     }

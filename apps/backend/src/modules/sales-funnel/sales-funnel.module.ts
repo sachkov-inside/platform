@@ -45,7 +45,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     ReadFunnelReportController,
     ProductWaitlistController,
   ],
-  exports: [SalesFunnel, ProductWaitlists],
+  exports: [SalesFunnel, ProductWaitlists, WaitlistConfirmationPump],
   providers: [
     WaitlistConfirmationPump,
     {

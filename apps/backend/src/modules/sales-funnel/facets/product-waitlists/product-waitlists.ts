@@ -1,3 +1,4 @@
+import { captureNotificationTraceparent, type TechnicalTelemetry } from "../../../../infrastructure/observability/technical-telemetry.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -352,6 +353,7 @@ export class ProductWaitlists {
             telegramIdentityRef: binding.binding.telegramIdentityRef,
             linkRevision: binding.binding.linkRevision,
             createdAt: now,
+            traceparent: captureNotificationTraceparent() ?? null,
           },
         });
         return {
@@ -373,6 +375,7 @@ export class ProductWaitlists {
       command: WaitlistConfirmation,
     ) => Promise<"accepted" | "suppressed" | "unavailable">,
     limit = 20,
+    telemetry?: Pick<TechnicalTelemetry, "runWaitlistDelivery">,
   ): Promise<number> {
     const rows =
       await this.dependencies.prisma.productWaitlistConfirmation.findMany({
@@ -392,8 +395,14 @@ export class ProductWaitlists {
       };
       const current = await this.confirmationCurrent(command);
       if (current === "unavailable") continue;
-      const result =
-        current === "suppressed" ? "suppressed" : await deliver(command);
+      const send = async (observation?: { fail(): void }) => {
+        const result = await deliver(command);
+        if (result === "unavailable") observation?.fail();
+        return result;
+      };
+      const result = current === "suppressed" ? "suppressed"
+        : telemetry === undefined ? await send()
+        : await telemetry.runWaitlistDelivery(row.traceparent, send);
       if (result === "unavailable") continue;
       await this.dependencies.prisma.productWaitlistConfirmation.updateMany({
         where: { eventId: row.eventId, completedAt: null },
