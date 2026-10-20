@@ -246,7 +246,7 @@ describe("production watchdog", () => {
     const fixture = createFixture();
     try {
       fixture.config(
-        "WATCHDOG_TELEGRAM_BOT_TOKEN=signals-test-token\nWATCHDOG_TELEGRAM_CHAT_ID=42\n",
+        "WATCHDOG_TELEGRAM_RELAY_ADDRESS=172.30.244.2\nWATCHDOG_TELEGRAM_BOT_TOKEN=signals-test-token\nWATCHDOG_TELEGRAM_CHAT_ID=42\n",
       );
       fixture.fake("send-fail", "");
       fixture.fake(
@@ -275,11 +275,11 @@ describe("production watchdog", () => {
     }
   });
 
-  it("uses direct Telegram access when the relay address is empty", () => {
+  it("uses direct Telegram access by default", () => {
     const fixture = createFixture();
     try {
       fixture.config(
-        "WATCHDOG_TELEGRAM_RELAY_ADDRESS=\nWATCHDOG_TELEGRAM_BOT_TOKEN=signals-test-token\nWATCHDOG_TELEGRAM_CHAT_ID=42\n",
+        "WATCHDOG_TELEGRAM_BOT_TOKEN=signals-test-token\nWATCHDOG_TELEGRAM_CHAT_ID=42\n",
       );
       fixture.fake(
         "df",

@@ -52,7 +52,7 @@
 | Фоновая работа | у `billing.payment-recovery` нет `completed` за 5 минут | 2 |
 | Бот | Telegram `/ready` не отвечает 200 | 2 |
 | Бот | `getWebhookInfo` сообщает ошибку доставки за 10 минут | 1 |
-| Бот | `getWebhookInfo` не читается через relay | 2 |
+| Бот | `getWebhookInfo` не читается через настроенный маршрут | 2 |
 | Выпуск | `operation.json` в `running` дольше часа без новой фазы | 1 |
 | Бот | у webhook больше 100 необработанных обновлений | 2 |
 | Вступление в группу | `community_operations` в базе `inside_telegram` перешла в `failed` или `unknown` за 10 минут | 1 |
@@ -102,17 +102,15 @@ Caddy удаляет маркер у соединений вне `127.0.0.1` и 
 | Ключ | Назначение |
 |---|---|
 | `WATCHDOG_TELEGRAM_BOT_TOKEN`, `WATCHDOG_TELEGRAM_CHAT_ID` | бот сигналов и личный чат владельца |
-| `WATCHDOG_TELEGRAM_RELAY_ADDRESS` | адрес relay `telegram-transport`, по умолчанию `172.30.244.2`; явная пустая строка включает прямой DNS-маршрут |
+| `WATCHDOG_TELEGRAM_RELAY_ADDRESS` | необязательный адрес прежнего relay; по умолчанию и при пустой строке используется прямой DNS-маршрут |
 | `WATCHDOG_SMTP_URL`, `WATCHDOG_SMTP_USER`, `WATCHDOG_SMTP_PASSWORD` | почта запасным путём, например `smtps://smtp.example:465` |
 | `WATCHDOG_EMAIL_FROM`, `WATCHDOG_EMAIL_TO` | отправитель и адрес владельца |
 
-На российской площадке сторож идёт в Bot API тем же relay, что и бот:
-`curl --resolve api.telegram.org:443:<relay>`. Поэтому при поломке relay
-([inside-telegram#126](https://github.com/sachkov-inside/inside-telegram/issues/126)) сигнал через
-Telegram не дойдёт; его донесёт настроенная почта, а `getWebhookInfo` сам станет сигналом.
-На [AMS](production-amsterdam.md) бот использует прямой маршрут. Файл настройки сторожа содержит
-`WATCHDOG_TELEGRAM_RELAY_ADDRESS=`; тогда все его Bot API запросы используют обычный DNS без
-`--resolve`. Если строку пропустить, старый default сохранится и проверки AMS будут неверными.
+На [AMS](production-amsterdam.md) бот и сторож используют прямой маршрут Bot API.
+Для него `WATCHDOG_TELEGRAM_RELAY_ADDRESS` можно не задавать или оставить пустым;
+запросы используют обычный DNS без `--resolve`. Непустой адрес включает исторический relay
+через `curl --resolve api.telegram.org:443:<relay>`. В таком режиме при поломке relay сигнал
+через Telegram не дойдёт; запасным каналом служит настроенная почта.
 
 Пока ни один канал не настроен, сигналы только копятся в журнале. Если канал настроен, но доставка не
 удалась, сообщение ждёт в `/var/lib/inside/watchdog/outbox` и уходит следующим запуском; outbox
@@ -165,16 +163,16 @@ sudo tail -n 20 /var/lib/inside/watchdog/signals.log
 Таймер активен, запуски завершаются без ошибки. В `signals.log` после выпуска ожидаются только
 сигналы о настоящих отказах; ложный сигнал — повод поправить порог.
 
-Проверка пути к Bot API через relay с токеном бота сигналов (метод `getMe` ничего не отправляет):
+Проверка прямого пути к Bot API на AMS с токеном бота сигналов (метод `getMe` ничего не отправляет):
 
 ```bash
 sudo sed -n 's/^WATCHDOG_TELEGRAM_BOT_TOKEN=//p' /etc/inside/watchdog/watchdog.env \
   | awk '{ printf "url = \"https://api.telegram.org/bot%s/getMe\"\n", $0 }' \
-  | curl --config - --fail --silent --resolve api.telegram.org:443:172.30.244.2 \
+  | curl --config - --fail --silent \
   | jq .ok
 ```
 
-Ответ `true` значит, что relay пропускает запросы сторожа. Внешняя проверка запускается вручную:
+Ответ `true` подтверждает доступность Bot API с этим токеном по прямому маршруту. Внешняя проверка запускается вручную:
 GitHub Actions → `Production monitor` → `Run workflow`.
 
 ## Шаги владельца
@@ -201,7 +199,7 @@ GitHub Actions → `Production monitor` → `Run workflow`.
   следующего запуска таймера, и сигналы о них сохраняют прежнее состояние до этого запуска.
 - Расписание GitHub Actions может опаздывать на минуты.
 - Сигнал внешней проверки не знает версии выпуска: публичного маршрута с ней нет.
-- Путь сторожа к Bot API через relay не проверен на сервере до первого выпуска со сторожем: relay
-  стоит во внутренней сети Docker. Если проверка `getMe` не прошла, основным каналом становится почта.
+- Доставка тревоги владельцу требует отдельно настроенных каналов Telegram/SMTP. На AMS они
+  пока не настроены; успешное чтение webhook не подтверждает доставку тревог.
 - Если сторож сам перестал работать (например, диск заполнен до создания рабочего каталога), сигнала
   об этом нет: `systemctl list-timers` и журнал службы показывают это только при ручной проверке.

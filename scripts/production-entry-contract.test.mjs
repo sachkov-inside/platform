@@ -10,7 +10,7 @@ const transport = {
   origin: read("infra/production/entry/haproxy-origin.cfg"),
   edge: read("infra/production/entry/haproxy-edge.cfg"),
   clients: read("infra/production/entry/non-public-clients.lst"),
-  caddy: read("infra/production/host/Caddyfile"),
+  caddy: read("infra/production/entry/Caddyfile.proxy"),
 };
 
 /** @param {typeof transport} raw */
@@ -95,6 +95,12 @@ function assertTransport(raw) {
 }
 
 describe("production TLS entry transport contract", () => {
+  it("keeps the current direct host independent of retired PROXY receivers", () => {
+    const current = read("infra/production/host/Caddyfile");
+    assert.doesNotMatch(current, /proxy_protocol|127\.0\.0\.2|8443/u);
+    assert.match(current, /admin 127\.0\.0\.1:2019/u);
+    assert.match(current, /protocols h1 h2 h3/u);
+  });
   it("keeps the original-peer, decoded-client and local-Caddy boundaries", () => {
     assertTransport(transport);
   });

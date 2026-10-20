@@ -1,10 +1,10 @@
 # Установка второго входа #1575
 
-Ниже сохранена процедура первого этапа, когда приложение оставалось в RU. После полного переноса
-актуальны [AMS runbook](../../../docs/runbooks/production-amsterdam.md), `haproxy-ams.cfg` и
-`haproxy-ru-forward.cfg`. У Aeza backend приложения заменён на `147.45.166.174:8443`; файл
-`haproxy-edge.cfg` ниже фиксирует исходную установку. Не применять исторический rollback к
-площадке с устаревшей базой. Новые профили используют прежний unit и private-client ACL.
+Это историческая процедура. После полного переноса и проверки DNS все временные receiver,
+forwarder и Telegram relay отключены. Текущая схема и протокол завершения принадлежат
+[AMS runbook](../../../docs/runbooks/production-amsterdam.md). HAProxy profiles и `Caddyfile.proxy`
+сохранены для разбора переходного этапа. Их не устанавливают при обычном deploy.
+Не применять исторический rollback к площадке с устаревшей базой.
 
 Процедура для существующих двух машин, не универсальный provisioning.
 Архитектура, результаты и ограничения — в [runbook](../../../docs/runbooks/production-dual-entry.md).
@@ -42,8 +42,8 @@ test -f "$snapshot_dir/Caddyfile" || install -m 600 /etc/caddy/Caddyfile "$snaps
 install -m 644 "$entry_source/haproxy-origin.cfg" /etc/inside-entry/haproxy.cfg
 install -m 644 "$entry_source/non-public-clients.lst" /etc/inside-entry/non-public-clients.lst
 haproxy -c -f /etc/inside-entry/haproxy.cfg
-caddy validate --config infra/production/host/Caddyfile --adapter caddyfile
-install -m 644 infra/production/host/Caddyfile /etc/caddy/Caddyfile
+caddy validate --config "$entry_source/Caddyfile.proxy" --adapter caddyfile
+install -m 644 "$entry_source/Caddyfile.proxy" /etc/caddy/Caddyfile
 caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 ufw allow from 185.125.101.90 to any port 8443 proto tcp comment inside-entry-1575
 systemctl enable --now inside-entry.service
