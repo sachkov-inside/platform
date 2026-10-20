@@ -8,14 +8,14 @@ import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { startNotificationBroker } from "./setup/broker.js";
+import { expect } from "vitest";
 import {
   afterAll,
   beforeAll,
   beforeEach,
   describe,
-  expect,
   test,
-} from "vitest";
+} from "../support/notification-suite-lifecycle.js";
 
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";

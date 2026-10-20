@@ -32,12 +32,12 @@ export function AccountDisclosure({
 
   return (
     <Collapsible.Root
-      className="border-b border-border py-2"
+      className="rounded-xl bg-muted/40"
       id={id}
       onOpenChange={setOpen}
       open={open}
     >
-      <Collapsible.Trigger className="group flex min-h-16 w-full items-center gap-4 rounded-xl px-3 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+      <Collapsible.Trigger className="group flex min-h-16 w-full items-center gap-4 rounded-xl px-4 py-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <Icon
           aria-hidden="true"
           className="size-5 shrink-0 text-muted-foreground"
@@ -62,7 +62,7 @@ export function AccountDisclosure({
       </Collapsible.Trigger>
       <Collapsible.Content
         forceMount
-        className="data-[state=closed]:hidden px-3 pb-4 pt-2"
+        className="data-[state=closed]:hidden px-4 pb-5 pt-1"
       >
         {children}
       </Collapsible.Content>

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 const check = new URL("./check-shared-contracts-boundary.mjs", import.meta.url);
 /** @param {(root: string) => void} prepare */
@@ -19,7 +20,7 @@ function run(prepare) {
       { valid: true },
     ]);
     prepare(root);
-    return spawnSync(process.execPath, [check.pathname, root], {
+    return spawnSync(process.execPath, [fileURLToPath(check), root], {
       encoding: "utf8",
     });
   } finally {

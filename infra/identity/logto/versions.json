@@ -4,7 +4,7 @@
     "image": "ghcr.io/logto-io/logto:1.44.0",
     "digest": "sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340",
     "upstreamRevision": "79e9e3b0d9f505260d09c80d8a015e56fbc0ec01",
-    "forkRevision": "inside.7"
+    "forkRevision": "inside.8"
   },
   "logtoNext": "5.0.0",
   "logtoNode": "4.0.0",

@@ -1496,3 +1496,7 @@ Reader answers/keyboard/anchors, checks axe and editor roundtrip, and keeps the 
 for owner review. It does not prove real Logto sign-in or purchases. Screenshots go to
 `docs/evidence/issue-1283`; the console records Reader/editor routes. Resolve internal web port
 conflicts through the editor runtime configuration before launch; leave another session's stand alone.
+
+The pinned Storybook patch also decodes complete file URL paths before comparing the imported
+story with the running test (#1580). Cyrillic checkout paths use the same test registration as
+ASCII paths; the public helper regression lives in `storybook-file-path.test.ts`.

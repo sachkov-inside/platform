@@ -86,6 +86,13 @@ export const accountTelegramMembershipPresentationSchema = z
   .object({
     link: accountTelegramLinkStateSchema,
     membership: accountMembershipStateSchema,
+    contact: z
+      .object({
+        state: z.enum(["available", "not_linked", "unavailable"]),
+        displayName: z.string().nullable(),
+        username: z.string().nullable(),
+      })
+      .strict(),
   })
   .strict();
 export const evidenceAcceptanceSchema = z.discriminatedUnion("outcome", [

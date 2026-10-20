@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 import {
+  accountPresentationResponse,
   respondByPath,
   subscribedMemberRoutes,
 } from "@/storybook/account.fixtures";
@@ -34,7 +35,10 @@ export const WithSubscription: Story = {
       await canvas.findByRole("button", { name: "Отменить продление" }),
     ).toBeEnabled();
     await expect(
-      canvas.queryByRole("textbox", { name: "Имя" }),
+      await canvas.findByRole("textbox", { name: "Отображаемое имя" }),
+    ).toHaveValue("Кирилл Сачков");
+    await expect(
+      canvas.queryByRole("textbox", { name: /О себе/ }),
     ).not.toBeInTheDocument();
   },
 };
@@ -92,5 +96,88 @@ export const PaymentFailureSurvivesCollapse: Story = {
     await expect(
       canvas.queryByRole("button", { name: /История оплат, чеки и возвраты/ }),
     ).toBeVisible();
+  },
+};
+
+export const FirstEmailAttachment: Story = {
+  ...accountSectionEnvironment("/account", {
+    fetch: () => {
+      let email: string | null = null;
+      return respondByPath({
+        ...subscribedMemberRoutes,
+        "/api/account/email": () => Response.json({ ok: true, email }),
+        "/api/account/email/start": () =>
+          Response.json({ ok: true, challengeRef: "synthetic-challenge" }),
+        "/api/account/email/confirm": () => {
+          email = "new@example.test";
+          return Response.json({ ok: true });
+        },
+      });
+    },
+  }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Добавить почту" }),
+    );
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "Адрес почты" }),
+      "new@example.test",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Получить код" }));
+    await userEvent.type(
+      await canvas.findByRole("textbox", { name: "Код из письма" }),
+      "123456",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Подтвердить почту" }),
+    );
+    await expect(await canvas.findByText("new@example.test")).toBeVisible();
+    await expect(
+      canvas.getByText(/Почта подтверждена и привязана/),
+    ).toBeVisible();
+  },
+};
+
+/** The first visit keeps profile settings ahead of learning and uses one contact group. */
+export const NewMember: Story = {
+  ...accountSectionEnvironment("/account", {
+    fetch: () =>
+      respondByPath({
+        ...subscribedMemberRoutes,
+        "/api/account": () =>
+          accountPresentationResponse({
+            link: { kind: "unlinked" },
+            profile: null,
+          }),
+        "/api/account/email": () => Response.json({ ok: true, email: null }),
+        "/api/account/billing": () => currentBillingResponse(null),
+        "/api/account/billing/enrollments": () => enrollmentsResponse([]),
+      }),
+  }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const personal = within(
+      await canvas.findByRole("region", { name: "Личные данные" }),
+    );
+    await expect(
+      personal.getByRole("textbox", { name: "Отображаемое имя" }),
+    ).toBeVisible();
+    const connections = within(
+      await canvas.findByRole("region", { name: "Контакты и вход" }),
+    );
+    await expect(
+      await connections.findByRole("button", { name: "Добавить почту" }),
+    ).toBeVisible();
+    await expect(
+      connections.getByRole("button", { name: "Подключить" }),
+    ).toBeVisible();
+    for (const text of [
+      "От 2 до 80 символов. Имя может повторяться.",
+      "Почта для входа и подключённый Telegram.",
+      "Подключите бота платформы — это займёт меньше минуты.",
+    ]) {
+      await expect(canvas.queryByText(text)).not.toBeInTheDocument();
+    }
   },
 };
