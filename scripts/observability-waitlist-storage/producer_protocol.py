@@ -47,7 +47,8 @@ def witness(value):
             if type(row) is not dict or set(row) != {'path','sha256'}: raise ValueError('invalid waitlist module row')
             name,digest=row['path'],row['sha256']
             if (type(name) is not str or not 1 <= len(name) <= 512 or name.startswith('/') or '..' in name.split('/')
-                    or not name.startswith(('apps/backend/dist/','node_modules/','packages/','docs/contracts/dist/'))
+                    or (not name.startswith(('apps/backend/dist/','node_modules/','packages/','docs/contracts/dist/'))
+                        and name != 'docs/contracts/notifications-v1/schema.json')
                     or any(marker in name for marker in ('private-waitlist','waitlist-storage.example.test'))
                     or any(ord(char) < 32 or ord(char)==127 for char in name)
                     or type(digest) is not str or re.fullmatch(r'[0-9a-f]{64}',digest) is None):
