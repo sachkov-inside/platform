@@ -1,0 +1,338 @@
+[
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "RU",
+    "city": "Moscow",
+    "asn": 9123,
+    "network": "Timeweb",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 130,
+      "dns": 102,
+      "tcp": 1,
+      "tls": 5,
+      "firstByte": 5,
+      "download": 17
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "RU",
+    "city": "Saint Petersburg",
+    "asn": 49505,
+    "network": "Selectel",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 129,
+      "dns": 75,
+      "tcp": 11,
+      "tls": 15,
+      "firstByte": 15,
+      "download": 13
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "DE",
+    "city": "Falkenstein",
+    "asn": 24940,
+    "network": "Hetzner Online",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 345,
+      "dns": 55,
+      "tcp": 38,
+      "tls": 142,
+      "firstByte": 91,
+      "download": 19
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "DE",
+    "city": "Nuremberg",
+    "asn": 197540,
+    "network": "netcup",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 405,
+      "dns": 194,
+      "tcp": 32,
+      "tls": 81,
+      "firstByte": 63,
+      "download": 35
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "FI",
+    "city": "Helsinki",
+    "asn": 24940,
+    "network": "Hetzner Online",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 188,
+      "dns": 55,
+      "tcp": 36,
+      "tls": 40,
+      "firstByte": 40,
+      "download": 17
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "FI",
+    "city": "Helsinki",
+    "asn": 215730,
+    "network": "H2NEXUS CLOUD SERVICES - FZCO",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 119,
+      "dns": 23,
+      "tcp": 1,
+      "tls": 50,
+      "firstByte": 28,
+      "download": 17
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "US",
+    "city": "Buffalo",
+    "asn": 36352,
+    "network": "HostPapa",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 864,
+      "dns": 430,
+      "tcp": 112,
+      "tls": 164,
+      "firstByte": 140,
+      "download": 18
+    },
+    "error": null
+  },
+  {
+    "measurement": "28S7whKYUuT17IJPR00021LkD",
+    "hostname": "sachkov.dev",
+    "country": "US",
+    "city": "Los Angeles",
+    "asn": 36352,
+    "network": "HostPapa",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 827,
+      "dns": 229,
+      "tcp": 168,
+      "tls": 216,
+      "firstByte": 194,
+      "download": 20
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "RU",
+    "city": "Moscow",
+    "asn": 9123,
+    "network": "Timeweb",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 146,
+      "dns": 2,
+      "tcp": 24,
+      "tls": 71,
+      "firstByte": 48,
+      "download": 1
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "RU",
+    "city": "Saint Petersburg",
+    "asn": 49505,
+    "network": "Selectel",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 86,
+      "dns": 28,
+      "tcp": 11,
+      "tls": 26,
+      "firstByte": 20,
+      "download": 1
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "DE",
+    "city": "Falkenstein",
+    "asn": 24940,
+    "network": "Hetzner Online",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 235,
+      "dns": 59,
+      "tcp": 51,
+      "tls": 61,
+      "firstByte": 63,
+      "download": 1
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "DE",
+    "city": "Nuremberg",
+    "asn": 197540,
+    "network": "netcup",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 302,
+      "dns": 60,
+      "tcp": 52,
+      "tls": 108,
+      "firstByte": 82,
+      "download": 0
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "FI",
+    "city": "Helsinki",
+    "asn": 24940,
+    "network": "Hetzner Online",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 155,
+      "dns": 62,
+      "tcp": 3,
+      "tls": 53,
+      "firstByte": 37,
+      "download": 0
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "FI",
+    "city": "Helsinki",
+    "asn": 57043,
+    "network": "HOSTKEY",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "185.125.101.90",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 194,
+      "dns": 57,
+      "tcp": 2,
+      "tls": 76,
+      "firstByte": 51,
+      "download": 8
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "US",
+    "city": "Buffalo",
+    "asn": 36352,
+    "network": "HostPapa",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 583,
+      "dns": 182,
+      "tcp": 126,
+      "tls": 141,
+      "firstByte": 131,
+      "download": 3
+    },
+    "error": null
+  },
+  {
+    "measurement": "2sCTHtNwrbHTiNMQw00021LkD",
+    "hostname": "auth.sachkov.dev",
+    "country": "US",
+    "city": "Los Angeles",
+    "asn": 36352,
+    "network": "HostPapa",
+    "status": "finished",
+    "http_status": 200,
+    "resolved_address": "201.24.126.23",
+    "tls_authorized": true,
+    "timings_ms": {
+      "total": 1026,
+      "dns": 228,
+      "tcp": 268,
+      "tls": 274,
+      "firstByte": 253,
+      "download": 3
+    },
+    "error": null
+  }
+]

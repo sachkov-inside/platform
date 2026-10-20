@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-20",
+  "purpose": "Resolve the currently reproduced VPN failure for the website and authorization; global Aeza trial, not GeoDNS",
+  "old_address": "201.24.126.23",
+  "new_address": "185.125.101.90",
+  "ttl_seconds": 600,
+  "records": [
+    {
+      "host": "sachkov.dev",
+      "timeweb_record_id": 94210727,
+      "provider_ui_saved_and_reloaded": true
+    },
+    {
+      "host": "auth.sachkov.dev",
+      "timeweb_record_id": 92175239,
+      "provider_ui_saved_and_reloaded": true
+    },
+    {
+      "host": "inside.sachkov.dev",
+      "timeweb_record_id": 91715517,
+      "provider_ui_saved_and_reloaded": true
+    },
+    {
+      "host": "www.sachkov.dev",
+      "timeweb_record_id": 94210777,
+      "provider_ui_saved_and_reloaded": true
+    }
+  ],
+  "unchanged": [
+    "NS delegation",
+    "MX/SPF/DKIM/DMARC",
+    "telegram.sachkov.dev",
+    "application and database",
+    "TLS certificates and OIDC client/issuer/callback settings",
+    "owner VPN settings"
+  ],
+  "before": {
+    "mac_curl_site": "TLS timeout 5s",
+    "mac_curl_auth_discovery": "TLS timeout 5s",
+    "mac_explicit_aeza_target_with_site_sni": "timeout 5s; no matching new inbound SYN at Aeza during sampled capture",
+    "mac_https_aeza_ip": "valid TLS, baseline HTTP404",
+    "origin_to_aeza_site_and_auth": "HTTP200",
+    "browser_normal_vpn_sign_in": "redirected to auth.sachkov.dev then Chrome network error; full query/state intentionally excluded"
+  },
+  "provider_access": "isolated Playwright context using existing Timeweb cookies and temporary SSH SOCKS through origin; original browser and VPN proxy settings untouched",
+  "status": "All four A records published; all four authoritative NS verified over IPv4 and IPv6 including targeted successful recheck of one NS4 timeout; owner confirmed full login on unchanged VPN",
+  "limitations": [
+    "No guarantee for every VPN",
+    "No payment or live token-bearing /sub/ test",
+    "No GeoDNS or automatic failover yet",
+    "No new external whole-chain alerting configured"
+  ],
+  "zone_check": "Exactly four A changes; all other 11 user records preserved",
+  "dns_publication": "During publication UDP/TCP, IPv4/IPv6 and recursive caches could differ; use norecurse authoritative probes plus DoH. Do not infer interception merely from stale answers.",
+  "authoritative_check": "dns-authoritative-final-2026-10-20.json:31/32 initial successful answers plus successful targeted recheck; transitional older checks preserved",
+  "observed_normal_vpn": {
+    "auth_discovery_first_200": "2026-10-20 around05:53 UTC; HTTP200 in0.397s",
+    "site_200": "HTTP200 in1.583s around05:54 UTC",
+    "inside_redirect": "HTTP302 in0.636s",
+    "repeated_auth": "Transient failures preserved in transition evidence; final HTTP sample and final three browser journeys succeeded",
+    "zen_login": "main page and public materials load; auth navigation timed out in sampled attempt",
+    "browser_final": "Three site-to-login-form transitions succeeded in1317,887,664ms; owner independently confirmed full login",
+    "final_http": "12/12 expected statuses; site/auth/inside requested185.125.101.90, www still requested cached201.24.126.23"
+  }
+}

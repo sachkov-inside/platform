@@ -1,0 +1,69 @@
+{
+  "utc": "2026-10-20T05:58:03.258429+00:00",
+  "initial_passes_reused": 25,
+  "rechecked": [
+    {
+      "host": "sachkov.dev",
+      "server": "ns4.timeweb.org",
+      "family": "-4",
+      "exit": 9,
+      "answer": ";; communications error to 139.45.249.139#53: timed out\n;; no servers could be reached",
+      "recheck_exit": 0,
+      "recheck_answer": "185.125.101.90"
+    },
+    {
+      "host": "sachkov.dev",
+      "server": "ns4.timeweb.org",
+      "family": "-6",
+      "exit": 9,
+      "answer": ";; communications error to 2a00:65e0:6:5:232a::2#53: timed out\n;; no servers could be reached",
+      "recheck_exit": 0,
+      "recheck_answer": "185.125.101.90"
+    },
+    {
+      "host": "auth.sachkov.dev",
+      "server": "ns4.timeweb.org",
+      "family": "-4",
+      "exit": 9,
+      "answer": ";; communications error to 139.45.249.139#53: timed out\n;; no servers could be reached",
+      "recheck_exit": 0,
+      "recheck_answer": "185.125.101.90"
+    },
+    {
+      "host": "www.sachkov.dev",
+      "server": "ns3.timeweb.org",
+      "family": "-4",
+      "exit": 0,
+      "answer": "201.24.126.23",
+      "recheck_exit": 0,
+      "recheck_answer": "201.24.126.23"
+    },
+    {
+      "host": "www.sachkov.dev",
+      "server": "ns3.timeweb.org",
+      "family": "-6",
+      "exit": 0,
+      "answer": "201.24.126.23",
+      "recheck_exit": 0,
+      "recheck_answer": "201.24.126.23"
+    },
+    {
+      "host": "www.sachkov.dev",
+      "server": "ns4.timeweb.org",
+      "family": "-4",
+      "exit": 0,
+      "answer": "201.24.126.23",
+      "recheck_exit": 0,
+      "recheck_answer": "201.24.126.23"
+    },
+    {
+      "host": "www.sachkov.dev",
+      "server": "ns4.timeweb.org",
+      "family": "-6",
+      "exit": 0,
+      "answer": "201.24.126.23",
+      "recheck_exit": 0,
+      "recheck_answer": "201.24.126.23"
+    }
+  ]
+}
