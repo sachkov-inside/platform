@@ -1,4 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { createServer, type RequestListener, type Server } from "node:http";
+import { once } from "node:events";
+import { z } from "zod";
+import { technicalTelemetryFromEnvironment } from "../../src/infrastructure/observability/technical-telemetry-runtime.js";
+import { HttpCommunityEntitlementProvider } from "../../src/modules/telegram-membership/infrastructure/http/http-community-entitlement-provider.js";
+import {
+  assembleEmailExportCapture,
+  EMAIL_EXPORT_CAPTURE_LIMITS,
+} from "./setup/email-export-capture.js";
 
 import { Module } from "@nestjs/common";
 import { NestFactory, Reflector } from "@nestjs/core";
@@ -8,7 +17,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import schema from "../../../../docs/contracts/community-v2/schema.json" with { type: "json" };
 import { contractDigest } from "../../src/infrastructure/contracts/canonical-digest.js";
@@ -1930,3 +1939,597 @@ describe.each([1, 100, 1000, 1001])(
     });
   },
 );
+
+const communityWireSpan = z.object({
+  traceId: z.string().regex(/^[a-f0-9]{32}$/u),
+  spanId: z.string().regex(/^[a-f0-9]{16}$/u),
+  parentSpanId: z.string().optional(),
+  name: z.string(),
+  kind: z.number(),
+  attributes: z.array(
+    z.strictObject({
+      key: z.string(),
+      value: z.union([
+        z.strictObject({ stringValue: z.string() }),
+        z.strictObject({ intValue: z.union([z.number(), z.string()]) }),
+      ]),
+    }),
+  ),
+  events: z.array(z.unknown()).optional(),
+  links: z.array(z.unknown()).optional(),
+});
+const communityWireExport = z.object({
+  resourceSpans: z
+    .array(
+      z.object({
+        scopeSpans: z.array(z.object({ spans: z.array(communityWireSpan) })),
+      }),
+    )
+    .optional(),
+  resourceMetrics: z
+    .array(
+      z.object({
+        scopeMetrics: z.array(
+          z.object({
+            metrics: z.array(
+              z.object({
+                name: z.string(),
+                sum: z
+                  .object({
+                    dataPoints: z.array(
+                      z.object({
+                        asDouble: z.number(),
+                        attributes: z.array(
+                          z.strictObject({
+                            key: z.string(),
+                            value: z.strictObject({ stringValue: z.string() }),
+                          }),
+                        ),
+                      }),
+                    ),
+                  })
+                  .optional(),
+              }),
+            ),
+          }),
+        ),
+      }),
+    )
+    .optional(),
+});
+
+for (const mode of ["ON", "OFF", "503"] as const) {
+  test(`native community HTTP preserves same-operation retry and unapplied unknown status: ${mode}`, async (owner) => {
+    const cleanup: (() => unknown)[] = [];
+    owner.onTestFinished(async () => {
+      const failures: unknown[] = [];
+      for (const dispose of cleanup.reverse()) {
+        try {
+          await dispose();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length > 0)
+        throw new AggregateError(failures, "community fixture cleanup failed");
+    });
+    const database = await createMigratedTestDatabase();
+    cleanup.push(() => database.dispose());
+    let now = new Date(start);
+    const accounts = assembleAccounts({
+      prisma: database.prisma,
+      emailFingerprintKey: "private-community-fingerprint-key",
+    });
+    const actor = (
+      await bootstrapOwnerAccount(
+        database.prisma,
+        { issuer, subject: "private-community-owner" },
+        "platform:admin",
+      )
+    ).accountId;
+    const signedIn = await accounts.establishAccount({
+      identity: verifiedAccountSignIn({
+        issuer,
+        subject: "private-community-recipient",
+        verifiedEmail: "private-community@example.test",
+      }).identity,
+    });
+    if (!signedIn.ok) throw new Error("community Account fixture failed");
+    const accountId = signedIn.account.accountId;
+    const identityRef = "private-community-identity";
+    const linkRef = await linkTelegramAccount(database.prisma, {
+      accountId,
+      identityRef,
+      now,
+    });
+    const grants = assembleAccessGrants({
+      accounts,
+      prisma: database.prisma,
+      clock: () => now,
+    });
+    const preview = await grants.previewBatch(actor, {
+      operationId: randomUUID(),
+      rows: [
+        {
+          rowKey: "community",
+          accountId,
+          source: "manual",
+          sourceRef: randomUUID(),
+          terms: {
+            capabilities: ["community"],
+            reason: "Private community fixture",
+            startsAt: start,
+            validUntil: null,
+          },
+        },
+      ],
+    });
+    if (!preview.ok) throw new Error("community grant preview failed");
+    const granted = await grants.applyBatch(actor, {
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      expectedRevision: preview.revision,
+      confirmedRows: ["community"],
+    });
+    expect(granted.ok).toBe(true);
+    const originalRights = await grants.resolveCapabilities(accountId);
+    const originalLink =
+      await database.prisma.telegramAccountLinkState.findUnique({
+        where: { accountId },
+      });
+
+    async function listen(server: Server, afterClose?: () => Promise<void>) {
+      cleanup.push(async () => {
+        server.closeAllConnections();
+        if (server.listening)
+          await new Promise<void>((resolve, reject) =>
+            server.close((error) =>
+              error === undefined ? resolve() : reject(error),
+            ),
+          );
+        await afterClose?.();
+      });
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const address = server.address();
+      if (address === null || typeof address === "string")
+        throw new Error("community owned listener unavailable");
+      return `http://127.0.0.1:${address.port}`;
+    }
+    // Reuse the reviewed exact-byte multiset. Its unchanged four-assembly limit also bounds this single-SDK fixture.
+    const capture = assembleEmailExportCapture();
+    const requests = { traces: 0, metrics: 0, other: 0 };
+    const responses = { traces: 0, metrics: 0, other: 0 };
+    const collector = createServer(
+      {
+        highWaterMark: EMAIL_EXPORT_CAPTURE_LIMITS.highWaterMark,
+        maxHeaderSize: EMAIL_EXPORT_CAPTURE_LIMITS.headerBytes,
+      },
+      (request, response) => {
+        const signal =
+          request.url === "/v1/traces"
+            ? "traces"
+            : request.url === "/v1/metrics"
+              ? "metrics"
+              : "other";
+        requests[signal]++;
+        response.on("finish", () => {
+          responses[signal]++;
+          if (response.statusCode !== (mode === "503" ? 503 : 200))
+            capture.transportFailure();
+        });
+        response.on("error", () => capture.transportFailure());
+        response.on("close", () => {
+          if (!response.writableFinished) capture.transportFailure();
+        });
+        const body = capture.begin(request.url ?? "");
+        if (body === undefined) {
+          request.destroy();
+          return;
+        }
+        request.on("data", (chunk: Buffer) => {
+          if (!body.write(chunk)) request.destroy();
+        });
+        request.on("aborted", () => body.abort());
+        request.on("error", () => {
+          body.abort();
+          capture.transportFailure();
+        });
+        request.on("close", () => {
+          if (!request.complete) body.abort();
+        });
+        request.on("end", () => {
+          body.complete();
+          response
+            .writeHead(mode === "503" ? 503 : 200, {
+              "content-type": "application/json",
+              "Retry-After": "Thu, 01 Jan 1970 00:00:00 GMT",
+            })
+            .end("{}");
+        });
+      },
+    );
+    collector.maxConnections = EMAIL_EXPORT_CAPTURE_LIMITS.sockets;
+    collector.on("drop", () => capture.connectionSaturation());
+    collector.on("clientError", (_error, socket) => {
+      capture.transportFailure();
+      socket.destroy();
+    });
+    const exportEndpoint = await listen(collector);
+    const bodyRecords: string[] = [];
+    const handlerFailures: unknown[] = [];
+    const pendingHandlers = new Set<Promise<void>>();
+    let originalCommand: CommunitySetCommand | undefined;
+    let sends = 0;
+    let nativeRequests = 0;
+    const providerHandler: RequestListener = (request, response) => {
+      nativeRequests++;
+      let body = "";
+      request.setEncoding("utf8");
+      request.on("data", (chunk: string) => {
+        body += chunk;
+        if (Buffer.byteLength(body) > 16 * 1024) request.destroy();
+      });
+      request.on("end", () => {
+        const handling = (async () => {
+          expect(request.method).toBe("POST");
+          expect(request.headers.authorization).toBe(
+            "Bearer private-community-secret",
+          );
+          expect(request.headers["content-type"]).toBe("application/json");
+          for (const header of ["traceparent", "tracestate", "baggage"])
+            expect(request.headers[header]).toBeUndefined();
+          bodyRecords.push(body);
+          if (bodyRecords.length <= 2) {
+            const command = communitySetSchema.parse(JSON.parse(body));
+            const committed =
+              await database.prisma.telegramCommunityOperation.findUnique({
+                where: { operationId: command.operationId },
+              });
+            // The command is committed before I/O. Production has no bank-style sent marker here.
+            expect(committed).toMatchObject({
+              delivery: "pending",
+              attempts: sends,
+              command,
+            });
+            sends++;
+            if (originalCommand === undefined) {
+              originalCommand = command;
+              response.destroy();
+              return;
+            }
+            expect(command).toEqual(originalCommand);
+            expect(body).toBe(bodyRecords[0]);
+          } else {
+            expect(originalCommand).toBeDefined();
+            expect(JSON.parse(body)).toEqual({
+              contractVersion: "inside.community-entitlement.v2",
+              operation: "entitlement.status",
+              operationId: originalCommand?.operationId,
+            });
+          }
+          if (originalCommand === undefined)
+            throw new Error("missing durable community command");
+          const status = bodyRecords.length === 2 ? "accepted" : "unknown";
+          const result = communityResultSchema.parse({
+            contractVersion: originalCommand.contractVersion,
+            operation: "entitlement.result",
+            operationId: originalCommand.operationId,
+            binding: originalCommand.binding,
+            entitlementRevision: originalCommand.entitlementRevision,
+            access: originalCommand.access,
+            status,
+            observedMembership: "unknown",
+            admissionRestriction: "none",
+            updatedAt: now.toISOString(),
+          });
+          response
+            .writeHead(200, { "content-type": "application/json" })
+            .end(JSON.stringify(result));
+        })();
+        pendingHandlers.add(handling);
+        void handling
+          .catch((error: unknown) => {
+            handlerFailures.push(error);
+            response.destroy();
+          })
+          .finally(() => {
+            pendingHandlers.delete(handling);
+          });
+      });
+    };
+    const endpoint = await listen(createServer(providerHandler), async () => {
+      await Promise.allSettled([...pendingHandlers]);
+    });
+    for (const key of Object.keys(process.env))
+      if (key.startsWith("OTEL_EXPORTER_OTLP")) vi.stubEnv(key, undefined);
+    cleanup.push(() => {
+      vi.unstubAllEnvs();
+    });
+    const warning = vi
+      .spyOn(console, "warn")
+      .mockImplementation(() => undefined);
+    cleanup.push(() => {
+      warning.mockRestore();
+    });
+    const telemetry = technicalTelemetryFromEnvironment({
+      environment: {
+        INSIDE_OTEL_ENABLED: mode === "OFF" ? "false" : "true",
+        INSIDE_OTEL_ENDPOINT: exportEndpoint,
+      },
+      service: "platform-api",
+      mode: "test",
+      identity: { release: "proof", sourceSha: "a".repeat(40) },
+    });
+    let stopped = false;
+    cleanup.push(async () => {
+      if (!stopped) await telemetry.shutdown();
+    });
+    const app = new CommunityEntitlements({
+      accounts,
+      grants,
+      links: new TelegramAccountLinks(database.prisma),
+      prisma: database.prisma,
+      clock: () => now,
+      botStartUrl: "https://t.me/inside_test_bot",
+      provider: new HttpCommunityEntitlementProvider(
+        endpoint,
+        "private-community-secret",
+      ),
+    });
+    const rows = () =>
+      database.prisma.telegramCommunityOperation.findMany({
+        where: { accountId },
+      });
+    expect(await app.project(accountId)).toMatchObject({
+      ok: true,
+      entitlementRevision: 1,
+    });
+    expect(await rows()).toMatchObject([{ delivery: "pending", attempts: 0 }]);
+    expect(await telemetry.runJob(() => app.sweep())).toMatchObject({
+      sent: 1,
+      accepted: 0,
+    });
+    expect(handlerFailures).toEqual([]);
+    expect(bodyRecords).toHaveLength(1);
+    const [lost] = await rows();
+    expect(lost).toMatchObject({
+      delivery: "pending",
+      attempts: 1,
+      errorCode: "no_answer",
+      nextAttemptAt: new Date("2030-01-01T00:00:01.000Z"),
+      command: originalCommand,
+    });
+    now = new Date("2030-01-01T00:01:00.000Z");
+    expect(await telemetry.runJob(() => app.sweep())).toMatchObject({
+      sent: 1,
+      accepted: 1,
+      polled: 0,
+    });
+    expect(handlerFailures).toEqual([]);
+    expect(bodyRecords).toHaveLength(2);
+    expect(bodyRecords[1]).toBe(bodyRecords[0]);
+    expect(await rows()).toMatchObject([
+      {
+        operationId: lost?.operationId,
+        delivery: "accepted",
+        attempts: 2,
+        resultStatus: "accepted",
+        observedMembership: "unknown",
+        command: originalCommand,
+      },
+    ]);
+    for (const instant of [
+      "2030-01-01T00:02:01.000Z",
+      "2030-01-01T00:03:02.000Z",
+    ]) {
+      now = new Date(instant);
+      const report = await telemetry.runJob(() => app.sweep());
+      expect(report).toMatchObject({ sent: 0, accepted: 0, polled: 1 });
+      expect(report.backlog.unapplied).toBeGreaterThan(0);
+      expect(await rows()).toMatchObject([
+        {
+          operationId: lost?.operationId,
+          delivery: "accepted",
+          attempts: 2,
+          resultStatus: "unknown",
+          observedMembership: "unknown",
+          polledAt: now,
+          command: originalCommand,
+        },
+      ]);
+    }
+    expect(await app.project(accountId)).toMatchObject({ issued: [] });
+    expect(handlerFailures).toEqual([]);
+    expect(await rows()).toHaveLength(1);
+    expect(bodyRecords).toHaveLength(4);
+    expect(sends).toBe(2);
+    expect(
+      bodyRecords.slice(2).map((body) => JSON.parse(body) as unknown),
+    ).toEqual(
+      Array<unknown>(2).fill({
+        contractVersion: "inside.community-entitlement.v2",
+        operation: "entitlement.status",
+        operationId: lost?.operationId,
+      }),
+    );
+    expect(await app.readDelivery(actor, accountId)).toMatchObject({
+      ok: true,
+      value: {
+        operations: [
+          {
+            delivery: "accepted",
+            appliedState: "unknown",
+            observedMembership: "unknown",
+          },
+        ],
+      },
+    });
+    expect(await grants.resolveCapabilities(accountId)).toEqual(originalRights);
+    expect(
+      await database.prisma.telegramAccountLinkState.findUnique({
+        where: { accountId },
+      }),
+    ).toEqual(originalLink);
+    await telemetry.flush();
+    await telemetry.shutdown();
+    stopped = true;
+    expect(nativeRequests).toBe(4);
+    capture.assertComplete(requests);
+    expect(responses).toEqual(requests);
+    const payloads = capture.payloads();
+    if (mode === "OFF") {
+      expect(payloads).toEqual([]);
+      expect(requests).toEqual({ traces: 0, metrics: 0, other: 0 });
+      return;
+    }
+    const parsed = payloads.map((body) =>
+      communityWireExport.parse(JSON.parse(body)),
+    );
+    const unique = new Map<string, z.infer<typeof communityWireSpan>>();
+    for (const span of parsed.flatMap(
+      (body) =>
+        body.resourceSpans?.flatMap((resource) =>
+          resource.scopeSpans.flatMap((scope) => scope.spans),
+        ) ?? [],
+    )) {
+      const identity = `${span.traceId}/${span.spanId}`;
+      if (unique.has(identity)) expect(span).toEqual(unique.get(identity));
+      unique.set(identity, span);
+      expect([
+        "telegram community.set",
+        "telegram community.status",
+        "postgresql query",
+        "postgresql acquire",
+      ]).toContain(span.name);
+      expect(span.kind).toBe(3);
+      expect(span.events ?? []).toEqual([]);
+      expect(span.links ?? []).toEqual([]);
+      const attrs = Object.fromEntries(
+        span.attributes.map((a) => [
+          a.key,
+          "stringValue" in a.value
+            ? a.value.stringValue
+            : Number(a.value.intValue),
+        ]),
+      );
+      expect(Object.keys(attrs)).toHaveLength(span.attributes.length);
+      if (span.name.startsWith("telegram ")) {
+        expect([undefined, ""]).toContain(span.parentSpanId); // Real runJob scope, no fabricated SERVER parent.
+        expect(Object.keys(attrs).sort()).toEqual(
+          span.name === "telegram community.set" &&
+            attrs["dependency.outcome"] === "failed"
+            ? [
+                "dependency.name",
+                "dependency.operation",
+                "dependency.outcome",
+                "http.request.method",
+              ]
+            : [
+                "dependency.name",
+                "dependency.operation",
+                "dependency.outcome",
+                "http.request.method",
+                "http.response.status_code",
+              ],
+        );
+        expect(attrs["dependency.name"]).toBe("telegram");
+        expect(attrs["dependency.operation"]).toBe(
+          span.name.slice("telegram ".length),
+        );
+        expect(attrs["http.request.method"]).toBe("POST");
+        if (attrs["http.response.status_code"] !== undefined)
+          expect(attrs["http.response.status_code"]).toBe(200);
+      } else {
+        expect(Object.keys(attrs).sort()).toEqual([
+          "dependency.name",
+          "dependency.operation",
+          "dependency.outcome",
+        ]);
+        expect(attrs["dependency.name"]).toBe("postgresql");
+        expect(["query", "acquire"]).toContain(attrs["dependency.operation"]);
+      }
+      expect(["completed", "failed"]).toContain(attrs["dependency.outcome"]);
+    }
+    const community = [...unique.values()].filter((span) =>
+      span.name.startsWith("telegram "),
+    );
+    expect(community).toHaveLength(4);
+    expect(
+      community
+        .map((span) => {
+          const outcome = span.attributes.find(
+            (a) => a.key === "dependency.outcome",
+          )?.value;
+          return `${span.name}:${outcome !== undefined && "stringValue" in outcome ? outcome.stringValue : "missing"}`;
+        })
+        .sort(),
+    ).toEqual([
+      "telegram community.set:completed",
+      "telegram community.set:failed",
+      "telegram community.status:completed",
+      "telegram community.status:completed",
+    ]);
+    const cumulative = new Map<string, number>();
+    for (const point of parsed
+      .flatMap(
+        (body) =>
+          body.resourceMetrics?.flatMap((resource) =>
+            resource.scopeMetrics.flatMap((scope) => scope.metrics),
+          ) ?? [],
+      )
+      .filter((metric) => metric.name === "inside.dependency.operations")
+      .flatMap((metric) => metric.sum?.dataPoints ?? [])) {
+      const attrs = Object.fromEntries(
+        point.attributes.map((a) => [a.key, a.value.stringValue]),
+      );
+      expect(Object.keys(attrs).sort()).toEqual([
+        "dependency",
+        "operation",
+        "outcome",
+      ]);
+      expect(["telegram", "postgresql"]).toContain(attrs["dependency"]);
+      expect(["completed", "failed"]).toContain(attrs["outcome"]);
+      if (attrs["dependency"] === "telegram") {
+        expect(["community.set", "community.status"]).toContain(
+          attrs["operation"],
+        );
+        const key = `${attrs["operation"]}:${attrs["outcome"]}`;
+        cumulative.set(key, Math.max(cumulative.get(key) ?? 0, point.asDouble));
+      } else expect(["query", "acquire"]).toContain(attrs["operation"]);
+    }
+    expect(Object.fromEntries(cumulative)).toEqual({
+      "community.set:failed": 1,
+      "community.set:completed": 1,
+      "community.status:completed": 2,
+    });
+    const wire = payloads.join("\n");
+    for (const value of [
+      accountId,
+      linkRef,
+      identityRef,
+      lost?.operationId,
+      originalCommand?.correlationRef,
+      endpoint,
+      "private-community",
+      "entitlementRevision",
+      "observedMembership",
+      "authorization",
+      "baggage",
+      "tracestate",
+    ])
+      if (value !== undefined) expect(wire).not.toContain(value);
+    if (mode === "503") {
+      expect(capture.entries().some((entry) => entry.multiplicity > 1)).toBe(
+        true,
+      );
+      expect(telemetry.diagnostics().failedTraceExports).toBeGreaterThan(0);
+      expect(telemetry.diagnostics().failedMetricExports).toBeGreaterThan(0);
+    } else
+      expect(telemetry.diagnostics()).toEqual({
+        droppedSpans: 0,
+        failedTraceExports: 0,
+        failedMetricExports: 0,
+      });
+  });
+}

@@ -13,12 +13,12 @@ RELEASES = {'json':'a'*40,'protobuf':'b'*40}
 CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUTCOMES)
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
     ('postgresql',op,out) for op in ('query','acquire','material-slug-lock') for out in OUTCOMES) + tuple(
-    ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES)
+    ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES) + tuple(('telegram',op,out) for op in ('community.set','community.status') for out in OUTCOMES)
 POOL = {'available':1,'total':2,'idle':1,'waiting':3,'registry_overflow':0}
 METRICS = ('inside.dependency.operations','inside.dependency.duration')
 
 
-def _json(now_ns, *, communications=False):
+def _json(now_ns, batch=None, *, communications=False):
     def attr(key, value):
         return {'key':key,'value':{'stringValue':value}}
     resource = {'attributes':[attr('service.name','platform-api'),
@@ -43,6 +43,8 @@ def _json(now_ns, *, communications=False):
             return result
         unsafe = [attr(key,SENTINEL) for key in ('url.full','provider.request_id','http.request.body',
             'http.response.body','authorization','user.email','exception.message','exception.stacktrace','db.statement','db.query.text','db.query.parameters','db.connection_string','db.response.status_code','TerminalKey','Token','PaymentId','OrderId','RebillId','Amount')]
+        if not communications:
+            unsafe += [attr(key,SENTINEL) for key in ('operationId','accountRef','telegramIdentityRef','linkRef','correlationRef','entitlementRevision','access','groupUrl')]
         if communications:
             unsafe += [attr(key,SENTINEL) for key in ('operationId','actor.accountRef','templateId','botIdentity','returnCorrelation','telegramIdentityRef')]
         spans.append({'traceId':ids['json'],'spanId':f'{index+1:016x}','parentSpanId':'b'*16,
@@ -69,6 +71,14 @@ def _json(now_ns, *, communications=False):
             {'timeUnixNano':str(now_ns),'asInt':str(value),'attributes':unsafe}]}})
     if communications:
         metrics = metrics[:2]
+    if batch is not None:
+        # Two fixed disjoint halves preserve every challenge without raising wire budgets.
+        selected = slice(0,18) if batch == 0 else slice(18,None)
+        spans = spans[selected]
+        metrics[0]['sum']['dataPoints'] = metrics[0]['sum']['dataPoints'][selected]
+        metrics[1]['histogram']['dataPoints'] = metrics[1]['histogram']['dataPoints'][selected]
+        if batch == 1:
+            metrics = metrics[:2]
     return {'traces':{'resourceSpans':[{'resource':resource,'scopeSpans':[{
                 'scope':{'name':SENTINEL,'version':SENTINEL,'attributes':[attr('private',SENTINEL)]},'spans':spans}]}]},
             'metrics':{'resourceMetrics':[{'resource':resource,'scopeMetrics':[{
@@ -102,9 +112,9 @@ def _attribute(attribute):
     return _text(1,key)+_field(2,encoded)
 
 
-def _protobuf(now_ns, *, communications=False):
+def _protobuf(now_ns, batch=None, *, communications=False):
     """Literal proto v1.5 field encoding of this fixed corpus; no arbitrary serialization API."""
-    body = _json(now_ns, communications=communications)
+    body = _json(now_ns, batch, communications=communications)
     ids = COMMUNICATIONS_TRACE_IDS if communications else TRACE_IDS
     resource = body['traces']['resourceSpans'][0]['resource']
     resource['attributes'][2]['value']['stringValue']=RELEASES['protobuf']
@@ -147,6 +157,16 @@ def payloads(transport,now_ns):
 
 def communications_payloads(transport,now_ns):
     return {'json':_json,'protobuf':_protobuf}[transport](now_ns,communications=True)
+
+
+def payload_batches(transport,now_ns):
+    """Exactly two fixed, disjoint ingest batches; no challenge field is dropped."""
+    batches = tuple({'json':_json,'protobuf':_protobuf}[transport](now_ns,batch) for batch in (0,1))
+    for batch in batches:
+        for body in batch.values():
+            if (isinstance(body,bytes) and len(body)>=65536) or (isinstance(body,dict) and len(json.dumps(body).encode())>1_048_576):
+                raise RuntimeError('fixed dependency batch exceeds original wire budget')
+    return batches
 
 
 def _unique(pairs):
@@ -262,6 +282,6 @@ def stored_metrics(response):
             seen.add(key)
         if seen!=expected or pool_seen!={(release,name) for release in RELEASES.values() for name in POOL}:
             return None
-        return {'stored_series':320,'metric_labelsets':62,'pool_series':10,'privacy':'passed'}
+        return {'stored_series':360,'metric_labelsets':70,'pool_series':10,'privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency metric contract failed; raw response withheld') from None
