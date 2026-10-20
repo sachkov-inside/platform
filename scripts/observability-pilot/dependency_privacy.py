@@ -11,7 +11,7 @@ RELEASES = {'json':'a'*40,'protobuf':'b'*40}
 CASES = tuple((operation,outcome) for operation in OPERATIONS for outcome in OUTCOMES)
 REGISTERED = tuple(('kinescope',op,out) for op,out in CASES) + tuple(
     ('postgresql',op,out) for op in ('query','acquire','material-slug-lock') for out in OUTCOMES) + tuple(
-    ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES)
+    ('tbank',op,out) for op in ('Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState') for out in OUTCOMES) + tuple(('logto','jwks',out) for out in OUTCOMES)
 POOL = {'available':1,'total':2,'idle':1,'waiting':3,'registry_overflow':0}
 METRICS = ('inside.dependency.operations','inside.dependency.duration')
 
@@ -42,8 +42,8 @@ def _json(now_ns):
             'name':SENTINEL,'kind':1 if operation=='material-slug-lock' else 3,'startTimeUnixNano':str(now_ns),'endTimeUnixNano':str(now_ns+1_000_000),
             'traceState':'private='+SENTINEL,
             'attributes':dimensions(('dependency.name','dependency.operation','dependency.outcome'))+
-                [attr('http.request.method', 'POST' if dependency=='tbank' else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,SENTINEL)),
-                 {'key':'http.response.status_code','value':{'intValue':'200' if index < 6 else '999'}}]+unsafe,
+                [attr('http.request.method', 'GET' if dependency=='logto' else 'POST' if dependency=='tbank' else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,SENTINEL)),
+                 {'key':'http.response.status_code','value':{'intValue':'200' if index < 6 or dependency=='logto' else '999'}}]+unsafe,
             'events':[{'timeUnixNano':str(now_ns),'name':SENTINEL,'attributes':unsafe}],
             'status':{'code':0 if known and outcome=='completed' else 2,'message':SENTINEL}})
         points.append({'timeUnixNano':str(now_ns),
@@ -161,11 +161,11 @@ def stored_traces(raw,transport):
             raise ValueError('lost identities')
         for index,(dependency,operation,outcome) in enumerate((*REGISTERED,('_OTHER','_OTHER','_OTHER'),('_OTHER','_OTHER','_OTHER'),(None,None,None))):
             row = by_id[f'{index+1:016x}']
-            attributes = {'span_attr:http.request.method':'POST' if dependency=='tbank' else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,'_OTHER')}
+            attributes = {'span_attr:http.request.method':'GET' if dependency=='logto' else 'POST' if dependency=='tbank' else {'delete':'DELETE','find':'GET','initUpload':'POST'}.get(operation,'_OTHER')}
             if index < len(REGISTERED)+2:
                 attributes.update({'span_attr:dependency.name':dependency,
                     'span_attr:dependency.operation':operation,'span_attr:dependency.outcome':outcome})
-            if index < 6:
+            if index < 6 or dependency=='logto':
                 attributes['span_attr:http.response.status_code']='200'
             expected = {'trace_id':TRACE_IDS[transport],'parent_span_id':'b'*16,
                 'resource_attr:service.name':'platform-api','resource_attr:deployment.environment.name':'isolated-pilot',
@@ -181,7 +181,7 @@ def stored_traces(raw,transport):
                     any(key.startswith(('scope_attr:','event:','link:')) for key in row) or
                     any(row.get(key,'')!='' for key in ('status_message','trace_state','scope_version'))):
                 raise ValueError('extra resource/scope/error field')
-        return {'transport':transport,'stored_spans':29,'registered_completions':26,
+        return {'transport':transport,'stored_spans':31,'registered_completions':28,
             'causality':'passed','fallback':'passed','privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency full-storage contract failed; raw response withheld') from None
@@ -244,6 +244,6 @@ def stored_metrics(response):
             seen.add(key)
         if seen!=expected or pool_seen!={(release,name) for release in RELEASES.values() for name in POOL}:
             return None
-        return {'stored_series':280,'metric_labelsets':54,'pool_series':10,'privacy':'passed'}
+        return {'stored_series':300,'metric_labelsets':58,'pool_series':10,'privacy':'passed'}
     except (ValueError,KeyError,TypeError):
         raise RuntimeError('dependency metric contract failed; raw response withheld') from None

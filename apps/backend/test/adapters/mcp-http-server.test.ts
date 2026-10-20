@@ -1,3 +1,5 @@
+import { SpanKind } from "@opentelemetry/api";
+import { startTestIdentityIssuer } from "../integration/setup/test-identity-issuer.js";
 import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
 import {
   InMemoryMetricExporter,
@@ -490,4 +492,83 @@ describe("MCP technical HTTP telemetry", () => {
       errors.mockRestore();
     }
   });
+});
+
+test("genuine MCP HTTP authentication parents one cold JWKS fetch and reuses cached keys", async (owner) => {
+  let jwksRequests = 0;
+  const identity = await startTestIdentityIssuer({
+    issuer,
+    audience,
+    onJwksRequest: () => {
+      jwksRequests++;
+    },
+  });
+  owner.onTestFinished(() => identity.close());
+  const spans = new InMemorySpanExporter();
+  const technicalTelemetry = createTechnicalTelemetry({
+    enabled: true,
+    service: "platform-mcp",
+    environment: "test",
+    release: "proof",
+    sampleRatio: 1,
+    exporters: {
+      spans,
+      metrics: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
+    },
+  });
+  owner.onTestFinished(() => technicalTelemetry.shutdown());
+  const server = createMcpHttpServer({
+    ...refusingMcpToolDependencies(),
+    accounts: fakeAccounts(),
+    learning: refusingLearnerMcpDependencies(),
+    config: { host: "127.0.0.1", port: 0, serverUrl: "http://127.0.0.1:0/mcp" },
+    identityIssuer: issuer,
+    readiness: fakeReadiness(),
+    tokenVerifier: createLogtoAccessTokenVerifier({
+      issuer,
+      audience,
+      jwksUrl: identity.jwksUrl,
+    }),
+    technicalTelemetry,
+  });
+  owner.onTestFinished(() => server.close());
+  const endpoint = await server.listen();
+  const client = new Client({ name: "jwks-owned-mcp", version: "1.0.0" });
+  owner.onTestFinished(() => client.close());
+  const token = await identity.sign("owner-001");
+  await client.connect(
+    new StreamableHTTPClientTransport(endpoint, {
+      authProvider: { token: () => Promise.resolve(token) },
+    }),
+  );
+  expect(
+    (await client.listTools()).tools.map((tool) => tool.name).sort(),
+  ).toEqual(readCommittedToolSurface());
+  await technicalTelemetry.flush();
+  expect(jwksRequests).toBe(1);
+  const clients = spans
+    .getFinishedSpans()
+    .filter((span) => span.kind === SpanKind.CLIENT);
+  expect(clients.map((span) => span.name)).toEqual(["logto jwks"]);
+  const jwks = clients[0];
+  const parent = spans
+    .getFinishedSpans()
+    .find(
+      (span) =>
+        span.kind === SpanKind.SERVER &&
+        span.spanContext().traceId === jwks?.spanContext().traceId &&
+        span.spanContext().spanId === jwks.parentSpanContext?.spanId,
+    );
+  expect(parent?.attributes["http.route"]).toBe("/mcp");
+  expect(parent?.attributes["http.request.method"]).toBe("POST");
+  expect(
+    JSON.stringify(
+      clients.map((span) => ({
+        attributes: span.attributes,
+        events: span.events,
+        status: span.status,
+      })),
+    ),
+  ).not.toContain(token);
+  expect(technicalTelemetry.correlation()).toEqual({});
 });

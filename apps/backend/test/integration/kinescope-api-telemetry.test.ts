@@ -101,9 +101,13 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
   test(`production video authoring API preserves committed effects and real Kinescope telemetry with ${mode}`, async (owner) => {
     const database = await createMigratedTestDatabase();
     owner.onTestFinished(() => database.dispose());
+    let jwksRequests = 0;
     const identity = await startTestIdentityIssuer({
       issuer: "https://kinescope-identity.example.test/oidc",
       audience: "https://api.example.test",
+      onJwksRequest: () => {
+        jwksRequests++;
+      },
     });
     owner.onTestFinished(() => identity.close());
     const actor = await bootstrapOwnerAccount(database.prisma, {
@@ -347,6 +351,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       uploadEndpoint,
     });
     expect(providerRequests).toHaveLength(1);
+    expect(jwksRequests).toBe(1);
     const replay = await uploadRequest(requestIds[1]);
     expect(replay.statusCode).toBe(201);
     expect(replay.json()).toEqual(first.json());
@@ -412,6 +417,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
           request.traceparent === undefined,
       ),
     ).toBe(true);
+    expect(jwksRequests).toBe(1);
     await application.close();
     application = undefined;
     expect(oversizedExport).toBe(false);
@@ -491,7 +497,11 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
     const sqlClients = allClients.filter(
       (span) => attribute(span, "dependency.name") === "postgresql",
     );
-    expect(allClients).toHaveLength(57);
+    expect(allClients).toHaveLength(58);
+    const jwksClients = allClients.filter(
+      (span) => attribute(span, "dependency.name") === "logto",
+    );
+    expect(jwksClients.map((span) => span.name)).toEqual(["logto jwks"]);
     expect(sqlClients).toHaveLength(54);
     expect(roots).toHaveLength(4);
     expect(clients).toHaveLength(3);
@@ -506,9 +516,9 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
           root.traceId === client.traceId &&
           root.spanId === client.parentSpanId,
       );
-    for (const client of clients) {
+    for (const client of [...clients, ...jwksClients]) {
       expect(rootFor(client)?.name).toBe(
-        client.name === "kinescope initUpload"
+        client.name === "kinescope initUpload" || client.name === "logto jwks"
           ? "POST /authoring/materials/:materialId/videos/uploads"
           : "POST /authoring/videos/:videoId/reconcile",
       );
@@ -528,6 +538,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       expect(rootFor(client)).toBeDefined();
       expect(client.events ?? []).toEqual([]);
     }
+    let jwksCount = 0;
     const sqlCounts = new Map<string, number>();
     const counts = new Map<string, number>();
     for (const metric of exported.flatMap(
@@ -558,6 +569,13 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
           sqlCounts.set(key, Math.max(sqlCounts.get(key) ?? 0, point.asDouble));
           continue;
         }
+        if (attributes["dependency"] === "logto") {
+          expect(attributes["operation"]).toBe("jwks");
+          expect(attributes["outcome"]).toBe("completed");
+          expect(point.asDouble).toBe(1);
+          jwksCount = point.asDouble;
+          continue;
+        }
         expect(attributes["dependency"]).toBe("kinescope");
         expect(point.asDouble).toBe(1);
         counts.set(
@@ -566,6 +584,7 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
         );
       }
     }
+    expect(jwksCount).toBe(1);
     expect([...counts.entries()].sort()).toEqual([
       ["find/completed", 1],
       ["find/failed", 1],
