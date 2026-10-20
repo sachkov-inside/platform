@@ -254,8 +254,9 @@ reports; the budget, the trusted `X-Forwarded-For` and the reasons live in
 capability, carry memory and process limits, and backend processes run with a read-only root and a
 private `/tmp`; the numbers are in [VPS resources](production-release.md#vps-resources).
 
-The experimental [second public entry](production-dual-entry.md) owns the Aeza TLS transport,
-validated PROXY metadata and its host-level recovery. HTTP forwarding headers remain untrusted.
+The [AMS production runbook](production-amsterdam.md) owns the current direct Caddy entry and
+recovery. The experimental [second public entry](production-dual-entry.md) is historical; its Aeza/RU
+forwarders and PROXY receivers have been retired. HTTP forwarding headers remain untrusted.
 
 The [primary-domain cutover](primary-domain-cutover.md) owns DNS/Logto/env changes and recovery.
 Maintenance covers apex, www and the old domain. MCP resources remain on `inside.sachkov.dev`.

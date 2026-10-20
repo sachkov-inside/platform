@@ -1029,7 +1029,7 @@
       "error": null
     }
   ],
-  "networkLimit": "37/38 initial and 5/6 KZ follow-up passed. Repeated auth TLS handshake timeout from G-Core Labs Almaty AS202422, TCP succeeds and DNS resolves new IP. Other KZ networks and tested RU probes pass. Root cause remains under investigation; no universal VPN availability claim. Mac Globalping API TLS timeout was a separate diagnostic transport failure.",
+  "networkLimit": "37/38 initial and 5/6 KZ follow-up passed. Repeated auth TLS handshake timeout from G-Core Labs Almaty AS202422, TCP succeeds and DNS resolves new IP. Other KZ networks and tested RU probes pass. Root cause remains under investigation; no universal VPN availability claim. Mac Globalping API TLS timeout was a separate diagnostic transport failure. Follow-up forced-IP auth and same-ASN sachkov.dev also timed out during TLS; this does not isolate a DNS or auth-only defect.",
   "knownApplicationLimit": {
     "issue": 1595,
     "preExistingCommunityBacklog": 1,
@@ -1038,5 +1038,138 @@
   "legalResearchIssue": 1599,
   "oldVpsDeleted": false,
   "fullHostRebootTested": false,
-  "watchdogOwnerAlertChannelsConfigured": false
+  "watchdogOwnerAlertChannelsConfigured": false,
+  "sameKazakhstanAsnComparisons": [
+    {
+      "id": "2Ad50iECJwZZPnJXv00021LnI",
+      "type": "http",
+      "status": "finished",
+      "createdAt": "2026-10-20T09:00:25.539Z",
+      "updatedAt": "2026-10-20T09:00:40.654Z",
+      "target": "147.45.166.174",
+      "probesCount": 1,
+      "locations": [
+        {
+          "country": "KZ",
+          "asn": 202422
+        }
+      ],
+      "measurementOptions": {
+        "request": {
+          "method": "GET",
+          "host": "auth.sachkov.dev",
+          "path": "/oidc/.well-known/openid-configuration"
+        }
+      },
+      "results": [
+        {
+          "probe": {
+            "continent": "AS",
+            "region": "Central Asia",
+            "country": "KZ",
+            "state": null,
+            "city": "Almaty",
+            "asn": 202422,
+            "longitude": 76.91,
+            "latitude": 43.25,
+            "network": "G-Core Labs",
+            "tags": [
+              "datacenter-network",
+              "u-jimaek"
+            ],
+            "resolvers": [
+              "8.8.8.8",
+              "1.1.1.1"
+            ]
+          },
+          "result": {
+            "status": "failed",
+            "failureSource": "target",
+            "resolvedAddress": "147.45.166.174",
+            "headers": {},
+            "rawHeaders": null,
+            "rawBody": null,
+            "rawOutput": "Request timed out during the TLS handshake.",
+            "truncated": false,
+            "statusCode": null,
+            "statusCodeName": null,
+            "timings": {
+              "total": 14999,
+              "dns": null,
+              "tcp": 100,
+              "tls": null,
+              "firstByte": null,
+              "download": null
+            },
+            "tls": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "29xgafTZV5L9mqkWU00021LnJ",
+      "type": "http",
+      "status": "finished",
+      "createdAt": "2026-10-20T09:01:38.422Z",
+      "updatedAt": "2026-10-20T09:01:53.533Z",
+      "target": "sachkov.dev",
+      "probesCount": 1,
+      "locations": [
+        {
+          "country": "KZ",
+          "asn": 202422
+        }
+      ],
+      "measurementOptions": {
+        "request": {
+          "method": "GET",
+          "host": "sachkov.dev"
+        }
+      },
+      "results": [
+        {
+          "probe": {
+            "continent": "AS",
+            "region": "Central Asia",
+            "country": "KZ",
+            "state": null,
+            "city": "Almaty",
+            "asn": 202422,
+            "longitude": 76.91,
+            "latitude": 43.25,
+            "network": "G-Core Labs",
+            "tags": [
+              "datacenter-network",
+              "u-jimaek"
+            ],
+            "resolvers": [
+              "8.8.8.8",
+              "1.1.1.1"
+            ]
+          },
+          "result": {
+            "status": "failed",
+            "failureSource": "target",
+            "resolvedAddress": "147.45.166.174",
+            "headers": {},
+            "rawHeaders": null,
+            "rawBody": null,
+            "rawOutput": "Request timed out during the TLS handshake.",
+            "truncated": false,
+            "statusCode": null,
+            "statusCodeName": null,
+            "timings": {
+              "total": 15000,
+              "dns": 160,
+              "tcp": 91,
+              "tls": null,
+              "firstByte": null,
+              "download": null
+            },
+            "tls": null
+          }
+        }
+      ]
+    }
+  ]
 }
