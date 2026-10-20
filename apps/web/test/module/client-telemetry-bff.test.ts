@@ -78,14 +78,15 @@ it("пишет каждую метрику загрузки отдельной �
     expect.objectContaining({
       event: "web-vital",
       level: "info",
-      route: "/products/ai",
-      ...lcp,
+      name: "LCP",
+      value: 1_234.5,
+      rating: "good",
     }),
     expect.objectContaining({
       event: "web-vital",
       level: "info",
-      route: "/products/ai",
-      ...cls,
+      name: "CLS",
+      value: 0.02,
     }),
   ]);
 });
@@ -109,7 +110,10 @@ it("пишет ошибку отрисовки с кодом обращения 
     expect.objectContaining({
       event: "client-render-error",
       level: "error",
-      ...renderError,
+      boundary: "public",
+      digest: "2195732781",
+      message: "[client-error-text-omitted]",
+      name: "Error",
     }),
   ]);
 });
@@ -325,7 +329,10 @@ it("does not log the bearer id of a private payment link", async () => {
   );
   expect(response.status).toBe(204);
   expect(loggedLines(vi.mocked(console.info))).toContainEqual(
-    expect.objectContaining({ route: "/payment/links/[id]" }),
+    expect.objectContaining({ event: "web-vital", name: "LCP" }),
+  );
+  expect(JSON.stringify(loggedLines(vi.mocked(console.info)))).not.toContain(
+    '"route"',
   );
   expect(JSON.stringify(loggedLines(vi.mocked(console.info)))).not.toContain(
     "69000000-0000-4000-8000-000000001450",

@@ -9,6 +9,7 @@ import {
 } from "@/shared/auth/index.server";
 import { readWebRuntimeMode } from "@/shared/config/index.server";
 import { writeStructuredLog } from "@/shared/lib/structured-log.server";
+import { diagnosticError } from "@/shared/lib/diagnostic-text.server";
 import {
   MAX_CLIENT_TELEMETRY_BYTES,
   renderErrorReportSchema,
@@ -34,8 +35,9 @@ export async function handleWebVitalsReport(
   if (refusal !== undefined) return refusal;
   for (const metric of report.value.metrics) {
     writeStructuredLog("info", "web-vital", {
-      route: report.value.route,
-      ...metric,
+      name: metric.name,
+      value: metric.value,
+      ...(metric.rating === undefined ? {} : { rating: metric.rating }),
     });
   }
   const mobile = telemetryMobile(request.headers);
@@ -60,15 +62,19 @@ export async function handleRenderErrorReport(
   if (!report.ok) return telemetryResponse(report.status);
   const refusal = refuseOverCeiling("render-errors", 1);
   if (refusal !== undefined) return refusal;
-  writeStructuredLog("error", "client-render-error", report.value);
+  const error = {
+    boundary: report.value.boundary,
+    ...diagnosticError(report.value, "client"),
+  };
+  writeStructuredLog("error", "client-render-error", error);
   const payload = {
     kind: "error",
     source: "client",
     route: report.value.route,
     mobile: telemetryMobile(request.headers),
-    digest: report.value.digest,
-    name: report.value.name,
-    message: report.value.message,
+    digest: error.digest,
+    name: error.name,
+    message: error.message,
   };
   after(() => persistTelemetry(payload));
   return telemetryResponse(204);

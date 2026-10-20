@@ -1,12 +1,28 @@
 import { summaryDaysSchema } from "../../features/read-summary/summary-input.js";
 import { type WebTelemetryPrisma } from "../../../../infrastructure/prisma/index.js";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  redactText,
+} from "../../../../infrastructure/observability/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { telemetryReportSchema } from "../../features/record-report/report.js";
 import { storeReport } from "../../features/record-report/store-report.js";
 import { cleanTelemetry } from "../../features/clean-telemetry/clean-telemetry.js";
 import { readSummary } from "../../features/read-summary/read-summary.js";
 import { normalizeTelemetryRoute } from "../../domain/route-templates.js";
+
+const errorNames = new Set([
+  "Error",
+  "TypeError",
+  "RangeError",
+  "ReferenceError",
+  "SyntaxError",
+  "URIError",
+  "EvalError",
+  "AggregateError",
+  "AbortError",
+  "TimeoutError",
+]);
 
 export class WebTelemetry {
   private readonly clock: () => Date;
@@ -24,7 +40,27 @@ export class WebTelemetry {
     const parsed = telemetryReportSchema.safeParse(input);
     if (!parsed.success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
-    const report = parsed.data;
+    const inputReport = parsed.data;
+    const report =
+      inputReport.kind === "error"
+        ? {
+            ...inputReport,
+            name: errorNames.has(inputReport.name) ? inputReport.name : "Error",
+            message:
+              inputReport.source === "client"
+                ? "[client-error-text-omitted]"
+                : /^(?:Prisma|DriverAdapter|SyntaxError$|ZodError$)/u.test(
+                      inputReport.name,
+                    )
+                  ? "[redacted-input-error]"
+                  : redactText(inputReport.message, 500),
+            digest:
+              inputReport.digest !== undefined &&
+              /^(?:\d{1,10}|[a-f\d]{32,64})$/iu.test(inputReport.digest)
+                ? inputReport.digest
+                : undefined,
+          }
+        : inputReport;
     const now = this.clock();
     const route = normalizeTelemetryRoute(report.route);
     const device = report.mobile ? "mobile" : "desktop";

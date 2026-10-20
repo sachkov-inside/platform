@@ -67,10 +67,8 @@ const AGGREGATE_LIMIT = 3;
 const inputEchoingType = /^(?:Prisma|DriverAdapter|SyntaxError$|ZodError$)/u;
 
 const secretPatterns: readonly (readonly [RegExp, string])[] = [
-  // Учётные данные в адресе подключения: postgres://user:password@host.
-  [/\b([a-z][a-z\d+.-]*:\/\/)[^\s/?#@]*@/giu, "$1[redacted]@"],
-  // Параметры адреса несут подписи, токены и персональные данные.
-  [/\b(https?:\/\/[^\s?#]*)[?#]\S*/giu, "$1?[redacted]"],
+  // Весь адрес может содержать контакт, путь пользователя или учётные данные.
+  [/\b[a-z][a-z\d+.-]*:\/\/[^\s"'<>]+/giu, "[redacted-url]"],
   [/\beyJ[\w-]*\.[\w-]*\.[\w-]*/gu, "[redacted-jwt]"],
   [/\b(bearer|basic)\s+[\w.~+/=-]+/giu, "$1 [redacted]"],
   [
@@ -82,14 +80,13 @@ const secretPatterns: readonly (readonly [RegExp, string])[] = [
   [/\+?\d(?:[\s()-]?\d){9,}/gu, "[redacted-number]"],
 ];
 
-export function redactText(text: string): string {
-  return secretPatterns
-    .reduce(
-      (redacted, [pattern, replacement]) =>
-        redacted.replace(pattern, replacement),
-      text,
-    )
-    .slice(0, MESSAGE_LIMIT);
+export function redactText(text: string, limit = MESSAGE_LIMIT): string {
+  const redacted = secretPatterns.reduce(
+    (redacted, [pattern, replacement]) =>
+      redacted.replace(pattern, replacement),
+    text,
+  );
+  return Array.from(redacted).slice(0, limit).join("");
 }
 
 const optional = <Schema extends z.ZodType>(schema: Schema) =>

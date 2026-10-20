@@ -89,3 +89,76 @@ it("keeps the log and success response when persistence fails", async () => {
     ),
   ).toBe(true);
 });
+
+it("redacts error text before both logging and forwarding without retaining metric identifiers", async () => {
+  const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetch);
+  const error = vi.spyOn(console, "error");
+  const info = vi.spyOn(console, "info");
+  const response = await handleRenderErrorReport(
+    new Request("https://inside.example.test/api/render-errors", {
+      method: "POST",
+      headers: { origin: "https://inside.example.test" },
+      body: JSON.stringify({
+        route: "/account",
+        boundary: "public",
+        digest: "42",
+        name: "Error",
+        message: "Failed alice@example.test token=private-token",
+      }),
+    }),
+  );
+  expect(response.status).toBe(204);
+  await pending.work[0]?.();
+  const output = JSON.stringify([error.mock.calls, fetch.mock.calls]);
+  expect(output).not.toContain("alice@example.test");
+  expect(output).not.toContain("private-token");
+  expect(output).not.toContain("Failed");
+  expect(output).toContain("42");
+  await handleWebVitalsReport(
+    new Request("https://inside.example.test/api/web-vitals", {
+      method: "POST",
+      headers: { origin: "https://inside.example.test" },
+      body: JSON.stringify({
+        route: "/materials/private-person",
+        metrics: [
+          {
+            id: "private-visitor",
+            name: "LCP",
+            value: 100,
+            navigationType: "private-navigation",
+          },
+        ],
+      }),
+    }),
+  );
+  const metrics = JSON.stringify(info.mock.calls);
+  expect(metrics).not.toContain("private-person");
+  expect(metrics).not.toContain("private-visitor");
+  expect(metrics).not.toContain("private-navigation");
+  expect(metrics).toContain("LCP");
+});
+
+it("does not persist arbitrary client error names, digests or echoed input", async () => {
+  const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetch);
+  const output = vi.spyOn(console, "error");
+  await handleRenderErrorReport(
+    new Request("https://inside.example.test/api/render-errors", {
+      method: "POST",
+      headers: { origin: "https://inside.example.test" },
+      body: JSON.stringify({
+        route: "/account",
+        boundary: "public",
+        digest: "private-digest",
+        name: "Иван Петров",
+        message: 'Unexpected JSON {"customer":"Иван Петров"}',
+      }),
+    }),
+  );
+  await pending.work[0]?.();
+  const saved = JSON.stringify([output.mock.calls, fetch.mock.calls]);
+  expect(saved).not.toContain("Иван Петров");
+  expect(saved).not.toContain("private-digest");
+  expect(saved).toContain("Error");
+});
