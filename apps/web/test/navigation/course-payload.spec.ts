@@ -120,6 +120,44 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
 test("programme reveals the next batch before the last loaded lesson reaches the scroll edge", async ({
   page,
 }) => {
+  // Hold the shell's real media-query event until the new scroll owner has moved.
+  // This pins the browser ordering that otherwise makes the resize failure intermittent.
+  await page.addInitScript(() => {
+    const matchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => {
+      const media = matchMedia(query);
+      if (query !== "(width >= 64rem)") return media;
+      const add = media.addEventListener.bind(media);
+      media.addEventListener = (
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (listener === null) return;
+        if (type !== "change") return add(type, listener, options);
+        add(
+          "change",
+          (event) => {
+            document.documentElement.dataset["pendingShellScrollTransfer"] =
+              "true";
+            window.addEventListener(
+              "test:flush-shell-resize",
+              () => {
+                delete document.documentElement.dataset[
+                  "pendingShellScrollTransfer"
+                ];
+                if (typeof listener === "function") listener.call(media, event);
+                else listener.handleEvent(event);
+              },
+              { once: true },
+            );
+          },
+          options,
+        );
+      };
+      return media;
+    };
+  });
   await page.goto(programme);
   const surface = page.locator(
     '[data-product-programme="performance-course"]:visible',
@@ -143,12 +181,21 @@ test("programme reveals the next batch before the last loaded lesson reaches the
         window.scrollBy(0, -320);
       }
     });
+    if (loaded === 36) {
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("test:flush-shell-resize")),
+      );
+    }
     await expect(rows).toHaveCount(loaded + 12);
     await expect(first).toHaveAttribute("data-retained-lesson", "true");
     if (loaded === 24) {
       const desktop = (page.viewportSize()?.width ?? 0) >= 1024;
       await page.setViewportSize(
         desktop ? { width: 390, height: 844 } : { width: 1440, height: 1024 },
+      );
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-pending-shell-scroll-transfer",
+        "true",
       );
     }
   }

@@ -74,13 +74,21 @@ export function ApplicationShell({
     const transferScroll = () => {
       // Layout can clamp the old scroll owner before the media-query event arrives.
       if (desktop.matches) {
-        const top = window.scrollY > 0 ? window.scrollY : documentScrollTop;
+        // A scroll in the new owner can precede this media-query event.
+        // Preserve it instead of restoring the previous owner's older position.
+        const top =
+          main.scrollTop > 0
+            ? main.scrollTop
+            : window.scrollY > 0
+              ? window.scrollY
+              : documentScrollTop;
         window.scrollTo({ top: 0, behavior: "instant" });
         main.scrollTo({ top, behavior: "instant" });
         mainScrollTop = main.scrollTop;
       } else {
+        const top = window.scrollY > 0 ? window.scrollY : mainScrollTop;
         main.scrollTo({ top: 0, behavior: "instant" });
-        window.scrollTo({ top: mainScrollTop, behavior: "instant" });
+        window.scrollTo({ top, behavior: "instant" });
         documentScrollTop = window.scrollY;
       }
     };
