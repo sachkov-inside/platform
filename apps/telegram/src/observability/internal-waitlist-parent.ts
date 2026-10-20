@@ -15,7 +15,7 @@ export function admitInternalWaitlistParent(
     occurrences += 1;
     value = field;
   }
-  if (occurrences !== 1 || value === undefined) return undefined;
+  if (occurrences !== 1 || value?.length !== 55) return undefined;
   if (!/^00-[0-9a-f]{32}-[0-9a-f]{16}-(?:00|01)$/.test(value)) return undefined;
   return parseTraceParent(value) === null ? undefined : value;
 }

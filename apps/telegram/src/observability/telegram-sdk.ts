@@ -22,6 +22,14 @@ import {
 } from "@opentelemetry/sdk-metrics";
 import type { RuntimeIdentity, RuntimeMode } from "@inside/runtime-identity";
 import { createBoundedSpanProcessor } from "./bounded-span-processor.js";
+import {
+  disabledTelegramHttpObservability,
+  telegramHttpDimensions,
+  type TelegramHttpObservability,
+} from "./http-observability.js";
+
+export type TelegramRuntimeTelemetry = TelegramObservability &
+  TelegramHttpObservability;
 import { admitInternalWaitlistParent } from "./internal-waitlist-parent.js";
 import { rejectFailures } from "../shared/drain-report.js";
 import {
@@ -131,7 +139,7 @@ async function closeOwners(owners: SdkOwners): Promise<void> {
 /** Standalone SDK ownership. No process-global context, tracer or propagator registration. */
 export function createTelegramObservability(
   input: TelegramSdkInput,
-): TelegramObservability {
+): TelegramRuntimeTelemetry {
   const owners: SdkOwners = {
     metricFailures: 0,
     spans: ownShutdown(() => input.exporters.spans.shutdown()),
@@ -177,6 +185,7 @@ export function createTelegramObservability(
     let closing: Promise<void> | undefined;
     return {
       ...disabledTelegramObservability,
+      ...disabledTelegramHttpObservability,
       shutdown: () => {
         closing ??= cleanup.then((results) =>
           rejectFailures(
@@ -194,7 +203,7 @@ export function createTelegramObservability(
 function createOwnedSdk(
   input: TelegramSdkInput,
   owners: SdkOwners,
-): TelegramObservability {
+): TelegramRuntimeTelemetry {
   const manager = (owners.manager =
     new AsyncLocalStorageContextManager().enable());
   const resource = resourceFromAttributes({
@@ -251,6 +260,14 @@ function createOwnedSdk(
   meter
     .createObservableGauge("telemetry.trace.sampling.ratio")
     .addCallback((result) => result.observe(input.sampleRatio));
+  const httpCount = meter.createCounter("http.server.request.count");
+  const httpDuration = meter.createHistogram("http.server.request.duration", {
+    unit: "s",
+  });
+  let activeHttp = 0;
+  meter
+    .createObservableGauge("http.server.active_requests")
+    .addCallback((result) => result.observe(activeHttp));
   const tracer = traces.getTracer("inside-telegram");
   const active = new Set<Promise<void>>();
   let closed = false;
@@ -314,6 +331,82 @@ function createOwnedSdk(
   }
 
   return {
+    startHttp: (method, route) => {
+      if (closed)
+        return disabledTelegramHttpObservability.startHttp(method, route);
+      const attributes = telegramHttpDimensions(method, route);
+      const started = performance.now();
+      activeHttp++;
+      let settled: (() => void) | undefined;
+      let ownership: Promise<void> | undefined;
+      let span: Span | undefined;
+      if (active.size < 512) {
+        ownership = new Promise<void>((resolve) => {
+          settled = resolve;
+        });
+        active.add(ownership);
+        span = tracer.startSpan(
+          `${attributes["http.request.method"]} ${attributes["http.route"]}`,
+          {
+            kind: SpanKind.SERVER,
+            attributes,
+          },
+          ROOT_CONTEXT,
+        );
+      } else {
+        dropped++;
+      }
+      let finished = false;
+      let running = 0;
+      const release = (): void => {
+        if (!finished || running !== 0) return;
+        if (ownership !== undefined) active.delete(ownership);
+        settled?.();
+      };
+      return {
+        run: async (work) => {
+          if (finished) return manager.with(ROOT_CONTEXT, work);
+          running++;
+          try {
+            return await manager.with(
+              span === undefined
+                ? ROOT_CONTEXT
+                : trace.setSpan(ROOT_CONTEXT, span),
+              work,
+            );
+          } finally {
+            running--;
+            release();
+          }
+        },
+        finish: (result) => {
+          if (finished) return;
+          finished = true;
+          activeHttp--;
+          span?.setAttribute("http.request.outcome", result.outcome);
+          if (
+            result.status !== undefined &&
+            Number.isInteger(result.status) &&
+            result.status >= 100 &&
+            result.status <= 599
+          ) {
+            span?.setAttribute("http.response.status_code", result.status);
+            if (result.status >= 500)
+              span?.setStatus({ code: SpanStatusCode.ERROR });
+          }
+          if (result.outcome === "aborted")
+            span?.setStatus({ code: SpanStatusCode.ERROR });
+          span?.end();
+          const dimensions = {
+            ...attributes,
+            "http.request.outcome": result.outcome,
+          };
+          httpCount.add(1, dimensions);
+          httpDuration.record((performance.now() - started) / 1000, dimensions);
+          release();
+        },
+      };
+    },
     runReceipt: (parent, work) =>
       observe("receipt", parentContext(parent), (span) =>
         work(

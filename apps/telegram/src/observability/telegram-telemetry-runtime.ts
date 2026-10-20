@@ -3,12 +3,18 @@ import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { z } from "zod";
 import type { RuntimeMode } from "@inside/runtime-identity";
 import { loadTelegramImageIdentity } from "./image-identity.js";
-import { createTelegramObservability } from "./telegram-sdk.js";
 import {
-  disabledTelegramObservability,
-  type TelegramObservability,
-} from "./telegram-observability.js";
+  createTelegramObservability,
+  type TelegramRuntimeTelemetry,
+} from "./telegram-sdk.js";
+import { disabledTelegramHttpObservability } from "./http-observability.js";
+import { disabledTelegramObservability } from "./telegram-observability.js";
 import { rejectFailures } from "../shared/drain-report.js";
+
+const disabledRuntime: TelegramRuntimeTelemetry = {
+  ...disabledTelegramObservability,
+  ...disabledTelegramHttpObservability,
+};
 
 const runtimeSchema = z.object({
   INSIDE_OTEL_ENDPOINT: z.url().refine((value) => {
@@ -28,9 +34,9 @@ const runtimeSchema = z.object({
 export function telegramObservabilityFromEnvironment(input: {
   readonly environment: Readonly<Record<string, string | undefined>>;
   readonly mode: RuntimeMode;
-}): TelegramObservability {
+}): TelegramRuntimeTelemetry {
   if (input.environment["INSIDE_OTEL_ENABLED"] !== "true")
-    return disabledTelegramObservability;
+    return disabledRuntime;
   // Pinned exporters merge ambient OTLP headers, endpoints and certificate configuration.
   if (
     [input.environment, process.env].some((environment) =>
@@ -39,9 +45,9 @@ export function telegramObservabilityFromEnvironment(input: {
       ),
     )
   )
-    return disabledTelegramObservability;
+    return disabledRuntime;
   const parsed = runtimeSchema.safeParse(input.environment);
-  if (!parsed.success) return disabledTelegramObservability;
+  if (!parsed.success) return disabledRuntime;
   const identity =
     input.mode === "production"
       ? loadTelegramImageIdentity()
@@ -49,7 +55,7 @@ export function telegramObservabilityFromEnvironment(input: {
           release: input.mode,
           sourceSha: "0000000000000000000000000000000000000000",
         };
-  if (identity === undefined) return disabledTelegramObservability;
+  if (identity === undefined) return disabledRuntime;
   const endpoint = parsed.data.INSIDE_OTEL_ENDPOINT.replace(/\/$/u, "");
   let spans: OTLPTraceExporter | undefined;
   let metrics: OTLPMetricExporter | undefined;
@@ -78,7 +84,7 @@ export function telegramObservabilityFromEnvironment(input: {
     );
     let closing: Promise<void> | undefined;
     return {
-      ...disabledTelegramObservability,
+      ...disabledRuntime,
       shutdown: () => {
         closing ??= cleanup.then((results) =>
           rejectFailures(
