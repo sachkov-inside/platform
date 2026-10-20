@@ -260,6 +260,16 @@ export async function readCommunityBacklog(
           {
             delivery: "accepted",
             resultStatus: { notIn: ["applied", "superseded", "failed"] },
+            // Voluntary joining has no deadline. Only fresh, successful observation
+            // may exempt that wait; a failed or stopped poll still needs attention.
+            OR: [
+              { resultStatus: { not: "waiting_for_join" } },
+              { observedMembership: null },
+              { observedMembership: { not: "not_member" } },
+              { errorCode: { not: null } },
+              { polledAt: null },
+              { polledAt: { lte: overdueBefore } },
+            ],
           },
         ],
       },

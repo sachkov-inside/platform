@@ -52,6 +52,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+import { readCommunityBacklog } from "../../src/modules/telegram-membership/features/deliver-community-entitlement/deliver-community-entitlement.js";
 import { createQueryEventClient } from "./setup/query-events.js";
 
 const ajv = new Ajv({ strict: true, allErrors: true });
@@ -1485,6 +1486,59 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       ok: true,
       result: { decision: { status: "allowed" } },
     });
+  });
+
+  test("healthy waiting for a voluntary join is unapplied but not overdue; a failed poll remains overdue", async () => {
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let instant = new Date(start);
+      const { localAccounts, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => instant);
+      const { accountId } = await enroll("waiting-diagnostics");
+      const provider = new ProviderDouble();
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => instant,
+        grants: localGrants,
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      await app.sweep();
+      const row =
+        await isolated.prisma.telegramCommunityOperation.findFirstOrThrow({
+          where: { accountId },
+        });
+      provider.observe(row.operationId, "waiting_for_join", "not_member");
+      instant = new Date(new Date(start).getTime() + 6 * 60_000);
+      expect((await app.sweep()).backlog).toMatchObject({
+        unapplied: 1,
+        overdue: 0,
+      });
+      expect(
+        await isolated.prisma.telegramCommunityOperation.findUnique({
+          where: { operationId: row.operationId },
+        }),
+      ).toMatchObject({
+        resultStatus: "waiting_for_join",
+        observedMembership: "not_member",
+        attempts: 1,
+      });
+      const stoppedAt = new Date(instant.getTime() + 6 * 60_000);
+      expect(
+        await readCommunityBacklog(isolated.prisma, stoppedAt),
+      ).toMatchObject({ overdue: 1 });
+      provider.answer = "unavailable";
+      instant = new Date(instant.getTime() + 61_000);
+      expect((await app.sweep()).backlog).toMatchObject({
+        unapplied: 1,
+        overdue: 1,
+      });
+      expect(provider.sent).toHaveLength(1);
+    } finally {
+      await isolated.dispose();
+    }
   });
 
   test("an unknown provider outcome stays unapplied and visible to the operator", async () => {

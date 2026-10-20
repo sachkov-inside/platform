@@ -980,6 +980,55 @@ describe("community provider outages", () => {
     expect(state.entitlementRevision).toBe(1);
   });
 
+  it("distinguishes a live invitation waiting for its recipient from actionable effects", async () => {
+    const who = subject();
+    const grant = command("lifetime-community-grant", who);
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    const app = provider(who);
+    await app.handle(grant);
+    await drain(who);
+    await app.reconcileDueStates();
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 1,
+      unknownEffects: 0,
+    });
+    expect(await result(who, grant.operationId)).toMatchObject({
+      status: "waiting_for_join",
+      observedMembership: "not_member",
+    });
+    // Even an unexpired link cannot hide a stopped reconciliation worker.
+    clock.value = new Date(clock.value.getTime() + 61_000);
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 0,
+    });
+    await app.reconcileDueStates();
+    expect(await app.snapshot()).toMatchObject({ waitingForJoinEffects: 1 });
+    // An expired link must remain actionable until the next successful attempt.
+    clock.value = new Date(clock.value.getTime() + 11 * 60_000);
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 0,
+    });
+    await app.reconcileDueStates();
+    await drain(who);
+    await app.reconcileDueStates();
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 1,
+    });
+    expect(await result(who, grant.operationId)).toMatchObject({
+      status: "waiting_for_join",
+    });
+  });
+
   it("surfaces an overdue desired state to an operator", async () => {
     const who = subject();
     await admit(who);
