@@ -185,3 +185,17 @@ artifacts, and no file permission, capability, port or deadline is widened.
 These source checks do not establish the earlier native Alloy exit cause. Exact pinned Linux
 file readability, Alloy config parsing, both services' startup and the four native modes still
 need hosted CI evidence before runtime acceptance.
+
+## Source test progress
+
+The source wrapper retains its single `15000ms` suite deadline and existing fixture/cleanup
+budgets. Best-effort start/completed markers identify only fixed inventoried source test IDs in
+its private captured stderr. The parent validates the complete ordered marker prefix before
+showing the last started/completed source method and completed count. Missing, malformed or
+oversized markers give `unknown`. Both timeout and nonzero-exit assertions omit raw captured
+output. `completed` records that a method stopped; it does not report a pass or replace the
+original exit/timeout/interruption result. Inventory checks retain every original source test
+exactly once, along with explicitly added progress controls.
+
+This diagnostic does not explain the earlier baseline source timeout or establish native Caddy
+acceptance. No suite splitting, deadline increase or production configuration change is included.

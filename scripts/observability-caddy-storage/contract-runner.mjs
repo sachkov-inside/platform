@@ -1,4 +1,9 @@
 // @ts-check
+export {
+  assertCaddyContracts,
+  sourceProgress,
+  sourceIds,
+} from "./source-progress.mjs";
 import { fileURLToPath } from "node:url";
 import { runOwnedProcess } from "../observability-umami/process-owner.mjs";
 
