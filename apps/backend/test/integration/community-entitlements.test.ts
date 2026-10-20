@@ -1512,6 +1512,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         });
       provider.observe(row.operationId, "waiting_for_join", "not_member");
       instant = new Date(new Date(start).getTime() + 6 * 60_000);
+      provider.updatedAt = instant.toISOString();
       expect((await app.sweep()).backlog).toMatchObject({
         unapplied: 1,
         overdue: 0,
@@ -1529,6 +1530,13 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       expect(
         await readCommunityBacklog(isolated.prisma, stoppedAt),
       ).toMatchObject({ overdue: 1 });
+      instant = stoppedAt;
+      // HTTP polling still works, but the provider's observation stopped advancing.
+      expect((await app.sweep()).backlog).toMatchObject({ overdue: 1 });
+      provider.updatedAt = instant.toISOString();
+      expect((await app.sweep()).backlog).toMatchObject({ overdue: 1 });
+      instant = new Date(instant.getTime() + 61_000);
+      expect((await app.sweep()).backlog).toMatchObject({ overdue: 0 });
       provider.answer = "unavailable";
       instant = new Date(instant.getTime() + 61_000);
       expect((await app.sweep()).backlog).toMatchObject({

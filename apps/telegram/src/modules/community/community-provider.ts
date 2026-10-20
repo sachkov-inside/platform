@@ -1,7 +1,10 @@
 import { findBotContact } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
-import { findPlatformLink } from "../identity-linking/platform-links.js";
+import {
+  currentPlatformContactLink,
+  findPlatformLink,
+} from "../identity-linking/platform-links.js";
 import type { DurableMembershipEnvelope } from "../membership-evidence/membership-evidence-provider.js";
 import { randomUUID } from "node:crypto";
 
@@ -1937,6 +1940,14 @@ export class CommunityProvider {
               and d.telegram_identity_ref = e.telegram_identity_ref
               and d.status = 'waiting_for_join' and d.observed_membership = 'not_member'
               and d.due_at > ${now}
+              and ${currentPlatformContactLink(this.db, this.bot, "d.account_ref", "d.telegram_identity_ref")}
+              and exists (
+                select 1 from community_operations o
+                where o.operation_id = e.operation_id and o.bot_identity = e.bot_identity
+                  and o.account_ref = e.account_ref and o.status = 'waiting_for_join'
+                  and o.updated_at <= ${now}
+                  and o.updated_at > ${new Date(now.getTime() - this.cadence)}
+              )
               and d.invite_state = 'created' and d.invite_link is not null
               and d.invite_revision = e.entitlement_revision and d.invite_expires_at > ${now}
               and (d.access->>'kind' = 'lifetime'

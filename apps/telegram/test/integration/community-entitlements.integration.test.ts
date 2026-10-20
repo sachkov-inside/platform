@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 
 import { Test } from "@nestjs/testing";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
+import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import type { INestApplicationContext } from "@nestjs/common";
 
 import { AppModule } from "../../src/app.module.js";
@@ -1345,6 +1350,69 @@ describe("handing the link over in the private chat", () => {
     webhookSecret: "synthetic_webhook_secret",
     welcomeText: "Synthetic welcome",
     workersEnabled: false,
+  });
+
+  it("refreshes the served metrics after community work stops and rejects a transferred binding", async () => {
+    const who = subject();
+    const grant = command("lifetime-community-grant", who);
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    const community = provider(who);
+    await community.handle(grant);
+    await drain(who);
+    await community.reconcileDueStates();
+    const module = await Test.createTestingModule({
+      imports: [AppModule.register(appConfig("live", who.bot))],
+    })
+      .overrideProvider(CLOCK)
+      .useValue(clock)
+      .overrideProvider(CommunityProvider)
+      .useValue(community)
+      .compile();
+    const http = module.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+      { logger: false },
+    );
+    try {
+      await http.init();
+      const server = http.getHttpAdapter().getInstance();
+      await server.ready();
+      http.get(RuntimeMetrics).recordCommunity(await community.snapshot());
+      const healthy = await server.inject({ method: "GET", url: "/metrics" });
+      expect(healthy.body).toContain(
+        "inside_telegram_community_effect_waiting_for_join 1",
+      );
+      clock.value = new Date(clock.value.getTime() + 61_000);
+      const stopped = await server.inject({ method: "GET", url: "/metrics" });
+      expect(stopped.body).toContain(
+        "inside_telegram_community_effect_waiting_for_join 0",
+      );
+      expect(stopped.body).toContain("inside_telegram_community_due 1");
+      await community.reconcileDueStates();
+      await db
+        .updateTable("platform_links")
+        .set({ account_ref: `other-${who.accountRef}` })
+        .where("bot_identity", "=", who.bot)
+        .execute();
+      await community.reconcileDueStates();
+      const transferred = await server.inject({
+        method: "GET",
+        url: "/metrics",
+      });
+      expect(transferred.body).toContain(
+        "inside_telegram_community_effect_waiting_for_join 0",
+      );
+      expect(transferred.body).toContain(
+        "inside_telegram_community_effect_backlog 1",
+      );
+    } finally {
+      await http.close();
+    }
   });
 
   /** Drives one subject to a stored, still-live link on the handoff case's fixed clock. */

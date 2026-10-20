@@ -153,6 +153,12 @@ describe("initial Membership Evidence", () => {
       new RuntimeMetrics(),
       liveConfig,
       degradedProvider,
+      {
+        snapshot: () =>
+          Promise.reject(
+            new Error("Community is disabled in this readiness scenario"),
+          ),
+      },
     );
 
     // Fail closed until this process has observed the provider.
@@ -195,6 +201,12 @@ describe("initial Membership Evidence", () => {
         new RuntimeMetrics(),
         liveConfig,
         readyProvider,
+        {
+          snapshot: () =>
+            Promise.reject(
+              new Error("Community is disabled in this readiness scenario"),
+            ),
+        },
       ).ready(),
     ).resolves.toEqual({ status: "ready" });
   });

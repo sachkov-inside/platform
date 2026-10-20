@@ -35,8 +35,15 @@ function retryDelayMs(attempts: number): number {
 
 /** What the provider actually reported, separate from our own delivery lifecycle. */
 function observationFields(result: CommunityResult, now: Date) {
+  const providerAge = now.getTime() - new Date(result.updatedAt).getTime();
   return {
-    errorCode: null,
+    errorCode:
+      result.status === "waiting_for_join" &&
+      (!Number.isFinite(providerAge) ||
+        providerAge < 0 ||
+        providerAge > COMMUNITY_OVERDUE_MS)
+        ? "stale_observation"
+        : null,
     observedMembership: result.observedMembership,
     polledAt: now,
     result,
