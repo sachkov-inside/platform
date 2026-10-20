@@ -628,19 +628,19 @@ provider request ID, названия/идентификаторы видео и
 К провайдеру не добавляются trace headers. OFF подавляет сбор и внутри другого включённого SDK.
 
 `privacy-policy.json` и сгенерированный Alloy допускают фиксированный каталог Kinescope
-PostgreSQL и T-Bank. Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
-`_OTHER`: максимум 168 сочетаний на инструмент и resource identity. Это граница каталога,
-не измеренное число хранимых рядов. Общий corpus ожидает 270 dependency series для двух
-фиксированных releases и 27 сочетаний (26 известных и общий fallback), по пяти
+PostgreSQL, T-Bank и Logto. Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
+`_OTHER`: максимум 225 сочетаний на инструмент и resource identity. Это граница каталога,
+не измеренное число хранимых рядов. Общий corpus ожидает 290 dependency series для двух
+фиксированных releases и 29 сочетаний (28 известных и общий fallback), по пяти
 histogram/counter series. Ещё десять series проверяют пять pool gauges для двух releases.
-Итого ожидаются 280 series. Это ожидаемые числа конкретного corpus, которые должен
+Итого ожидаются 300 series. Это ожидаемые числа конкретного corpus, которые должен
 подтвердить runtime gate точной версии исходников.
 
 `scripts/observability-pilot/dependency_privacy.py` содержит фиксированный OTLP JSON/protobuf
-corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL, 14 T-Bank и три adversarial spans с
+corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL, 14 T-Bank, два Logto и три adversarial spans с
 неизвестными, отсутствующими и неверно типизированными полями. Controller проверяет
-logging-none до ingest, только два фиксированных trace IDs, максимум 30 полных строк на
-запрос для 29 ожидаемых spans и закрытый `dependency-collector.json` без raw данных.
+logging-none до ingest, только два фиксированных trace IDs, максимум 32 полных строк на
+запрос для 31 ожидаемых spans и закрытый `dependency-collector.json` без raw данных.
 Pool metric dimensions удаляются полностью. Runtime нового corpus в pinned collector,
 настоящие API/worker с PostgreSQL, причинная цепочка и ресурсная приёмка фиксируются отдельно
 для точного source commit. Loopback SDK/HTTP/OTLP проверки их не заменяют.
@@ -693,8 +693,8 @@ scope; default OFF сохраняется. Source-тесты и внешний J
 Span содержит только `dependency.name=tbank`, фиксированную operation,
 `dependency.outcome=completed|failed` и `http.request.method=POST`. Counter и histogram
 используют только dependency/operation/outcome. Семь операций на два исхода дают 14 новых
-сочетаний атрибутов на каждый инструмент и resource identity, всего 26 известных сочетаний
-с Kinescope и PostgreSQL. Существующий SDK cap 128 ограничивает aggregation cardinality,
+сочетаний атрибутов на каждый инструмент и resource identity, всего 28 известных сочетаний
+с Kinescope, PostgreSQL и Logto. Существующий SDK cap 128 ограничивает aggregation cardinality,
 а не число хранимых histogram series; cap и overflow поведение не меняются. Для histogram
 с B конечными границами counter, count, sum и B+1 buckets дают B+4 хранимых series на
 сочетание, если приёмник публикует каждый bucket. Фактическое преобразование и число series
@@ -709,3 +709,36 @@ body и provider errors не передаются телеметрии. OFF по
 транспорт и безопасный экспорт; они не доказывают pinned collector/storage, representative
 resource acceptance или реальные банковские операции. PostgreSQL purchase/reconcile contract
 проверяется отдельно на выделенном runtime; до его фактического запуска это pending evidence.
+
+
+## Наблюдение HTTP загрузки Logto JWKS
+
+`createLogtoAccessTokenVerifier` использует public `customFetch` pinned JOSE 6.2.12.
+Hook делегирует исходному native `fetch` те же URL, GET, Headers, AbortSignal и
+`redirect=manual`. Возвращается тот же Response, без clone, чтения тела или добавления
+traceparent/tracestate/baggage. Duration заканчивается на возврате response headers.
+HTTP 200 даёт `completed`, другой status или native fetch rejection дают `failed`.
+Последующее чтение/проверка JSON, JWKS и token claims принадлежит JOSE и находится вне span.
+Поэтому HTTP `completed` совместим с отказом аутентификации или ошибкой чтения тела и не
+доказывает успешную проверку token. Numeric status сохраняется только в допустимом диапазоне.
+
+Fixed span `logto jwks` содержит dependency name/operation/outcome, GET и допустимый status.
+Counter/histogram содержат только `logto`/`jwks`/`completed|failed`: два новых сочетания
+атрибутов на инструмент и resource identity. Общее число известных SDK сочетаний равно 28,
+существующий aggregation cardinality cap 128 не меняется. Это не количество stored series.
+Полный внешний corpus ожидает 300 series, но новый результат должен подтвердить точный runtime.
+
+Counter измеряет реальные customFetch обращения, не количество verifyAccount/verifyAccountSignIn.
+Local JWKS, cache hit и дополнительные waiters общего pending fetch не создают обращения.
+Общий fetch связан с контекстом вызвавшего его запроса, без ложного присвоения отдельного
+CLIENT каждому waiter. Сохраняются 2 секунды timeout, 30 секунд cooldown, 10 минут cache,
+ES384, issuer/audience/claim/scopes проверки, URL/TLS trust и исходное отображение ошибок.
+Телеметрия не получает URL, JWT, claims, subject, email, scopes, JWKS/key IDs/key material,
+headers или произвольные ошибки. OFF, отказ context manager и exporter failure не меняют auth.
+
+Owned loopback contracts проверяют реальные запросы, cache/coalescing/reload, response headers
+при ещё незавершённом body, timeout, redirect, malformed/truncated responses и восстановление.
+Actual OTLP остаётся отдельной границей от pinned collector/storage. Genuine MCP scope проверяется
+через настоящий HTTP adapter; подготовленные API cases используют production application,
+реальный PostgreSQL и управляемый JWKS issuer. PostgreSQL cases до отдельного запуска pending.
+Полная SDK-to-storage цепочка и representative resource acceptance из этих проверок не следуют.
