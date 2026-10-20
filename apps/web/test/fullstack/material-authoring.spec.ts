@@ -111,6 +111,9 @@ for (const access of ["public", "closed"] as const) {
       .fill("Изображение общей приёмки");
 
     await page
+      .getByRole("tab", { name: "Обложка и видео", exact: true })
+      .click();
+    await page
       .getByText("Выбрать существующее видео Kinescope", { exact: true })
       .click();
     await page.getByLabel(/ID видео/u).fill(`media-proof-${access}-${suffix}`);
@@ -861,6 +864,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
     ).toBeVisible();
 
     await page.goto(editorUrl);
+    await page
+      .getByRole("tab", { name: "Обложка и видео", exact: true })
+      .click();
     await page
       .getByText("Выбрать существующее видео Kinescope", { exact: true })
       .click();
@@ -1691,6 +1697,7 @@ test("trusted author cancels and confirms deletion of a never-published draft", 
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
 
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.locator("summary").filter({ hasText: "Удалить черновик" }).click();
   const openDelete = page.getByRole("button", { name: "Удалить черновик" });
   await openDelete.focus();
@@ -1769,6 +1776,9 @@ test("author edits series metadata on a dedicated page and returns to the list a
   await page.getByRole("button", { name: "Все продукты", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products$/u);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
+  await page
+    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .click();
   await expect(
     page.getByRole("textbox", { name: "Название продукта" }),
   ).toHaveValue(`${title} · Обновлена`);
