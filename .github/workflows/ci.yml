@@ -254,7 +254,8 @@ jobs:
         run: |
           restore_test_image=ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
           docker pull "$restore_test_image"
-          export RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
+          RESTORE_TEST_IMAGE="$(docker image inspect --format '{{.Id}}' "$restore_test_image")"
+          export RESTORE_TEST_IMAGE
           pnpm release:restore:test
       - name: Run isolated integration tests
         if: ${{ matrix.part == 'database' }}
