@@ -411,7 +411,7 @@ with an enclosing deadline and filesystem monitor. Supply free
 to another stand. `PRODUCTION_SMOKE_ARTIFACT_DIR` holds failure diagnostics.
 The script creates separate application/foundation projects and temporary synthetic configuration.
 It starts Compose with `--no-build --pull never` and direct image probes with `--pull=never`.
-It never writes or removes the shared `inside/postgres-pgbackrest:18.4-2.57.0` image tag in this mode.
+It never writes or removes existing shared foundation image tags in this mode.
 The singleton `local:stand`, owner pages, identities and volumes are not used.
 
 Shutdown removes only the smoke's containers, networks, volumes and temporary configuration.
