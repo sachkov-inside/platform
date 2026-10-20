@@ -304,7 +304,6 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       });
       return {
         statusCode: response.status,
-        headers: response.headers,
         json: () => body,
       };
     };
@@ -316,7 +315,6 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       );
     const first = await uploadRequest(requestIds[0]);
     expect(first.statusCode).toBe(201);
-    expect(first.headers.get("x-request-id")).toBe(requestIds[0]);
     const initialized = z
       .object({
         providerVideoId: z.string(),
@@ -433,7 +431,32 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
     expect(JSON.stringify(warnings.mock.calls)).not.toContain(
       "private-exporter-error-sentinel",
     );
+    const requestLog = z.object({
+      event: z.string(),
+      requestId: z.string().optional(),
+      traceId: z.string().optional(),
+      spanId: z.string().optional(),
+    });
+    const completedLogs = information.mock.calls
+      .map((call) => requestLog.parse(JSON.parse(String(call[0]))))
+      .filter((record) => record.event === "request_completed");
+    expect(completedLogs).toHaveLength(4);
+    expect(new Set(completedLogs.map((record) => record.requestId)).size).toBe(
+      4,
+    );
+    for (const record of completedLogs) {
+      expect(z.uuid().safeParse(record.requestId).success).toBe(true);
+      expect(requestIds.some((supplied) => supplied === record.requestId)).toBe(
+        false,
+      );
+    }
     if (mode === "off") {
+      expect(
+        completedLogs.every(
+          (record) =>
+            record.traceId === undefined && record.spanId === undefined,
+        ),
+      ).toBe(true);
       expect(wire).toEqual([]);
       return;
     }
@@ -515,21 +538,11 @@ for (const mode of ["enabled", "off", "export-failure"] as const) {
       ["find/failed", 1],
       ["initUpload/completed", 1],
     ]);
-    const requestLog = z.object({
-      event: z.string(),
-      requestId: z.string().optional(),
-      traceId: z.string().optional(),
-      spanId: z.string().optional(),
-    });
-    const completedLogs = information.mock.calls
-      .map((call) => requestLog.parse(JSON.parse(String(call[0]))))
-      .filter((record) => record.event === "request_completed");
-    for (const requestId of requestIds) {
-      const record = completedLogs.find((line) => line.requestId === requestId);
+    for (const record of completedLogs) {
       expect(
         roots.some(
           (span) =>
-            span.traceId === record?.traceId && span.spanId === record.spanId,
+            span.traceId === record.traceId && span.spanId === record.spanId,
         ),
       ).toBe(true);
     }
