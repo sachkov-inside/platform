@@ -60,6 +60,7 @@ test("removes the cancelled Workshop and its derived projection without changing
         "0099_chapter_supplementary_materials",
         "0100_product_waitlists",
         "0101_waitlist_confirmations",
+        "0102_material_telegram_announcements",
       ],
     });
     expect(

@@ -23,7 +23,7 @@ import type { SaveMaterialResult } from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
   access: z.enum(["free", "closed"]),
-  notifyTelegram: z.enum(["true", "false"]).default("false"),
+  notifyTelegram: z.enum(["true", "false"]).optional(),
   confirmedProductRemovals: z.array(z.uuid()).max(100),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   detachVideoIds: z.array(z.uuid()),
@@ -173,7 +173,9 @@ function parseForm(formData: FormData):
       idempotencyKey: `web-save-${parsed.data.submissionId}`,
       materialId: parsed.data.materialId,
       publicationState: parsed.data.publicationState,
-      notifyTelegram: parsed.data.notifyTelegram === "true",
+      ...(parsed.data.notifyTelegram === undefined
+        ? {}
+        : { notifyTelegram: parsed.data.notifyTelegram === "true" }),
       primaryVideoId:
         parsed.data.primaryVideoId === "none"
           ? null
