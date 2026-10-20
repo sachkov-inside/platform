@@ -184,6 +184,11 @@ Offer and payment-option editors use selected loaded identities and revisions in
 The benefit chooser serializes into the existing `offerBenefits` parsing contract, preserving default,
 explicit permanent and finite per-benefit terms. Payment continuation uses the filters of the last
 successful list response, including when a later filter request fails.
+After a successful payment-option save, the browser reloads the canonical owner catalogue through
+an authenticated, private no-store BFF read. Further catalogue writes wait for that refresh; a failed
+refresh retries only the read. This preserves create-to-edit and repeated-edit revision checks.
+Long offer and payment-option selectors show at most 20 matching rows plus the selected row, with
+search across the complete owner list.
 
 The new production UI still requires its finished responsive evidence and owner visual acceptance.
 The prototype direction was selected on 2026-10-20; this selection does not constitute acceptance of

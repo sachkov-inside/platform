@@ -34,6 +34,7 @@ import {
   previewAccessGrantBatch,
   publishBillingOffer,
   readAccessGrants,
+  readOwnerBillingCatalog,
   readAccountClassification,
   readBillingPayment,
   readBillingRefunds,
@@ -122,6 +123,29 @@ export function BillingAdminPanel({
   const [notice, setNotice] = useState<string>();
   const { operationId } = useRepeatableOperations();
 
+  const [catalogNeedsRefresh, setCatalogNeedsRefresh] = useState(false);
+  const catalogRefresh = useMutation({
+    mutationFn: readOwnerBillingCatalog,
+    retry: false,
+    onSuccess: (result) => {
+      if (!result.ok) {
+        setError(billingErrorMessage(result.code));
+        return;
+      }
+      setCatalog(result.value);
+      setCatalogNeedsRefresh(false);
+      setError(undefined);
+    },
+    onError: () => {
+      setError("Не удалось обновить каталог. Повторите обновление.");
+    },
+  });
+
+  function refreshCatalog() {
+    setCatalogNeedsRefresh(true);
+    catalogRefresh.mutate();
+  }
+
   const command = useMutation({
     retry: false,
     mutationFn: async (task: Task) => ({ task, result: await task.run() }),
@@ -192,6 +216,11 @@ export function BillingAdminPanel({
       catalogLoading={content.isPending || tiers.isPending}
       catalogError={content.error?.message ?? tiers.error?.message}
       cohorts={cohorts}
+      catalogRefresh={
+        catalogNeedsRefresh
+          ? { pending: catalogRefresh.isPending, onRetry: refreshCatalog }
+          : undefined
+      }
       enrollmentControls={
         <WorkspaceTabs
           label="Назначения и перенос доступа"
@@ -482,6 +511,7 @@ export function BillingAdminPanel({
               operationId: operationId("paymentOptions.save", input),
             }),
           (value) => {
+            refreshCatalog();
             setNotice(
               `Вариант сохранён, редакция ${String(value.result.value.revision)}.`,
             );
@@ -538,7 +568,7 @@ export function BillingAdminPanel({
       payments={payments}
       paymentsCursor={paymentsCursor}
       paymentsFilters={paymentsFilters}
-      pending={command.isPending}
+      pending={command.isPending || catalogNeedsRefresh}
       preview={preview}
       refunds={refunds}
     />

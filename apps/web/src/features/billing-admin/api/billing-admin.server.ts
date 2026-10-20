@@ -2,14 +2,22 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
 
-import { executeBillingCommand } from "@/entities/subscription.server";
-import type { PriceSnapshot } from "@/entities/subscription";
+import {
+  billingFailureCode,
+  billingFailureResponse,
+  executeBillingCommand,
+} from "@/entities/subscription.server";
+import type {
+  BillingFailureCode,
+  PriceSnapshot,
+} from "@/entities/subscription";
 import {
   requestManageBilling,
   type ManageBillingCommand,
 } from "@/shared/api/backend/index.server";
 import {
   readAuthenticatedSession,
+  handleAuthenticatedRead,
   handleAuthenticatedMutation,
 } from "@/shared/auth/index.server";
 
@@ -389,7 +397,28 @@ export async function loadBillingOffersForOwner(): Promise<
 > {
   const session = await readAuthenticatedSession("rsc");
   if (session.kind !== "ready") return [];
-  const accessToken = session.value;
+  const result = await readOwnerCatalog(session.value);
+  if (!result.ok) throw new Error("Owner billing catalog unavailable");
+  return result.items;
+}
+
+export function handleOwnerCatalogRead(): Promise<Response> {
+  return handleAuthenticatedRead(async (accessToken) => {
+    const result = await readOwnerCatalog(accessToken);
+    return result.ok
+      ? Response.json({ ok: true, value: result.items })
+      : billingFailureResponse(result.code, result.status);
+  });
+}
+
+async function readOwnerCatalog(accessToken: string): Promise<
+  | { readonly ok: true; readonly items: readonly PriceSnapshot[] }
+  | {
+      readonly ok: false;
+      readonly code: BillingFailureCode;
+      readonly status: number;
+    }
+> {
   const items: PriceSnapshot[] = [];
   const seen = new Set<string>();
   let cursor: string | undefined;
@@ -403,13 +432,18 @@ export async function loadBillingOffersForOwner(): Promise<
       },
       accessToken,
     );
-    if (!result.ok) throw new Error("Owner billing catalog unavailable");
+    if (!result.ok)
+      return {
+        ok: false,
+        code: billingFailureCode(result),
+        status: result.response.status,
+      };
     const parsed = catalogOffersOutcomeSchema.safeParse(result.body);
     if (!parsed.success)
       throw new Error("Owner billing catalog response invalid");
     items.push(...parsed.data.result.items);
     const nextCursor = parsed.data.result.nextCursor;
-    if (nextCursor === null) return items;
+    if (nextCursor === null) return { ok: true, items };
     if (seen.has(nextCursor))
       throw new Error("Owner billing catalog continuation invalid");
     seen.add(nextCursor);

@@ -1,4 +1,5 @@
 "use client";
+import { AdminSearchSelect } from "./admin-search-select.client";
 import { OfferBenefitsFields } from "./offer-benefits-fields.client";
 import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import type { z } from "zod";
@@ -389,28 +390,17 @@ export function CatalogSection({
                 title="Вариант оплаты"
               >
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
-                  <label className="grid gap-1 text-sm font-medium">
-                    Вариант оплаты
-                    <select
-                      className="min-h-11 rounded-lg border border-input bg-card px-3"
-                      value={selectedOption === undefined ? "" : optionId}
-                      onChange={(event) => {
-                        setOptionId(event.currentTarget.value);
-                      }}
-                    >
-                      <option value="">Выберите вариант</option>
-                      {offers.map((item) => (
-                        <option
-                          key={item.paymentOption.id}
-                          value={item.paymentOption.id}
-                        >
-                          {item.offer.name} ·{" "}
-                          {formatMonths(item.paymentOption.months)} ·{" "}
-                          {formatKopecks(item.paymentOption.priceKopecks)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <AdminSearchSelect
+                    label="Вариант оплаты"
+                    name="selectedPaymentOption"
+                    value={selectedOption === undefined ? "" : optionId}
+                    onValueChange={setOptionId}
+                    options={offers.map((item) => ({
+                      value: item.paymentOption.id,
+                      label: `${item.offer.name} · ${formatMonths(item.paymentOption.months)} · ${formatKopecks(item.paymentOption.priceKopecks)}`,
+                    }))}
+                  />
+
                   <Button
                     type="button"
                     variant="outline"
@@ -451,80 +441,84 @@ export function CatalogSection({
                       });
                     })}
                   >
-                    <input type="hidden" name="optionId" value={optionId} />
-                    <AdminSelect
-                      label="Предложение"
-                      name="optionOfferId"
-                      defaultValue={selectedOption?.offer.id ?? ""}
-                      placeholder="Выберите предложение"
-                      options={tiers.map((item) => ({
-                        value: item.tier.id,
-                        label: item.tier.name,
-                      }))}
-                    />
-                    {selectedOption === undefined ? (
-                      <AdminSelect
-                        label="Способ продажи"
-                        name="optionMode"
-                        defaultValue="subscription"
-                        options={[
-                          {
-                            value: "subscription",
-                            label: "Подписка: списания по расписанию",
-                          },
-                          {
-                            value: "one_time",
-                            label: "Разовая покупка: без списаний",
-                          },
-                        ]}
+                    <fieldset disabled={pending} className="contents">
+                      <input type="hidden" name="optionId" value={optionId} />
+                      <AdminSearchSelect
+                        label="Предложение"
+                        name="optionOfferId"
+                        defaultValue={selectedOption?.offer.id ?? ""}
+                        options={tiers.map((item) => ({
+                          value: item.tier.id,
+                          label: item.tier.name,
+                        }))}
                       />
-                    ) : (
-                      <p className="grid gap-1 text-sm">
-                        <span className="font-medium">Способ продажи</span>
-                        <span>
-                          {selectedOption.paymentOption.mode === "one_time"
-                            ? "Разовая покупка: без списаний"
-                            : "Подписка: списания по расписанию"}
-                        </span>
-                        <input
-                          type="hidden"
+                      {selectedOption === undefined ? (
+                        <AdminSelect
+                          label="Способ продажи"
                           name="optionMode"
-                          value={
-                            selectedOption.paymentOption.mode ?? "subscription"
-                          }
+                          defaultValue="subscription"
+                          options={[
+                            {
+                              value: "subscription",
+                              label: "Подписка: списания по расписанию",
+                            },
+                            {
+                              value: "one_time",
+                              label: "Разовая покупка: без списаний",
+                            },
+                          ]}
                         />
+                      ) : (
+                        <p className="grid gap-1 text-sm">
+                          <span className="font-medium">Способ продажи</span>
+                          <span>
+                            {selectedOption.paymentOption.mode === "one_time"
+                              ? "Разовая покупка: без списаний"
+                              : "Подписка: списания по расписанию"}
+                          </span>
+                          <input
+                            type="hidden"
+                            name="optionMode"
+                            value={
+                              selectedOption.paymentOption.mode ??
+                              "subscription"
+                            }
+                          />
+                        </p>
+                      )}
+                      <AdminField
+                        hint="У подписки это период списания. У разовой покупки месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
+                        inputMode="numeric"
+                        label="Месяцев"
+                        name="optionMonths"
+                        defaultValue={selectedOption?.paymentOption.months}
+                        required
+                      />
+                      <AdminField
+                        hint="В копейках: 350000 — это 3 500 ₽."
+                        inputMode="numeric"
+                        label="Цена"
+                        name="optionPrice"
+                        defaultValue={
+                          selectedOption?.paymentOption.priceKopecks
+                        }
+                        required
+                      />
+                      <input
+                        type="hidden"
+                        name="optionRevision"
+                        value={selectedOption?.paymentOption.revision ?? ""}
+                      />
+                      <p>
+                        <Button
+                          className={billingActionClass}
+                          disabled={pending}
+                          type="submit"
+                        >
+                          Сохранить вариант
+                        </Button>
                       </p>
-                    )}
-                    <AdminField
-                      hint="У подписки это период списания. У разовой покупки месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
-                      inputMode="numeric"
-                      label="Месяцев"
-                      name="optionMonths"
-                      defaultValue={selectedOption?.paymentOption.months}
-                      required
-                    />
-                    <AdminField
-                      hint="В копейках: 350000 — это 3 500 ₽."
-                      inputMode="numeric"
-                      label="Цена"
-                      name="optionPrice"
-                      defaultValue={selectedOption?.paymentOption.priceKopecks}
-                      required
-                    />
-                    <input
-                      type="hidden"
-                      name="optionRevision"
-                      value={selectedOption?.paymentOption.revision ?? ""}
-                    />
-                    <p>
-                      <Button
-                        className={billingActionClass}
-                        disabled={pending}
-                        type="submit"
-                      >
-                        Сохранить вариант
-                      </Button>
-                    </p>
+                    </fieldset>
                   </form>
                 )}
                 {selectedOption === undefined ? null : (
