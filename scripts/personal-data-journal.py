@@ -6,6 +6,7 @@ import json
 import os
 import pathlib
 import shlex
+import signal
 import stat
 import subprocess
 import sys
@@ -128,7 +129,14 @@ def restore(client, bucket, key, identity, output):
     return {"objectKey": key, "restored": True}
 
 
+def terminate(_signal, _frame):
+    # Unwind subprocess.run and restore's finally block before leaving the operator CLI.
+    raise KeyboardInterrupt
+
+
 def main():
+    for signum in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(signum, terminate)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-dir", type=pathlib.Path, default=pathlib.Path("/etc/inside/foundation"))
     commands = parser.add_subparsers(dest="command", required=True)
@@ -149,7 +157,7 @@ def main():
         else:
             receipt = restore(client, bucket, args.key, args.identity, args.output)
         print(json.dumps(receipt))
-    except Exception:
+    except (Exception, KeyboardInterrupt):
         # Provider and crypto exceptions may contain protected values.
         print("journal operation failed; no successful receipt issued", file=sys.stderr)
         return 1

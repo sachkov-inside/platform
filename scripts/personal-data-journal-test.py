@@ -94,6 +94,32 @@ class JournalTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             journal.private_bytes(fifo)
 
+    def test_operator_interruption_reaps_active_crypto_process(self):
+        import os
+        import signal
+        import time
+        executable = self.root / "age"
+        ready = self.root / "crypto-ready"
+        executable.write_text("#!/usr/bin/env python3\nimport os,pathlib,signal\npathlib.Path(os.environ['JOURNAL_PROOF_READY']).write_text(str(os.getpid()))\nsignal.pause()\n")
+        executable.chmod(0o700)
+        harness = "import importlib.util,signal; s=importlib.util.spec_from_file_location('journal'," + repr(str(pathlib.Path(journal.__file__).resolve())) + "); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); signal.signal(signal.SIGTERM,m.terminate); m.age(b'synthetic')"
+        parent = subprocess.Popen([__import__('sys').executable, "-c", harness], env={**os.environ, "PATH": str(self.root) + os.pathsep + os.environ["PATH"], "JOURNAL_PROOF_READY": str(ready)}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            deadline = time.monotonic() + 5
+            while not ready.exists():
+                if time.monotonic() >= deadline:
+                    self.fail("crypto process did not report readiness")
+                time.sleep(0.01)  # Poll the owned crypto readiness file, not elapsed work.
+            descendant = int(ready.read_text())
+            parent.send_signal(signal.SIGTERM)
+            parent.wait(timeout=5)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(descendant, 0)
+        finally:
+            if parent.poll() is None:
+                parent.kill()
+            parent.wait(timeout=5)
+
     def test_provider_failure_does_not_issue_receipt(self):
         self.storage.fail = True
         with self.assertRaises(RuntimeError):
