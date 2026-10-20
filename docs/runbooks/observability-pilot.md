@@ -787,10 +787,15 @@ privacy or representative resource gates.
 The semantic query view reads the two existing genuine pilot scrape sources, Alloy
 (`platform-collector`) and VictoriaTraces (`platform-trace-store`), with `instance="pilot"`.
 It does not start services or change scrape configuration. Run it against an already owned pilot
-output, whose private `auth.json` contains its disposable read token:
+output, whose private `auth.json` contains its disposable read token. Supply the canonical absolute
+output path, without symlink components or `..`. The output directory must belong to the current
+user with mode `0700`; its single-link regular `auth.json` must belong to that user with mode
+`0600`. Directory components and the file are opened relative to anchored descriptors without
+following symlinks. Inode, ownership, mode and canonical-path checks finish before either HTTP
+query; refusal prints no token, path or raw filesystem error:
 
 ```sh
-python3 scripts/observability-pilot/source_status_query.py --output <owned-pilot-output>
+python3 scripts/observability-pilot/source_status_query.py --output <canonical-owned-pilot-output>
 ```
 
 The optional numeric `--port` selects the owned loopback query ingress (default `18427`). It does
@@ -811,7 +816,7 @@ is added. Pinned-engine compatibility and real source-outage behavior still requ
 separate isolated runtime proof; local HTTP fixtures establish the adapter contract only.
 
 Source state is `fresh_up`, `fresh_down`, `stale`, `missing`, `query_unavailable` or `malformed`.
-Fresh means sample age at acquisition completion is at most 10 seconds, reusing the existing
+Fresh means sample age after bounded response decode and validation is at most 10 seconds, reusing the existing
 VictoriaTraces health rule of two five-second scrape intervals. A retained old `up=1` is stale,
 or missing once it leaves the query's lookback, and cannot establish current health. A fresh
 `up=0` is an observed scrape failure. Missing data and failed queries do not establish that the

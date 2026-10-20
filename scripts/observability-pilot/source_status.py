@@ -210,11 +210,14 @@ def _comparison(key, value, stamp, previous_rows, previous_stamps):
             'incomplete': incomplete}
 
 
-def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None):
+def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None, completion_clock=None):
     """Interpret matching acquisitions. Prior data cannot make current health fresh.
 
     previous, when supplied, is one acquisition with these same four arguments.
     It is validated afresh rather than trusting a caller-created report.
+    With completion_clock, completed_at is the acquisition's initial wall time;
+    the final clock is read only after bounded decode/validation. Without it, this
+    remains a pure fixed-time interpretation. No query evaluation time changes.
     """
     try:
         rows, stamps = _acquisition(values, timestamps, evaluated_at, completed_at)
@@ -227,6 +230,11 @@ def evaluate(values, timestamps, *, evaluated_at, completed_at, previous=None):
             previous_rows, previous_stamps = _acquisition(**previous)
         for identity in rows.keys() & previous_rows.keys():
             if stamps[identity] == previous_stamps[identity] and rows[identity] != previous_rows[identity]:
+                _reject()
+        if completion_clock is not None:
+            initial_completion = _clock(completed_at)
+            completed_at = _clock(completion_clock())
+            if completed_at < initial_completion:
                 _reject()
         sources = {}
         for source, job in SOURCES.items():

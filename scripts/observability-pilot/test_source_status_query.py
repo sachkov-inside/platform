@@ -1,8 +1,10 @@
 """Owned loopback HTTP and process-deadline contracts; no external providers."""
 import contextlib
 import http.server
+from email.message import Message
 import json
 import os
+import stat
 import io
 import tempfile
 from pathlib import Path
@@ -11,6 +13,7 @@ import time
 import threading
 import unittest
 import urllib.parse
+from unittest.mock import patch
 
 import source_status_query
 
@@ -24,18 +27,23 @@ def server(callback):
         def log_message(self, *_):
             pass
     instance = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
-    instance.daemon_threads = False
-    instance.block_on_close = True
-    thread = threading.Thread(target=instance.serve_forever)
-    thread.start()
+    thread = None
     try:
+        instance.daemon_threads = False
+        instance.block_on_close = True
+        thread = threading.Thread(target=instance.serve_forever)
+        thread.start()
         yield instance.server_port
     finally:
-        instance.shutdown()
-        instance.server_close()
-        thread.join(2)
-        if thread.is_alive():
-            raise AssertionError('owned HTTP reader did not stop')
+        try:
+            if thread is not None and thread.ident is not None:
+                instance.shutdown()
+        finally:
+            instance.server_close()
+            if thread is not None and thread.ident is not None:
+                thread.join(2)
+                if thread.is_alive():
+                    raise AssertionError('owned HTTP reader did not stop')
 
 
 class QueryTests(unittest.TestCase):
@@ -128,38 +136,47 @@ class QueryTests(unittest.TestCase):
             Path(output, 'auth.json').write_text('{"private-token": "broken"}')
             stream = io.StringIO()
             with contextlib.redirect_stdout(stream):
-                self.assertEqual(source_status_query.main(['--output', output]), 1)
+                self.assertEqual(source_status_query.main(['--output', str(output)]), 1)
             self.assertNotIn('private-token', stream.getvalue())
 
     def test_one_budget_covers_both_queries_and_never_keeps_first_health(self):
-        requests = []
-        release = threading.Event()
-        def reply(handler):
-            requests.append(handler.path)
-            handler.send_response(200)
-            if len(requests) == 1:
-                release.wait(.3)  # Named real-clock contract: spend part of the shared deadline.
-                payload = b'{"status":"success","data":{"resultType":"vector","result":[]}}'
-                handler.send_header('Content-Length', str(len(payload)))
-                handler.end_headers()
-                handler.wfile.write(payload)
-            else:
-                payload = b'{"status":"success","data":{"resultType":"vector","result":[]}}'
-                handler.send_header('Content-Length', str(len(payload)))
-                handler.end_headers()
-                if not release.wait(.6):
-                    try:
-                        handler.wfile.write(payload)
-                    except (BrokenPipeError, ConnectionResetError):
-                        pass
-        with server(reply) as port:
-            try:
-                result = source_status_query.query('private-token', port=port, deadline_seconds=.8, wall_clock=lambda: 100)
-            finally:
-                release.set()
+        # Controlled clock/HTTP boundary proves the shared budget without assuming
+        # the machine can schedule a second real request inside a short interval.
+        # The independent owned slow-trickle case proves the real OS deadline.
+        clock = [0]
+        requests, responses = [], []
+        class Response(io.BytesIO):
+            status = 200
+            def __init__(self, body, finished_at):
+                super().__init__(body)
+                self.headers = Message()
+                self.headers['Content-Length'] = str(len(body))
+                self.finished_at = finished_at
+            def read(self, limit):
+                result = super().read(limit)
+                clock[0] = self.finished_at
+                return result
+        def read(request, *, timeout):
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.full_url).query)
+            requests.append(timeout)
+            timestamp_query = query['query'][0].startswith('timestamp(')
+            labels = {'job': 'platform-collector', 'instance': 'pilot',
+                      'source_metric' if timestamp_query else '__name__': 'up'}
+            body = json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': [
+                {'metric': labels, 'value': [100, '99' if timestamp_query else '1']}]}}).encode()
+            response = Response(body, .3 if len(requests) == 1 else .9)
+            responses.append(response)
+            return response
+        with patch('time.monotonic', side_effect=lambda: clock[0]), \
+             patch('signal.setitimer'), \
+             patch('urllib.request.OpenerDirector.open', side_effect=read):
+            result = source_status_query.query('private-token', deadline_seconds=.8, wall_clock=lambda: 100)
         self.assertEqual(len(requests), 2)
+        self.assertAlmostEqual(requests[0], .8)
+        self.assertAlmostEqual(requests[1], .5)
         self.assertEqual(result['query']['reason'], 'timeout')
         self.assertTrue(all(source['state'] == 'query_unavailable' for source in result['sources'].values()))
+        self.assertTrue(all(response.closed for response in responses))
 
     def test_interruption_closes_reader_and_restores_alarm(self):
         disconnected = threading.Event()
@@ -236,14 +253,16 @@ class QueryTests(unittest.TestCase):
             self.assertEqual(result['sources']['collector']['state'], 'malformed')
 
     def test_credential_symlink_and_fifo_are_refused_without_opening_foreign_data(self):
-        with tempfile.TemporaryDirectory() as output:
-            target = Path(output, 'target.json')
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            target = output / 'target.json'
             target.write_text('{"users":[{"bearer_token":"private-token"}]}')
-            credential = Path(output, 'auth.json')
+            target.chmod(0o600)
+            credential = output / 'auth.json'
             credential.symlink_to(target)
             stream = io.StringIO()
             with contextlib.redirect_stdout(stream):
-                code = source_status_query.main(['--output', output, '--port', '1'])
+                code = source_status_query.main(['--output', str(output), '--port', '1'])
             self.assertEqual(code, 1)
             self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
             self.assertNotIn('private-token', stream.getvalue())
@@ -251,7 +270,224 @@ class QueryTests(unittest.TestCase):
             os.mkfifo(credential)
             stream = io.StringIO()
             with contextlib.redirect_stdout(stream):
-                self.assertEqual(source_status_query.main(['--output', output]), 1)
+                self.assertEqual(source_status_query.main(['--output', str(output)]), 1)
+            self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
+
+    def test_source_age_and_wall_regression_include_bounded_json_decode(self):
+        def reply(handler):
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
+            timestamp_query = query['query'][0].startswith('timestamp(')
+            labels = {'job': 'platform-collector', 'instance': 'pilot',
+                      'source_metric' if timestamp_query else '__name__': 'up'}
+            payload = json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': [
+                {'metric': labels, 'value': [109, '100' if timestamp_query else '1']}]}}).encode()
+            handler.send_response(200)
+            handler.send_header('Content-Length', str(len(payload)))
+            handler.end_headers()
+            handler.wfile.write(payload)
+        native_decode = json.loads
+        with server(reply) as port:
+            for after_decode, expected in ((110.001, 'stale'), (109.5, 'malformed')):
+                with self.subTest(after_decode=after_decode):
+                    clock = [109.999]
+                    decodes = []
+                    def bounded_decode(*args, **kwargs):
+                        result = native_decode(*args, **kwargs)
+                        decodes.append(True)
+                        clock[0] = after_decode
+                        return result
+                    with patch('json.loads', side_effect=bounded_decode):
+                        report = source_status_query.query('private-token', port=port, wall_clock=lambda: clock[0])
+                    self.assertEqual(len(decodes), 2)
+                    self.assertEqual(report['sources']['collector']['state'], expected)
+                    if expected == 'stale':
+                        self.assertEqual(report['query']['evaluated_at'], 109)
+                        self.assertEqual(report['query']['completed_at'], 110.001)
+                        self.assertGreater(report['sources']['collector']['sample_age_seconds'], 10)
+
+    def test_owned_server_closes_bound_socket_when_serving_thread_cannot_start(self):
+        acquired = []
+        native_server = http.server.ThreadingHTTPServer
+        def acquire(*args, **kwargs):
+            instance = native_server(*args, **kwargs)
+            acquired.append(instance)
+            return instance
+        try:
+            with patch('http.server.ThreadingHTTPServer', side_effect=acquire), \
+                 patch('threading.Thread.start', side_effect=RuntimeError('controlled start refusal')):
+                with self.assertRaisesRegex(RuntimeError, 'controlled start refusal'):
+                    with server(lambda _: None):
+                        self.fail('unstarted server was yielded')
+            self.assertEqual(len(acquired), 1)
+            self.assertEqual(acquired[0].socket.fileno(), -1)
+        finally:
+            for instance in acquired:
+                instance.server_close()
+
+    def test_private_owned_credential_modes_and_canonical_output_before_http(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            credential = output / 'auth.json'
+            credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+            for directory_mode, file_mode in ((0o755, 0o600), (0o770, 0o600), (0o1700, 0o600),
+                                               (0o700, 0o644), (0o700, 0o640), (0o700, 0o660), (0o700, 0o700)):
+                with self.subTest(directory_mode=directory_mode, file_mode=file_mode):
+                    output.chmod(directory_mode)
+                    credential.chmod(file_mode)
+                    stream = io.StringIO()
+                    with patch('urllib.request.OpenerDirector.open') as http_read, contextlib.redirect_stdout(stream):
+                        code = source_status_query.main(['--output', str(output)])
+                    self.assertEqual(code, 1)
+                    http_read.assert_not_called()
+                    self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
+                    self.assertNotIn('private-token', stream.getvalue())
+                    self.assertNotIn(str(output), stream.getvalue())
+            output.chmod(0o700)
+            credential.chmod(0o600)
+            alias = output / 'alias'
+            alias.symlink_to(output, target_is_directory=True)
+            candidates = (alias, output / '..' / output.name, Path(os.path.relpath(output)))
+            for candidate in candidates:
+                with self.subTest(candidate_kind=str(candidate == alias)):
+                    stream = io.StringIO()
+                    with patch('urllib.request.OpenerDirector.open') as http_read, contextlib.redirect_stdout(stream):
+                        code = source_status_query.main(['--output', str(candidate)])
+                    self.assertEqual(code, 1)
+                    http_read.assert_not_called()
+                    self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
+
+    def test_foreign_uid_credential_is_refused_before_http(self):
+        native_stat = os.fstat
+        def foreign_file(descriptor):
+            info = native_stat(descriptor)
+            if stat.S_ISREG(info.st_mode):
+                fields = list(info)
+                fields[4] = os.getuid() + 1
+                return os.stat_result(fields)
+            return info
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            credential = output / 'auth.json'
+            credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+            credential.chmod(0o600)
+            stream = io.StringIO()
+            with patch('os.fstat', side_effect=foreign_file), \
+                 patch('urllib.request.OpenerDirector.open') as http_read, contextlib.redirect_stdout(stream):
+                code = source_status_query.main(['--output', str(output)])
+            self.assertEqual(code, 1)
+            http_read.assert_not_called()
+            self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
+
+    def test_owned_private_credentials_reach_only_loopback_and_close_all_file_descriptors(self):
+        # Named real-clock adapter contract: the live CLI supplies evaluation time
+        # to an owned HTTP fixture. No native-engine compatibility is implied.
+        requests, descriptors = [], []
+        native_open = os.open
+        def acquired(*args, **kwargs):
+            descriptor = native_open(*args, **kwargs)
+            descriptors.append(descriptor)
+            return descriptor
+        def reply(handler):
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
+            requests.append(handler.headers.get('Authorization'))
+            evaluation = int(query['time'][0])
+            timestamp_query = query['query'][0].startswith('timestamp(')
+            rows = [{'metric': {'job': job, 'instance': 'pilot',
+                                'source_metric' if timestamp_query else '__name__': 'up'},
+                     'value': [evaluation, str(evaluation) if timestamp_query else '1']}
+                    for job in ('platform-collector', 'platform-trace-store')]
+            payload = json.dumps({'status': 'success', 'data': {'resultType': 'vector', 'result': rows}}).encode()
+            handler.send_response(200)
+            handler.send_header('Content-Length', str(len(payload)))
+            handler.end_headers()
+            handler.wfile.write(payload)
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            credential = output / 'auth.json'
+            credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+            credential.chmod(0o600)
+            stream = io.StringIO()
+            with server(reply) as port, patch('os.open', side_effect=acquired), contextlib.redirect_stdout(stream):
+                code = source_status_query.main(['--output', str(output), '--port', str(port)])
+            self.assertEqual(code, 0)
+            self.assertEqual(requests, ['Bearer private-token', 'Bearer private-token'])
+            report = json.loads(stream.getvalue())
+            self.assertEqual(report['sources']['collector']['state'], 'fresh_up')
+            self.assertEqual(report['sources']['trace_store']['state'], 'fresh_up')
+            self.assertNotIn('private-token', stream.getvalue())
+            self.assertNotIn(str(output), stream.getvalue())
+            self.assertGreater(len(descriptors), 1)
+            for descriptor in descriptors:
+                with self.assertRaises(OSError):
+                    os.fstat(descriptor)
+
+    def test_parent_symlink_and_changed_owned_output_anchor_are_refused_before_http(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory).resolve()
+            real = parent / 'real'
+            real.mkdir(mode=0o700)
+            output = real / 'output'
+            output.mkdir(mode=0o700)
+            credential = output / 'auth.json'
+            credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+            credential.chmod(0o600)
+            alias = parent / 'alias'
+            alias.symlink_to(real, target_is_directory=True)
+            stream = io.StringIO()
+            with patch('urllib.request.OpenerDirector.open') as http_read, contextlib.redirect_stdout(stream):
+                code = source_status_query.main(['--output', str(alias / 'output')])
+            self.assertEqual(code, 1)
+            http_read.assert_not_called()
+            self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
+            native_decode = json.loads
+            descriptors = []
+            native_open = os.open
+            def acquired(*args, **kwargs):
+                descriptor = native_open(*args, **kwargs)
+                descriptors.append(descriptor)
+                return descriptor
+            def replace_directory_during_decode(*args, **kwargs):
+                result = native_decode(*args, **kwargs)
+                output.rename(real / 'moved')
+                output.mkdir(mode=0o700)
+                replacement = output / 'auth.json'
+                replacement.write_text('{"users":[{"bearer_token":"private-token"}]}')
+                replacement.chmod(0o600)
+                return result
+            stream = io.StringIO()
+            with patch('json.loads', side_effect=replace_directory_during_decode), \
+                 patch('os.open', side_effect=acquired), \
+                 patch('urllib.request.OpenerDirector.open') as http_read, contextlib.redirect_stdout(stream):
+                code = source_status_query.main(['--output', str(output)])
+            self.assertEqual(code, 1)
+            http_read.assert_not_called()
+            self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
+            self.assertGreater(len(descriptors), 1)
+            for descriptor in descriptors:
+                with self.assertRaises(OSError):
+                    os.fstat(descriptor)
+
+    def test_foreign_uid_output_directory_is_refused_before_reading_credentials(self):
+        native_stat = os.fstat
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory).resolve()
+            inode = output.stat().st_ino
+            credential = output / 'auth.json'
+            credential.write_text('{"users":[{"bearer_token":"private-token"}]}')
+            credential.chmod(0o600)
+            def foreign_directory(descriptor):
+                info = native_stat(descriptor)
+                if info.st_ino == inode:
+                    fields = list(info)
+                    fields[4] = os.getuid() + 1
+                    return os.stat_result(fields)
+                return info
+            stream = io.StringIO()
+            with patch('os.fstat', side_effect=foreign_directory), \
+                 patch('urllib.request.OpenerDirector.open') as http_read, contextlib.redirect_stdout(stream):
+                code = source_status_query.main(['--output', str(output)])
+            self.assertEqual(code, 1)
+            http_read.assert_not_called()
             self.assertEqual(json.loads(stream.getvalue())['query']['reason'], 'credentials')
 
 

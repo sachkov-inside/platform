@@ -104,10 +104,8 @@ def query(token, *, port=DEFAULT_QUERY_PORT, wall_clock=time.time,
                     if len(body) > status.MAX_BODY_BYTES:
                         return status.malformed()
                     bodies.append(body)
-            completed_at = wall_clock()
-            if completed_at < wall_started:
-                return status.malformed()
-            result = status.evaluate(*bodies, evaluated_at=evaluated_at, completed_at=completed_at)
+            result = status.evaluate(*bodies, evaluated_at=evaluated_at, completed_at=wall_started,
+                                     completion_clock=wall_clock)
             duration = time.monotonic() - started
             if duration >= deadline_seconds:
                 raise TimeoutError()
@@ -128,20 +126,63 @@ def query(token, *, port=DEFAULT_QUERY_PORT, wall_clock=time.time,
         return status.unavailable('transport_error')
 
 
+def _read_private_token(output):
+    # Anchor every directory component rather than following a mutable pathname
+    # to auth.json. Only the explicitly named canonical owned output is accepted.
+    if (not output.is_absolute() or len(output.parts) > 64
+            or output != output.resolve(strict=True)):
+        raise ValueError()
+    uid = os.getuid()
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    with contextlib.ExitStack() as descriptors:
+        directory = os.open(output.anchor, directory_flags)
+        descriptors.callback(os.close, directory)
+        for component in output.parts[1:]:
+            directory = os.open(component, directory_flags, dir_fd=directory)
+            descriptors.callback(os.close, directory)
+        owner = os.fstat(directory)
+        if not stat.S_ISDIR(owner.st_mode) or owner.st_uid != uid or stat.S_IMODE(owner.st_mode) != 0o700:
+            raise ValueError()
+        def private_reader(_path, flags):
+            return os.open('auth.json', flags | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC,
+                           dir_fd=directory)
+        with open(output / 'auth.json', 'rb', opener=private_reader) as stream:
+            info = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != uid or stat.S_IMODE(info.st_mode) != 0o600
+                    or info.st_nlink != 1 or info.st_size > status.MAX_BODY_BYTES):
+                raise ValueError()
+            credentials = status.decode_json(stream.read(status.MAX_BODY_BYTES + 1))
+            final = os.fstat(stream.fileno())
+            linked = os.stat('auth.json', dir_fd=directory, follow_symlinks=False)
+            def identity(value):
+                return (value.st_dev, value.st_ino, value.st_uid, value.st_mode, value.st_nlink,
+                        value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+            if identity(info) != identity(final) or identity(final) != identity(linked):
+                raise ValueError()
+        linked_directory = os.stat(output, follow_symlinks=False)
+        final_owner = os.fstat(directory)
+        if (output != output.resolve(strict=True)
+                or (owner.st_dev, owner.st_ino, owner.st_uid, owner.st_mode)
+                != (final_owner.st_dev, final_owner.st_ino, final_owner.st_uid, final_owner.st_mode)
+                or (owner.st_dev, owner.st_ino, owner.st_uid, owner.st_mode)
+                != (linked_directory.st_dev, linked_directory.st_ino, linked_directory.st_uid, linked_directory.st_mode)):
+            raise ValueError()
+        if (not isinstance(credentials, dict) or not isinstance(credentials.get('users'), list)
+                or len(credentials['users']) != 1 or not isinstance(credentials['users'][0], dict)):
+            raise ValueError()
+        token = credentials['users'][0]['bearer_token']
+        if not valid_token(token):
+            raise ValueError()
+        return token
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', required=True, type=Path, help='Owned pilot output containing auth.json')
+    parser.add_argument('--output', required=True, type=Path, help='Canonical absolute owned pilot output (0700), containing private auth.json (0600)')
     parser.add_argument('--port', default=DEFAULT_QUERY_PORT, type=int)
     args = parser.parse_args(argv)
     try:
-        def private_reader(path, flags):
-            return os.open(path, flags | os.O_NOFOLLOW | os.O_NONBLOCK)
-        with open(args.output / 'auth.json', 'rb', opener=private_reader) as stream:
-            info = os.fstat(stream.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_size > status.MAX_BODY_BYTES:
-                raise ValueError()
-            credentials = status.decode_json(stream.read(status.MAX_BODY_BYTES + 1))
-        token = credentials['users'][0]['bearer_token']
+        token = _read_private_token(args.output)
         report = query(token, port=args.port)
     except KeyboardInterrupt:
         report = status.unavailable('interrupted')
