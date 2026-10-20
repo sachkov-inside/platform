@@ -302,5 +302,25 @@
     "operations": ["delete", "find", "initUpload"],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.dependency.operations", "inside.dependency.duration"]
+  },
+  "email": {
+    "operations": [
+      "publishMaterial",
+      "receiveMaterial",
+      "dispatchMaterial",
+      "publishSubscription",
+      "receiveSubscription",
+      "dispatchSubscription",
+      "publishResult",
+      "receiveResult",
+      "projectResult"
+    ],
+    "lanes": ["emailMaterial", "emailSubscription", "emailResult"],
+    "destinations": [
+      "inside.notifications.email.v1",
+      "inside.results.email.v1"
+    ],
+    "smtp_outcomes": ["sent", "not_sent", "failed", "unknown"],
+    "metrics": ["inside.email.operations", "inside.email.duration"]
   }
 }

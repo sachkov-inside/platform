@@ -77,12 +77,12 @@ class NotificationCatalog(unittest.TestCase):
         point = actual.split('context = "datapoint"',1)[1].split('log_statements',1)[0]
         statements = re.findall(r'`([^`]+)`',point)
         keep = [line for line in statements if line.startswith('keep_keys')]
-        self.assertEqual(len(keep),3)
+        self.assertEqual(len(keep),4)
         self.assertIn('not (IsMatch(metric.name,',keep[0])
         self.assertNotIn('"operation"',keep[0])
         self.assertIn('keep_keys(attributes, ["operation", "outcome"]) where (IsMatch(metric.name,',keep[1])
         for key in ('operation','outcome'):
-            rules = [line for line in statements if line.startswith('set(attributes["'+key+'"]') and 'dependency' not in line]
+            rules = [line for line in statements if line.startswith('set(attributes["'+key+'"]') and 'dependency' not in line and 'email' not in line]
             self.assertEqual(len(rules),2)
             self.assertTrue(all('IsMatch(metric.name,' in line for line in rules))
             self.assertTrue(any('not IsString' in line for line in rules))
@@ -91,10 +91,10 @@ class NotificationCatalog(unittest.TestCase):
         self.assertIn('inside',span)
         self.assertIn('notification_operation_failed',span)
         notification_rules = [line for line in re.findall(r'`([^`]+)`',span)
-                              if 'where (attributes["messaging.system"] == "rabbitmq")' in line]
+                              if 'where (attributes["messaging.system"] == "rabbitmq" and not (' in line]
         self.assertEqual(len(notification_rules),2)
         for line in notification_rules:
-            literal = re.search(r'IsMatch\(attributes\["[^\"]+"\], ("(?:\\.|[^"\\])*")\)',line)[1]
+            literal = re.search(r'not IsMatch\(attributes\["messaging\.[^\"]+"\], ("(?:\\.|[^"\\])*")\)',line)[1]
             regex = json.loads(literal)
             values = ('inside.events.materials.v1',) if 'destination.name' in line else ('publish','receive','audience')
             for value in values:
