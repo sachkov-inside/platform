@@ -118,11 +118,13 @@ export function MaterialReaderView({
       readingAction={topReadingAction ?? readingAction}
       bookmarkAction={topBookmarkAction ?? bookmarkAction}
       shareAction={
-        <MaterialShareButton
-          slug={material.slug}
-          title={material.title}
-          presentation="reader"
-        />
+        material.access === "free" ? (
+          <MaterialShareButton
+            slug={material.slug}
+            title={material.title}
+            presentation="reader"
+          />
+        ) : null
       }
     />
   );
@@ -211,11 +213,13 @@ export function MaterialReaderView({
               bookmarkAction={endBookmarkAction}
               nextStep={nextStep}
               shareAction={
-                <MaterialShareButton
-                  slug={material.slug}
-                  title={material.title}
-                  presentation="reader"
-                />
+                material.access === "free" ? (
+                  <MaterialShareButton
+                    slug={material.slug}
+                    title={material.title}
+                    presentation="reader"
+                  />
+                ) : null
               }
               readingAction={endReadingAction}
             />
@@ -327,7 +331,7 @@ export function MaterialReaderHeader({
         title={material.title}
         actions={actions}
         metadata={
-          showShare ? (
+          showShare && material.access === "free" ? (
             <MaterialShareButton slug={material.slug} title={material.title} />
           ) : null
         }
@@ -348,7 +352,7 @@ export function MaterialReaderHeader({
         </IntentPrefetchLink>
         <span aria-hidden="true">·</span>
         <time dateTime={material.publishedAt}>{publicationDate}</time>
-        {showShare ? (
+        {showShare && material.access === "free" ? (
           <MaterialShareButton slug={material.slug} title={material.title} />
         ) : null}
       </div>
