@@ -1346,3 +1346,33 @@ package использует production-код очистки диагности
 исходники `docs/contracts/`, package manifest и настройки компилятора входят в полный
 набор входных файлов SDK. Остальные пути `docs/` не допускаются в module witness.
 Пределы private protocol и схема public artifact не меняются.
+
+
+### Genuine tracking success storage candidate (#1566)
+
+`.github/workflows/observability-tracking-storage.yml` prepares a separate Linux hosted vertical.
+It sends one real HTTP `POST /communications/tracking/resolve` through the compiled production API,
+observes the persisted carrier, waits for the production five-second timer and atomic claim, and
+closes the API normally before querying pinned Alloy/VM/VT. Its private provider handles exactly
+one resolve and one recordHit command. No trace headers are sent to that provider.
+
+The disposable project owns eight containers, five volumes and two networks, including PostgreSQL.
+The original Core7 ownership/absence proof remains unchanged; an additional exact PG container and
+volume proof produces the combined typed count. Host API/provider listeners live inside one bounded
+Node child owned by the unchanged 600-second external worker supervisor. API/pump shutdown and SDK
+flush precede collector shutdown. No local shared stand or Testcontainers/Ryuk resource participates.
+
+The separate tracking collector owner admits `deliver` with `completed|failed`, two metric families,
+and only operation/outcome metric labels. The success oracle checks the complete raw metric vector
+before projection, all stored rows in the privately derived trace, both provider edges and SQL counts.
+A genuine test-mode API has release `test`; the existing collector maps it to `_OTHER`. Source/build
+identity comes from the complete input manifest and every actual loaded module hash, rather than an
+injected SDK release. Private IPC uses at most eight groups of 512 path/hash rows (4096 total), at most
+1MiB, with duplicate/path/digest checks before the public map. This API fixture has its own grouped protocol; the separate SDK fixture's 1000-row cap and
+decoder remain unchanged.
+
+Run the isolated workflow for native acceptance. Pure contract tests and prepared source do not prove
+this storage composition has executed. Even a successful hosted result covers only this one success;
+retry, failed/rootless delivery, process-crash recovery, OFF/503, resource/cost acceptance, production
+and seven actual days remain separate requirements. The fixed storage visibility budget is 60 seconds;
+the existing native query/supervisor caps are retained.
