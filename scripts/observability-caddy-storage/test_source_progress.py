@@ -12,7 +12,18 @@ class SourceProgress(unittest.TestCase):
     def test_discovery_matches_fixed_inventory_and_original_methods_once(self):
         suite=unittest.defaultTestLoader.discover(str(Path(__file__).parent),pattern='test_*.py')
         source_progress.verify_inventory(suite)
-        baseline=[name for name in source_progress.SOURCE_IDS if not name.startswith('test_source_progress.')]
+        added={
+            'test_acquisition_budget.AcquisitionBudget.test_127_performs_one_query_then_refuses_next_without_more_work',
+            'test_acquisition_budget.AcquisitionBudget.test_actual_snapshot_128_and_129_refuse_before_any_acquisition_work',
+            'test_acquisition_budget.AcquisitionBudget.test_classification_never_reads_foreign_metadata_or_matches_text',
+            'test_acquisition_budget.AcquisitionBudget.test_worker_actual_scenario_cap_preserves_primary_first_failure_and_cleanup',
+            'test_source_progress.SourceProgress.test_discovery_matches_fixed_inventory_and_original_methods_once',
+            'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
+            'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome'}
+        self.assertEqual(len(source_progress.SOURCE_IDS),80)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),80)
+        self.assertTrue(added<=set(source_progress.SOURCE_IDS))
+        baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),73)
         self.assertEqual(hashlib.sha256(json.dumps(baseline).encode()).hexdigest(),'34a7fb8b62c29fdf4980fa775a515fe1917839dfd1bd17cfae82db0b4de1be00')
         class Case(unittest.TestCase):

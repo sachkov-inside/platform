@@ -13,6 +13,19 @@ import request_hold
 import traffic
 
 
+class AcquisitionBudgetRefusal(RuntimeError):
+    def __init__(self):RuntimeError.__init__(self,'closed Caddy acquisition cap')
+
+
+def failure_reason(error):
+    kind=type(error)
+    if kind is AcquisitionBudgetRefusal:return 'budget'
+    if issubclass(kind,KeyboardInterrupt):return 'interrupted'
+    if issubclass(kind,TimeoutError):return 'timeout'
+    if issubclass(kind,ValueError):return 'contract'
+    return 'unknown'
+
+
 class Scenario:
     def __init__(self,targets,token,executable,progress):
         self.targets,self.token,self.executable,self.progress=targets,token,executable,progress
@@ -30,8 +43,7 @@ class Scenario:
     def passed(self,name):self.progress('case',name)
 
     def failed(self,error):
-        self.progress('failure','interrupted' if isinstance(error,KeyboardInterrupt) else
-            'timeout' if isinstance(error,TimeoutError) else 'contract' if isinstance(error,ValueError) else 'unknown')
+        self.progress('failure',failure_reason(error))
 
     def _until(self,read,predicate):
         deadline=time.monotonic()+min(60,self.remaining())
@@ -68,7 +80,7 @@ class Scenario:
         return self.ready()['completed']
 
     def snapshot(self,previous=None):
-        if self.acquisitions>=128:raise RuntimeError('closed Caddy acquisition cap')
+        if self.acquisitions>=128:raise AcquisitionBudgetRefusal()
         # A prior acquisition's completion cannot be later than the new fixed evaluation time.
         while previous is not None and math.floor(time.time())<math.ceil(previous['completed_at']):
             time.sleep(min(.05,self.remaining()))
