@@ -392,18 +392,17 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       });
     }
   }, takePerformanceRecords);
-  const documentResponse = await request.get(
-    "/materials/kak-ustroen-inside-platform",
-  );
+  // This scenario owns its Home return. Other files can add the same Material to a second
+  // course; a direct URL otherwise infers its sole course only on a fresh shard database.
+  const materialHref = "/materials/kak-ustroen-inside-platform?from=%2F";
+  const documentResponse = await request.get(materialHref);
   const initialHtml = await documentResponse.text();
 
   expect(documentResponse.status()).toBe(200);
   expect(initialHtml).toContain("Как устроен Inside Platform");
   expect(initialHtml).toContain("Первый вертикальный срез");
 
-  const browserResponse = await page.goto(
-    "/materials/kak-ustroen-inside-platform",
-  );
+  const browserResponse = await page.goto(materialHref);
   expect(browserResponse?.status()).toBe(200);
   await expect(
     page.getByRole("heading", {

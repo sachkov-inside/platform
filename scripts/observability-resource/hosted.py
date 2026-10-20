@@ -220,7 +220,7 @@ def prepare_images(source, disk, images, recorder):
     runtime.pilot.FROZEN_DOCKER_ENDPOINT = identity['endpoint']
     runtime.pilot.FROZEN_DOCKER_IDENTITY = identity
     recorder.passed()
-    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop=recorder.storage_stop):
+    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop):
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],
                  '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds')

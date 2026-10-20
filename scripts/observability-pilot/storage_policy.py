@@ -15,6 +15,14 @@ def admission(*, total, free):
             'pilot requires 16 GiB free: 10 GiB host floor, 4 GiB growth cap, 2 GiB cleanup headroom'}
 
 
+class StorageBudgetExceeded(RuntimeError):
+    def __init__(self, reason):
+        super().__init__('pilot storage budget exceeded')
+        self.reason = reason
+
+
 def assert_budget(initial, free):
-    if free <= FLOOR_BYTES + STOP_MARGIN_BYTES or initial - free >= GROWTH_BYTES - STOP_MARGIN_BYTES:
-        raise RuntimeError('pilot storage budget exceeded')
+    floor = free <= FLOOR_BYTES + STOP_MARGIN_BYTES
+    growth = initial - free >= GROWTH_BYTES - STOP_MARGIN_BYTES
+    if floor or growth:
+        raise StorageBudgetExceeded('floor_growth' if floor and growth else 'floor' if floor else 'growth')
