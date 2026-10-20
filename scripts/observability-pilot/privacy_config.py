@@ -34,6 +34,7 @@ def render():
     policy = json.loads((CONFIG/'privacy-policy.json').read_text())
     notification = policy['notifications']
     dependency = policy['dependencies']
+    s3 = policy['s3']
     email = policy['email']
     resource = ['keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])',
         enum_rule('service.name', policy['services']),
@@ -60,6 +61,7 @@ def render():
     rabbit = 'attributes["messaging.system"] == '+literal(notification['system'])
     is_email = 'IsString(attributes["email.lane"]) and IsMatch(attributes["email.lane"], '+literal(pattern(email['lanes']))+')'
     is_smtp = 'attributes["dependency.name"] == "smtp"'
+    is_s3 = 'attributes["dependency.name"] == "s3"'
     materials = rabbit+' and not ('+is_email+')'
     span_attributes = [*http_rules,
         enum_rule('messaging.system', ['pg-boss', notification['system']]),
@@ -78,7 +80,12 @@ def render():
     ]
     dependency_keys = ['dependency.name','dependency.operation','dependency.outcome']
     for key, values in zip(dependency_keys, (dependency['names'],dependency['operations'],dependency['outcomes'])):
-        span_attributes += [only('set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])','not ('+is_smtp+')'), only(enum_rule(key,values),'not ('+is_smtp+')')]
+        condition = 'not ('+is_smtp+')'+(' and not ('+is_s3+')' if key == 'dependency.operation' else '')
+        span_attributes += [only('set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])',condition), only(enum_rule(key,values),condition)]
+    span_attributes += [only('set(attributes["dependency.operation"], "_OTHER") where attributes["dependency.operation"] != nil and not IsString(attributes["dependency.operation"])',is_s3),
+                        only(enum_rule('dependency.operation',s3['operations']),is_s3)]
+    for method in ('GET','PUT','DELETE'):
+        span_attributes.append(only('delete_key(attributes, "http.request.method") where attributes["http.request.method"] != '+literal(method),is_s3+' and attributes["dependency.operation"] == '+literal('http.'+method)))
     for key, values in (('dependency.operation',['send']), ('dependency.outcome',email['smtp_outcomes'])):
         span_attributes += [only('set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])',is_smtp), only(enum_rule(key,values),is_smtp)]
     span_rules = ['keep_keys(attributes, '+literal(keys+dependency_keys+['email.lane','messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *span_attributes,
@@ -88,6 +95,8 @@ def render():
     span_rules += [
         only('keep_keys(attributes, ["messaging.system", "messaging.destination.name", "messaging.operation.name", "email.lane", "error.type"])', 'attributes["email.lane"] != nil'),
         only('keep_keys(attributes, ["dependency.name", "dependency.operation", "dependency.outcome"])', is_smtp),
+        only('keep_keys(attributes, ["dependency.name", "dependency.operation", "dependency.outcome", "http.request.method", "http.response.status_code"])', is_s3),
+        only('keep_keys(attributes, ["dependency.name", "dependency.operation", "dependency.outcome"])', is_s3+' and not IsMatch(attributes["dependency.operation"], '+literal(pattern(s3['operations'][:3]))+')'),
         'set(trace_state, "")', 'set(status.message, "")', 'set(events, nil)',
         # Keep every link. The pinned VT ingestion boundary removes only its metadata fields.
         'set(name, "operation") where not IsMatch(name, "^(HTTP GET /pilot|queue[.]publish|worker[.]attempt|worker[.]retry|dependency[.]http)$")',
@@ -147,8 +156,11 @@ otelcol.processor.transform "privacy" {
     point_rules.append(only('keep_keys(attributes, [])',is_pool))
     point_rules.append(only('keep_keys(attributes, ["dependency", "operation", "outcome"])',is_dependency))
     for key, values in (('dependency',dependency['names']), ('operation',dependency['operations']), ('outcome',dependency['outcomes'])):
-        point_rules += [only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_dependency),
-                        only(enum_rule(key,values),is_dependency)]
+        condition = is_dependency+(' and not (attributes["dependency"] == "s3")' if key == 'operation' else '')
+        point_rules += [only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',condition),
+                        only(enum_rule(key,values),condition)]
+    point_rules += [only('set(attributes["operation"], "_OTHER") where not IsString(attributes["operation"])',is_dependency+' and attributes["dependency"] == "s3"'),
+                    only(enum_rule('operation',s3['operations']),is_dependency+' and attributes["dependency"] == "s3"')]
     point_rules.append(only('keep_keys(attributes, ["operation", "outcome"])',is_email_metric))
     for key in ('operation','outcome'):
         point_rules.append(only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_email_metric))

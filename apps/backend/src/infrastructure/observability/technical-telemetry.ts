@@ -50,7 +50,8 @@ class TechnicalScope {
     readonly correlation: Readonly<Record<string, string | boolean>>,
     readonly dependencyTracer: Tracer,
     readonly recordDependency: (
-      dependency: "kinescope" | "postgresql" | "tbank" | "logto" | "telegram",
+      dependency:
+        "kinescope" | "postgresql" | "tbank" | "logto" | "telegram" | "s3",
       operation:
         | KinescopeOperation
         | PostgresOperation
@@ -58,6 +59,7 @@ class TechnicalScope {
         | "jwks"
         | CommunityOperation
         | TelegramHttpOperation
+        | S3Operation
         | "communications.execute",
       failed: boolean,
       seconds: number,
@@ -79,6 +81,64 @@ class TechnicalScope {
       seconds: number,
     ) => void,
   ) {}
+}
+
+type S3Operation = "http.GET" | "http.PUT" | "http.DELETE" | "getObject.read";
+
+/** HTTP attempts stop at handler settlement; the separate read operation owns existing body work. */
+export async function observeS3Operation<Value>(
+  operation: S3Operation,
+  work: (observation: { response(status: number): void }) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope))
+    return work({ response: () => undefined });
+  const read = operation === "getObject.read";
+  const span = scope.dependencyTracer.startSpan(
+    `s3 ${operation}`,
+    {
+      kind: read ? SpanKind.INTERNAL : SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "s3",
+        "dependency.operation": operation,
+        ...(!read ? { "http.request.method": operation.slice(5) } : {}),
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), () =>
+      work({
+        response: (status) => {
+          if (
+            !read &&
+            Number.isInteger(status) &&
+            status >= 100 &&
+            status <= 599
+          ) {
+            span.setAttribute("http.response.status_code", status);
+            if (status >= 400) failed = true;
+          }
+        },
+      }),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "s3",
+      operation,
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
 }
 
 type CommunityOperation = "community.set" | "community.status";
@@ -900,7 +960,8 @@ export function createTechnicalTelemetry(
       { unit: "s" },
     );
     const recordDependency = (
-      dependency: "kinescope" | "postgresql" | "tbank" | "logto" | "telegram",
+      dependency:
+        "kinescope" | "postgresql" | "tbank" | "logto" | "telegram" | "s3",
       operation:
         | KinescopeOperation
         | PostgresOperation
@@ -908,6 +969,7 @@ export function createTechnicalTelemetry(
         | "jwks"
         | CommunityOperation
         | TelegramHttpOperation
+        | S3Operation
         | "communications.execute",
       failed: boolean,
       seconds: number,

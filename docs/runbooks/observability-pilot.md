@@ -784,6 +784,25 @@ storage millisecond. Совпадение, включая `+1ns`, даёт от�
 `unknown`: [VM decoder использует этот literal, когда protobuf version отсутствует](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/protoparser/opentelemetry/pb/pb.go). Ожидаемые 220 baseline / 230 final series и 44 / 46 email labelsets относятся
 только к этому one-bound fixture, не к native SDK histogram с 15 границами.
 
+Закреплённый VM v1.154.0 безусловно добавляет в успешный instant-query ответ
+[`stats`](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/query_response.qtpl):
+`seriesFetched` как десятичную строку и `executionTimeMsec` как целое число.
+Reader сохраняет прежний bare-fixture envelope и допускает только этот дополнительный
+object с ровно двумя ключами. `seriesFetched` ограничен неотрицательным signed int64,
+а milliseconds ограничены 9223372036854, максимумом положительного `time.Duration`
+после деления nanoseconds на миллион. Bool, отрицательные, дробные, переполненные,
+неизвестные и повторные поля дают отказ до pending. Metadata не заменяет проверку
+полного vector, не задаёт его cardinality и не копируется в proof.
+Native [formatter](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/vendor/github.com/valyala/quicktemplate/writer.go)
+использует plain decimal; numeric grammar samples не расширяется. `isPartial`, `trace`
+и другие неподтверждённые дополнительные поля по-прежнему запрещены.
+
+E-METRIC-01 зафиксирован после CI39391699476: четыре trace verdicts прошли, но первый
+metric checkpoint завершился отказом после восьми uploads. Host replay доказал
+несовместимость прежнего exact envelope с обязательным native `stats`. Raw failed
+response не сохранялся, поэтому это не доказательство единственной причины CI failure.
+Исправленный native collector/storage result требует нового exact-source evidence.
+
 `pilot.email_catalog_corpus` выполняет конечные 20 uploads, четыре full trace reads и
 13 full-vector metric checkpoints. Исходные query 10s / fact 60s сохраняются; отдельный
 runtime controller и его общий бюджет согласуются до lease. На каждом checkpoint
@@ -979,3 +998,44 @@ Owned native HTTP/OTLP tests cover these adapter outcomes, unchanged redirect be
 five-second aborts, context isolation, OFF and exporter 503. They do not prove genuine API/PostgreSQL
 caller behavior, pinned collector storage, cross-application causality or representative resource
 acceptance. Those remain delivery evidence gaps until exact-source runtime verification succeeds.
+
+### S3 headers attempts and full object reads
+
+The S3 candidate decorates each already resolved public `S3Client.config.requestHandler.handle`
+instance. It forwards the original receiver, request and options. The original handler still
+owns agents, configuration, destruction, timeouts and retry providers. No request headers or
+provider trace propagation are added. The configured production retry count is not measured here.
+
+Fixed dependency `s3` has three CLIENT operations, `http.GET`, `http.PUT` and `http.DELETE`.
+Each actual handler invocation ends at headers settlement, including unsuccessful HTTP statuses.
+Its body remains untouched. `getObject.read` is a separate INTERNAL operation around the existing
+GetObject loader, metadata validation and its one `transformToByteArray` call. A body failure
+can therefore follow a completed HTTP attempt. A mapped 404 is a failed HTTP attempt and a
+completed loader returning `null`. Neither outcome promises delivery of bytes to the caller.
+
+Public image cache hits and coalesced waiters add no operations. Protected and quarantine reads
+still load each time. Both delete invalidations, conditional PUT 409/412 mappings, error identity,
+local signed GET generation and bootstrap destruction retain their original owners. Bootstrap
+without a technical scope has no observation; this remains an explicit coverage gap.
+
+Spans retain only dependency name, fixed operation and completed/failed outcome. HTTP attempts
+also permit the fixed method and actual integer status 100..599. Full reads carry no HTTP fields.
+Metrics retain only dependency/operation/outcome. Bucket, key, endpoint, credentials, signatures,
+metadata, checksum, body, provider identifiers and raw AWS errors are excluded. The collector's
+S3 operation branch is separate from its existing dependency operation catalog; unknown S3
+operations fall back to `_OTHER`. Existing L/C/E synthetic payloads and legacy metric readers
+are unchanged. Existing manifest entries already bind the modified policy, generator and Alloy
+configuration; no new pilot runtime import or input is introduced.
+
+Four operations and two outcomes permit eight label sets per resource identity. The pinned SDK's
+15 finite histogram bounds produce 16 bucket series plus count, sum and counter, so the analytical
+upper bound is `8 × 19 = 152` new series per identity. The existing synthetic fixture's one-bound
+histogram instead uses five series per pair, so an equivalent isolated eight-pair seed would add
+40. Neither number is measured stored cardinality or a whole-vector verdict. No S3 storage seed
+is added by this source unit.
+
+Host tests use the pinned native AWS SDK against owned HTTP loopback listeners. The explicit
+three-attempt setting belongs only to that test client. Tests cover success/exhaustion, incomplete
+body, invalid metadata, cache coalescing/deletion, refusal mappings, bootstrap, OFF, exporter503,
+context isolation, sampling-independent counters and private wire fields. These tests do not
+replace genuine RustFS/PostgreSQL, SDK-to-pinned-storage, external corpus or resource acceptance.
