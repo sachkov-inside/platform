@@ -638,7 +638,9 @@ test.each(scenarios)(
         expect(message.includes("noreply@example.test")).toBe(true);
       }
       expect(inbox.payload).toBe(command.payload);
-      expect(inbox.digest).toBe(command.digest);
+      // The command protocol stores the bare digest; the transport inbox stores the algorithm prefix.
+      expect(command.digest).toMatch(/^[0-9a-f]{64}$/u);
+      expect(inbox.digest).toBe(`sha256:${command.digest}`);
       if (scenario.phase === "legacy-command" || !scenario.enabled) {
         expect(command.traceparent).toBeNull();
         expect(inbox.traceparent).toBeNull();
