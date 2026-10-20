@@ -89,6 +89,7 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
         "0099_chapter_supplementary_materials",
         "0100_product_waitlists",
         "0101_waitlist_confirmations",
+        "0102_material_telegram_announcements",
         "0101_funnel_diagnostic_candidates",
         "0102_billing_funnel_diagnostic_sources",
         "0103_reading_funnel_diagnostic_sources",

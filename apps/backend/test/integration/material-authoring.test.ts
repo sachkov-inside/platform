@@ -72,6 +72,7 @@ describe("MaterialAuthoring", () => {
     ).toEqual({
       ok: true,
       value: {
+        notifyTelegram: false,
         materialId: created.value.materialId,
         contentVersion: 1,
         cover: null,

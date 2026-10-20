@@ -11,6 +11,7 @@ export async function saveMaterial(
 ): Promise<SaveMaterialResult> {
   const formData = new FormData();
   formData.set("access", input.access);
+  formData.set("notifyTelegram", String(input.notifyTelegram ?? false));
   formData.set("deleteVideoId", input.deleteVideoId ?? "none");
   for (const videoId of input.detachVideoIds)
     formData.append("detachVideoIds", videoId);

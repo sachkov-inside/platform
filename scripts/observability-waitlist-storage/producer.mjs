@@ -1,3 +1,4 @@
+import { createApiProgress } from "../observability-tracking-storage/api-progress.mjs";
 // @ts-check
 // Genuine loopback API -> persisted carrier -> production timer, with owned provider/PG.
 import { writeProducerWitness } from "../observability-tracking-storage/producer.mjs";
@@ -14,12 +15,13 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 const origin = "https://waitlist-storage.example.test";
 const secret = "private-waitlist-storage-provider-secret";
 
-/** @param {string} databaseUrl */
-export async function produce(databaseUrl) {
+/** @param {string} databaseUrl @param {(milestone:string)=>void} [progress] */
+export async function produce(databaseUrl, progress = () => {}) {
   assert.match(
     databaseUrl,
     /^postgresql:\/\/tracking:tracking_fixture@127\.0\.0\.1:15432\/tracking$/u,
   );
+  progress("producer_started");
   /** @type {Map<string, string>} */
   const loaded = new Map();
   const hooks = registerHooks({
@@ -126,10 +128,13 @@ export async function produce(databaseUrl) {
       ).href
     );
     commandSchema = schema.waitlistConfirmationSchema;
+    progress("modules_imported");
     await migrations.migrateToLatest(databaseUrl);
+    progress("migrated");
     prisma = persistence.createPrismaClient(databaseUrl);
     provider.listen(0, "127.0.0.1");
     await once(provider, "listening");
+    progress("provider_started");
     const address = provider.address();
     assert.ok(address !== null && typeof address !== "string");
     const endpoint = `http://127.0.0.1:${address.port}`;
@@ -208,6 +213,7 @@ export async function produce(databaseUrl) {
         logger: false,
       });
       await app.listen(0, "127.0.0.1");
+      progress("api_started");
       // deterministic-test-allow wall-clock: A fresh signed JWT uses the same real clock as the production verifier.
       const now = Math.floor(Date.now() / 1000);
       const token = await new jose.SignJWT({})
@@ -240,6 +246,7 @@ export async function produce(databaseUrl) {
         name: "Next",
         active: true,
       });
+      progress("http_completed");
       const rows = await prisma.productWaitlistConfirmation.findMany();
       assert.equal(rows.length, 1);
       const row = rows[0];
@@ -248,12 +255,14 @@ export async function produce(databaseUrl) {
       const [, traceId, rootId] = (row.traceparent ?? "").split("-");
       assert.equal(row.completedAt, null);
       assert.equal(commands.length, 0);
+      progress("carrier_confirmed");
       // Reconstruct only from the committed row in a fresh API lifecycle, never the preceding HTTP ambient context.
       await app.close();
       app = undefined;
       assert.equal(commands.length, 0);
       app = await entrypoint.createApiApplication(config, { logger: false });
       await app.listen(0, "127.0.0.1");
+      progress("relay_started");
       const deadline = performance.now() + 20000;
       while (true) {
         const current =
@@ -279,14 +288,17 @@ export async function produce(databaseUrl) {
         ).active,
         true,
       );
+      progress("delivery_confirmed");
       // Normal API lifecycle drains the real pump and flushes its SDK while Alloy remains alive.
       await app.close();
       app = undefined;
       await prisma.$disconnect();
       prisma = undefined;
+      progress("sdk_shutdown");
       const modules = [...loaded]
         .sort()
         .map(([path, sha256]) => ({ path, sha256 }));
+      progress("module_map_ready");
       return {
         schema: 1,
         trace_id: traceId,
@@ -344,6 +356,7 @@ if (
     await writeProducerWitness(() =>
       produce(
         "postgresql://tracking:tracking_fixture@127.0.0.1:15432/tracking",
+        createApiProgress("waitlist"),
       ),
     );
   } catch {

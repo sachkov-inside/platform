@@ -23,6 +23,31 @@ const foundation = {
   restoreEntrypoint: read("infra/production/database/restore-entrypoint.sh"),
 };
 
+const databaseVersion = z
+  .object({
+    postgres: z.literal("18.4"),
+    pgBackRest: z.literal("2.59.3"),
+    sourceSha: z.string().regex(/^[a-f0-9]{40}$/u),
+    distributionSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+  .strict()
+  .parse(JSON.parse(read("infra/production/database/versions.json")));
+
+/** @param {{databaseCompose: string, dockerfile: string}} files */
+function assertDatabaseRelease(files) {
+  const asset = `ADD --checksum=sha256:${databaseVersion.distributionSha256} https://github.com/pgbackrest/pgbackrest/releases/download/release/${databaseVersion.pgBackRest}/pgbackrest-${databaseVersion.pgBackRest}.tar.gz `;
+  assert.ok(
+    files.dockerfile.includes(asset),
+    "must build the official distribution asset",
+  );
+  assert.ok(
+    files.databaseCompose.includes(
+      `image: inside/postgres-pgbackrest:${databaseVersion.postgres}-${databaseVersion.pgBackRest}\n`,
+    ),
+    "database image must match the fixed pgBackRest release",
+  );
+}
+
 const hostLogs = {
   daemon: z
     .record(z.string(), z.unknown())
@@ -85,6 +110,35 @@ describe("production foundation architecture contract", () => {
     assert.equal(
       image,
       `inside/logto-production:${logto.version}-${logto.forkRevision}`,
+    );
+  });
+
+  it("binds the fixed pgBackRest release to its distribution asset and Compose image", () => {
+    assertDatabaseRelease(foundation);
+  });
+
+  it("rejects the old vulnerable package even behind the fixed image tag", () => {
+    assert.throws(
+      () =>
+        assertDatabaseRelease({
+          ...foundation,
+          dockerfile: "RUN apk add --no-cache pgbackrest=2.57.0-r0\n",
+        }),
+      /official distribution asset/u,
+    );
+  });
+
+  it("rejects a substituted distribution checksum", () => {
+    assert.throws(
+      () =>
+        assertDatabaseRelease({
+          ...foundation,
+          dockerfile: foundation.dockerfile.replace(
+            `ADD --checksum=sha256:${databaseVersion.distributionSha256}`,
+            `ADD --checksum=sha256:${"0".repeat(64)}`,
+          ),
+        }),
+      /official distribution asset/u,
     );
   });
 

@@ -27,6 +27,7 @@ import { loadContentCoverProjections } from "./content-cover-projections.js";
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface CurrentMaterial {
+  readonly notifyTelegram: boolean | null;
   readonly source: AuthoringSource | null;
   readonly lifecycle: Material;
   readonly metadata: MaterialMetadata;
@@ -97,6 +98,7 @@ export async function loadCurrentMaterial(
   return {
     ok: true,
     value: {
+      notifyTelegram: row.notifyTelegram,
       source:
         row.sourceId === null
           ? null
@@ -155,6 +157,7 @@ export function toMaterialDto(
   },
 ): MaterialDto {
   return {
+    notifyTelegram: material.notifyTelegram,
     ...(material.source === null
       ? {}
       : {

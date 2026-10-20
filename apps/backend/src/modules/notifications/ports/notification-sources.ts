@@ -14,6 +14,7 @@ export type NotificationSource =
       readonly content: DeliveryCommand["content"];
       readonly accountId: string | null;
       readonly title: string;
+      readonly telegramManaged?: boolean;
       readonly readerPath: string;
       readonly purchaseRef?: string;
       readonly amountMinor?: number;

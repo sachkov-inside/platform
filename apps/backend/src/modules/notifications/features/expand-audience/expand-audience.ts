@@ -376,6 +376,7 @@ async function expandRow(
     }
     const channels: Channel[] = [];
     for (const channel of ["email", "telegram"] as const) {
+      if (channel === "telegram" && source.telegramManaged === true) continue;
       if (
         source.content.category === "subscription" ||
         preferences.get(accountId)?.[channel] === true

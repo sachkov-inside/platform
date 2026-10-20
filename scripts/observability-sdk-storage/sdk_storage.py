@@ -20,9 +20,10 @@ import ci
 import source_status_query
 import source_status_scenario
 import oracle
+import diagnostics
 
 SCOPE = 'One production SDK S3 cold read under a test-owned HTTP scope; not genuine API-to-store or resource acceptance'
-ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json')
+ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'sdk-storage.json', 'runtime-modules.json', 'recovery.json', diagnostics.NAME)
 EMITTER_SECONDS = 30
 STORAGE_SECONDS = 60
 CHILD_BYTES = 512 * 1024
@@ -42,7 +43,7 @@ def source_inputs():
     return tuple(pilot.ROOT / name for name in sorted(selected))
 
 
-def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS):
+def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=None):
     """Own the single native Node child and its in-process HTTP listener until reaped.
 
     No new process group: the existing outside supervisor also owns this child on
@@ -50,6 +51,7 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS):
     """
     if not 0 < budget <= EMITTER_SECONDS:
         raise ValueError('closed emitter budget')
+    if diagnostic is not None: diagnostic.start('capture')
     child = None
     try:
         child = subprocess.Popen(argv or ['node', str(HERE / 'emitter.mjs')], cwd=pilot.ROOT,
@@ -70,10 +72,25 @@ def emitter(*, argv=None, environment=None, budget=EMITTER_SECONDS):
                     break
                 data.extend(part)
                 if len(data) > CHILD_BYTES:
+                    if diagnostic is not None: diagnostic.fail('protocol_cap')
                     raise ValueError()
         if child.wait(timeout=max(.001, deadline-time.monotonic())) != 0:
+            if diagnostic is not None: diagnostic.fail('native_exit')
             raise RuntimeError()
-        return oracle.decode(bytes(data).decode('utf-8'))
+        if diagnostic is not None: diagnostic.start('protocol_decode')
+        try:
+            value = oracle.decode(bytes(data).decode('utf-8'))
+        except Exception:
+            if diagnostic is not None: diagnostic.fail('protocol_decode')
+            raise
+        if diagnostic is not None: diagnostic.observed(True)
+        return value
+    except BaseException as error:
+        if diagnostic is not None:
+            diagnostic.fail('interrupted' if isinstance(error, KeyboardInterrupt) else
+                            'deadline' if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)) else
+                            'transport' if isinstance(error, OSError) else 'unknown')
+        raise
     finally:
         if child is not None:
             try:
@@ -128,10 +145,10 @@ def metric_response(token, *, budget=10):
         request = urllib.request.Request('http://127.0.0.1:18427'+path, headers={'Authorization': 'Bearer '+token})
         with opener.open(request, timeout=budget) as response:
             if response.status != 200:
-                raise RuntimeError('SDK storage metric read unavailable')
+                raise diagnostics.QueryReadFailure('SDK storage metric read unavailable')
             raw = response.read(oracle.MAX_BYTES+1)
             if len(raw) > oracle.MAX_BYTES:
-                raise ValueError('SDK storage response cap')
+                raise diagnostics.ResponseDecode('SDK storage response cap')
             return raw.decode('utf-8')
 
 
@@ -152,8 +169,73 @@ def trace_response(compose, targets, trace_id, *, budget=10):
                              "set -o pipefail; wget -q -T 3 -O - '"+url+"' | head -c 1048577"],
                             timeout=max(.001, deadline-time.monotonic()))
         if len(raw.encode()) > oracle.MAX_BYTES:
-            raise ValueError('SDK storage response cap')
+            raise diagnostics.ResponseDecode('SDK storage response cap')
         return raw
+
+def producer_observation(output, *, environment, diagnostic):
+    wire = emitter(environment=environment, diagnostic=diagnostic)
+    diagnostic.start('witness')
+    try:
+        observed = witness(wire)
+    except Exception as error:
+        diagnostic.fail('witness_refusal' if isinstance(error, (ValueError, TypeError, KeyError)) else 'unknown'); raise
+    diagnostic.start('module_projection')
+    try:
+        module_artifact = {'schema':1, 'sha256':observed['runtime_modules']}
+    except Exception:
+        diagnostic.fail('module_projection'); raise
+    diagnostic.start('module_write')
+    try:
+        pilot.write_json(output/'runtime-modules.json', module_artifact)
+    except Exception:
+        diagnostic.fail('write_failure'); raise
+    diagnostic.observed(True)
+    return observed
+
+
+def stored_metrics_and_traces(*, token, compose, targets, observed, release, result, diagnostic):
+    """The SDK owner's unchanged raw oracles and visibility budget, with closed boundaries."""
+    deadline = time.monotonic()+STORAGE_SECONDS
+    metrics = traces = None
+    attempts = 0
+    while time.monotonic() < deadline:
+        attempts += 1
+        result['stage'] = 'stored_metrics'
+        diagnostic.start('metric_query')
+        diagnostic.attempt()
+        try:
+            raw_metrics = metric_response(token, budget=min(10, max(.001, deadline-time.monotonic())))
+        except Exception as error:
+            diagnostic.fail(diagnostics.query_reason(error)); raise
+        diagnostic.start('metric_validation')
+        try:
+            metrics = oracle.metrics(raw_metrics, release=release)
+        except Exception as error:
+            diagnostic.fail(diagnostics.oracle_reason(error)); raise
+        diagnostic.observed(metrics)
+        result['metrics_state'] = 'passed' if metrics is not None else 'pending'
+        result['stage'] = 'stored_traces'
+        diagnostic.start('trace_query')
+        try:
+            raw_traces = trace_response(compose, targets, observed['trace_id'],
+                                        budget=min(10, max(.001, deadline-time.monotonic())))
+        except Exception as error:
+            diagnostic.fail(diagnostics.query_reason(error)); raise
+        diagnostic.start('trace_validation')
+        try:
+            traces = oracle.traces(raw_traces, trace_id=observed['trace_id'], root_id=observed['root_id'], release=release)
+        except Exception as error:
+            diagnostic.fail(diagnostics.oracle_reason(error)); raise
+        diagnostic.observed(traces)
+        result['traces_state'] = 'passed' if traces is not None else 'pending'
+        if metrics is not None and traces is not None:
+            break
+        time.sleep(pilot.POLL_INTERVAL_SECONDS)
+    if metrics is None or traces is None:
+        diagnostic.start('visibility'); diagnostic.fail('deadline')
+        raise TimeoutError('SDK storage visibility deadline')
+    return metrics, traces, attempts
+
 
 def worker(output):
     owner = json.loads((output/'owner.json').read_text())
@@ -163,6 +245,8 @@ def worker(output):
     result = {'state': 'incomplete', 'scope': SCOPE}
     started = time.monotonic()
     result['stage'] = 'acquisition'
+    diagnostic = diagnostics.Diagnostic('sdk')
+    diagnostic.start('acquisition')
     try:
         with pilot.worker_storage_guard(owner, compose, output):
             pilot.install_plugin(output)
@@ -175,6 +259,7 @@ def worker(output):
             if json.loads((output/'compose.json').read_text()) != plan:
                 raise RuntimeError('SDK storage plan mismatch')
             result['stage'] = 'ownership'
+            diagnostic.start('ownership')
             targets = source_status_scenario.OwnedTargets(output, compose, plan, pilot.command)
             pilot.verify_trace_store_logging(output, compose)
             if pilot.command(['docker', 'inspect', '--format', '{{.HostConfig.LogConfig.Type}}', targets.targets['alloy']['id']]).strip() != 'none':
@@ -187,26 +272,9 @@ def worker(output):
             # Frozen daemon and exact owned plan/logging are established before secret ingress.
             pilot.assert_docker_identity()
             result['stage'] = 'producer'
-            observed = witness(emitter(environment={**os.environ, 'SDK_STORAGE_RELEASE': release}))
-            pilot.write_json(output/'runtime-modules.json', {'schema': 1, 'sha256': observed['runtime_modules']})
-            deadline = time.monotonic()+STORAGE_SECONDS
-            metrics = traces = None
-            attempts = 0
-            while time.monotonic() < deadline:
-                attempts += 1
-                result['stage'] = 'stored_metrics'
-                metrics = oracle.metrics(metric_response(token, budget=min(10, max(.001, deadline-time.monotonic()))), release=release)
-                result['metrics_state'] = 'passed' if metrics is not None else 'pending'
-                result['stage'] = 'stored_traces'
-                traces = oracle.traces(trace_response(compose, targets, observed['trace_id'], budget=min(10, max(.001, deadline-time.monotonic()))),
-                    trace_id=observed['trace_id'], root_id=observed['root_id'], release=release)
-                result['traces_state'] = 'passed' if traces is not None else 'pending'
-                if metrics is not None and traces is not None:
-                    break
-                # Poll only the current producer's committed metric/trace facts.
-                time.sleep(pilot.POLL_INTERVAL_SECONDS)
-            if metrics is None or traces is None:
-                raise TimeoutError('SDK storage visibility deadline')
+            observed = producer_observation(output, environment={**os.environ, 'SDK_STORAGE_RELEASE': release}, diagnostic=diagnostic)
+            metrics, traces, attempts = stored_metrics_and_traces(token=token, compose=compose, targets=targets,
+                observed=observed, release=release, result=result, diagnostic=diagnostic)
             result['stage'] = 'complete'
             result.update({'state': 'passed', 'provider_requests': 1, 'body_read': 'passed',
                            'metrics': metrics, 'traces': traces, 'attempts': attempts,
@@ -214,9 +282,22 @@ def worker(output):
             evidence = json.loads((output/'evidence.json').read_text())
             evidence['status'] = 'passed: one native SDK S3 composition only'
             pilot.write_json(output/'evidence.json', evidence)
+            diagnostic.start('complete')
+    except BaseException as error:
+        diagnostic.fail('interrupted' if isinstance(error, KeyboardInterrupt) else 'unknown')
+        raise
     finally:
         result['duration_seconds'] = time.monotonic()-started
-        pilot.write_json(output/'sdk-storage.json', result)
+        try:
+            pilot.write_json(output/'sdk-storage.json', result)
+        finally:
+            diagnostic.persist(output/diagnostics.NAME)
+
+
+def collect(output, metadata, destination):
+    projected = diagnostics.read(output/diagnostics.NAME, scope='sdk')
+    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name != diagnostics.NAME))
+    diagnostics.write(destination/diagnostics.NAME, projected, scope='sdk')
 
 
 def main():
@@ -238,7 +319,7 @@ def main():
     elif args.action == 'recover':
         ci.recover(output, services=pilot.SERVICES)
     else:
-        ci.collect(output, args.metadata, args.public, artifacts=ARTIFACTS)
+        collect(output, args.metadata, args.public)
     return 0
 
 

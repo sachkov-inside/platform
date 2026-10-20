@@ -341,6 +341,20 @@ describe("Material Authoring action workflow", () => {
     ]);
   });
 
+  it.each([true, false])(
+    "preserves an explicit Telegram author choice %s through the save adapter",
+    async (enabled) => {
+      const dependencies = successfulSaveDependencies();
+      const form = validSaveFormData();
+      form.set("notifyTelegram", String(enabled));
+      await executeSaveMaterial(form, "access-token", dependencies);
+      expect(dependencies.save).toHaveBeenCalledWith(
+        expect.objectContaining({ notifyTelegram: enabled }),
+        "access-token",
+      );
+    },
+  );
+
   it("sends one full-state Save and returns the next idempotency key only after success", async () => {
     const dependencies = successfulSaveDependencies();
 

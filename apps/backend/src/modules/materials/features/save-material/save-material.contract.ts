@@ -25,6 +25,7 @@ export interface SaveMaterialCommand {
   readonly materialId: string;
   readonly expectedContentVersion: number;
   readonly publicationState: PublicationState;
+  readonly notifyTelegram?: boolean | undefined;
   readonly primaryVideoId?: string | null;
   readonly deleteVideoId?: string | null;
   /** Videos the author removed from this Material; none of them may return as its upload. */
