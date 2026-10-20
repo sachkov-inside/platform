@@ -709,3 +709,40 @@ body и provider errors не передаются телеметрии. OFF по
 транспорт и безопасный экспорт; они не доказывают pinned collector/storage, representative
 resource acceptance или реальные банковские операции. PostgreSQL purchase/reconcile contract
 проверяется отдельно на выделенном runtime; до его фактического запуска это pending evidence.
+
+
+### Communications HTTP observation
+
+`HttpCommunicationsProvider.execute` records the configured Platform → Telegram POST and its
+existing single JSON read as `telegram communications.execute`. It emits one CLIENT span and
+one `inside.dependency.operations` increment plus `inside.dependency.duration` observation per
+actual adapter request. Duration ends before schema, operation and bot-identity validation.
+HTTP status ≥400 or a thrown transport/body error marks this request failed. A parsed HTTP-200
+response can still be rejected by the unchanged domain validation after a completed request.
+These technical outcomes do not prove whether a remote mutation committed.
+
+Absent provider configuration or a local JSON serialization refusal makes no request and records
+no dependency observation. The
+existing 5-second abort, `redirect: "error"`, bearer and JSON bytes, result mapping and no automatic
+resend rule remain authoritative. Telemetry adds no provider headers. Only fixed dependency,
+operation, method, numeric status and completion outcome enter spans; metrics carry only fixed
+dependency/operation/outcome. Request envelopes, author content, credentials, URLs, identifiers,
+provider responses and raw errors never enter this observation. Trace sampling does not suppress
+the completion counter. Other Platform → Telegram adapters and cross-application propagation
+are separate coverage gaps.
+
+The external JSON/protobuf catalog keeps the previous 29-span dependency challenge unchanged.
+Two additional fixed trace IDs (`ddddddddddddddddddddddddddddddd5` and
+`ddddddddddddddddddddddddddddddd6`) carry the two communications outcomes in a separate finite
+partition, with additional private Telegram-field challenges. Each read retains the existing
+30-row limit and full stored-field validation, including rejection of extra rows and fields.
+The new partition has no fallback cases; the original corpus retains unknown, nonstring and
+missing-dimension challenges. Protobuf payloads retain the existing 65,536-byte ceiling, and
+full query responses retain 1 MiB with at most 1,000 metric vector rows.
+
+For this catalog (before the separate Logto unit), expected storage is 300 metric series,
+58 dependency label sets across two releases and 10 pool series. These are fixture expectations,
+not measured production cardinality or resource acceptance. The future combined catalog must
+receive its own source binding and measured fixture sizes. Host adapter/SDK and actual loopback
+proofs do not replace the pinned collector, genuine API/worker + PostgreSQL, full stored-data
+privacy or representative resource gates.
