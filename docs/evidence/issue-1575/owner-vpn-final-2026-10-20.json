@@ -1,0 +1,114 @@
+{
+  "utc": "2026-10-20T06:04:21.454716+00:00",
+  "scope": "normal owner Mac VPN; no proxy, resolve override or VPN changes; default TLS validation",
+  "results": [
+    {
+      "attempt": 1,
+      "host": "sachkov.dev",
+      "exit": 0,
+      "status": 200,
+      "seconds": 0.51828,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 1,
+      "host": "auth.sachkov.dev",
+      "exit": 0,
+      "status": 200,
+      "seconds": 0.330571,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 1,
+      "host": "www.sachkov.dev",
+      "exit": 0,
+      "status": 302,
+      "seconds": 0.375456,
+      "requested_peer": "201.24.126.23",
+      "passed": true
+    },
+    {
+      "attempt": 1,
+      "host": "inside.sachkov.dev",
+      "exit": 0,
+      "status": 302,
+      "seconds": 0.398464,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 2,
+      "host": "sachkov.dev",
+      "exit": 0,
+      "status": 200,
+      "seconds": 2.500301,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 2,
+      "host": "auth.sachkov.dev",
+      "exit": 0,
+      "status": 200,
+      "seconds": 0.376147,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 2,
+      "host": "www.sachkov.dev",
+      "exit": 0,
+      "status": 302,
+      "seconds": 0.383007,
+      "requested_peer": "201.24.126.23",
+      "passed": true
+    },
+    {
+      "attempt": 2,
+      "host": "inside.sachkov.dev",
+      "exit": 0,
+      "status": 302,
+      "seconds": 0.467772,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 3,
+      "host": "sachkov.dev",
+      "exit": 0,
+      "status": 200,
+      "seconds": 1.495348,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 3,
+      "host": "auth.sachkov.dev",
+      "exit": 0,
+      "status": 200,
+      "seconds": 0.335976,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    },
+    {
+      "attempt": 3,
+      "host": "www.sachkov.dev",
+      "exit": 0,
+      "status": 302,
+      "seconds": 0.377209,
+      "requested_peer": "201.24.126.23",
+      "passed": true
+    },
+    {
+      "attempt": 3,
+      "host": "inside.sachkov.dev",
+      "exit": 0,
+      "status": 302,
+      "seconds": 0.359584,
+      "requested_peer": "185.125.101.90",
+      "passed": true
+    }
+  ]
+}

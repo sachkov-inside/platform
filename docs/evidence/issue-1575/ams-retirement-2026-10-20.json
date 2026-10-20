@@ -1,0 +1,1175 @@
+{
+  "recordedAt": "2026-10-20T09:00:51.211076+00:00",
+  "issue": 1575,
+  "productionHost": "147.45.166.174",
+  "applicationReleaseSource": "2f5300026c5a3e946f30596262a02747c6f48827",
+  "versions": {
+    "platform": "v45",
+    "telegram": "v21"
+  },
+  "retirement": {
+    "ams": {
+      "at": "2026-10-20T08:51:10Z",
+      "directCaddy": true,
+      "receiverMasked": true,
+      "port8443Closed": true,
+      "oldPeerAllowRulesRemoved": true
+    },
+    "ru": {
+      "at": "2026-10-20T08:51:06Z",
+      "all14ContainersStopped": true,
+      "restartPolicy": "no",
+      "caddyAndReceiverMasked": true,
+      "noListeners": [
+        80,
+        443,
+        8443
+      ],
+      "deploymentKeysSuspended": true,
+      "backupWatchdogCleanupTimersDisabled": true
+    },
+    "aeza": {
+      "at": "2026-10-20T08:50:01Z",
+      "platformForwardingRemoved": true,
+      "telegramWebhook88Removed": true,
+      "originalNginx443Restored": true,
+      "personalXraySameProcess": true,
+      "subscriptionServiceActive": true,
+      "sharedPersonalVpnCredentialsPreserved": true
+    }
+  },
+  "githubOperations": [
+    {
+      "workflow": "Deploy production v45 + Production access pass",
+      "runId": 39396481392,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Deploy Telegram v21",
+      "runId": 39396485710,
+      "conclusion": "success"
+    },
+    {
+      "workflow": "Production monitor external check",
+      "runId": 39396677276,
+      "conclusion": "success"
+    }
+  ],
+  "dnsProof": "ams-migration-2026-10-20.json: 104 authoritative checks passed before retirement",
+  "backupRestoreProof": "ams-migration-2026-10-20.json: new AMS backup and isolated three-database restore passed",
+  "postRetirementNormalDns": [
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 671,
+        "dns": 2,
+        "tcp": 40,
+        "tls": 45,
+        "firstByte": 103,
+        "download": 481
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Novosibirsk",
+      "asn": 8359,
+      "network": "MTS",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 939,
+        "dns": 111,
+        "tcp": 87,
+        "tls": 96,
+        "firstByte": 452,
+        "download": 193
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Tomsk",
+      "asn": 31357,
+      "network": "Limited Company Information and Consulting Agency",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 950,
+        "dns": 110,
+        "tcp": 89,
+        "tls": 104,
+        "firstByte": 504,
+        "download": 143
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 207957,
+      "network": "SERV.HOST GROUP",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 726,
+        "dns": 70,
+        "tcp": 41,
+        "tls": 50,
+        "firstByte": 161,
+        "download": 404
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Tula",
+      "asn": 52207,
+      "network": "ER-Telecom Holding",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 932,
+        "dns": 201,
+        "tcp": 46,
+        "tls": 87,
+        "firstByte": 424,
+        "download": 174
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Kursk",
+      "asn": 42277,
+      "network": "Kursktelecom",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 920,
+        "dns": 105,
+        "tcp": 71,
+        "tls": 80,
+        "firstByte": 443,
+        "download": 221
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Nizhniy Novgorod",
+      "asn": 12389,
+      "network": "Rostelecom",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 806,
+        "dns": 45,
+        "tcp": 54,
+        "tls": 70,
+        "firstByte": 389,
+        "download": 248
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Krasnodar",
+      "asn": 215455,
+      "network": "GENERAL IT RUS",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 834,
+        "dns": 52,
+        "tcp": 57,
+        "tls": 65,
+        "firstByte": 459,
+        "download": 201
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 617,
+        "dns": 1,
+        "tcp": 39,
+        "tls": 45,
+        "firstByte": 53,
+        "download": 479
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Saint Petersburg",
+      "asn": 49505,
+      "network": "Selectel",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 180,
+        "dns": 1,
+        "tcp": 30,
+        "tls": 38,
+        "firstByte": 36,
+        "download": 75
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 50867,
+      "network": "HOSTKEY",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 708,
+        "dns": 83,
+        "tcp": 40,
+        "tls": 50,
+        "firstByte": 244,
+        "download": 291
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "DE",
+      "city": "Falkenstein",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 661,
+        "dns": 95,
+        "tcp": 13,
+        "tls": 20,
+        "firstByte": 47,
+        "download": 486
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "NL",
+      "city": "Amsterdam",
+      "asn": 214677,
+      "network": "DELUXHOST",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 939,
+        "dns": 118,
+        "tcp": 79,
+        "tls": 114,
+        "firstByte": 499,
+        "download": 129
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "FI",
+      "city": "Helsinki",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 703,
+        "dns": 61,
+        "tcp": 28,
+        "tls": 32,
+        "firstByte": 145,
+        "download": 437
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "US",
+      "city": "Buffalo",
+      "asn": 36352,
+      "network": "HostPapa",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 946,
+        "dns": 162,
+        "tcp": 87,
+        "tls": 103,
+        "firstByte": 502,
+        "download": 92
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 58061,
+      "network": "Scalaxy",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 960,
+        "dns": 154,
+        "tcp": 99,
+        "tls": 111,
+        "firstByte": 527,
+        "download": 69
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "TR",
+      "city": "Istanbul",
+      "asn": 209604,
+      "network": "2E TELEKOMUNIKASYON",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 919,
+        "dns": 196,
+        "tcp": 43,
+        "tls": 48,
+        "firstByte": 433,
+        "download": 199
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "GB",
+      "city": "London",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1261,
+        "dns": 1078,
+        "tcp": 50,
+        "tls": 56,
+        "firstByte": 54,
+        "download": 23
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "20qQKrrnVhSFuqZl400021LnG",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "FR",
+      "city": "Roubaix",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 860,
+        "dns": 61,
+        "tcp": 43,
+        "tls": 118,
+        "firstByte": 436,
+        "download": 202
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 207957,
+      "network": "SERV.HOST GROUP",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 186,
+        "dns": 33,
+        "tcp": 42,
+        "tls": 51,
+        "firstByte": 58,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Tomsk",
+      "asn": 31357,
+      "network": "Limited Company Information and Consulting Agency",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 403,
+        "dns": 86,
+        "tcp": 93,
+        "tls": 108,
+        "firstByte": 114,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Novosibirsk",
+      "asn": 8359,
+      "network": "MTS",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 348,
+        "dns": 52,
+        "tcp": 88,
+        "tls": 101,
+        "firstByte": 106,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 311,
+        "dns": 167,
+        "tcp": 40,
+        "tls": 46,
+        "firstByte": 56,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Tula",
+      "asn": 52207,
+      "network": "ER-Telecom Holding",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 280,
+        "dns": 3,
+        "tcp": 53,
+        "tls": 88,
+        "firstByte": 132,
+        "download": 4
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Ufa",
+      "asn": 3216,
+      "network": "Vimpelcom",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 327,
+        "dns": 108,
+        "tcp": 61,
+        "tls": 69,
+        "firstByte": 89,
+        "download": 0
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Kostroma",
+      "asn": 12389,
+      "network": "Rostelecom",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 233,
+        "dns": 2,
+        "tcp": 61,
+        "tls": 69,
+        "firstByte": 101,
+        "download": 0
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Krasnodar",
+      "asn": 215455,
+      "network": "GENERAL IT RUS",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 280,
+        "dns": 93,
+        "tcp": 57,
+        "tls": 64,
+        "firstByte": 65,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 196,
+        "dns": 44,
+        "tcp": 41,
+        "tls": 46,
+        "firstByte": 64,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Saint Petersburg",
+      "asn": 49505,
+      "network": "Selectel",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 170,
+        "dns": 55,
+        "tcp": 29,
+        "tls": 38,
+        "firstByte": 47,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 50340,
+      "network": "Selectel",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 242,
+        "dns": 74,
+        "tcp": 40,
+        "tls": 54,
+        "firstByte": 73,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "DE",
+      "city": "Falkenstein",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 152,
+        "dns": 96,
+        "tcp": 13,
+        "tls": 18,
+        "firstByte": 24,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "NL",
+      "city": "Amsterdam",
+      "asn": 214677,
+      "network": "DELUXHOST",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 311,
+        "dns": 115,
+        "tcp": 55,
+        "tls": 70,
+        "firstByte": 69,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "FI",
+      "city": "Helsinki",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 234,
+        "dns": 97,
+        "tcp": 28,
+        "tls": 40,
+        "firstByte": 67,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "US",
+      "city": "Buffalo",
+      "asn": 36352,
+      "network": "HostPapa",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 481,
+        "dns": 186,
+        "tcp": 89,
+        "tls": 105,
+        "firstByte": 99,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 202422,
+      "network": "G-Core Labs",
+      "status": "failed",
+      "http": null,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 15000,
+        "dns": 161,
+        "tcp": 94,
+        "tls": null,
+        "firstByte": null,
+        "download": null
+      },
+      "tlsAuthorized": null,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "TR",
+      "city": "Istanbul",
+      "asn": 209604,
+      "network": "2E TELEKOMUNIKASYON",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 354,
+        "dns": 185,
+        "tcp": 42,
+        "tls": 61,
+        "firstByte": 61,
+        "download": 5
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "GB",
+      "city": "London",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 360,
+        "dns": 186,
+        "tcp": 49,
+        "tls": 57,
+        "firstByte": 67,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2kA3csHyasqLAXofA00021LnG",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "FR",
+      "city": "Roubaix",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 301,
+        "dns": 59,
+        "tcp": 41,
+        "tls": 47,
+        "firstByte": 154,
+        "download": 0
+      },
+      "tlsAuthorized": true,
+      "error": null
+    }
+  ],
+  "kazakhstanFollowup": [
+    {
+      "measurement": "2DlyEFvqtzS3bdXWU00021LnH",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 200590,
+      "network": "NLS Kazakhstan",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1583,
+        "dns": 228,
+        "tcp": 1109,
+        "tls": 111,
+        "firstByte": 110,
+        "download": 25
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2DlyEFvqtzS3bdXWU00021LnH",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 9198,
+      "network": "Kazakhtelecom",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 608,
+        "dns": 219,
+        "tcp": 95,
+        "tls": 113,
+        "firstByte": 114,
+        "download": 67
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2DlyEFvqtzS3bdXWU00021LnH",
+      "host": "sachkov.dev",
+      "target": "sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 49791,
+      "network": "Newserverlife",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 616,
+        "dns": 251,
+        "tcp": 100,
+        "tls": 110,
+        "firstByte": 115,
+        "download": 40
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2E0Lx1x1OBWCfOW7a00021LnH",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 49791,
+      "network": "Newserverlife",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 471,
+        "dns": 161,
+        "tcp": 95,
+        "tls": 108,
+        "firstByte": 105,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2E0Lx1x1OBWCfOW7a00021LnH",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 202422,
+      "network": "G-Core Labs",
+      "status": "failed",
+      "http": null,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 15001,
+        "dns": 97,
+        "tcp": 91,
+        "tls": null,
+        "firstByte": null,
+        "download": null
+      },
+      "tlsAuthorized": null,
+      "error": null
+    },
+    {
+      "measurement": "2E0Lx1x1OBWCfOW7a00021LnH",
+      "host": "auth.sachkov.dev",
+      "target": "auth.sachkov.dev",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 9198,
+      "network": "Kazakhtelecom",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 564,
+        "dns": 200,
+        "tcp": 92,
+        "tls": 106,
+        "firstByte": 165,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    }
+  ],
+  "networkLimit": "37/38 initial and 5/6 KZ follow-up passed. Repeated auth TLS handshake timeout from G-Core Labs Almaty AS202422, TCP succeeds and DNS resolves new IP. Other KZ networks and tested RU probes pass. Root cause remains under investigation; no universal VPN availability claim. Mac Globalping API TLS timeout was a separate diagnostic transport failure. Follow-up forced-IP auth and same-ASN sachkov.dev also timed out during TLS; this does not isolate a DNS or auth-only defect.",
+  "knownApplicationLimit": {
+    "issue": 1595,
+    "preExistingCommunityBacklog": 1,
+    "strictRuntimeVerificationFullyGreen": false
+  },
+  "legalResearchIssue": 1599,
+  "oldVpsDeleted": false,
+  "fullHostRebootTested": false,
+  "watchdogOwnerAlertChannelsConfigured": false,
+  "sameKazakhstanAsnComparisons": [
+    {
+      "id": "2Ad50iECJwZZPnJXv00021LnI",
+      "type": "http",
+      "status": "finished",
+      "createdAt": "2026-10-20T09:00:25.539Z",
+      "updatedAt": "2026-10-20T09:00:40.654Z",
+      "target": "147.45.166.174",
+      "probesCount": 1,
+      "locations": [
+        {
+          "country": "KZ",
+          "asn": 202422
+        }
+      ],
+      "measurementOptions": {
+        "request": {
+          "method": "GET",
+          "host": "auth.sachkov.dev",
+          "path": "/oidc/.well-known/openid-configuration"
+        }
+      },
+      "results": [
+        {
+          "probe": {
+            "continent": "AS",
+            "region": "Central Asia",
+            "country": "KZ",
+            "state": null,
+            "city": "Almaty",
+            "asn": 202422,
+            "longitude": 76.91,
+            "latitude": 43.25,
+            "network": "G-Core Labs",
+            "tags": [
+              "datacenter-network",
+              "u-jimaek"
+            ],
+            "resolvers": [
+              "8.8.8.8",
+              "1.1.1.1"
+            ]
+          },
+          "result": {
+            "status": "failed",
+            "failureSource": "target",
+            "resolvedAddress": "147.45.166.174",
+            "headers": {},
+            "rawHeaders": null,
+            "rawBody": null,
+            "rawOutput": "Request timed out during the TLS handshake.",
+            "truncated": false,
+            "statusCode": null,
+            "statusCodeName": null,
+            "timings": {
+              "total": 14999,
+              "dns": null,
+              "tcp": 100,
+              "tls": null,
+              "firstByte": null,
+              "download": null
+            },
+            "tls": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "29xgafTZV5L9mqkWU00021LnJ",
+      "type": "http",
+      "status": "finished",
+      "createdAt": "2026-10-20T09:01:38.422Z",
+      "updatedAt": "2026-10-20T09:01:53.533Z",
+      "target": "sachkov.dev",
+      "probesCount": 1,
+      "locations": [
+        {
+          "country": "KZ",
+          "asn": 202422
+        }
+      ],
+      "measurementOptions": {
+        "request": {
+          "method": "GET",
+          "host": "sachkov.dev"
+        }
+      },
+      "results": [
+        {
+          "probe": {
+            "continent": "AS",
+            "region": "Central Asia",
+            "country": "KZ",
+            "state": null,
+            "city": "Almaty",
+            "asn": 202422,
+            "longitude": 76.91,
+            "latitude": 43.25,
+            "network": "G-Core Labs",
+            "tags": [
+              "datacenter-network",
+              "u-jimaek"
+            ],
+            "resolvers": [
+              "8.8.8.8",
+              "1.1.1.1"
+            ]
+          },
+          "result": {
+            "status": "failed",
+            "failureSource": "target",
+            "resolvedAddress": "147.45.166.174",
+            "headers": {},
+            "rawHeaders": null,
+            "rawBody": null,
+            "rawOutput": "Request timed out during the TLS handshake.",
+            "truncated": false,
+            "statusCode": null,
+            "statusCodeName": null,
+            "timings": {
+              "total": 15000,
+              "dns": 160,
+              "tcp": 91,
+              "tls": null,
+              "firstByte": null,
+              "download": null
+            },
+            "tls": null
+          }
+        }
+      ]
+    }
+  ]
+}

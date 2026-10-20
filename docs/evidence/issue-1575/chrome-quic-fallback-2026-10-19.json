@@ -1,0 +1,27 @@
+{
+  "tool": "playwright-cli persistent isolated Chrome; explicit --enable-quic; host-resolver-rule sachkov.dev ->185.125.101.90",
+  "first_navigation": {
+    "protocol": "h2",
+    "load_ms": 797.5
+  },
+  "restart_with_cached_Alt_Svc": {
+    "protocol": "h2",
+    "load_ms": 664.7,
+    "title": "Главная · Sachkov Dev"
+  },
+  "quic_session_hostname": "sachkov.dev",
+  "session_event_counts": {
+    "QUIC_SESSION": 1,
+    "QUIC_CONGESTION_CONTROL_CONFIGURED": 1,
+    "HTTP3_LOCAL_CONTROL_STREAM_CREATED": 1,
+    "HTTP3_LOCAL_QPACK_DECODER_STREAM_CREATED": 1,
+    "HTTP3_LOCAL_QPACK_ENCODER_STREAM_CREATED": 1,
+    "QUIC_SESSION_TRANSPORT_PARAMETERS_SENT": 1,
+    "QUIC_SESSION_CRYPTO_FRAME_SENT": 12,
+    "QUIC_SESSION_PACKET_SENT": 4,
+    "QUIC_SESSION_PADDING_FRAME_SENT": 4,
+    "QUIC_SESSION_COALESCED_PACKET_SENT": 4
+  },
+  "raw_netlog_complete": false,
+  "limitation": "CLI shutdown left the netlog without its closing trailer; only complete event objects were counted. QUIC packets were sent for sachkov.dev while the page successfully loaded over h2; this does not prove all browser/VPN implementations."
+}

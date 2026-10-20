@@ -1,6 +1,22 @@
 import unittest
 from verify import verify_release
 
+class TelegramWebhookTests(unittest.TestCase):
+    def test_only_supported_https_registrations_with_healthy_delivery_pass(self):
+        from verify import verify_telegram_webhook
+        current = {'protocol': 'https:', 'host': 'telegram.sachkov.dev', 'port': '',
+                   'path': '/webhooks/telegram', 'hasPinnedIp': True, 'pending': 0,
+                   'lastError': False, 'allowedUpdates': ['message', 'chat_member', 'my_chat_member',
+                                                        'chat_join_request', 'callback_query']}
+        for port in ['', '88']:
+            with self.subTest(port=port):
+                self.assertEqual(verify_telegram_webhook({**current, 'port': port})['status'], 'passed')
+        for invalid in [{'protocol': 'http:'}, {'host': 'other.invalid'}, {'port': '8443'},
+                        {'path': '/other'}, {'hasPinnedIp': False}, {'pending': 1},
+                        {'lastError': True}, {'allowedUpdates': ['message']}]:
+            with self.subTest(invalid=invalid):
+                self.assertEqual(verify_telegram_webhook({**current, **invalid})['status'], 'failed')
+
 class SqlSetupDiagnosticsTests(unittest.TestCase):
     def test_setup_failure_reports_captured_docker_stderr(self):
         import subprocess

@@ -1,0 +1,54 @@
+[
+  {
+    "target": "201.24.126.23",
+    "mode": "v3only",
+    "status": 200,
+    "negotiated": "V3",
+    "primary_ip": "201.24.126.23",
+    "bytes": 66160,
+    "seconds": 0.267
+  },
+  {
+    "target": "201.24.126.23",
+    "mode": "v3",
+    "status": 200,
+    "negotiated": "V3",
+    "primary_ip": "201.24.126.23",
+    "bytes": 66160,
+    "seconds": 0.059
+  },
+  {
+    "target": "201.24.126.23",
+    "mode": "v2",
+    "status": 200,
+    "negotiated": "V2_0",
+    "primary_ip": "201.24.126.23",
+    "bytes": 66160,
+    "seconds": 0.064
+  },
+  {
+    "target": "185.125.101.90",
+    "mode": "v3only",
+    "error": "Timeout",
+    "curl_code": 28,
+    "seconds": 5.002
+  },
+  {
+    "target": "185.125.101.90",
+    "mode": "v3",
+    "status": 200,
+    "negotiated": "V2_0",
+    "primary_ip": "185.125.101.90",
+    "bytes": 66160,
+    "seconds": 1.325
+  },
+  {
+    "target": "185.125.101.90",
+    "mode": "v2",
+    "status": 200,
+    "negotiated": "V2_0",
+    "primary_ip": "185.125.101.90",
+    "bytes": 66160,
+    "seconds": 0.374
+  }
+]

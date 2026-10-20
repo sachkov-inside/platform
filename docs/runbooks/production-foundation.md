@@ -10,15 +10,17 @@ interface в #243, для будущей одноразовой настройк
 
 ## Production-сервер
 
-Владелец подтвердил сервер 5 сентября 2026 года в задаче
-[#244](https://github.com/sachkov-inside/platform/issues/244):
+Исходный сервер `201.24.126.23` подтверждён 5 сентября 2026 года в
+[#244](https://github.com/sachkov-inside/platform/issues/244). 20 октября владелец перенёс рабочую
+площадку в Амстердам. Текущее состояние и условия возврата описаны в
+[runbook переноса](production-amsterdam.md):
 
 | Параметр | Значение |
 |---|---|
 | Провайдер | Timeweb Cloud |
-| Имя в панели | Inside App |
-| IPv4 | `201.24.126.23` |
-| Административный доступ | `ssh root@201.24.126.23`, по SSH-ключу |
+| Имя в панели | Wise Finch, AMS |
+| IPv4 | `147.45.166.174` |
+| Административный доступ | `ssh root@147.45.166.174`, по SSH-ключу |
 | Выбранная ОС после переустановки | Ubuntu 26.04 LTS |
 | Публичные домены | `sachkov.dev`, `www.sachkov.dev`, `inside.sachkov.dev`, `auth.sachkov.dev` |
 
@@ -397,7 +399,7 @@ PostgreSQL service использует `init: true`: Docker init собирае
    ```bash
    tag=inside/logto-production:<version>-<fork-revision>
    docker buildx build --platform linux/amd64 -t "$tag" --load infra/identity/logto
-   docker save "$tag" | gzip | ssh root@201.24.126.23 'gunzip | docker load'
+   docker save "$tag" | gzip | ssh root@147.45.166.174 'gunzip | docker load'
    ```
 
 2. Доставьте файлы foundation из проверенного commit `main`: каталоги `infra/identity/logto`,
