@@ -731,6 +731,59 @@ Rabbit, worker, SMTP и применение результата. Эти про
 перед приёмкой всей спецификации. Production email не используется для таких проверок.
 
 
+### Отдельный внешний email corpus
+
+`scripts/observability-pilot/email_privacy.py` проверяет отдельные фиксированные JSON/protobuf
+входы. Два known trace IDs оканчиваются на `d7`/`d8`, два adversarial IDs на `d9`/`da`.
+Каждый содержит 32 hex-символа; первые 31 равны `d`. Reader допускает только эти четыре
+запроса: limit 23 для 22 known spans и limit 9 для 8 adversarial spans. Текущие C payloads,
+их query limits 36/30, protobuf limit 65,536 B, response limit 1 MiB и vector limit 1,000
+не меняются. Email JSON ограничен 262,144 B; каждый фактически сформированный body
+проверяется до отправки. Независимый host wire-reader проверяет OTLP field numbers, все
+span IDs/parents, атрибуты, counter и histogram. Это source-проверка кодека, не запуск storage.
+
+Полная строка хранения проверяется до решения о pending. Неизвестные columns, attrs,
+resource/scope metadata, события, links, private fields, duplicate IDs и противоречащие
+causal edges дают закрытый отказ. Один incoming anchor сохраняется явно; внешний span
+этого anchor корпус не доказывает. Missing `email.lane` подчиняется существующей generic
+policy: его фиксированные synthetic UUID, retry 7 и batch 2 сохраняются и проверяются
+полностью. Это не расширяет допустимые поля известных email-lane или SMTP spans.
+
+Поле `_time` для обоих ingress форматов означает START: закреплённый Alloy v1.21.0
+[по умолчанию экспортирует protobuf](https://github.com/grafana/alloy/blob/v1.21.0/internal/component/otelcol/exporter/otlphttp/otlphttp.go),
+и в traces exporter нет override. Закреплённый VT v0.12.0
+[декодирует protobuf с START timestamp](https://github.com/VictoriaMetrics/VictoriaTraces/blob/fdfa32fdc58188463a9b342741bf10a748e455ce/app/vtinsert/opentelemetry/pb.go).
+Reader проверяет точные start/end/duration, sampled flags 1 и лишь нулевые dropped counts,
+если они присутствуют. `_msg` равен `-`; `_stream` содержит ровно name и fixed service.
+`_stream_id` имеет 48 lowercase hex, первые 16 соответствуют tenant 0; у exporter нет
+AccountID/ProjectID headers. Это структурная проверка native stream ID и согласованности
+его повторений, не независимое вычисление storage hash. Остальные scalar columns закрыты.
+
+Known metric baseline содержит 22 пары на release. Шесть фиксированных ошибочных сочетаний
+проверяются последовательно: один candidate на transport, затем полная проверка storage
+перед следующим candidate. Marker 1…6 должен появиться во всех пяти series fallback-пары;
+старый marker остаётся pending до исходного fact deadline, никогда PASS. Закреплённый
+[VM v1.154.0 округляет OTLP timestamps до milliseconds](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/protoparser/opentelemetry/stream/streamparser.go).
+Каждый следующий timestamp берётся из текущих часов и обязан попасть в более позднюю
+storage millisecond. Совпадение, включая `+1ns`, даёт отказ без future dating или изменения
+таймаутов. Metric scope version допускает только отсутствие, пустое значение и native
+`unknown`: [VM decoder использует этот literal, когда protobuf version отсутствует](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/lib/protoparser/opentelemetry/pb/pb.go). Ожидаемые 220 baseline / 230 final series и 44 / 46 email labelsets относятся
+только к этому one-bound fixture, не к native SDK histogram с 15 границами.
+
+`pilot.email_catalog_corpus` выполняет конечные 20 uploads, четыре full trace reads и
+13 full-vector metric checkpoints. Исходные query 10s / fact 60s сохраняются; отдельный
+runtime controller и его общий бюджет согласуются до lease. На каждом checkpoint
+неизменённый legacy reader и E reader получают один и тот же полный raw vector.
+Legacy verdict сохраняется отдельно: глобальный итог series не зашит в E и должен
+следовать точному источнику текущего L/C каталога. Результат `email-collector.json`
+содержит лишь закрытые стадии и проверенные числовые verdicts. Отказ сохраняет только
+достигнутые стадии; raw ответы, credentials и ошибки не сохраняются.
+
+Даже будущий PASS этого внешнего corpus не доказывает actual SDK → pinned storage,
+реальную HTTP/PG/Rabbit/SMTP causality в storage или ресурсную приёмку. Для текущего
+source-кандидата collector runtime ещё не выполнялся.
+
+
 ## Наблюдение собственных обращений к T-Bank
 
 `Tbank.call` наблюдает семь фиксированных операций: `Init`, `GetState`, `CheckOrder`,
