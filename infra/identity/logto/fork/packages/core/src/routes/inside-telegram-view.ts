@@ -13,6 +13,23 @@ export type InsideTelegramView = {
   deepLink?: string;
 };
 
+// Shared by the fallback control and the automatic app handoff. Serialized without dependencies.
+export function telegramBotLinks(value: unknown): { web: string; app: string } | undefined {
+  if (typeof value !== 'string') return undefined;
+  try {
+    const url = new URL(value);
+    const bot = /^\/([a-zA-Z][a-zA-Z0-9_]{4,31})$/.exec(url.pathname)?.[1];
+    const start = url.searchParams.get('start');
+    if (url.origin !== 'https://t.me' || url.username || url.password || url.hash || !bot || !/bot$/i.test(bot) ||
+      !start || !/^[a-zA-Z0-9_-]{1,64}$/.test(start) || [...url.searchParams.keys()].some((key) => key !== 'start') ||
+      url.searchParams.getAll('start').length !== 1) return undefined;
+    const app = new URL('tg://resolve');
+    app.searchParams.set('domain', bot);
+    app.searchParams.set('start', start);
+    return { web: url.href, app: app.href };
+  } catch { return undefined; }
+}
+
 // Also serialized into the identity-origin script: keep this function self-contained.
 export function renderTelegramSignInContent(view: InsideTelegramView): string {
   const copy = {
@@ -29,15 +46,8 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
   const status = Object.hasOwn(copy, view.status) ? view.status : 'unavailable';
   const waiting = status === 'pending';
   const busy = waiting || status === 'loading' || status === 'approved';
-  let deepLink = '';
-  if (waiting && view.deepLink) {
-    try {
-      const url = new URL(view.deepLink);
-      if (url.protocol === 'https:' && url.hostname === 't.me' && !url.username && !url.password) {
-        deepLink = url.href.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
-      }
-    } catch { /* An invalid link is never an actionable control. */ }
-  }
+  const link = waiting ? telegramBotLinks(view.deepLink) : undefined;
+  const deepLink = link?.web.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;') ?? '';
   return `<div class="inside-telegram-brand" aria-label="Sachkov Dev">sachkov<span>dev</span></div>
     <div class="inside-telegram-content">
       <div class="inside-telegram-symbol" aria-hidden="true">
@@ -84,9 +94,11 @@ export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }
 export const pollIntervalMilliseconds = 1500;
 const statusRequestTimeoutMilliseconds = 8000;
 export const telegramSignInScript = `
+const telegramBotLinks = ${telegramBotLinks.toString()};
 const render = ${renderTelegramSignInContent.toString()};
 const main = document.querySelector('main');
 let previousContent = main.innerHTML;
+let attemptedBotOpen = false;
 function present(view) {
   const content = render(view);
   if (content === previousContent) return;
@@ -108,6 +120,13 @@ async function poll() {
     if (!response.ok) throw new Error('Status unavailable');
     const state = await response.json();
     present(state);
+    const botLink = state.status === 'pending' ? telegramBotLinks(state.deepLink) : undefined;
+    if (botLink && !attemptedBotOpen) {
+      attemptedBotOpen = true;
+      // The app protocol keeps this waiting document alive; an HTTPS same-tab redirect would lose it.
+      // Browsers may require another gesture. The validated HTTPS fallback remains available.
+      try { window.open(botLink.app, '_self'); } catch { /* Keep polling and the manual fallback. */ }
+    }
     if (state.status === 'approved' && state.callback) {
       stopped = true;
       location.replace(state.callback);

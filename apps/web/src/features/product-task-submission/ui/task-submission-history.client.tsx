@@ -83,7 +83,7 @@ export function TaskSubmissionHistory({
         <form action="/auth/sign-in" method="post">
           <input type="hidden" name="returnTo" value={returnTo} />
           <Button type="submit" variant="outline">
-            Войти
+            Войти через Telegram
           </Button>
         </form>
       </div>

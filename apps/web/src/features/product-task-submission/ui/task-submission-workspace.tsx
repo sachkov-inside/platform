@@ -199,7 +199,7 @@ function SignIn({
       <form action="/auth/sign-in" method="post">
         <input name="returnTo" type="hidden" value={returnTo} />
         <Button className="min-h-11" type="submit" variant="outline">
-          Войти
+          Войти через Telegram
         </Button>
       </form>
     </div>

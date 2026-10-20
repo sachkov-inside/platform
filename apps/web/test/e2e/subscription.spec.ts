@@ -281,7 +281,7 @@ test("раздел подписки просит войти без действ�
   await expect(
     page
       .locator("[data-application-content]")
-      .getByRole("button", { name: "Войти" })
+      .getByRole("button", { name: "Войти через Telegram" })
       .first(),
   ).toBeVisible();
 });

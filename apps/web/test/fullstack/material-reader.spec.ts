@@ -551,7 +551,9 @@ test("requires sign-in to save a video reading mark and does not create anonymou
   await signIn.click();
   await expect(page).toHaveURL(/\/account$/u);
   await expect(
-    page.getByRole("main").getByRole("button", { name: "Войти", exact: true }),
+    page
+      .getByRole("main")
+      .getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
   expect(readingWrites).toEqual([]);
   expect(

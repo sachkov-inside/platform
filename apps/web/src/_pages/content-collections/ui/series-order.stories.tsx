@@ -554,7 +554,9 @@ export const SourceMismatch: Story = {
         /«Границы продукта и первая версия» нельзя добавить в этот продукт/u,
       ),
     ).toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: "Войти через Telegram" }),
+    ).toBeNull();
   },
 };
 
@@ -612,7 +614,9 @@ export const Forbidden: Story = {
     await expect(
       await canvas.findByText(/этот продукт нельзя менять в редакторе/u),
     ).toBeInTheDocument();
-    await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+    await expect(
+      canvas.queryByRole("button", { name: "Войти через Telegram" }),
+    ).toBeNull();
   },
 };
 
@@ -647,7 +651,7 @@ export const SessionExpired: Story = {
       await canvas.findByText(/Сессия завершилась/u),
     ).toBeInTheDocument();
     await expect(
-      await canvas.findByRole("button", { name: "Войти" }),
+      await canvas.findByRole("button", { name: "Войти через Telegram" }),
     ).toBeVisible();
   },
 };

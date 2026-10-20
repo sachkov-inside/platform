@@ -38,6 +38,12 @@ const messagesSchema = z.object({
   ),
 });
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.open = () => null;
+  });
+});
+
 test.beforeAll(() => {
   webBaseUrl = requiredEnvironment("WEB_BASE_URL");
   backendBaseUrl = requiredEnvironment("BACKEND_BASE_URL");
@@ -608,7 +614,12 @@ async function beginSignIn(page: Page, email: string) {
 
 async function submitEmailFromCurrentPage(page: Page, email: string) {
   if (new URL(page.url()).origin === webBaseUrl) {
-    await page.locator("button:visible", { hasText: "Войти" }).click();
+    await page
+      .locator("button:visible", { hasText: "Войти через Telegram" })
+      .click();
+    await page.waitForURL(`${logtoEndpoint}/api/inside-telegram`);
+    // The email proof explicitly selects the retained provider flow, outside the site's primary entry.
+    await page.goto(`${logtoEndpoint}/sign-in`);
   }
   await expect.poll(() => new URL(page.url()).origin).toBe(logtoEndpoint);
   const emailInput = page.locator('input[type="email"]');

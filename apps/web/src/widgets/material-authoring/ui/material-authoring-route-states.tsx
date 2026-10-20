@@ -70,7 +70,7 @@ export function MaterialAuthoringSignInActions({
         <input name="returnTo" type="hidden" value={returnHref} />
         <Button type="submit">
           <LogIn aria-hidden="true" data-icon="inline-start" />
-          Войти
+          Войти через Telegram
         </Button>
       </form>
       {onBack === undefined ? (
