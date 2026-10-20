@@ -99,7 +99,7 @@ def worker(output):
                 elif type(error) in (subprocess.CalledProcessError,FileNotFoundError,PermissionError,OSError):reason='transport'
                 elif type(error) in (subprocess.TimeoutExpired,TimeoutError):reason='timeout'
                 else:reason='unknown'
-            else:reason='timeout' if isinstance(error,TimeoutError) else 'contract' if isinstance(error,ValueError) else 'unknown'
+            else:reason=scenario.failure_reason(error)
             run.fail(reason);persist()
         except BaseException:
             pass  # A terminal metadata refusal cannot replace the active primary or traceback.
