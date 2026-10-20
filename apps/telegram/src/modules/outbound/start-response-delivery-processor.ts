@@ -61,7 +61,8 @@ export class StartResponseDeliveryProcessor {
             chatId: delivery.privateChatId,
             text: delivery.messageText,
             ...(delivery.buttons ? { buttons: delivery.buttons } : {}),
-            ...(hasText(delivery.signInRequestRef)
+            ...(hasText(delivery.signInRequestRef) &&
+            delivery.buttons === undefined
               ? {
                   buttons: [
                     {

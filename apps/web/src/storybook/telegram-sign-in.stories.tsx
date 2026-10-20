@@ -93,4 +93,13 @@ export const Unavailable: Story = {
 export const Reconnecting: Story = {
   name: "Потеря связи",
   args: { status: "reconnecting" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Нет связи. Пробуем ещё раз…",
+    );
+    await expect(
+      canvas.getByRole("link", { name: "Вернуться ко входу" }),
+    ).toHaveAttribute("href", "/sign-in");
+  },
 };

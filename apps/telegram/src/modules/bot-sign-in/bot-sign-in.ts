@@ -208,6 +208,19 @@ export class BotSignIn {
           now,
           "Вход отменён.",
         );
+      } else {
+        // A separate receipt cannot overwrite final success if its transport finishes late.
+        await enqueueReply(transaction, {
+          botIdentity: request.bot_identity,
+          telegramUserId: decision.telegramUserId,
+          privateChatId: decision.privateChatId,
+          messageText:
+            "Подтверждение принято. Вернитесь в браузер, где вы начали вход.",
+          sourceKey: `sign-in-approved:${request.request_ref}`,
+          signInRequestRef: request.request_ref,
+          buttons: [],
+          now,
+        });
       }
     });
   }

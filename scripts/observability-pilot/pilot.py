@@ -137,13 +137,19 @@ def corpus(*, now_ns, sequence):
 
 
 @contextmanager
-def disk_budget(path):
+def disk_budget(path, *, on_stop=None):
     """Bound no-build pilot growth on the identified Docker storage filesystem."""
     initial = shutil.disk_usage(path).free
     stop = threading.Event()
     previous = signal.getsignal(signal.SIGUSR1)
 
     def exceeded(_signum, _frame):
+        if on_stop is not None:
+            try:
+                on_stop()
+            except BaseException:
+                # Observation must never mask or suppress the original guard stop.
+                pass
         raise RuntimeError("pilot disk budget exceeded; stopping owned resources")
 
     def monitor():

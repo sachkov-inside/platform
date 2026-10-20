@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import binding
+import acquisition
 import runtime
 
 SCOPE = 'hosted short synthetic SDK-only comparison; acceptance pending; not physical-host capacity'
@@ -31,16 +32,7 @@ def admission(metadata):
 
 
 def decode_metadata(encoded):
-    def unique_fields(pairs):
-        value = {}
-        for key, item in pairs:
-            if key in value:
-                raise ValueError('resource_duplicate_metadata_key')
-            value[key] = item
-        return value
-    def nonfinite(_value):
-        raise ValueError('resource_nonfinite_metadata')
-    return json.loads(encoded, object_pairs_hook=unique_fields, parse_constant=nonfinite)
+    return acquisition.decode_json(encoded)
 
 
 def metadata_source(metadata):
@@ -87,9 +79,13 @@ def metadata_source(metadata):
 
 
 def collect(output, destination, *, metadata):
-    metadata_source(metadata)
+    source, _disk = metadata_source(metadata)
+    acquisition_path = metadata / acquisition.NAME
+    outcome = acquisition.read(acquisition_path, source['checkout_sha']) if acquisition_path.exists() or acquisition_path.is_symlink() else None
     # The shared collector enforces regular files, symlinks, size and JSON checks.
     runtime.ci.collect(output, metadata, destination, artifacts=binding.ARTIFACTS)
+    if outcome is not None:
+        acquisition.write(destination / acquisition.NAME, outcome, source['checkout_sha'])
     owner_path = output / 'owner.json'
     acquired = False
     if owner_path.exists():
@@ -122,28 +118,87 @@ def signal_group(group, signum):
             raise
 
 
-def command(args, timeout):
+def record_failure(recorder, error):
+    if recorder is None:
+        return
+    if isinstance(error, (KeyboardInterrupt, SystemExit)):
+        recorder.fail('interrupted')
+    elif isinstance(error, (subprocess.TimeoutExpired, TimeoutError)):
+        recorder.fail('command_deadline')
+    elif isinstance(error, subprocess.CalledProcessError):
+        recorder.fail('command_exit', error.returncode)
+    elif isinstance(error, OSError):
+        recorder.fail('io_failure')
+    elif isinstance(error, ValueError):
+        recorder.fail('refused')
+    else:
+        recorder.fail('unknown_failure')
+
+
+def command(args, timeout, *, recorder=None, stage=None, kind=None):
     # Own the complete Docker CLI/plugin group, including timeout and interruption.
-    if args[0] == 'docker':
-        runtime.pilot.assert_docker_identity()
-    process = subprocess.Popen(runtime.pilot.docker_args(args), cwd=binding.ROOT,
-        start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    process = None
     try:
+        if recorder:
+            recorder.start(stage, 'identity_probe')
+        if args[0] == 'docker':
+            runtime.pilot.assert_docker_identity()
+        if recorder:
+            recorder.start(stage, 'child_spawn', kind=kind)
+        process = subprocess.Popen(runtime.pilot.docker_args(args), cwd=binding.ROOT,
+            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if recorder:
+            recorder.start(stage, 'child_wait')
         status = process.wait(timeout=timeout)
         if status:
+            if recorder:
+                recorder.fail('command_exit', status)
             raise RuntimeError('resource_acquisition_failed')
+        if recorder:
+            recorder.passed(kind=kind)
+    except BaseException as error:
+        record_failure(recorder, error)
+        raise
     finally:
-        signal_group(process.pid, signal.SIGTERM)
-        try:
-            process.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            pass
-        signal_group(process.pid, signal.SIGKILL)
-        process.wait(timeout=3)
+        if process is not None:
+            original_failure = sys.exc_info()[0] is not None
+            if recorder:
+                try:
+                    recorder.start(stage, 'cleanup')
+                except (OSError, ValueError):
+                    pass
+            cleanup_error = None
+            for index, operation in enumerate((lambda: signal_group(process.pid, signal.SIGTERM),
+                              lambda: process.wait(timeout=3),
+                              lambda: signal_group(process.pid, signal.SIGKILL),
+                              lambda: process.wait(timeout=3))):
+                try:
+                    operation()
+                except BaseException as error:
+                    # Preserve the existing tolerated grace timeout before forced stop.
+                    if index == 1 and isinstance(error, subprocess.TimeoutExpired):
+                        continue
+                    if cleanup_error is None:
+                        cleanup_error = error
+            if recorder:
+                recorder.cleanup_result(cleanup_error is None)
+                if cleanup_error is None:
+                    recorder.passed()
+            if cleanup_error is not None and not original_failure:
+                raise cleanup_error
 
 
 def prepare(metadata, images):
     source, disk = metadata_source(metadata)
+    recorder = acquisition.Recorder(metadata, source['checkout_sha'])
+    try:
+        prepare_images(source, disk, images, recorder)
+    except BaseException as error:
+        record_failure(recorder, error)
+        raise
+
+
+def prepare_images(source, disk, images, recorder):
     if not isinstance(disk, dict) or disk.get('ready') is not True:
         raise ValueError('resource_disk_admission_required')
     if images.exists() or images.is_symlink():
@@ -160,26 +215,36 @@ def prepare(metadata, images):
     for image in pins.values():
         if not isinstance(image, str) or not re.fullmatch(r'[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}', image):
             raise ValueError('resource_digest_pin_required')
+    recorder.start('daemon_identity', 'identity_probe')
     identity = runtime.pilot.daemon.identify(runtime.ci.read_command)
     runtime.pilot.FROZEN_DOCKER_ENDPOINT = identity['endpoint']
     runtime.pilot.FROZEN_DOCKER_IDENTITY = identity
-    with runtime.pilot.disk_budget(Path(identity['storage'])):
+    recorder.passed()
+    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop=recorder.storage_stop):
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],
-                 '--tag', owner + '-backend:v1', '.'], 600)
+                 '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds')
         command(['docker', 'build', '--file', 'infra/production/database/Dockerfile',
-                 '--tag', owner + '-foundation:local', 'infra/production/database'], 180)
-        for image in pins.values():
-            command(['docker', 'pull', image], 90)
+                 '--tag', owner + '-foundation:local', 'infra/production/database'], 180,
+                 recorder=recorder, stage='foundation_build', kind='builds')
+        for service, image in pins.items():
+            command(['docker', 'pull', image], 90, recorder=recorder, stage='preload_'+service, kind='pulls')
         value = {'schema': 1, 'source': source['checkout_sha'], 'owner': owner}
         for key, suffix in (('backend', '-backend:v1'), ('foundation', '-foundation:local')):
+            recorder.start(key+'_inspect', 'identity_probe')
             runtime.pilot.assert_docker_identity()
+            recorder.start(key+'_inspect', 'inspection', kind='inspections')
             value[key] = runtime.pilot.command(['docker', 'image', 'inspect', owner + suffix, '--format', '{{.Id}}'], timeout=10).strip()
+            recorder.passed(kind='inspections')
+    recorder.start('manifest_validate', 'validation')
     runtime.fixture.images(value, source['checkout_sha'])
+    recorder.start('manifest_write', 'publication')
     descriptor = os.open(images, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, 'w') as stream:
         json.dump(value, stream, allow_nan=False)
         stream.write('\n')
+    recorder.start('complete', 'publication')
+    recorder.passed()
 
 
 def main():

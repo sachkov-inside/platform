@@ -163,6 +163,14 @@ else:
 
 class ExactSourceBuildBoundary(unittest.TestCase):
     def test_two_builds_and_seven_pulls_create_only_actual_inspected_image_ids(self):
+        self.exercise_build()
+
+    def test_controlled_external_failures_identify_build_pull_and_inspection_stages(self):
+        for stage in ('backend_build', 'foundation_build', 'preload_alloy', 'backend_inspect'):
+            with self.subTest(stage=stage):
+                self.exercise_build(failure=stage)
+
+    def exercise_build(self, *, failure=None):
         import socket
         import sys
         with tempfile.TemporaryDirectory() as directory:
@@ -171,13 +179,23 @@ class ExactSourceBuildBoundary(unittest.TestCase):
             endpoint = root / 'engine.sock'
             executable = root / 'docker'
             log = root / 'commands.jsonl'
-            fake = '''import json, pathlib, sys
+            fake = '''import json, os, pathlib, sys
 root = pathlib.Path(__file__).parent
 args = sys.argv[1:]
 with (root / 'commands.jsonl').open('a') as stream:
     stream.write(json.dumps(args)+'\\n')
 if args[:1] == ['--host']:
     args = args[2:]
+stage = None
+if args[:1] == ['build']:
+    stage = 'backend_build' if '--target' in args else 'foundation_build'
+elif args[:1] == ['pull'] and 'grafana/alloy:' in args[1]:
+    stage = 'preload_alloy'
+elif args[:2] == ['image', 'inspect'] and args[2].endswith('-backend:v1'):
+    stage = 'backend_inspect'
+if stage is not None and os.environ.get('RESOURCE_TEST_FAIL_STAGE') == stage:
+    print('private-output-sentinel', file=sys.stderr)
+    sys.exit(23)
 if args == ['context', 'show']:
     print('owned-fixture')
 elif args[:2] == ['context', 'inspect']:
@@ -201,9 +219,28 @@ elif args[:1] not in (['build'], ['pull']):
                 with socket.socket(socket.AF_UNIX) as engine:
                     engine.bind(str(endpoint))
                     with patch.dict(os.environ, {'PATH': str(root)+os.pathsep+os.environ['PATH'],
-                            'DOCKER_HOST': '', 'DOCKER_TLS_VERIFY': '', 'DOCKER_CERT_PATH': ''}), \
+                            'DOCKER_HOST': '', 'DOCKER_TLS_VERIFY': '', 'DOCKER_CERT_PATH': '',
+                            'RESOURCE_TEST_FAIL_STAGE': failure or ''}), \
                             patch.object(hosted.runtime.ci, 'read_command', side_effect=git_boundary):
-                        hosted.prepare(admitted, root / 'images.json')
+                        if failure:
+                            import subprocess
+                            with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
+                                hosted.prepare(admitted, root / 'images.json')
+                        else:
+                            hosted.prepare(admitted, root / 'images.json')
+                if failure:
+                    source = json.loads((admitted / 'source.json').read_text())['checkout_sha']
+                    value = hosted.acquisition.read(admitted / hosted.acquisition.NAME, source)
+                    expected_boundary = 'inspection' if failure == 'backend_inspect' else 'child_wait'
+                    self.assertEqual((value['stage'], value['boundary'], value['outcome'], value['exit_code']),
+                                     (failure, expected_boundary, 'command_exit', 23))
+                    self.assertNotIn('private-output-sentinel', (admitted / hosted.acquisition.NAME).read_text())
+                    self.assertFalse((root / 'images.json').exists())
+                    with self.assertRaisesRegex(ValueError, 'resource_project_not_acquired'):
+                        hosted.collect(root / 'private', root / 'public', metadata=admitted)
+                    self.assertEqual(hosted.acquisition.read(root / 'public' / hosted.acquisition.NAME, source)['stage'], failure)
+                    self.assertFalse((root / 'public' / 'resource-proof.json').exists())
+                    return
                 value = json.loads((root / 'images.json').read_text())
                 self.assertEqual(value['backend'], 'sha256:'+'b'*64)
                 self.assertEqual(value['foundation'], 'sha256:'+'c'*64)
