@@ -1,7 +1,10 @@
 import { findBotContact } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
-import { findPlatformLink } from "../identity-linking/platform-links.js";
+import {
+  currentPlatformContactLink,
+  findPlatformLink,
+} from "../identity-linking/platform-links.js";
 import type { DurableMembershipEnvelope } from "../membership-evidence/membership-evidence-provider.js";
 import { randomUUID } from "node:crypto";
 
@@ -93,6 +96,7 @@ export interface CommunitySnapshot {
   readonly dueStates: number;
   readonly oldestDueAgeMs: number;
   readonly effectBacklog: number;
+  readonly waitingForJoinEffects: number;
   readonly unknownEffects: number;
   readonly restricted: number;
 }
@@ -1919,10 +1923,42 @@ export class CommunityProvider {
       from community_desired_states
       where bot_identity = ${this.bot} and due_at <= ${now}
     `.execute(this.db);
-    const effects = await sql<{ backlog: string; unknown_count: string }>`
-      select count(*)::text as backlog, count(*) filter (where state = 'unknown')::text as unknown_count from community_effects
-      where bot_identity = ${this.bot}
-        and state in ('pending', 'started', 'unknown')
+    const effects = await sql<{
+      backlog: string;
+      unknown_count: string;
+      waiting_for_join: string;
+    }>`
+      select count(*)::text as backlog,
+        count(*) filter (where e.state = 'unknown')::text as unknown_count,
+        count(*) filter (where e.state = 'pending' and e.step = 'observe'
+          and e.effect = 'community.ensure_admission' and e.available_at > ${now}
+          and exists (
+            select 1 from community_desired_states d
+            where d.bot_identity = e.bot_identity and d.account_ref = e.account_ref
+              and d.latest_operation = e.operation_id
+              and d.entitlement_revision = e.entitlement_revision
+              and d.telegram_identity_ref = e.telegram_identity_ref
+              and d.status = 'waiting_for_join' and d.observed_membership = 'not_member'
+              and d.due_at > ${now}
+              and ${currentPlatformContactLink(this.db, this.bot, "d.account_ref", "d.telegram_identity_ref")}
+              and exists (
+                select 1 from community_operations o
+                where o.operation_id = e.operation_id and o.bot_identity = e.bot_identity
+                  and o.account_ref = e.account_ref and o.status = 'waiting_for_join'
+                  and o.updated_at <= ${now}
+                  and o.updated_at > ${new Date(now.getTime() - this.cadence)}
+              )
+              and d.invite_state = 'created' and d.invite_link is not null
+              and d.invite_revision = e.entitlement_revision and d.invite_expires_at > ${now}
+              and (d.access->>'kind' = 'lifetime'
+                or (d.access->>'kind' = 'finite' and d.valid_until > ${now}))
+          ) and exists (
+            select 1 from community_effect_attempts a where a.effect_ref = e.effect_ref
+              and a.action = 'create_invite' and a.outcome = 'succeeded'
+          ))::text as waiting_for_join
+      from community_effects e
+      where e.bot_identity = ${this.bot}
+        and e.state in ('pending', 'started', 'unknown')
     `.execute(this.db);
     const restrictions = await this.db
       .selectFrom("community_desired_states")
@@ -1937,6 +1973,7 @@ export class CommunityProvider {
         ? Math.max(0, now.getTime() - oldest.getTime())
         : 0,
       effectBacklog: Number(effects.rows[0]?.backlog ?? 0),
+      waitingForJoinEffects: Number(effects.rows[0]?.waiting_for_join ?? 0),
       unknownEffects: Number(effects.rows[0]?.unknown_count ?? 0),
       restricted: Number(restrictions.count),
     };

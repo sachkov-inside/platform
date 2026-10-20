@@ -16,6 +16,7 @@ type Gauge =
   | "activation_oldest_pending_seconds"
   | "community_due"
   | "community_effect_backlog"
+  | "community_effect_waiting_for_join"
   | "community_effects_unknown"
   | "community_admission_restricted"
   | "community_oldest_due_seconds"
@@ -35,6 +36,7 @@ const gaugeNames: readonly Gauge[] = [
   "community_due",
   "community_oldest_due_seconds",
   "community_effect_backlog",
+  "community_effect_waiting_for_join",
   "community_effects_unknown",
   "community_admission_restricted",
 ];
@@ -68,6 +70,10 @@ export class RuntimeMetrics implements RuntimeCounters {
       snapshot.oldestDueAgeMs / 1000,
     );
     this.gauges.set("community_effect_backlog", snapshot.effectBacklog);
+    this.gauges.set(
+      "community_effect_waiting_for_join",
+      snapshot.waitingForJoinEffects,
+    );
     this.gauges.set("community_effects_unknown", snapshot.unknownEffects);
     this.gauges.set("community_admission_restricted", snapshot.restricted);
   }

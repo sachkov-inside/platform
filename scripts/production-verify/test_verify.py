@@ -310,10 +310,10 @@ class PublicRouteTests(unittest.TestCase):
 
 class TelegramObservationTests(unittest.TestCase):
     def snapshot(self):
-        from verify import TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES
+        from verify import TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES, TELEGRAM_SAMPLE_METRICS
         return {'containerId': 'app', 'startedAt': '2026-10-15T07:50:32Z',
                 'restartCount': 0, 'ready': True,
-                'metrics': dict.fromkeys(TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES, 0)}
+                'metrics': dict.fromkeys(TELEGRAM_SAMPLE_METRICS, 0)}
 
     def test_recovered_interval_does_not_clear_historical_counter_failure(self):
         from verify import telegram_observation_checks, telegram_error_check
@@ -324,6 +324,18 @@ class TelegramObservationTests(unittest.TestCase):
         after['metrics'].update(before['metrics'])
         self.assertTrue(all(item['status'] == 'passed' for item in telegram_observation_checks(before, after, '')))
         self.assertEqual(telegram_error_check(200, after['metrics'])['status'], 'failed')
+
+    def test_verified_waiting_invitation_is_visible_without_claiming_applied(self):
+        from verify import telegram_observation_checks
+        before, after = self.snapshot(), self.snapshot()
+        for snapshot in [before, after]:
+            snapshot['metrics']['inside_telegram_community_effect_backlog'] = 1
+            snapshot['metrics']['inside_telegram_community_effect_waiting_for_join'] = 1
+        self.assertTrue(all(item['status'] == 'passed' for item in telegram_observation_checks(before, after, '')))
+        for value in [0, 2, None, float('nan'), -1]:
+            with self.subTest(waiting=str(value)):
+                after['metrics']['inside_telegram_community_effect_waiting_for_join'] = value
+                self.assertTrue(any(item['status'] == 'failed' for item in telegram_observation_checks(before, after, '')))
 
     def test_settled_confirmation_rejection_is_not_an_unresolved_queue(self):
         from verify import telegram_observation_checks
@@ -438,20 +450,20 @@ class TelegramSnapshotBoundaryTests(unittest.TestCase):
 
     def test_restarts_during_http_reads_invalidate_the_snapshot(self):
         from unittest.mock import patch
-        from verify import telegram_snapshot, TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES
+        from verify import telegram_snapshot, TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES, TELEGRAM_SAMPLE_METRICS
         replacement = self.app()
         replacement['State']['StartedAt'] = 'new-start'
         with patch('verify.collect_containers', side_effect=[{'app': self.app()}, {'app': replacement}]), \
-             patch('verify.telegram_metrics', return_value=(200, dict.fromkeys(TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES, 0))), \
+             patch('verify.telegram_metrics', return_value=(200, dict.fromkeys(TELEGRAM_SAMPLE_METRICS, 0))), \
              patch('verify.http', return_value=(200, '{"status":"ready"}')):
             with self.assertRaisesRegex(RuntimeError, 'process changed'):
                 telegram_snapshot()
 
     def test_missing_and_nonfinite_metrics_invalidate_the_snapshot(self):
         from unittest.mock import patch
-        from verify import telegram_snapshot, TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES
+        from verify import telegram_snapshot, TELEGRAM_ERROR_COUNTERS, TELEGRAM_HEALTH_GAUGES, TELEGRAM_SAMPLE_METRICS
         for value in [None, float('nan'), float('inf'), -1]:
-            values = dict.fromkeys(TELEGRAM_ERROR_COUNTERS + TELEGRAM_HEALTH_GAUGES, 0)
+            values = dict.fromkeys(TELEGRAM_SAMPLE_METRICS, 0)
             if value is None:
                 del values[TELEGRAM_ERROR_COUNTERS[0]]
             else:

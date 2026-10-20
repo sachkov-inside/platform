@@ -1,3 +1,4 @@
+import { CommunityProvider } from "../modules/community/community-provider.js";
 import { WaitlistConfirmations } from "../modules/communications/waitlist-confirmations.js";
 import {
   Controller,
@@ -27,6 +28,8 @@ export class OperationsController {
     private readonly config: ApplicationConfig,
     @Inject(MembershipEvidenceProvider)
     private readonly membershipEvidence: MembershipEvidenceProvider,
+    @Inject(CommunityProvider)
+    private readonly community: Pick<CommunityProvider, "snapshot">,
   ) {}
 
   @Get("health")
@@ -58,6 +61,9 @@ export class OperationsController {
     this.metrics.recordWaitlistConfirmations(
       await this.waitlistConfirmations.snapshot(),
     );
+    // Scrape persisted facts even if the community worker stopped after its last snapshot.
+    if (this.config.communityMode === "live")
+      this.metrics.recordCommunity(await this.community.snapshot());
     return this.metrics.render();
   }
 }

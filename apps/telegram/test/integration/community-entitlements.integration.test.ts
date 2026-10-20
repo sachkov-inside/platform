@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 
 import { Test } from "@nestjs/testing";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
+import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import type { INestApplicationContext } from "@nestjs/common";
 
 import { AppModule } from "../../src/app.module.js";
@@ -980,6 +985,55 @@ describe("community provider outages", () => {
     expect(state.entitlementRevision).toBe(1);
   });
 
+  it("distinguishes a live invitation waiting for its recipient from actionable effects", async () => {
+    const who = subject();
+    const grant = command("lifetime-community-grant", who);
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    const app = provider(who);
+    await app.handle(grant);
+    await drain(who);
+    await app.reconcileDueStates();
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 1,
+      unknownEffects: 0,
+    });
+    expect(await result(who, grant.operationId)).toMatchObject({
+      status: "waiting_for_join",
+      observedMembership: "not_member",
+    });
+    // Even an unexpired link cannot hide a stopped reconciliation worker.
+    clock.value = new Date(clock.value.getTime() + 61_000);
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 0,
+    });
+    await app.reconcileDueStates();
+    expect(await app.snapshot()).toMatchObject({ waitingForJoinEffects: 1 });
+    // An expired link must remain actionable until the next successful attempt.
+    clock.value = new Date(clock.value.getTime() + 11 * 60_000);
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 0,
+    });
+    await app.reconcileDueStates();
+    await drain(who);
+    await app.reconcileDueStates();
+    expect(await app.snapshot()).toMatchObject({
+      effectBacklog: 1,
+      waitingForJoinEffects: 1,
+    });
+    expect(await result(who, grant.operationId)).toMatchObject({
+      status: "waiting_for_join",
+    });
+  });
+
   it("surfaces an overdue desired state to an operator", async () => {
     const who = subject();
     await admit(who);
@@ -1296,6 +1350,69 @@ describe("handing the link over in the private chat", () => {
     webhookSecret: "synthetic_webhook_secret",
     welcomeText: "Synthetic welcome",
     workersEnabled: false,
+  });
+
+  it("refreshes the served metrics after community work stops and rejects a transferred binding", async () => {
+    const who = subject();
+    const grant = command("lifetime-community-grant", who);
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    const community = provider(who);
+    await community.handle(grant);
+    await drain(who);
+    await community.reconcileDueStates();
+    const module = await Test.createTestingModule({
+      imports: [AppModule.register(appConfig("live", who.bot))],
+    })
+      .overrideProvider(CLOCK)
+      .useValue(clock)
+      .overrideProvider(CommunityProvider)
+      .useValue(community)
+      .compile();
+    const http = module.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+      { logger: false },
+    );
+    try {
+      await http.init();
+      const server = http.getHttpAdapter().getInstance();
+      await server.ready();
+      http.get(RuntimeMetrics).recordCommunity(await community.snapshot());
+      const healthy = await server.inject({ method: "GET", url: "/metrics" });
+      expect(healthy.body).toContain(
+        "inside_telegram_community_effect_waiting_for_join 1",
+      );
+      clock.value = new Date(clock.value.getTime() + 61_000);
+      const stopped = await server.inject({ method: "GET", url: "/metrics" });
+      expect(stopped.body).toContain(
+        "inside_telegram_community_effect_waiting_for_join 0",
+      );
+      expect(stopped.body).toContain("inside_telegram_community_due 1");
+      await community.reconcileDueStates();
+      await db
+        .updateTable("platform_links")
+        .set({ account_ref: `other-${who.accountRef}` })
+        .where("bot_identity", "=", who.bot)
+        .execute();
+      await community.reconcileDueStates();
+      const transferred = await server.inject({
+        method: "GET",
+        url: "/metrics",
+      });
+      expect(transferred.body).toContain(
+        "inside_telegram_community_effect_waiting_for_join 0",
+      );
+      expect(transferred.body).toContain(
+        "inside_telegram_community_effect_backlog 1",
+      );
+    } finally {
+      await http.close();
+    }
   });
 
   /** Drives one subject to a stored, still-live link on the handoff case's fixed clock. */
