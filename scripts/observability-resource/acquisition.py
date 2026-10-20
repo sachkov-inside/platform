@@ -15,7 +15,9 @@ STAGES = ('preflight', 'daemon_identity', 'backend_build', 'foundation_build',
           'foundation_inspect', 'manifest_validate', 'manifest_write', 'complete')
 BOUNDARIES = ('validation', 'identity_probe', 'child_spawn', 'child_wait', 'inspection', 'cleanup', 'publication')
 OUTCOMES = ('started', 'passed', 'refused', 'command_exit', 'command_deadline',
-            'storage_guard_stop', 'interrupted', 'cleanup_failed', 'io_failure', 'unknown_failure')
+            'storage_guard_stop', 'storage_guard_floor', 'storage_guard_growth',
+            'storage_guard_floor_growth', 'storage_guard_read_failure',
+            'interrupted', 'cleanup_failed', 'io_failure', 'unknown_failure')
 COUNTERS = {'builds': 2, 'pulls': 7, 'inspections': 2}
 FIELDS = {'schema', 'source', 'stage', 'boundary', 'outcome', 'exit_code', 'elapsed_ms',
           'elapsed_saturated', 'cleanup', 'acceptance'} | {
@@ -134,11 +136,13 @@ class Recorder:
         except (OSError, ValueError):
             pass
 
-    def storage_stop(self):
+    def storage_stop(self, reason=None):
         # Signal observation only marks memory; outer failure handling publishes it.
         if not self.failed:
             self.failed = True
-            self.value['outcome'] = 'storage_guard_stop'
+            outcomes = {'floor':'storage_guard_floor', 'growth':'storage_guard_growth',
+                        'floor_growth':'storage_guard_floor_growth', 'read_failure':'storage_guard_read_failure'}
+            self.value['outcome'] = outcomes.get(reason, 'storage_guard_stop') if isinstance(reason, str) else 'storage_guard_stop'
             self.value['exit_code'] = None
 
     def cleanup_result(self, succeeded):
