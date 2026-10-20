@@ -1,3 +1,4 @@
+import { WaitlistConfirmationPump } from "./adapters/nest/waitlist-confirmation-pump.js";
 import { ProductWaitlists } from "./facets/product-waitlists/product-waitlists.js";
 import { ProductWaitlistController } from "./features/manage-product-waitlist/manage-product-waitlist.controller.js";
 import { Module } from "@nestjs/common";
@@ -40,6 +41,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
   ],
   exports: [SalesFunnel, ProductWaitlists],
   providers: [
+    WaitlistConfirmationPump,
     {
       provide: ProductWaitlists,
       inject: [PrismaClientProvider, TelegramAccountLinks],

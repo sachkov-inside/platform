@@ -1,3 +1,8 @@
+import { waitlistConfirmationSchema } from "@inside/contracts/waitlist-confirmation";
+import {
+  WaitlistConfirmations,
+  WaitlistConfirmationConflict,
+} from "./waitlist-confirmations.js";
 import { AuthorDelivery } from "./author-delivery.js";
 import { CommunicationTracking } from "./communication-tracking.js";
 import { Funnels } from "./funnels.js";
@@ -25,6 +30,8 @@ import {
 @Controller("integrations/platform/v1/communications")
 export class CommunicationsController {
   constructor(
+    @Inject(WaitlistConfirmations)
+    private readonly waitlistConfirmations: WaitlistConfirmations,
     @Inject(APPLICATION_CONFIG) private readonly config: ApplicationConfig,
     @Inject(Communications) private readonly communications: Communications,
     @Inject(Funnels) private readonly funnels: Funnels,
@@ -41,6 +48,9 @@ export class CommunicationsController {
     try {
       if (!bearerMatches(authorization, this.config.communicationsSecret))
         throw new CommunicationsError("unauthorized");
+      const confirmation = waitlistConfirmationSchema.safeParse(body);
+      if (confirmation.success)
+        return await this.waitlistConfirmations.receive(confirmation.data);
       if (!validRequest(body)) throw new CommunicationsError("malformed");
       return {
         contractVersion: COMMUNICATIONS_VERSION,
@@ -58,6 +68,8 @@ export class CommunicationsController {
             : await this.funnels.execute(body)),
       };
     } catch (error) {
+      if (error instanceof WaitlistConfirmationConflict)
+        throw new HttpException({ status: "operation_conflict" }, 409);
       if (!(error instanceof CommunicationsError)) throw error;
       const statuses = {
         unauthorized: 401,

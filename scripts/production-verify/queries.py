@@ -41,3 +41,10 @@ SELECT json_build_object(
  FROM applications WHERE tenant_id='default' AND id=%s)
 )
 """ % (literal, literal, literal)
+
+WAITLIST_CONFIRMATIONS = """
+SELECT json_build_object(
+ 'pending',(SELECT count(*) FROM sales_funnel.product_waitlist_confirmations WHERE completed_at IS NULL),
+ 'completed',(SELECT count(*) FROM sales_funnel.product_waitlist_confirmations WHERE completed_at IS NOT NULL)
+)
+"""
