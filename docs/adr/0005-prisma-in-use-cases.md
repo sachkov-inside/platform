@@ -20,9 +20,8 @@ and cross-capability schema access are forbidden.
 One application-scoped Prisma lifecycle owns `@prisma/adapter-pg` and its bounded connection pool.
 Capability-scoped client types expose only the delegates and transaction surface owned by that
 module. Nest DI binds this lifecycle at composition seams; use cases remain plain functions. The
-`pg` package is not a second application data-access path. The Prisma adapter owns its transport
-pool and observes acquisition and driver execution through public methods; it issues no capability
-SQL. Other narrow lifecycle and test owners are enumerated in the backend coding standards.
+`pg` package is limited to the migration runner and isolated database administration in tests—it
+is not a second application data-access path.
 
 Feature-specific persistence stays beside the use case. A persistence function is extracted only
 after real reuse or when it hides one cohesive, non-trivial query such as revision hydration. This
@@ -44,3 +43,19 @@ compatibility branch in production code.
 This trades some use-case coupling to Prisma for substantially lower navigation and assembly cost.
 Moving to another database API would touch persistence-aware slices, but it would not change domain
 rules, capability interfaces, HTTP adapters, or application result contracts.
+
+
+## Amendment, 2026-10-20: Prisma-owned transport observation
+
+The paragraph above records the original Prisma cutover restriction. For
+[#1566](https://github.com/sachkov-inside/platform/issues/1566),
+`src/infrastructure/prisma/prisma-adapter.ts` may own the `pg` transport pool before handing it
+to `PrismaPg`. This explicit exception observes real connection acquisition and driver query
+completion separately, instead of inferring SQL work from Prisma method calls. Application SQL
+still passes through Prisma; the adapter issues no capability SQL and does not patch global or
+vendor-private driver state.
+
+Each factory `connect()` call creates a fresh observed pool. The vendor adapter closes that pool
+through `disposeExternalPool: true` when disposed. Other narrow lifecycle and test owners remain governed by the
+[backend coding standards](../../apps/backend/CODING_STANDARDS.md). This amendment does not add
+another application persistence path or permit other files to create application transport pools.

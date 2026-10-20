@@ -153,75 +153,109 @@ test("registered slug lock measures its own wait without inventing an extra SQL 
   }
 });
 
-test("the actual Prisma adapter observes acquisition failure and recreates its owned pool after disposal", async () => {
-  const { createPrismaPgAdapter } =
-    await import("../../src/infrastructure/prisma/prisma-adapter.js");
-  const spans = new InMemorySpanExporter();
-  const telemetry = createTechnicalTelemetry({
-    enabled: true,
-    service: "platform-api",
-    environment: "test",
-    release: "proof",
-    sampleRatio: 1,
-    exporters: {
-      spans,
-      metrics: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
-    },
-  });
-  const factory = createPrismaPgAdapter(
-    "postgresql://private-user:private-password@invalid.invalid/private-db",
-  );
-  const adapter = await factory.connect();
-  try {
-    expect(adapter.underlyingDriver().options.max).toBe(10);
-    expect(adapter.underlyingDriver().options.connectionTimeoutMillis).toBe(
-      5_000,
+for (const rejectAcquisition of [false, true]) {
+  test(`the actual Prisma adapter observes acquisition failure and recreates its owned pool, rejected acquisition ${String(rejectAcquisition)}`, async (context) => {
+    const { createPrismaPgAdapter } =
+      await import("../../src/infrastructure/prisma/prisma-adapter.js");
+    const spans = new InMemorySpanExporter();
+    const metrics = new InMemoryMetricExporter(
+      AggregationTemporality.CUMULATIVE,
     );
-    await adapter.dispose();
-    const root = telemetry.startHttp({ method: "GET", route: "/proof" });
-    // The ended pool refuses synchronously scheduled acquisition, without opening a network connection.
-    await expect(
-      root.run(() =>
-        adapter.queryRaw({
-          sql: "SELECT 'private-query-sentinel'",
-          args: [],
-          argTypes: [],
-        }),
-      ),
-    ).rejects.toThrow();
-    root.finish(500, 1);
-    await telemetry.flush();
-    expect(
-      spans
-        .getFinishedSpans()
-        .filter((span) => span.kind === SpanKind.CLIENT)
-        .map((span) => ({ name: span.name, attributes: span.attributes })),
-    ).toEqual([
-      {
-        name: "postgresql acquire",
-        attributes: {
-          "dependency.name": "postgresql",
-          "dependency.operation": "acquire",
-          "dependency.outcome": "failed",
-        },
+    const telemetry = createTechnicalTelemetry({
+      enabled: true,
+      service: "platform-api",
+      environment: "test",
+      release: "proof",
+      sampleRatio: 1,
+      exporters: {
+        spans,
+        metrics,
       },
-    ]);
-    const reconnected = await factory.connect();
-    try {
-      expect(reconnected.underlyingDriver()).not.toBe(
-        adapter.underlyingDriver(),
-      );
-      expect(reconnected.underlyingDriver().ending).toBe(false);
-    } finally {
-      await reconnected.dispose();
+    });
+    context.onTestFinished(() => telemetry.shutdown());
+    const spanShutdown = vi.spyOn(spans, "shutdown");
+    const metricShutdown = vi.spyOn(metrics, "shutdown");
+    context.onTestFinished(() => {
+      spanShutdown.mockRestore();
+      metricShutdown.mockRestore();
+    });
+    const acquisitionFailure = new Error("controlled acquisition failure");
+    const factory = createPrismaPgAdapter(
+      "postgresql://private-user:private-password@invalid.invalid/private-db",
+    );
+    if (rejectAcquisition) {
+      const acquisition = vi
+        .spyOn(factory, "connect")
+        .mockRejectedValueOnce(acquisitionFailure);
+      context.onTestFinished(() => acquisition.mockRestore());
     }
-    expect(
-      JSON.stringify(spans.getFinishedSpans().map((span) => span.attributes)),
-    ).not.toContain("private-");
-  } finally {
-    await telemetry.shutdown();
-  }
-});
+    let rejected = false;
+    let rejection: unknown;
+    try {
+      try {
+        const adapter = await factory.connect();
+        expect(adapter.underlyingDriver().options.max).toBe(10);
+        expect(adapter.underlyingDriver().options.connectionTimeoutMillis).toBe(
+          5_000,
+        );
+        await adapter.dispose();
+        const root = telemetry.startHttp({ method: "GET", route: "/proof" });
+        // The ended pool refuses synchronously scheduled acquisition, without opening a network connection.
+        await expect(
+          root.run(() =>
+            adapter.queryRaw({
+              sql: "SELECT 'private-query-sentinel'",
+              args: [],
+              argTypes: [],
+            }),
+          ),
+        ).rejects.toThrow();
+        root.finish(500, 1);
+        await telemetry.flush();
+        expect(
+          spans
+            .getFinishedSpans()
+            .filter((span) => span.kind === SpanKind.CLIENT)
+            .map((span) => ({ name: span.name, attributes: span.attributes })),
+        ).toEqual([
+          {
+            name: "postgresql acquire",
+            attributes: {
+              "dependency.name": "postgresql",
+              "dependency.operation": "acquire",
+              "dependency.outcome": "failed",
+            },
+          },
+        ]);
+        const reconnected = await factory.connect();
+        try {
+          expect(reconnected.underlyingDriver()).not.toBe(
+            adapter.underlyingDriver(),
+          );
+          expect(reconnected.underlyingDriver().ending).toBe(false);
+        } finally {
+          await reconnected.dispose();
+        }
+        expect(
+          JSON.stringify(
+            spans.getFinishedSpans().map((span) => span.attributes),
+          ),
+        ).not.toContain("private-");
+      } finally {
+        await telemetry.shutdown();
+      }
+    } catch (error) {
+      rejected = true;
+      rejection = error;
+    }
+    if (rejectAcquisition) {
+      expect(rejected).toBe(true);
+      expect(rejection).toBe(acquisitionFailure);
+    } else if (rejected) throw rejection;
+    expect(spanShutdown).toHaveBeenCalledTimes(1);
+    expect(metricShutdown).toHaveBeenCalledTimes(1);
+  });
+}
 
 test("pool readings expose current unavailability instead of treating a disposed pool as healthy zero", async () => {
   const { observePostgresPool } =
