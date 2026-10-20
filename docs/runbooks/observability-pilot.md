@@ -1605,3 +1605,14 @@ run must establish JSON/protobuf ingestion and stored verdicts. This external co
 actual Telegram SDK serialization through storage, genuine PostgreSQL/RabbitMQ lifecycle behavior,
 receipt-to-worker-to-authorization-to-BotAPI causality, server capacity or production readiness.
 The prepared native database and lifecycle scenarios remain separate. No deployment is authorized.
+
+`apps/telegram/test/integration/managed-main-lifecycle.integration.test.ts` also prepares real built
+`main` cases for SIGTERM after readiness and during a genuine PostgreSQL migration-lock wait.
+The existing Telegram `check:full` builds before running integration tests. These cases use the
+managed factory, explicit disabled provider modes, an owned loopback OTLP receiver and supervised
+pinned Node children. They check clean process exit and released PostgreSQL sessions. Periodic SDK
+exports are allowed, so observed traffic does not establish SDK shutdown ordering. Original test
+errors stay local; public failures contain only the first fixed observation stage and cleanup counts.
+The separate benign-child source tests prove only the test harness's PID, signal, acquisition-failure
+and cleanup observations. Native PostgreSQL execution, every business lane, RabbitMQ and the complete
+shutdown failure-order matrix still require exact-source hosted evidence.
