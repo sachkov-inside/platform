@@ -628,19 +628,19 @@ provider request ID, названия/идентификаторы видео и
 К провайдеру не добавляются trace headers. OFF подавляет сбор и внутри другого включённого SDK.
 
 `privacy-policy.json` и сгенерированный Alloy допускают фиксированный каталог Kinescope
-и PostgreSQL. Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
-`_OTHER`: максимум 63 сочетания на инструмент и resource identity. Это граница каталога,
-не измеренное число хранимых рядов. Общий corpus ожидает 130 dependency series для двух
-фиксированных releases и 13 сочетаний (12 известных и общий fallback), по пяти
+PostgreSQL и T-Bank. Для внешних отправителей каждый из трёх metric dimensions имеет отдельный
+`_OTHER`: максимум 168 сочетаний на инструмент и resource identity. Это граница каталога,
+не измеренное число хранимых рядов. Общий corpus ожидает 270 dependency series для двух
+фиксированных releases и 27 сочетаний (26 известных и общий fallback), по пяти
 histogram/counter series. Ещё десять series проверяют пять pool gauges для двух releases.
-Итого ожидаются 140 series. Это ожидаемые числа конкретного corpus, которые должен
+Итого ожидаются 280 series. Это ожидаемые числа конкретного corpus, которые должен
 подтвердить runtime gate точной версии исходников.
 
 `scripts/observability-pilot/dependency_privacy.py` содержит фиксированный OTLP JSON/protobuf
-corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL и три adversarial spans с
+corpus: шесть известных сочетаний Kinescope, шесть PostgreSQL, 14 T-Bank и три adversarial spans с
 неизвестными, отсутствующими и неверно типизированными полями. Controller проверяет
-logging-none до ingest, только два фиксированных trace IDs, максимум 16 полных строк на
-запрос для 15 ожидаемых spans и закрытый `dependency-collector.json` без raw данных.
+logging-none до ingest, только два фиксированных trace IDs, максимум 30 полных строк на
+запрос для 29 ожидаемых spans и закрытый `dependency-collector.json` без raw данных.
 Pool metric dimensions удаляются полностью. Runtime нового corpus в pinned collector,
 настоящие API/worker с PostgreSQL, причинная цепочка и ресурсная приёмка фиксируются отдельно
 для точного source commit. Loopback SDK/HTTP/OTLP проверки их не заменяют.
@@ -677,3 +677,35 @@ query streams вне этого покрытия. Наблюдение начи�
 scope; default OFF сохраняется. Source-тесты и внешний JSON/protobuf corpus не доказывают
 реальные PostgreSQL, retained collector, resource overhead или всю причинную цепочку #1566.
 Такие результаты фиксируются отдельно для точного source commit после runtime-проверки.
+
+
+## Наблюдение собственных обращений к T-Bank
+
+`Tbank.call` наблюдает семь фиксированных операций: `Init`, `GetState`, `CheckOrder`,
+`Charge`, `Cancel`, `AddCard`, `GetAddCardState`. Один допущенный вызов делает один POST,
+без внутреннего повтора. Локальная проверка до `call`, приём notification и шифрование
+привязки не являются HTTP-обращениями. Duration включает подготовку существующего запроса,
+ожидание ответа и его существующее JSON-чтение, но исключает последующую проверку доменной
+схемы, terminal/payment correlation и URL формы. Поэтому `completed` не доказывает успех
+платежа или допустимость ответа для бизнеса. HTTP !ok, transport и JSON errors дают `failed`;
+исходное исключение сохраняется. `BankResponse` не требует numeric status, и span его не добавляет.
+
+Span содержит только `dependency.name=tbank`, фиксированную operation,
+`dependency.outcome=completed|failed` и `http.request.method=POST`. Counter и histogram
+используют только dependency/operation/outcome. Семь операций на два исхода дают 14 новых
+сочетаний атрибутов на каждый инструмент и resource identity, всего 26 известных сочетаний
+с Kinescope и PostgreSQL. Существующий SDK cap 128 ограничивает aggregation cardinality,
+а не число хранимых histogram series; cap и overflow поведение не меняются. Для histogram
+с B конечными границами counter, count, sum и B+1 buckets дают B+4 хранимых series на
+сочетание, если приёмник публикует каждый bucket. Фактическое преобразование и число series
+нужно проверять на точной версии collector/storage. Corpus использует одну конечную границу,
+поэтому его пять series на сочетание не описывают production SDK histogram.
+
+BankRequest, CA-specific Undici Agent, TLS/hostname trust, redirect error, 10 секунд AbortSignal,
+подписанные bytes и authority sent/unknown до I/O сохраняются. Trace headers в банк не
+добавляются. TerminalKey, Token, PaymentId, OrderId, RebillId, сумма, URL, receipt/email,
+body и provider errors не передаются телеметрии. OFF подавляет сбор внутри включённого SDK;
+счётчик обновляется независимо от trace sampling. Owned HTTP/OTLP loopback contracts проверяют
+транспорт и безопасный экспорт; они не доказывают pinned collector/storage, representative
+resource acceptance или реальные банковские операции. PostgreSQL purchase/reconcile contract
+проверяется отдельно на выделенном runtime; до его фактического запуска это pending evidence.

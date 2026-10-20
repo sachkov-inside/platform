@@ -1,4 +1,8 @@
 import {
+  observeTbankRequest,
+  type TbankOperation,
+} from "../../../../infrastructure/observability/technical-telemetry.js";
+import {
   createCipheriv,
   createDecipheriv,
   createHash,
@@ -408,31 +412,26 @@ export class Tbank {
     ]).toString("utf8");
   }
   private async call(
-    method:
-      | "Init"
-      | "GetState"
-      | "CheckOrder"
-      | "Charge"
-      | "Cancel"
-      | "AddCard"
-      | "GetAddCardState",
+    method: TbankOperation,
     values: Readonly<Record<string, unknown>>,
   ): Promise<unknown> {
-    const body = { ...values, TerminalKey: this.config.terminalKey };
-    const response = await this.request(
-      `${this.config.endpoints.apiBaseUrl}/${method}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...body,
-          Token: tbankToken(body, this.config.password),
-        }),
-        signal: AbortSignal.timeout(bankTimeoutMs),
-        redirect: "error",
-      },
-    );
-    if (!response.ok) throw new Error("Bank response unavailable");
-    return response.json();
+    return observeTbankRequest(method, async () => {
+      const body = { ...values, TerminalKey: this.config.terminalKey };
+      const response = await this.request(
+        `${this.config.endpoints.apiBaseUrl}/${method}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...body,
+            Token: tbankToken(body, this.config.password),
+          }),
+          signal: AbortSignal.timeout(bankTimeoutMs),
+          redirect: "error",
+        },
+      );
+      if (!response.ok) throw new Error("Bank response unavailable");
+      return response.json();
+    });
   }
 }

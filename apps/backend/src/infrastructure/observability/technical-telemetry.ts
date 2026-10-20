@@ -44,8 +44,8 @@ class TechnicalScope {
     readonly correlation: Readonly<Record<string, string | boolean>>,
     readonly dependencyTracer: Tracer,
     readonly recordDependency: (
-      dependency: "kinescope" | "postgresql",
-      operation: KinescopeOperation | PostgresOperation,
+      dependency: "kinescope" | "postgresql" | "tbank",
+      operation: KinescopeOperation | PostgresOperation | TbankOperation,
       failed: boolean,
       seconds: number,
     ) => void,
@@ -60,6 +60,55 @@ class TechnicalScope {
       seconds: number,
     ) => void,
   ) {}
+}
+
+export type TbankOperation =
+  | "Init"
+  | "GetState"
+  | "CheckOrder"
+  | "Charge"
+  | "Cancel"
+  | "AddCard"
+  | "GetAddCardState";
+
+/** Bank request plus its existing JSON read, excluding later domain validation. */
+export async function observeTbankRequest<Value>(
+  operation: TbankOperation,
+  work: () => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work();
+  const span = scope.dependencyTracer.startSpan(
+    `tbank ${operation}`,
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "tbank",
+        "dependency.operation": operation,
+        "http.request.method": "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), work);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "tbank",
+      operation,
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
 }
 
 type NotificationOperation = "publish" | "receive" | "audience";
@@ -515,8 +564,8 @@ export function createTechnicalTelemetry(
       { unit: "s" },
     );
     const recordDependency = (
-      dependency: "kinescope" | "postgresql",
-      operation: KinescopeOperation | PostgresOperation,
+      dependency: "kinescope" | "postgresql" | "tbank",
+      operation: KinescopeOperation | PostgresOperation | TbankOperation,
       failed: boolean,
       seconds: number,
     ) => {

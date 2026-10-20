@@ -1,6 +1,18 @@
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
+import { SpanKind } from "@opentelemetry/api";
+import { z } from "zod";
+import { once } from "node:events";
+import type { TestContext } from "vitest";
+import { InMemorySpanExporter } from "@opentelemetry/sdk-trace-base";
+import {
+  AggregationTemporality,
+  InMemoryMetricExporter,
+} from "@opentelemetry/sdk-metrics";
+import { createTechnicalTelemetry } from "../../src/infrastructure/observability/technical-telemetry.js";
+import { bankRequest } from "../../src/modules/billing/infrastructure/tbank/bank-request.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { localTbankConfig } from "../../src/config/tbank-config.js";
@@ -115,7 +127,7 @@ describe("локальная продажа через двойника банк
   });
   afterAll(async () => db.dispose());
 
-  async function scenario() {
+  async function scenario(networkOwner?: TestContext) {
     now = new Date("2030-01-31T10:00:00Z");
     for (const stale of await db.prisma.billingSubscription.findMany({
       where: { state: { not: "ended" } },
@@ -202,7 +214,7 @@ describe("локальная продажа через двойника банк
         });
       },
     });
-    const request: BankRequest = (url, init) =>
+    let request: BankRequest = (url, init) =>
       double.handle(
         new Request(url, {
           method: init.method,
@@ -210,7 +222,74 @@ describe("локальная продажа через двойника банк
           body: init.body,
         }),
       );
-    const bank = new Tbank(config, request);
+    const wireMethods: string[] = [];
+    const preIoStates: string[] = [];
+    let bankConfig = config;
+    if (networkOwner !== undefined) {
+      const server = createServer((incoming, outgoing) => {
+        let body = "";
+        incoming.setEncoding("utf8");
+        incoming.on("data", (chunk: string) => {
+          body += chunk;
+          if (body.length > 1_048_576) incoming.destroy();
+        });
+        incoming.on("end", () => {
+          const path = incoming.url ?? "/";
+          wireMethods.push(path.split("/").at(-1) ?? "");
+          expect(incoming.headers["traceparent"]).toBeUndefined();
+          const deliver = async () => {
+            if (path.endsWith("/Init")) {
+              const sent = z
+                .object({ OrderId: z.string() })
+                .parse(JSON.parse(body));
+              const row = await db.prisma.billingPurchase.findUniqueOrThrow({
+                where: { id: sent.OrderId },
+              });
+              preIoStates.push(row.state);
+            }
+            return double.handle(
+              new Request(new URL(path, formOrigin), {
+                method: incoming.method ?? "POST",
+                headers: { "content-type": "application/json" },
+                body,
+              }),
+            );
+          };
+          void deliver()
+            .then(async (response) => {
+              outgoing.writeHead(
+                response.status,
+                Object.fromEntries(response.headers),
+              );
+              outgoing.end(await response.text());
+            })
+            .catch(() => outgoing.destroy());
+        });
+      });
+      networkOwner.onTestFinished(async () => {
+        server.closeAllConnections();
+        if (server.listening)
+          await new Promise<void>((resolve, reject) =>
+            server.close((error) =>
+              error === undefined ? resolve() : reject(error),
+            ),
+          );
+      });
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const address = server.address();
+      if (address === null || typeof address === "string")
+        throw new Error("owned bank listener unavailable");
+      bankConfig = {
+        ...config,
+        endpoints: {
+          ...config.endpoints,
+          apiBaseUrl: `http://127.0.0.1:${address.port}/v2`,
+        },
+      };
+      request = bankRequest(undefined);
+    }
+    const bank = new Tbank(bankConfig, request);
     const payments = new BillingPayments({
       prisma: db.prisma,
       bank,
@@ -372,6 +451,8 @@ describe("локальная продажа через двойника банк
       });
     return {
       buyer,
+      wireMethods,
+      preIoStates,
       payments,
       subscriptions,
       operations,
@@ -506,6 +587,68 @@ describe("локальная продажа через двойника банк
         value(await s.subscriptions.read(s.buyer)).subscription,
       ).toBeNull();
     }
+  });
+
+  test("наблюдение HTTP к двойнику сохраняет unknown и не повторяет Init при сверке", async (owner) => {
+    const spans = new InMemorySpanExporter();
+    const telemetry = createTechnicalTelemetry({
+      enabled: true,
+      service: "platform-api",
+      environment: "test",
+      release: "proof",
+      sampleRatio: 1,
+      exporters: {
+        spans,
+        metrics: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
+      },
+    });
+    owner.onTestFinished(() => telemetry.shutdown());
+    const s = await scenario(owner);
+    const root = telemetry.startHttp({
+      method: "POST",
+      route: "/billing/subscriptions/purchase",
+    });
+    const purchase = await root.run(() => s.beginPurchase());
+    root.finish(200, 1);
+    await s.choose(purchase.paymentUrl, "unknown");
+    await telemetry.runJob(() => s.payments.reconcile(purchase.purchaseRef));
+    expect(await s.purchaseRow(purchase.purchaseRef)).toMatchObject({
+      state: "unknown",
+    });
+    await telemetry.runJob(() => s.payments.reconcile(purchase.purchaseRef));
+    expect(await s.purchaseRow(purchase.purchaseRef)).toMatchObject({
+      state: "unknown",
+    });
+    expect(await s.capabilities()).toEqual([]);
+    expect(value(await s.subscriptions.read(s.buyer)).subscription).toBeNull();
+    expect(s.wireMethods).toEqual(["Init", "GetState", "GetState"]);
+    expect(s.preIoStates).toEqual(["sent"]);
+    expect(s.wireMethods.filter((method) => method === "Charge")).toHaveLength(
+      0,
+    );
+    await telemetry.flush();
+    const clientSpans = spans
+      .getFinishedSpans()
+      .filter((span) => span.attributes["dependency.name"] === "tbank");
+    expect(
+      clientSpans.map((span) => span.attributes["dependency.operation"]),
+    ).toEqual(s.wireMethods);
+    const httpRoot = spans
+      .getFinishedSpans()
+      .find((span) => span.kind === SpanKind.SERVER);
+    expect(
+      clientSpans.find((span) => span.name === "tbank Init")?.parentSpanContext
+        ?.spanId,
+    ).toBe(httpRoot?.spanContext().spanId);
+    expect(
+      JSON.stringify(
+        clientSpans.map((span) => ({
+          attributes: span.attributes,
+          events: span.events,
+          status: span.status,
+        })),
+      ),
+    ).not.toContain(purchase.purchaseRef);
   });
 
   test("продление списывает по сохранённой карте, а отказ банка закрывает подписку", async () => {
