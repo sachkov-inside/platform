@@ -8,6 +8,8 @@ import signal
 import subprocess
 import sys
 import time
+
+from test_foundation_recovery_proof import verify_process_absence
 import unittest
 
 SPEC = importlib.util.spec_from_file_location(
@@ -33,8 +35,10 @@ def fixture(image, directory):
         if result.returncode:
             raise RuntimeError("lifecycle fixture failed to start")
         resources.command("exec", name, "true")
-        (directory / "live").write_text("ready")
-        signal.pause()
+        # Interrupt a genuinely active command with its own descendant, not an idle launcher.
+        proof.invoke([sys.executable, "-B",
+                      str(pathlib.Path(__file__).with_name("test_foundation_recovery_proof.py")),
+                      "process-fixture", str(directory / "live")], timeout=60)
     finally:
         resources.cleanup()
 
@@ -90,7 +94,9 @@ class DockerLifecycle(unittest.TestCase):
     def interrupted(self, signum):
         child = subprocess.Popen([sys.executable, "-B", __file__, "fixture",
                                   self.image, str(self.directory)],
-                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 start_new_session=True)
+        active = []
         try:
             deadline = time.monotonic() + 30
             while not (self.directory / "live").exists():
@@ -99,6 +105,7 @@ class DockerLifecycle(unittest.TestCase):
                 if time.monotonic() >= deadline:
                     self.fail("fixture did not establish a live runtime witness")
                 time.sleep(0.05)
+            active = json.loads((self.directory / "live").read_text())
             child.send_signal(signum)
             self.assertNotEqual(child.wait(timeout=20), 0)
             if signum == signal.SIGTERM:
@@ -107,11 +114,14 @@ class DockerLifecycle(unittest.TestCase):
                 self.verify_absence(resources)
             else:
                 # SIGKILL requires the same exact-journal recovery as the always step.
+                proof.stop_process_group(active[0])
                 self.clean()
+            verify_process_absence(self, active)
         finally:
-            if child.poll() is None:
-                child.kill()
-                child.wait(timeout=10)
+            proof.stop_process_group(child.pid)
+            child.wait(timeout=10)
+            if active:
+                proof.stop_process_group(active[0])
 
     def test_sigterm(self):
         self.interrupted(signal.SIGTERM)

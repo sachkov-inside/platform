@@ -24,13 +24,46 @@ def terminate(_signum, _frame):
     raise KeyboardInterrupt
 
 
+def stop_process_group(group, leader=None):
+    """Bounded shutdown of the exact process group owned by this invocation."""
+    try:
+        os.killpg(group, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if leader is not None:
+            leader.poll()  # Reap our direct child before testing group disappearance.
+        try:
+            os.killpg(group, 0)
+        except ProcessLookupError:
+            return
+        time.sleep(0.02)
+    try:
+        os.killpg(group, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
 def invoke(arguments, *, text=None, timeout=120, check=True):
     environment = dict(os.environ)
     if "--host" in arguments:
         for key in ("DOCKER_CONTEXT", "DOCKER_HOST", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH"):
             environment.pop(key, None)
-    result = subprocess.run(arguments, input=text, capture_output=True,
-                            text=True, timeout=timeout, check=False, env=environment)
+    child = subprocess.Popen(arguments, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True, env=environment,
+                             start_new_session=True)
+    try:
+        stdout, stderr = child.communicate(input=text, timeout=timeout)
+        result = subprocess.CompletedProcess(arguments, child.returncode, stdout, stderr)
+    finally:
+        try:
+            stop_process_group(child.pid, child)
+        finally:
+            child.wait(timeout=5)
+            for stream in (child.stdin, child.stdout, child.stderr):
+                if stream is not None:
+                    stream.close()
     if check and result.returncode:
         # Provider/tool output and environment values do not enter public receipts.
         raise RuntimeError("proof command failed")

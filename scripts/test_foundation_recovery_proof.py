@@ -3,6 +3,9 @@ import importlib.util
 import json
 import os
 import pathlib
+import signal
+import sys
+import time
 import subprocess
 import tempfile
 import unittest
@@ -123,5 +126,90 @@ class OwnedResources(unittest.TestCase):
         self.assertIn("type=volume,src=repo,dst=/backup,readonly", run)
 
 
+def active_process_fixture(witness):
+    """A real owned command/descendant boundary, without network or Docker."""
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    def finish(_signum, _frame):
+        try:
+            child.wait(timeout=3)
+        finally:
+            raise SystemExit(1)
+    signal.signal(signal.SIGTERM, finish)
+    try:
+        temporary = pathlib.Path(witness).with_suffix(".next")
+        temporary.write_text(json.dumps([os.getpid(), child.pid]))
+        temporary.replace(witness)
+        signal.pause()
+    finally:
+        if child.poll() is None:
+            child.terminate()
+        child.wait(timeout=5)
+
+
+def verify_process_absence(test, processes):
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        remaining = []
+        for pid in processes:
+            try:
+                os.kill(pid, 0)
+                remaining.append(pid)
+            except ProcessLookupError:
+                pass
+        if not remaining:
+            return
+        time.sleep(0.02)
+    test.fail("owned command or descendant remained after cleanup")
+
+
+class RealProcessBoundary(unittest.TestCase):
+    def test_timeout_cleans_active_command_and_descendant(self):
+        with tempfile.TemporaryDirectory() as directory:
+            witness = pathlib.Path(directory) / "live"
+            with self.assertRaises(subprocess.TimeoutExpired):
+                proof.invoke([sys.executable, "-B", __file__, "process-fixture", str(witness)],
+                             timeout=2)
+            self.assertTrue(witness.exists(), "active descendant witness was not established")
+            verify_process_absence(self, json.loads(witness.read_text()))
+
+    def interrupted(self, signum):
+        with tempfile.TemporaryDirectory() as directory:
+            witness = pathlib.Path(directory) / "live"
+            launcher = subprocess.Popen([sys.executable, "-B", __file__,
+                                         "invocation-fixture", str(witness)],
+                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                        start_new_session=True)
+            active = []
+            try:
+                deadline = time.monotonic() + 5
+                while not witness.exists():
+                    if launcher.poll() is not None or time.monotonic() >= deadline:
+                        self.fail("active process witness was not established")
+                    time.sleep(0.02)
+                active = json.loads(witness.read_text())
+                launcher.send_signal(signum)
+                self.assertNotEqual(launcher.wait(timeout=10), 0)
+                if signum == signal.SIGKILL:
+                    proof.stop_process_group(active[0])
+                verify_process_absence(self, active)
+            finally:
+                proof.stop_process_group(launcher.pid)
+                launcher.wait(timeout=5)
+                if active:
+                    proof.stop_process_group(active[0])
+
+    def test_sigterm_cleans_active_command_and_descendant(self):
+        self.interrupted(signal.SIGTERM)
+
+    def test_sigkill_supervisor_cleans_active_command_and_descendant(self):
+        self.interrupted(signal.SIGKILL)
+
+
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) > 1 and sys.argv[1] == "process-fixture":
+        active_process_fixture(sys.argv[2])
+    elif len(sys.argv) > 1 and sys.argv[1] == "invocation-fixture":
+        signal.signal(signal.SIGTERM, proof.terminate)
+        proof.invoke([sys.executable, "-B", __file__, "process-fixture", sys.argv[2]], timeout=60)
+    else:
+        unittest.main()
