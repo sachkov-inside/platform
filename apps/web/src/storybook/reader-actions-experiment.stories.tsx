@@ -280,7 +280,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Two close fixture-only alternatives. No production writes. Owner selection pending.",
+          "Two close fixture-only alternatives. No production writes. Owner accepted variant A.",
       },
     },
   },
@@ -289,3 +289,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const ALabels: Story = { args: { initialVariant: "labels" } };
 export const BCompact: Story = { args: { initialVariant: "compact" } };
+
+export const ALabelsMobile: Story = {
+  ...ALabels,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
