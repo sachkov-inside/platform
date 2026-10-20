@@ -781,3 +781,56 @@ not measured production cardinality or resource acceptance. The combined catalog
 receive its own runtime source binding; encoded fixture sizes are checked separately. Host adapter/SDK and actual loopback
 proofs do not replace the pinned collector, genuine API/worker + PostgreSQL, full stored-data
 privacy or representative resource gates.
+
+## Pilot scrape source-status query
+
+The semantic query view reads the two existing genuine pilot scrape sources, Alloy
+(`platform-collector`) and VictoriaTraces (`platform-trace-store`), with `instance="pilot"`.
+It does not start services or change scrape configuration. Run it against an already owned pilot
+output, whose private `auth.json` contains its disposable read token:
+
+```sh
+python3 scripts/observability-pilot/source_status_query.py --output <owned-pilot-output>
+```
+
+The optional numeric `--port` selects the owned loopback query ingress (default `18427`). It does
+not accept a URL or an expression. Two fixed read queries share one explicit whole-second
+evaluation time and a single 10-second deadline, including response reads and parsing. Each
+query requests the existing two-second server query limit. There are no retries or redirects;
+environment proxy settings are bypassed for this loopback read. Each response is limited to
+1 MiB and 1,000 vector rows. The reconstructed JSON report is limited to 128 KiB. The synchronous
+Mac/Linux command uses its main thread and temporarily owns `SIGALRM`; it refuses an already
+active real-time timer and restores the prior handler. Timeout and interruption close the HTTP
+reader; the command creates no reader thread or child process.
+
+The view pairs values with the original source timestamps returned by a second fixed query.
+An instant query's outer evaluation timestamp alone does not establish scrape freshness.
+Metric names are copied into a fixed temporary query-result label before the timestamp
+function so the two responses can be joined by exact catalog identity. No stored metric label
+is added. Pinned-engine compatibility and real source-outage behavior still require the
+separate isolated runtime proof; local HTTP fixtures establish the adapter contract only.
+
+Source state is `fresh_up`, `fresh_down`, `stale`, `missing`, `query_unavailable` or `malformed`.
+Fresh means sample age at acquisition completion is at most 10 seconds, reusing the existing
+VictoriaTraces health rule of two five-second scrape intervals. A retained old `up=1` is stale,
+or missing once it leaves the query's lookback, and cannot establish current health. A fresh
+`up=0` is an observed scrape failure. Missing data and failed queries do not establish that the
+source itself is down. Future timestamps, backwards observer time, unknown labels, duplicates,
+partial responses and invalid numbers fail closed. Exit zero requires both sources to be
+`fresh_up`; every other outcome exits nonzero with a bounded closed report. Raw response/error
+bodies and credentials are not printed.
+
+Each observed series has its own timestamp and age. Fresh `up` cannot make a stale exporter
+counter fresh. Missing metric families, including the lazily created VT index-error counter,
+remain missing with a null value rather than becoming zero. A family being present does not
+prove every possible dimension is present. The pure read model can also compare one validated
+prior acquisition: it reports endpoint progress, no change, an observed decrease/reset or
+unknown comparison, with an incomplete interval after a gap longer than 10 seconds. Gauge
+values are not counters. A prior successful up observation retains its age and cannot imply
+current recovery. No persisted history is created by this command.
+
+This source age is separate from the accepted ingestion-lag limit of 60 seconds. Collector
+accepted/sent counters and VT ingest attempts do not prove persisted delivery or quantify
+end-to-end loss. The report explicitly leaves continuous host/container, RabbitMQ, Logto,
+Caddy and backup/WAL/restore monitoring uncovered. It is a pilot query view, not a production
+rollout, operational alert or acceptance of the representative resource workload.
