@@ -1,4 +1,8 @@
 import {
+  name as emailTraceName,
+  statement as emailTraceStatement,
+} from "../modules/notifications/infrastructure/postgres/migrations/0111-email-trace-context.js";
+import {
   name as materialTraceName,
   statement as materialTraceStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0109-notification-trace-context.js";
@@ -698,6 +702,7 @@ export const platformMigrations = [
   { name: submissionActivityName, statement: submissionActivityStatement },
   { name: materialTraceName, statement: materialTraceStatement },
   { name: notificationTraceName, statement: notificationTraceStatement },
+  { name: emailTraceName, statement: emailTraceStatement },
 ] as const;
 
 export function migrateToLatest(

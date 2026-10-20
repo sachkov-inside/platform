@@ -15,6 +15,11 @@ import {
   pgBossTracePropagator,
   safePgBossSpan,
 } from "./pg-boss-telemetry.js";
+import {
+  emailOperations,
+  safeEmailSpan,
+  type EmailOperation,
+} from "./email-telemetry-contract.js";
 import { notificationTraceparent } from "./notification-trace.js";
 import { ExportResultCode } from "@opentelemetry/core";
 import { resourceFromAttributes } from "@opentelemetry/resources";
@@ -53,6 +58,12 @@ class TechnicalScope {
         | CommunityOperation
         | "communications.execute",
       failed: boolean,
+      seconds: number,
+    ) => void,
+    readonly emailTracer: Tracer,
+    readonly recordEmail: (
+      operation: EmailOperation | "smtpSend",
+      outcome: EmailOutcome,
       seconds: number,
     ) => void,
     readonly observePool: (
@@ -267,6 +278,109 @@ export async function observeCommunicationsRequest<Value>(
 }
 
 type NotificationOperation = "publish" | "receive" | "audience";
+
+type EmailOutcome = "completed" | "failed" | "sent" | "not_sent" | "unknown";
+
+/** Each durable email row resumes only its immutable carrier, never the sweep's ambient parent. */
+export async function observeEmailNotification<Value>(
+  operation: EmailOperation,
+  parent: unknown,
+  work: (traceparent: string | undefined) => Promise<Value>,
+): Promise<Value> {
+  const scope = context.active().getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work(undefined);
+  const valid = notificationTraceparent(parent);
+  const root = ROOT_CONTEXT.setValue(technicalScopeKey, scope);
+  const causal =
+    valid === undefined
+      ? root
+      : pgBossTracePropagator().extract(
+          root,
+          { traceparent: valid },
+          {
+            keys: () => ["traceparent"],
+            get: (carrier: Readonly<Record<string, string>>, key: string) =>
+              key === "traceparent" ? carrier["traceparent"] : undefined,
+          },
+        );
+  const registered = emailOperations[operation];
+  const span = scope.emailTracer.startSpan(
+    `${registered.operation} ${registered.lane}`,
+    {
+      kind:
+        registered.operation === "publish"
+          ? SpanKind.PRODUCER
+          : registered.operation === "receive"
+            ? SpanKind.CONSUMER
+            : SpanKind.INTERNAL,
+      attributes: {
+        "messaging.system": "rabbitmq",
+        "messaging.destination.name": registered.destination,
+        "messaging.operation.name": registered.operation,
+        "email.lane": registered.lane,
+      },
+    },
+    causal,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(causal, span), () =>
+      work(valid === undefined ? undefined : captureNotificationTraceparent()),
+    );
+  } catch (error) {
+    failed = true;
+    span.setStatus({ code: SpanStatusCode.ERROR });
+    span.setAttribute("error.type", "email_operation_failed");
+    throw error;
+  } finally {
+    scope.recordEmail(
+      operation,
+      failed ? "failed" : "completed",
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
+
+/** Count one actual sender invocation, independently of its delivery certainty and trace sampling. */
+export async function observeSmtpSend<
+  Value extends { readonly state: "sent" | "not_sent" | "failed" | "unknown" },
+>(work: () => Promise<Value>): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work();
+  const span = scope.emailTracer.startSpan(
+    "smtp send",
+    {
+      kind: SpanKind.CLIENT,
+      attributes: { "dependency.name": "smtp", "dependency.operation": "send" },
+    },
+    current,
+  );
+  const started = performance.now();
+  let outcome: EmailOutcome = "unknown";
+  try {
+    const result = await context.with(trace.setSpan(current, span), work);
+    // A malformed port result must never become an unbounded metric label.
+    if (
+      result.state === "sent" ||
+      result.state === "not_sent" ||
+      result.state === "failed"
+    )
+      outcome = result.state;
+    return result;
+  } finally {
+    span.setAttribute("dependency.outcome", outcome);
+    if (outcome !== "sent") span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordEmail(
+      "smtpSend",
+      outcome,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
 
 type KinescopeOperation = "delete" | "find" | "initUpload";
 interface KinescopeObservation {
@@ -634,7 +748,9 @@ export function createTechnicalTelemetry(
             batch.onEnd(
               span.instrumentationScope.name === "pg-boss"
                 ? safePgBossSpan(span, queues)
-                : span,
+                : span.instrumentationScope.name === "inside-email"
+                  ? safeEmailSpan(span)
+                  : span,
             );
           },
           forceFlush: () => batch.forceFlush(),
@@ -738,6 +854,20 @@ export function createTechnicalTelemetry(
       dependencyCount.add(1, attributes);
       dependencyDuration.record(seconds, attributes);
     };
+    const emailTracer = traces.getTracer("inside-email");
+    const emailCount = meter.createCounter("inside.email.operations");
+    const emailDuration = meter.createHistogram("inside.email.duration", {
+      unit: "s",
+    });
+    const recordEmail = (
+      operation: EmailOperation | "smtpSend",
+      outcome: EmailOutcome,
+      seconds: number,
+    ) => {
+      const attributes = { operation, outcome };
+      emailCount.add(1, attributes);
+      emailDuration.record(seconds, attributes);
+    };
     const pools = new Map<object, () => PostgresPoolSnapshot>();
     let poolOverflow = false;
     let poolClosed = false;
@@ -817,6 +947,8 @@ export function createTechnicalTelemetry(
                 identity,
                 dependencyTracer,
                 recordDependency,
+                emailTracer,
+                recordEmail,
                 observePool,
                 notificationTracer,
                 recordNotification,
@@ -865,6 +997,8 @@ export function createTechnicalTelemetry(
                     correlation,
                     dependencyTracer,
                     recordDependency,
+                    emailTracer,
+                    recordEmail,
                     observePool,
                     notificationTracer,
                     recordNotification,

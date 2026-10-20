@@ -34,6 +34,7 @@ def render():
     policy = json.loads((CONFIG/'privacy-policy.json').read_text())
     notification = policy['notifications']
     dependency = policy['dependencies']
+    email = policy['email']
     resource = ['keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])',
         enum_rule('service.name', policy['services']),
         enum_rule('deployment.environment.name', policy['environments']),
@@ -57,21 +58,36 @@ def render():
         'messaging.system','messaging.destination.name','messaging.operation.name','messaging.operation.type',
         'pgboss.job.state','error.type']
     rabbit = 'attributes["messaging.system"] == '+literal(notification['system'])
+    is_email = 'IsString(attributes["email.lane"]) and IsMatch(attributes["email.lane"], '+literal(pattern(email['lanes']))+')'
+    is_smtp = 'attributes["dependency.name"] == "smtp"'
+    materials = rabbit+' and not ('+is_email+')'
     span_attributes = [*http_rules,
         enum_rule('messaging.system', ['pg-boss', notification['system']]),
         only(enum_rule('messaging.destination.name', policy['queues']), 'not ('+rabbit+')'),
-        only(enum_rule('messaging.destination.name', [notification['destination']]), rabbit),
+        only(enum_rule('messaging.destination.name', [notification['destination']]), materials),
         only(enum_rule('messaging.operation.name', policy['operations']), 'not ('+rabbit+')'),
-        only(enum_rule('messaging.operation.name', notification['operations']), rabbit),
-        *state_rules,enum_rule('error.type', [*errors,notification['error']]),status_rule]
+        only(enum_rule('messaging.operation.name', notification['operations']), materials),
+        *state_rules,enum_rule('error.type', [*errors,notification['error'],'email_operation_failed']),status_rule]
+    span_attributes += [
+        'set(attributes["email.lane"], "_OTHER") where attributes["email.lane"] != nil and not IsString(attributes["email.lane"])',
+        enum_rule('email.lane', email['lanes']),
+        only(enum_rule('messaging.destination.name', email['destinations']), rabbit+' and ('+is_email+')'),
+        only(enum_rule('messaging.operation.name', ['publish','receive','dispatch','project']), rabbit+' and ('+is_email+')'),
+        'set(attributes["messaging.operation.name"], "_OTHER") where ('+is_email+') and ((attributes["email.lane"] == "emailResult" and attributes["messaging.operation.name"] == "dispatch") or (attributes["email.lane"] != "emailResult" and attributes["messaging.operation.name"] == "project"))',
+        'set(attributes["messaging.destination.name"], "_OTHER") where ('+is_email+') and ((attributes["email.lane"] == "emailResult" and attributes["messaging.destination.name"] != "inside.results.email.v1") or (attributes["email.lane"] != "emailResult" and attributes["messaging.destination.name"] != "inside.notifications.email.v1"))',
+    ]
     dependency_keys = ['dependency.name','dependency.operation','dependency.outcome']
     for key, values in zip(dependency_keys, (dependency['names'],dependency['operations'],dependency['outcomes'])):
-        span_attributes += ['set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])',enum_rule(key,values)]
-    span_rules = ['keep_keys(attributes, '+literal(keys+dependency_keys+['messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *span_attributes,
+        span_attributes += [only('set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])','not ('+is_smtp+')'), only(enum_rule(key,values),'not ('+is_smtp+')')]
+    for key, values in (('dependency.operation',['send']), ('dependency.outcome',email['smtp_outcomes'])):
+        span_attributes += [only('set(attributes['+literal(key)+'], "_OTHER") where attributes['+literal(key)+'] != nil and not IsString(attributes['+literal(key)+'])',is_smtp), only(enum_rule(key,values),is_smtp)]
+    span_rules = ['keep_keys(attributes, '+literal(keys+dependency_keys+['email.lane','messaging.message.id','pgboss.job.retry_count','messaging.batch.message_count'])+')', *span_attributes,
         'delete_key(attributes, "messaging.message.id") where attributes["messaging.message.id"] != nil and not IsMatch(attributes["messaging.message.id"], "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")']
     for key in ('pgboss.job.retry_count','messaging.batch.message_count'):
         span_rules.append(f'delete_key(attributes, "{key}") where attributes["{key}"] != nil and (not IsInt(attributes["{key}"]) or attributes["{key}"] < 0 or attributes["{key}"] > 1000000)')
     span_rules += [
+        only('keep_keys(attributes, ["messaging.system", "messaging.destination.name", "messaging.operation.name", "email.lane", "error.type"])', 'attributes["email.lane"] != nil'),
+        only('keep_keys(attributes, ["dependency.name", "dependency.operation", "dependency.outcome"])', is_smtp),
         'set(trace_state, "")', 'set(status.message, "")', 'set(events, nil)',
         # Keep every link. The pinned VT ingestion boundary removes only its metadata fields.
         'set(name, "operation") where not IsMatch(name, "^(HTTP GET /pilot|queue[.]publish|worker[.]attempt|worker[.]retry|dependency[.]http)$")',
@@ -101,7 +117,7 @@ otelcol.receiver.otlp "pilot" {
 otelcol.processor.filter "catalog" {
   error_mode = "propagate"
   metrics {
-    metric = ['''+'`not IsMatch(name, '+literal(pattern(policy['metrics']+notification['metrics']+dependency['metrics']+policy['postgresql']['metrics']))+')`'+''']
+    metric = ['''+'`not IsMatch(name, '+literal(pattern(policy['metrics']+notification['metrics']+dependency['metrics']+policy['postgresql']['metrics']+email['metrics']))+')`'+''']
   }
   output {
     metrics = [otelcol.processor.transform.privacy.input]
@@ -121,7 +137,8 @@ otelcol.processor.transform "privacy" {
     is_notification = 'IsMatch(metric.name, '+literal(pattern(notification['metrics']))+')'
     is_dependency = 'IsMatch(metric.name, '+literal(pattern(dependency['metrics']))+')'
     is_pool = 'IsMatch(metric.name, '+literal(pattern(policy['postgresql']['metrics']))+')'
-    point_rules = [only(statement, 'not ('+is_notification+') and not ('+is_dependency+') and not ('+is_pool+')') for statement in
+    is_email_metric = 'IsMatch(metric.name, '+literal(pattern(email['metrics']))+')'
+    point_rules = [only(statement, 'not ('+is_notification+') and not ('+is_dependency+') and not ('+is_email_metric+') and not ('+is_pool+')') for statement in
                    ['keep_keys(attributes, '+literal(keys)+')',*attribute_rules]]
     point_rules.append(only('keep_keys(attributes, ["operation", "outcome"])',is_notification))
     for key, values in (('operation',notification['operations']), ('outcome',notification['outcomes'])):
@@ -132,7 +149,13 @@ otelcol.processor.transform "privacy" {
     for key, values in (('dependency',dependency['names']), ('operation',dependency['operations']), ('outcome',dependency['outcomes'])):
         point_rules += [only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_dependency),
                         only(enum_rule(key,values),is_dependency)]
-    text += block('metric','datapoint',[*point_rules, 'set(exemplars, nil)'])
+    point_rules.append(only('keep_keys(attributes, ["operation", "outcome"])',is_email_metric))
+    for key in ('operation','outcome'):
+        point_rules.append(only('set(attributes['+literal(key)+'], "_OTHER") where not IsString(attributes['+literal(key)+'])',is_email_metric))
+    valid_pair = '(IsMatch(attributes["operation"], '+literal(pattern(email['operations']))+') and IsMatch(attributes["outcome"], "^(completed|failed)$")) or (attributes["operation"] == "smtpSend" and IsMatch(attributes["outcome"], '+literal(pattern(email['smtp_outcomes']))+'))'
+    point_rules.append(only('set(attributes["operation"], "_OTHER") where not ('+valid_pair+')',is_email_metric))
+    point_rules.append(only('set(attributes["outcome"], "_OTHER") where attributes["operation"] == "_OTHER"',is_email_metric))
+    text += block('metric','datapoint' ,[*point_rules, 'set(exemplars, nil)'])
     text += block('log','log',['keep_keys(attributes, [])',
         'set(body, "telemetry.redacted") where not IsString(body) or body != "pilot.known_failure"',
         'set(event_name, "")', 'set(severity_text, "")'])

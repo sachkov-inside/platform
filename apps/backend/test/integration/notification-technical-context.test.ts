@@ -1440,7 +1440,7 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
   const database = await createTestDatabase();
   const admin = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const legacyRegistry = platformMigrations.slice(0, -2);
+    const legacyRegistry = platformMigrations.slice(0, -3);
     await runMigrationsToLatest(database.url, legacyRegistry);
     const legacy = encodeNotification("materials", {
       ...materialFixture,
@@ -1477,6 +1477,7 @@ test("nullable carrier upgrade rolls back on a bounded lock refusal and retains 
       appliedMigrations: [
         "0109_materials_notification_trace_context",
         "0110_notifications_notification_trace_context",
+        "0111_notifications_email_trace_context",
       ],
     });
     const migration = await migrateRuntimeDatabase(database.url);
