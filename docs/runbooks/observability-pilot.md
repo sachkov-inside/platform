@@ -1346,3 +1346,31 @@ package использует production-код очистки диагности
 исходники `docs/contracts/`, package manifest и настройки компилятора входят в полный
 набор входных файлов SDK. Остальные пути `docs/` не допускаются в module witness.
 Пределы private protocol и схема public artifact не меняются.
+
+### Isolated hosted short resource proof (#1566)
+
+`observability-resource.yml` runs separately from the main application gate on disposable
+Ubuntu 24.04. It admits a clean provider checkout with PR head/base, execution SHA/tree,
+run ID and attempt, and hashes the conservative tracked backend/build/helper closure.
+`hosted.py prepare` builds only `backend-production` from `apps/backend/Dockerfile` with
+`INSIDE_RELEASE_VERSION=v1` and the actual checkout SHA, plus the unchanged foundation
+Dockerfile using `infra/production/database` as its context. Unique run/attempt tags resolve
+to two distinct immutable image IDs in a private five-field manifest. Seven digest-pinned
+services are pulled before the runtime, whose Compose services retain `pull_policy: never`.
+Builds and pulls have finite individual deadlines. No backup or restore is run.
+
+The shared heavy-check guard surrounds preparation and the existing resource runner.
+Its external worker budget remains 600 seconds. Recovery runs on every outcome for only the
+registered random project. Collection retains actual admission metadata and the fixed
+resource artifact whitelist. Compose/env, JWTs, query keys, TLS private material and raw
+Engine bodies are never uploaded. Missing project acquisition makes collection fail and
+records `no_registered_project`, without manufacturing a measurement. Missing or changed
+source metadata is refused. Failed recovery and worker outcomes remain separate artifacts.
+
+A green workflow is not resource acceptance. Inspect `resource-proof.json.state`, mode
+validity, counter availability, lifecycle, worker outcome, cleanup and recovery together.
+`partial` stays partial; even `completed_short_profile` retains `acceptance: pending`.
+The proposed short synthetic SDK-only workload cannot size the Timeweb server or establish
+representative production load, full retention, whole-host reserve or seven actual days.
+The workflow adds no mandatory release gate. Native image builds and runtime compatibility
+must be observed in a source-bound hosted attempt before claiming they work.

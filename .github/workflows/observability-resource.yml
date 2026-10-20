@@ -1,0 +1,92 @@
+name: Observability short resource proof
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/observability-resource.yml
+      - .github/workflows/ci.yml
+      - .github/actions/setup-platform/**
+      - apps/backend/**
+      - apps/web/package.json
+      - apps/telegram/package.json
+      - packages/**
+      - docs/contracts/**
+      - docs/runbooks/observability-pilot.md
+      - scripts/**
+      - infra/**
+      - patches/**
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+      - .node-version
+      - .npmrc
+      - .dockerignore
+
+permissions:
+  contents: read
+
+concurrency:
+  group: observability-resource-${{ github.event.pull_request.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+  cancel-in-progress: false
+
+env:
+  CI: "true"
+  PYTHONDONTWRITEBYTECODE: "1"
+  PILOT_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  PILOT_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  resource:
+    name: Isolated short synthetic SDK resource comparison
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify hosted trust contracts without Docker acquisition
+        timeout-minutes: 1
+        run: bash scripts/heavy-check.sh python3 -m unittest discover -s scripts/observability-resource -p 'test_*.py'
+      - name: Bind complete source and measure disk admission
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-resource/hosted.py admission \
+            --metadata "$RUNNER_TEMP/inside-resource-metadata"
+      - name: Build two exact-source images and preload seven pinned services
+        timeout-minutes: 25
+        run: |
+          bash scripts/heavy-check.sh python3 scripts/observability-resource/hosted.py prepare \
+            --metadata "$RUNNER_TEMP/inside-resource-metadata" \
+            --images "$RUNNER_TEMP/inside-resource-images.json"
+      - name: Run short profile through unchanged 600-second supervisor
+        timeout-minutes: 22
+        run: |
+          bash scripts/heavy-check.sh python3 scripts/observability-resource/runtime.py run \
+            --output "$RUNNER_TEMP/inside-resource-private" \
+            --images "$RUNNER_TEMP/inside-resource-images.json"
+      - name: Recover only the registered disposable project
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          python3 scripts/observability-resource/runtime.py recover \
+            --output "$RUNNER_TEMP/inside-resource-private"
+      - name: Collect only closed evidence and actual admission metadata
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-resource/hosted.py collect \
+            --output "$RUNNER_TEMP/inside-resource-private" \
+            --metadata "$RUNNER_TEMP/inside-resource-metadata" \
+            --public "$RUNNER_TEMP/inside-resource-public"
+      - name: Upload curated evidence, never the private directory
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-resource-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/inside-resource-public
+          if-no-files-found: warn
+          retention-days: 7
