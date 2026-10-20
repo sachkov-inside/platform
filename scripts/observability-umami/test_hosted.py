@@ -1,10 +1,13 @@
 """Publication/recovery boundaries retain private keys and refuse a live worker."""
 import importlib.util
+import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('umami_hosted', Path(__file__).with_name('hosted.py'))
@@ -44,9 +47,32 @@ class HostedBoundaries(unittest.TestCase):
     def test_source_binding_includes_the_shared_supervisor_and_native_lock(self):
         names = {str(path.relative_to(hosted.ROOT)) for path in hosted.source_inputs()}
         self.assertTrue({'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/pilot.py',
+                         'scripts/observability-pilot/collector_privacy.py',
                          'scripts/observability-pilot/storage_policy.py', 'scripts/observability-pilot/native_cpu.py', 'infra/observability/umami/mcp/package-lock.json',
                          'scripts/observability-umami/retention.sql', 'scripts/observability-umami/retention-corpus.sql',
                          'scripts/observability-umami/retention-proof.sql', 'infra/observability/umami/schema-fixture.sql',
                          'scripts/observability-umami-startup.pg.test.mjs', 'scripts/observability-umami-retention.pg.test.mjs',
                          '.github/workflows/observability-umami.yml'} <= names)
         self.assertTrue(all(path.is_file() for path in hosted.source_inputs()))
+
+    def test_admission_and_curated_collection_bind_exact_eager_privacy_helper_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            metadata=root/'metadata'
+            def command(args):
+                if args[-1]=='HEAD':return 'a'*40
+                if args[-1]=='HEAD^{tree}':return 'b'*40
+                if args[-1]=='--porcelain':return ''
+                return str(root)
+            with patch.object(hosted.ci,'read_command',side_effect=command), \
+                    patch.dict(os.environ,{'GITHUB_SHA':'a'*40}), \
+                    patch.object(hosted.ci.shutil,'disk_usage',return_value=SimpleNamespace(total=200*1024**3,free=100*1024**3)), \
+                    patch('sys.stdout',new=io.StringIO()):
+                self.assertEqual(hosted.ci.admission(metadata,inputs=hosted.source_inputs()),0)
+            private=root/'private';private.mkdir()
+            public=root/'public'
+            hosted.ci.collect(private,metadata,public,artifacts=hosted.ARTIFACTS)
+            proof=json.loads((public/'source.json').read_text())
+            for name in ('collector_privacy.py',):
+                relative='scripts/observability-pilot/'+name
+                self.assertEqual(proof['inputs'][relative],hashlib.sha256((hosted.ROOT/relative).read_bytes()).hexdigest())

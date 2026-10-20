@@ -13,7 +13,7 @@ class DependencyCatalog(unittest.TestCase):
     def test_fixed_sdk_dependency_catalog_has_no_request_or_status_metric_dimensions(self):
         policy = json.loads((privacy_config.CONFIG/'privacy-policy.json').read_text())
         self.assertEqual(policy['dependencies'], {
-            'names':['kinescope','postgresql','tbank','logto','telegram'], 'operations':['delete','find','initUpload','query','acquire','material-slug-lock','Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState','jwks','communications.execute'],
+            'names':['kinescope','postgresql','tbank','logto','telegram'], 'operations':['delete','find','initUpload','query','acquire','material-slug-lock','Init','GetState','CheckOrder','Charge','Cancel','AddCard','GetAddCardState','jwks','communications.execute','link.register','link.confirm','contacts.read','signin.bindAccount'],
             'outcomes':['completed','failed'],
             'metrics':['inside.dependency.operations','inside.dependency.duration']})
         actual = privacy_config.render()
@@ -105,12 +105,26 @@ def communications_rows(transport='json'):
     return rows
 
 
+def telegram_http_rows(transport='json'):
+    rows=[]
+    for index,(operation,outcome) in enumerate((op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount') for out in ('completed','failed')):
+        row=dict(communications_rows(transport)[index%2])
+        row.update({'trace_id':'e'*30+('71' if transport=='json' else '72'),'span_id':f'{index+1:016x}',
+                    'name':'telegram '+operation,'span_attr:dependency.operation':operation,
+                    'start_time_unix_nano':'1790000000000000000','end_time_unix_nano':'1790000000001000000','duration':'1000000',
+                    '_msg':'-','_stream':'{name='+json.dumps('telegram '+operation)+',resource_attr:service.name="platform-api"}',
+                    '_time':'2026-09-21T14:13:20Z','_stream_id':'0'*16+f'{index//2+1:032x}'})
+        if index>=6:row.pop('span_attr:http.response.status_code')
+        rows.append(row)
+    return rows
+
+
 def metric_rows():
     rows=[]
     for release in ('a'*40,'b'*40):
         for dependency,operation,outcome in (('kinescope','delete','completed'),('kinescope','delete','failed'),
                 ('kinescope','find','completed'),('kinescope','find','failed'),('kinescope','initUpload','completed'),
-                ('kinescope','initUpload','failed'),('postgresql','query','completed'),('postgresql','query','failed'),('postgresql','acquire','completed'),('postgresql','acquire','failed'),('postgresql','material-slug-lock','completed'),('postgresql','material-slug-lock','failed'),('tbank', 'Init', 'completed'),('tbank', 'Init', 'failed'),('tbank', 'GetState', 'completed'),('tbank', 'GetState', 'failed'),('tbank', 'CheckOrder', 'completed'),('tbank', 'CheckOrder', 'failed'),('tbank', 'Charge', 'completed'),('tbank', 'Charge', 'failed'),('tbank', 'Cancel', 'completed'),('tbank', 'Cancel', 'failed'),('tbank', 'AddCard', 'completed'),('tbank', 'AddCard', 'failed'),('tbank', 'GetAddCardState', 'completed'),('tbank', 'GetAddCardState', 'failed'),('logto','jwks','completed'),('logto','jwks','failed'),('telegram','communications.execute','completed'),('telegram','communications.execute','failed'),('_OTHER','_OTHER','_OTHER')):
+                ('kinescope','initUpload','failed'),('postgresql','query','completed'),('postgresql','query','failed'),('postgresql','acquire','completed'),('postgresql','acquire','failed'),('postgresql','material-slug-lock','completed'),('postgresql','material-slug-lock','failed'),('tbank', 'Init', 'completed'),('tbank', 'Init', 'failed'),('tbank', 'GetState', 'completed'),('tbank', 'GetState', 'failed'),('tbank', 'CheckOrder', 'completed'),('tbank', 'CheckOrder', 'failed'),('tbank', 'Charge', 'completed'),('tbank', 'Charge', 'failed'),('tbank', 'Cancel', 'completed'),('tbank', 'Cancel', 'failed'),('tbank', 'AddCard', 'completed'),('tbank', 'AddCard', 'failed'),('tbank', 'GetAddCardState', 'completed'),('tbank', 'GetAddCardState', 'failed'),('logto','jwks','completed'),('logto','jwks','failed'),('telegram','communications.execute','completed'),('telegram','communications.execute','failed'),*tuple(('telegram',op,out) for op in ('link.register','link.confirm','contacts.read','signin.bindAccount') for out in ('completed','failed')),('_OTHER','_OTHER','_OTHER')):
             for name,le,value in (('inside.dependency.operations',None,1),('inside.dependency.duration_count',None,1),
                     ('inside.dependency.duration_sum',None,.25),('inside.dependency.duration_bucket','1',1),
                     ('inside.dependency.duration_bucket','+Inf',1)):
@@ -164,7 +178,7 @@ class DependencyRuntimeContract(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError,'raw response withheld'):
                 fixture.stored_traces('\n'.join(json.dumps(row) for row in rows),'json')
         response=lambda rows:(200,json.dumps({'status':'success','data':{'resultType':'vector','result':rows}}))
-        self.assertEqual(fixture.stored_metrics(response(metric_rows())),{'stored_series':320,'metric_labelsets':62,'pool_series':10,'privacy':'passed'})
+        self.assertEqual(fixture.stored_metrics(response(metric_rows())),{'stored_series':400,'metric_labelsets':78,'pool_series':10,'privacy':'passed'})
         self.assertIsNone(fixture.stored_metrics(response(metric_rows()[:-1])))
         for key,value in (('__name__','inside.dependency.private'),('url.full','private-value'),('operation','private-value'),
                           ('http.response.status_code','200'),('scope.version','private-value')):
@@ -203,21 +217,22 @@ class DependencyRuntimeContract(unittest.TestCase):
             if args[1]=='inspect':
                 return 'owned|none' if '.HostConfig.LogConfig.Type' in args[3] else project+'|gateway|true'
             self.assertEqual(args[1],'exec'); self.assertNotIn('fields',args[-1])
+            telegram_http = any(trace_id in args[-1] for trace_id in fixture.TELEGRAM_HTTP_TRACE_IDS.values())
             communications = any(trace_id in args[-1] for trace_id in fixture.COMMUNICATIONS_TRACE_IDS.values())
-            self.assertIn('limit=30' if communications else 'limit=32',args[-1])
-            ids = fixture.COMMUNICATIONS_TRACE_IDS if communications else fixture.TRACE_IDS
+            self.assertIn('limit=30' if communications or telegram_http else 'limit=32',args[-1])
+            ids = fixture.TELEGRAM_HTTP_TRACE_IDS if telegram_http else fixture.COMMUNICATIONS_TRACE_IDS if communications else fixture.TRACE_IDS
             transport='json' if ids['json'] in args[-1] else 'protobuf'
             self.assertIn(ids[transport],args[-1])
-            rows = communications_rows(transport) if communications else trace_rows(transport)
+            rows = telegram_http_rows(transport) if telegram_http else communications_rows(transport) if communications else trace_rows(transport)
             return '\n'.join(json.dumps(row) for row in rows)
         with tempfile.TemporaryDirectory() as directory, patch.object(pilot,'FROZEN_DOCKER_ENDPOINT',identity['endpoint']), \
                 patch.object(pilot,'FROZEN_DOCKER_IDENTITY',identity),patch('pilot.daemon.identify',return_value=identity), \
-                patch('pilot.command',side_effect=docker),patch('pilot.request',side_effect=http):
+                patch('pilot.command',side_effect=docker),patch('pilot.request',side_effect=http),patch('pilot.time.time_ns',return_value=1790000000000000000):
             pilot.dependency_catalog_corpus('private-token',Path(directory),compose)
             proof=json.loads((Path(directory)/'dependency-collector.json').read_text())
-            self.assertEqual(proof['outcome'],'passed'); self.assertEqual(proof['metrics']['stored_series'],320)
-            self.assertEqual([case['transport'] for case in proof['cases']],['json','protobuf','json','protobuf'])
-            self.assertEqual(emitted,[dict,dict,bytes,bytes,dict,dict,bytes,bytes]); self.assertNotIn('private-token',json.dumps(proof))
+            self.assertEqual(proof['outcome'],'passed'); self.assertEqual(proof['metrics']['stored_series'],400)
+            self.assertEqual([case['transport'] for case in proof['cases']],['json','protobuf']*3)
+            self.assertEqual(emitted,[dict,dict,bytes,bytes]*3); self.assertNotIn('private-token',json.dumps(proof))
 
 
 class CommunicationsPartition(unittest.TestCase):
@@ -261,7 +276,7 @@ class CombinedCatalogProjection(unittest.TestCase):
         self.assertEqual(len(fixture.COMMUNICATIONS),2)
         response=(200,json.dumps({'status':'success','data':{'resultType':'vector','result':metric_rows()}}))
         self.assertEqual(fixture.stored_metrics(response),
-            {'stored_series':320,'metric_labelsets':62,'pool_series':10,'privacy':'passed'})
+            {'stored_series':400,'metric_labelsets':78,'pool_series':10,'privacy':'passed'})
         for transport in ('json','protobuf'):
             first=fixture.stored_traces('\n'.join(json.dumps(row) for row in trace_rows(transport)),transport)
             second=fixture.stored_traces('\n'.join(json.dumps(row) for row in communications_rows(transport)),transport,communications=True)
