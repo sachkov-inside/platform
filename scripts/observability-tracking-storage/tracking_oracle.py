@@ -8,6 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'observability-sdk-storage'))
 import oracle as sdk_oracle
+from diagnostics import ResponseDecode, OracleRefusal
 
 BOUNDS = sdk_oracle.BOUNDS
 COMMON = {'service.name':'platform-api', 'deployment.environment.name':'test',
@@ -121,8 +122,9 @@ def metrics(raw):
         return {'tracking_series':19, 'sdk_series':len(values), 'self_scrape_series':scrape,
                 'full_vector_series':len(rows), 'privacy':'passed',
                 'dependency_counts':{k:v for k,v in counts.items() if ':' in k}}
-    except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError):
-        raise RuntimeError('Tracking storage metric contract failed') from None
+    except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError) as error:
+        raise OracleRefusal('Tracking storage metric contract failed',
+                            'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None
 
 
 def traces(raw, *, trace_id, root_id):
@@ -203,5 +205,6 @@ def traces(raw, *, trace_id, root_id):
             if row['parent_span_id'] not in parsed: return None
         return {'stored_spans':len(rows),'tracking_spans':1,'provider_spans':2,'postgresql_counts':sql,
                 'privacy':'passed','persisted_causality':'passed'}
-    except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError):
-        raise RuntimeError('Tracking storage trace contract failed') from None
+    except (ValueError,TypeError,KeyError,UnicodeError,OverflowError,RecursionError) as error:
+        raise OracleRefusal('Tracking storage trace contract failed',
+                            'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None

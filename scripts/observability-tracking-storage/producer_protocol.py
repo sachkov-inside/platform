@@ -8,12 +8,14 @@ import sys
 import time
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-pilot'))
 import source_status
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-sdk-storage'))
+import diagnostics
 HERE=Path(__file__).resolve().parent
 ROOT=HERE.parents[1]
 EMITTER_SECONDS=30
 CHILD_BYTES=1_048_576
 
-def capture(*, argv=None, environment=None, budget=EMITTER_SECONDS):
+def capture(*, argv=None, environment=None, budget=EMITTER_SECONDS, diagnostic=None):
     """Own the single native Node child and its in-process HTTP listener until reaped.
 
     No new process group: the existing outside supervisor also owns this child on
@@ -21,6 +23,7 @@ def capture(*, argv=None, environment=None, budget=EMITTER_SECONDS):
     """
     if not 0 < budget <= EMITTER_SECONDS:
         raise ValueError('closed emitter budget')
+    if diagnostic is not None: diagnostic.start('capture')
     child = None
     try:
         child = subprocess.Popen(argv or ['node', str(HERE / 'producer.mjs')], cwd=ROOT,
@@ -41,10 +44,25 @@ def capture(*, argv=None, environment=None, budget=EMITTER_SECONDS):
                     break
                 data.extend(part)
                 if len(data) > CHILD_BYTES:
+                    if diagnostic is not None: diagnostic.fail('protocol_cap')
                     raise ValueError()
         if child.wait(timeout=max(.001, deadline-time.monotonic())) != 0:
+            if diagnostic is not None: diagnostic.fail('native_exit')
             raise RuntimeError()
-        return source_status.decode_json(bytes(data))
+        if diagnostic is not None: diagnostic.start('protocol_decode')
+        try:
+            value = source_status.decode_json(bytes(data))
+        except Exception:
+            if diagnostic is not None: diagnostic.fail('protocol_decode')
+            raise
+        if diagnostic is not None: diagnostic.observed(True)
+        return value
+    except BaseException as error:
+        if diagnostic is not None:
+            diagnostic.fail('interrupted' if isinstance(error, KeyboardInterrupt) else
+                            'deadline' if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)) else
+                            'transport' if isinstance(error, OSError) else 'unknown')
+        raise
     finally:
         if child is not None:
             try:

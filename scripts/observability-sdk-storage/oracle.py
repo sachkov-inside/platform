@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'observability-pilot'))
 import source_status
+from diagnostics import ResponseDecode, OracleRefusal
 from collector_privacy import TRACE_STORE_METRICS
 
 # SDK 2.12 default explicit histogram aggregation, independent of observed output.
@@ -23,7 +24,10 @@ SCALARS = {'http.server.active_requests': 0, 'telemetry.trace.dropped': 0,
 def decode(raw):
     if type(raw) is not str or len(raw.encode('utf-8')) > MAX_BYTES:
         raise ValueError()
-    value = source_status.decode_json(raw.encode('utf-8'))
+    try:
+        value = source_status.decode_json(raw.encode('utf-8'))
+    except (ValueError, UnicodeError, RecursionError):
+        raise ResponseDecode() from None
     if any(marker in json.dumps(value, default=str) for marker in PRIVATE):
         raise ValueError()
     return value
@@ -166,8 +170,9 @@ def metrics(raw, *, release):
             return None
         return {'s3_dependency_series': 38, 'other_sdk_series': 29, 'self_scrape_series': scrape,
                 'full_vector_series': len(rows), 'privacy': 'passed', 'sdk_metrics': 'passed'}
-    except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError):
-        raise RuntimeError('SDK storage metric contract failed') from None
+    except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError) as error:
+        raise OracleRefusal('SDK storage metric contract failed',
+                            'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None
 
 
 def traces(raw, *, trace_id, root_id, release):
@@ -239,5 +244,6 @@ def traces(raw, *, trace_id, root_id, release):
         if len(roles) != 3:
             return None
         return {'stored_spans': 3, 'test_owned_root': 'passed', 's3_read_http_causality': 'passed', 'privacy': 'passed'}
-    except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError):
-        raise RuntimeError('SDK storage trace contract failed') from None
+    except (ValueError, TypeError, KeyError, UnicodeError, OverflowError, RecursionError) as error:
+        raise OracleRefusal('SDK storage trace contract failed',
+                            'response_decode' if isinstance(error, ResponseDecode) else 'oracle_refusal') from None

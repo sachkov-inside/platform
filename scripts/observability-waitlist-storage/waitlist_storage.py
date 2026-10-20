@@ -19,12 +19,13 @@ import sdk_storage
 import source_status_query
 sys.path.insert(0,str(HERE.parent/'observability-tracking-storage'))
 import ownership
+import api_progress
 sys.path.insert(0,str(HERE))
 import producer_protocol
 import waitlist_oracle
 
 SCOPE='One genuine production API/PG carrier/real timer/API-owned SDK waitlist receipt success through pinned storage; no retry/crash or capacity acceptance'
-ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','waitlist-storage.json','runtime-modules.json','recovery.json','waitlist-cleanup.json')
+ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','waitlist-storage.json','runtime-modules.json','recovery.json','waitlist-cleanup.json',api_progress.NAME)
 STORAGE_SECONDS=60
 
 
@@ -87,7 +88,10 @@ def worker(output):
             # No ambient exporter/header/client-certificate credentials or process bootstrap options.
             environment={key:os.environ[key] for key in ('PATH','HOME') if key in os.environ}
             environment.update({'INSIDE_OTEL_ENABLED':'true','INSIDE_OTEL_ENDPOINT':'http://127.0.0.1:14318','INSIDE_OTEL_SAMPLE_RATIO':'1'})
-            observed=producer_protocol.witness(producer_protocol.capture(environment=environment))
+            source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
+            with api_progress.OwnedProgress(output,scope='waitlist',source=source) as progress:
+                wire=producer_protocol.capture(environment=progress.environment(environment))
+            observed=producer_protocol.witness(wire)
             module_artifact={'schema':1,'sha256':observed['runtime_modules']}
             if len((json.dumps(module_artifact,indent=2)+'\n').encode()) > ci.PUBLIC_ARTIFACT_MAX_BYTES: raise ValueError()
             pilot.write_json(output/'runtime-modules.json',module_artifact)
@@ -127,6 +131,13 @@ def cleanup_proof(output):
     if proof['outcome'] != 'passed': raise RuntimeError()
 
 
+def collect(output,metadata,destination):
+    source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
+    phase=api_progress.read(output/api_progress.NAME,scope='waitlist',source=source)
+    ci.collect(output,metadata,destination,artifacts=tuple(name for name in ARTIFACTS if name!=api_progress.NAME))
+    api_progress.write(destination/api_progress.NAME,phase,scope='waitlist',source=source)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('admission','run','worker','recover','collect'))
@@ -148,7 +159,7 @@ def main():
     elif args.action=='recover':
         ci.recover(output,services=ownership.SERVICES)
         cleanup_proof(output)
-    else: ci.collect(output,args.metadata,args.public,artifacts=ARTIFACTS)
+    else: collect(output,args.metadata,args.public)
     return 0
 
 

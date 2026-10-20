@@ -1371,6 +1371,35 @@ package использует production-код очистки диагности
 Пределы private protocol и схема public artifact не меняются.
 
 
+### Closed SDK and tracking failure diagnostics (#1566)
+
+The SDK and tracking workers publish a separate `storage-diagnostic.json` (schema1, at most2048bytes).
+Its fixed scope, phase, outcome and reason distinguish query transport/decode, full raw oracle refusal
+and visibility expiry, plus capture deadline/native exit/protocol decoding, witness, module projection
+and module write boundaries. Attempts are retained on failure, bounded at1024 with an explicit
+saturation flag. Existing30/60/600-second budgets and all byte, row, role, flags and metric gates remain.
+A pending observation is recorded only after the complete unchanged raw oracle accepts the response.
+No role-presence projection bypasses that gate. No raw native stderr or exception message is collected.
+
+The actual tracking and waitlist API producers also have a separate optional private milestone channel.
+Its canonical `api-producer-phase.json` is at most512bytes and contains only schema1, exact caller
+scope, checkout SHA, observed/unknown/refused state and a fixed completed milestone. Milestones identify
+producer start, imports, migration, provider/API listeners, checked HTTP response, persisted carrier,
+waitlist relay restart, confirmed delivery, SDK shutdown and constructed native module map. They never
+replace the complete producer witness or raw stored-data validation. An owned0700 directory stays alive
+until capture reaps the child, then the parent strictly validates and projects the last atomic marker.
+Missing legacy markers remain unknown; invalid markers are refused without copying their bytes or
+replacing the primary capture failure. Collectors reject wrong source/scope and malformed present
+projections before public copying. All native capture budgets and single stdout IPC remain unchanged.
+
+The first failure remains separate from cleanup/recovery outcomes. A failure after a completed business
+observation remains failed or interrupted, including at the completion boundary; it is not acceptance.
+Collectors reject duplicate/nonfinite/unknown/cross-scope or oversized present diagnostic records before
+creating the public destination, then atomically write only the canonical closed projection. An absent
+legacy record produces an explicit unknown result. No raw response, body, URL, ID, SQL, runtime error
+path, arbitrary exception class, or diagnostic output enters this artifact. These additions do not
+retrospectively identify either99b failure. New source-bound hosted evidence is still required.
+
 ### Genuine tracking success storage candidate (#1566)
 
 `.github/workflows/observability-tracking-storage.yml` prepares a separate Linux hosted vertical.
