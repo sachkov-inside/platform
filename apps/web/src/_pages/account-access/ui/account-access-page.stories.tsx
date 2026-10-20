@@ -34,7 +34,10 @@ export const WithSubscription: Story = {
       await canvas.findByRole("button", { name: "Отменить продление" }),
     ).toBeEnabled();
     await expect(
-      canvas.queryByRole("textbox", { name: "Имя" }),
+      await canvas.findByRole("textbox", { name: "Отображаемое имя" }),
+    ).toHaveValue("Кирилл Сачков");
+    await expect(
+      canvas.queryByRole("textbox", { name: /О себе/ }),
     ).not.toBeInTheDocument();
   },
 };
@@ -91,6 +94,46 @@ export const PaymentFailureSurvivesCollapse: Story = {
     await expect(error).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: /История оплат, чеки и возвраты/ }),
+    ).toBeVisible();
+  },
+};
+
+export const FirstEmailAttachment: Story = {
+  ...accountSectionEnvironment("/account", {
+    fetch: () => {
+      let email: string | null = null;
+      return respondByPath({
+        ...subscribedMemberRoutes,
+        "/api/account/email": () => Response.json({ ok: true, email }),
+        "/api/account/email/start": () =>
+          Response.json({ ok: true, challengeRef: "synthetic-challenge" }),
+        "/api/account/email/confirm": () => {
+          email = "new@example.test";
+          return Response.json({ ok: true });
+        },
+      });
+    },
+  }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole("button", { name: "Добавить почту" }),
+    );
+    await userEvent.type(
+      canvas.getByRole("textbox", { name: "Адрес почты" }),
+      "new@example.test",
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Получить код" }));
+    await userEvent.type(
+      await canvas.findByRole("textbox", { name: "Код из письма" }),
+      "123456",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Подтвердить почту" }),
+    );
+    await expect(await canvas.findByText("new@example.test")).toBeVisible();
+    await expect(
+      canvas.getByText(/Почта подтверждена и привязана/),
     ).toBeVisible();
   },
 };

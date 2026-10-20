@@ -56,7 +56,7 @@ const acceptedDocuments: AcceptedDocumentsPanelProps = {
 const meta = {
   ...environment,
   args: {
-    email: "kirill@example.com",
+    displayName: "kirill@example.com",
     acceptedDocuments,
     link: { kind: "linked" },
     onTelegramRefresh: () => Promise.resolve(),

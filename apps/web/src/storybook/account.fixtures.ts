@@ -71,7 +71,18 @@ export function accountPresentationResponse({
   return Response.json({
     profile:
       profile === null ? { kind: "missing" } : { kind: "profile", profile },
-    telegramMembership: { link, membership: { kind: "active" } },
+    telegramMembership: {
+      link,
+      membership: { kind: "active" },
+      contact:
+        link.kind === "linked"
+          ? {
+              state: "available",
+              displayName: "Кирилл из Telegram",
+              username: "synthetic_member",
+            }
+          : { state: "not_linked", displayName: null, username: null },
+    },
   });
 }
 
@@ -95,6 +106,8 @@ export function notificationPreferencesResponse({
  */
 export const subscribedMemberRoutes: Readonly<Record<string, RouteResponse>> = {
   "/api/account": () => accountPresentationResponse(),
+  "/api/account/email": () =>
+    Response.json({ ok: true, email: "member@example.test" }),
   "/api/account/billing": () =>
     currentBillingResponse(activeSubscription, {
       grounds: accessGrounds,

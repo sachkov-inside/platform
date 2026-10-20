@@ -18,6 +18,7 @@ import {
   accountId,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
+import { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
 import type { TelegramMembership } from "../../facets/telegram-membership/telegram-membership.interface.js";
 import { TELEGRAM_MEMBERSHIP } from "../../telegram-membership.tokens.js";
 import {
@@ -35,6 +36,7 @@ export class AccountTelegramMembershipController {
   constructor(
     @Inject(TELEGRAM_MEMBERSHIP)
     private readonly membership: TelegramMembership,
+    @Inject(TelegramAccountLinks) private readonly links: TelegramAccountLinks,
   ) {}
 
   @Get()
@@ -61,6 +63,17 @@ export class AccountTelegramMembershipController {
       accountId: accountId(account.accountId),
     });
     if (!result.ok) throwTelegramAccountPresentationError();
-    return result.presentation;
+    const reading = await this.links.readContacts([account.accountId]);
+    const contact = reading.ok
+      ? reading.contacts.get(account.accountId)
+      : undefined;
+    return {
+      ...result.presentation,
+      contact: {
+        state: contact?.telegramContactState ?? "unavailable",
+        displayName: contact?.displayName ?? null,
+        username: contact?.telegramUsername ?? null,
+      },
+    };
   }
 }

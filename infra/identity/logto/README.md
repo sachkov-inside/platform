@@ -155,3 +155,11 @@ proof matrix and known limits are recorded in
 The fork is not declared production-ready by this proof. DNS/TLS, credential custody, monitoring,
 backup/restore, email deliverability, provider timeout ambiguity and release operations remain
 production infrastructure gates.
+
+## First email attachment
+
+Fork `inside.8` adds authenticated, first-party `/api/my-account/first-email/start` and
+`/api/my-account/first-email/confirm` routes. The [Account profile contract](../../../docs/specifications/account-profile-v1.md)
+owns eligibility, proof ownership, collision/retry semantics and required Account Center/SMTP setup.
+The existing `inside.7` changes remain included. The disposable API proof runs with
+`python3 scripts/account-email-proof.py --image <built-image>` after building this Dockerfile.

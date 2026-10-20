@@ -15,8 +15,11 @@ import { Button } from "@/shared/ui/button";
 export interface AccountAccessViewProps {
   readonly acceptedDocuments: AcceptedDocumentsPanelProps;
   readonly link: AccountTelegramMembership["link"] | null;
-  readonly email?: string | undefined;
+  readonly telegramContact?: AccountTelegramMembership["contact"];
+  readonly displayName?: string | undefined;
   readonly billingSlot?: ReactNode;
+  readonly profileSlot?: ReactNode;
+  readonly emailSlot?: ReactNode;
   readonly continuationSlot?: ReactNode;
   readonly loading?: boolean;
   readonly sessionExpired?: boolean;
@@ -28,8 +31,11 @@ export interface AccountAccessViewProps {
 export function AccountAccessView({
   acceptedDocuments,
   link,
-  email,
+  displayName,
+  telegramContact,
   billingSlot,
+  profileSlot,
+  emailSlot,
   continuationSlot,
   loading = false,
   sessionExpired = false,
@@ -43,9 +49,9 @@ export function AccountAccessView({
           <h1 className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl">
             Личный кабинет
           </h1>
-          {email === undefined ? null : (
+          {displayName === undefined ? null : (
             <p className="mt-3 break-all text-sm text-muted-foreground">
-              {email}
+              {displayName}
             </p>
           )}
         </div>
@@ -72,6 +78,7 @@ export function AccountAccessView({
       ) : (
         <>
           {continuationSlot}
+          {profileSlot}
           {loading ? (
             <p className="py-4 text-sm text-muted-foreground" role="status">
               Загружаем состояние аккаунта…
@@ -90,8 +97,13 @@ export function AccountAccessView({
               </button>
             </div>
           ) : (
-            <AccountTelegramPanel link={link} onRefresh={onTelegramRefresh} />
+            <AccountTelegramPanel
+              contact={telegramContact}
+              link={link}
+              onRefresh={onTelegramRefresh}
+            />
           )}
+          {emailSlot}
           <div className="mt-4">{billingSlot}</div>
           <AccountDisclosure
             description="Условия использования и обработка данных"

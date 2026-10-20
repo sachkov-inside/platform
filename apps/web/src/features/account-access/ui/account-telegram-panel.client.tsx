@@ -31,9 +31,11 @@ import {
 export function AccountTelegramPanel({
   link,
   onRefresh,
+  contact,
   retryLabel = "Попробовать снова",
 }: {
   readonly link: AccountTelegramMembership["link"];
+  readonly contact?: AccountTelegramMembership["contact"];
   readonly onRefresh: () => Promise<void>;
   readonly retryLabel?: string;
 }) {
@@ -65,6 +67,26 @@ export function AccountTelegramPanel({
             <h3 className="mt-1 text-lg font-bold tracking-[-0.025em]">
               {presentation.account.title}
             </h3>
+            {contact?.state === "available" ? (
+              <p className="mt-2 break-words text-sm">
+                {contact.displayName}
+                {contact.username === null ? (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · Username не задан
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    · @{contact.username}
+                  </span>
+                )}
+              </p>
+            ) : contact?.state === "unavailable" ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Не удалось загрузить имя и username из Telegram.
+              </p>
+            ) : null}
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
               {presentation.account.description}
             </p>

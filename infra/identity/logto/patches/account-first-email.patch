@@ -1,0 +1,19 @@
+--- a/packages/core/src/routes/account/index.ts
++++ b/packages/core/src/routes/account/index.ts
+@@ -21,6 +21,8 @@
+ import { PasswordValidator } from '../experience/classes/libraries/password-validator.js';
+ import type { UserRouter, RouterInitArgs } from '../types.js';
+ 
++import accountFirstEmailRoutes from '../account-first-email.js';
++
+ import { accountApiPrefix } from './constants.js';
+ import emailAndPhoneRoutes from './email-and-phone.js';
+ import accountGrantRoutes from './grants.js';
+@@ -304,6 +306,7 @@
+ 
+   logtoConfigRoutes(...args);
+   thirdPartyTokensRoutes(...args);
++  accountFirstEmailRoutes(...args);
+   emailAndPhoneRoutes(...args);
+   identitiesRoutes(...args);
+   mfaVerificationsRoutes(...args);

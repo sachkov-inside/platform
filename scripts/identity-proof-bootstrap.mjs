@@ -114,6 +114,7 @@ const smtpConfig = Object.freeze({
     template("SignIn", "Inside sign-in code"),
     template("Register", "Inside registration code"),
     template("ForgotPassword", "Inside password reset code"),
+    template("BindNewIdentifier", "Inside email attachment code"),
     template("Generic", "Inside verification code"),
   ],
 });
@@ -130,6 +131,10 @@ async function main() {
   await ensureEmailConnector(api);
   const telegramConnectorId = await ensureTelegramConnector(api);
   await ensureSignInExperience(api);
+  await api("/account-center", {
+    method: "PATCH",
+    body: { enabled: true, fields: { email: "Edit" } },
+  });
   await ensureSignInPhrases(api);
   await ensureJwtCustomizer(api, telegramConnectorId);
   const applicationSecret = await readApplicationSecret(api, application.id);

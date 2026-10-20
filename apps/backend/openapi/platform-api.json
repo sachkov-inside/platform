@@ -29073,6 +29073,33 @@
                 "schema": {
                   "additionalProperties": false,
                   "properties": {
+                    "contact": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "displayName": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "state": {
+                          "enum": [
+                            "available",
+                            "not_linked",
+                            "unavailable"
+                          ],
+                          "type": "string"
+                        },
+                        "username": {
+                          "nullable": true,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "state",
+                        "displayName",
+                        "username"
+                      ],
+                      "type": "object"
+                    },
                     "link": {
                       "oneOf": [
                         {
@@ -29349,7 +29376,8 @@
                   },
                   "required": [
                     "link",
-                    "membership"
+                    "membership",
+                    "contact"
                   ],
                   "type": "object"
                 }
