@@ -20,11 +20,12 @@ import source_status_query
 import ownership
 import producer_protocol
 import api_progress
+import producer_phase
 import tracking_oracle
 import diagnostics
 
 SCOPE='One genuine production API/PG carrier/real timer/API-owned SDK tracking success through pinned storage; no retry/crash or capacity acceptance'
-ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','tracking-storage.json','runtime-modules.json','recovery.json','tracking-cleanup.json',diagnostics.NAME,api_progress.NAME)
+ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','tracking-storage.json','runtime-modules.json','recovery.json','tracking-cleanup.json',diagnostics.NAME,api_progress.NAME,producer_phase.NAME)
 STORAGE_SECONDS=60
 
 
@@ -57,7 +58,8 @@ def trace_response(compose,targets,trace_id,*,budget):
 def producer_observation(output, *, environment, diagnostic):
     source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
     with api_progress.OwnedProgress(output,scope='tracking',source=source) as progress:
-        wire=producer_protocol.capture(environment=progress.environment(environment),diagnostic=diagnostic)
+        with producer_phase.OwnedTrackingPhase(output,source=source) as phase:
+            wire=producer_protocol.capture(environment=phase.environment(progress.environment(environment)),diagnostic=diagnostic)
     diagnostic.start('witness')
     try:
         observed=producer_protocol.witness(wire)
@@ -194,10 +196,14 @@ def cleanup_proof(output):
 def collect(output, metadata, destination):
     projected = diagnostics.read(output/diagnostics.NAME, scope='tracking')
     source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
+    if producer_phase.source_from_metadata(metadata)!=source:
+        raise ValueError('closed tracking phase refused')
     phase=api_progress.read(output/api_progress.NAME,scope='tracking',source=source)
-    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME)))
+    producer_observation=producer_phase.load_for_collection(output,source=source)
+    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME,producer_phase.NAME)))
     diagnostics.write(destination/diagnostics.NAME, projected, scope='tracking')
     api_progress.write(destination/api_progress.NAME,phase,scope='tracking',source=source)
+    producer_phase.write(destination/producer_phase.NAME,producer_observation,source=source)
 
 
 def main():

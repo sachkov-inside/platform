@@ -210,9 +210,12 @@ export function createSdkEmitterPhase(environment) {
           parentAfter.dev !== before.dev ||
           parentAfter.ino !== before.ino ||
           parentAfter.uid !== before.uid ||
+          parentAfter.gid !== before.gid ||
           parentAfter.mode !== before.mode ||
           !same(parentAfter, heldAfter)
         )
+          throw new Error();
+        if (!same(info, lstatSync(base + "/phase.json.new", { bigint: true })))
           throw new Error();
         renameSync(base + "/phase.json.new", marker);
         created = undefined;
@@ -232,7 +235,13 @@ export function createSdkEmitterPhase(environment) {
               bigint: true,
               throwIfNoEntry: false,
             });
-            if (named?.dev === created.dev && named.ino === created.ino)
+            if (
+              named !== undefined &&
+              regular(named, uid) &&
+              named.gid === created.gid &&
+              named.dev === created.dev &&
+              named.ino === created.ino
+            )
               unlinkSync(base + "/phase.json.new");
           } catch {
             /* Preserve collision/recreated foreign inode. */

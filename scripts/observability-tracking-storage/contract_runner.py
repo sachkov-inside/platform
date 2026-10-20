@@ -14,7 +14,7 @@ import producer_protocol
 
 def main():
     if sys.argv[1:2] == ['--script']:
-        if len(sys.argv) != 3 or sys.argv[2] not in ('logging_contract.py', 'trace_flags_contract.py', 'diagnostic_contract.py', 'api_progress_contract.py'):
+        if len(sys.argv) != 3 or sys.argv[2] not in ('logging_contract.py', 'trace_flags_contract.py', 'diagnostic_contract.py', 'api_progress_contract.py', 'producer_phase_contract.py'):
             raise ValueError('closed tracking script')
         script = str(Path(__file__).parent / sys.argv[2])
         sys.argv = [script]

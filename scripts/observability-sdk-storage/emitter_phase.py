@@ -17,7 +17,7 @@ _SOURCE_FIELDS = {'checkout_sha','checkout_tree','repository','run_id','run_atte
 
 
 def _refuse(*_):
-    raise ValueError('closed SDK phase refused')
+    raise ValueError('closed SDK phase refused') from None
 
 
 def _sha(value, width):
@@ -68,7 +68,8 @@ def _identity(info):
 def _directory(path):
     parent=path.parent
     if not parent.is_absolute() or parent.resolve() != parent: _refuse()
-    before=os.lstat(parent)
+    try:before=os.lstat(parent)
+    except OSError:_refuse()
     if not stat.S_ISDIR(before.st_mode) or before.st_uid != os.getuid() or before.st_mode & 0o777 != 0o700:
         _refuse()
     descriptor=os.open(parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
@@ -81,11 +82,23 @@ def _directory(path):
     return descriptor
 
 
+
+def _same_directory(descriptor,path,initial):
+    try:
+        held=os.fstat(descriptor);named=os.lstat(path.parent)
+        if (not stat.S_ISDIR(held.st_mode) or held.st_uid!=os.getuid() or held.st_mode & 0o777!=0o700
+                or (held.st_dev,held.st_ino,held.st_uid,held.st_gid,held.st_mode)!=(initial.st_dev,initial.st_ino,initial.st_uid,initial.st_gid,initial.st_mode)
+                or _identity(held)!=_identity(named)):_refuse()
+    except OSError:_refuse()
+
+
 def _read_bytes(path,cap,*,mode=0o600):
-    descriptor=directory=None
+    descriptor=directory=None;present=False
     try:
         directory=_directory(path)
+        directory_info=os.fstat(directory)
         before=os.stat(path.name,dir_fd=directory,follow_symlinks=False)
+        present=True
         descriptor=os.open(path.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=directory)
         info=os.fstat(descriptor)
         if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1
@@ -101,7 +114,11 @@ def _read_bytes(path,cap,*,mode=0o600):
         if (len(raw)>cap or _identity(info)!=_identity(os.fstat(descriptor))
                 or _identity(info)!=_identity(os.stat(path.name,dir_fd=directory,follow_symlinks=False))):
             _refuse()
+        _same_directory(directory,path,directory_info)
         return raw
+    except FileNotFoundError:
+        if present:_refuse()
+        raise
     finally:
         try:
             if descriptor is not None:os.close(descriptor)
@@ -134,6 +151,7 @@ def write(path,value,*,source):
     directory=descriptor=None;created=None
     try:
         directory=_directory(path)
+        directory_info=os.fstat(directory)
         descriptor=os.open('phase.json.new',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
         created=os.fstat(descriptor)
         offset=0
@@ -151,6 +169,8 @@ def write(path,value,*,source):
         except FileNotFoundError:existing=None
         if existing is not None and (not stat.S_ISREG(existing.st_mode) or existing.st_uid!=os.getuid()
                 or existing.st_mode & 0o777 != 0o600 or existing.st_nlink!=1):_refuse()
+        if _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)):_refuse()
+        _same_directory(directory,path,directory_info)
         os.replace('phase.json.new',path.name,src_dir_fd=directory,dst_dir_fd=directory)
         created=None
     except (OSError,ValueError,TypeError):_refuse()
@@ -162,7 +182,9 @@ def write(path,value,*,source):
                 if created is not None and directory is not None:
                     try:current=os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)
                     except FileNotFoundError:current=None
-                    if current is not None and (current.st_dev,current.st_ino)==(created.st_dev,created.st_ino):
+                    if (current is not None and stat.S_ISREG(current.st_mode) and current.st_nlink==1
+                            and current.st_uid==created.st_uid and current.st_gid==created.st_gid
+                            and current.st_mode & 0o777==0o600 and (current.st_dev,current.st_ino)==(created.st_dev,created.st_ino)):
                         os.unlink('phase.json.new',dir_fd=directory)
             finally:
                 if directory is not None:os.close(directory)
