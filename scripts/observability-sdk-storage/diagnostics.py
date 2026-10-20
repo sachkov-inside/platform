@@ -1,4 +1,4 @@
-"""Closed diagnostics for the SDK and tracking storage owners only."""
+"""Closed diagnostics for the SDK, tracking and waitlist storage owners only."""
 import os
 from pathlib import Path
 import stat
@@ -27,10 +27,12 @@ NAME = 'storage-diagnostic.json'
 MAX_BYTES = 2048
 MAX_ATTEMPTS = 1024
 FIELDS = ('schema', 'scope', 'phase', 'outcome', 'reason', 'attempts', 'attempts_saturated')
+TRACKING_WITNESS_REASONS = ('witness_header', 'witness_group', 'witness_row', 'witness_path',
+                            'witness_digest', 'witness_duplicate', 'witness_required')
 FAILURES = {
     'unknown': (), 'acquisition': (), 'ownership': (),
     'capture': ('transport', 'deadline', 'native_exit', 'protocol_cap'),
-    'protocol_decode': ('protocol_decode',), 'witness': ('witness_refusal',),
+    'protocol_decode': ('protocol_decode',), 'witness': ('witness_refusal', *TRACKING_WITNESS_REASONS),
     'module_projection': ('module_projection',), 'module_write': ('write_failure',),
     'metric_query': ('transport', 'deadline', 'response_decode'),
     'metric_validation': ('response_decode', 'oracle_refusal'),
@@ -50,7 +52,7 @@ def unknown(scope):
 
 
 def validate(value, *, scope):
-    if (scope not in ('sdk', 'tracking') or type(value) is not dict or set(value) != set(FIELDS)
+    if (scope not in ('sdk', 'tracking', 'waitlist') or type(value) is not dict or set(value) != set(FIELDS)
             or type(value['schema']) is not int or value['schema'] != 1
             or type(value['scope']) is not str or value['scope'] != scope
             or any(type(value[key]) is not str for key in ('phase', 'outcome', 'reason'))
@@ -61,6 +63,8 @@ def validate(value, *, scope):
             or value['attempts_saturated'] and value['attempts'] != MAX_ATTEMPTS):
         _refuse()
     phase, outcome, reason = (value[key] for key in ('phase','outcome','reason'))
+    if reason in TRACKING_WITNESS_REASONS and scope != 'tracking': _refuse()
+    if scope == 'waitlist' and phase not in ('unknown', 'capture', 'protocol_decode'): _refuse()
     if outcome == 'unknown':
         if phase != 'unknown' or reason != 'unknown' or value['attempts'] or value['attempts_saturated']: _refuse()
     elif outcome == 'failed':
