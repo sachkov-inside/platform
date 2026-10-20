@@ -264,6 +264,11 @@ test("production access observes every live cell in one isolated scenario", asyn
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "/auth/sign-in";
+      const entry = document.createElement("input");
+      entry.type = "hidden";
+      entry.name = "entry";
+      entry.value = "account-choice";
+      form.append(entry);
       document.body.append(form);
       form.submit();
     });
