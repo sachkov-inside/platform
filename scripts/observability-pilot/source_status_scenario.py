@@ -32,6 +32,7 @@ class OwnedTargets:
     def __init__(self, output, compose, plan, read, *, ownership_checkpoint=None):
         self.output, self.compose, self.plan, self.read = output, compose, plan, read
         self._ownership_observer = ownership_checkpoint
+        self._ownership_callback_error = None
         try:
             self._ownership_stage(None, 'registry_shape')
             if (not isinstance(compose, list) or len(compose) != 6 or compose[:3] != ['docker', 'compose', '-p']
@@ -73,10 +74,15 @@ class OwnedTargets:
             (output / 'source-freshness-owned.json').write_text(json.dumps(witness, separators=(',', ':')))
         finally:
             self._ownership_observer = None
+            self._ownership_callback_error = None
 
     def _ownership_stage(self, role, gate):
         if self._ownership_observer is not None:
-            self._ownership_observer(role, gate)
+            try:
+                self._ownership_observer(role, gate)
+            except BaseException as error:
+                self._ownership_callback_error = error
+                raise
 
     def inspect(self, role, cid):
         try:
@@ -135,7 +141,9 @@ class OwnedTargets:
             if any(not re.fullmatch(r'[0-9a-f]{64}', value) for value in networks.values()):
                 raise ScenarioFailed('ownership')
             return {'id': cid, 'image': item['image'], 'mounts': sorted(actual), 'networks': networks}
-        except (ValueError, KeyError, TypeError, AttributeError):
+        except (ValueError, KeyError, TypeError, AttributeError) as error:
+            if self._ownership_observer is not None and error is self._ownership_callback_error:
+                raise
             raise ScenarioFailed('ownership') from None
 
     def check(self, role):

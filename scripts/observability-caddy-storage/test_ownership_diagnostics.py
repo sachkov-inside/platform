@@ -377,3 +377,59 @@ class OwnershipDiagnostics(unittest.TestCase):
                         ownership_checkpoint=lambda source_role,gate:stages.append(evidence.ownership_phase(source_role,gate)))
                 self.assertEqual(stages[-1],'ownership_'+role+'_inspect_mount_plan')
                 self.assertFalse((runtime.output/'source-freshness-owned.json').exists())
+
+    def test_default_none_preserves_direct_foreign_role_inspect_and_check_contracts(self):
+        import runpy
+        baseline=runpy.run_path(str(Path(__file__).with_name('fixtures')/'core_ownership_f578.py'))['OwnedTargets']
+        foreign_error=RuntimeError('controlled foreign role evaluation')
+        class ForeignRole:
+            def __hash__(self):raise foreign_error
+            def __eq__(self,other):raise foreign_error
+            def __str__(self):raise AssertionError('foreign role string inspected')
+        for role in ('metrics','private-controlled-role',None,1,[],{},ForeignRole()):
+            for method in ('inspect','check'):
+                outcomes=[]
+                for owner_type in (baseline,core.OwnedTargets):
+                    with tempfile.TemporaryDirectory() as directory:
+                        runtime=Runtime(directory)
+                        targets=owner_type(runtime.output,runtime.fake.compose,runtime.fake.plan,runtime.read)
+                        runtime.commands=[]
+                        try:
+                            result=targets.inspect(role,runtime.fake.ids['metrics']) if method=='inspect' else targets.check(role)
+                        except BaseException as error:
+                            outcome=(type(error),error.args,error.reason if type(error) is core.ScenarioFailed else None)
+                            if type(role) is ForeignRole:self.assertIs(error,foreign_error)
+                        else:outcome=('valid',result)
+                        commands=[[part.replace(str(runtime.output),'OWN_OUTPUT') for part in argv] for argv in runtime.commands]
+                        outcomes.append((outcome,commands))
+                with self.subTest(role_type=type(role).__name__,method=method):self.assertEqual(outcomes[0],outcomes[1])
+
+    def test_inspect_checkpoint_refusal_preserves_callback_exception_before_docker_read(self):
+        actual_write=caddy_storage.artifact.write_run
+        for original in (ValueError('closed Caddy artifact refused'),KeyError('controlled callback'),
+                         TypeError('controlled callback'),AttributeError('controlled callback')):
+            with self.subTest(error_type=type(original).__name__),tempfile.TemporaryDirectory() as directory:
+                runtime=Runtime(directory)
+                def write(output,run):
+                    if run['phase']=='ownership_metrics_inspect_read':raise original
+                    return actual_write(output,run)
+                error,run=runtime.fail_worker(self,(patch.object(caddy_storage.artifact,'write_run',side_effect=write),))
+                self.assertIs(error,original)
+                self.assertFalse(any(argv[:4]==['docker','inspect','--format',core.INSPECT] for argv in runtime.commands))
+                self.assertEqual(set(run['cases'].values()),{'unrun'})
+
+    def test_terminal_rethrow_of_same_exception_cannot_append_secondary_traceback(self):
+        import traceback
+        actual_write=caddy_storage.artifact.write_run
+        with tempfile.TemporaryDirectory() as directory:
+            runtime=Runtime(directory);primary=RuntimeError('controlled primary')
+            def raise_original(argv,result):raise primary
+            runtime.change=raise_original
+            def terminal_write(output,run):
+                if run['state']=='failed':raise primary
+                return actual_write(output,run)
+            error,_=runtime.fail_worker(self,(patch.object(caddy_storage.artifact,'write_run',side_effect=terminal_write),))
+            self.assertIs(error,primary)
+            names=[frame.name for frame in traceback.extract_tb(error.__traceback__)]
+            self.assertIn('raise_original',names)
+            self.assertNotIn('terminal_write',names)
