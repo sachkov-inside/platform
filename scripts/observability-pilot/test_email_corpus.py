@@ -134,21 +134,8 @@ class EmailStoredNegatives(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'^email full-storage contract failed; raw response withheld$'):
             email_privacy.stored_traces('{"private":'+('['*1200)+'0'+(']'*1200)+'}','json',NOW)
     def test_adversarial_literals_include_exact_missing_lane_generic_snapshot(self):
-        attrs=[
-          {'messaging.system':'rabbitmq','messaging.destination.name':'inside.results.email.v1','messaging.operation.name':'_OTHER','email.lane':'emailResult'},
-          {'messaging.system':'rabbitmq','messaging.destination.name':'inside.notifications.email.v1','messaging.operation.name':'_OTHER','email.lane':'emailMaterial'},
-          {'messaging.system':'rabbitmq','messaging.destination.name':'_OTHER','messaging.operation.name':'publish','email.lane':'emailMaterial'},
-          {'messaging.system':'rabbitmq','messaging.destination.name':'_OTHER','messaging.operation.name':'receive','email.lane':'emailSubscription'},
-          {'messaging.system':'rabbitmq','messaging.destination.name':'_OTHER','messaging.operation.name':'publish','email.lane':'_OTHER'},
-          {'messaging.system':'rabbitmq','messaging.destination.name':'_OTHER','messaging.operation.name':'publish','messaging.message.id':'11111111-2222-4333-8444-555555555555','pgboss.job.retry_count':'7','messaging.batch.message_count':'2'},
-          {'dependency.name':'smtp','dependency.operation':'send','dependency.outcome':'_OTHER'},
-          {'dependency.name':'smtp','dependency.operation':'_OTHER','dependency.outcome':'unknown'}]
         for transport in ('json','protobuf'):
-            rows=[];streams={}
-            for i,a in enumerate(attrs):
-                name=a['dependency.name']+' '+a['dependency.operation'] if i>=6 else a['messaging.operation.name']+' '+a['messaging.destination.name']
-                row=storage_row(i+1,name,a,3 if i>=6 else 1,2,'b'*16,transport,True)
-                streams.setdefault(name,f'{len(streams)+1:032x}');row['_stream_id']='0'*16+streams[name];rows.append(row)
+            rows=adversarial_rows(transport)
             self.assertEqual(email_privacy.stored_traces(raw_rows(rows),transport,NOW,adversarial=True)['stored_spans'],8)
             for key in ('span_attr:messaging.message.id','span_attr:pgboss.job.retry_count','span_attr:messaging.batch.message_count'):
                 bad=copy.deepcopy(rows[5]);bad[key]='private'
