@@ -254,7 +254,7 @@ export function SeriesReaderBar({
       <div aria-hidden="true" className="h-16 lg:hidden" />
       <nav
         aria-label="Уроки продукта"
-        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0 rounded-xl border border-border bg-background/95 p-0 shadow-sm backdrop-blur lg:hidden"
+        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0 rounded-xl border border-border bg-background/95 p-0 shadow-sm lg:hidden"
         data-series-reader-bar
       >
         <HidePublicFooter />

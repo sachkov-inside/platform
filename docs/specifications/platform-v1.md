@@ -452,6 +452,7 @@ counts, progress or previous/next. The sidebar selects the originating step; bre
 A thin dashed orange sidebar line connects chapter markers to the current anchor and stops there.
 Rail text uses 16 px. Prose uses 16 px below 80rem and 18 px above, with 15 px phone prose.
 Below 48rem, the floating lesson dock opens the bottom programme sheet.
+Mobile bottom navigation, including programme bars and sticky programme links, uses no backdrop blur.
 From 48rem to below 64rem, a top button opens a left overlay drawer; the bottom dock is absent.
 At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.

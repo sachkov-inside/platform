@@ -132,8 +132,6 @@
   border-radius: 999px;
   background: rgb(255 255 255 / 90%);
   box-shadow: var(--shadow-floating-nav);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
 }
 .product-bottom-bar-item {
   position: relative;
