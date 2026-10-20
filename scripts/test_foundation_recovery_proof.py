@@ -48,6 +48,20 @@ class RecoveryAdmission(unittest.TestCase):
             self.assertIn("ps", call.call_args.args[0])
 
 
+class RedactedRestoreFailure(unittest.TestCase):
+    def test_reports_restore_error_without_synthetic_cipher_passphrase(self):
+        with tempfile.TemporaryDirectory() as directory:
+            envfile = pathlib.Path(directory) / "proof.env"
+            envfile.write_text("PGBACKREST_REPO1_CIPHER_PASS=synthetic-private-value\n")
+            resources = mock.Mock()
+            resources.container.return_value = ("owned", result(
+                code=40, stderr="ERROR: [040]: test synthetic-private-value refusal\nother output"))
+            with self.assertRaisesRegex(RuntimeError, r"exit 40.*REDACTED") as failure:
+                proof.restore_case(resources, "image", "repo", envfile, "test", "--type=immediate", "backup")
+            self.assertNotIn("synthetic-private-value", str(failure.exception))
+            self.assertNotIn("other output", str(failure.exception))
+
+
 class OwnedResources(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
