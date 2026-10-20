@@ -244,16 +244,22 @@ function loadsInPlace(
           name: "Действия материала",
         });
         await expect(within(headerActions).getAllByRole("button")).toHaveLength(
-          3,
+          2,
         );
         await expect(
           canvas.getByRole("group", { name: "Отметка изучения" }),
         ).toBeVisible();
+        await expect(
+          canvas.queryByRole("button", { name: /Поделиться материалом/ }),
+        ).not.toBeInTheDocument();
         const sharedPart = measure(canvasElement);
 
         sequence.deliverPersonalPart();
         if (outcome === "opened") await canvas.findByText(/^Абзац 1\./u);
         else await canvas.findByRole("link", { name: /Получить доступ/u });
+        await expect(
+          canvas.queryByRole("button", { name: /Поделиться материалом/ }),
+        ).not.toBeInTheDocument();
         const ready = measure(canvasElement);
 
         // The unknown route skeleton cannot know a checked Product. Known course layers reserve the same frame.

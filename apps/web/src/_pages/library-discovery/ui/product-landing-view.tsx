@@ -349,7 +349,7 @@ function DefaultProductLandingView({
       {/* Липкая, а не фиксированная: панель держится за то, что её прокручивает, и на узком экране
           останавливается над плавающим меню оболочки, а не уходит под него. */}
       <div className="sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-10 mt-10 lg:bottom-4">
-        <div className="mx-auto w-full max-w-[46rem] rounded-2xl border border-border bg-background/95 p-2.5 shadow-card backdrop-blur">
+        <div className="mx-auto w-full max-w-[46rem] rounded-2xl border border-border bg-background/95 p-2.5 shadow-card lg:backdrop-blur">
           <Button
             asChild
             className="h-auto min-h-11 w-full whitespace-normal"

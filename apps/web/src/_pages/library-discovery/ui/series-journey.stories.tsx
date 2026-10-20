@@ -1465,6 +1465,11 @@ export const EarlyLessonReveal: Story = {
   args: {
     result: {
       ...result,
+      // Keep the first page beyond the reveal margin after removing card actions.
+      items: materials.map((material) => ({
+        ...material,
+        title: `${material.title}. Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды.`,
+      })),
       chapters: [
         {
           id: "early-first",

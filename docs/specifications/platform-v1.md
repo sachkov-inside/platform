@@ -452,6 +452,7 @@ counts, progress or previous/next. The sidebar selects the originating step; bre
 A thin dashed orange sidebar line connects chapter markers to the current anchor and stops there.
 Rail text uses 16 px. Prose uses 16 px below 80rem and 18 px above, with 15 px phone prose.
 Below 48rem, the floating lesson dock opens the bottom programme sheet.
+Mobile bottom navigation, including programme bars and sticky programme links, uses no backdrop blur.
 From 48rem to below 64rem, a top button opens a left overlay drawer; the bottom dock is absent.
 At 64rem and above, the chapter rail stays visible. Tablet and desktop retain the named previous/next footer.
 The supplementary footer returns to the originating lesson or Task; it does not offer primary-step arrows.
@@ -1311,11 +1312,12 @@ The following bullets describe the **authoring** surface:
 
 ### SEO
 
-Кнопка «Поделиться» доступна у опубликованных материалов в карточках ленты, библиотеки и программы,
-а также в Reader, включая страницу с закрытым доступом. Она передаёт только постоянный URL
+Кнопка «Поделиться» доступна только внутри публичного опубликованного материала (`access: free`)
+в верхней и нижней панелях Reader. В карточках ленты, библиотеки и программы кнопки нет.
+У закрытых материалов (`access: closed`) она отсутствует и при наличии доступа у читателя,
+и на экране запроса доступа, и во время загрузки личной части. Она передаёт только постоянный URL
 `/materials/<slug>` без параметров навигации, фрагментов и токенов. При поддержке Web Share API
-открывается системное меню; иначе ссылка копируется. Во всех вариантах кнопка представлена
-одним приглушённым значком без видимой подписи, рамки и отдельной панели. После копирования
+открывается системное меню; иначе ссылка копируется. Кнопка использует принятое оформление панелей действий Reader. После копирования
 значок меняется на галочку, результат объявляется экранному диктору; соседние действия не сдвигаются. Отмена меню ничего не копирует. При отказе
 системного меню и clipboard показывается доступный для ручного копирования адрес. Действие не
 создаёт событий аналитики и само не отправляет сообщения.

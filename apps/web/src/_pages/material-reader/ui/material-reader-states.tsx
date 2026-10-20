@@ -99,11 +99,13 @@ export function MaterialReaderPending({
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
       shareAction={
-        <MaterialShareButton
-          slug={material.slug}
-          title={material.title}
-          presentation="reader"
-        />
+        material.access === "free" ? (
+          <MaterialShareButton
+            slug={material.slug}
+            title={material.title}
+            presentation="reader"
+          />
+        ) : null
       }
       readingAction={<ReservedReadingAction format={material.format.slug} />}
     />
@@ -284,11 +286,13 @@ export function MaterialReaderAccess({
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
       shareAction={
-        <MaterialShareButton
-          slug={material.slug}
-          title={material.title}
-          presentation="reader"
-        />
+        material.access === "free" ? (
+          <MaterialShareButton
+            slug={material.slug}
+            title={material.title}
+            presentation="reader"
+          />
+        ) : null
       }
       readingAction={
         readingAction ?? <ReservedReadingAction format={material.format.slug} />

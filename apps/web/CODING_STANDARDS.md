@@ -264,7 +264,7 @@ with `aria-busy` and the status message, and remove transitions under reduced mo
 - In checked programme context, Course B supplies the course frame (#1414, owner 2026-10-13):
   a 272 px left chapter rail, position/title, the matching Material action panels, and
   a desktop previous/next footer with neighbor titles. Reserve this composition in shared pending and
-  access states. Owner correction 2026-10-15: below 48rem, phones use a floating rounded, blurred lesson dock
+  access states. Owner correction 2026-10-15: below 48rem, phones use a floating rounded lesson dock without backdrop blur
   with previous/next arrows, chapter/step position and a programme opener. Its bottom sheet leaves
   a dismissible top gap and expands the current chapter. Close the sheet on navigation, route hide
   and desktop resize. From 48rem to below 64rem, a top button opens a left modal drawer;
