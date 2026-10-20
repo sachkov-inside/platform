@@ -116,17 +116,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-test("active membership keeps both withdrawal controls beside a newly available purchase", async () => {
+test("active membership shows confirmation without withdrawal beside a newly available purchase", async () => {
   const html = await compose("closed", true);
   expect(html).toContain("/products/ai-engineering/buy");
-  expect(html.match(/Отказаться от ожидания/gu)).toHaveLength(2);
+  expect(html).not.toContain("Отказаться от ожидания");
   expect(html).not.toContain("Вступить в список ожидания");
 });
-test("active membership keeps both withdrawal controls beside continuing learning", async () => {
+test("active membership is hidden when learning is available", async () => {
   const html = await compose("open", true);
   expect(html).toContain("Продолжить обучение");
   expect(html).toContain("/products/ai-engineering/programme");
-  expect(html.match(/Отказаться от ожидания/gu)).toHaveLength(2);
+  expect(html).not.toContain("списке ожидания");
+  expect(html).not.toContain("Отказаться от ожидания");
   expect(html).not.toContain("Вступить в список ожидания");
 });
 test("an inactive learner keeps learning without a new join CTA", async () => {

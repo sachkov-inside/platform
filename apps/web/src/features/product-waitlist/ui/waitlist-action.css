@@ -155,3 +155,45 @@
 .waitlist-action .aie-hero-action {
   order: 0;
 }
+
+.waitlist-action .waitlist-hero-pill {
+  margin-top: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.waitlist-action .waitlist-hero-pill:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.waitlist-action .waitlist-ticket-button {
+  width: 100%;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.waitlist-action .waitlist-ticket-button:disabled {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  opacity: 1;
+  cursor: default;
+}
+.waitlist-action-lower {
+  display: block;
+  margin: 0;
+}
+.aie-cohort-ticket .waitlist-inline-error {
+  color: var(--destructive);
+}
+@media (max-width: 47.999rem) {
+  .waitlist-action .waitlist-hero-pill {
+    white-space: normal;
+    text-align: left;
+  }
+  .waitlist-hero-pill .aie-cohort-live-dot {
+    flex: none;
+  }
+}
+
+.aie-cohort-ticket-actions > .waitlist-action {
+  order: 0;
+}

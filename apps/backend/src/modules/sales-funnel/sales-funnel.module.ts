@@ -1,3 +1,8 @@
+import {
+  ACCOUNT_RIGHTS,
+  AccountRightsModule,
+  type AccountRights,
+} from "../account-rights/index.js";
 import { WaitlistConfirmationPump } from "./adapters/nest/waitlist-confirmation-pump.js";
 import { ProductWaitlists } from "./facets/product-waitlists/product-waitlists.js";
 import { ProductWaitlistController } from "./features/manage-product-waitlist/manage-product-waitlist.controller.js";
@@ -30,6 +35,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     PrismaModule,
     AccountsModule,
     BillingModule,
+    AccountRightsModule,
     MaterialContentModule,
     ReadingActivityModule,
     TelegramAccountLinksModule,
@@ -44,9 +50,18 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
     WaitlistConfirmationPump,
     {
       provide: ProductWaitlists,
-      inject: [PrismaClientProvider, TelegramAccountLinks],
-      useFactory: (prisma: PrismaClientProvider, links: TelegramAccountLinks) =>
-        new ProductWaitlists({ prisma, links, clock: () => new Date() }),
+      inject: [PrismaClientProvider, TelegramAccountLinks, ACCOUNT_RIGHTS],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        links: TelegramAccountLinks,
+        rights: AccountRights,
+      ) =>
+        new ProductWaitlists({
+          prisma,
+          links,
+          rights,
+          clock: () => new Date(),
+        }),
     },
     {
       provide: SalesFunnel,
@@ -58,6 +73,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
         MaterialFirstOpens,
         BillingProductSales,
         BillingSurveyRespondentSales,
+        ACCOUNT_RIGHTS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -67,6 +83,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
         firstOpens: MaterialFirstOpens,
         sales: BillingProductSales,
         surveyRespondents: BillingSurveyRespondentSales,
+        rights: AccountRights,
       ) =>
         new SalesFunnel({
           prisma,
@@ -76,6 +93,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
           firstOpens,
           sales,
           surveyRespondents,
+          rights,
           clock: () => new Date(),
         }),
     },

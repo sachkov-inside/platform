@@ -2,6 +2,7 @@ import { z } from "zod";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { registerFunnelDiagnosticsTool } from "../../src/modules/sales-funnel/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -154,6 +155,10 @@ describe("Sales funnel report on PostgreSQL", () => {
 
     funnel = new SalesFunnel({
       prisma: db.prisma,
+      rights: assembleAccountRights({
+        prisma: db.prisma,
+        clock: () => new Date("2030-03-05T12:00:00Z"),
+      }),
       accounts: assembleAccounts({
         prisma: db.prisma,
         emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
@@ -653,6 +658,10 @@ describe("Sales funnel report on PostgreSQL", () => {
     const recorded = await withExhaustedPool(db, (prisma) =>
       new SalesFunnel({
         prisma,
+        rights: assembleAccountRights({
+          prisma,
+          clock: () => new Date("2030-04-02T00:00:00Z"),
+        }),
         accounts: assembleAccounts({
           prisma,
           emailFingerprintKey: "sales-funnel-test-fingerprint-secret",

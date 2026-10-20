@@ -7,7 +7,7 @@ const receiptSchema = z.object({
 });
 /** Latest decisive receipt for each Account, without materializing its receipt history. */
 export async function currentMembershipReceipts(
-  prisma: AccountRightsPrisma,
+  prisma: Pick<AccountRightsPrisma, "$queryRaw">,
   accountIds: readonly string[],
 ) {
   if (accountIds.length === 0)

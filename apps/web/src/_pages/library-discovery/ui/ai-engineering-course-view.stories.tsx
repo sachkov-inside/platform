@@ -492,11 +492,31 @@ export const WaitlistGuest: Story = {
 export const WaitlistConfirmed: Story = {
   render: () => <WaitlistCourseFixture initialState="success" />,
   play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    for (const button of page.getAllByRole("button", {
+      name: "Вы в списке ожидания",
+    }))
+      await expect(button).toBeDisabled();
+    await expect(page.queryByText("Отказаться от ожидания")).toBeNull();
     await expect(
-      within(canvasElement).getAllByRole("button", {
-        name: "Отказаться от ожидания",
-      }),
+      page.queryByText("Сообщу об открытии набора в Telegram."),
+    ).toBeNull();
+  },
+};
+export const WaitlistJoin: Story = {
+  render: () => <WaitlistCourseFixture />,
+  play: async ({ canvasElement, userEvent }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      page.getAllByRole("button", { name: "Вступить в список ожидания" })[0] ??
+        fail("Запись"),
+    );
+    await expect(
+      page.getAllByRole("button", { name: "Вы в списке ожидания" }),
     ).toHaveLength(2);
+    await expect(
+      page.queryByRole("button", { name: "Вступить в список ожидания" }),
+    ).toBeNull();
   },
 };
 export const WaitlistSaving: Story = {
@@ -574,13 +594,13 @@ function ExistingWaitlistCourseFixture({
       heroCall={
         <>
           <CohortCallView call={call} />
-          {membership}
+          {learning ? null : membership}
         </>
       }
       statusCall={
         <>
           {status === null ? null : <CohortStatusView status={status} />}
-          {membership}
+          {learning ? null : membership}
         </>
       }
     />
@@ -592,33 +612,12 @@ export const WaitlistExistingWithOffer: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      page.getAllByRole("button", { name: "Отказаться от ожидания" }),
+      page.getAllByRole("button", { name: "Вы в списке ожидания" }),
     ).toHaveLength(2);
     await expect(
       page.getByRole("link", { name: "Оформить предзаказ" }),
     ).toBeVisible();
-    await expect(
-      page.queryByRole("button", { name: "Вступить в список ожидания" }),
-    ).toBeNull();
-  },
-};
-export const WaitlistExistingWithOfferWithdrawal: Story = {
-  ...WaitlistExistingWithOffer,
-  play: async ({ canvasElement, userEvent }) => {
-    const page = within(canvasElement);
-    const withdraw =
-      page.getAllByRole("button", { name: "Отказаться от ожидания" })[0] ??
-      fail("Отказ");
-    await userEvent.click(withdraw);
-    await expect(
-      page.queryByRole("button", { name: "Отказаться от ожидания" }),
-    ).toBeNull();
-    await expect(
-      page.queryByRole("button", { name: "Вступить в список ожидания" }),
-    ).toBeNull();
-    await expect(
-      page.getByRole("link", { name: "Оформить предзаказ" }),
-    ).toBeVisible();
+    await expect(page.queryByText("Отказаться от ожидания")).toBeNull();
   },
 };
 export const WaitlistExistingWithLearning: Story = {
@@ -630,30 +629,8 @@ export const WaitlistExistingWithLearning: Story = {
       page.getByRole("link", { name: "Продолжить обучение" }),
     ).toBeVisible();
     await expect(
-      page.getAllByRole("button", { name: "Отказаться от ожидания" }),
-    ).toHaveLength(2);
-    await expect(
-      page.queryByRole("button", { name: "Вступить в список ожидания" }),
+      page.queryByRole("button", { name: /список ожидания/u }),
     ).toBeNull();
-  },
-};
-export const WaitlistContinuingWithLearning: Story = {
-  parameters: { account: "authenticated" },
-  render: () => (
-    <ExistingWaitlistCourseFixture learning initialState="saving" />
-  ),
-};
-export const WaitlistWithdrawalRetryWithLearning: Story = {
-  parameters: { account: "authenticated" },
-  render: () => <ExistingWaitlistCourseFixture learning initialState="error" />,
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(page.getAllByRole("alert")).toHaveLength(2);
-    await expect(
-      page.getAllByRole("button", { name: "Повторить отказ" }),
-    ).toHaveLength(2);
-    await expect(
-      page.getByRole("link", { name: "Продолжить обучение" }),
-    ).toBeVisible();
+    await expect(page.queryByText("Отказаться от ожидания")).toBeNull();
   },
 };
