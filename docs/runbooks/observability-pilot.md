@@ -1495,10 +1495,27 @@ representative production load, full retention, whole-host reserve or seven actu
 The workflow adds no mandatory release gate. Native image builds and runtime compatibility
 must be observed in a source-bound hosted attempt before claiming they work.
 
-Backend and Web keep the same complete dependency install ancestry. The shared development
-image also runs Web, so its frozen install includes the Web dependencies and root tooling.
-The former backend-only install filter broke that shared image and has been removed.
-No storage reduction or fit within the unchanged filesystem growth budget is established.
+Backend and Web development roles keep the same complete dependency install ancestry. Their
+`dependency-inputs` stages copy the same manifests and lifecycle sources; `dependencies` retains
+the original full-workspace frozen install and shared BuildKit cache mount. The shared development
+image also runs Web, so it still includes Web dependencies and root tooling. The former global
+backend-only install filter broke that image and remains removed from the shared branch.
+
+Only backend production uses the separate `production-dependencies` branch. It selects the backend
+transitive workspace dependencies and root tooling, retaining development dependencies and lifecycle
+scripts needed to compile the payload. Its store is a fresh private `/tmp/inside-backend-pnpm.XXXXXX`
+directory created inside that `RUN`, without a cache/bind mount or configurable store path.
+Package import stays `copy`. Only that exact temporary store is removed in the same `RUN` before
+success. An install failure keeps its original exit status even if cleanup also fails; a cleanup
+failure after a successful install fails the build. No host, shared or global store is pruned.
+
+`production-source` copies the same filtered checkout and restores patch metadata from the isolated
+install. Backend release identity also derives from that branch, so its late final `COPY` cannot
+pull the full development install back into the production graph. Identity arguments remain outside
+payload compilation. Web development, production and release identity retain their full dependencies.
+Source graph and shell contracts do not prove image compatibility, storage savings or guard fit.
+Exact-source hosted cold/cache image, shared development and resource acquisition/cleanup checks
+remain required under the unchanged filesystem policy. No production capacity or deployment is accepted.
 
 For acquisition failures, `resource-acquisition.json` records a closed stage and boundary
 (identity probe, child wait, inspection or publication), bounded outcome/counters/elapsed

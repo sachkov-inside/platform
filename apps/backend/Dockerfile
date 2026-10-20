@@ -11,7 +11,7 @@ WORKDIR /workspace
 RUN chown node:node /workspace
 USER node
 
-FROM toolchain AS dependencies
+FROM toolchain AS dependency-inputs
 
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json ./
 COPY --chown=node:node patches ./patches
@@ -28,6 +28,9 @@ COPY --chown=node:node packages/legal ./packages/legal
 # Словарь прав доступа тоже компилируется на установке: оба приложения читают его вывод.
 COPY --chown=node:node packages/access-capabilities ./packages/access-capabilities
 COPY --chown=node:node docs/contracts ./docs/contracts
+
+FROM dependency-inputs AS dependencies
+
 RUN --mount=type=cache,id=inside-platform-pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store --package-import-method=copy
 
@@ -54,16 +57,6 @@ RUN if [ -n "$INSIDE_RELEASE_VERSION" ] || [ -n "$INSIDE_SOURCE_SHA" ]; then \
 # All local roles share this image; the bank double's volume inherits its writable data directory.
 RUN mkdir -p /data && chown node:node /data
 USER node
-
-FROM dependencies AS release-identity
-
-ARG INSIDE_RELEASE_VERSION
-ARG INSIDE_SOURCE_SHA
-COPY --chown=node:node packages/runtime-identity ./packages/runtime-identity
-RUN node packages/runtime-identity/write-release-identity.mjs \
-      "$INSIDE_RELEASE_VERSION" \
-      "$INSIDE_SOURCE_SHA" \
-      /workspace/release-identity.json
 
 FROM development AS migrations
 CMD ["pnpm", "--filter", "@inside/backend", "db:migrate"]
@@ -100,7 +93,39 @@ FROM development AS bank-double
 # пустой именованный том наследует владельца каталога образа.
 CMD ["pnpm", "--filter", "@inside/backend", "dev:bank-double"]
 
-FROM source AS production-build
+FROM dependency-inputs AS production-dependencies
+
+# This store belongs only to this RUN. Keep installed files as copies and do not
+# retain downloaded store content in the committed layer, even after install fails.
+RUN set -eu; \
+    backend_store="$(mktemp -d /tmp/inside-backend-pnpm.XXXXXX)"; \
+    readonly backend_store; \
+    install_status=0; \
+    pnpm install --frozen-lockfile --store-dir="$backend_store" --package-import-method=copy --filter '@inside/backend...' || install_status=$?; \
+    cleanup_status=0; \
+    rm -rf -- "$backend_store" || cleanup_status=$?; \
+    if [ "$install_status" -ne 0 ]; then exit "$install_status"; fi; \
+    exit "$cleanup_status"
+
+FROM production-dependencies AS production-source
+
+# Restore the installed patch metadata from this isolated install after source COPY.
+COPY --chown=node:node . .
+COPY --from=production-dependencies --chown=node:node /workspace/patches ./patches
+
+ENV TBANK_CA_FILE=/workspace/infra/tls/russian-trusted-root-ca.pem
+
+FROM production-dependencies AS release-identity
+
+ARG INSIDE_RELEASE_VERSION
+ARG INSIDE_SOURCE_SHA
+COPY --chown=node:node packages/runtime-identity ./packages/runtime-identity
+RUN node packages/runtime-identity/write-release-identity.mjs \
+      "$INSIDE_RELEASE_VERSION" \
+      "$INSIDE_SOURCE_SHA" \
+      /workspace/release-identity.json
+
+FROM production-source AS production-build
 
 RUN pnpm --filter @inside/backend build:production \
     && pnpm --config.inject-workspace-packages=true \
