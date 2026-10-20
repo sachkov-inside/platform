@@ -1,6 +1,5 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import {
   chmodSync,
   copyFileSync,
@@ -13,8 +12,9 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
 
-test("isolated cache preparation admits only pinned broker/edge images and preserves failures (process adapter)", () => {
+test("isolated cache preparation admits only pinned broker/edge images and preserves failures (process adapter)", async () => {
   const root = mkdtempSync(join(tmpdir(), "inside-cache-preparation-"));
   try {
     const bin = join(root, "bin");
@@ -35,7 +35,9 @@ case "$1 $2" in
   'compose --project-name')
     if [[ "$*" != *'--no-interpolate --no-env-resolution --no-normalize --no-consistency --format json rabbitmq caddy-smoke' ]]; then exit 54; fi
     printf '%s\\n' "$MODEL" ;;
-  'pull '*) exit "$PULL_STATUS" ;;
+  'pull '*)
+    if [[ "$SCENARIO" == deadline || "$SCENARIO" == interrupt ]]; then exec "$NODE_BINARY" "$HANG_SCRIPT"; fi
+    exit "$PULL_STATUS" ;;
   'build '*) ;;
   'image inspect')
     case "$3" in
@@ -75,12 +77,19 @@ exit "$RUNTIME_STATUS"
       },
     };
     const calls = join(root, "calls");
+    const hangScript = join(root, "hang.mjs");
+    writeFileSync(
+      hangScript,
+      "console.log(`descendant-ready:${process.pid}`); setInterval(() => {}, 1000);\n",
+    );
     for (const scenario of [
       "success",
       "missing",
       "unpinned",
       "pull-failure",
       "runtime-failure",
+      "deadline",
+      "interrupt",
     ]) {
       rmSync(calls, { force: true });
       const selected = structuredClone(model);
@@ -92,40 +101,112 @@ exit "$RUNTIME_STATUS"
         );
       if (scenario === "unpinned")
         selected.services.rabbitmq.image = "registry.test/rabbitmq:mutable";
-      const result = spawnSync(
+      const controller = new AbortController();
+      let output = "";
+      /** @type {(pid: number | null) => void} */
+      let publishReady = () => {};
+      /** @type {Promise<number | null>} */
+      const ready = new Promise((resolve) => {
+        publishReady = resolve;
+      });
+      const child = spawnOwned(
         "bash",
         [join(scripts, "production-cache-smoke-ci.sh")],
         {
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(10_000),
+          ]),
           env: {
             ...process.env,
             PATH: `${bin}:${process.env["PATH"] ?? ""}`,
             CALLS: calls,
             MODEL: JSON.stringify(selected),
+            SCENARIO: scenario,
+            NODE_BINARY: process.execPath,
+            HANG_SCRIPT: hangScript,
             PULL_STATUS: scenario === "pull-failure" ? "29" : "0",
             RUNTIME_STATUS: scenario === "runtime-failure" ? "31" : "0",
           },
-          encoding: "utf8",
-          timeout: 10_000,
         },
       );
-      assert.equal(
-        result.status,
-        ["missing", "unpinned"].includes(scenario)
-          ? 65
-          : scenario === "pull-failure"
-            ? 29
-            : scenario === "runtime-failure"
-              ? 31
-              : 0,
-        result.stderr,
-      );
+      /** @type {Error | undefined} */
+      let unexpectedError;
+      /** @type {Promise<number | null>} */
+      const closed = new Promise((resolve) => {
+        child.once("close", (status) => {
+          publishReady(null);
+          resolve(status);
+        });
+        child.once("error", (error) => {
+          if (error.name !== "AbortError") unexpectedError = error;
+          publishReady(null);
+        });
+      });
+      /** @param {Buffer} chunk */
+      const capture = (chunk) => {
+        output += chunk.toString();
+        const match = /descendant-ready:(\d+)/u.exec(output);
+        if (match?.[1] !== undefined) publishReady(Number(match[1]));
+      };
+      child.stdout?.on("data", capture);
+      child.stderr?.on("data", capture);
+      /** @type {number | null} */
+      let descendantPid = null;
+      try {
+        if (scenario === "deadline" || scenario === "interrupt") {
+          descendantPid = await ready;
+          assert.ok(
+            descendantPid !== null &&
+              Number.isSafeInteger(descendantPid) &&
+              descendantPid > 0,
+            output,
+          );
+          if (scenario === "deadline") {
+            // Arm the failure deadline only after the real descendant has published readiness.
+            const deadline = AbortSignal.timeout(1);
+            deadline.addEventListener(
+              "abort",
+              () => {
+                controller.abort(deadline.reason);
+              },
+              { once: true },
+            );
+          } else child.kill("SIGTERM");
+        }
+        const status = await closed;
+        assert.equal(unexpectedError, undefined);
+        if (scenario === "deadline" || scenario === "interrupt")
+          assert.notEqual(status, 0, output);
+        else
+          assert.equal(
+            status,
+            ["missing", "unpinned"].includes(scenario)
+              ? 65
+              : scenario === "pull-failure"
+                ? 29
+                : scenario === "runtime-failure"
+                  ? 31
+                  : 0,
+            output,
+          );
+      } finally {
+        await stopOwned(child);
+      }
+      if (descendantPid !== null) {
+        assert.throws(
+          () => process.kill(descendantPid, 0),
+          { code: "ESRCH" },
+          "supervisor must reap the real descendant before fixture cleanup",
+        );
+      }
       const commands = readFileSync(calls, "utf8").trim().split("\n");
       const pulls = commands.filter((line) => line.startsWith("pull "));
       assert.deepEqual(
         pulls,
         ["missing", "unpinned"].includes(scenario)
           ? []
-          : scenario === "pull-failure"
+          : ["pull-failure", "deadline", "interrupt"].includes(scenario)
             ? [`pull ${broker}`]
             : [`pull ${broker}`, `pull ${edge}`],
       );
@@ -137,10 +218,11 @@ exit "$RUNTIME_STATUS"
         commands.some((line) => line.startsWith("build ")),
         ["success", "runtime-failure"].includes(scenario),
       );
-      assert.ok(
-        commands.some((line) => line.startsWith("image rm ")),
-        "owned tag cleanup must run on every exit",
-      );
+      if (scenario !== "deadline" && scenario !== "interrupt")
+        assert.ok(
+          commands.some((line) => line.startsWith("image rm ")),
+          "owned tag cleanup must run on every normal exit",
+        );
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
