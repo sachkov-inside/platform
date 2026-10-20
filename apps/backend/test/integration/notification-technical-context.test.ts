@@ -1139,13 +1139,94 @@ for (const mode of ["off", "export-failure"] as const) {
           expect(tracePayloadAttempts.size).toBeGreaterThan(0);
           for (const attempts of tracePayloadAttempts.values())
             expect(attempts).toBeGreaterThan(1);
-          const observed = [...logicalSpans.values()];
-          expect(observed.map((span) => span.name).sort()).toEqual([
+          const allObserved = [...logicalSpans.values()];
+          const materialNames = [
             "PUT /authoring/materials/:materialId",
             "audience materials",
             "publish materials",
             "receive materials",
-          ]);
+          ];
+          const observed = allObserved.filter((span) =>
+            materialNames.includes(span.name),
+          );
+          expect(observed.map((span) => span.name).sort()).toEqual(
+            materialNames,
+          );
+          // SQL observations are additional operations, not replacement material spans or ignored noise.
+          // Unscoped worker reads may be roots; every exported child must retain a real exported parent.
+          const sql = allObserved.filter(
+            (span) => !materialNames.includes(span.name),
+          );
+          expect(sql.length).toBeGreaterThan(0);
+          const sqlOperations = new Set<string>();
+          for (const span of sql) {
+            const name = z
+              .enum([
+                "postgresql acquire",
+                "postgresql query",
+                "postgresql material-slug-lock",
+              ])
+              .parse(span.name);
+            const attributes = z
+              .array(
+                z.strictObject({
+                  key: z.enum([
+                    "dependency.name",
+                    "dependency.operation",
+                    "dependency.outcome",
+                  ]),
+                  value: z.strictObject({ stringValue: z.string() }),
+                }),
+              )
+              .parse(span["attributes"]);
+            expect(attributes).toHaveLength(3);
+            const values = Object.fromEntries(
+              attributes.map((attribute) => [
+                attribute.key,
+                attribute.value.stringValue,
+              ]),
+            );
+            const operation = name.slice("postgresql ".length);
+            const outcome = z
+              .enum(["completed", "failed"])
+              .parse(values["dependency.outcome"]);
+            expect(values).toEqual({
+              "dependency.name": "postgresql",
+              "dependency.operation": operation,
+              "dependency.outcome": outcome,
+            });
+            expect(span["kind"]).toBe(
+              operation === "material-slug-lock" ? 1 : 3,
+            );
+            expect(span.traceId).toMatch(/^[0-9a-f]{32}$/u);
+            expect(span.spanId).toMatch(/^[0-9a-f]{16}$/u);
+            expect(span["events"] ?? []).toEqual([]);
+            expect(span["links"] ?? []).toEqual([]);
+            if (span.parentSpanId !== undefined) {
+              expect(
+                logicalSpans.has(`${span.traceId}/${span.parentSpanId}`),
+              ).toBe(true);
+              expect(span.parentSpanId).not.toBe(span.spanId);
+            }
+            sqlOperations.add(operation);
+          }
+          expect(sqlOperations.has("acquire")).toBe(true);
+          expect(sqlOperations.has("query")).toBe(true);
+          const publication = observed.find(
+            (span) => span.name === "PUT /authoring/materials/:materialId",
+          );
+          const expansion = observed.find(
+            (span) => span.name === "audience materials",
+          );
+          for (const parent of [publication, expansion]) {
+            expect(
+              sql.some(
+                (span) =>
+                  span.traceId === parent?.traceId &&
+                  span.parentSpanId === parent.spanId,
+              ),
+            ).toBe(true);
+          }
           expect(
             observed.every(
               (span) => span.traceId === source.traceparent?.split("-")[1],
