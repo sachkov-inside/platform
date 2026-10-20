@@ -39,7 +39,7 @@ export function TaskSubmissionsState({
               <input name="returnTo" type="hidden" value={returnTo} />
               <Button type="submit">
                 <LogIn aria-hidden="true" data-icon="inline-start" />
-                Войти
+                Войти через Telegram
               </Button>
             </form>
           }

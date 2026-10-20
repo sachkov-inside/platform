@@ -200,6 +200,8 @@ class PilotPreparationTest(unittest.TestCase):
                     "inside-observability-pilot-fixture", docker=docker,
                     deadline_seconds=WORKER_FAILURE_BUDGET_SECONDS)
                 self.assertEqual(status, expected_status)
+                outcome = json.loads((output / 'worker-outcome.json').read_text())
+                self.assertGreaterEqual(outcome['duration_seconds'], 0)
                 self.assertFalse((output / "owned-resource").exists())
                 self.assertTrue((output / "foreign-resource").exists())
                 self.assertIn("down --volumes --remove-orphans", (output / "commands").read_text())

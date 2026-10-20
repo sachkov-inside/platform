@@ -1,0 +1,24 @@
+{
+	admin 127.0.0.1:2019
+	# HTTP/3 on the pinned upstream Caddy; retain TCP protocols for blocked QUIC (#399).
+	servers :443 {
+		protocols h1 h2 h3
+		# Only the local receiver validates and forwards the foreign entry metadata.
+		listener_wrappers {
+			proxy_protocol {
+				allow 127.0.0.2/32
+				fallback_policy ignore
+			}
+			tls
+		}
+	}
+}
+
+# The application runtime owns public routes. Provisioning keeps Caddy healthy and
+# private until the versioned runtime installs an explicitly reviewed fragment.
+http://127.0.0.1:2018 {
+	respond /_foundation/health 200
+	respond 404
+}
+
+import /srv/inside/runtime/caddy/*.caddy

@@ -43,7 +43,15 @@ If a future pinned SDK starts sending nonce, matching validation becomes mandato
 ## Browser and BFF boundary
 
 1. Same-origin POST asks `@logto/next` to begin sign-in.
-2. Logto Experience collects email and verification code. Email/code never pass through Platform.
+2. The primary site entry sets `direct_sign_in=social:inside-telegram`, skipping Logto's general
+   sign-in selection. The existing connector creates a browser-bound request; the waiting page
+   attempts one `tg://resolve` app handoff per document and retains a validated HTTPS bot link.
+   A blocked or unavailable app handler does not stop polling. Explicit bot approval lets the
+   original tab continue the Logto callback. OS permission prompts and returning focus from Telegram
+   remain browser/device-dependent. The retained email provider flow collects its email/code in
+   Logto Experience; neither passes through Platform. The Telegram continuation explicitly submits
+   `entry=account-choice` to retain the choice for an existing email Account and preserve its purchases
+   and progress. This selects presentation only; it does not change accepted identities or proofs.
 3. Official SDK validates callback state/PKCE and exchanges code server-side.
 4. SDK stores provider context in encrypted `HttpOnly`, `SameSite=Lax`, production `Secure` cookie.
 5. Browser JavaScript never receives access, refresh or ID token.

@@ -148,6 +148,7 @@ describe("Logto BFF route orchestration", () => {
     );
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
+      directSignIn: { method: "social", target: "inside-telegram" },
       prompt: ["login", "consent"],
     });
   });
@@ -198,6 +199,7 @@ describe("Logto BFF route orchestration", () => {
     );
     expect(parameters.get("scope")?.split(" ")).toContain("offline_access");
     expect(parameters.get("resource")).toBe(fakes.config.audience);
+    expect(parameters.get("direct_sign_in")).toBe("social:inside-telegram");
     expect(parameters.get("code_challenge_method")).toBe("S256");
     expect(parameters.get("state")).toBeTruthy();
   });
@@ -219,6 +221,7 @@ describe("Logto BFF route orchestration", () => {
     expect(response.status).toBe(200);
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
+      directSignIn: { method: "social", target: "inside-telegram" },
       prompt: ["login", "consent"],
       postRedirectUri:
         "https://inside.example.test/authoring/playlists/playlist-id",
@@ -233,6 +236,29 @@ describe("Logto BFF route orchestration", () => {
     expect(callbackResponse.headers.get("location")).toBe(
       "https://inside.example.test/authoring/playlists/playlist-id",
     );
+  });
+
+  it("preserves explicit existing-account method selection and the Telegram continuation", async () => {
+    const response = await signIn(
+      new Request("https://inside.example.test/auth/sign-in", {
+        method: "POST",
+        headers: {
+          origin: "https://inside.example.test",
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          entry: "account-choice",
+          returnTo: "/telegram/continue?attempt=fixture",
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(fakes.handleSignIn).toHaveBeenCalledWith({
+      redirectUri: "https://inside.example.test/callback",
+      prompt: ["login", "consent"],
+      postRedirectUri:
+        "https://inside.example.test/telegram/continue?attempt=fixture",
+    });
   });
 
   it("establishes the Account after the SDK callback", async () => {

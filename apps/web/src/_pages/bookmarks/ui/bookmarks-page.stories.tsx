@@ -313,7 +313,9 @@ export const SignInRequired: Story = {
     await expect(
       await page.findByRole("heading", { level: 2, name: "Войдите в аккаунт" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Войти" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Войти через Telegram" }),
+    ).toBeVisible();
   },
 };
 

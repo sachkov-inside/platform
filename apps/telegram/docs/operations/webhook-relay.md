@@ -1,5 +1,9 @@
 # Входной relay для Telegram webhook
 
+Историческая схема: 20.10.2026 relay отключён после полного переноса в AMS. Текущий webhook
+принимает Caddy на AMS:443, см. [рабочую площадку](../../../../docs/runbooks/production-amsterdam.md).
+Процедура ниже не требуется для текущего deploy и не включается автоматически.
+
 Связано с [Telegram #51](https://github.com/sachkov-inside/inside-telegram/issues/51).
 Этот вариант меняет только маршрут доставки webhook. Приложение, его база и
 исходящий Telegram transport остаются на application host; исходящий маршрут и его

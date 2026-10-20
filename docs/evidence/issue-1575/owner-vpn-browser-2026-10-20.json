@@ -1,0 +1,66 @@
+{
+  "tool": "playwright-cli isolated Chrome on owner Mac; normal unchanged VPN, no SSH proxy or host override",
+  "results": [
+    {
+      "attempt": 1,
+      "hostname": "auth.sachkov.dev",
+      "title": "\u0412\u043e\u0439\u0434\u0438 \u0432 \u0441\u0432\u043e\u0439 \u0430\u043a\u043a\u0430\u0443\u043d\u0442",
+      "loginForm": true,
+      "elapsedMs": 1317,
+      "navigation": [
+        {
+          "protocol": "h2",
+          "dnsMs": 0,
+          "tcpMs": 0,
+          "tlsMs": 0,
+          "ttfbMs": 185.2999999821186,
+          "domContentLoadedMs": 1006.7000000178814,
+          "loadMs": 1006.7000000178814,
+          "transferSize": 14417
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "hostname": "auth.sachkov.dev",
+      "title": "\u0412\u043e\u0439\u0434\u0438 \u0432 \u0441\u0432\u043e\u0439 \u0430\u043a\u043a\u0430\u0443\u043d\u0442",
+      "loginForm": true,
+      "elapsedMs": 887,
+      "navigation": [
+        {
+          "protocol": "h2",
+          "dnsMs": 0,
+          "tcpMs": 0,
+          "tlsMs": 0,
+          "ttfbMs": 350.7999999821186,
+          "domContentLoadedMs": 585,
+          "loadMs": 585.3000000119209,
+          "transferSize": 14417
+        }
+      ]
+    },
+    {
+      "attempt": 3,
+      "hostname": "auth.sachkov.dev",
+      "title": "\u0412\u043e\u0439\u0434\u0438 \u0432 \u0441\u0432\u043e\u0439 \u0430\u043a\u043a\u0430\u0443\u043d\u0442",
+      "loginForm": true,
+      "elapsedMs": 664,
+      "navigation": [
+        {
+          "protocol": "h2",
+          "dnsMs": 0,
+          "tcpMs": 0,
+          "tlsMs": 0,
+          "ttfbMs": 145.90000000596046,
+          "domContentLoadedMs": 395.89999997615814,
+          "loadMs": 396.19999998807907,
+          "transferSize": 14417
+        }
+      ]
+    }
+  ],
+  "owner_full_login_confirmed": true,
+  "owner_feedback": "Full login succeeded; form initially opened slower than usual",
+  "credentials_entered_by_agent": false,
+  "limitations": "No payment or token-bearing VPN subscription test performed"
+}

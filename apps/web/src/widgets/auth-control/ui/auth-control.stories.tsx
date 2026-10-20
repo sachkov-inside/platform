@@ -15,7 +15,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Управление аккаунтом в desktop-шапке. На mobile используется страница Профиля. Фикстура задаёт только состояние; production использует существующий app adapter и POST-формы входа/выхода.",
+          "Управление аккаунтом в шапке. На телефоне кнопка подписана «Войти», на компьютере «Войти через Telegram». Фикстура задаёт только состояние; production использует существующий app adapter и POST-формы входа/выхода.",
       },
     },
   },
@@ -23,7 +23,16 @@ const meta = {
 } satisfies Meta<typeof HeaderAuthControl>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-export const Guest: Story = {};
+export const Guest: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas
+        .getByRole("button", { name: "Войти через Telegram" })
+        .closest("form"),
+    ).toHaveAttribute("action", "/auth/sign-in");
+  },
+};
 export const Authenticated: Story = { args: { state: "authenticated" } };
 export const Unavailable: Story = {
   args: { state: "unavailable" },

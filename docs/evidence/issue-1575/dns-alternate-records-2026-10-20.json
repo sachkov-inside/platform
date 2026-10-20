@@ -1,0 +1,74 @@
+[
+  {
+    "host": "sachkov.dev",
+    "type": "AAAA",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "sachkov.dev",
+    "type": "TYPE64",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "sachkov.dev",
+    "type": "TYPE65",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "AAAA",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "TYPE64",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "auth.sachkov.dev",
+    "type": "TYPE65",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "AAAA",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "TYPE64",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "inside.sachkov.dev",
+    "type": "TYPE65",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "AAAA",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "TYPE64",
+    "exit": 0,
+    "answer": ""
+  },
+  {
+    "host": "www.sachkov.dev",
+    "type": "TYPE65",
+    "exit": 0,
+    "answer": ""
+  }
+]

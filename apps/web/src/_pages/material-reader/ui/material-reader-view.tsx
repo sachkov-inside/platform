@@ -112,12 +112,18 @@ export function MaterialReaderView({
       : seriesContext?.programme?.next;
   const topActions = (
     <ReaderTopActions
-      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       returnAction={returnAction}
       nextStep={nextStep}
       readingAction={topReadingAction ?? readingAction}
       bookmarkAction={topBookmarkAction ?? bookmarkAction}
+      shareAction={
+        <MaterialShareButton
+          slug={material.slug}
+          title={material.title}
+          presentation="reader"
+        />
+      }
     />
   );
 
@@ -159,6 +165,7 @@ export function MaterialReaderView({
             material={material}
             programme={seriesContext?.programme}
             supplementary={seriesContext?.supplementary ?? false}
+            showShare={false}
           />
           {modeSwitch}
           {primaryVideo === null ? null : (
@@ -198,11 +205,18 @@ export function MaterialReaderView({
           )}
           <div className="mt-5" data-material-actions data-reader-footer>
             <ReaderTopActions
-              alignControls={seriesContext === null ? "end" : "center"}
               position="bottom"
               context={seriesContext?.programme == null ? seriesContext : null}
               returnAction={returnAction}
               bookmarkAction={endBookmarkAction}
+              nextStep={nextStep}
+              shareAction={
+                <MaterialShareButton
+                  slug={material.slug}
+                  title={material.title}
+                  presentation="reader"
+                />
+              }
               readingAction={endReadingAction}
             />
             {seriesContext?.programme == null ? null : (
@@ -290,8 +304,10 @@ export function MaterialReaderHeader({
   programme,
   actions,
   supplementary = false,
+  showShare = true,
 }: {
   readonly supplementary?: boolean;
+  readonly showShare?: boolean;
   readonly material: MaterialReaderMetadata;
   readonly programme?: CourseReadingContext | null | undefined;
   readonly actions?: ReactNode;
@@ -311,7 +327,9 @@ export function MaterialReaderHeader({
         title={material.title}
         actions={actions}
         metadata={
-          <MaterialShareButton slug={material.slug} title={material.title} />
+          showShare ? (
+            <MaterialShareButton slug={material.slug} title={material.title} />
+          ) : null
         }
       />
     );
@@ -330,7 +348,9 @@ export function MaterialReaderHeader({
         </IntentPrefetchLink>
         <span aria-hidden="true">·</span>
         <time dateTime={material.publishedAt}>{publicationDate}</time>
-        <MaterialShareButton slug={material.slug} title={material.title} />
+        {showShare ? (
+          <MaterialShareButton slug={material.slug} title={material.title} />
+        ) : null}
       </div>
       <h1 className="mt-3 break-words text-balance text-[1.375rem] font-semibold leading-[1.2] tracking-[-0.025em] sm:mt-4 sm:text-2xl md:text-[1.75rem]">
         {material.title}
@@ -382,9 +402,11 @@ export function MaterialReaderFooter({
   return (
     <footer className="mt-5" data-reader-footer>
       <ReaderTopActions
-        alignControls="center"
         position="bottom"
         context={seriesContext}
+        returnAction={
+          <CatalogBackLink href={seriesContext.series.href} label="Назад" />
+        }
         format={format}
       />
     </footer>

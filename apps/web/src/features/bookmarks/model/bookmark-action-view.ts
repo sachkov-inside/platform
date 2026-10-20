@@ -19,6 +19,7 @@ export type BookmarkActionView =
 
 export interface BookmarkActionProps {
   readonly compact?: boolean;
+  readonly presentation?: "default" | "reader";
   readonly view: BookmarkActionView;
   readonly onToggle: (desired: boolean) => void;
 }

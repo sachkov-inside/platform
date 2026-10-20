@@ -1,0 +1,2851 @@
+{
+  "recordedAt": "2026-10-20T08:28:41.880443+00:00",
+  "issue": 1575,
+  "production": {
+    "host": "147.45.166.174",
+    "region": "AMS",
+    "platform": "v45",
+    "telegram": "v21",
+    "sourceSha": "2f5300026c5a3e946f30596262a02747c6f48827",
+    "oldWritersStopped": true,
+    "newWriterOnly": true
+  },
+  "coldCopy": {
+    "matched": true,
+    "tables": 292,
+    "at": "2026-10-20T08:05:01.479684+00:00"
+  },
+  "restoreProof": {
+    "status": "passed",
+    "exitCode": 0,
+    "backupLabel": "20261020-080918F_20261020-081840I",
+    "backupFinishedAt": 1792484328,
+    "restore": {
+      "backupLabel": "20261020-080918F_20261020-081840I",
+      "finishedAt": "2026-10-20T08:19:30Z",
+      "exitCode": 0,
+      "volume": "inside-production-postgres-data-recovery-check-09114c1e81d4448b9f14d51045f4ad4f",
+      "networkMode": "none",
+      "publishedPorts": 0,
+      "databasesPassed": [
+        "inside",
+        "logto",
+        "inside_telegram"
+      ]
+    },
+    "preservation": {
+      "inside": {
+        "stableTablesCompared": 141,
+        "mismatched": [],
+        "liveChangesDuringBackup": [
+          "account_rights.current_projections",
+          "account_rights.evidence_receipts",
+          "pgboss.instance",
+          "pgboss.job_common",
+          "pgboss.queue",
+          "pgboss.schedule",
+          "pgboss.version",
+          "telegram_membership.community_operations"
+        ]
+      },
+      "logto": {
+        "stableTablesCompared": 79,
+        "mismatched": [],
+        "liveChangesDuringBackup": []
+      },
+      "inside_telegram": {
+        "stableTablesCompared": 56,
+        "mismatched": [],
+        "liveChangesDuringBackup": [
+          "public.community_desired_states",
+          "public.community_operations",
+          "public.membership_check_results",
+          "public.membership_evidence_outbox",
+          "public.membership_provider_observations",
+          "public.membership_provider_state",
+          "public.membership_reconciliations",
+          "public.platform_links"
+        ]
+      }
+    },
+    "foundationImageId": "sha256:cbed51ba4834c4e216bb8dde12b217193783f4c0df8e430552f6c5c15af13794",
+    "durationSeconds": 67.9,
+    "stagedRepositoryRemoved": true,
+    "cipherRemoved": true
+  },
+  "webhook": {
+    "url": "https://telegram.sachkov.dev/webhooks/telegram",
+    "has_custom_certificate": false,
+    "pending_update_count": 0,
+    "max_connections": 40,
+    "ip_address": "147.45.166.174",
+    "allowed_updates": [
+      "message",
+      "callback_query",
+      "my_chat_member",
+      "chat_member",
+      "chat_join_request"
+    ]
+  },
+  "external": [
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 884,
+        "dns": null,
+        "tcp": 40,
+        "tls": 47,
+        "firstByte": 362,
+        "download": 435
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Novosibirsk",
+      "asn": 8359,
+      "network": "MTS",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1136,
+        "dns": null,
+        "tcp": 87,
+        "tls": 94,
+        "firstByte": 755,
+        "download": 200
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Tomsk",
+      "asn": 31357,
+      "network": "Limited Company Information and Consulting Agency",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1143,
+        "dns": null,
+        "tcp": 89,
+        "tls": 101,
+        "firstByte": 788,
+        "download": 165
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 207957,
+      "network": "SERV.HOST GROUP",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 850,
+        "dns": null,
+        "tcp": 40,
+        "tls": 56,
+        "firstByte": 561,
+        "download": 193
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Ufa",
+      "asn": 216334,
+      "network": "New Hosting Technologies",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1117,
+        "dns": null,
+        "tcp": 58,
+        "tls": 79,
+        "firstByte": 757,
+        "download": 223
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Tula",
+      "asn": 52207,
+      "network": "ER-Telecom Holding",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1101,
+        "dns": null,
+        "tcp": 44,
+        "tls": 88,
+        "firstByte": 728,
+        "download": 241
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Mytishchi",
+      "asn": 35539,
+      "network": "Information and Communication Technologies",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 974,
+        "dns": null,
+        "tcp": 44,
+        "tls": 53,
+        "firstByte": 599,
+        "download": 278
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Saint Petersburg",
+      "asn": 51570,
+      "network": "ER-Telecom Holding",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 688,
+        "dns": null,
+        "tcp": 39,
+        "tls": 44,
+        "firstByte": 118,
+        "download": 487
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 732,
+        "dns": null,
+        "tcp": 40,
+        "tls": 47,
+        "firstByte": 165,
+        "download": 480
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Saint Petersburg",
+      "asn": 49505,
+      "network": "Selectel",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 740,
+        "dns": null,
+        "tcp": 33,
+        "tls": 39,
+        "firstByte": 92,
+        "download": 576
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 48347,
+      "network": "Mediasoft ekspert",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1021,
+        "dns": null,
+        "tcp": 46,
+        "tls": 58,
+        "firstByte": 647,
+        "download": 270
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "DE",
+      "city": "Falkenstein",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 153,
+        "dns": null,
+        "tcp": 14,
+        "tls": 18,
+        "firstByte": 31,
+        "download": 90
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "NL",
+      "city": "Amsterdam",
+      "asn": 214677,
+      "network": "DELUXHOST",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1147,
+        "dns": null,
+        "tcp": 65,
+        "tls": 160,
+        "firstByte": 787,
+        "download": 135
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "FI",
+      "city": "Helsinki",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 683,
+        "dns": null,
+        "tcp": 28,
+        "tls": 38,
+        "firstByte": 53,
+        "download": 564
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "US",
+      "city": "Buffalo",
+      "asn": 36352,
+      "network": "HostPapa",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1131,
+        "dns": null,
+        "tcp": 91,
+        "tls": 116,
+        "firstByte": 832,
+        "download": 92
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 200590,
+      "network": "NLS Kazakhstan",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1749,
+        "dns": null,
+        "tcp": 1144,
+        "tls": 361,
+        "firstByte": 128,
+        "download": 116
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "TR",
+      "city": "Istanbul",
+      "asn": 209604,
+      "network": "2E TELEKOMUNIKASYON",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1084,
+        "dns": null,
+        "tcp": 44,
+        "tls": 83,
+        "firstByte": 704,
+        "download": 253
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "GB",
+      "city": "London",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 1046,
+        "dns": null,
+        "tcp": 48,
+        "tls": 57,
+        "firstByte": 679,
+        "download": 262
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2wrugEIOTMlxD3Zog00021Lmf",
+      "host": "sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "FR",
+      "city": "Roubaix",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 850,
+        "dns": null,
+        "tcp": 41,
+        "tls": 50,
+        "firstByte": 234,
+        "download": 525
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 207957,
+      "network": "SERV.HOST GROUP",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 483,
+        "dns": null,
+        "tcp": 39,
+        "tls": 66,
+        "firstByte": 376,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Novosibirsk",
+      "asn": 8359,
+      "network": "MTS",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 446,
+        "dns": null,
+        "tcp": 88,
+        "tls": 96,
+        "firstByte": 260,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Tomsk",
+      "asn": 31357,
+      "network": "Limited Company Information and Consulting Agency",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 339,
+        "dns": null,
+        "tcp": 93,
+        "tls": 104,
+        "firstByte": 140,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 406,
+        "dns": null,
+        "tcp": 40,
+        "tls": 45,
+        "firstByte": 320,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Ufa",
+      "asn": 216334,
+      "network": "New Hosting Technologies",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 417,
+        "dns": null,
+        "tcp": 59,
+        "tls": 90,
+        "firstByte": 254,
+        "download": 14
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Saint Petersburg",
+      "asn": 51570,
+      "network": "ER-Telecom Holding",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 172,
+        "dns": null,
+        "tcp": 34,
+        "tls": 39,
+        "firstByte": 95,
+        "download": 4
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Kursk",
+      "asn": 203791,
+      "network": "Kurier",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 324,
+        "dns": null,
+        "tcp": 84,
+        "tls": 85,
+        "firstByte": 153,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Mytishchi",
+      "asn": 35539,
+      "network": "Information and Communication Technologies",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 490,
+        "dns": null,
+        "tcp": 45,
+        "tls": 60,
+        "firstByte": 384,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 9123,
+      "network": "Timeweb",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 476,
+        "dns": null,
+        "tcp": 40,
+        "tls": 45,
+        "firstByte": 390,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Saint Petersburg",
+      "asn": 49505,
+      "network": "Selectel",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 132,
+        "dns": null,
+        "tcp": 29,
+        "tls": 36,
+        "firstByte": 66,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "RU",
+      "city": "Moscow",
+      "asn": 208677,
+      "network": "Cloud.ru",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 261,
+        "dns": null,
+        "tcp": 55,
+        "tls": 53,
+        "firstByte": 151,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "DE",
+      "city": "Falkenstein",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 66,
+        "dns": null,
+        "tcp": 13,
+        "tls": 20,
+        "firstByte": 33,
+        "download": 0
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "NL",
+      "city": "Amsterdam",
+      "asn": 214677,
+      "network": "DELUXHOST",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 400,
+        "dns": null,
+        "tcp": 56,
+        "tls": 70,
+        "firstByte": 272,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "FI",
+      "city": "Helsinki",
+      "asn": 24940,
+      "network": "Hetzner Online",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 114,
+        "dns": null,
+        "tcp": 28,
+        "tls": 35,
+        "firstByte": 50,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "US",
+      "city": "Buffalo",
+      "asn": 36352,
+      "network": "HostPapa",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 431,
+        "dns": null,
+        "tcp": 91,
+        "tls": 96,
+        "firstByte": 242,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "KZ",
+      "city": "Almaty",
+      "asn": 202422,
+      "network": "G-Core Labs",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 335,
+        "dns": null,
+        "tcp": 100,
+        "tls": 108,
+        "firstByte": 126,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "TR",
+      "city": "Istanbul",
+      "asn": 209604,
+      "network": "2E TELEKOMUNIKASYON",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 238,
+        "dns": null,
+        "tcp": 44,
+        "tls": 50,
+        "firstByte": 143,
+        "download": 1
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "GB",
+      "city": "London",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 285,
+        "dns": null,
+        "tcp": 48,
+        "tls": 54,
+        "firstByte": 183,
+        "download": 0
+      },
+      "tlsAuthorized": true,
+      "error": null
+    },
+    {
+      "measurement": "2OnnncUn7qhAmPbAP00021Lmf",
+      "host": "auth.sachkov.dev",
+      "target": "147.45.166.174",
+      "country": "FR",
+      "city": "Roubaix",
+      "asn": 16276,
+      "network": "OVH",
+      "status": "finished",
+      "http": 200,
+      "resolvedAddress": "147.45.166.174",
+      "timings": {
+        "total": 204,
+        "dns": null,
+        "tcp": 41,
+        "tls": 49,
+        "firstByte": 112,
+        "download": 2
+      },
+      "tlsAuthorized": true,
+      "error": null
+    }
+  ],
+  "platformSupplemental": {
+    "scope": "supplemental complete platform reads, continue after failed checks",
+    "checks": [
+      {
+        "name": "deployed release",
+        "status": "passed",
+        "reason": "version and source SHA match manifest"
+      },
+      {
+        "name": "deployed schema",
+        "status": "passed",
+        "reason": "schema identity matches manifest"
+      },
+      {
+        "name": "rollback policy",
+        "status": "passed",
+        "reason": "null means no rollback offered; recorded target must match manifest"
+      },
+      {
+        "name": "state backend image",
+        "status": "passed",
+        "reason": "state image matches manifest"
+      },
+      {
+        "name": "state web image",
+        "status": "passed",
+        "reason": "state image matches manifest"
+      },
+      {
+        "name": "service inventory",
+        "status": "passed",
+        "reason": "required services present"
+      },
+      {
+        "name": "api container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "api container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "web container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "web container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "mcp container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "mcp container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "billing-worker container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "billing-worker container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "billing-worker worker ready",
+        "status": "passed",
+        "reason": "worker reports ready since this start"
+      },
+      {
+        "name": "billing-worker worker errors",
+        "status": "failed",
+        "reason": "no operator/configuration errors since this start"
+      },
+      {
+        "name": "notifications-worker container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "notifications-worker container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "notifications-worker worker ready",
+        "status": "passed",
+        "reason": "worker reports ready since this start"
+      },
+      {
+        "name": "notifications-worker worker errors",
+        "status": "passed",
+        "reason": "no operator/configuration errors since this start"
+      },
+      {
+        "name": "material-assets-worker container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "material-assets-worker container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "material-assets-worker worker ready",
+        "status": "passed",
+        "reason": "worker reports ready since this start"
+      },
+      {
+        "name": "material-assets-worker worker errors",
+        "status": "passed",
+        "reason": "no operator/configuration errors since this start"
+      },
+      {
+        "name": "profile-avatars-worker container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "profile-avatars-worker container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "profile-avatars-worker worker ready",
+        "status": "passed",
+        "reason": "worker reports ready since this start"
+      },
+      {
+        "name": "profile-avatars-worker worker errors",
+        "status": "passed",
+        "reason": "no operator/configuration errors since this start"
+      },
+      {
+        "name": "video-deletions-worker container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "video-deletions-worker container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "video-deletions-worker worker ready",
+        "status": "passed",
+        "reason": "worker reports ready since this start"
+      },
+      {
+        "name": "video-deletions-worker worker errors",
+        "status": "passed",
+        "reason": "no operator/configuration errors since this start"
+      },
+      {
+        "name": "rabbitmq health",
+        "status": "passed",
+        "reason": "broker running and healthy"
+      },
+      {
+        "name": "api readiness HTTP",
+        "status": "passed",
+        "reason": "expected HTTP 200"
+      },
+      {
+        "name": "api readiness",
+        "status": "passed",
+        "reason": "live readiness accepts release and schema identity"
+      },
+      {
+        "name": "web readiness HTTP",
+        "status": "passed",
+        "reason": "expected HTTP 200"
+      },
+      {
+        "name": "web readiness",
+        "status": "passed",
+        "reason": "live readiness accepts release and schema identity"
+      },
+      {
+        "name": "MCP readiness",
+        "status": "passed",
+        "reason": "runtime healthcheck passed"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/invitations/redeem",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "GET /billing/cohorts",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /billing/tbank/notification",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/communications/authorize",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/communications/validate-content",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /internal/billing-dispatch/authorize",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /internal/notifications/dispatch/authorize",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/subscription-activation/binding",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/subscription-activation/own-access",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/subscription-activation/attempts",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "POST /integrations/telegram/v1/subscription-activation/evidence",
+        "status": "passed",
+        "reason": "expected HTTP/body authentication boundary"
+      },
+      {
+        "name": "GET /communications/visit",
+        "status": "passed",
+        "reason": "new Web origin rejects an invalid visitor token"
+      },
+      {
+        "name": "old Web redirect",
+        "status": "passed",
+        "reason": "old Web origin redirects with the same path and query"
+      },
+      {
+        "name": "queue consumers/backlog",
+        "status": "passed",
+        "reason": "observed queues have consumers and zero backlog"
+      },
+      {
+        "name": "memory reserve",
+        "status": "passed",
+        "reason": "available memory at least 500 MiB"
+      },
+      {
+        "name": "watchdog timer",
+        "status": "passed",
+        "reason": "watchdog timer listed"
+      },
+      {
+        "name": "domain schemas",
+        "status": "passed",
+        "reason": "0082 schema names present"
+      },
+      {
+        "name": "physical domain names",
+        "status": "passed",
+        "reason": "table columns exclude index attributes"
+      },
+      {
+        "name": "domain snapshots",
+        "status": "passed",
+        "reason": "no legacy access/capability/paid source snapshots"
+      },
+      {
+        "name": "material formats",
+        "status": "passed",
+        "reason": "format_id read directly; formats table is not required"
+      }
+    ],
+    "passed": false
+  },
+  "telegramStrictAndObservation": {
+    "application": "telegram",
+    "version": "v21",
+    "checks": [
+      {
+        "name": "selected version",
+        "status": "passed",
+        "reason": "manifest is the requested release"
+      },
+      {
+        "name": "manifest digest",
+        "status": "passed",
+        "reason": "manifest bytes match deployed state"
+      },
+      {
+        "name": "deployed release",
+        "status": "passed",
+        "reason": "version and source SHA match manifest"
+      },
+      {
+        "name": "deployed image",
+        "status": "passed",
+        "reason": "image digest matches manifest"
+      },
+      {
+        "name": "deployed migrations",
+        "status": "passed",
+        "reason": "migration identity matches manifest"
+      },
+      {
+        "name": "operation succeeded",
+        "status": "passed",
+        "reason": "successful operation for selected release"
+      },
+      {
+        "name": "container health",
+        "status": "passed",
+        "reason": "running, healthy, no OOM/restarts"
+      },
+      {
+        "name": "container image",
+        "status": "passed",
+        "reason": "digest and image revision match manifest"
+      },
+      {
+        "name": "loopback only",
+        "status": "passed",
+        "reason": "every published port is loopback"
+      },
+      {
+        "name": "Telegram readiness",
+        "status": "passed",
+        "reason": "expected live ready response"
+      },
+      {
+        "name": "POST /webhooks/telegram",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /webhooks/telegram",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/platform/v1/identity-links",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/platform/v1/identity-links",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/platform/v1/identity-links/release-probe/confirm",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/platform/v1/identity-links/release-probe/confirm",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/platform/v1/community-entitlements",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/platform/v1/community-entitlements",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/platform/v1/communications",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/platform/v1/communications",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/identity/v1/sign-in",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/identity/v1/sign-in",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/identity/v1/sign-in/release-probe/status",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/identity/v1/sign-in/release-probe/status",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/identity/v1/sign-in/release-probe/consume",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/identity/v1/sign-in/release-probe/consume",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/identity/v1/sign-in/release-probe/account-link",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /integrations/identity/v1/sign-in/release-probe/account-link",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /ready",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "GET /metrics",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /unknown",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/platform/v1/identity-links/release-probe/confirm/nested",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "POST /integrations/identity/v1/sign-in/release-probe/status/nested",
+        "status": "passed",
+        "reason": "expected allowlist/authentication boundary"
+      },
+      {
+        "name": "Telegram error counters",
+        "status": "passed",
+        "reason": "five counters are zero since start; community_effects_unknown gauge is currently zero"
+      },
+      {
+        "name": "Telegram startup logs",
+        "status": "passed",
+        "reason": "no contract/operator/delivery errors since app start"
+      },
+      {
+        "name": "Telegram bot identity",
+        "status": "passed",
+        "reason": "getMe numeric ID matches token through application config; logical identity is separate"
+      },
+      {
+        "name": "Telegram webhook",
+        "status": "passed",
+        "reason": "direct HTTPS or existing relay registration, allowed updates, no pending/errors; never setWebhook"
+      },
+      {
+        "name": "Telegram bot administration",
+        "status": "passed",
+        "reason": "supergroup administrator with invite/restrict rights"
+      },
+      {
+        "name": "cohort configuration",
+        "status": "not_checked",
+        "reason": "not configured; welcome without date is allowed"
+      },
+      {
+        "name": "activation domain header",
+        "status": "passed",
+        "reason": "two synthetic unbound reads accept products.v1; positive bound access is not exercised"
+      },
+      {
+        "name": "Logto test application credentials",
+        "status": "not_checked",
+        "reason": "no test app selected"
+      }
+    ],
+    "checkedAt": "2026-10-20T08:21:53.002724+00:00",
+    "telegramObservation": {
+      "requestedSeconds": 30,
+      "passed": false,
+      "checks": [
+        {
+          "name": "observation process continuity",
+          "status": "passed",
+          "reason": "same container, start time and restart count at both samples"
+        },
+        {
+          "name": "observation readiness",
+          "status": "passed",
+          "reason": "ready and healthy at both samples"
+        },
+        {
+          "name": "observation error counters",
+          "status": "passed",
+          "reason": "five finite nonnegative counters unchanged between samples; resets fail"
+        },
+        {
+          "name": "observation queue gauges",
+          "status": "failed",
+          "reason": "reconciliation/community due, age, backlog and unknown gauges zero at both samples"
+        },
+        {
+          "name": "observation logs",
+          "status": "passed",
+          "reason": "no matching error log lines within the reported bounds"
+        }
+      ],
+      "startedAt": "2026-10-20T08:21:53.003120+00:00",
+      "finishedAt": "2026-10-20T08:22:23.320429+00:00",
+      "elapsedSeconds": 30.317327048999687,
+      "samples": [
+        {
+          "containerId": "b5cc34a468b205ff0065637e2caee939eeda822b45ce43b71744cda1351c0910",
+          "startedAt": "2026-10-20T08:15:25.716378643Z",
+          "restartCount": 0,
+          "ready": true,
+          "metrics": {
+            "inside_telegram_update_failed_total": 0.0,
+            "inside_telegram_delivery_api_retryable_total": 0.0,
+            "inside_telegram_delivery_transport_unknown_total": 0.0,
+            "inside_telegram_reconciliation_failure_total": 0.0,
+            "inside_telegram_reconciliation_degraded_total": 0.0,
+            "inside_telegram_community_effects_unknown": 0.0,
+            "inside_telegram_reconciliation_due": 0.0,
+            "inside_telegram_reconciliation_oldest_due_seconds": 0.0,
+            "inside_telegram_evidence_delivery_backlog": 0.0,
+            "inside_telegram_community_due": 0.0,
+            "inside_telegram_community_oldest_due_seconds": 0.0,
+            "inside_telegram_community_effect_backlog": 1.0
+          }
+        },
+        {
+          "containerId": "b5cc34a468b205ff0065637e2caee939eeda822b45ce43b71744cda1351c0910",
+          "startedAt": "2026-10-20T08:15:25.716378643Z",
+          "restartCount": 0,
+          "ready": true,
+          "metrics": {
+            "inside_telegram_update_failed_total": 0.0,
+            "inside_telegram_delivery_api_retryable_total": 0.0,
+            "inside_telegram_delivery_transport_unknown_total": 0.0,
+            "inside_telegram_reconciliation_failure_total": 0.0,
+            "inside_telegram_reconciliation_degraded_total": 0.0,
+            "inside_telegram_community_effects_unknown": 0.0,
+            "inside_telegram_reconciliation_due": 0.0,
+            "inside_telegram_reconciliation_oldest_due_seconds": 0.0,
+            "inside_telegram_evidence_delivery_backlog": 0.0,
+            "inside_telegram_community_due": 0.0,
+            "inside_telegram_community_oldest_due_seconds": 0.0,
+            "inside_telegram_community_effect_backlog": 1.0
+          }
+        }
+      ]
+    },
+    "sourceSha": "2f5300026c5a3e946f30596262a02747c6f48827",
+    "passed": false
+  },
+  "knownPreexistingBlocker": "https://github.com/sachkov-inside/platform/issues/1595",
+  "browser": {
+    "device": "owner Mac, VPN unchanged",
+    "browser": "Chrome",
+    "existingSessionPreserved": true,
+    "cleanContext": {
+      "siteStatus": 200,
+      "loginHost": "auth.sachkov.dev",
+      "visibleInputs": 3,
+      "siteToFormMs": 2618
+    },
+    "fullNewLoginChecked": false
+  },
+  "security": {
+    "independentReadOnlyReviewPassed": true,
+    "oldContainersStoppedRestartNo": 14,
+    "oldCaddyMasked": true,
+    "oldBackupTimersDisabled": true,
+    "oldDeploymentKeysSuspended": true,
+    "amsProbeNginxMasked": true,
+    "privateMappedClaimsRejected": true,
+    "untrustedProxyPeerRejected": true,
+    "externalInternalPortsUnreachable": 12,
+    "postMigrationBackendEchoChecked": false,
+    "hostRebootChecked": false
+  },
+  "watchdog": {
+    "timerEnabled": true,
+    "directRouteConfigured": true,
+    "testContractsPassed": 19,
+    "alertDeliveryConfigured": false,
+    "secretsInEvidence": false
+  },
+  "verificationSource": {
+    "scripts/production-verify/verify.py": "cb7e614a1a818d2b0ca75c7bf796e0978a61033e052182a260e792751d1c9eb3",
+    "infra/production/watchdog/inside-watchdog": "8c1d7bb418c5a55d7f0cc29281b7bf391912da5fe9ce80dd455ca78fac4e6c3b"
+  },
+  "limits": [
+    "Not every VPN tested",
+    "Full new login, payments and membership effects not exercised",
+    "Preexisting community backlog=1 keeps strict checks non-green",
+    "Personal-data legal compliance unresolved",
+    "No GeoDNS or automated failover",
+    "External S3/Kinescope/mail/backup services unchanged"
+  ],
+  "dnsAuthoritativeIPv4": {
+    "checkedAt": 1792484856.5391767,
+    "passed": true,
+    "checks": [
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      }
+    ]
+  },
+  "dnsAuthoritativeIPv6": {
+    "checkedAt": 1792484873.0200834,
+    "passed": true,
+    "checks": [
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns1.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns2.timeweb.ru",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns3.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "sachkov.dev.",
+        "type": "MX",
+        "answers": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "expected": [
+          "10 mx1.timeweb.ru.",
+          "20 mx2.timeweb.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "www.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru include:spf.postbox.yandexcloud.net ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "auth.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "A",
+        "answers": [
+          "147.45.166.174"
+        ],
+        "expected": [
+          "147.45.166.174"
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "telegram.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "_dmarc.inside.sachkov.dev.",
+        "type": "TXT",
+        "answers": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "expected": [
+          "\"v=DMARC1;p=none\"",
+          "\"v=spf1 include:_spf.timeweb.ru ~all\""
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-1._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-1.dkim.pstbx.ru."
+        ],
+        "passed": true
+      },
+      {
+        "ns": "ns4.timeweb.org",
+        "name": "egtqtu9aa0vs0vcp68qo-2._domainkey.inside.sachkov.dev.",
+        "type": "CNAME",
+        "answers": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "expected": [
+          "egtqtu9aa0vs0vcp68qo-2.dkim.pstbx.ru."
+        ],
+        "passed": true
+      }
+    ]
+  }
+}

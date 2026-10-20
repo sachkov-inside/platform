@@ -1,0 +1,24 @@
+[Unit]
+Description=Inside TLS entry transport
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStartPre=/usr/sbin/haproxy -c -f /etc/inside-entry/haproxy.cfg
+ExecStart=/usr/sbin/haproxy -Ws -f /etc/inside-entry/haproxy.cfg -p /run/inside-entry.pid
+ExecReload=/usr/sbin/haproxy -c -f /etc/inside-entry/haproxy.cfg
+ExecReload=/bin/kill -USR2 $MAINPID
+Restart=on-failure
+RestartSec=2s
+TimeoutStopSec=15s
+KillMode=mixed
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/run
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

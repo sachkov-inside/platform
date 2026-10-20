@@ -1,0 +1,209 @@
+{
+  "task": "https://github.com/sachkov-inside/platform/issues/1575",
+  "source_commit": "c5343ec60f8b476617db02e6dac081d1809cc7c4",
+  "environment": {
+    "origin": "owner Mac, current shell",
+    "vpn": "incy, France profile; settings not changed",
+    "sampled_egress": "38.180.226.20",
+    "sampled_egress_asn": "AS9009 M247 Europe SRL",
+    "sampled_egress_country": "FR",
+    "egress_sampling": "Observed before and after this series; not independently sampled for every request."
+  },
+  "method": {
+    "short_series": "Three sequential rounds; curl GET; --connect-timeout 3 --max-time 6; no retries, no redirect following; body discarded after byte count.",
+    "long_control": "One sequential round; curl GET; --connect-timeout 10 --max-time 15.",
+    "metrics_format": "http_code remote_ip size_download time_appconnect time_total",
+    "scope_limit": "HTTP transport only, not browser app flow or account eligibility. Bounded timeout failure does not prove permanent outage."
+  },
+  "requests": [
+    {
+      "utc": "2026-10-19T18:40:00.574408+00:00",
+      "round": 1,
+      "name": "sachkov",
+      "url": "https://sachkov.dev/",
+      "exit": 28,
+      "metrics": "000 201.24.126.23 0 0.000000 3.006175",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:03.592017+00:00",
+      "round": 1,
+      "name": "timeweb",
+      "url": "https://timeweb.cloud/",
+      "exit": 28,
+      "metrics": "000 178.248.239.157 0 0.000000 3.006435",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:03.860228+00:00",
+      "round": 1,
+      "name": "ovh-rbx",
+      "url": "https://lil1-rbx.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 0,
+      "metrics": "200 141.95.207.211 1048576 0.111304 0.258623",
+      "error": ""
+    },
+    {
+      "utc": "2026-10-19T18:40:06.876016+00:00",
+      "round": 1,
+      "name": "google",
+      "url": "https://www.google.com/",
+      "exit": 28,
+      "metrics": "000 142.251.152.119 0 0.000000 3.006992",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:09.891459+00:00",
+      "round": 1,
+      "name": "ovh-sbg",
+      "url": "https://sxb1-sbg.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 28,
+      "metrics": "000 51.91.75.40 0 0.000000 3.006699",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:12.906574+00:00",
+      "round": 1,
+      "name": "ovh-london",
+      "url": "https://lon1-eri.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 28,
+      "metrics": "000 198.244.202.178 0 0.000000 3.004788",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:15.921670+00:00",
+      "round": 2,
+      "name": "sachkov",
+      "url": "https://sachkov.dev/",
+      "exit": 28,
+      "metrics": "000 201.24.126.23 0 0.000000 3.006258",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:18.936683+00:00",
+      "round": 2,
+      "name": "timeweb",
+      "url": "https://timeweb.cloud/",
+      "exit": 28,
+      "metrics": "000 178.248.239.157 0 0.000000 3.005894",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:19.492045+00:00",
+      "round": 2,
+      "name": "ovh-rbx",
+      "url": "https://lil1-rbx.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 0,
+      "metrics": "200 141.95.207.211 1048576 0.107873 0.546400",
+      "error": ""
+    },
+    {
+      "utc": "2026-10-19T18:40:20.099197+00:00",
+      "round": 2,
+      "name": "google",
+      "url": "https://www.google.com/",
+      "exit": 0,
+      "metrics": "200 142.251.152.119 87742 0.075505 0.597405",
+      "error": ""
+    },
+    {
+      "utc": "2026-10-19T18:40:23.111025+00:00",
+      "round": 2,
+      "name": "ovh-sbg",
+      "url": "https://sxb1-sbg.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 28,
+      "metrics": "000 51.91.75.40 0 0.000000 3.003460",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:23.656275+00:00",
+      "round": 2,
+      "name": "ovh-london",
+      "url": "https://lon1-eri.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 0,
+      "metrics": "200 198.244.202.178 1048576 0.098763 0.537076",
+      "error": ""
+    },
+    {
+      "utc": "2026-10-19T18:40:26.668178+00:00",
+      "round": 3,
+      "name": "sachkov",
+      "url": "https://sachkov.dev/",
+      "exit": 28,
+      "metrics": "000 201.24.126.23 0 0.000000 3.003357",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:29.683453+00:00",
+      "round": 3,
+      "name": "timeweb",
+      "url": "https://timeweb.cloud/",
+      "exit": 28,
+      "metrics": "000 178.248.239.157 0 0.000000 3.006748",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:32.478230+00:00",
+      "round": 3,
+      "name": "ovh-rbx",
+      "url": "https://lil1-rbx.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 35,
+      "metrics": "000 141.95.207.211 0 0.000000 2.786193",
+      "error": "curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to lil1-rbx.speedtest.network.ovh.net:443"
+    },
+    {
+      "utc": "2026-10-19T18:40:35.492130+00:00",
+      "round": 3,
+      "name": "google",
+      "url": "https://www.google.com/",
+      "exit": 28,
+      "metrics": "000 142.251.152.119 0 0.000000 3.004392",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:38.507959+00:00",
+      "round": 3,
+      "name": "ovh-sbg",
+      "url": "https://sxb1-sbg.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 28,
+      "metrics": "000 51.91.75.40 0 0.000000 3.006974",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:40:41.521486+00:00",
+      "round": 3,
+      "name": "ovh-london",
+      "url": "https://lon1-eri.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 28,
+      "metrics": "000 198.244.202.178 0 0.000000 3.004963",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:41:22.636297+00:00",
+      "round": "longer-budget-control",
+      "name": "sachkov",
+      "url": "https://sachkov.dev/",
+      "exit": 28,
+      "metrics": "000 201.24.126.23 0 0.000000 10.003781",
+      "error": "curl: (28) SSL connection timeout"
+    },
+    {
+      "utc": "2026-10-19T18:41:22.973142+00:00",
+      "round": "longer-budget-control",
+      "name": "google",
+      "url": "https://www.google.com/",
+      "exit": 0,
+      "metrics": "200 142.251.156.119 87880 0.220111 0.327726",
+      "error": ""
+    },
+    {
+      "utc": "2026-10-19T18:41:23.347030+00:00",
+      "round": "longer-budget-control",
+      "name": "ovh-rbx",
+      "url": "https://lil1-rbx.speedtest.network.ovh.net/files/1Mb.dat",
+      "exit": 0,
+      "metrics": "200 141.95.207.211 1048576 0.097109 0.365402",
+      "error": ""
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-19",
+  "source": "authoritative ns1.timeweb.ru queried on origin over SSH; bypasses owner VPN DNS interception",
+  "queries": [
+    [
+      "sachkov.dev",
+      "A"
+    ],
+    [
+      "sachkov.dev",
+      "AAAA"
+    ],
+    [
+      "sachkov.dev",
+      "TYPE64"
+    ],
+    [
+      "sachkov.dev",
+      "TYPE65"
+    ],
+    [
+      "www.sachkov.dev",
+      "A"
+    ],
+    [
+      "www.sachkov.dev",
+      "AAAA"
+    ],
+    [
+      "www.sachkov.dev",
+      "TYPE64"
+    ],
+    [
+      "www.sachkov.dev",
+      "TYPE65"
+    ],
+    [
+      "inside.sachkov.dev",
+      "A"
+    ],
+    [
+      "inside.sachkov.dev",
+      "AAAA"
+    ],
+    [
+      "inside.sachkov.dev",
+      "TYPE64"
+    ],
+    [
+      "inside.sachkov.dev",
+      "TYPE65"
+    ],
+    [
+      "auth.sachkov.dev",
+      "A"
+    ],
+    [
+      "auth.sachkov.dev",
+      "AAAA"
+    ],
+    [
+      "auth.sachkov.dev",
+      "TYPE64"
+    ],
+    [
+      "auth.sachkov.dev",
+      "TYPE65"
+    ]
+  ],
+  "answers": [
+    {
+      "name": "sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "201.24.126.23"
+    },
+    {
+      "name": "www.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "201.24.126.23"
+    },
+    {
+      "name": "inside.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "201.24.126.23"
+    },
+    {
+      "name": "auth.sachkov.dev.",
+      "ttl": 600,
+      "type": "A",
+      "rdata": "201.24.126.23"
+    }
+  ],
+  "DS": {
+    "source": "https://dns.google/resolve?name=sachkov.dev&type=DS",
+    "status": 0,
+    "answers": []
+  },
+  "device_dns_limitation": "Mac dig returned empty MX/TXT despite authoritative and DoH answers; earlier Mac negative answers replaced by this audit"
+}

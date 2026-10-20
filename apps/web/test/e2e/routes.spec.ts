@@ -238,7 +238,10 @@ test("guest signs in through the desktop or mobile header", async ({
   if (navigationMode(testInfo.project.name) === "mobile") {
     await expect(page.locator("[data-public-header]")).toBeHidden();
   }
-  const signIn = page.getByRole("button", { name: "Войти", exact: true });
+  const signIn = page.getByRole("button", {
+    name: "Войти через Telegram",
+    exact: true,
+  });
   await expect(signIn).toBeEnabled();
   await expect(signIn).toBeInViewport();
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
@@ -339,7 +342,7 @@ test("unlinked authenticated account sees a quiet header action; guests and link
   authenticated = false;
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Войти", exact: true }),
+    page.getByRole("button", { name: "Войти через Telegram", exact: true }),
   ).toBeVisible();
   await expect(notice).toHaveCount(0);
   authenticated = true;
@@ -489,7 +492,7 @@ test("authoring route owns a dedicated shell outside the public application shel
   await expect(
     page.getByRole("heading", { name: "Нет доступа к редактору" }),
   ).toBeVisible();
-  const signIn = page.getByRole("button", { name: "Войти" });
+  const signIn = page.getByRole("button", { name: "Войти через Telegram" });
   await expect(signIn).toBeEnabled();
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
     "action",
@@ -526,7 +529,7 @@ test("sales funnel report asks a signed-out visitor to sign in inside the author
   expect(response?.status()).toBe(200);
   await expect(page).toHaveTitle(/^Воронка продаж · Authoring/u);
   await expect(page.getByRole("heading", { name: "Нужен вход" })).toBeVisible();
-  const signIn = page.getByRole("button", { name: "Войти" });
+  const signIn = page.getByRole("button", { name: "Войти через Telegram" });
   await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
     "action",
     "/auth/sign-in",
@@ -564,11 +567,11 @@ test("auth control hydrates without a server-client mismatch", async ({
     await expect(
       page
         .getByRole("navigation", { name: "Мобильная навигация" })
-        .getByRole("button", { name: "Войти", exact: true }),
+        .getByRole("button", { name: "Войти через Telegram", exact: true }),
     ).toBeVisible();
   } else {
     await expect(
-      page.getByRole("button", { name: "Войти", exact: true }),
+      page.getByRole("button", { name: "Войти через Telegram", exact: true }),
     ).toBeEnabled();
   }
 

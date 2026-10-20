@@ -496,6 +496,7 @@ async function ResolvedMaterialReader({
           }
           topBookmarkAction={
             <SavedBookmarkAction
+              presentation="reader"
               compact
               materialId={result.material.materialId}
             />
@@ -510,6 +511,7 @@ async function ResolvedMaterialReader({
           }
           bookmarkAction={
             <SavedBookmarkAction
+              presentation="reader"
               compact
               materialId={result.material.materialId}
             />

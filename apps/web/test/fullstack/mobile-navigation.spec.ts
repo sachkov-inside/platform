@@ -9,10 +9,25 @@ test("mobile navigation keeps real catalog context and public canvas", async ({
   await expect(
     page.getByRole("list", { name: "Материалы, страница 1" }),
   ).toBeVisible();
+  const header = page.locator("[data-mobile-header]");
+  // A downward scroll hides the header. Reveal it with an upward gesture before measuring a tap.
+  await page.evaluate(() => {
+    window.scrollTo(0, 650);
+  });
+  await expect
+    .poll(() =>
+      header.evaluate((element) => element.getBoundingClientRect().bottom),
+    )
+    .toBeLessThanOrEqual(0);
   await page.evaluate(() => {
     window.scrollTo(0, 600);
   });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
+  await expect
+    .poll(() =>
+      header.evaluate((element) => element.getBoundingClientRect().top),
+    )
+    .toBe(0);
   const navigation = page.getByRole("navigation", {
     name: "Мобильная навигация",
   });

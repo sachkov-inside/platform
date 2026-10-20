@@ -13,7 +13,10 @@ import {
 import Link from "next/link";
 
 import type { MaterialReaderMetadata } from "@/_pages/material-reader/model/material-reader-view";
-import { materialReadingLabels } from "@/entities/material";
+import {
+  MaterialShareButton,
+  materialReadingLabels,
+} from "@/entities/material";
 import type { SeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import { Button } from "@/shared/ui/button";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
@@ -50,7 +53,6 @@ export function MaterialReaderLoading() {
       <div className="mx-auto mb-6 max-w-[43rem]" data-reader-top-frame>
         <div aria-hidden="true">
           <ReaderTopActions
-            alignControls="end"
             context={null}
             returnAction={
               <span className="h-5 w-20 rounded-md bg-muted sm:w-36" />
@@ -88,7 +90,6 @@ export function MaterialReaderPending({
 }) {
   const topActions = (
     <ReaderTopActions
-      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       nextStep={
         seriesContext?.supplementary === true
@@ -97,6 +98,13 @@ export function MaterialReaderPending({
       }
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
+      shareAction={
+        <MaterialShareButton
+          slug={material.slug}
+          title={material.title}
+          presentation="reader"
+        />
+      }
       readingAction={<ReservedReadingAction format={material.format.slug} />}
     />
   );
@@ -129,6 +137,7 @@ export function MaterialReaderPending({
             material={material}
             programme={seriesContext?.programme}
             supplementary={seriesContext?.supplementary ?? false}
+            showShare={false}
           />
           <div
             aria-busy="true"
@@ -266,7 +275,6 @@ export function MaterialReaderAccess({
       : "Получить доступ";
   const topActions = (
     <ReaderTopActions
-      alignControls={seriesContext === null ? "end" : "center"}
       context={seriesContext?.programme == null ? seriesContext : null}
       nextStep={
         seriesContext?.supplementary === true
@@ -275,6 +283,13 @@ export function MaterialReaderAccess({
       }
       returnAction={<CatalogBackLink href={returnTarget.href} label="Назад" />}
       bookmarkAction={<ReservedBookmarkAction />}
+      shareAction={
+        <MaterialShareButton
+          slug={material.slug}
+          title={material.title}
+          presentation="reader"
+        />
+      }
       readingAction={
         readingAction ?? <ReservedReadingAction format={material.format.slug} />
       }
@@ -314,6 +329,7 @@ export function MaterialReaderAccess({
               material={material}
               programme={seriesContext?.programme}
               supplementary={seriesContext?.supplementary ?? false}
+              showShare={false}
             />
             <section
               className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
@@ -382,10 +398,11 @@ function ReservedBookmarkAction() {
     <Button
       disabled
       variant="ghost"
-      className="size-11 shrink-0 rounded-lg p-0"
+      className="h-11 shrink-0 rounded-lg"
       aria-label="Закладка недоступна"
     >
       <Bookmark aria-hidden="true" />
+      <span>Сохранить</span>
     </Button>
   );
 }
@@ -394,7 +411,7 @@ function ReservedReadingAction({ format }: { readonly format: string }) {
   return (
     <Button disabled variant="ghost" className="h-11 shrink-0 rounded-lg px-3">
       <Circle aria-hidden="true" />
-      {materialReadingLabels(format).complete}
+      <span>{materialReadingLabels(format).complete}</span>
     </Button>
   );
 }

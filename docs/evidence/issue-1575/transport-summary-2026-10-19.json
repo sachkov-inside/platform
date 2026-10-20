@@ -1,0 +1,99 @@
+{
+  "date": "2026-10-19",
+  "issue": 1575,
+  "stage": "second entry installed; GeoDNS pending",
+  "origin": "201.24.126.23",
+  "edge": "185.125.101.90",
+  "dns_changed": false,
+  "application_routes_changed": false,
+  "application_or_database_restarted": false,
+  "transport": "TLS passthrough; PROXY v2 via original-peer and decoded-client validation",
+  "forwarded_header_checks": [
+    {
+      "request_from": "Aeza local public address",
+      "upstream_xff": "185.125.101.90",
+      "spoofed_xff": "127.0.0.1",
+      "upstream_marker": null
+    },
+    {
+      "request_from": "owner Mac VPN through Aeza; confirmed in HAProxy log",
+      "upstream_xff": "<owner VPN egress; redacted>",
+      "spoofed_xff": "127.0.0.1",
+      "upstream_marker": null
+    },
+    {
+      "request_from": "real origin loopback",
+      "upstream_xff": "127.0.0.1",
+      "upstream_marker": "entry-probe-1575"
+    }
+  ],
+  "untrusted_peer_claiming_aeza": {
+    "actual_peer": "origin host",
+    "claimed_client": "185.125.101.90",
+    "result": "ConnectionResetError"
+  },
+  "diagnostic_cleanup": {
+    "temporary_echo_path_status_after_stop": 404,
+    "unit_stopped": true,
+    "runtime_config_restored": true
+  },
+  "stage_statuses": {
+    "sachkov.dev": 200,
+    "auth.sachkov.dev_discovery": 200,
+    "www.sachkov.dev": 302,
+    "inside.sachkov.dev": 302,
+    "existing_ip_root": 404,
+    "existing_ip_empty_sub": 404
+  },
+  "rollback_rehearsal": {
+    "edge_old_nginx_443_restored": true,
+    "edge_nginx_active": true,
+    "edge_xray_active": true,
+    "origin_original_caddyfile_restored": true,
+    "origin_direct_status": 200,
+    "reapply_edge_status": 200,
+    "reapply_existing_ip_status": 404,
+    "versioned_rollback_script_rehearsed": true,
+    "nginx_patch_replay_matches_installed_file": true
+  },
+  "browser": {
+    "tool": "playwright-cli isolated Chrome with host-resolver-rules to Aeza",
+    "cold_home_title": "Главная · Sachkov Dev",
+    "protocol": "h2",
+    "load_ms": 1068.5,
+    "ttfb_ms": 81.9,
+    "resource_errors_by_response_status": 0,
+    "warm_navigation": {
+      "protocol": "h2",
+      "load_ms": 183.9,
+      "ttfb_ms": 106.9,
+      "resource_errors_by_response_status": 0
+    },
+    "sign_in_start": {
+      "destination_hostname": "auth.sachkov.dev",
+      "title": "Войди в свой аккаунт",
+      "protocol": "h2",
+      "credentials_submitted": false
+    },
+    "quic_fallback": "Chrome with cached Alt-Svc sent QUIC packets for sachkov.dev and loaded via h2 in 664.7 ms; see chrome-quic-fallback-2026-10-19.json"
+  },
+  "acme": {
+    "site_keys_copied_to_edge": false,
+    "http01_relay_configured": true,
+    "forced_issuance_tested": false,
+    "existing_ip_certificate_renewal": "unchanged webroot authenticator and nginx reload hook",
+    "synthetic_http01_token_passed_all_four_names": true
+  },
+  "limitations": [
+    "No GeoDNS account selected or registrar login yet",
+    "No application/DB redundancy",
+    "No complete owner login or payment performed",
+    "No live token-bearing subscription test",
+    "No reboot test",
+    "External samples do not reproduce every affected VPN",
+    "Aeza TCP-only with h3 Alt-Svc: curl_cffi and Chrome fallback verified on current owner VPN only; other clients remain sampled"
+  ],
+  "globalping_evidence": "aeza-globalping-2026-10-19.json",
+  "proxy_negative_evidence": "origin-proxy-negative-2026-10-19.jsonl",
+  "installed_config_evidence": "installed-config-2026-10-19.json"
+}

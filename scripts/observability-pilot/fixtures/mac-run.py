@@ -9,6 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pilot
 import orbstack
+import source_status_scenario
 
 WORKER_FIXTURE_BUDGET_SECONDS = 1
 
@@ -60,6 +61,8 @@ def smoke(*args, **kwargs):
         os.killpg(os.getpgrp(), signal.SIGTERM if mode == 'sigterm' else signal.SIGKILL)
     return {'native_mcp':'fixture only'}
 
+# This process fixture owns orchestration/cleanup with protocol doubles.
+# Source-outage behavior has its own injected Docker/query/clock seam contracts.
 original_supervise = pilot.supervise_worker
 def supervise(execute, compose, output, project):
     return original_supervise([sys.executable,__file__,'worker',directory,mode], compose, output, project,
@@ -69,7 +72,8 @@ with patch.object(pilot.platform,'system',return_value='Darwin'), patch.object(p
      patch.object(orbstack,'identify',return_value=identity), patch.object(pilot,'command',side_effect=command), \
      patch.object(pilot,'supervise_worker',side_effect=supervise), patch.object(orbstack,'verify_probe'), \
      patch.object(pilot,'install_plugin'), \
-     patch.object(pilot,'smoke',side_effect=smoke):
+     patch.object(pilot,'smoke',side_effect=smoke), \
+     patch.object(source_status_scenario, 'run', return_value={'state':'fixture only', 'duration_seconds':0}):
     try:
         if role == 'parent':
             # Fake Compose does not publish ports; keep this process contract off live pilot ports.

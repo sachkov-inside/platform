@@ -523,7 +523,9 @@ export const SignedOut: Story = {
     await expect(
       page.getByRole("heading", { name: "Нет доступа к редактору" }),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Войти" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Войти через Telegram" }),
+    ).toBeVisible();
   },
 };
 

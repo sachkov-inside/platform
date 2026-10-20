@@ -555,7 +555,7 @@ function AuthoringMaterialsStateView({
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {state.kind === "signed_out" ? (
             <form action="/auth/sign-in" method="post">
-              <Button type="submit">Войти</Button>
+              <Button type="submit">Войти через Telegram</Button>
             </form>
           ) : onRetry === undefined ? (
             <Button asChild>

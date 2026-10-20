@@ -78,7 +78,7 @@ export const GuestDesktop: Story = {
       within(header).getByRole("link", { name: "Sachkov Dev" }),
     ).toBeVisible();
     await expect(
-      within(header).getByRole("button", { name: "Войти" }),
+      within(header).getByRole("button", { name: "Войти через Telegram" }),
     ).toBeVisible();
     const navigation = within(header).getByRole("navigation", {
       name: "Основная",
@@ -186,8 +186,23 @@ export const MobileTopNavigation: Story = {
     await expect(links.map((link) => link.getAttribute("aria-label"))).toEqual([
       "Закладки",
     ]);
-    const signIn = within(navigation).getByRole("button", { name: "Войти" });
+    const signIn = within(navigation).getByRole("button", {
+      name: "Войти через Telegram",
+    });
     await expect(signIn).toBeVisible();
+    await expect(signIn.innerText).toBe("Войти");
+    const brand = within(header).getByRole("link", { name: "Главная" });
+    const buttonBounds = signIn.getBoundingClientRect();
+    const brandBounds = brand.getBoundingClientRect();
+    await expect(
+      Math.abs(
+        (buttonBounds.top + buttonBounds.bottom) / 2 -
+          (brandBounds.top + brandBounds.bottom) / 2,
+      ),
+    ).toBeLessThanOrEqual(1);
+    await expect(signIn.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      header.getBoundingClientRect().bottom,
+    );
     await expect(signIn.getBoundingClientRect().height).toBe(36);
     await expect(
       parseFloat(getComputedStyle(signIn, "::before").height),
@@ -206,6 +221,39 @@ export const MobileTopNavigation: Story = {
     scrollRoot.scrollTop = 0;
     await waitFor(() => expect(header.getBoundingClientRect().top).toBe(0));
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+  },
+};
+
+/** Кнопка входа остаётся в пределах узкой шапки при увеличении текста. */
+export const MobileSignInEnlargedText: Story = {
+  ...MobileTopNavigation,
+  render: () => <></>,
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.ownerDocument.documentElement;
+    const fontSize = root.style.fontSize;
+    try {
+      root.style.fontSize = "200%";
+      const button = within(canvasElement).getByRole("button", {
+        name: "Войти через Telegram",
+      });
+      await expect(button).toBeVisible();
+      await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+      await expect(button.innerText).toBe("Войти");
+      const header = canvasElement.querySelector<HTMLElement>(
+        "[data-mobile-header]",
+      );
+      if (header === null) throw new Error("Нет шапки телефона");
+      const container = header.firstElementChild;
+      if (container === null) throw new Error("Нет содержимого шапки");
+      const headerRight =
+        container.getBoundingClientRect().right -
+        parseFloat(getComputedStyle(container).paddingRight);
+      await expect(
+        Math.abs(button.getBoundingClientRect().right - headerRight),
+      ).toBeLessThanOrEqual(1);
+    } finally {
+      root.style.fontSize = fontSize;
+    }
   },
 };
 

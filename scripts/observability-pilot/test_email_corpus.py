@@ -323,7 +323,10 @@ class EmailPilot(unittest.TestCase):
                         self.assertEqual(int.from_bytes(point[6][0],'little',signed=True),stage or 1)
                     metric_posts.append((transport,stage));state[transport]=stage
                 return 200,''
-            self.assertIn('%7B__name__%3D~%22.%2B%22%7D',path)
+            import urllib.parse
+            self.assertEqual(urllib.parse.urlsplit(path).path,'/metrics/api/v1/query')
+            self.assertEqual(urllib.parse.parse_qs(urllib.parse.urlsplit(path).query),{
+                'query':['last_over_time({__name__=~".+"}[10m])'],'nocache':['1']})
             data=json.loads(metric_response(state)[1]);data['data']['result']+=metric_rows();return 200,json.dumps(data)
         def trace_read(compose,fixture):
             reads.append(fixture);transport='protobuf' if fixture.endswith('protobuf') else 'json'

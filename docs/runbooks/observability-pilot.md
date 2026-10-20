@@ -812,6 +812,38 @@ Legacy verdict сохраняется отдельно: глобальный и�
 содержит лишь закрытые стадии и проверенные числовые verdicts. Отказ сохраняет только
 достигнутые стадии; raw ответы, credentials и ошибки не сохраняются.
 
+E-METRIC-02 зафиксирован после CI39400084517: baseline и JSON marker 1 прошли,
+а marker 2 не стал полным за исходные 60s (230 чтений). Raw ответ не сохранялся,
+поэтому точная причина этого CI неизвестна. Отдельный host replay выявил дефект
+конечной схемы проверки: одноразовые legacy series могут выйти из стандартного
+5m окна, пока 13 последовательных checkpoints ждут данные. Закреплённый VM
+[по умолчанию сдвигает instant-query evaluation на 30s назад](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/prometheus.go).
+
+Только E checkpoints теперь отправляют фиксированный query
+`last_over_time({__name__=~".+"}[10m])` и `nocache=1`. Окно 600s соответствует
+существующему worker deadline; `nocache` убирает указанное смещение времени.
+Query сохраняет все имена и labels серий, выбирая последний обычный sample в
+`(evaluation time − 600s, evaluation time]`. Закреплённые
+[rollup](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/rollup.go)
+и [evaluation](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/promql/eval.go)
+сохраняют metric name, исключают нижнюю границу и игнорируют Prometheus stale markers
+для `last_over_time`. Поэтому это проверка сохранённой истории fixture, а не
+свежести, непрерывности или текущей доступности источника. E/C fixtures stale markers
+не отправляют. Старые marker значения по-прежнему дают pending, пропущенные series
+не становятся PASS, приватные и неизвестные поля дают отказ. Оба reader получают
+один полный raw vector. Тайм-ауты, caps, timestamps uploads и остальные queries
+сохранены. История старше окна не считается полной; время в будущем не запрашивается.
+
+Host regression вызывает настоящий `email_catalog_corpus` с моделью закреплённых
+правил query time и полный существующий corpus. Она проверяет 20 uploads и 13
+checkpoints при начальном возрасте одноразового legacy 0s, 241s и 599s. Отдельный
+случай проверяет отказ, когда на первом query legacy уже старше окна 600s: две
+baseline uploads сдвигают часы с 600s до 600.004s. Точная открытая нижняя граница
+окна описана выше по закреплённому исходнику VM, этот случай её не проверяет.
+Это не native VM execution. Новый exact-source CI остаётся необходимым.
+Внутренний caller не принимает произвольные query parameters; HTTP fixture проверяет
+точно два отправленных параметра. Полномочия существующих vmauth/Caddy routes не меняются.
+
 Даже будущий PASS этого внешнего corpus не доказывает actual SDK → pinned storage,
 реальную HTTP/PG/Rabbit/SMTP causality в storage или ресурсную приёмку. Для текущего
 source-кандидата collector runtime ещё не выполнялся.
@@ -1039,3 +1071,128 @@ three-attempt setting belongs only to that test client. Tests cover success/exha
 body, invalid metadata, cache coalescing/deletion, refusal mappings, bootstrap, OFF, exporter503,
 context isolation, sampling-independent counters and private wire fields. These tests do not
 replace genuine RustFS/PostgreSQL, SDK-to-pinned-storage, external corpus or resource acceptance.
+
+## Pilot scrape source-status query
+
+The semantic query view reads the two existing genuine pilot scrape sources, Alloy
+(`platform-collector`) and VictoriaTraces (`platform-trace-store`), with `instance="pilot"`.
+It does not start services or change scrape configuration. Run it against an already owned pilot
+output, whose private `auth.json` contains its disposable read token. Supply the canonical absolute
+output path, without symlink components or `..`. The output directory must belong to the current
+user with mode `0700`; its single-link regular `auth.json` must belong to that user with mode
+`0600`. Directory components and the file are opened relative to anchored descriptors without
+following symlinks. Inode, ownership, mode and canonical-path checks finish before either HTTP
+query; refusal prints no token, path or raw filesystem error:
+
+```sh
+python3 scripts/observability-pilot/source_status_query.py --output <canonical-owned-pilot-output>
+```
+
+The optional numeric `--port` selects the owned loopback query ingress (default `18427`). It does
+not accept a URL or an expression. Two fixed read queries share one explicit whole-second
+evaluation time and a single 10-second deadline, including response reads and parsing. Each
+query requests the existing two-second server query limit. There are no retries or redirects;
+environment proxy settings are bypassed for this loopback read. Each response is limited to
+1 MiB and 1,000 vector rows. The reconstructed JSON report is limited to 128 KiB. The synchronous
+Mac/Linux command uses its main thread and temporarily owns `SIGALRM`; it refuses an already
+active real-time timer and restores the prior handler. Timeout and interruption close the HTTP
+reader; the command creates no reader thread or child process.
+
+Публичный `evaluate` сохраняет bare envelope `{status,data}` и допускает только одно
+дополнительное поле `stats` с двумя обязательными полями. `seriesFetched` содержит
+каноническую неотрицательную ASCII decimal string от `0` до `9223372036854775807`.
+`executionTimeMsec` содержит JSON integer от `0` до `9223372036854`, исключая boolean
+и дробные значения. Это границы pinned VM1.154: signed int64 counter и signed int64
+nanosecond duration после преобразования в milliseconds. См.
+[query response](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/query_response.qtpl)
+и [duration conversion](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/prometheus.go).
+Metadata проверяется и отбрасывается для текущих и предыдущих values/timestamp acquisitions.
+Она не определяет sample age, полноту или число рядов и не попадает в публичный отчёт.
+Неизвестные поля, дубликаты и некорректная metadata дают `malformed`, включая позднюю
+ошибку после корректного ряда. Это совместимость source-контракта, а не native runtime proof.
+
+Оба фиксированных запроса передают `nocache=1`. В закреплённом VM1.154
+[QueryHandler](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/29c43cd2fee05409499a4d1b38e950e1b7f13bd4/app/vmselect/prometheus/prometheus.go)
+без этого параметра сдвигает evaluation около текущего времени на стандартные 30s назад.
+Позже он восстанавливает внешние timestamps точек, но не значения `timestamp(...)`.
+Поэтому внешний timestamp не исправляет возраст исходного sample: результат мог бы
+оставаться `stale` при действующем источнике и пределе свежести 10s. FRESH-SPEC-01
+устраняет этот сдвиг для двух текущих чтений. Параметр задан литералом, без новой
+настройки, изменения selectors, хранения истории или применения E history window.
+Host regression через публичный `evaluate` и частный loopback reader с настоящим
+чтением credentials моделирует исходный сдвиг: прежний запрос даёт age31/`stale`,
+исправленный age1/`fresh_up`. Это проверка адаптера и source-контракта, а не запуск
+native VM или доказательство семи фаз. Проверки исходного sample timestamp, возраста,
+deadline и закрытых labels сохраняются.
+
+The view pairs values with the original source timestamps returned by a second fixed query.
+An instant query's outer evaluation timestamp alone does not establish scrape freshness.
+Metric names are copied into a fixed temporary query-result label before the timestamp
+function so the two responses can be joined by exact catalog identity. No stored metric label
+is added. Pinned-engine compatibility and real source-outage behavior still require the
+separate isolated runtime proof; local HTTP fixtures establish the adapter contract only.
+
+Source state is `fresh_up`, `fresh_down`, `stale`, `missing`, `query_unavailable` or `malformed`.
+Fresh means sample age after bounded response decode and validation is at most 10 seconds, reusing the existing
+VictoriaTraces health rule of two five-second scrape intervals. A retained old `up=1` is stale,
+or missing once it leaves the query's lookback, and cannot establish current health. A fresh
+`up=0` is an observed scrape failure. Missing data and failed queries do not establish that the
+source itself is down. Future timestamps, backwards observer time, unknown labels, duplicates,
+partial responses and invalid numbers fail closed. Exit zero requires both sources to be
+`fresh_up`; every other outcome exits nonzero with a bounded closed report. Raw response/error
+bodies and credentials are not printed.
+
+Each observed series has its own timestamp and age. Fresh `up` cannot make a stale exporter
+counter fresh. Missing metric families, including the lazily created VT index-error counter,
+remain missing with a null value rather than becoming zero. A family being present does not
+prove every possible dimension is present. The pure read model can also compare one validated
+prior acquisition: it reports endpoint progress, no change, an observed decrease/reset or
+unknown comparison, with an incomplete interval after a gap longer than 10 seconds. Gauge
+values are not counters. A prior successful up observation retains its age and cannot imply
+current recovery. No persisted history is created by this command.
+
+This source age is separate from the accepted ingestion-lag limit of 60 seconds. Collector
+accepted/sent counters and VT ingest attempts do not prove persisted delivery or quantify
+end-to-end loss. The report explicitly leaves continuous host/container, RabbitMQ, Logto,
+Caddy and backup/WAL/restore monitoring uncovered. It is a pilot query view, not a production
+rollout, operational alert or acceptance of the representative resource workload.
+
+
+### Core CI source-freshness scenario
+
+После существующего `smoke`, включая restart и rotation query key, Core pilot выполняет
+`source_status_scenario.py` в том же частном Compose project. Каждое чтение получает текущий
+ключ из `auth.json` через публичный `read_report`. Семь фаз проверяют: исходные свежие
+источники, остановленный VT и его восстановление, устаревшие или отсутствующие samples
+после остановки Alloy и его восстановление, недоступный query store и его восстановление.
+Переходы требуют состояний и более новых исходных timestamps. Сохранённый старый `up=1`
+не подтверждает восстановление. Остановка Alloy проверяет потерю scrape-наблюдений,
+а не остановку обоих наблюдаемых процессов. Недоступность query store не означает,
+что наблюдаемые источники остановлены.
+
+Перед каждой остановкой и запуском сверяются frozen daemon identity, текущий и сохранённый
+CID, Compose project/service/config source, pinned image, mounts и network IDs.
+Изменять состояние разрешено только для `traces`, `alloy` и `metrics`. Сохранённый частный
+witness содержит точные identities семи контейнеров, четырёх volumes и двух networks.
+После обычного `down` cleanup дополнительно требует их типизированного отсутствия.
+Ошибка daemon или неоднозначный ответ не доказывают очистку.
+
+У всех фаз один бюджет 180 секунд внутри прежнего worker cap 600 секунд. Бюджет включает
+чтения, проверки владения, stop/start и polling; допускается не более 720 acquisitions.
+Ни deadline, ни провал проверки не превращаются в skip. `source-freshness.json` ограничен
+1 MiB, содержит закрытое состояние, не более семи terminal reports, число попыток и время
+каждой завершённой фазы. Незавершённый запуск сохраняет `incomplete` или `failed`.
+`worker-outcome.json` дополнительно записывает фактическое время worker вместе с shutdown
+до начала cleanup. Частный witness не входит в публичные artifacts. Существующий supervisor
+по-прежнему завершает и собирает всю группу worker при успехе, ошибке, timeout и interruption.
+
+Core `source.json` добавляет `source_status.py`, `source_status_query.py` и
+`source_status_scenario.py` к 20 hashed inputs объединённого Core, всего 23. В набор входят также
+`email_privacy.py` и `telegram_http_storage.py`.
+`source_status.py` использует уже включённый `collector_privacy.py`; остальные импорты
+нового сценария принадлежат стандартной библиотеке и этим трём файлам.
+После объединения независимых изменений число inputs определяется фактическим набором.
+Локальные Docker/query/clock doubles проверяют управление сценарием. Совместимость запросов
+с pinned engines, семь реальных переходов и длительность hosted worker остаются непроверенными
+до отдельного успешного Core CI на точном source. Прежние corpus/privacy gates сохраняются.
+Эта проверка не доказывает ingestion lag, persisted delivery или end-to-end loss accounting.
