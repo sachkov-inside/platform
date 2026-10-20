@@ -1389,3 +1389,16 @@ The proposed short synthetic SDK-only workload cannot size the Timeweb server or
 representative production load, full retention, whole-host reserve or seven actual days.
 The workflow adds no mandatory release gate. Native image builds and runtime compatibility
 must be observed in a source-bound hosted attempt before claiming they work.
+
+For acquisition failures, `resource-acquisition.json` records a closed stage and boundary
+(identity probe, child wait, inspection or publication), bounded outcome/counters/elapsed
+values, and a separate cleanup outcome. It is written atomically in the checked metadata
+directory before a runtime project exists. Public collection rejects duplicate JSON keys,
+including escaped equivalents, unknown fields, nonfinite values and records over 4096 bytes;
+it publishes a canonical verified projection. Commands, output, error text, registry references,
+paths and credentials do not enter this record. A first command failure remains first when
+cleanup also fails. `storage_guard_stop` means the existing shared monitor stopped, which
+can include a storage-read failure. It does not identify a measured floor/growth violation.
+The optional observer preserves the existing stop even if observation fails. Existing
+acquisition deadlines, identity checks, disk thresholds and 600-second worker budget remain
+unchanged. These diagnostics cannot retrospectively establish the cause of run 39433543633.
