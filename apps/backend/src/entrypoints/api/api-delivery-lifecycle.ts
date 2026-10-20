@@ -11,9 +11,10 @@ export async function shutdownApiDeliveryTelemetry(
   const drained = await Promise.allSettled(
     pumps.map(async (pump) => pump.onApplicationShutdown()),
   );
-  const failures: unknown[] = drained.flatMap((result) =>
-    result.status === "rejected" ? [result.reason] : [],
-  );
+  const failures: unknown[] = [];
+  for (const result of drained) {
+    if (result.status === "rejected") failures.push(result.reason);
+  }
   try {
     await telemetry.shutdown();
   } catch (error) {

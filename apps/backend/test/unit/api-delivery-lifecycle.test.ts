@@ -31,8 +31,9 @@ test.each([0, 1] as const)(
     if (first === undefined || second === undefined)
       throw new Error("Fixture owners missing");
     const closing = shutdownApiDeliveryTelemetry([first, second], {
-      async shutdown() {
+      shutdown() {
         sdkClosed = true;
+        return Promise.resolve();
       },
     });
     // Observe rejection immediately so a defective early close cannot become an unhandled rejection.
@@ -70,15 +71,15 @@ test("both pump failures and SDK cleanup failure survive as the original private
         },
       },
       {
-        async onApplicationShutdown() {
-          throw second;
+        onApplicationShutdown() {
+          return Promise.reject(second);
         },
       },
     ],
     {
-      async shutdown() {
+      shutdown() {
         sdkCalls++;
-        throw sdk;
+        return Promise.reject(sdk);
       },
     },
   ).then(
