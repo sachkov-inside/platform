@@ -57,7 +57,8 @@ class GroupedWitness(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         producer=Path(__file__).with_name('producer.mjs').read_text()
         # Execute the owning production load hook, without the API/PG producer.
-        hook=producer[producer.index('  const hooks = registerHooks({'):producer.index('\n\n  /** @type',producer.index('  const hooks = registerHooks({'))]
+        hook_start=producer.index('const hooks = registerHooks({')
+        hook=producer[hook_start:producer.index('\n\n',hook_start)]
         script="""
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
