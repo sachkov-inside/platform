@@ -37,9 +37,14 @@ def query_plan(evaluated_at):
     collector = selector(status.SOURCES['collector'], collector_names)
     trace_store = selector(status.SOURCES['trace_store'], trace_names)
     select = '(' + collector + ' or ' + trace_store + ')'
-    # Read raw scrape timestamps before any expression creates subquery-grid points.
-    stamps = ('label_replace((timestamp_with_name(' + collector + ') or timestamp_with_name(' + trace_store +
-              ')),"source_metric","$1","__name__","(.+)")')
+    # Raw rollups disagree on stale-marker membership: keep only timestamp rows
+    # whose complete metric identity is still present in the current value vector.
+    # timestamp_with_name must receive the raw selector before this intersection.
+    identity = '__name__,job,instance,receiver,exporter,data_type,format,path,type,reason'
+    def current_stamps(raw):
+        return '(timestamp_with_name(' + raw + ') and on(' + identity + ') ' + raw + ' keep_metric_names)'
+    stamps = ('label_replace((' + current_stamps(collector) + ' or ' + current_stamps(trace_store) +
+              '),"source_metric","$1","__name__","(.+)")')
     return ['/metrics/api/v1/query?' + urllib.parse.urlencode({
         'query': expression, 'time': str(evaluated_at), 'timeout': QUERY_SERVER_TIMEOUT, 'nocache': '1'})
         for expression in (select, stamps)]
