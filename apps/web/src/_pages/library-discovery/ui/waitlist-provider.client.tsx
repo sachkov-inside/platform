@@ -72,8 +72,10 @@ export function WaitlistProvider({
       clearReturnMarker();
       setNotice(
         result.active
-          ? "Вы в списке."
-          : "Вы отказались от ожидания. Можно записаться снова.",
+          ? "Вы в списке ожидания."
+          : operation === "withdraw"
+            ? "Вы отказались от ожидания."
+            : "Запись в список ожидания не требуется: курс уже доступен.",
       );
       await refreshProductWaitlist(
         client,

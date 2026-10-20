@@ -69,29 +69,24 @@ export function WaitlistAction({
   state,
   lower = false,
   onBegin,
-  onWithdraw,
   linking,
   notice = "",
-  retryingWithdrawal = false,
 }: WaitlistActionProps) {
   const saved = state === "success";
   const busy = state === "saving" || state === "loading";
+  const label = saved
+    ? "Вы в списке ожидания"
+    : busy
+      ? state === "loading"
+        ? "Проверяю запись…"
+        : "Сохраняю…"
+      : "Вступить в список ожидания";
   const action = (
     <div
       className={`waitlist-action ${lower ? "waitlist-action-lower" : ""}`}
       aria-busy={busy}
     >
-      {saved ? (
-        lower ? null : (
-          <div className="waitlist-confirmed">
-            <span>
-              <Check aria-hidden="true" />
-              Вы в списке
-            </span>
-            <p>Сообщу об открытии набора в Telegram.</p>
-          </div>
-        )
-      ) : state === "linking" ? (
+      {state === "linking" ? (
         <div className="waitlist-link-context">
           <p>
             Подключите Telegram к текущему аккаунту, чтобы завершить запись.
@@ -100,23 +95,25 @@ export function WaitlistAction({
         </div>
       ) : (
         <button
-          className={lower ? "aie-status-button" : "aie-hero-action"}
-          disabled={busy}
+          className={
+            lower
+              ? "aie-cohort-ticket-buy waitlist-ticket-button"
+              : "aie-cohort-live waitlist-hero-pill"
+          }
+          disabled={busy || saved}
           onClick={onBegin}
           type="button"
         >
-          {busy ? (
-            <>
-              {state === "loading" ? "Проверяю запись…" : "Сохраняю…"}
-              <LoaderCircle aria-hidden="true" />
-            </>
+          {lower ? null : saved ? (
+            <Check aria-hidden="true" />
           ) : (
-            <>
-              {retryingWithdrawal
-                ? "Повторить отказ"
-                : "Вступить в список ожидания"}
-              <ArrowRight aria-hidden="true" />
-            </>
+            <span className="aie-cohort-live-dot" aria-hidden="true" />
+          )}
+          <span className="aie-cohort-live-text">{label}</span>
+          {busy ? (
+            <LoaderCircle aria-hidden="true" />
+          ) : saved ? null : (
+            <ArrowRight aria-hidden="true" />
           )}
         </button>
       )}
@@ -130,46 +127,35 @@ export function WaitlistAction({
           Время подтверждения истекло. Вы ещё не в списке. Попробуйте снова.
         </p>
       ) : null}
-      {lower || saved ? (
-        <div className="waitlist-secondary-actions">
-          {lower ? (
-            <IntentPrefetchLink
-              className="waitlist-secondary"
-              href={productProgrammeHref("ai-engineering")}
-            >
-              Программа и бесплатные материалы
-              <ArrowRight aria-hidden="true" />
-            </IntentPrefetchLink>
-          ) : null}
-          {saved ? (
-            <button
-              className="waitlist-secondary waitlist-withdraw"
-              onClick={onWithdraw}
-              type="button"
-            >
-              Отказаться от ожидания
-            </button>
-          ) : null}
-        </div>
-      ) : null}
       <p className="sr-only" role="status" aria-atomic="true">
-        {busy
-          ? "Проверяю и сохраняю запись."
-          : saved
-            ? "Вы в списке. Сообщу об открытии набора в Telegram."
-            : notice}
+        {busy || saved ? label : notice}
       </p>
     </div>
   );
   return lower ? (
-    <div className="waitlist-lower">
-      <h2>{saved ? "Вы в списке" : "Следующий поток"}</h2>
-      <p>
-        {saved
-          ? "Сообщу об открытии набора в Telegram."
-          : "Оставьте заявку. Сообщу в Telegram, когда откроется набор."}
-      </p>
-      {action}
+    <div className="aie-cohort-status">
+      <div className="aie-cohort-status-intro">
+        <h2>Набор на первый поток</h2>
+        <p>Предзаказ скоро начнётся.</p>
+      </div>
+      <div className="aie-cohort-ticket-wrap">
+        <div className="aie-cohort-ticket">
+          <div className="aie-cohort-ticket-head">
+            <span>Предзаказ</span>
+          </div>
+          <p className="aie-cohort-ticket-soon">Скоро начнётся</p>
+          <div className="aie-cohort-ticket-tear" aria-hidden="true" />
+          <div className="aie-cohort-ticket-actions">
+            {action}
+            <IntentPrefetchLink
+              className="aie-cohort-ticket-programme"
+              href={productProgrammeHref("ai-engineering")}
+            >
+              Открыть программу
+            </IntentPrefetchLink>
+          </div>
+        </div>
+      </div>
     </div>
   ) : (
     action

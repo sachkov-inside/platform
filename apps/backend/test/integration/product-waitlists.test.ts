@@ -1,4 +1,11 @@
-import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { outsideTransaction } from "./setup/transaction-guard.js";
+import { eventually } from "./setup/eventually.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
+import {
+  lockTelegramAccountBinding,
+  lockAccountEntitlementChanges,
+  Prisma,
+} from "../../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
@@ -43,11 +50,16 @@ beforeAll(async () => {
   });
   waitlists = new ProductWaitlists({
     prisma: db.prisma,
+    rights: assembleAccountRights({
+      prisma: db.prisma,
+      clock: () => new Date("2030-03-05T12:00:00Z"),
+    }),
     links: new TelegramAccountLinks(db.prisma),
     clock: () => new Date("2030-03-05T12:00:00Z"),
   });
 });
 beforeEach(async () => {
+  await db.prisma.accessGrant.deleteMany({ where: { accountId } });
   await db.prisma.productWaitlistConfirmation.deleteMany({});
   await db.prisma.productWaitlistOperation.deleteMany({});
   await db.prisma.productWaitlistEvent.deleteMany({});
@@ -235,6 +247,10 @@ test("migration replay and application reconstruction preserve a confirmed membe
   await migrateToLatest(db.url);
   const reconstructed = new ProductWaitlists({
     prisma: db.prisma,
+    rights: assembleAccountRights({
+      prisma: db.prisma,
+      clock: () => new Date("2030-03-05T12:00:00Z"),
+    }),
     links: new TelegramAccountLinks(db.prisma),
     clock: () => new Date("2030-03-06T00:00:00Z"),
   });
@@ -299,6 +315,10 @@ test("a committed join queues one durable Telegram confirmation across replay an
   const confirmations: unknown[] = [];
   const reconstructed = new ProductWaitlists({
     prisma: db.prisma,
+    rights: assembleAccountRights({
+      prisma: db.prisma,
+      clock: () => new Date("2030-03-05T12:00:00Z"),
+    }),
     links: new TelegramAccountLinks(db.prisma),
     clock: () => new Date("2030-03-05T12:00:01Z"),
   });
@@ -392,5 +412,116 @@ test("a failed durable confirmation write rolls back membership and never author
     await db.prisma.$executeRaw(
       Prisma.sql`ALTER TABLE sales_funnel.product_waitlist_confirmations DROP CONSTRAINT confirmation_storage_failure`,
     );
+  }
+});
+
+async function openCourse(prisma = db.prisma) {
+  await prisma.accessGrant.create({
+    data: {
+      id: randomUUID(),
+      accountId,
+      source: "manual",
+      sourceRef: randomUUID(),
+      capabilities: [`product:${productId}`],
+      coverage: { productIds: [productId], materialIds: [] },
+      startsAt: new Date("2030-03-01T00:00:00Z"),
+      validUntil: null,
+      revision: 1,
+      reason: "Waitlist learner eligibility",
+    },
+  });
+}
+test("a learner cannot join and creates no signup or confirmation", async () => {
+  await openCourse();
+  const joined = await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  expect(joined).toMatchObject({ ok: true, value: { active: false } });
+  expect(await db.prisma.productWaitlistMembership.count()).toBe(0);
+  expect(await db.prisma.productWaitlistEvent.count()).toBe(0);
+  expect(await db.prisma.productWaitlistConfirmation.count()).toBe(0);
+});
+test("an existing signup stops being current and deliverable after course access opens", async () => {
+  const operationId = randomUUID();
+  await waitlists.join(accountId, { intakeId, operationId, source: "youtube" });
+  await openCourse();
+  expect(await waitlists.read(accountId, productId)).toMatchObject({
+    ok: true,
+    value: { active: false },
+  });
+  expect(
+    await waitlists.notificationMembership(intakeId, accountId),
+  ).toMatchObject({ ok: true, value: { active: false } });
+  expect(await waitlists.notificationAudience(intakeId)).toMatchObject({
+    ok: true,
+    value: { accountIds: [] },
+  });
+  expect(
+    await waitlists.demand({
+      productId,
+      from: new Date("2030-03-01Z"),
+      to: new Date("2030-04-01Z"),
+    }),
+  ).toMatchObject({ ok: true, value: { active: 0, joined: 1, withdrawn: 0 } });
+  const deliver = () => {
+    throw new Error("Learner confirmation must not be sent");
+  };
+  expect(await waitlists.dispatchConfirmations(deliver)).toBe(1);
+  expect(
+    await waitlists.join(accountId, {
+      intakeId,
+      operationId,
+      source: "youtube",
+    }),
+  ).toMatchObject({ ok: true, value: { active: false } });
+  expect(await db.prisma.productWaitlistEvent.count()).toBe(1);
+});
+
+test("joining waits for an access writer without reversing its binding and entitlement locks", async () => {
+  let joining: ReturnType<ProductWaitlists["join"]> | undefined;
+  try {
+    await db.prisma.$transaction(async (tx) => {
+      await lockTelegramAccountBinding(tx, accountId);
+      joining = outsideTransaction(() =>
+        waitlists.join(accountId, {
+          intakeId,
+          operationId: randomUUID(),
+          source: null,
+        }),
+      );
+      await outsideTransaction(() =>
+        eventually(async () => {
+          const rows = await db.prisma.$queryRaw<
+            { waiting: bigint }[]
+          >(Prisma.sql`
+          SELECT count(*) AS waiting FROM pg_locks
+          WHERE locktype='advisory' AND NOT granted
+          AND database=(SELECT oid FROM pg_database WHERE datname=current_database())
+        `);
+          expect(Number(rows[0]?.waiting)).toBeGreaterThan(0);
+        }, 10000),
+      );
+      await lockAccountEntitlementChanges(tx, accountId);
+      await tx.accessGrant.create({
+        data: {
+          id: randomUUID(),
+          accountId,
+          source: "manual",
+          sourceRef: randomUUID(),
+          capabilities: [`product:${productId}`],
+          coverage: { productIds: [productId], materialIds: [] },
+          startsAt: new Date("2030-03-01T00:00:00Z"),
+          validUntil: null,
+          revision: 1,
+          reason: "Concurrent waitlist access",
+        },
+      });
+    });
+    expect(await joining).toMatchObject({ ok: true, value: { active: false } });
+    expect(await db.prisma.productWaitlistMembership.count()).toBe(0);
+  } finally {
+    await joining;
   }
 });
