@@ -95,7 +95,7 @@ test("кнопка обмена доступна только после под�
     });
   });
   try {
-    await page.goto("/materials/navigation-lesson-3?from=%2Flibrary", {
+    await page.goto("/materials/navigation-lesson-2?from=%2Flibrary", {
       waitUntil: "commit",
     });
     const share = page
@@ -108,7 +108,7 @@ test("кнопка обмена доступна только после под�
     await share.click();
     await expect(
       page.getByRole("textbox", { name: /Скопируйте ссылку/ }),
-    ).toHaveValue(`${String(baseURL)}/materials/navigation-lesson-3`);
+    ).toHaveValue(`${String(baseURL)}/materials/navigation-lesson-2`);
     await expect(page.locator("html")).toHaveAttribute(
       "data-clipboard-calls",
       "1",
@@ -116,4 +116,23 @@ test("кнопка обмена доступна только после под�
   } finally {
     releaseScripts();
   }
+});
+
+test("в программе и закрытом материале нет действия поделиться", async ({
+  page,
+}) => {
+  await page.goto("/products/navigation-proof/programme");
+  await expect(
+    page.locator('[data-material-variant="series"]').first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Поделиться материалом/ }),
+  ).toHaveCount(0);
+  await page.goto("/materials/navigation-lesson-3");
+  await expect(
+    page.locator('[data-material-reader-state="access-required"]'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Поделиться материалом/ }),
+  ).toHaveCount(0);
 });

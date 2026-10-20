@@ -565,8 +565,6 @@
     border-radius: 999px;
     background: color-mix(in srgb, var(--background) 65%, transparent);
     box-shadow: var(--shadow-floating-nav);
-    -webkit-backdrop-filter: blur(24px);
-    backdrop-filter: blur(24px);
   }
   .dock > :is(a, button) {
     min-height: 2.75rem;

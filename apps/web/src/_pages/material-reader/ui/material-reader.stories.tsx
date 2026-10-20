@@ -1124,6 +1124,9 @@ export const AccessRequired: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
+      canvas.queryByRole("button", { name: /Поделиться материалом/ }),
+    ).not.toBeInTheDocument();
+    await expect(
       canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
     const membershipLink = canvas.getByRole("link", {
@@ -2162,5 +2165,50 @@ export const ProjectReferenceFromLessonMobile: Story = {
     await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
     );
+  },
+};
+
+/** Public access, not the current reader's entitlement, determines sharing. */
+export const PublicSharing: Story = {
+  args: { body: [], primaryVideo: null },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getAllByRole("button", {
+        name: /Поделиться материалом/,
+      }),
+    ).toHaveLength(2);
+  },
+};
+export const ClosedWithoutSharing: Story = {
+  args: {
+    material: { ...material, access: "closed" },
+    body: [],
+    primaryVideo: null,
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector('[data-material-reader-state="available"]'),
+    ).toBeInTheDocument();
+    await expect(
+      within(canvasElement).queryByRole("button", {
+        name: /Поделиться материалом/,
+      }),
+    ).not.toBeInTheDocument();
+  },
+};
+export const ClosedWithoutSharingMobile: Story = {
+  ...ClosedWithoutSharing,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const ClosedPendingWithoutSharing: Story = {
+  render: () => (
+    <MaterialReaderPending material={{ ...material, access: "closed" }} />
+  ),
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).queryByRole("button", {
+        name: /Поделиться материалом/,
+      }),
+    ).not.toBeInTheDocument();
   },
 };
