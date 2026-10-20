@@ -6,9 +6,13 @@ import {
   lockProductWaitlistOperation,
   lockProductWaitlistMembership,
   lockTelegramAccountBinding,
+  lockAccountEntitlementChanges,
   type SalesFunnelPrismaClient,
+  type SalesFunnelPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import { accountId as checkedAccountId } from "../../../accounts/index.js";
+import type { AccountRights } from "../../../account-rights/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 
 const joinSchema = z.strictObject({
@@ -43,10 +47,57 @@ export class ProductWaitlists {
   constructor(
     private readonly dependencies: {
       readonly prisma: SalesFunnelPrismaClient;
+      readonly rights: Pick<
+        AccountRights,
+        "resolveForAccess" | "resolveForAccessAccounts"
+      >;
       readonly links: Pick<TelegramAccountLinks, "readBinding">;
       readonly clock: () => Date;
     },
   ) {}
+  private async eligible(
+    accountId: string,
+    productId: string,
+    transaction?: SalesFunnelPrisma,
+  ): Promise<boolean> {
+    if (transaction !== undefined)
+      return (
+        await this.eligibleAccounts([accountId], productId, transaction)
+      ).has(accountId);
+    const access = await this.dependencies.rights.resolveForAccess(
+      checkedAccountId(accountId),
+      [productId],
+    );
+    if (access.kind === "unavailable" || access.kind === "stale")
+      throw new Error("Product access unavailable");
+    return access.kind !== "active";
+  }
+  private async eligibleAccounts(
+    accountIds: readonly string[],
+    productId: string,
+    transaction?: SalesFunnelPrisma,
+  ): Promise<Set<string>> {
+    const read = this.dependencies.rights.resolveForAccessAccounts;
+    if (read === undefined) throw new Error("Batch product access unavailable");
+    const states = await read(
+      accountIds.map(checkedAccountId),
+      [productId],
+      undefined,
+      transaction,
+    );
+    const eligible = new Set<string>();
+    for (const id of accountIds) {
+      const state = states.get(id);
+      if (
+        state === undefined ||
+        state.kind === "unavailable" ||
+        state.kind === "stale"
+      )
+        throw new Error("Product access unavailable");
+      if (state.kind !== "active") eligible.add(id);
+    }
+    return eligible;
+  }
   /** Complete bounded notification audience. Never silently truncate active memberships. */
   async notificationAudience(intakeId: string) {
     if (!z.uuid().safeParse(intakeId).success) return fail("invalid_request");
@@ -70,7 +121,13 @@ export class ProductWaitlists {
           ok: true,
           value: {
             productId: intake.productId,
-            accountIds: rows.map((row) => row.accountId),
+            accountIds: [
+              ...(await this.eligibleAccounts(
+                rows.map((row) => row.accountId),
+                intake.productId,
+                tx,
+              )),
+            ],
           },
         } as const;
       });
@@ -104,7 +161,9 @@ export class ProductWaitlists {
           ok: true,
           value: {
             productId: intake.productId,
-            active: membership?.active === true,
+            active:
+              membership?.active === true &&
+              (await this.eligible(accountId, intake.productId, tx)),
           },
         } as const;
       });
@@ -158,7 +217,9 @@ export class ProductWaitlists {
         value: {
           intakeId: intake.id,
           name: intake.name,
-          active: membership?.active ?? false,
+          active:
+            membership?.active === true &&
+            (await this.eligible(accountId, productId)),
         },
       } as const;
     } catch (error) {
@@ -175,7 +236,28 @@ export class ProductWaitlists {
       return fail("invalid_request");
     try {
       return await this.dependencies.prisma.$transaction(async (tx) => {
+        // Access writers acquire the binding lock before the entitlement lock too.
         await lockTelegramAccountBinding(tx, accountId);
+        await lockAccountEntitlementChanges(tx, accountId);
+        const intakeForAccess = await tx.productWaitlistIntake.findUnique({
+          where: { id: parsed.data.intakeId },
+        });
+        if (intakeForAccess === null || !intakeForAccess.accepting)
+          return fail("intake_not_found");
+        if (!(await this.eligible(accountId, intakeForAccess.productId, tx))) {
+          await tx.productWaitlistMembership.updateMany({
+            where: { intakeId: intakeForAccess.id, accountId, active: true },
+            data: { active: false, updatedAt: this.dependencies.clock() },
+          });
+          return {
+            ok: true,
+            value: {
+              intakeId: intakeForAccess.id,
+              name: intakeForAccess.name,
+              active: false,
+            },
+          } as const;
+        }
         const binding = await this.dependencies.links.readBinding(
           { accountId },
           tx,
@@ -348,6 +430,14 @@ export class ProductWaitlists {
             },
           },
         });
+        const intake = await tx.productWaitlistIntake.findUnique({
+          where: { id: row.intakeId },
+        });
+        if (
+          intake === null ||
+          !(await this.eligible(row.accountId, intake.productId, tx))
+        )
+          return "suppressed";
         const binding = await this.dependencies.links.readBinding(
           { accountId: row.accountId },
           tx,
@@ -433,11 +523,34 @@ export class ProductWaitlists {
           where: { productId: query.productId, accepting: true },
         });
         if (intake === null) return { ok: true, value: null } as const;
-        const memberships = await tx.productWaitlistMembership.groupBy({
-          by: ["source"],
-          where: { intakeId: intake.id, active: true },
-          _count: true,
-        });
+        const membershipCounts = new Map<string | null, number>();
+        let after: string | undefined;
+        for (;;) {
+          const page = await tx.productWaitlistMembership.findMany({
+            where: {
+              intakeId: intake.id,
+              active: true,
+              ...(after === undefined ? {} : { accountId: { gt: after } }),
+            },
+            select: { accountId: true, source: true },
+            orderBy: { accountId: "asc" },
+            take: 500,
+          });
+          const eligible = await this.eligibleAccounts(
+            page.map((row) => row.accountId),
+            query.productId,
+            tx,
+          );
+          for (const membership of page) {
+            if (eligible.has(membership.accountId))
+              membershipCounts.set(
+                membership.source,
+                (membershipCounts.get(membership.source) ?? 0) + 1,
+              );
+          }
+          if (page.length < 500) break;
+          after = page.at(-1)?.accountId;
+        }
         const events = await tx.productWaitlistEvent.groupBy({
           by: ["source", "kind"],
           where: {
@@ -463,8 +576,8 @@ export class ProductWaitlists {
           }
           return value;
         };
-        for (const group of memberships)
-          row(group.source).active = group._count;
+        for (const [source, count] of membershipCounts)
+          row(source).active = count;
         for (const group of events) {
           if (group.kind === "joined") row(group.source).joined = group._count;
           else row(group.source).withdrawn = group._count;

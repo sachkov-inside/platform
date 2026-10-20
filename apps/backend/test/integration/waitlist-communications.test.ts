@@ -1,3 +1,4 @@
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
@@ -58,6 +59,10 @@ beforeAll(async () => {
   });
   waitlists = new ProductWaitlists({
     prisma: db.prisma,
+    rights: assembleAccountRights({
+      prisma: db.prisma,
+      clock: () => new Date("2030-03-05T12:00:00Z"),
+    }),
     links: new TelegramAccountLinks(db.prisma),
     clock: () => instant,
   });

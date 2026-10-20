@@ -5,6 +5,7 @@ import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import {
   verifiedAccountIdentity,
   verifiedAccountSignIn,
+  verifiedTelegramAccountSignIn,
 } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { bootstrapOwnerAccount } from "../../src/modules/accounts/features/bootstrap-owner-account/bootstrap-owner-account.js";
 import {
@@ -219,5 +220,41 @@ describe("Accounts", () => {
         select: { emailFingerprint: true },
       }),
     ).resolves.toEqual({ emailFingerprint: null });
+  });
+  test("first verified email sign-in keeps a Telegram Account and its permissions", async () => {
+    const key = { issuer, subject: "telegram-first-email" };
+    const telegram = await accounts.establishAccount({
+      identity: verifiedTelegramAccountSignIn({
+        ...key,
+        telegram: {
+          subjectRef: "17000000-0000-4000-8000-000000000001",
+          requestRef: "17000000-0000-4000-8000-000000000002",
+        },
+      }).identity,
+    });
+    expect(telegram.ok).toBe(true);
+    if (!telegram.ok) return;
+    await database.prisma.accountPermission.create({
+      data: {
+        accountId: telegram.account.accountId,
+        permission: "materials:manage",
+      },
+    });
+    const email = await accounts.establishAccount({
+      identity: verifiedAccountSignIn({
+        ...key,
+        verifiedEmail: "attached-telegram@example.test",
+      }).identity,
+    });
+    expect(email).toEqual(telegram);
+    await expect(
+      accounts.checkPermission({
+        accountId: telegram.account.accountId,
+        permission: "materials:manage",
+      }),
+    ).resolves.toEqual({ ok: true, allowed: true });
+    await expect(
+      accounts.resolveAccount({ identity: verifiedAccountIdentity(key) }),
+    ).resolves.toEqual(telegram);
   });
 });

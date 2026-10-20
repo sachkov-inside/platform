@@ -11,3 +11,7 @@ export {
   type TelegramLinkActionProps,
 } from "./ui/telegram-link-action.client";
 export { AccountTelegramNotice } from "./ui/account-telegram-notice.client";
+export {
+  useAccountPresentation,
+  accountProfileChanged,
+} from "./model/use-account-presentation.client";

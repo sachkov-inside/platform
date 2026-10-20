@@ -166,6 +166,14 @@ export type SalesFunnelPrisma = Pick<
   PlatformPrisma,
   | "$queryRaw"
   | "$executeRaw"
+  // Passed to Account Rights for scoped access reads in the caller transaction.
+  | "accessChange"
+  | "accessGrant"
+  | "productAccessExclusion"
+  | "legacyClassification"
+  | "membershipBinding"
+  | "membershipEvidenceReceipt"
+  | "membershipProjection"
   | "salesFunnelBotEvent"
   | "productWaitlistIntake"
   | "productWaitlistMembership"
