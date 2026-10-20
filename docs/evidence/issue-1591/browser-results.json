@@ -1,0 +1,735 @@
+{
+  "results": [
+    {
+      "variant": "a-labels",
+      "width": 1440,
+      "measurements": {
+        "width": 1440,
+        "scroll": 1440,
+        "panels": [
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 117.5625,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 125.921875,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 117.5625,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 125.921875,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "a-labels",
+      "width": 1024,
+      "measurements": {
+        "width": 1024,
+        "scroll": 1024,
+        "panels": [
+          {
+            "client": 631,
+            "scroll": 631,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 117.5625,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 125.921875,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 631,
+            "scroll": 631,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 117.5625,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 125.921875,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "a-labels",
+      "width": 820,
+      "measurements": {
+        "width": 820,
+        "scroll": 820,
+        "panels": [
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "a-labels",
+      "width": 390,
+      "measurements": {
+        "width": 390,
+        "scroll": 390,
+        "panels": [
+          {
+            "client": 356,
+            "scroll": 356,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 81.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 92.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 356,
+            "scroll": 356,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 81.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 92.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "a-labels",
+      "width": 320,
+      "measurements": {
+        "width": 320,
+        "scroll": 320,
+        "panels": [
+          {
+            "client": 286,
+            "scroll": 286,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 44,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 286,
+            "scroll": 286,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 44,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "b-compact",
+      "width": 1440,
+      "measurements": {
+        "width": 1440,
+        "scroll": 1440,
+        "panels": [
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "b-compact",
+      "width": 1024,
+      "measurements": {
+        "width": 1024,
+        "scroll": 1024,
+        "panels": [
+          {
+            "client": 631,
+            "scroll": 631,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 631,
+            "scroll": 631,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "b-compact",
+      "width": 820,
+      "measurements": {
+        "width": 820,
+        "scroll": 820,
+        "panels": [
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 686,
+            "scroll": 686,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 85.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 101.28125,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 96.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "b-compact",
+      "width": 390,
+      "measurements": {
+        "width": 390,
+        "scroll": 390,
+        "panels": [
+          {
+            "client": 356,
+            "scroll": 356,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 81.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 92.9375,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 356,
+            "scroll": 356,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 81.203125,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 92.9375,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    },
+    {
+      "variant": "b-compact",
+      "width": 320,
+      "measurements": {
+        "width": 320,
+        "scroll": 320,
+        "panels": [
+          {
+            "client": 286,
+            "scroll": 286,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 44,
+                "height": 44
+              }
+            ]
+          },
+          {
+            "client": 286,
+            "scroll": 286,
+            "buttons": [
+              {
+                "name": "Назад",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Сохранить",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Изучено",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Поделиться",
+                "width": 44,
+                "height": 44
+              },
+              {
+                "name": "Дальше",
+                "width": 44,
+                "height": 44
+              }
+            ]
+          }
+        ]
+      },
+      "axe": []
+    }
+  ],
+  "writes": []
+}
