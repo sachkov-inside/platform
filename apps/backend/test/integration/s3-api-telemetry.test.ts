@@ -12,6 +12,10 @@ import { createS3ObjectStorage } from "../../src/infrastructure/object-storage/i
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  assertPrivateS3Exports,
+  summarizeS3Attempts,
+} from "../support/s3-api-diagnostics.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
 
 registerFixedClock();
@@ -315,8 +319,28 @@ test("public file delivery through production API parents one complete private-s
   expect(response.headers.get("x-content-type-options")).toBe("nosniff");
   await application.close();
   application = undefined;
-  expect(captureFailures).toEqual([]);
-  const documents = exported.map((raw) => exportSchema.parse(JSON.parse(raw)));
+  assertPrivateS3Exports(exported, [
+    "private-",
+    body.toString("utf8").trim(),
+    filename,
+    checksum,
+    ...Object.values(buckets),
+    ...Object.values(credentials),
+    storageEndpoint,
+    actor,
+    materialId,
+    assetId,
+    publicKey,
+    protectedKey,
+  ]);
+  expect(captureFailures.length).toBe(0);
+  const documents = exported.map((raw) => {
+    // The privacy gate validates JSON first; retain schema checking without raw Zod diffs.
+    const document = exportSchema.safeParse(JSON.parse(raw));
+    if (!document.success)
+      throw new Error("S3 API export schema validation failed");
+    return document.data;
+  });
   const spans = documents.flatMap(
     (value) =>
       value.resourceSpans?.flatMap((resource) =>
@@ -333,7 +357,10 @@ test("public file delivery through production API parents one complete private-s
   const storageSpans = logical.filter(
     (span) => attribute(span, "dependency.name")?.stringValue === "s3",
   );
-  expect(storageSpans).toHaveLength(2);
+  expect(
+    storageSpans.length,
+    storageSpans.length === 2 ? undefined : summarizeS3Attempts(logical),
+  ).toBe(2);
   const read = storageSpans.find((span) => span.name === "s3 getObject.read");
   const http = storageSpans.find((span) => span.name === "s3 http.GET");
   if (read === undefined || http === undefined)
@@ -427,23 +454,4 @@ test("public file delivery through production API parents one complete private-s
     }
     expect([...operations].sort()).toEqual(["getObject.read", "http.GET"]);
   }
-  const rawExports = exported.join("\n");
-  for (const secret of [
-    "private-",
-    body.toString("utf8").trim(),
-    filename,
-    checksum,
-    ...Object.values(buckets),
-    ...Object.values(credentials),
-    storageEndpoint,
-    actor,
-    materialId,
-    assetId,
-    publicKey,
-    protectedKey,
-  ])
-    expect(rawExports).not.toContain(secret);
-  expect(rawExports).not.toMatch(
-    /X-Amz-|AWS4-HMAC-SHA256|Credential=|Signature=/i,
-  );
 });
