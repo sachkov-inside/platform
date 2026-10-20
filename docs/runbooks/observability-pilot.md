@@ -1415,7 +1415,9 @@ Trace validation in SDK, tracking and waitlist admits only a constructor-owned f
 `trace_decode` at the whole-row decode-contract boundary, or `trace_gate_01` through `trace_gate_20`
 for the original semantic refusal sites. SDK admits only01–12. The checked-in
 `trace-predicates.json` binds each scope+gate to its permanent semantic predicate and preserves the
-original predicate order. Moving source lines never renumbers or repurposes a gate. Compound
+original predicate order. The test-only AST serialization copies each predicate and omits only
+exactly empty list fields, preserving the compact fixture format across Python versions without
+changing the parsed source or fixture hashes. Moving source lines never renumbers or repurposes a gate. Compound
 predicates remain compound; the code does not identify their failing operand, field, value or row.
 Malformed JSON keeps `response_decode`; unexpected errors keep the aggregate fallback. Only exact
 owning types and valid scope/gate fields are classified, without foreign getters or formatting.

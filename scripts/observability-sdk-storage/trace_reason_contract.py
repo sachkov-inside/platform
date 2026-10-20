@@ -10,6 +10,15 @@ from unittest.mock import patch
 import diagnostics
 
 
+def predicate_dump(node):
+    """Keep the accepted compact AST protocol independent of ast.dump defaults."""
+    compact=copy.deepcopy(node)
+    for child in ast.walk(compact):
+        for field,value in list(ast.iter_fields(child)):
+            if type(value) is list and not value:delattr(child,field)
+    return ast.dump(compact)
+
+
 class TraceReasons(unittest.TestCase):
     def parse(self,rows):
         return self.oracle.traces('\n'.join(json.dumps(row) for row in rows),**self.arguments)
@@ -92,7 +101,7 @@ class TraceReasons(unittest.TestCase):
         root=Path(__file__).resolve().parents[2]
         function=next(n for n in ast.parse((root/expected['source']).read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='traces')
         sha=lambda raw:hashlib.sha256(raw).hexdigest()
-        predicates=[ast.dump(n.test) for n in ast.walk(function) if isinstance(n,ast.If)]
+        predicates=[predicate_dump(n.test) for n in ast.walk(function) if isinstance(n,ast.If)]
         self.assertEqual(sha(json.dumps(predicates).encode()),expected['ordered_predicates_sha256'])
         parents={child:node for node in ast.walk(function) for child in ast.iter_child_nodes(node)}
         found={}
@@ -103,8 +112,26 @@ class TraceReasons(unittest.TestCase):
             self.assertEqual(scope,self.scope);self.assertNotIn(gate,found)
             parent=parents[node]
             while not isinstance(parent,ast.If):parent=parents[parent]
-            found[gate]=sha(ast.dump(parent.test).encode())
+            found[gate]=sha(predicate_dump(parent.test).encode())
         self.assertEqual(found,{gate:row['predicate_sha256'] for gate,row in expected['gates'].items()})
+
+    def test_compact_predicate_protocol_preserves_meaning_order_and_source_ast(self):
+        node=ast.parse('f()',mode='eval').body
+        original=ast.dump(node)
+        self.assertEqual(predicate_dump(node),"Call(func=Name(id='f', ctx=Load()))")
+        self.assertEqual(ast.dump(node),original)
+        self.assertEqual(node.args,[]);self.assertEqual(node.keywords,[])
+        pairs=(('x > 0','x >= 0'),('x and y','y and x'),('x == True','x == 1'),
+               ('x == 0','x == False'),('x == None','x == False'),('f()','f(x)'),
+               ('f(x)','f(y)'),('f(flag=True)','f(flag=False)'),('f(*items)','f(items)'),
+               ('x == []','x == ()'),('x == [0,1]','x == [1,0]'))
+        for before,after in pairs:
+            with self.subTest(before=before,after=after):
+                self.assertNotEqual(predicate_dump(ast.parse(before,mode='eval').body),
+                                    predicate_dump(ast.parse(after,mode='eval').body))
+        ordered=[predicate_dump(ast.parse(value,mode='eval').body) for value in ('x > 0','x and y')]
+        digest=lambda values:hashlib.sha256(json.dumps(values).encode()).hexdigest()
+        self.assertNotEqual(digest(ordered),digest(ordered[::-1]))
 
     def test_sdk_and_tracking_callers_preserve_the_same_primary_and_traceback(self):
         if self.scope=='waitlist':return  # Its post-capture persistence has its own concrete contracts.

@@ -433,3 +433,24 @@ class OwnershipDiagnostics(unittest.TestCase):
             names=[frame.name for frame in traceback.extract_tb(error.__traceback__)]
             self.assertIn('raise_original',names)
             self.assertNotIn('terminal_write',names)
+
+    def test_traceback_restore_uses_original_object_without_foreign_getter_or_override(self):
+        import sys
+        class Foreign(RuntimeError):
+            @property
+            def __traceback__(self):raise AssertionError('foreign traceback getter')
+            def with_traceback(self,tb):raise AssertionError('foreign traceback override')
+        actual_write=caddy_storage.artifact.write_run
+        with tempfile.TemporaryDirectory() as directory:
+            runtime=Runtime(directory);primary=Foreign('private-controlled-primary');original=[]
+            def raise_original(argv,result):raise primary
+            runtime.change=raise_original
+            def terminal_write(output,run):
+                if run['state']=='failed':
+                    original.append(sys.exc_info()[2]);raise primary
+                return actual_write(output,run)
+            error,run=runtime.fail_worker(self,(patch.object(caddy_storage.artifact,'write_run',side_effect=terminal_write),))
+            self.assertIs(error,primary);self.assertEqual(len(original),1)
+            caught_tb=BaseException.__traceback__.__get__(error)
+            self.assertIs(caught_tb.tb_next,original[0])
+            self.assertNotIn('private-controlled',json.dumps(run))
