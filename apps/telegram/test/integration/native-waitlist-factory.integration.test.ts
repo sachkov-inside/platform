@@ -662,6 +662,7 @@ for (const outcome of ["clean", "cleanup_failures"] as const)
       const destroy = database.destroy.bind(database);
       // Public Nest proxies resolve methods lazily. Spy on the real prototype so
       // the original method receives Nest's original receiver, not its public Proxy.
+      // oxlint-disable-next-line typescript/unbound-method -- Called below with Nest's original receiver.
       const close = NestApplication.prototype.close;
       // Public lifetime boundaries call their original native cleanup before fault injection.
       const sdk = vi

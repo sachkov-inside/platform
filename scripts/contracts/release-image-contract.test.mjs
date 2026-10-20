@@ -58,7 +58,7 @@ function suppliesWorkspaceImporter(dockerfile, importer) {
       if (words.some((word) => word.startsWith("--from="))) continue;
       while (words[0]?.startsWith("--chown=")) words.shift();
       if (
-        words.some((word) => /[\[\]"'$*?]/u.test(word) || word.startsWith("--"))
+        words.some((word) => /[[\]"'$*?]/u.test(word) || word.startsWith("--"))
       )
         continue;
       const destination = words.pop();
