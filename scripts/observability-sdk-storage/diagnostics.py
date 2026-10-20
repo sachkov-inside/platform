@@ -37,57 +37,89 @@ WAITLIST_STORAGE_PHASES = ('metric_query','metric_validation','trace_query','tra
                            'reconciliation','visibility','complete')
 
 
+TRACKING_GATE06_DETAILS = {
+    'missing_mandatory':'trace_gate_06_missing_mandatory',
+    'unexpected_key':'trace_gate_06_unexpected_key',
+    'expected_value':'trace_gate_06_expected_value',
+    'optional_value':'trace_gate_06_optional_value',
+}
+
+
+def _valid_detail(scope,gate,detail):
+    return detail is None or (scope=='tracking' and gate=='trace_gate_06'
+        and type(detail) is str and detail in TRACKING_GATE06_DETAILS)
+
+
 class TraceGateRefusal(ValueError):
     """An empty ValueError with a constructor-owned semantic predicate identifier."""
-    __slots__ = ('_scope','_reason')
-    def __init__(self, scope, reason):
+    __slots__ = ('_scope','_reason','_detail')
+    def __init__(self, scope, reason, *, detail=None):
         if (type(scope) is not str or scope not in TRACE_GATES or type(reason) is not str
-                or reason not in TRACE_GATES[scope]):
+                or reason not in TRACE_GATES[scope] or not _valid_detail(scope,reason,detail)):
             raise ValueError('closed trace predicate reason')
         object.__setattr__(self,'_scope',scope)
         object.__setattr__(self,'_reason',reason)
+        object.__setattr__(self,'_detail',detail)
         super().__init__()
 
     @property
     def scope(self):return self._scope
     @property
     def reason(self):return self._reason
+    @property
+    def detail(self):return self._detail
+    @property
+    def diagnostic_reason(self):return self._reason if self._detail is None else TRACKING_GATE06_DETAILS[self._detail]
     def __setattr__(self,name,value):
-        if name in ('scope','reason','_scope','_reason'):raise AttributeError('read-only trace reason')
+        if name in ('scope','reason','detail','diagnostic_reason','_scope','_reason','_detail'):raise AttributeError('read-only trace reason')
         super().__setattr__(name,value)
 
 
 class TraceOracleRefusal(OracleRefusal):
     """Fixed original RuntimeError message, never caller-provided native details."""
-    __slots__ = ('_scope','_reason')
-    def __init__(self,scope,reason):
-        admitted=TraceGateRefusal(scope,reason)
+    __slots__ = ('_scope','_reason','_detail')
+    def __init__(self,scope,reason,*,detail=None):
+        admitted=TraceGateRefusal(scope,reason,detail=detail)
         object.__setattr__(self,'_scope',admitted.scope)
         object.__setattr__(self,'_reason',admitted.reason)
+        object.__setattr__(self,'_detail',admitted.detail)
         RuntimeError.__init__(self,TRACE_MESSAGES[scope])
 
     @property
     def scope(self):return self._scope
     @property
     def reason(self):return self._reason
+    @property
+    def detail(self):return self._detail
+    @property
+    def diagnostic_reason(self):return self._reason if self._detail is None else TRACKING_GATE06_DETAILS[self._detail]
     def __setattr__(self,name,value):
-        if name in ('scope','reason','_scope','_reason'):raise AttributeError('read-only trace reason')
+        if name in ('scope','reason','detail','diagnostic_reason','_scope','_reason','_detail'):raise AttributeError('read-only trace reason')
         super().__setattr__(name,value)
 
 
-def _trace_reason(error,scope):
-    # No foreign properties, formatting, args or exception delegation.
+def _trace_metadata(error,scope):
+    # Exact known types only: no foreign properties, formatting, args or delegation.
     if type(error) not in (TraceGateRefusal,TraceOracleRefusal):return None
     if type(scope) is not str or scope not in TRACE_GATES:return None
-    try:owner,reason=error.scope,error.reason
+    try:
+        owner=object.__getattribute__(error,'_scope')
+        gate=object.__getattribute__(error,'_reason')
+        detail=object.__getattribute__(error,'_detail')
     except AttributeError:return None
-    if type(owner) is str and owner==scope and type(reason) is str and reason in TRACE_GATES[scope]:return reason
+    if (type(owner) is str and owner==scope and type(gate) is str and gate in TRACE_GATES[scope]
+            and _valid_detail(owner,gate,detail)):return gate,detail
     return None
 
 
+def _trace_reason(error,scope):
+    metadata=_trace_metadata(error,scope)
+    return None if metadata is None else metadata[0]
+
+
 def trace_refusal(error,*,scope):
-    reason=_trace_reason(error,scope)
-    if reason is not None:return TraceOracleRefusal(scope,reason)
+    metadata=_trace_metadata(error,scope)
+    if metadata is not None:return TraceOracleRefusal(scope,metadata[0],detail=metadata[1])
     if type(error) is ResponseDecode:return OracleRefusal(TRACE_MESSAGES[scope],'response_decode')
     if scope=='waitlist':return RuntimeError(TRACE_MESSAGES[scope])
     return OracleRefusal(TRACE_MESSAGES[scope],'oracle_refusal')
@@ -107,7 +139,7 @@ FAILURES = {
     'metric_query': ('transport', 'deadline', 'response_decode'),
     'metric_validation': ('response_decode', 'oracle_refusal'),
     'trace_query': ('transport', 'deadline', 'response_decode'),
-    'trace_validation': ('response_decode', 'oracle_refusal', *TRACE_CODES),
+    'trace_validation': ('response_decode', 'oracle_refusal', *TRACE_CODES, *TRACKING_GATE06_DETAILS.values()),
     'reconciliation': ('oracle_refusal',), 'visibility': ('deadline',), 'complete': (),
 }
 
@@ -133,6 +165,7 @@ def validate(value, *, scope):
             or value['attempts_saturated'] and value['attempts'] != MAX_ATTEMPTS):
         _refuse()
     phase, outcome, reason = (value[key] for key in ('phase','outcome','reason'))
+    if reason in TRACKING_GATE06_DETAILS.values() and (scope!='tracking' or phase!='trace_validation' or outcome!='failed'): _refuse()
     if reason in TRACKING_WITNESS_REASONS and scope != 'tracking': _refuse()
     if reason in TRACE_CODES and (phase != 'trace_validation' or reason not in TRACE_GATES[scope]): _refuse()
     if scope == 'waitlist' and phase not in ('unknown', 'capture', 'protocol_decode', *WAITLIST_STORAGE_PHASES): _refuse()
@@ -167,15 +200,25 @@ def read(path, *, scope):
 def write(path, value, *, scope):
     canonical = validate(value, scope=scope)
     encoded = (json.dumps(canonical, sort_keys=True, separators=(',', ':'), allow_nan=False)+'\n').encode()
-    if len(encoded) > MAX_BYTES or path.is_symlink(): _refuse()
+    if len(encoded) > MAX_BYTES or path.is_symlink() or path.exists() and not path.is_file(): _refuse()
     temporary = path.with_name('.storage-diagnostic.new')
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    created=None;committed=False
     try:
         with os.fdopen(descriptor, 'wb') as stream:
+            info=os.fstat(stream.fileno());created=(info.st_dev,info.st_ino)
             stream.write(encoded)
-        os.replace(temporary, path)
+        os.replace(temporary, path);committed=True
     finally:
-        if temporary.is_file() and not temporary.is_symlink(): temporary.unlink()
+        primary,tb=sys.exc_info()[1:]
+        try:
+            if not committed and created is not None:
+                try:info=temporary.lstat()
+                except FileNotFoundError:info=None
+                if info is not None and stat.S_ISREG(info.st_mode) and (info.st_dev,info.st_ino)==created:temporary.unlink()
+        except BaseException:
+            if primary is None:raise
+            BaseException.with_traceback(primary,tb)
 
 
 class Diagnostic:
@@ -205,11 +248,12 @@ class Diagnostic:
         return validate(self._value, scope=self._value['scope'])
 
     def persist(self, path):
-        primary_failure = sys.exc_info()[0] is not None
+        primary,primary_tb=sys.exc_info()[1:]
         try:
             write(path, self.snapshot(), scope=self._value['scope'])
-        except (OSError, ValueError):
-            if not primary_failure: raise
+        except BaseException:
+            if primary is None:raise
+            BaseException.with_traceback(primary,primary_tb)
 
 
 class QueryReadFailure(RuntimeError):
@@ -226,7 +270,10 @@ def query_reason(error):
 
 def oracle_reason(error, *, scope=None):
     if type(error) is TraceOracleRefusal:
-        return _trace_reason(error,scope) or 'unknown'
+        metadata=_trace_metadata(error,scope)
+        if metadata is None:return 'unknown'
+        gate,detail=metadata
+        return gate if detail is None else TRACKING_GATE06_DETAILS[detail]
     if type(error) is OracleRefusal:
         try:reason=error.reason
         except AttributeError:return 'unknown'
