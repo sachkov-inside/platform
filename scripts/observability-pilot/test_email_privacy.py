@@ -41,6 +41,6 @@ class EmailCatalog(unittest.TestCase):
         self.assertIn('not IsString(attributes["outcome"])', points)
         # Email admission preserves Materials and the independently reviewed generic dependency catalog.
         self.assertEqual(policy['notifications']['operations'], ['publish','receive','audience'])
-        self.assertEqual(policy['dependencies']['names'], ['kinescope','postgresql','tbank','logto','telegram'])
+        self.assertEqual(policy['dependencies']['names'], ['kinescope','postgresql','tbank','logto','telegram','s3'])
         self.assertNotIn('smtp', policy['dependencies']['names'])
         self.assertEqual(policy['dependencies']['outcomes'], ['completed','failed'])
