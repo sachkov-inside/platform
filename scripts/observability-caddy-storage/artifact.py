@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 import stat
+import sys
 import caddy_status as status
 import evidence
 
@@ -101,7 +102,12 @@ def directory(root):
         if info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o700:refuse()
         yield descriptor
     finally:
-        for descriptor in reversed(descriptors):os.close(descriptor)
+        primary=sys.exc_info()[0] is not None
+        close_failed=False
+        for descriptor in reversed(descriptors):
+            try:os.close(descriptor)
+            except OSError:close_failed=True
+        if close_failed and not primary:refuse()
 
 
 def _read(root, name, validator, cap):
