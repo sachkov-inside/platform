@@ -15,3 +15,6 @@ INSERT INTO application_secrets VALUES
  ('test-app', 'default', now() + interval '1 day', 'secret-value-future'),
  ('test-app', 'default', NULL, 'secret-value-no-expiry'),
  ('test-app', 'default', now() - interval '1 day', 'secret-value-expired');
+
+CREATE SCHEMA sales_funnel;
+CREATE TABLE sales_funnel.product_waitlist_confirmations (event_id uuid PRIMARY KEY, completed_at timestamptz);

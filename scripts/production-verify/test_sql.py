@@ -6,7 +6,7 @@ import subprocess
 import sys
 import unittest
 import uuid
-from queries import DOMAIN_CATALOG, logto_secret_inventory
+from queries import DOMAIN_CATALOG, WAITLIST_CONFIRMATIONS, logto_secret_inventory
 
 
 @unittest.skipUnless(os.environ.get('PRODUCTION_VERIFY_SQL_TEST') == '1', 'isolated SQL test requires a Docker slot')
@@ -75,6 +75,15 @@ class SqlContractTests(unittest.TestCase):
         self.assertEqual(facts['applications'], 1)
         self.assertFalse(facts['legacySecretPresent'])
         self.assertNotIn('secret-value', str(facts))
+
+    def test_waitlist_relay_reports_pending_without_private_recipient_data(self):
+        self.execute("INSERT INTO sales_funnel.product_waitlist_confirmations VALUES ('00000000-0000-4000-8000-000000000002',NULL)", readonly=False)
+        try:
+            self.assertEqual(json.loads(self.execute(WAITLIST_CONFIRMATIONS)), {'pending': 1, 'completed': 0})
+            self.execute('UPDATE sales_funnel.product_waitlist_confirmations SET completed_at=now()', readonly=False)
+            self.assertEqual(json.loads(self.execute(WAITLIST_CONFIRMATIONS)), {'pending': 0, 'completed': 1})
+        finally:
+            self.execute('DELETE FROM sales_funnel.product_waitlist_confirmations', readonly=False)
 
     def test_readonly_transaction_rejects_writes(self):
         with self.assertRaises(RuntimeError):

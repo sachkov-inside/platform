@@ -78,6 +78,7 @@ beforeAll(async () => {
   await app.getHttpAdapter().getInstance().ready();
 });
 beforeEach(async () => {
+  await db.prisma.productWaitlistConfirmation.deleteMany({});
   await db.prisma.productWaitlistOperation.deleteMany({});
   await db.prisma.productWaitlistEvent.deleteMany({});
   await db.prisma.productWaitlistMembership.deleteMany({});
@@ -152,5 +153,39 @@ test("dispatch uses the active membership and current Account identity rather th
     status: "ok",
     active: 0,
     members: [],
+  });
+});
+
+test("service confirmation authorization checks the exact committed generation and binding", async () => {
+  let confirmation: unknown;
+  await waitlists.dispatchConfirmations((command) => {
+    confirmation = command;
+    return Promise.resolve("unavailable" as const);
+  });
+  // Use the real JSON transport shape rather than an author command.
+  const invoke = (payload: unknown, authorization = `Bearer ${secret}`) =>
+    app.inject({
+      method: "POST",
+      url: "/integrations/telegram/v1/communications/waitlist",
+      headers: { authorization, "content-type": "application/json" },
+      payload: JSON.stringify(payload),
+    });
+  expect((await invoke(confirmation, "Bearer foreign-secret")).statusCode).toBe(
+    401,
+  );
+  expect((await invoke(confirmation)).json()).toMatchObject({
+    status: "accepted",
+  });
+  await waitlists.withdraw(ownerId, { intakeId });
+  expect((await invoke(confirmation)).json()).toMatchObject({
+    status: "suppressed",
+  });
+  await waitlists.join(ownerId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  expect((await invoke(confirmation)).json()).toMatchObject({
+    status: "suppressed",
   });
 });

@@ -1,3 +1,4 @@
+import { WaitlistConfirmations } from "../../src/modules/communications/waitlist-confirmations.js";
 import { HttpPlatformEvidenceAdapter } from "../../src/adapters/platform/http-platform-evidence.adapter.js";
 import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { linkEffects } from "../../src/application/link-effects.js";
@@ -141,6 +142,13 @@ describe("initial Membership Evidence", () => {
       degradedTelegram,
     );
     const degradedOperations = new OperationsController(
+      new WaitlistConfirmations(
+        database,
+        liveConfig,
+        clock,
+        { current: () => Promise.resolve("unavailable") },
+        { send: () => Promise.resolve({ kind: "transport_unknown" }) },
+      ),
       database,
       new RuntimeMetrics(),
       liveConfig,
@@ -176,6 +184,13 @@ describe("initial Membership Evidence", () => {
     await readyProvider.probeProvider();
     await expect(
       new OperationsController(
+        new WaitlistConfirmations(
+          database,
+          liveConfig,
+          clock,
+          { current: () => Promise.resolve("unavailable") },
+          { send: () => Promise.resolve({ kind: "transport_unknown" }) },
+        ),
         database,
         new RuntimeMetrics(),
         liveConfig,

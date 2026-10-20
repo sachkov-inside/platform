@@ -1,3 +1,4 @@
+import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -233,16 +234,19 @@ export class ProductWaitlists {
             value: { intakeId: intake.id, name: intake.name, active: true },
           } as const;
         const now = this.dependencies.clock();
+        const eventId = randomUUID();
         await tx.productWaitlistMembership.upsert({
           where: { intakeId_accountId: key },
           create: {
             ...key,
+            confirmationEventId: eventId,
             active: true,
             source: parsed.data.source,
             joinedAt: now,
             updatedAt: now,
           },
           update: {
+            confirmationEventId: eventId,
             active: true,
             source: parsed.data.source,
             joinedAt: now,
@@ -251,11 +255,21 @@ export class ProductWaitlists {
         });
         await tx.productWaitlistEvent.create({
           data: {
-            id: randomUUID(),
+            id: eventId,
             ...key,
             kind: "joined",
             source: parsed.data.source,
             occurredAt: now,
+          },
+        });
+        await tx.productWaitlistConfirmation.create({
+          data: {
+            eventId,
+            ...key,
+            accountRef: binding.binding.accountRef,
+            telegramIdentityRef: binding.binding.telegramIdentityRef,
+            linkRevision: binding.binding.linkRevision,
+            createdAt: now,
           },
         });
         return {
@@ -268,6 +282,90 @@ export class ProductWaitlists {
         { module: "sales-funnel", operation: "joinWaitlist" },
         error,
         fail("dependency_unavailable"),
+      );
+    }
+  }
+  /** Relays only committed occurrences. HTTP acceptance is idempotent; lost replies retain the same event ID. */
+  async dispatchConfirmations(
+    deliver: (
+      command: WaitlistConfirmation,
+    ) => Promise<"accepted" | "suppressed" | "unavailable">,
+    limit = 20,
+  ): Promise<number> {
+    const rows =
+      await this.dependencies.prisma.productWaitlistConfirmation.findMany({
+        where: { completedAt: null },
+        orderBy: [{ createdAt: "asc" }, { eventId: "asc" }],
+        take: limit,
+      });
+    let completed = 0;
+    for (const row of rows) {
+      const command: WaitlistConfirmation = {
+        contractVersion: "inside.waitlist-confirmation.v1",
+        eventId: row.eventId,
+        intakeId: row.intakeId,
+        accountRef: row.accountRef,
+        telegramIdentityRef: row.telegramIdentityRef,
+        linkRevision: row.linkRevision,
+      };
+      const current = await this.confirmationCurrent(command);
+      if (current === "unavailable") continue;
+      const result =
+        current === "suppressed" ? "suppressed" : await deliver(command);
+      if (result === "unavailable") continue;
+      await this.dependencies.prisma.productWaitlistConfirmation.updateMany({
+        where: { eventId: row.eventId, completedAt: null },
+        data: { completedAt: this.dependencies.clock() },
+      });
+      completed += 1;
+    }
+    return completed;
+  }
+  /** Dispatch authorization binds the current membership generation and current Telegram link. */
+  async confirmationCurrent(
+    command: WaitlistConfirmation,
+  ): Promise<"accepted" | "suppressed" | "unavailable"> {
+    try {
+      return await this.dependencies.prisma.$transaction(async (tx) => {
+        const row = await tx.productWaitlistConfirmation.findUnique({
+          where: { eventId: command.eventId },
+        });
+        if (
+          row === null ||
+          row.intakeId !== command.intakeId ||
+          row.accountRef !== command.accountRef ||
+          row.telegramIdentityRef !== command.telegramIdentityRef ||
+          row.linkRevision !== command.linkRevision
+        )
+          return "suppressed";
+        await lockTelegramAccountBinding(tx, row.accountId);
+        await lockProductWaitlistMembership(tx, row.intakeId, row.accountId);
+        const membership = await tx.productWaitlistMembership.findUnique({
+          where: {
+            intakeId_accountId: {
+              intakeId: row.intakeId,
+              accountId: row.accountId,
+            },
+          },
+        });
+        const binding = await this.dependencies.links.readBinding(
+          { accountId: row.accountId },
+          tx,
+        );
+        if (!binding.ok) return "unavailable";
+        return membership?.active === true &&
+          membership.confirmationEventId === row.eventId &&
+          binding.binding?.accountRef === row.accountRef &&
+          binding.binding.telegramIdentityRef === row.telegramIdentityRef &&
+          binding.binding.linkRevision === row.linkRevision
+          ? "accepted"
+          : "suppressed";
+      });
+    } catch (error) {
+      return dependencyFailure(
+        { module: "sales-funnel", operation: "confirmationCurrent" },
+        error,
+        "unavailable" as const,
       );
     }
   }

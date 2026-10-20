@@ -1996,6 +1996,7 @@ model ProductWaitlistIntake {
   @@schema("sales_funnel")
 }
 model ProductWaitlistMembership {
+  confirmationEventId String? @map("confirmation_event_id") @db.Uuid
   intakeId String @map("intake_id") @db.Uuid
   accountId String @map("account_id") @db.Uuid
   active Boolean
@@ -2024,5 +2025,18 @@ model ProductWaitlistOperation {
  source String?
  createdAt DateTime @map("created_at") @db.Timestamptz
  @@map("product_waitlist_operations")
+ @@schema("sales_funnel")
+}
+
+model ProductWaitlistConfirmation {
+ eventId String @id @map("event_id") @db.Uuid
+ intakeId String @map("intake_id") @db.Uuid
+ accountId String @map("account_id") @db.Uuid
+ accountRef String @map("account_ref")
+ telegramIdentityRef String @map("telegram_identity_ref")
+ linkRevision Int @map("link_revision")
+ completedAt DateTime? @map("completed_at") @db.Timestamptz
+ createdAt DateTime @map("created_at") @db.Timestamptz
+ @@map("product_waitlist_confirmations")
  @@schema("sales_funnel")
 }
