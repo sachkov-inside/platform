@@ -150,5 +150,48 @@ class HistogramSemantics(unittest.TestCase):
             oracle.metrics(json.dumps(body), release='a'*40)
 
 
+class LogicalSdkDuplicates(unittest.TestCase):
+    def test_full_and_partial_vectors_reject_scope_variants_of_the_same_metric(self):
+        # Each optional scope form is individually allowed. Combining them must
+        # never create a second observation of one logical SDK metric.
+        scopes = (None, '', 'unknown')
+        metrics = (('dependency_counter', 0, '2'), ('dependency_sum', 2, '0.5'),
+                   ('dependency_bucket', 3, '1'), ('http_counter', 38, '2'),
+                   ('http_sum', 40, '0.5'), ('http_bucket', 41, '1'),
+                   ('health_scalar', 57, '0'))
+        for mode in ('full', 'partial'):
+            for name, index, contradictory in metrics:
+                for first_scope in scopes:
+                    for second_scope in scopes:
+                        if first_scope == second_scope:
+                            continue
+                        for values in (('same',) if name == 'health_scalar' else ('same', 'contradictory')):
+                            with self.subTest(vector=mode, metric=name, first_scope=first_scope,
+                                              second_scope=second_scope, values=values):
+                                body = vector()
+                                first = body['data']['result'][index]
+                                if first_scope is not None:
+                                    first['metric']['scope.version'] = first_scope
+                                second = copy.deepcopy(first)
+                                second['metric'].pop('scope.version', None)
+                                if second_scope is not None:
+                                    second['metric']['scope.version'] = second_scope
+                                if values == 'contradictory':
+                                    second['value'][1] = contradictory
+                                body['data']['result'] = ([*body['data']['result'], second]
+                                                         if mode == 'full' else [first, second])
+                                with self.assertRaisesRegex(RuntimeError, '^SDK storage metric contract failed$'):
+                                    oracle.metrics(json.dumps(body), release='a'*40)
+
+    def test_each_single_scope_variant_remains_valid_without_duplicate_observations(self):
+        for scope in (None, '', 'unknown'):
+            with self.subTest(scope=scope):
+                body = vector()
+                if scope is not None:
+                    for row in body['data']['result']:
+                        row['metric']['scope.version'] = scope
+                self.assertEqual(oracle.metrics(json.dumps(body), release='a'*40)['s3_dependency_series'], 38)
+
+
 if __name__ == '__main__':
     unittest.main()

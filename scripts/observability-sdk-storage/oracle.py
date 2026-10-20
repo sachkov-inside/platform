@@ -138,7 +138,10 @@ def metrics(raw, *, release):
                 raise ValueError()
             elif name.endswith('_bucket') and value not in (0, 1):
                 raise ValueError()
-            sdk[(owner, name, bucket)] = value
+            logical_key = (owner, name, bucket)
+            if logical_key in sdk:
+                raise ValueError()
+            sdk[logical_key] = value
         expected = {(owner, prefix+suffix, bucket) for owner, prefix, counter in (
             ('getObject.read', 'inside.dependency.duration', 'inside.dependency.operations'),
             ('http.GET', 'inside.dependency.duration', 'inside.dependency.operations'),
