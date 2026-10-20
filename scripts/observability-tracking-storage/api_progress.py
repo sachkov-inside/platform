@@ -89,5 +89,7 @@ class OwnedProgress:
             except (OSError,ValueError):
                 if error is None: raise
         finally:
-            self.directory.cleanup()
+            try: self.directory.cleanup()
+            except OSError:
+                if error is None: raise
         return False

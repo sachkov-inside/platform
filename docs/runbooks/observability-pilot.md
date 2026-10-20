@@ -1375,8 +1375,18 @@ and visibility expiry, plus capture deadline/native exit/protocol decoding, witn
 and module write boundaries. Attempts are retained on failure, bounded at1024 with an explicit
 saturation flag. Existing30/60/600-second budgets and all byte, row, role, flags and metric gates remain.
 A pending observation is recorded only after the complete unchanged raw oracle accepts the response.
-No role-presence projection bypasses that gate. A native nonzero exit still has an unknown internal
-subphase; no raw native stderr or exception message is collected.
+No role-presence projection bypasses that gate. No raw native stderr or exception message is collected.
+
+The actual tracking and waitlist API producers also have a separate optional private milestone channel.
+Its canonical `api-producer-phase.json` is at most512bytes and contains only schema1, exact caller
+scope, checkout SHA, observed/unknown/refused state and a fixed completed milestone. Milestones identify
+producer start, imports, migration, provider/API listeners, checked HTTP response, persisted carrier,
+waitlist relay restart, confirmed delivery, SDK shutdown and constructed native module map. They never
+replace the complete producer witness or raw stored-data validation. An owned0700 directory stays alive
+until capture reaps the child, then the parent strictly validates and projects the last atomic marker.
+Missing legacy markers remain unknown; invalid markers are refused without copying their bytes or
+replacing the primary capture failure. Collectors reject wrong source/scope and malformed present
+projections before public copying. All native capture budgets and single stdout IPC remain unchanged.
 
 The first failure remains separate from cleanup/recovery outcomes. A failure after a completed business
 observation remains failed or interrupted, including at the completion boundary; it is not acceptance.

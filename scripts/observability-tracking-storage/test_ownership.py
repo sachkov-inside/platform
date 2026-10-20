@@ -85,7 +85,9 @@ class TrackingOwnership(unittest.TestCase):
             'scripts/observability-tracking-storage/contract_runner.py','scripts/observability-tracking-storage/contract-runner.mjs',
             'scripts/observability-umami/process-owner.mjs','scripts/process-group-signal.mjs',
             'scripts/observability-sdk-storage/diagnostics.py','scripts/observability-sdk-storage/test_diagnostic_reasons.py',
-            'scripts/observability-tracking-storage/diagnostic_contract.py','scripts/observability-tracking-storage/test_diagnostics.py'}
+            'scripts/observability-tracking-storage/diagnostic_contract.py','scripts/observability-tracking-storage/test_diagnostics.py',
+            'scripts/observability-tracking-storage/api_progress.py','scripts/observability-tracking-storage/api-progress.mjs',
+            'scripts/observability-tracking-storage/api_progress_contract.py','scripts/observability-tracking-storage/test_api_progress.py'}
         self.assertFalse(required-paths)
         for path in sorted(paths):
             with self.subTest(path=path):

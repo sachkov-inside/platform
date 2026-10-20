@@ -14,7 +14,7 @@ class ProgressSchema(unittest.TestCase):
             path=Path(directory)/'phase.json'
             path.write_text(json.dumps(good))
             self.assertEqual(api_progress.read(path,scope='tracking',source=SOURCE),good)
-            for raw in ('{"schema":1,"schema":1}', '{"private":"private-sentinel"}', 'NaN', '['*100, 'x'*513):
+            for raw in (json.dumps(good).replace('"schema": 1','"schema":1,"sch\\u0065ma":1'), '{"private":"private-sentinel"}', 'NaN', '['*100, 'x'*513):
                 path.write_text(raw)
                 with self.assertRaises(ValueError): api_progress.read(path,scope='tracking',source=SOURCE)
             for key,value in (('scope','waitlist'),('source','b'*40),('milestone','private-sentinel'),('schema',True),('state','unknown')):
