@@ -1,3 +1,9 @@
+import { MaterialAnnouncements } from "./modules/communications/material-announcements.js";
+import {
+  MATERIAL_ANNOUNCEMENT_SOURCE,
+  DisabledMaterialAnnouncementSource,
+} from "./modules/communications/material-announcement-source.js";
+import { HttpMaterialAnnouncementsAdapter } from "./adapters/platform/http-material-announcements.adapter.js";
 import type { CommunicationTransport } from "./modules/communications/communication-delivery.js";
 import {
   WaitlistConfirmations,
@@ -436,6 +442,18 @@ export class AppModule {
         Funnels,
         MarketingEntry,
         FunnelScheduler,
+        MaterialAnnouncements,
+        {
+          provide: MATERIAL_ANNOUNCEMENT_SOURCE,
+          useFactory: () =>
+            hasText(config.platformAuthorAuthorizationUrl) &&
+            hasText(config.platformAuthorAuthorizationSecret)
+              ? new HttpMaterialAnnouncementsAdapter(
+                  config.platformAuthorAuthorizationUrl,
+                  config.platformAuthorAuthorizationSecret,
+                )
+              : new DisabledMaterialAnnouncementSource(),
+        },
         {
           provide: WAITLIST_AUTHORIZATION,
           useFactory: () =>

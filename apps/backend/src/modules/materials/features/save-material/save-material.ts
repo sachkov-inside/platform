@@ -67,6 +67,7 @@ const saveMaterialCommand = z
     materialId: materialIdSchema,
     expectedContentVersion: z.number().int().positive(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
+    notifyTelegram: z.boolean().optional(),
     primaryVideoId: z.uuid().nullable().optional().default(null),
     deleteVideoId: z.uuid().nullable().optional().default(null),
     detachVideoIds: z
@@ -408,6 +409,7 @@ export function assembleSaveMaterial(
                       sourceRevision: source.revision,
                       showInFeed: source.showInFeed,
                     }),
+                notifyTelegram: command.notifyTelegram ?? locked.notifyTelegram,
                 slug: materializedMetadata.slug,
                 title: materializedMetadata.title,
                 summary: materializedMetadata.summary,
@@ -466,6 +468,14 @@ export function assembleSaveMaterial(
                     readerPath: materialReaderPath(publishable.value.slug),
                   },
                   firstPublication: locked.lifecycle.firstPublishedAt === null,
+                  telegramManaged:
+                    publishable.value.access === "free" &&
+                    (source?.showInFeed ?? locked.showInFeed),
+                  telegramEnabled:
+                    (command.notifyTelegram ?? locked.notifyTelegram) ===
+                      true &&
+                    publishable.value.access === "free" &&
+                    (source?.showInFeed ?? locked.showInFeed),
                 },
                 savedAt,
               );

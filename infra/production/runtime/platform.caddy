@@ -87,6 +87,12 @@ sachkov.dev, inside.sachkov.dev {
 		}
 		reverse_proxy @communications_waitlist {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		@communications_materials {
+			method POST
+			path /integrations/telegram/v1/communications/materials
+		}
+		reverse_proxy @communications_materials {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		@communications_validate {
 			method POST
 			path /integrations/telegram/v1/communications/validate-content

@@ -1,3 +1,4 @@
+import { MaterialAnnouncements } from "./material-announcements.js";
 import { transactionWithExternalReads } from "../../database/external-reads.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import {
@@ -29,7 +30,7 @@ import {
   started,
 } from "./funnel-timeline.js";
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Optional } from "@nestjs/common";
 import { sql, type Selectable, type Transaction } from "kysely";
 import {
   DATABASE,
@@ -88,6 +89,7 @@ type Claim = {
   telegramUserId: string;
   content: TemplateContent;
   waitlist?: WaitlistDispatchQuery;
+  materialAnnouncement?: string;
 };
 // `capacity_busy`: the bot's shared lane or fairness turn refuses every chat, so stop scanning.
 // `released`: a locked contact turned out unsendable; commit now so its /start never waits
@@ -120,6 +122,9 @@ export class FunnelScheduler {
     private readonly waitlist: WaitlistAuthorization = new DisabledWaitlistAuthorization(),
     @Inject(MONOTONIC_CLOCK)
     private readonly monotonicClock: MonotonicClock = systemMonotonicClock,
+    @Optional()
+    @Inject(MaterialAnnouncements)
+    private readonly materialAnnouncements?: MaterialAnnouncements,
   ) {}
   async assertConfigured(): Promise<void> {
     if (!this.config.marketingEnabled) return;
@@ -154,6 +159,25 @@ export class FunnelScheduler {
       if (outcome.kind === "released") continue;
       if (outcome.kind !== "claimed") break;
       const claimed = outcome.claim;
+      if (claimed.materialAnnouncement !== undefined) {
+        const current = await this.materialAnnouncements?.current(
+          claimed.materialAnnouncement,
+        );
+        if (current !== "current") {
+          await this.releaseUnsentClaim(claimed, current === "unavailable");
+          if (current === "unavailable") break;
+          continue;
+        }
+        const deadline =
+          this.monotonicClock.now() + WAITLIST_ADMISSION_BUDGET_MS;
+        if (
+          !(await this.admitCheckedTransport(claimed, deadline)) ||
+          this.monotonicClock.now() >= deadline
+        ) {
+          await this.releaseUnsentClaim(claimed, true);
+          break;
+        }
+      }
       if (claimed.waitlist !== undefined) {
         // This read follows the committed local claim, so an earlier Platform withdrawal
         // cannot hide in the cached pre-claim answer or a scheduler-lock wait.
@@ -190,7 +214,7 @@ export class FunnelScheduler {
           continue;
         }
         if (
-          !(await this.admitWaitlistTransport(claimed, deadline)) ||
+          !(await this.admitCheckedTransport(claimed, deadline)) ||
           this.monotonicClock.now() >= deadline
         ) {
           await this.releaseUnsentClaim(claimed, true);
@@ -202,6 +226,10 @@ export class FunnelScheduler {
         result = await this.transport.send({
           chatId: claimed.chatId,
           content: claimed.content,
+          linkPreviewUrl:
+            claimed.materialAnnouncement === undefined
+              ? undefined
+              : claimed.content.buttons[0]?.url,
           offerStart: claimed.delivery.kind === "fallback",
         });
       } catch (error) {
@@ -224,6 +252,7 @@ export class FunnelScheduler {
   // finished ones. Funnel timelines are replanned by the events that change them, so no claim
   // scans the audience.
   private async plan(): Promise<void> {
+    await this.materialAnnouncements?.plan();
     const bot = this.config.botIdentity;
     await this.database.transaction().execute(async (tx) => {
       await schedulerLock(tx, bot);
@@ -348,13 +377,27 @@ export class FunnelScheduler {
       );
     if (!this.config.marketingEnabled)
       query = query.where((eb) =>
-        eb.exists(
-          eb
-            .selectFrom("communication_waitlist_recipients as w")
-            .select("w.contact_id")
-            .whereRef("w.broadcast_id", "=", "d.broadcast_id")
-            .whereRef("w.contact_id", "=", "d.contact_id"),
-        ),
+        eb.or([
+          eb.exists(
+            eb
+              .selectFrom("communication_material_announcements as m")
+              .select("m.broadcast_id")
+              .whereRef("m.broadcast_id", "=", "d.broadcast_id")
+              .where("m.bot_identity", "=", this.config.botIdentity)
+              .where(
+                "m.audience_key",
+                "=",
+                this.materialAnnouncements?.audienceKey() ?? "disabled",
+              ),
+          ),
+          eb.exists(
+            eb
+              .selectFrom("communication_waitlist_recipients as w")
+              .select("w.contact_id")
+              .whereRef("w.broadcast_id", "=", "d.broadcast_id")
+              .whereRef("w.contact_id", "=", "d.contact_id"),
+          ),
+        ]),
       );
     return query;
   }
@@ -479,12 +522,29 @@ export class FunnelScheduler {
     const part = delivery && (await this.nextPart(tx, delivery, now));
     if (!delivery || !part) return { kind: "released" };
     let waitlistQuery: WaitlistDispatchQuery | undefined;
+    let materialAnnouncement: string | undefined;
     if (delivery.broadcast_id !== null) {
       const broadcast = await tx
         .selectFrom("communication_broadcasts")
         .selectAll()
         .where("broadcast_id", "=", delivery.broadcast_id)
         .executeTakeFirstOrThrow();
+      const materialStatus = await this.materialAnnouncements?.current(
+        broadcast.broadcast_id,
+        tx,
+      );
+      if (materialStatus === "unavailable") return { kind: "capacity_busy" };
+      if (materialStatus === "withdrawn") {
+        await cancelDelivery(
+          tx,
+          delivery,
+          now,
+          "material_announcement_withdrawn",
+        );
+        return { kind: "released" };
+      }
+      if (materialStatus === "current")
+        materialAnnouncement = broadcast.broadcast_id;
       if (broadcast.audience.kind === "waitlist") {
         const recipient = await tx
           .selectFrom("communication_waitlist_recipients")
@@ -542,7 +602,7 @@ export class FunnelScheduler {
         }
       }
     }
-    if (waitlistQuery === undefined) {
+    if (waitlistQuery === undefined && materialAnnouncement === undefined) {
       const admission = await admitTelegramSlot(
         tx,
         this.config.botIdentity,
@@ -574,6 +634,7 @@ export class FunnelScheduler {
       kind: "claimed",
       claim: {
         startedAt: now,
+        ...(materialAnnouncement === undefined ? {} : { materialAnnouncement }),
         ...(waitlistQuery === undefined ? {} : { waitlist: waitlistQuery }),
         delivery,
         attemptId,
@@ -591,7 +652,7 @@ export class FunnelScheduler {
     };
   }
   /** Reserve immediately before transport, after all potentially slow Platform reads. */
-  private async admitWaitlistTransport(
+  private async admitCheckedTransport(
     claim: Claim,
     deadline: number,
   ): Promise<boolean> {
@@ -642,22 +703,30 @@ export class FunnelScheduler {
           return false;
         const now = this.clock.now();
         const query = claim.waitlist;
-        if (query === undefined) return false;
-        const binding = await findPlatformLink(
-          tx,
-          {
-            botIdentity: this.config.botIdentity,
-            telegramUserId: delivery.telegram_user_id,
-            accountRef: query.recipient.accountRef,
-          },
-          "share",
-          "nowait",
-        );
+        if (query === undefined && claim.materialAnnouncement === undefined)
+          return false;
+        const binding =
+          query === undefined
+            ? undefined
+            : await findPlatformLink(
+                tx,
+                {
+                  botIdentity: this.config.botIdentity,
+                  telegramUserId: delivery.telegram_user_id,
+                  accountRef: query.recipient.accountRef,
+                },
+                "share",
+                "nowait",
+              );
         if (
           delivery.cancel_requested ||
           !delivery.marketing_enabled ||
           delivery.contactability !== "reachable" ||
-          binding?.telegramIdentityRef !== query.recipient.telegramIdentityRef
+          (query !== undefined &&
+            binding?.telegramIdentityRef !==
+              query.recipient.telegramIdentityRef) ||
+          (claim.materialAnnouncement !== undefined &&
+            this.materialAnnouncements?.audienceKey() === undefined)
         ) {
           await cancelDelivery(tx, delivery, now, "waitlist_ineligible");
           return false;
@@ -726,9 +795,13 @@ export class FunnelScheduler {
       part.state =
         retry && !delivery.cancel_requested ? "pending" : "cancelled";
       part.diagnosticCode =
-        part.state === "pending"
-          ? "waitlist_eligibility_unavailable"
-          : "waitlist_ineligible";
+        claim.materialAnnouncement !== undefined
+          ? part.state === "pending"
+            ? "material_eligibility_unavailable"
+            : "material_announcement_withdrawn"
+          : part.state === "pending"
+            ? "waitlist_eligibility_unavailable"
+            : "waitlist_ineligible";
       await tx
         .updateTable("communication_deliveries")
         .set({

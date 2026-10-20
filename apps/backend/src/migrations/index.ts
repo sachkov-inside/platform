@@ -1,4 +1,8 @@
 import {
+  name as materialTelegramAnnouncementsName,
+  statement as materialTelegramAnnouncementsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0102-material-telegram-announcements.js";
+import {
   name as waitlistConfirmationsName,
   statement as waitlistConfirmationsStatement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-waitlist-confirmations.js";
@@ -655,6 +659,10 @@ export const platformMigrations = [
   {
     name: waitlistConfirmationsName,
     statement: waitlistConfirmationsStatement,
+  },
+  {
+    name: materialTelegramAnnouncementsName,
+    statement: materialTelegramAnnouncementsStatement,
   },
 ] as const;
 

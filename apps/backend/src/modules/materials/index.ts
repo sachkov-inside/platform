@@ -83,3 +83,5 @@ export {
 } from "./shared/protected-delivery.js";
 
 export { hydrateMaterialAssets } from "./domain/material-body/hydrate-material-assets.js";
+
+export { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";

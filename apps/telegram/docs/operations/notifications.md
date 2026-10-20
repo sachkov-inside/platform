@@ -142,3 +142,31 @@ Billing/Materials и email/Telegram через обе системы прина�
 [quorum queues](https://www.rabbitmq.com/docs/quorum-queues),
 [access control](https://www.rabbitmq.com/docs/access-control),
 [Telegram sendMessage](https://core.telegram.org/bots/api#sendmessage).
+
+## Анонсы открытых материалов
+
+Контракт и ограничения доставки описаны в
+[Public material announcements v1](../../../../docs/contracts/runtime/material-announcements.md).
+Новый канал не включает воронки и не требует `TELEGRAM_MARKETING_ENABLED=true`.
+
+`MATERIAL_ANNOUNCEMENTS_MODE=disabled` (по умолчанию) выключает планирование и отправку этих
+анонсов. `test` ограничивает каждую новую публикацию одним числовым
+`MATERIAL_ANNOUNCEMENTS_TEST_USER_ID`, который уже запускал бота. `all` включает всех подходящих
+BotContact. Неизвестный mode и test без корректного ID отвергаются при запуске.
+Оба активных режима требуют настроенных `PLATFORM_AUTHOR_AUTHORIZATION_URL` и
+`PLATFORM_AUTHOR_AUTHORIZATION_SECRET`; адрес `materials` выводится рядом с `authorize`.
+Внешняя отправка также требует обычных `TELEGRAM_DELIVERY_MODE=live`, bot token и workers.
+
+Сначала применяются совместимые миграции Platform и Telegram, затем запускается режим `test`.
+Владелец публикует новый открытый материал в ленте с включённым выбором Telegram и проверяет
+сообщение, ссылку и карточку с обложкой. Только после принятия этого результата режим меняется
+на `all`. Смена режима в пределах суток может отправить тот же принятый анонс всем, включая
+тестового получателя. Публикации без включённого выбора и исторические материалы не добавляются.
+
+Для остановки или отката сначала установить `disabled` и перезапустить Telegram, дождаться
+завершения уже начатых provider calls. При откате на старый binary сохранить
+`TELEGRAM_MARKETING_ENABLED=false`: старая версия не умеет заново проверять Materials у этих
+broadcasts. Откат миграции Telegram отменяет связанные broadcasts перед удалением receipts.
+Миграция Platform добавляет nullable choice и флаг в существующий анонс, без удаления данных;
+предыдущий binary может работать с добавленными столбцами. Снятие материала с публикации,
+закрытие доступа или исключение из ленты отменяет ещё не отправленные анонсы при следующей проверке.

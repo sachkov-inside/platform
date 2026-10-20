@@ -60,6 +60,7 @@ const currentMaterialSchema = z
       })
       .strict(),
     publicationState: z.enum(["draft", "published", "unpublished"]),
+    notifyTelegram: z.boolean().nullable().optional(),
     primaryVideoId: z.uuid().nullable(),
     primaryVideo: authoringVideoSchema.nullable(),
     publishedAt: z.iso.datetime({ offset: true }).nullable(),
@@ -179,6 +180,8 @@ export async function getCurrentMaterial(
         ({ seriesId }) => seriesId,
       ),
       status: parsed.data.publicationState,
+      notifyTelegram: parsed.data.notifyTelegram ?? false,
+      wasPublished: parsed.data.firstPublishedAt !== null,
       summary: parsed.data.metadata.summary ?? "",
       tagIds: parsed.data.metadata.tagIds,
       title: parsed.data.metadata.title ?? "",

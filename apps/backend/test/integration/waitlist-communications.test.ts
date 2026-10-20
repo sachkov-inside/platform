@@ -194,3 +194,46 @@ test("service confirmation authorization checks the exact committed generation a
     status: "suppressed",
   });
 });
+
+test("material announcements require the service credential and reject arbitrary actor, URL or recipient inputs", async () => {
+  const url = "/integrations/telegram/v1/communications/materials";
+  const payload = { contractVersion: "inside.material-announcements.v1" };
+  expect((await app.inject({ method: "POST", url, payload })).statusCode).toBe(
+    401,
+  );
+  expect(
+    (
+      await app.inject({
+        method: "POST",
+        url,
+        headers: { authorization: "Bearer wrong" },
+        payload,
+      })
+    ).statusCode,
+  ).toBe(401);
+  for (const extra of [
+    { actor: accountRef },
+    { url: "https://evil.example" },
+    { recipient: "42" },
+    { after: randomUUID(), announcementRef: randomUUID() },
+  ]) {
+    expect(
+      (
+        await app.inject({
+          method: "POST",
+          url,
+          headers: { authorization: `Bearer ${secret}` },
+          payload: { ...payload, ...extra },
+        })
+      ).statusCode,
+    ).toBe(400);
+  }
+  const response = await app.inject({
+    method: "POST",
+    url,
+    headers: { authorization: `Bearer ${secret}` },
+    payload,
+  });
+  expect(response.statusCode).toBe(200);
+  expect(response.json()).toEqual({ items: [], nextCursor: null });
+});

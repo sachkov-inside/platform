@@ -47,6 +47,7 @@ export const saveMaterialResultSchema = z.discriminatedUnion("kind", [
 ]);
 
 export interface SaveMaterialInput {
+  readonly notifyTelegram?: boolean;
   readonly access: "free" | "closed";
   /** Купленные продукты, снятие материала из которых автор подтвердил. */
   readonly confirmedProductRemovals?: readonly string[];

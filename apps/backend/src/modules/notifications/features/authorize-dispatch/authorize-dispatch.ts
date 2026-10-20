@@ -90,6 +90,8 @@ export async function authorizeDispatch(
         (channel === "email" && template.subject !== command.subject)
       )
         return { ...request, status: "denied", reason: "superseded" };
+      if (channel === "telegram" && source.telegramManaged === true)
+        return { ...request, status: "denied", reason: "superseded" };
       if (source.content.category === "material") {
         if (
           !(await optedIn(

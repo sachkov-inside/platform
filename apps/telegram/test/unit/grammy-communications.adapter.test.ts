@@ -10,6 +10,33 @@ import {
 import { relativeDue } from "../../src/modules/communications/funnel-scheduler.js";
 import { required } from "../support/required.js";
 describe("communication transport", () => {
+  it("requests the canonical material card as large media above its announcement", async () => {
+    const send = vi.fn(() => Promise.resolve({ message_id: 123 }));
+    const adapter = new GrammyCommunicationsAdapter(
+      telegram({ sendMessage: send }),
+    );
+    const url = "https://inside.example/materials/sample";
+    await adapter.send({
+      chatId: "42",
+      linkPreviewUrl: url,
+      content: {
+        type: "text",
+        text: `Title\n${url}`,
+        entities: [],
+        buttons: [],
+      },
+    });
+    expect(send).toHaveBeenCalledWith("42", `Title\n${url}`, {
+      entities: [],
+      reply_markup: { inline_keyboard: [] },
+      link_preview_options: {
+        url,
+        prefer_large_media: true,
+        show_above_text: true,
+      },
+    });
+  });
+
   for (const [type, method] of [
     ["text", "sendMessage"],
     ["photo", "sendPhoto"],

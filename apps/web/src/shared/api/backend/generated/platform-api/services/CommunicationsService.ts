@@ -3325,6 +3325,38 @@ export class CommunicationsService {
     });
   }
   /**
+   * Read or recheck current public feed announcements
+   * @returns any
+   * @throws ApiError
+   */
+  public readTelegramMaterialAnnouncements({
+    requestBody,
+  }: {
+    requestBody: {
+      after?: string;
+      announcementRef?: string;
+      contractVersion: 'inside.material-announcements.v1';
+    },
+  }): CancelablePromise<{
+    items: Array<{
+      announcementRef: string;
+      materialId: string;
+      notAfter: string;
+      occurredAt: string;
+      summary: string;
+      title: string;
+      url: string;
+    }>;
+    nextCursor: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/communications/materials',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Check public Material and Series targets in an immutable author content snapshot
    * @returns any
    * @throws ApiError
