@@ -49,8 +49,13 @@ class TechnicalScope {
     readonly correlation: Readonly<Record<string, string | boolean>>,
     readonly dependencyTracer: Tracer,
     readonly recordDependency: (
-      dependency: "kinescope" | "postgresql",
-      operation: KinescopeOperation | PostgresOperation,
+      dependency: "kinescope" | "postgresql" | "tbank" | "logto" | "telegram",
+      operation:
+        | KinescopeOperation
+        | PostgresOperation
+        | TbankOperation
+        | "jwks"
+        | "communications.execute",
       failed: boolean,
       seconds: number,
     ) => void,
@@ -71,6 +76,148 @@ class TechnicalScope {
       seconds: number,
     ) => void,
   ) {}
+}
+
+/** Native JWKS fetch through response headers; JOSE owns later body/validation work. */
+export async function observeLogtoJwksRequest(
+  work: () => Promise<Response>,
+): Promise<Response> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work();
+  const span = scope.dependencyTracer.startSpan(
+    "logto jwks",
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "logto",
+        "dependency.operation": "jwks",
+        "http.request.method": "GET",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    const response = await context.with(trace.setSpan(current, span), work);
+    if (
+      Number.isInteger(response.status) &&
+      response.status >= 100 &&
+      response.status <= 599
+    )
+      span.setAttribute("http.response.status_code", response.status);
+    failed = response.status !== 200;
+    return response;
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "logto",
+      "jwks",
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
+
+export type TbankOperation =
+  | "Init"
+  | "GetState"
+  | "CheckOrder"
+  | "Charge"
+  | "Cancel"
+  | "AddCard"
+  | "GetAddCardState";
+
+/** Bank request plus its existing JSON read, excluding later domain validation. */
+export async function observeTbankRequest<Value>(
+  operation: TbankOperation,
+  work: () => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work();
+  const span = scope.dependencyTracer.startSpan(
+    `tbank ${operation}`,
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "tbank",
+        "dependency.operation": operation,
+        "http.request.method": "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), work);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "tbank",
+      operation,
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
+}
+
+/** Existing communications POST plus its single JSON read, before protocol validation. */
+export async function observeCommunicationsRequest<Value>(
+  work: (response: (status: number) => void) => Promise<Value>,
+): Promise<Value> {
+  const current = context.active();
+  const scope = current.getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope)) return work(() => undefined);
+  const span = scope.dependencyTracer.startSpan(
+    "telegram communications.execute",
+    {
+      kind: SpanKind.CLIENT,
+      attributes: {
+        "dependency.name": "telegram",
+        "dependency.operation": "communications.execute",
+        "http.request.method": "POST",
+      },
+    },
+    current,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(current, span), () =>
+      work((status) => {
+        if (Number.isInteger(status) && status >= 100 && status <= 599) {
+          span.setAttribute("http.response.status_code", status);
+          if (status >= 400) failed = true;
+        }
+      }),
+    );
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("dependency.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordDependency(
+      "telegram",
+      "communications.execute",
+      failed,
+      (performance.now() - started) / 1_000,
+    );
+    span.end();
+  }
 }
 
 type NotificationOperation = "publish" | "receive" | "audience";
@@ -631,8 +778,13 @@ export function createTechnicalTelemetry(
       { unit: "s" },
     );
     const recordDependency = (
-      dependency: "kinescope" | "postgresql",
-      operation: KinescopeOperation | PostgresOperation,
+      dependency: "kinescope" | "postgresql" | "tbank" | "logto" | "telegram",
+      operation:
+        | KinescopeOperation
+        | PostgresOperation
+        | TbankOperation
+        | "jwks"
+        | "communications.execute",
       failed: boolean,
       seconds: number,
     ) => {

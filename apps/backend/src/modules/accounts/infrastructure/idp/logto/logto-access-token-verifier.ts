@@ -1,6 +1,7 @@
 import {
   createLocalJWKSet,
   createRemoteJWKSet,
+  customFetch,
   jwtVerify,
   type JSONWebKeySet,
   type JWTVerifyGetKey,
@@ -8,6 +9,7 @@ import {
 } from "jose";
 import { z } from "zod";
 
+import { observeLogtoJwksRequest } from "../../../../../infrastructure/observability/technical-telemetry.js";
 import { dependencyFailure } from "../../../../../infrastructure/observability/index.js";
 import {
   verifiedAccountIdentity,
@@ -222,6 +224,8 @@ function createKeyResolver(config: LogtoVerifierConfig): JWTVerifyGetKey {
     throw new TypeError("jwksUrl must use HTTPS outside loopback development");
   }
   return createRemoteJWKSet(jwksUrl, {
+    [customFetch]: (url, options) =>
+      observeLogtoJwksRequest(() => fetch(url, options)),
     timeoutDuration: REMOTE_JWKS_REQUEST_TIMEOUT_MS,
     cooldownDuration: REMOTE_JWKS_COOLDOWN_MS,
     cacheMaxAge: REMOTE_JWKS_CACHE_LIFETIME_MS,

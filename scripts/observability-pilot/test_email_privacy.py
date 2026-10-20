@@ -39,6 +39,8 @@ class EmailCatalog(unittest.TestCase):
         self.assertIn('set(attributes["outcome"], "_OTHER") where', points)
         self.assertIn('not IsString(attributes["operation"])', points)
         self.assertIn('not IsString(attributes["outcome"])', points)
-        # New admission never widens the existing Materials or Kinescope catalog.
+        # Email admission preserves Materials and the independently reviewed generic dependency catalog.
         self.assertEqual(policy['notifications']['operations'], ['publish','receive','audience'])
-        self.assertEqual(policy['dependencies']['names'], ['kinescope','postgresql'])
+        self.assertEqual(policy['dependencies']['names'], ['kinescope','postgresql','tbank','logto','telegram'])
+        self.assertNotIn('smtp', policy['dependencies']['names'])
+        self.assertEqual(policy['dependencies']['outcomes'], ['completed','failed'])

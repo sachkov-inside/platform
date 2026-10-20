@@ -957,9 +957,13 @@ for (const mode of ["off", "export-failure"] as const) {
         vi.stubEnv("INSIDE_OTEL_ENABLED", mode === "off" ? undefined : "true");
         vi.stubEnv("INSIDE_OTEL_ENDPOINT", endpoint);
         cleanup.push(() => vi.unstubAllEnvs());
+        let jwksRequests = 0;
         const identity = await startTestIdentityIssuer({
           issuer: "https://identity.example.test/oidc",
           audience: "https://api.example.test",
+          onJwksRequest: () => {
+            jwksRequests++;
+          },
         });
         cleanup.unshift(() => identity.close());
         const broker = await startNotificationBroker({
@@ -1039,6 +1043,7 @@ for (const mode of ["off", "export-failure"] as const) {
           },
         );
         expect(response.status).toBe(200);
+        expect(jwksRequests).toBe(1);
         const source =
           await database.prisma.materialNotificationOutbox.findFirstOrThrow();
         expect(source.traceparent).toEqual(
@@ -1152,10 +1157,142 @@ for (const mode of ["off", "export-failure"] as const) {
           expect(observed.map((span) => span.name).sort()).toEqual(
             materialNames,
           );
+          // The cold real JWKS fetch is one explicit dependency, not SQL or another publication.
+          const jwks = allObserved.filter((span) => span.name === "logto jwks");
+          expect(jwks).toHaveLength(1);
+          for (const span of jwks) {
+            const attributes = z
+              .array(
+                z.strictObject({
+                  key: z.enum([
+                    "dependency.name",
+                    "dependency.operation",
+                    "dependency.outcome",
+                    "http.request.method",
+                    "http.response.status_code",
+                  ]),
+                  value: z.union([
+                    z.strictObject({ stringValue: z.string() }),
+                    z.strictObject({
+                      intValue: z.union([z.literal(200), z.literal("200")]),
+                    }),
+                  ]),
+                }),
+              )
+              .parse(span["attributes"]);
+            expect(attributes).toHaveLength(5);
+            expect(
+              new Set(attributes.map((attribute) => attribute.key)).size,
+            ).toBe(5);
+            expect(
+              Object.fromEntries(
+                attributes.map((attribute) => [
+                  attribute.key,
+                  "intValue" in attribute.value
+                    ? Number(attribute.value.intValue)
+                    : attribute.value.stringValue,
+                ]),
+              ),
+            ).toEqual({
+              "dependency.name": "logto",
+              "dependency.operation": "jwks",
+              "dependency.outcome": "completed",
+              "http.request.method": "GET",
+              "http.response.status_code": 200,
+            });
+            expect(span["kind"]).toBe(3);
+            expect(span["events"] ?? []).toEqual([]);
+            expect(span["links"] ?? []).toEqual([]);
+          }
+          const metricSchema = z.object({
+            resourceMetrics: z
+              .array(
+                z.object({
+                  scopeMetrics: z.array(
+                    z.object({
+                      metrics: z.array(
+                        z.object({
+                          name: z.string(),
+                          sum: z
+                            .object({
+                              dataPoints: z.array(
+                                z.object({
+                                  asDouble: z.number(),
+                                  attributes: z.array(
+                                    z.looseObject({
+                                      key: z.string(),
+                                      value: z.looseObject({
+                                        stringValue: z.string().optional(),
+                                      }),
+                                    }),
+                                  ),
+                                }),
+                              ),
+                            })
+                            .optional(),
+                        }),
+                      ),
+                    }),
+                  ),
+                }),
+              )
+              .optional(),
+          });
+          const jwksCounts: number[] = [];
+          for (const payload of wire) {
+            const metrics =
+              metricSchema
+                .parse(JSON.parse(payload))
+                .resourceMetrics?.flatMap((resource) =>
+                  resource.scopeMetrics.flatMap((scope) => scope.metrics),
+                ) ?? [];
+            for (const metric of metrics) {
+              if (metric.name !== "inside.dependency.operations") continue;
+              for (const point of metric.sum?.dataPoints ?? []) {
+                if (
+                  !point.attributes.some(
+                    (attribute) =>
+                      attribute.key === "dependency" &&
+                      attribute.value.stringValue === "logto",
+                  )
+                )
+                  continue;
+                const attributes = z
+                  .array(
+                    z.strictObject({
+                      key: z.enum(["dependency", "operation", "outcome"]),
+                      value: z.strictObject({ stringValue: z.string() }),
+                    }),
+                  )
+                  .parse(point.attributes);
+                expect(attributes).toHaveLength(3);
+                expect(
+                  new Set(attributes.map((attribute) => attribute.key)).size,
+                ).toBe(3);
+                expect(
+                  Object.fromEntries(
+                    attributes.map((attribute) => [
+                      attribute.key,
+                      attribute.value.stringValue,
+                    ]),
+                  ),
+                ).toEqual({
+                  dependency: "logto",
+                  operation: "jwks",
+                  outcome: "completed",
+                });
+                expect(point.asDouble).toBe(1);
+                jwksCounts.push(point.asDouble);
+              }
+            }
+          }
+          // Repeated cumulative exports retain one completed request, not another provider attempt.
+          expect(jwksCounts.length).toBeGreaterThan(0);
           // SQL observations are additional operations, not replacement material spans or ignored noise.
           // Unscoped worker reads may be roots; every exported child must retain a real exported parent.
           const sql = allObserved.filter(
-            (span) => !materialNames.includes(span.name),
+            (span) =>
+              !materialNames.includes(span.name) && span.name !== "logto jwks",
           );
           expect(sql.length).toBeGreaterThan(0);
           const sqlOperations = new Set<string>();
@@ -1215,6 +1352,12 @@ for (const mode of ["off", "export-failure"] as const) {
           const publication = observed.find(
             (span) => span.name === "PUT /authoring/materials/:materialId",
           );
+          for (const span of jwks) {
+            expect(span.traceId).toBe(publication?.traceId);
+            expect(span.parentSpanId).toBe(publication?.spanId);
+            expect(span.spanId).toMatch(/^[0-9a-f]{16}$/u);
+            expect(span.spanId).not.toBe(publication?.spanId);
+          }
           const expansion = observed.find(
             (span) => span.name === "audience materials",
           );

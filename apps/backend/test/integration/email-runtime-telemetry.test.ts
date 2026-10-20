@@ -215,6 +215,47 @@ function assertRegisteredSpans(spans: ReturnType<typeof spansFrom>) {
         "dependency.operation": "send",
         "dependency.outcome": "sent",
       });
+    } else if (span.name === "logto jwks") {
+      const attributes = z
+        .array(
+          z.strictObject({
+            key: z.enum([
+              "dependency.name",
+              "dependency.operation",
+              "dependency.outcome",
+              "http.request.method",
+              "http.response.status_code",
+            ]),
+            value: z.union([
+              z.strictObject({ stringValue: z.string() }),
+              z.strictObject({
+                intValue: z.union([z.literal(200), z.literal("200")]),
+              }),
+            ]),
+          }),
+        )
+        .parse(span.attributes);
+      expect(attributes).toHaveLength(5);
+      expect(new Set(attributes.map((attribute) => attribute.key)).size).toBe(
+        5,
+      );
+      expect(
+        Object.fromEntries(
+          attributes.map((attribute) => [
+            attribute.key,
+            "intValue" in attribute.value
+              ? Number(attribute.value.intValue)
+              : attribute.value.stringValue,
+          ]),
+        ),
+      ).toEqual({
+        "dependency.name": "logto",
+        "dependency.operation": "jwks",
+        "dependency.outcome": "completed",
+        "http.request.method": "GET",
+        "http.response.status_code": 200,
+      });
+      expect(span["kind"]).toBe(3);
     } else if (span.name.startsWith("postgresql ")) {
       const operation = z
         .enum(["acquire", "query", "material-slug-lock"])
@@ -228,7 +269,7 @@ function assertRegisteredSpans(spans: ReturnType<typeof spansFrom>) {
           .parse(attrs["dependency.outcome"]),
       });
     } else {
-      // This fixture exercises only the reviewed HTTP/material lane in addition to email and SQL.
+      // Every remaining span belongs to the reviewed HTTP/material lane.
       expect([
         "PUT /authoring/materials/:materialId",
         "publish materials",
@@ -826,6 +867,15 @@ test.each(scenarios)(
       const wire = capture.payloads();
       const spans = spansFrom(wire);
       assertRegisteredSpans(spans);
+      if (scenario.enabled) {
+        const jwks = spans.filter((span) => span.name === "logto jwks");
+        expect(jwks).toHaveLength(1);
+        const publication = spans.find(
+          (span) => span.name === "PUT /authoring/materials/:materialId",
+        );
+        expect(jwks[0]?.traceId).toBe(publication?.traceId);
+        expect(jwks[0]?.parentSpanId).toBe(publication?.spanId);
+      }
       if (scenario.phase === "legacy-command")
         for (const span of spans.filter(
           (span) => span.name === "publish emailResult",
