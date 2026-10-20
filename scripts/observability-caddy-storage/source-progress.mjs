@@ -69,7 +69,8 @@ export function sourceProgress(stderr) {
 
 /** @param {Awaited<ReturnType<typeof import("../observability-umami/process-owner.mjs").runOwnedProcess>>} result */
 export function assertCaddyContracts(result) {
-  const progress = sourceProgress(result.stderr);
+  const progress =
+    result.reason === "output_limit" ? null : sourceProgress(result.stderr);
   const message =
     progress === null
       ? "Caddy source progress: unknown"

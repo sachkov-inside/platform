@@ -117,7 +117,8 @@ test("Caddy timeout and nonzero assertions publish only closed source progress",
         assert.ok(!error.stack?.includes("private-"));
         assert.ok(
           error.message.includes(
-            stderr === prefix + "private-auth-canary\n"
+            reason !== "output_limit" &&
+              stderr === prefix + "private-auth-canary\n"
               ? "lastStarted="
               : "unknown",
           ),
