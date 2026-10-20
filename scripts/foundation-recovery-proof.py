@@ -152,7 +152,7 @@ class Resources:
         self.command("volume", "create", "--label", LABEL + "=" + self.owner, name)
         return name
 
-    def container(self, suffix, image, data, repository, envfile, *command, detached=False,
+    def container(self, suffix, image, data, repository, envfile, command, *, detached=False,
                   data_readonly=False, repository_readonly=False, command_timeout=120):
         name = self.register("container", suffix)
         args = ["run", "--name", name, "--label", LABEL + "=" + self.owner,
@@ -166,7 +166,10 @@ class Resources:
                 "--env-file", str(envfile), "--entrypoint", "sh"]
         if detached:
             args.append("--detach")
-        result = self.command(*args, image, "-ec", *command, check=False, timeout=command_timeout)
+        # tmpfs masks the image's postgres-owned directories; establish ownership in this fixture.
+        script = ("install -d -o postgres -g postgres -m 700 "
+                  "/var/spool/pgbackrest /var/log/pgbackrest; " + command)
+        result = self.command(*args, image, "-ec", script, check=False, timeout=command_timeout)
         return name, result
 
     def cleanup(self):

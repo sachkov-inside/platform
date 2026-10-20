@@ -35,6 +35,10 @@ Synthetic backup запрашивает немедленный checkpoint чер
 checkpoint PostgreSQL не превышал ограниченный бюджет теста. Это штатная опция
 [pgBackRest](https://pgbackrest.org/user-guide.html); production backup policy не меняется.
 
+Временные каталоги spool/log находятся в tmpfs. Перед командой fixture назначает их
+пользователю `postgres`, потому что mount перекрывает владельца из образа. Repository
+остаётся read-only при восстановлении.
+
 Секреты синтетической проверки находятся в приватном runner temp и не включаются в artifact.
 Общий Docker `prune` не используется. Cleanup проверяет labels и точный journal; недоступность
 daemon не считается отсутствием ресурсов. Шаг `always()` повторяет cleanup после прерывания.
