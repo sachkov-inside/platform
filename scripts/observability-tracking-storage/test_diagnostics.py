@@ -217,7 +217,7 @@ class ObservationOutcomes(unittest.TestCase):
                     else:
                         with self.assertRaises(TimeoutError if case=='deadline' else RuntimeError) as caught: observe()
                         if case=='unknown': self.assertIs(caught.exception,error)
-                        expected=('visibility','deadline') if case=='deadline' else ('trace_query','unknown') if case=='unknown' else ('trace_validation','response_decode' if case=='decode' else 'trace_gate_05' if scope=='sdk' else 'trace_gate_06')
+                        expected=('visibility','deadline') if case=='deadline' else ('trace_query','unknown') if case=='unknown' else ('trace_validation','response_decode' if case=='decode' else 'trace_gate_05' if scope=='sdk' else 'trace_gate_06_expected_value')
                         state=diagnostic.snapshot()
                         self.assertEqual((state['phase'],state['reason']),expected)
                         self.assertEqual(state['outcome'],'failed');self.assertEqual(state['attempts'],1)
