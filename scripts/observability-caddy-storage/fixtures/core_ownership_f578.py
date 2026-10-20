@@ -92,5 +92,3 @@ class OwnedTargets:
         if current != target['id'] or self.inspect(role, target['id']) != target:
             raise ScenarioFailed('ownership')
         return target['id']
-
-
