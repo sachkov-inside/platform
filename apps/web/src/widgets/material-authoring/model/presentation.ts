@@ -28,6 +28,8 @@ export interface MaterialSelectOption {
 
 export interface MaterialDraftPresentation {
   readonly sourcePath?: string;
+  readonly notifyTelegram?: boolean;
+  readonly wasPublished?: boolean;
   readonly access: "free" | "closed";
   readonly canDelete: boolean;
   readonly cover?: ContentCover | null | undefined;
@@ -183,7 +185,13 @@ export interface MaterialAuthoringPresentation {
 }
 
 export type MaterialDraftField =
-  "access" | "difficulty" | "formatId" | "summary" | "title" | "topicId";
+  | "notifyTelegram"
+  | "access"
+  | "difficulty"
+  | "formatId"
+  | "summary"
+  | "title"
+  | "topicId";
 
 export interface MaterialAuthoringActions {
   readonly onGetPublicUrl?: () => Promise<string | null>;

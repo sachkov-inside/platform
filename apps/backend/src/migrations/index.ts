@@ -7,6 +7,10 @@ import {
   statement as trackingTraceStatement,
 } from "../modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.js";
 import {
+  name as materialTelegramAnnouncementsName,
+  statement as materialTelegramAnnouncementsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0102-material-telegram-announcements.js";
+import {
   name as waitlistConfirmationsName,
   statement as waitlistConfirmationsStatement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-waitlist-confirmations.js";
@@ -707,6 +711,10 @@ export const platformMigrations = [
   {
     name: waitlistConfirmationsName,
     statement: waitlistConfirmationsStatement,
+  },
+  {
+    name: materialTelegramAnnouncementsName,
+    statement: materialTelegramAnnouncementsStatement,
   },
   { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
   { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },

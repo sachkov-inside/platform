@@ -103,6 +103,7 @@ export function MaterialAuthoringPageClient({
     materialId: _id,
     assetPreviewBlocks: _blocks,
     cover: _cover,
+    wasPublished: _wasPublished,
     ...editable
   } = draft;
   const autosave = useAutosave({
@@ -186,6 +187,9 @@ export function MaterialAuthoringPageClient({
         ...draftRef.current,
         contentVersion: result.contentVersion,
         status: result.publicationState,
+        wasPublished:
+          draftRef.current.wasPublished === true ||
+          result.publicationState === "published",
         canDelete:
           draftRef.current.canDelete && result.publicationState === "draft",
         latestVideoDeletion:
@@ -314,6 +318,13 @@ export function MaterialAuthoringPageClient({
         },
         onDocumentChange,
         onFieldChange: (field: MaterialDraftField, value: string) => {
+          if (field === "notifyTelegram") {
+            updateDraft({
+              ...draftRef.current,
+              notifyTelegram: value === "true",
+            });
+            return;
+          }
           if (field === "access") {
             updateDraft({
               ...draftRef.current,

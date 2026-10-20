@@ -20,6 +20,7 @@ export type MaterialAnnouncementSource =
       };
       readonly accountId: null;
       readonly title: string;
+      readonly telegramManaged: boolean;
       readonly readerPath: string;
     };
 
@@ -82,6 +83,7 @@ export class MaterialAnnouncements {
         content: { category: "material", kind: "material_published" },
         accountId: null,
         title: announcement.title,
+        telegramManaged: announcement.telegramManaged,
         readerPath: announcement.readerPath,
       };
     } catch (error) {

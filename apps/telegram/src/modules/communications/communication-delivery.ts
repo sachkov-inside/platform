@@ -2,6 +2,7 @@ import type { TemplateContent } from "./communications-contract.js";
 import type { TelegramDeliveryResult } from "../outbound/telegram-messages.js";
 export interface CommunicationMessage {
   readonly chatId: string;
+  readonly linkPreviewUrl?: string | undefined;
   readonly content: TemplateContent;
   readonly offerStart?: boolean;
   readonly authorMenu?: boolean;

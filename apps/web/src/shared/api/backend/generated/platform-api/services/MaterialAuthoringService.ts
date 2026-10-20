@@ -599,6 +599,7 @@ export class MaterialAuthoringService {
         title: string | null;
         topicId: string | null;
       };
+      notifyTelegram?: boolean;
       primaryVideoId: string | null;
       publicationState: 'draft' | 'published' | 'unpublished';
       source: {
@@ -694,6 +695,7 @@ export class MaterialAuthoringService {
         title: string | null;
         topicId: string | null;
       };
+      notifyTelegram?: boolean;
       publicationState: 'draft' | 'published' | 'unpublished';
       source: {
         id: string;
@@ -1468,6 +1470,7 @@ export class MaterialAuthoringService {
       title: string | null;
       topicId: string | null;
     };
+    notifyTelegram: boolean | null;
     primaryVideo: {
       durationSeconds?: number;
       failureCode?: string;
@@ -1535,6 +1538,7 @@ export class MaterialAuthoringService {
         title: string | null;
         topicId: string | null;
       };
+      notifyTelegram?: boolean;
       primaryVideoId: string | null;
       publicationState: 'draft' | 'published' | 'unpublished';
     },

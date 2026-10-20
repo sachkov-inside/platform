@@ -43,7 +43,8 @@ Foundation — единственный владелец PostgreSQL и pgBackRes
 Логи и metadata хранить в защищённом каталоге оператора, не коммитить.
 
 Для проверки нужны полный локальный snapshot **того же** pgBackRest repository (backup chain и WAL),
-права чтения, выбранный label и уже имеющийся образ foundation с pgBackRest 2.57.0/PostgreSQL 18.4.
+права чтения, выбранный label и уже имеющийся образ foundation с PostgreSQL 18.4. Фактическую версию pgBackRest сверяют
+с выбранным backup и действующей конфигурацией; новый кандидат не подменяет образ recovery.
 Подготовить этот snapshot штатным защищённым способом; не менять live repository. Скопировать только
 `PGBACKREST_REPO1_CIPHER_PASS` в временный env-file с mode `0600`. Не копировать S3/production database
 credentials. Источник plaintext и временный repository содержат production-данные: хранить их вне Git
