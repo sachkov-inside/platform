@@ -1,3 +1,5 @@
+import { shutdownApiDeliveryTelemetry } from "./api-delivery-lifecycle.js";
+import { WaitlistConfirmationPump } from "../../modules/sales-funnel/index.js";
 import { TrackingHitPump } from "../../modules/communications/index.js";
 import type { NestApplicationOptions } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -48,15 +50,13 @@ export async function createApiApplication(
   });
   const trackingPump = app.get(TrackingHitPump);
   trackingPump.observeDeliveries(telemetry);
+  const waitlistPump = app.get(WaitlistConfirmationPump);
+  waitlistPump.observeDeliveries(telemetry);
   const fastify = app.getHttpAdapter().getInstance();
   observeHttpRequests(fastify, "api", telemetry);
   fastify.addHook("onClose", async () => {
     // Nest disposes Fastify before OnApplicationShutdown. Drain the API-owned pump before its SDK.
-    try {
-      await trackingPump.onApplicationShutdown();
-    } finally {
-      await telemetry.shutdown();
-    }
+    await shutdownApiDeliveryTelemetry([trackingPump, waitlistPump], telemetry);
   });
   await app.register(multipart, {
     limits: { fields: 4, fileSize: 25 * 1024 * 1024, files: 1, parts: 5 },

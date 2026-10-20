@@ -2030,6 +2030,7 @@ model ProductWaitlistOperation {
 }
 
 model ProductWaitlistConfirmation {
+ traceparent String? @db.VarChar(55)
  eventId String @id @map("event_id") @db.Uuid
  intakeId String @map("intake_id") @db.Uuid
  accountId String @map("account_id") @db.Uuid
