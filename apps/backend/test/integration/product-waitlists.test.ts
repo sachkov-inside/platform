@@ -47,6 +47,7 @@ beforeAll(async () => {
   });
 });
 beforeEach(async () => {
+  await db.prisma.productWaitlistConfirmation.deleteMany({});
   await db.prisma.productWaitlistOperation.deleteMany({});
   await db.prisma.productWaitlistEvent.deleteMany({});
   await db.prisma.productWaitlistMembership.deleteMany({});
@@ -280,5 +281,81 @@ test("dispatch eligibility follows the current explicit membership of its intake
   expect(await waitlists.notificationMembership(intakeId, accountId)).toEqual({
     ok: true,
     value: { productId, active: false },
+  });
+});
+
+test("a committed join queues one durable Telegram confirmation across replay and reconstruction", async () => {
+  const command = { intakeId, operationId: randomUUID(), source: null };
+  await waitlists.join(accountId, command);
+  await waitlists.join(accountId, command);
+  await waitlists.join(accountId, { ...command, operationId: randomUUID() });
+  const confirmations: unknown[] = [];
+  const reconstructed = new ProductWaitlists({
+    prisma: db.prisma,
+    links: new TelegramAccountLinks(db.prisma),
+    clock: () => new Date("2030-03-05T12:00:01Z"),
+  });
+  await reconstructed.dispatchConfirmations((confirmation) => {
+    confirmations.push(confirmation);
+    return Promise.resolve("accepted" as const);
+  });
+  await reconstructed.dispatchConfirmations(() => {
+    throw new Error("An accepted confirmation must not be enqueued twice");
+  });
+  expect(confirmations).toHaveLength(1);
+  expect(confirmations[0]).toMatchObject({
+    contractVersion: "inside.waitlist-confirmation.v1",
+    intakeId,
+    accountRef: "principal-test",
+    telegramIdentityRef: "identity-test",
+    linkRevision: 1,
+  });
+});
+
+test("confirmation retry survives unavailable delivery and suppresses withdrawal, rejoin and binding transfer", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  const attempts: unknown[] = [];
+  expect(
+    await waitlists.dispatchConfirmations((command) => {
+      attempts.push(command);
+      return Promise.resolve("unavailable" as const);
+    }),
+  ).toBe(0);
+  expect(await waitlists.read(accountId, productId)).toMatchObject({
+    value: { active: true },
+  });
+  await waitlists.withdraw(accountId, { intakeId });
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  const delivered: unknown[] = [];
+  await waitlists.dispatchConfirmations((command) => {
+    delivered.push(command);
+    return Promise.resolve("accepted" as const);
+  });
+  expect(delivered).toHaveLength(1);
+  expect(delivered[0]).not.toEqual(attempts[0]);
+  await waitlists.withdraw(accountId, { intakeId });
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: null,
+  });
+  await db.prisma.telegramAccountLinkState.update({
+    where: { accountId },
+    data: { revision: 2, identityRef: "transferred-identity" },
+  });
+  await waitlists.dispatchConfirmations(() => {
+    throw new Error("Transferred binding must suppress the receipt");
+  });
+  await db.prisma.telegramAccountLinkState.update({
+    where: { accountId },
+    data: { revision: 1, identityRef: "identity-test" },
   });
 });

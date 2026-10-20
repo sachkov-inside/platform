@@ -121321,82 +121321,27 @@
           "content": {
             "application/json": {
               "schema": {
-                "additionalProperties": false,
-                "properties": {
-                  "actorAccountRef": {
-                    "maxLength": 256,
-                    "minLength": 1,
-                    "type": "string"
-                  },
-                  "contractVersion": {
-                    "enum": [
-                      "inside-communications-v1"
-                    ],
-                    "type": "string"
-                  },
-                  "intakeId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-                    "type": "string"
-                  },
-                  "recipient": {
+                "anyOf": [
+                  {
                     "additionalProperties": false,
                     "properties": {
-                      "accountRef": {
+                      "actorAccountRef": {
                         "maxLength": 256,
                         "minLength": 1,
                         "type": "string"
                       },
-                      "telegramIdentityRef": {
-                        "maxLength": 256,
-                        "minLength": 1,
+                      "contractVersion": {
+                        "enum": [
+                          "inside-communications-v1"
+                        ],
                         "type": "string"
-                      }
-                    },
-                    "required": [
-                      "accountRef",
-                      "telegramIdentityRef"
-                    ],
-                    "type": "object"
-                  },
-                  "requestId": {
-                    "format": "uuid",
-                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "contractVersion",
-                  "requestId",
-                  "actorAccountRef",
-                  "intakeId"
-                ],
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": false,
-                  "properties": {
-                    "active": {
-                      "maximum": 10000,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "contractVersion": {
-                      "enum": [
-                        "inside-communications-v1"
-                      ],
-                      "type": "string"
-                    },
-                    "members": {
-                      "items": {
+                      },
+                      "intakeId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                        "type": "string"
+                      },
+                      "recipient": {
                         "additionalProperties": false,
                         "properties": {
                           "accountRef": {
@@ -121416,39 +121361,170 @@
                         ],
                         "type": "object"
                       },
-                      "maxItems": 10000,
-                      "type": "array"
+                      "requestId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                        "type": "string"
+                      }
                     },
-                    "purchaseUrl": {
-                      "format": "uri",
-                      "maxLength": 2048,
-                      "type": "string"
-                    },
-                    "requestId": {
-                      "format": "uuid",
-                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
-                      "type": "string"
-                    },
-                    "saleOpen": {
-                      "type": "boolean"
-                    },
-                    "status": {
-                      "enum": [
-                        "ok"
-                      ],
-                      "type": "string"
-                    }
+                    "required": [
+                      "contractVersion",
+                      "requestId",
+                      "actorAccountRef",
+                      "intakeId"
+                    ],
+                    "type": "object"
                   },
-                  "required": [
-                    "contractVersion",
-                    "requestId",
-                    "status",
-                    "saleOpen",
-                    "purchaseUrl",
-                    "active",
-                    "members"
-                  ],
-                  "type": "object"
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "accountRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "contractVersion": {
+                        "enum": [
+                          "inside.waitlist-confirmation.v1"
+                        ],
+                        "type": "string"
+                      },
+                      "eventId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "intakeId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "linkRevision": {
+                        "exclusiveMinimum": true,
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "telegramIdentityRef": {
+                        "maxLength": 256,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "contractVersion",
+                      "eventId",
+                      "intakeId",
+                      "accountRef",
+                      "telegramIdentityRef",
+                      "linkRevision"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "active": {
+                          "maximum": 10000,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "contractVersion": {
+                          "enum": [
+                            "inside-communications-v1"
+                          ],
+                          "type": "string"
+                        },
+                        "members": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "accountRef": {
+                                "maxLength": 256,
+                                "minLength": 1,
+                                "type": "string"
+                              },
+                              "telegramIdentityRef": {
+                                "maxLength": 256,
+                                "minLength": 1,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "accountRef",
+                              "telegramIdentityRef"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 10000,
+                          "type": "array"
+                        },
+                        "purchaseUrl": {
+                          "format": "uri",
+                          "maxLength": 2048,
+                          "type": "string"
+                        },
+                        "requestId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$",
+                          "type": "string"
+                        },
+                        "saleOpen": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "enum": [
+                            "ok"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "contractVersion",
+                        "requestId",
+                        "status",
+                        "saleOpen",
+                        "purchaseUrl",
+                        "active",
+                        "members"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "eventId": {
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                          "type": "string"
+                        },
+                        "status": {
+                          "enum": [
+                            "accepted",
+                            "suppressed"
+                          ],
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "eventId",
+                        "status"
+                      ],
+                      "type": "object"
+                    }
+                  ]
                 }
               }
             },

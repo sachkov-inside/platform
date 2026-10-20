@@ -21,6 +21,10 @@ Runtime codec `@inside/contracts/telegram-contact` задаёт read-only
 Старый Telegram отвечает 404; Platform сохраняет список сдач и обозначает недоступный контакт.
 Обе стороны повторно читают текущую связь после внешнего запроса, чтобы исключить прежний контакт.
 
+Runtime codec `@inside/contracts/waitlist-confirmation` задаёт фиксированное сервисное
+подтверждение записи; [протокол](runtime/waitlist-confirmation.md) описывает два существующих
+service-authenticated направления, проверку текущего события/привязки и поведение при unknown.
+
 ## Изменение контракта
 
 Изменяй исходную схему, fixtures и protocol в одном PR. Manifest, snapshot и provenance
