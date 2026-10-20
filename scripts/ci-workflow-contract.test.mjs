@@ -627,6 +627,16 @@ describe("application CI workflow contract", () => {
       jobBlock("compose-production-checks"),
       /run: pnpm compose:production:smoke/u,
     );
+    // The runtime health-budget helper imports workspace dependencies on the host.
+    const productionChecks = jobBlock("compose-production-checks");
+    assert.match(
+      productionChecks,
+      /uses: \.\/\.github\/actions\/setup-platform/u,
+    );
+    assert.ok(
+      productionChecks.indexOf("uses: ./.github/actions/setup-platform") <
+        productionChecks.indexOf("run: pnpm compose:production:smoke"),
+    );
   });
 
   it("retains bounded failure diagnostics and source evidence for seven days", () => {
