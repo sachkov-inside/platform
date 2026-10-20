@@ -224,6 +224,7 @@ test.each([
     onTestFinished(() => {
       vi.restoreAllMocks();
     });
+    // deterministic-test-allow unit-io: Owned loopback receipt HTTP exercises the existing five-second abort within an eight-second test budget; onTestFinished closes all connections and the ephemeral listener.
     const { createServer } = await import("node:http");
     const { once } = await import("node:events");
     const { deliverWaitlistConfirmation } =
