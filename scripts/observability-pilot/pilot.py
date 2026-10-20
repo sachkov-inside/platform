@@ -733,6 +733,7 @@ def dependency_catalog_corpus(token, output, compose):
     import dependency_privacy
     proof = {'outcome':'failed','stage':'logging','cases':[]}
     try:
+        records = []
         verify_trace_store_logging(output,compose)
         for partition,payloads in (('dependency',dependency_privacy.payloads),
                                    ('communications',dependency_privacy.communications_payloads),
@@ -741,16 +742,23 @@ def dependency_catalog_corpus(token, output, compose):
                 now_ns = time.time_ns()
                 batches = dependency_privacy.payload_batches(transport,now_ns) if partition == 'dependency' else (payloads(transport,now_ns),)
                 for batch in batches:
-                    for signal,body in batch.items():
+                    for signal in tuple(batch):
+                        body = batch.pop(signal)
                         proof['stage']='ingest_'+partition+'_'+transport+'_'+signal
-                        assert_docker_identity()
-                        if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
-                            raise RuntimeError('dependency OTLP rejected')
-                proof['stage']='storage_'+partition+'_'+transport
-                stored = await_fact(lambda: dependency_privacy.stored_traces(
-                    fixture_trace_rows(compose,partition+'-'+transport),transport,communications=partition=='communications',telegram_http=partition=='telegram-http',now_ns=now_ns),bool,
-                    probe=partition+'_full_storage_'+transport,output=output)
-                proof['cases'].append({**stored,'partition':partition})
+                        try:
+                            assert_docker_identity()
+                            if request('/v1/'+signal,body=body,method='POST',port=14318)[0]!=200:
+                                raise RuntimeError('dependency OTLP rejected')
+                        finally:
+                            del body
+                del batches,batch
+                records.append((partition,transport,now_ns))
+        for partition,transport,now_ns in records:
+            proof['stage']='storage_'+partition+'_'+transport
+            stored = await_fact(lambda: dependency_privacy.stored_traces(
+                fixture_trace_rows(compose,partition+'-'+transport),transport,communications=partition=='communications',telegram_http=partition=='telegram-http',now_ns=now_ns),bool,
+                probe=partition+'_full_storage_'+transport,output=output)
+            proof['cases'].append({**stored,'partition':partition})
         proof['stage']='metrics'
         # Inspect the whole bounded corpus too, so an unregistered metric cannot hide outside a positive selector.
         path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'{__name__=~".+"}'})
