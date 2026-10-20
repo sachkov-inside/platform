@@ -298,7 +298,7 @@
     "error": "notification_operation_failed"
   },
   "dependencies": {
-    "names": ["kinescope", "postgresql", "tbank", "logto", "telegram"],
+    "names": ["kinescope", "postgresql", "tbank", "logto", "telegram", "s3"],
     "operations": [
       "delete",
       "find",
@@ -324,6 +324,9 @@
     ],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.dependency.operations", "inside.dependency.duration"]
+  },
+  "s3": {
+    "operations": ["http.GET", "http.PUT", "http.DELETE", "getObject.read"]
   },
   "postgresql": {
     "metrics": [
