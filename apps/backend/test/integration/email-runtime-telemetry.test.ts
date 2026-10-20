@@ -33,6 +33,68 @@ const EMAIL = "private-email-sentinel@example.test";
 const TITLE = "private-email-title-sentinel";
 const BODY = "private-email-body-sentinel";
 const ENCRYPTION_KEY = Buffer.alloc(32, 42).toString("base64");
+const diagnosticResource = z.looseObject({
+  resource: z
+    .looseObject({
+      attributes: z
+        .array(
+          z.looseObject({
+            key: z.string(),
+            value: z.looseObject({ stringValue: z.string().optional() }),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+});
+const diagnosticExport = z.looseObject({
+  resourceSpans: z.array(diagnosticResource).optional(),
+  resourceMetrics: z.array(diagnosticResource).optional(),
+});
+/** Only closed classifications survive; raw attributes, JSON errors and payloads never enter diagnostics. */
+function exportDiagnosticCounts(wire: readonly string[]) {
+  const counts = {
+    traces: { api: 0, worker: 0, other: 0 },
+    metrics: { api: 0, worker: 0, other: 0 },
+    other: { api: 0, worker: 0, other: 0 },
+  };
+  for (const body of wire) {
+    try {
+      const parsed = diagnosticExport.parse(JSON.parse(body));
+      const resources = [
+        ...(parsed.resourceSpans ?? []),
+        ...(parsed.resourceMetrics ?? []),
+      ];
+      const services = resources.flatMap((resource) =>
+        (resource.resource?.attributes ?? [])
+          .filter((attribute) => attribute.key === "service.name")
+          .map((attribute) => attribute.value.stringValue),
+      );
+      const service =
+        services.length > 0 &&
+        services.every((value) => value === "platform-api")
+          ? "api"
+          : services.length > 0 &&
+              services.every(
+                (value) => value === "platform-notifications-worker",
+              )
+            ? "worker"
+            : "other";
+      const signal =
+        parsed.resourceSpans !== undefined &&
+        parsed.resourceMetrics === undefined
+          ? "traces"
+          : parsed.resourceMetrics !== undefined &&
+              parsed.resourceSpans === undefined
+            ? "metrics"
+            : "other";
+      counts[signal][service]++;
+    } catch {
+      counts.other.other++;
+    }
+  }
+  return counts;
+}
 const spanSchema = z.looseObject({
   name: z.string(),
   traceId: z.string(),
@@ -298,6 +360,8 @@ test.each(scenarios)(
     const wire: string[] = [];
     const logs: string[] = [];
     let overflow = false;
+    const requestCounts = { traces: 0, metrics: 0, other: 0 };
+    const rejectedRequests = { bodyLimit: 0, exportLimit: 0 };
     const database = await createMigratedTestDatabase();
     cleanup.push(() => database.dispose());
     try {
@@ -316,6 +380,15 @@ test.each(scenarios)(
         () => warn.mockRestore(),
       );
       const collector = createServer((request, response) => {
+        // Classify the route, never retain a URL or headers.
+        const signal =
+          request.url === "/v1/traces"
+            ? "traces"
+            : request.url === "/v1/metrics"
+              ? "metrics"
+              : "other";
+        requestCounts[signal]++;
+        let rejected = false;
         let body = "";
         request.setEncoding("utf8");
         request.on("data", (chunk: string) => {
@@ -323,6 +396,15 @@ test.each(scenarios)(
             Buffer.byteLength(body) + Buffer.byteLength(chunk) > 1024 * 1024 ||
             wire.length >= 32
           ) {
+            if (!rejected) {
+              if (
+                Buffer.byteLength(body) + Buffer.byteLength(chunk) >
+                1024 * 1024
+              )
+                rejectedRequests.bodyLimit++;
+              if (wire.length >= 32) rejectedRequests.exportLimit++;
+              rejected = true;
+            }
             overflow = true;
             request.destroy();
           } else body += chunk;
@@ -725,7 +807,17 @@ test.each(scenarios)(
       if (!scenario.enabled || scenario.phase === "before-smtp")
         expect(smtpOperations).toEqual([]);
       else {
-        expect(smtpOperations.length).toBeGreaterThan(0);
+        // Fixed-size numeric/enum diagnostics are emitted only if this assertion fails.
+        const diagnostics = JSON.stringify({
+          event: "email_runtime_export_counts",
+          retainedExports: wire.length,
+          requests: requestCounts,
+          rejectedRequests,
+          overflow,
+          signalServiceExports: exportDiagnosticCounts(wire),
+          smtpSamples: smtpOperations.length,
+        });
+        expect(smtpOperations.length, diagnostics).toBeGreaterThan(0);
         // Cumulative samples and exporter retries repeat the same single invocation, never add sends.
         expect(smtpOperations.every((count) => count === 1)).toBe(true);
       }
