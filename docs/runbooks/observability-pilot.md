@@ -518,6 +518,9 @@ raw series, label maps, тела ответов, token, URL и error text не �
 Один последовательный batch имеет общий абсолютный deadline 8 секунд, response limit
 64 KiB на query и не создаёт дополнительной query concurrency. Четыре batch добавляют
 максимум 24 queries вне measurement window, общий supervisor deadline остаётся 600 секунд.
+Срабатывание таймера query исчерпывает весь batch, даже если monotonic clock ещё показывает
+остаток до deadline. Быстрый ответ 503 оставляет возможность выполнить следующие queries
+в пределах того же бюджета.
 
 `resource-sdk-diagnostics.json` входит в public whitelist и ограничен прежним 1 MiB.
 Он сохраняет частичные стадии до команд и закрытый `command_failed` при отказе;
