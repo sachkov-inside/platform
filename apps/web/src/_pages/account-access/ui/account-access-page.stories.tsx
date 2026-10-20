@@ -172,5 +172,12 @@ export const NewMember: Story = {
     await expect(
       connections.getByRole("button", { name: "Подключить" }),
     ).toBeVisible();
+    for (const text of [
+      "От 2 до 80 символов. Имя может повторяться.",
+      "Почта для входа и подключённый Telegram.",
+      "Подключите бота платформы — это займёт меньше минуты.",
+    ]) {
+      await expect(canvas.queryByText(text)).not.toBeInTheDocument();
+    }
   },
 };

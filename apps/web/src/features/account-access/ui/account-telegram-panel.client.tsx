@@ -5,6 +5,7 @@ import {
   ArrowUpRight,
   CircleAlert,
   LoaderCircle,
+  Send,
 } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -31,12 +32,15 @@ export function AccountTelegramPanel({
   onRefresh,
   contact,
   retryLabel = "Попробовать снова",
+  headingLevel = 2,
 }: {
   readonly link: AccountTelegramMembership["link"];
   readonly contact?: AccountTelegramMembership["contact"];
   readonly onRefresh: () => Promise<void>;
   readonly retryLabel?: string;
+  readonly headingLevel?: 2 | 3;
 }) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const flow = useTelegramLinkFlow(onRefresh);
   const presentation = telegramLinkPresentation(link);
 
@@ -45,9 +49,13 @@ export function AccountTelegramPanel({
       aria-labelledby="telegram-connection-heading"
       className="grid gap-3"
     >
-      <h3 className="text-base font-semibold" id="telegram-connection-heading">
+      <Heading
+        className="flex items-center gap-2 text-base font-semibold"
+        id="telegram-connection-heading"
+      >
+        <Send aria-hidden="true" className="size-4 text-muted-foreground" />
         Telegram
-      </h3>
+      </Heading>
       <article className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="min-w-0 [overflow-wrap:anywhere]">
@@ -72,9 +80,11 @@ export function AccountTelegramPanel({
                 Не удалось загрузить имя и username из Telegram.
               </p>
             ) : null}
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {presentation.account.description}
-            </p>
+            {link.kind === "unlinked" ? null : (
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                {presentation.account.description}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex w-full shrink-0 flex-wrap gap-2 sm:w-auto sm:justify-end">

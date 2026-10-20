@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { Mail } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 
 export interface AccountEmailFormProps {
@@ -41,7 +42,11 @@ export function AccountEmailForm({
   const [editing, setEditing] = useState(false);
   return (
     <section aria-labelledby={`${id}-heading`}>
-      <h3 className="text-base font-semibold" id={`${id}-heading`}>
+      <h3
+        className="flex items-center gap-2 text-base font-semibold"
+        id={`${id}-heading`}
+      >
+        <Mail aria-hidden="true" className="size-4 text-muted-foreground" />
         Почта
       </h3>
       {loading ? (

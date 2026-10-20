@@ -79,3 +79,8 @@ reading order, accessible section names, and full-width form controls on narrow 
 This addresses the owner's visual correction of 20 October 2026. Stories cover the empty profile,
 unlinked Telegram, missing/verified email, code entry and recovery states through the production
 components. Visual acceptance remains tracked in #1587.
+
+Keep the cabinet's headings concise. Omit the name-limit/uniqueness hint, the contacts-section
+explanation, and the initial bot-connection duration hint. Validation feedback still explains an
+invalid name. Email and Telegram headings use small decorative icons alongside their text labels.
+This refinement is the owner's follow-up correction of 20 October 2026.

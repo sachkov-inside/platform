@@ -90,9 +90,6 @@ export function AccountAccessView({
               <h2 className="text-lg font-semibold" id="account-connections">
                 Контакты и вход
               </h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Почта для входа и подключённый Telegram.
-              </p>
             </div>
             <div className="space-y-8">
               {emailSlot}
@@ -115,6 +112,7 @@ export function AccountAccessView({
                 </div>
               ) : (
                 <AccountTelegramPanel
+                  headingLevel={3}
                   contact={telegramContact}
                   link={link}
                   onRefresh={onTelegramRefresh}

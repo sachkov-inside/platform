@@ -83,7 +83,7 @@ export function MemberProfileEditor({
         </label>
         <div className="mt-2 flex flex-col items-stretch gap-3 sm:flex-row sm:items-start">
           <input
-            aria-describedby={`${id}-help${error === undefined ? "" : ` ${id}-error`}`}
+            aria-describedby={error === undefined ? undefined : `${id}-error`}
             aria-invalid={error !== undefined || undefined}
             disabled={save.isPending}
             autoComplete="nickname"
@@ -111,12 +111,6 @@ export function MemberProfileEditor({
             {save.isPending ? "Сохраняем…" : "Сохранить имя"}
           </Button>
         </div>
-        <p
-          className="mt-2 text-xs leading-5 text-muted-foreground"
-          id={`${id}-help`}
-        >
-          От 2 до 80 символов. Имя может повторяться.
-        </p>
         {error === undefined ? null : (
           <p
             className="mt-3 text-sm text-destructive"
