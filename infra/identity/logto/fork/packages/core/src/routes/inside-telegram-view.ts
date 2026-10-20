@@ -6,6 +6,7 @@ export interface InsideTelegramPresentation {
   deepLink?: string;
   confirmationCode?: string;
   callback?: string;
+  expiresAt?: string;
 }
 
 export type InsideTelegramView = {
@@ -93,12 +94,18 @@ export const telegramSignInPage = renderTelegramSignInPage({ status: 'loading' }
 
 export const pollIntervalMilliseconds = 1500;
 const statusRequestTimeoutMilliseconds = 8000;
+// A broken connection must not leave an abandoned tab polling indefinitely.
+const maximumWaitingMilliseconds = 5 * 60 * 1000;
 export const telegramSignInScript = `
 const telegramBotLinks = ${telegramBotLinks.toString()};
 const render = ${renderTelegramSignInContent.toString()};
 const main = document.querySelector('main');
 let previousContent = main.innerHTML;
 let attemptedBotOpen = false;
+let stopped = false;
+let inFlight = false;
+let pollTimer;
+let deadline = Date.now() + ${maximumWaitingMilliseconds};
 function present(view) {
   const content = render(view);
   if (content === previousContent) return;
@@ -112,14 +119,28 @@ function present(view) {
   if (focusedId) (document.getElementById(focusedId) || document.getElementById('alternative') || document.getElementById('bot'))?.focus();
 }
 async function poll() {
-  let stopped = false;
+  if (stopped || inFlight) return;
+  clearTimeout(pollTimer);
+  if (Date.now() >= deadline) {
+    stopped = true;
+    present({ status: 'expired' });
+    return;
+  }
+  inFlight = true;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ${statusRequestTimeoutMilliseconds});
   try {
     const response = await fetch('/api/inside-telegram/status', { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error('Status unavailable');
     const state = await response.json();
-    present(state);
+    const expiresAt = Date.parse(state.expiresAt);
+    if (Number.isFinite(expiresAt)) deadline = Math.min(deadline, expiresAt);
+    if (Date.now() >= deadline) {
+      stopped = true;
+      present({ status: 'expired' });
+      return;
+    }
+    present(state.status === 'unavailable' ? { status: 'reconnecting' } : state);
     const botLink = state.status === 'pending' ? telegramBotLinks(state.deepLink) : undefined;
     if (botLink && !attemptedBotOpen) {
       attemptedBotOpen = true;
@@ -130,15 +151,23 @@ async function poll() {
     if (state.status === 'approved' && state.callback) {
       stopped = true;
       location.replace(state.callback);
-    } else if (state.status !== 'pending') {
+    } else if (state.status !== 'pending' && state.status !== 'unavailable') {
       stopped = true;
     }
   } catch {
     present({ status: 'reconnecting' });
   } finally {
     clearTimeout(timeout);
+    inFlight = false;
   }
-  if (!stopped) setTimeout(poll, ${pollIntervalMilliseconds});
+  if (!stopped) pollTimer = setTimeout(poll, ${pollIntervalMilliseconds});
 }
+function resume() {
+  if (document.visibilityState !== 'hidden') poll();
+}
+window.addEventListener('focus', resume);
+window.addEventListener('pageshow', resume);
+window.addEventListener('online', resume);
+document.addEventListener('visibilitychange', resume);
 poll();
 `;

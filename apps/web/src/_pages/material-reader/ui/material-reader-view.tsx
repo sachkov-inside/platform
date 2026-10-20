@@ -118,11 +118,13 @@ export function MaterialReaderView({
       readingAction={topReadingAction ?? readingAction}
       bookmarkAction={topBookmarkAction ?? bookmarkAction}
       shareAction={
-        <MaterialShareButton
-          slug={material.slug}
-          title={material.title}
-          presentation="reader"
-        />
+        material.access === "free" ? (
+          <MaterialShareButton
+            slug={material.slug}
+            title={material.title}
+            presentation="reader"
+          />
+        ) : null
       }
     />
   );
@@ -211,11 +213,13 @@ export function MaterialReaderView({
               bookmarkAction={endBookmarkAction}
               nextStep={nextStep}
               shareAction={
-                <MaterialShareButton
-                  slug={material.slug}
-                  title={material.title}
-                  presentation="reader"
-                />
+                material.access === "free" ? (
+                  <MaterialShareButton
+                    slug={material.slug}
+                    title={material.title}
+                    presentation="reader"
+                  />
+                ) : null
               }
               readingAction={endReadingAction}
             />
@@ -250,7 +254,7 @@ export function SeriesReaderBar({
       <div aria-hidden="true" className="h-16 lg:hidden" />
       <nav
         aria-label="Уроки продукта"
-        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0 rounded-xl border border-border bg-background/95 p-0 shadow-sm backdrop-blur lg:hidden"
+        className="fixed bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex -translate-x-1/2 items-center gap-0 rounded-xl border border-border bg-background/95 p-0 shadow-sm lg:hidden"
         data-series-reader-bar
       >
         <HidePublicFooter />
@@ -327,7 +331,7 @@ export function MaterialReaderHeader({
         title={material.title}
         actions={actions}
         metadata={
-          showShare ? (
+          showShare && material.access === "free" ? (
             <MaterialShareButton slug={material.slug} title={material.title} />
           ) : null
         }
@@ -348,7 +352,7 @@ export function MaterialReaderHeader({
         </IntentPrefetchLink>
         <span aria-hidden="true">·</span>
         <time dateTime={material.publishedAt}>{publicationDate}</time>
-        {showShare ? (
+        {showShare && material.access === "free" ? (
           <MaterialShareButton slug={material.slug} title={material.title} />
         ) : null}
       </div>

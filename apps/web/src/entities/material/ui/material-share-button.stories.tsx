@@ -2,8 +2,6 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, spyOn, userEvent, within } from "storybook/test";
 
 import { MaterialShareButton } from "./material-share-button.client";
-import { MaterialCard } from "./material-card";
-import type { MaterialPreview } from "../model/material-preview";
 
 const meta = {
   title: "Components/Material Sharing",
@@ -135,38 +133,9 @@ export const NativeUnavailable: Story = {
     ),
 };
 
-const material: MaterialPreview = {
-  access: "free",
-  availability: "available",
-  format: "Заметка",
-  formatSlug: "note",
-  seriesMemberships: [],
-  slug: "first-material",
-  summary: "Как постоянные ссылки помогают делиться полезными материалами.",
-  tags: [],
-  title: "Первый материал",
-  topic: "Разработка",
-  topicSlug: "development",
-};
-
-export const Cards: Story = {
-  render: () => (
-    <div className="mx-auto flex max-w-md flex-col gap-6">
-      <MaterialCard material={material} variant="feed" />
-      <MaterialCard material={material} variant="row" />
-      <MaterialCard material={material} variant="series" />
-    </div>
-  ),
-};
-
-export const CardsMobile: Story = {
-  ...Cards,
-  globals: { viewport: { value: "mobile390", isRotated: false } },
-};
-
-export const CompactManualCopy: Story = {
+export const ReaderManualCopyMobile: Story = {
   ...ManualCopy,
-  render: () => <MaterialCard material={material} variant="series" />,
+  args: { presentation: "reader" },
   globals: { viewport: { value: "mobile320", isRotated: false } },
 };
 
