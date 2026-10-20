@@ -119,7 +119,7 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py'):
+            for name in ('native_cpu.py', 'link_privacy.py','notification_privacy.py','dependency_privacy.py','email_privacy.py'):
                 relative = 'scripts/observability-pilot/'+name
                 helper = ci.ROOT / relative
                 self.assertEqual(proof['inputs'][relative], hashlib.sha256(helper.read_bytes()).hexdigest())
@@ -135,10 +135,11 @@ class HostedEvidenceTest(unittest.TestCase):
             (output / "trace-store-logging.json").write_text('{"outcome":"passed","ownership":"passed","driver":"none"}')
             (output / "notification-collector.json").write_text('{"outcome":"passed","cases":[]}')
             (output / "dependency-collector.json").write_text('{"outcome":"passed","cases":[]}')
-            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json", "notification-otlp.bin", "notification-storage.json", "dependency-otlp.bin", "dependency-storage.json"):
+            (output / "email-collector.json").write_text('{"outcome":"passed","cases":[]}')
+            for forbidden in ("auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json", "notification-otlp.bin", "notification-storage.json", "dependency-otlp.bin", "dependency-storage.json", "email-otlp.bin", "email-storage.json"):
                 (output / forbidden).write_text("sentinel-secret")
             ci.collect(output, metadata, public)
-            self.assertEqual(sorted(path.name for path in public.iterdir()), ["dependency-collector.json", "evidence.json", "notification-collector.json", "source.json", "trace-store-logging.json"])
+            self.assertEqual(sorted(path.name for path in public.iterdir()), ["dependency-collector.json", "email-collector.json", "evidence.json", "notification-collector.json", "source.json", "trace-store-logging.json"])
             self.assertNotIn("sentinel-secret", "".join(path.read_text() for path in public.iterdir()))
 
     def test_recovery_refuses_foreign_project_instead_of_executing_owner_argv(self):
