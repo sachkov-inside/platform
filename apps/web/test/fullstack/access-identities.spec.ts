@@ -303,6 +303,12 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
   const observer = await openAs(browser, "MATERIALS_ONLY");
   try {
     await billingManager.page.goto("/authoring/billing");
+    await billingManager.page
+      .getByRole("tab", { name: "Назначения и перенос", exact: true })
+      .click();
+    await billingManager.page
+      .getByRole("tab", { name: "Назначения", exact: true })
+      .click();
     await expect(
       billingManager.page.getByRole("heading", {
         name: "Тарифы и назначения",

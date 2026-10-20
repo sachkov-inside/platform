@@ -1613,6 +1613,7 @@ test("автор получает ссылку сразу после перво�
   await expect(
     page.getByRole("button", { name: "Снять с публикации", exact: true }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Карточка ссылки", exact: true }).click();
   await page
     .getByRole("button", { name: "Скопировать ссылку", exact: true })
     .click();
