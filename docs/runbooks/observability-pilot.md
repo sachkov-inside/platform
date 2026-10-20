@@ -1229,3 +1229,28 @@ Core `source.json` добавляет `source_status.py`, `source_status_query.p
 с pinned engines, семь реальных переходов и длительность hosted worker остаются непроверенными
 до отдельного успешного Core CI на точном source. Прежние corpus/privacy gates сохраняются.
 Эта проверка не доказывает ingestion lag, persisted delivery или end-to-end loss accounting.
+
+### Tracking hit delivery context, prepared source for #1566
+
+The API registers its existing technical SDK with `TrackingHitPump` before bootstrap.
+`TrackingVisits.resolve` persists only the current owned W3C v00 traceparent with the durable hit.
+Each successfully claimed row starts one INTERNAL `tracking deliver` attempt from that original
+carrier. Missing or invalid historical carriers create independent roots. Empty polls and lost
+claims do not create delivery spans. This HTTP outbox has no RabbitMQ destination or messaging labels.
+
+`inside.tracking.operations` and `inside.tracking.duration` use only `operation=deliver` and
+`outcome=completed|failed`. A negative provider result marks that attempt failed; it does not
+change the existing event ID, operation ID, payload, claim, retry or ambiguous-ACK handling.
+The API stops the pump and drains every started row callback, including pending claims after a sibling failure, before shutting down its SDK. The normal batch remains fail-fast and retains its existing polling cadence. Telemetry remains optional, and the
+existing five-second polling and provider timeout stay authoritative.
+
+Apply append-only `0112_communications_tracking_trace_context` before the new application binary.
+It is the 114th registry entry and adds one nullable `varchar(55)` column without changing the
+first 113 entries. An old binary can ignore the column, but a database with all 114 ledger entries
+must retain the compatible registry during rollback. Historical NULL is supported; an absent
+column means migrations have not been applied and is not treated as NULL.
+
+The genuine API/timer/PostgreSQL tests are prepared for CI. Host SDK tests alone do not prove
+PostgreSQL, timer delivery, restart, shutdown or migration behavior. The existing pinned collector
+policy does not yet retain these tracking fields and metrics; direct owned OTLP export is not
+pinned-storage proof. This source does not activate production tracking or add user permissions.
