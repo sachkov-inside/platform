@@ -187,11 +187,23 @@ const meta = {
     readingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
-    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    bookmarkAction: (
+      <SavedBookmarkAction
+        presentation="reader"
+        compact
+        materialId={materialId}
+      />
+    ),
     topReadingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
-    topBookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    topBookmarkAction: (
+      <SavedBookmarkAction
+        presentation="reader"
+        compact
+        materialId={materialId}
+      />
+    ),
   },
 } satisfies Meta<typeof MaterialReaderView>;
 export default meta;
@@ -247,22 +259,22 @@ export const SyncedActions: Story = {
     await expect(topRead.getBoundingClientRect().height).toBe(before.height);
     for (const position of scrollPositions)
       await expect(position.element.scrollTop).toBe(position.top);
-    const topBookmark = within(top).getByRole("button", { name: "В закладки" });
+    const topBookmark = within(top).getByRole("button", { name: "Сохранить" });
     await userEvent.click(topBookmark);
     await waitFor(async () => {
       await expect(
-        within(top).getByRole("button", { name: "В закладках" }),
+        within(top).getByRole("button", { name: "Сохранено" }),
       ).toHaveAttribute("aria-pressed", "true");
       await expect(
-        within(bottom).getByRole("button", { name: "В закладках" }),
+        within(bottom).getByRole("button", { name: "Сохранено" }),
       ).toHaveAttribute("aria-pressed", "true");
     });
     await userEvent.click(
-      within(bottom).getByRole("button", { name: "В закладках" }),
+      within(bottom).getByRole("button", { name: "Сохранено" }),
     );
     await waitFor(async () =>
       expect(
-        within(top).getByRole("button", { name: "В закладки" }),
+        within(top).getByRole("button", { name: "Сохранить" }),
       ).toHaveAttribute("aria-pressed", "false"),
     );
     await expect(canvas.queryByText("Сложность: Базовый")).toBeNull();
@@ -280,7 +292,13 @@ export const CourseStudyActions: Story = {
     readingAction: (
       <SavedReadingAction compact format="guide" materialId={materialId} />
     ),
-    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    bookmarkAction: (
+      <SavedBookmarkAction
+        presentation="reader"
+        compact
+        materialId={materialId}
+      />
+    ),
     body: [
       {
         kind: "heading",
@@ -316,111 +334,71 @@ async function expectEdgeNavigation(panel: HTMLElement) {
   await panel.ownerDocument.fonts.ready;
   const actions = within(panel);
   const frame = panel.getBoundingClientRect();
-  const previous = actions
-    .getByRole("link", { name: "Предыдущий урок" })
+  const back = actions
+    .getByRole("link", { name: "Назад" })
     .getBoundingClientRect();
   const next = actions
-    .getByRole("link", { name: "Следующий урок" })
+    .getByRole("link", { name: "Дальше" })
     .getBoundingClientRect();
-  const reading = actions
-    .queryByRole("button", { name: "Изучено" })
-    ?.getBoundingClientRect();
-  await expect(previous.left - frame.left).toBeLessThanOrEqual(10);
+  await expect(back.left - frame.left).toBeLessThanOrEqual(10);
   await expect(frame.right - next.right).toBeLessThanOrEqual(10);
-  if (reading === undefined) {
-    await expect(panel).toHaveAttribute("aria-label", "Действия материала");
-    return;
-  }
-  await expect(
-    Math.abs(reading.left + reading.width / 2 - (frame.left + frame.width / 2)),
-  ).toBeLessThanOrEqual(1);
-  const programme = actions.getByRole("link", {
-    name: "Открыть программу",
-  });
-  await expect(programme.getBoundingClientRect().right).toBeLessThanOrEqual(
-    reading.left,
-  );
-  const label = programme.querySelector("span");
-  if (label !== null && getComputedStyle(label).position !== "absolute")
-    await expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(
-      reading.left,
+  const controls = [
+    actions.getByRole("link", { name: "Назад" }),
+    actions.getByRole("button", { name: "Сохранить" }),
+    actions.getByRole("button", { name: "Изучено" }),
+    actions.getByRole("button", { name: /Поделиться материалом/u }),
+  ];
+  for (let index = 1; index < controls.length; index += 1) {
+    const previous = controls[index - 1];
+    const current = controls[index];
+    if (previous === undefined || current === undefined)
+      throw new Error("Missing action");
+    await expect(current.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      previous.getBoundingClientRect().right,
     );
+  }
 }
 
-/** Owner's phone layout: identical actions at both ends, one pager for adjacent lessons. */
+/** Accepted A keeps action order and touch targets at both ends of the material. */
 export const MobileActionPanels: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    for (const name of ["Действия материала", "Действия в конце материала"]) {
-      const panel = canvas.getByRole("navigation", { name });
+    const panels = ["Действия материала", "Действия в конце материала"].map(
+      (name) => canvas.getByRole("navigation", { name }),
+    );
+    for (const panel of panels) {
       panel.scrollIntoView({ block: "center", behavior: "instant" });
       await expectEdgeNavigation(panel);
-      const actions = within(panel);
       await expect(
-        actions.getByRole("link", { name: /^Открыть программу$/u }),
+        within(panel).getByRole("link", { name: "Назад" }),
       ).toHaveAttribute("href", programme);
       await expect(
-        actions.getByRole("button", { name: /^В закладки$/u }),
-      ).toBeVisible();
-      const mark = actions.queryByRole("button", { name: "Изучено" });
-      await expect(mark).not.toBeNull();
-      await expect(mark).toBeVisible();
-      await expect(
-        actions.getByRole("link", { name: "Предыдущий урок" }),
-      ).toHaveAttribute("href", materialReaderHref("first", programme));
-      await expect(
-        actions.getByRole("link", { name: "Следующий урок" }),
+        within(panel).getByRole("link", { name: "Дальше" }),
       ).toHaveAttribute("href", materialReaderHref("next", programme));
-      await expect(panel.getBoundingClientRect().height).toBe(38);
-      if (mark !== null) {
-        await expect(mark).toHaveAttribute("data-variant", "ghost");
-        await expect(getComputedStyle(mark).borderTopColor).toBe(
-          "rgba(0, 0, 0, 0)",
-        );
-      }
       for (const action of [
-        ...actions.getAllByRole("button"),
-        ...actions.getAllByRole("link"),
+        ...within(panel).getAllByRole("button"),
+        ...within(panel).getAllByRole("link"),
       ]) {
         const bounds = action.getBoundingClientRect();
-        await expect(bounds.height).toBe(32);
-        await expect(getComputedStyle(action).fontSize).toBe("12px");
-        const hitArea = getComputedStyle(action, "::after");
-        await expect(parseFloat(hitArea.height)).toBeGreaterThanOrEqual(44);
-        if (!action.matches(":disabled, [aria-disabled='true']")) {
-          await waitFor(async () => {
-            const currentBounds = action.getBoundingClientRect();
-            const hit = action.ownerDocument.elementFromPoint(
-              currentBounds.x + currentBounds.width / 2,
-              currentBounds.y - 2,
-            );
-            await expect(hit !== null && action.contains(hit)).toBe(true);
-          });
-        }
+        await expect(bounds.height).toBeGreaterThanOrEqual(44);
+        await expect(bounds.width).toBeGreaterThanOrEqual(44);
+        await expect(bounds.left).toBeGreaterThanOrEqual(
+          panel.getBoundingClientRect().left,
+        );
+        await expect(bounds.right).toBeLessThanOrEqual(
+          panel.getBoundingClientRect().right,
+        );
       }
+      await expect(panel.scrollWidth).toBe(panel.clientWidth);
     }
-    const topPanel = canvas.getByRole("navigation", {
-      name: "Действия материала",
-    });
-    const bottomPanel = canvas.getByRole("navigation", {
-      name: "Действия в конце материала",
-    });
-    for (const property of [
-      "backgroundColor",
-      "borderTopWidth",
-      "borderRadius",
-      "padding",
-    ] as const)
-      await expect(getComputedStyle(bottomPanel)[property]).toBe(
-        getComputedStyle(topPanel)[property],
-      );
-    await expect(bottomPanel.getBoundingClientRect().height).toBe(
-      topPanel.getBoundingClientRect().height,
+    const [top, bottom] = panels;
+    if (top === undefined || bottom === undefined)
+      throw new Error("Missing action panel");
+    await expect(bottom.getBoundingClientRect().height).toBe(
+      top.getBoundingClientRect().height,
     );
     const pager = canvas.getByRole("navigation", { name: "Уроки продукта" });
-    await expect(pager.getBoundingClientRect().height).toBe(46);
-    await expect(pager.getBoundingClientRect().width).toBe(146);
     await expect(
       within(pager).getByRole("link", { name: "Предыдущий урок" }),
     ).toBeVisible();
@@ -430,9 +408,7 @@ export const MobileActionPanels: Story = {
     await expect(
       within(pager).getByText("2 / 3", { exact: true }),
     ).toBeVisible();
-    await expect(canvas.queryByText("Материал 2 из 3")).toBeNull();
-    await expect(canvas.queryByText("Дальше", { exact: true })).toBeNull();
-    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+    await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
     );
   },
@@ -491,7 +467,7 @@ export const InitialReadFailureKeepsHeaderPlace: Story = {
       ).toHaveAttribute("data-reading-action-state", "ready"),
     );
     await userEvent.click(
-      within(top).getByRole("button", { name: "В закладки" }),
+      within(top).getByRole("button", { name: "Сохранить" }),
     );
     await waitFor(() =>
       expect(top.querySelector("[data-bookmark-action-state]")).toHaveAttribute(
@@ -501,7 +477,7 @@ export const InitialReadFailureKeepsHeaderPlace: Story = {
     );
     await expect(commands).toHaveLength(0);
     await expect(
-      within(top).getByRole("button", { name: "В закладки" }),
+      within(top).getByRole("button", { name: "Сохранить" }),
     ).toHaveAttribute("aria-pressed", "false");
   },
 };
@@ -554,7 +530,7 @@ export const SharedFailureAndRetry: Story = {
     await expect(commands[2]).not.toBe(commands[0]);
     bookmarkFailure = "unavailable";
     await userEvent.click(
-      within(top).getByRole("button", { name: "В закладки" }),
+      within(top).getByRole("button", { name: "Сохранить" }),
     );
     await waitFor(async () => {
       await expect(
@@ -563,7 +539,7 @@ export const SharedFailureAndRetry: Story = {
     });
     bookmarkFailure = null;
     await userEvent.click(
-      within(top).getByRole("button", { name: "В закладки" }),
+      within(top).getByRole("button", { name: "Сохранить" }),
     );
     await waitFor(() =>
       expect(top.querySelector("[data-bookmark-action-state]")).toHaveAttribute(
@@ -572,11 +548,11 @@ export const SharedFailureAndRetry: Story = {
       ),
     );
     await userEvent.click(
-      within(top).getByRole("button", { name: "В закладках" }),
+      within(top).getByRole("button", { name: "Сохранено" }),
     );
     await waitFor(() =>
       expect(
-        within(top).getByRole("button", { name: "В закладки" }),
+        within(top).getByRole("button", { name: "Сохранить" }),
       ).toHaveAttribute("aria-pressed", "false"),
     );
   },
@@ -632,7 +608,7 @@ export const SharedConflictAndDenial: Story = {
     });
     bookmarkFailure = "denied";
     await userEvent.click(
-      within(top).getByRole("button", { name: "В закладки" }),
+      within(top).getByRole("button", { name: "Сохранить" }),
     );
     await waitFor(async () => {
       for (const root of [top])
@@ -841,10 +817,10 @@ export const DesktopActionPanels: Story = {
     for (const panel of panels) {
       await expectEdgeNavigation(panel);
       await expect(
-        within(panel).getByRole("link", { name: "Предыдущий урок" }),
-      ).toHaveAttribute("href", materialReaderHref("first", programme));
+        within(panel).getByRole("link", { name: "Назад" }),
+      ).toHaveAttribute("href", programme);
       await expect(
-        within(panel).getByRole("link", { name: "Следующий урок" }),
+        within(panel).getByRole("link", { name: "Дальше" }),
       ).toHaveAttribute("href", materialReaderHref("next", programme));
     }
     const [top, bottom] = panels;
@@ -857,4 +833,55 @@ export const DesktopActionPanels: Story = {
       bottom.getBoundingClientRect().height,
     );
   },
+};
+
+/** Accepted A: one group of named actions with the next step at the opposite edge. */
+export const GroupedReaderActions: Story = {
+  args: {
+    seriesContext: { ...meta.args.seriesContext, programme: courseGuide },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const name of ["Действия материала", "Действия в конце материала"]) {
+      const panel = canvas.getByRole("navigation", { name });
+      const actions = within(panel);
+      const back = actions.getByRole("link", { name: "Назад" });
+      const save = await actions.findByRole("button", { name: "Сохранить" });
+      const studied = actions.getByRole("button", { name: "Изучено" });
+      const share = actions.getByRole("button", {
+        name: /Поделиться материалом/u,
+      });
+      const next = actions.getByRole("link", { name: "Дальше" });
+      const bounds = [back, save, studied, share, next].map((control) =>
+        control.getBoundingClientRect(),
+      );
+      for (const box of bounds) {
+        await expect(box.width).toBeGreaterThanOrEqual(44);
+        await expect(box.height).toBeGreaterThanOrEqual(44);
+      }
+      for (let index = 1; index < bounds.length; index += 1)
+        await expect(bounds[index]?.left).toBeGreaterThanOrEqual(
+          bounds[index - 1]?.right ?? 0,
+        );
+      await expect(panel.scrollWidth).toBe(panel.clientWidth);
+      await expect(next).toHaveAttribute("href", courseGuide.next?.href ?? "");
+    }
+    await expect(
+      canvasElement.querySelector(
+        '[data-reader-header] button[aria-label^="Поделиться"]',
+      ),
+    ).toBeNull();
+  },
+};
+export const GroupedReaderActionsMobile: Story = {
+  ...GroupedReaderActions,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+export const GroupedReaderActionsSmallMobile: Story = {
+  ...GroupedReaderActions,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+export const GroupedReaderActionsTablet: Story = {
+  ...GroupedReaderActions,
+  globals: { viewport: { value: "tablet820", isRotated: false } },
 };

@@ -29,9 +29,11 @@ import { BookmarkAction } from "./bookmark-action.client";
 export function SavedBookmarkAction({
   materialId,
   compact = false,
+  presentation = "default",
 }: {
   readonly materialId: string;
   readonly compact?: boolean;
+  readonly presentation?: "default" | "reader";
 }) {
   const { accountId, resolved } = useMaterialReading();
   const queryClient = useQueryClient();
@@ -112,6 +114,7 @@ export function SavedBookmarkAction({
   return (
     <BookmarkAction
       compact={compact}
+      presentation={presentation}
       onToggle={(desired) => {
         if (accountId === null || state.isPending || saving) return;
         if (data?.kind !== "ready") {

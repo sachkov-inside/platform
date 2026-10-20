@@ -15,12 +15,20 @@ export function BookmarkAction({
   view,
   onToggle,
   compact = false,
+  presentation = "default",
 }: BookmarkActionProps) {
   const descriptionId = useId();
   const bookmarked = "bookmarked" in view && view.bookmarked;
   const loading = view.kind === "loading";
   const pending = view.kind === "pending";
-  const label = bookmarked ? "В закладках" : "В закладки";
+  const label =
+    presentation === "reader"
+      ? bookmarked
+        ? "Сохранено"
+        : "Сохранить"
+      : bookmarked
+        ? "В закладках"
+        : "В закладки";
   const message =
     view.kind === "load-error"
       ? "Не удалось загрузить закладку. Нажмите, чтобы повторить."
@@ -57,7 +65,13 @@ export function BookmarkAction({
             title={message}
           >
             <Bookmark aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>{label}</span>
+            <span
+              className={
+                compact && presentation !== "reader" ? "sr-only" : undefined
+              }
+            >
+              {label}
+            </span>
           </a>
         </Button>
       ) : (
@@ -99,7 +113,13 @@ export function BookmarkAction({
           ) : (
             <Bookmark aria-hidden="true" />
           )}
-          <span className={compact ? "sr-only" : undefined}>{label}</span>
+          <span
+            className={
+              compact && presentation !== "reader" ? "sr-only" : undefined
+            }
+          >
+            {label}
+          </span>
         </Button>
       )}
       <p

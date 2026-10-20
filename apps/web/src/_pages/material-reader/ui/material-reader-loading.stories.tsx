@@ -138,7 +138,11 @@ function PersonalPart({
     <MaterialReaderView
       body={body}
       bookmarkAction={
-        <SavedBookmarkAction compact materialId={material.materialId} />
+        <SavedBookmarkAction
+          presentation="reader"
+          compact
+          materialId={material.materialId}
+        />
       }
       material={material}
       primaryVideo={null}
@@ -157,7 +161,11 @@ function PersonalPart({
         />
       }
       topBookmarkAction={
-        <SavedBookmarkAction compact materialId={material.materialId} />
+        <SavedBookmarkAction
+          presentation="reader"
+          compact
+          materialId={material.materialId}
+        />
       }
       returnTarget={returnTarget}
       seriesContext={seriesContext}
@@ -236,7 +244,7 @@ function loadsInPlace(
           name: "Действия материала",
         });
         await expect(within(headerActions).getAllByRole("button")).toHaveLength(
-          2,
+          3,
         );
         await expect(
           canvas.getByRole("group", { name: "Отметка изучения" }),

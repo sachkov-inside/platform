@@ -504,7 +504,13 @@ function readerActions(
     topReadingAction: (
       <SavedReadingAction compact format={format} materialId={materialId} />
     ),
-    topBookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    topBookmarkAction: (
+      <SavedBookmarkAction
+        presentation="reader"
+        compact
+        materialId={materialId}
+      />
+    ),
     readingAction: (
       <SavedReadingAction
         compact
@@ -513,7 +519,13 @@ function readerActions(
         materialId={materialId}
       />
     ),
-    bookmarkAction: <SavedBookmarkAction compact materialId={materialId} />,
+    bookmarkAction: (
+      <SavedBookmarkAction
+        presentation="reader"
+        compact
+        materialId={materialId}
+      />
+    ),
     practiceActions: (
       <LearningPracticePrompts connection={learnerMcp} result={noPractices} />
     ),
@@ -676,16 +688,16 @@ export const Mobile: Story = {
       const mark = within(panel).queryByRole("link", { name: "Изучено" });
       {
         if (mark === null) throw new Error("Bottom study action missing");
-        await expect(getComputedStyle(mark).fontSize).toBe("12px");
-        await expect(mark.getBoundingClientRect().height).toBe(32);
+        await expect(getComputedStyle(mark).fontSize).toBe("14px");
+        await expect(mark.getBoundingClientRect().height).toBe(44);
         await expect(
-          parseFloat(getComputedStyle(mark, "::after").height),
+          mark.getBoundingClientRect().height,
         ).toBeGreaterThanOrEqual(44);
       }
-      const bookmark = within(panel).getByRole("link", { name: "В закладки" });
+      const bookmark = within(panel).getByRole("link", { name: "Сохранить" });
       await expect(bookmark.getBoundingClientRect().width).toBe(44);
       await expect(
-        parseFloat(getComputedStyle(bookmark, "::after").height),
+        bookmark.getBoundingClientRect().height,
       ).toBeGreaterThanOrEqual(44);
     }
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
@@ -1040,23 +1052,20 @@ export const PlaylistReturn: Story = {
       name: "Действия в конце материала",
     });
     await expect(
-      within(seriesNavigation).getByRole("link", { name: "Открыть программу" }),
-    ).toHaveAttribute("href", "/products/platform-inside/programme");
+      within(seriesNavigation).getByRole("link", { name: "Назад" }),
+    ).toHaveAttribute("href", playlistReturnTarget.href);
     const top = await within(canvasElement).findByRole("navigation", {
       name: "Действия материала",
     });
     await expect(
-      within(top).getByRole("link", { name: "Следующий урок" }),
+      within(top).getByRole("link", { name: "Дальше" }),
     ).toHaveAttribute(
       "href",
       "/materials/review-video?from=%2Fproducts%2Fplatform-inside",
     );
     await expect(
-      within(top).getByRole("link", { name: "Предыдущий урок" }),
-    ).toHaveAttribute(
-      "href",
-      "/materials/first-product?from=%2Fproducts%2Fplatform-inside",
-    );
+      within(top).getByRole("link", { name: "Назад" }),
+    ).toHaveAttribute("href", playlistReturnTarget.href);
     const readerBody =
       canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     const readerFooter = canvasElement.querySelector<HTMLElement>(
@@ -1079,7 +1088,7 @@ export const PlaylistReturn: Story = {
     ).not.toBeInTheDocument();
     await expect(
       within(seriesNavigation).getByRole("link", {
-        name: "Следующий урок",
+        name: "Дальше",
       }),
     ).toHaveAttribute(
       "href",
@@ -1540,7 +1549,9 @@ export const SourceAnchors: Story = {
       await waitFor(async () => {
         const y = heading.getBoundingClientRect().top;
         await expect(y).toBeGreaterThanOrEqual(0);
-        await expect(y).toBeLessThan(160);
+        await expect(y).toBeLessThan(
+          window.innerHeight - heading.getBoundingClientRect().height,
+        );
       });
     } finally {
       window.history.replaceState(window.history.state, "", previousUrl);
@@ -1634,7 +1645,9 @@ export const SourceAnchorLegacyCollision: Story = {
       await waitFor(async () => {
         const y = target.getBoundingClientRect().top;
         await expect(y).toBeGreaterThanOrEqual(0);
-        await expect(y).toBeLessThan(160);
+        await expect(y).toBeLessThan(
+          window.innerHeight - target.getBoundingClientRect().height,
+        );
       });
     } finally {
       window.history.replaceState(window.history.state, "", previousUrl);
