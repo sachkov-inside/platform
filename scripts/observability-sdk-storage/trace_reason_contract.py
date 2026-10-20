@@ -40,7 +40,7 @@ class TraceReasons(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'^'+diagnostics.TRACE_MESSAGES[self.scope]+'$') as caught:
                     self.parse(rows)
                 self.assertEqual(caught.exception.reason,'trace_gate_'+str(gate).zfill(2))
-                self.assertEqual(diagnostics.oracle_reason(caught.exception,scope=self.scope),caught.exception.reason)
+                self.assertEqual(diagnostics.oracle_reason(caught.exception,scope=self.scope),caught.exception.diagnostic_reason)
                 self.assertTrue(rows==before,'oracle mutated synthetic rows')
                 for field in ('reason','_reason','scope','_scope'):
                     with self.assertRaises(AttributeError):setattr(caught.exception,field,'private-canary')

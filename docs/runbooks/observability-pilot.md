@@ -1726,3 +1726,28 @@ strict canonical/VM MCP readers and a separate hosted observation/cleanup matrix
 Core defaults and production Caddy are unchanged. Source and protocol checks do not establish
 Linux/native acceptance; the bound hosted matrix is required. This scope adds no production,
 server-sizing, resource-saving or #1579 acceptance.
+
+
+### Prepared bounded feedback after the 288 source run
+
+Resource numeric schema2 adds `after_backend_build` from the same guard-owned memory view,
+after the original backend build returns and before foundation build. The first-pull checkpoint
+stays separate. Schema1 remains strictly readable and is never upgraded with an invented point;
+missing legacy metadata stays unavailable. Both versions retain the4096B cap and source binding.
+The checkpoints can be stale and do not attribute image/cache/filesystem consumption. The guard,
+its cutoffs and the inherited late-monitor signal limitation are unchanged.
+
+Core `core-stage-timing.json` records23 fixed original call boundaries, cumulative elapsed and
+completed durations. A stage becomes active before its original work. The closed source-bound
+record has a16384B cap and capped integer milliseconds; it neither drives nor extends deadlines.
+Default direct smoke callers allocate no timing owner. Invalid present timing refuses before
+public copying; missing legacy timing means unavailable. Worker outcome and cleanup remain
+necessary. An interrupted last active stage is not proof that its service caused the timeout.
+
+Tracking gate06 retains its permanent semantic reason and whole-row predicate. Four closed
+tracking-only failure refinements distinguish missing mandatory, unexpected key, expected value
+and optional value mismatches, in original order. No field names, values, roles or IDs enter the
+seven-field2048B diagnostic. These refinements reject the same rows and do not establish a native
+cause. All three owners preserve the original failure and traceback even when persistence throws
+the same exception object. New exact-source hosted feedback remains required; no capacity,
+production deployment or #1579 acceptance follows from these source contracts.

@@ -25,7 +25,7 @@ identity = {'context':'orbstack','endpoint':'unix:///fixture/docker.sock','daemo
 
 def command(args, **kwargs):
     if args[:2] == ['git','-C']:
-        return '' if args[-1] == '--porcelain' else 'committed-fixture'
+        return '' if args[-1] == '--porcelain' else 'a'*40
     if args[1:3] == ['context','show']:
         return 'orbstack'
     if args[1:3] == ['compose','ls']:
@@ -53,14 +53,16 @@ def command(args, **kwargs):
         return 'owned resource'
     return ''
 
-def smoke(*args, **kwargs):
-    if mode == 'failure':
-        raise RuntimeError('fixture worker failure')
-    if mode == 'timeout':
-        signal.pause()
-    if mode in ('sigterm','sigkill'):
-        os.killpg(os.getpgrp(), signal.SIGTERM if mode == 'sigterm' else signal.SIGKILL)
+def smoke(*args, timing=None):
+    for name in pilot.core_timing.STAGES[3:21]:
+        with timing.stage(name):
+            if name=='trace_logging':
+                if mode == 'failure':raise RuntimeError('fixture worker failure')
+                if mode == 'timeout':signal.pause()
+                if mode in ('sigterm','sigkill'):
+                    os.killpg(os.getpgrp(), signal.SIGTERM if mode == 'sigterm' else signal.SIGKILL)
     return {'native_mcp':'fixture only'}
+
 
 # Disk belongs to this process fixture, just like Docker/registry/protocol inputs.
 # Keep the real production admission/stopping policy; exercise refusal separately.

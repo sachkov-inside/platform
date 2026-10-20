@@ -119,7 +119,7 @@ class HostedEvidenceTest(unittest.TestCase):
                     patch('sys.stdout', new=io.StringIO()):
                 self.assertEqual(ci.admission(metadata), 0)
             proof = json.loads((metadata / 'source.json').read_text())
-            self.assertEqual(len(proof['inputs']), 24)
+            self.assertEqual(len(proof['inputs']), 25)
             relative = 'apps/backend/openapi/platform-api.json'
             self.assertEqual(proof['inputs'][relative], hashlib.sha256((ci.ROOT/relative).read_bytes()).hexdigest())
             workflow = (ci.ROOT/'.github/workflows/observability-pilot.yml').read_text()
@@ -135,7 +135,7 @@ class HostedEvidenceTest(unittest.TestCase):
             output, metadata, public = root / "private", root / "metadata", root / "public"
             output.mkdir()
             metadata.mkdir()
-            (metadata / "source.json").write_text('{"checkout_sha":"fixture"}')
+            (metadata / "source.json").write_text(json.dumps({'checkout_sha':'a'*40,'checkout_tree':'b'*40,'provider_execution_sha':'a'*40,'scope':ci.core_timing.METADATA_SCOPE}))
             (output / 'source-freshness.json').write_text('{"state":"failed"}')
             (output / "evidence.json").write_text('{"status":"failed"}')
             (output / "collector-logging.json").write_text('{"outcome":"passed","ownership":"passed","driver":"none"}')
@@ -147,7 +147,7 @@ class HostedEvidenceTest(unittest.TestCase):
             for forbidden in ("source-freshness-owned.json", "auth.json", "datasources.json", "collector-errors.log", "mcp-executable", "trace-store-inspect.json", "notification-otlp.bin", "notification-storage.json", "dependency-otlp.bin", "dependency-storage.json", "email-otlp.bin", "email-storage.json", "telegram-runtime-otlp.bin", "telegram-runtime-storage.json"):
                 (output / forbidden).write_text("sentinel-secret")
             ci.collect(output, metadata, public)
-            self.assertEqual(sorted(path.name for path in public.iterdir()), ["collector-logging.json", "dependency-collector.json", "email-collector.json", "evidence.json", "notification-collector.json", "source-freshness.json", "source.json", "telegram-runtime-collector.json", "trace-store-logging.json"])
+            self.assertEqual(sorted(path.name for path in public.iterdir()), ["collector-logging.json", "core-stage-timing.json", "dependency-collector.json", "email-collector.json", "evidence.json", "notification-collector.json", "source-freshness.json", "source.json", "telegram-runtime-collector.json", "trace-store-logging.json"])
             self.assertNotIn("sentinel-secret", "".join(path.read_text() for path in public.iterdir()))
 
     def test_recovery_refuses_foreign_project_instead_of_executing_owner_argv(self):
@@ -166,6 +166,7 @@ class HostedEvidenceTest(unittest.TestCase):
             output, metadata = root / "private", root / "metadata"
             output.mkdir()
             metadata.mkdir()
+            (metadata/'source.json').write_text(json.dumps({'checkout_sha':'a'*40,'checkout_tree':'b'*40,'provider_execution_sha':'a'*40,'scope':ci.core_timing.METADATA_SCOPE}))
             key = output / "auth.json"
             key.write_text('{"bearer_token":"sentinel-secret"}')
             (output / "evidence.json").symlink_to(key)
