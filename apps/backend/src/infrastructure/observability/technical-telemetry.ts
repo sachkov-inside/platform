@@ -22,7 +22,8 @@ import {
   type EmailOperation,
 } from "./email-telemetry-contract.js";
 import { notificationTraceparent } from "./notification-trace.js";
-import { ExportResultCode } from "@opentelemetry/core";
+import { ExportResultCode, parseTraceParent } from "@opentelemetry/core";
+import { admitInternalWaitlistParent } from "@inside/contracts/internal-waitlist-parent";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BasicTracerProvider,
@@ -74,6 +75,11 @@ class TechnicalScope {
     readonly observePool: (
       owner: object,
       read: () => PostgresPoolSnapshot,
+    ) => void,
+    readonly waitlistTracer: Tracer,
+    readonly recordWaitlistAuthorization: (
+      failed: boolean,
+      seconds: number,
     ) => void,
     readonly notificationTracer: Tracer,
     readonly recordNotification: (
@@ -701,6 +707,50 @@ export function captureNotificationTraceparent(): string | undefined {
   return notificationTraceparent(carrier["traceparent"]);
 }
 
+/** Only the authenticated, strictly decoded internal waitlist confirmation branch may resume a peer. */
+export async function runAuthenticatedWaitlistAuthorization<Value>(
+  parent: string | undefined,
+  work: () => Promise<Value>,
+): Promise<Value> {
+  const scope = context.active().getValue(technicalScopeKey);
+  if (!(scope instanceof TechnicalScope))
+    return context.with(ROOT_CONTEXT, work);
+  const root = ROOT_CONTEXT.setValue(technicalScopeKey, scope);
+  const valid =
+    parent === undefined
+      ? undefined
+      : admitInternalWaitlistParent(["traceparent", parent]);
+  const parsed = valid === undefined ? null : parseTraceParent(valid);
+  const causal =
+    parsed === null
+      ? root
+      : trace.setSpanContext(root, { ...parsed, isRemote: true });
+  const span = scope.waitlistTracer.startSpan(
+    "waitlist authorize",
+    {
+      kind: SpanKind.INTERNAL,
+      attributes: { "waitlist.operation": "authorize" },
+    },
+    causal,
+  );
+  const started = performance.now();
+  let failed = false;
+  try {
+    return await context.with(trace.setSpan(causal, span), work);
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    span.setAttribute("waitlist.outcome", failed ? "failed" : "completed");
+    if (failed) span.setStatus({ code: SpanStatusCode.ERROR });
+    scope.recordWaitlistAuthorization(
+      failed,
+      (performance.now() - started) / 1000,
+    );
+    span.end();
+  }
+}
+
 /** Per durable row/attempt, from its persisted parent; never inherit a sweep's unrelated trace. */
 export async function observeNotification<Value>(
   operation: NotificationOperation,
@@ -1123,6 +1173,17 @@ export function createTechnicalTelemetry(
     const waitlistDuration = meter.createHistogram("inside.waitlist.duration", {
       unit: "s",
     });
+    const recordWaitlistAuthorization = (
+      failed: boolean,
+      seconds: number,
+    ): void => {
+      const attributes = {
+        operation: "authorize",
+        outcome: failed ? "failed" : "completed",
+      };
+      waitlistCount.add(1, attributes);
+      waitlistDuration.record(seconds, attributes);
+    };
     let closing: Promise<void> | undefined;
     return {
       pgBoss: (names) => {
@@ -1148,6 +1209,8 @@ export function createTechnicalTelemetry(
                 emailTracer,
                 recordEmail,
                 observePool,
+                waitlistTracer,
+                recordWaitlistAuthorization,
                 notificationTracer,
                 recordNotification,
               ),
@@ -1165,6 +1228,8 @@ export function createTechnicalTelemetry(
             emailTracer,
             recordEmail,
             observePool,
+            waitlistTracer,
+            recordWaitlistAuthorization,
             notificationTracer,
             recordNotification,
           ),
@@ -1230,6 +1295,8 @@ export function createTechnicalTelemetry(
             emailTracer,
             recordEmail,
             observePool,
+            waitlistTracer,
+            recordWaitlistAuthorization,
             notificationTracer,
             recordNotification,
           ),
@@ -1328,6 +1395,8 @@ export function createTechnicalTelemetry(
                     emailTracer,
                     recordEmail,
                     observePool,
+                    waitlistTracer,
+                    recordWaitlistAuthorization,
                     notificationTracer,
                     recordNotification,
                   ),

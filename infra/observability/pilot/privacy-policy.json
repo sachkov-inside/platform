@@ -8,7 +8,8 @@
     "platform-profile-avatars-worker",
     "platform-video-deletions-worker",
     "platform-billing-worker",
-    "platform-notifications-worker"
+    "platform-notifications-worker",
+    "inside-telegram"
   ],
   "environments": ["development", "test", "production", "isolated-pilot"],
   "routes": [
@@ -365,8 +366,49 @@
     "metrics": ["inside.tracking.operations", "inside.tracking.duration"]
   },
   "waitlist": {
-    "operations": ["deliver"],
+    "operations": ["deliver", "authorize"],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.waitlist.operations", "inside.waitlist.duration"]
+  },
+  "telegram_runtime": {
+    "operations": ["receipt", "authorization", "attempt", "sendMessage"],
+    "outcomes": [
+      "completed",
+      "failed",
+      "accepted",
+      "suppressed",
+      "unavailable",
+      "delivered",
+      "api_rejected",
+      "api_retryable",
+      "transport_unknown"
+    ],
+    "routes": [
+      "/health",
+      "/ready",
+      "/metrics",
+      "/webhooks/telegram",
+      "/integrations/platform/v1/telegram-contacts",
+      "/integrations/platform/v1/community-entitlements",
+      "/integrations/platform/v1/identity-links",
+      "/integrations/platform/v1/identity-links/:linkTransactionRef/confirm",
+      "/integrations/identity/v1/sign-in",
+      "/integrations/identity/v1/sign-in/:requestRef/status",
+      "/integrations/identity/v1/sign-in/:requestRef/consume",
+      "/integrations/identity/v1/sign-in/:requestRef/account-link",
+      "/integrations/platform/v1/communications"
+    ],
+    "methods": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    "metrics": [
+      "inside.telegram.operations",
+      "inside.telegram.duration",
+      "http.server.request.count",
+      "http.server.request.duration",
+      "http.server.active_requests",
+      "telemetry.trace.dropped",
+      "telemetry.trace.export.failures",
+      "telemetry.metric.export.failures",
+      "telemetry.trace.sampling.ratio"
+    ]
   }
 }

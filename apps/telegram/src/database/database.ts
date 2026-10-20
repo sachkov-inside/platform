@@ -342,6 +342,7 @@ export interface DatabaseSchema
     update_id: BigIntColumn;
   };
   waitlist_confirmations: {
+    receipt_traceparent: Generated<string | null>;
     bot_identity: string;
     event_id: string;
     command: JsonColumn<WaitlistConfirmation>;

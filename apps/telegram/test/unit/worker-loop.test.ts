@@ -1,3 +1,4 @@
+import { deferred } from "../support/deferred.js";
 import { fixedTestInstant } from "../support/fixed-clock.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -102,6 +103,31 @@ describe("WorkerLoop", () => {
     await stopping;
     await vi.advanceTimersByTimeAsync(100);
     expect(stopped).toBe(true);
+    expect(cycles).toBe(1);
+  });
+
+  it("reports quiescence only after a terminal stop and the actual cycle settles", async () => {
+    const held = deferred<boolean>();
+    let cycles = 0;
+    const loop = new WorkerLoop(
+      "held",
+      () => {
+        cycles += 1;
+        return held.promise;
+      },
+      { busyMs: 1, idleMs: 1 },
+    );
+    expect(loop.isStopped()).toBe(false);
+    loop.start();
+    await vi.advanceTimersByTimeAsync(0);
+    const stopping = loop.stop();
+    expect(loop.isStopped()).toBe(false);
+    loop.wake();
+    loop.start();
+    held.resolve(true);
+    await stopping;
+    expect(loop.isStopped()).toBe(true);
+    await vi.advanceTimersByTimeAsync(100);
     expect(cycles).toBe(1);
   });
 

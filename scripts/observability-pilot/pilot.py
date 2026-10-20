@@ -519,8 +519,11 @@ class LinkStorageOwnershipError(RuntimeError):
             'reason': reason if reason in ('unproved','command_timeout','command_failed','io_error','invalid_value') else 'unproved'}
 
 
-def verify_trace_store_logging(output, compose):
-    """Unsafe OTLP requires actual owned VT logging=none, not just the intended Compose input."""
+def verify_trace_store_logging(output, compose, *, service='traces'):
+    """Observe logging=none on one of two fixed owned private-signal services; never read logs."""
+    if service not in ('traces','alloy'):
+        raise ValueError('unknown fixed private-signal service')
+    proof_name = 'trace-store-logging.json' if service == 'traces' else 'collector-logging.json'
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     proof = {'outcome':'failed','ownership':'unverified','driver':'unverified'}
     def read(args):
@@ -537,12 +540,12 @@ def verify_trace_store_logging(output, compose):
                 not Path(compose[5]).is_absolute() or Path(compose[5]).name != 'compose.json'):
             raise ValueError('unregistered logging inspection')
         assert_docker_identity(deadline=deadline)
-        container = read(compose+['ps','-q','traces']).strip()
+        container = read(compose+['ps','-q',service]).strip()
         if not re.fullmatch(r'[0-9a-f]{64}', container):
             raise ValueError('missing or ambiguous trace store')
         # Evaluate on the daemon side. No raw inspect fields/labels/driver names reach stdout.
         template = ('{{if and (eq (index .Config.Labels "com.docker.compose.project") '+
-            json.dumps(compose[3])+') (eq (index .Config.Labels "com.docker.compose.service") "traces") '
+            json.dumps(compose[3])+') (eq (index .Config.Labels "com.docker.compose.service") '+json.dumps(service)+') '
             '.State.Running}}owned{{else}}unowned{{end}}|'
             '{{if eq .HostConfig.LogConfig.Type "none"}}none{{else}}unverified{{end}}')
         observed = read(['docker','inspect','--format',template,container]).strip()
@@ -553,7 +556,7 @@ def verify_trace_store_logging(output, compose):
     except (OSError, ValueError, TypeError, RuntimeError, subprocess.SubprocessError):
         # Never chain raw CLI stderr/inspect data into the worker or supervisor diagnostics.
         pass
-    write_json(output/'trace-store-logging.json',proof)
+    write_json(output/proof_name,proof)
     if proof['outcome'] != 'passed':
         raise RuntimeError('trace store logging execution condition unproved; unsafe OTLP refused')
 
@@ -572,6 +575,7 @@ def fixture_trace_rows(compose, fixture):
     import notification_privacy
     import dependency_privacy
     import email_privacy
+    import telegram_runtime_privacy
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     stage = 'ownership'
     boundary = 'input'
@@ -593,6 +597,7 @@ def fixture_trace_rows(compose, fixture):
                    **{'dependency-'+key:(value,36) for key,value in dependency_privacy.TRACE_IDS.items()},
                    **{'communications-'+key:(value,30) for key,value in dependency_privacy.COMMUNICATIONS_TRACE_IDS.items()},
                    **{'telegram-http-'+key:(value,30) for key,value in dependency_privacy.TELEGRAM_HTTP_TRACE_IDS.items()},
+                   **{'telegram-runtime-'+key:(value,11) for key,value in telegram_runtime_privacy.TRACE_IDS.items()},
                    **{'email-known-'+key:(value,23) for key,value in email_privacy.TRACE_IDS.items()},
                    **{'email-adversarial-'+key:(value,9) for key,value in email_privacy.ADVERSARIAL_IDS.items()}}
         trace_id, limit = queries[fixture]
@@ -615,7 +620,8 @@ def fixture_trace_rows(compose, fixture):
         stage = 'query'
         # VT0.12 logsql.ProcessQueryRequest emits every stored column by default.
         # No fields/delete/pack pipe or user query; one extra row exposes accidental duplicates.
-        query = urllib.parse.urlencode({'query':'trace_id:="'+trace_id+'"', 'limit':limit, 'timeout':'2s'})
+        selector = 'trace_id:="'+trace_id+'"' if type(trace_id) is str else '('+' OR '.join('trace_id:="'+value+'"' for value in trace_id)+')'
+        query = urllib.parse.urlencode({'query':selector, 'limit':limit, 'timeout':'2s'})
         url = 'http://traces:10428/select/logsql/query?'+query
         raw = read(['docker','exec',container,'sh','-euc',
                     "set -o pipefail; wget -q -T 3 -O - '"+url+"' | head -c 1048577"])
@@ -756,6 +762,43 @@ def dependency_catalog_corpus(token, output, compose):
     write_json(output/'dependency-collector.json',proof)
     if proof['outcome']!='passed':
         raise RuntimeError('dependency collector proof failed; raw diagnostics withheld')
+
+
+
+def telegram_runtime_catalog_corpus(token,output,compose):
+    """External unsafe wire corpus through owned pinned services; not actual Telegram SDK/runtime proof."""
+    import telegram_runtime_privacy
+    import telegram_runtime_oracle
+    proof = {'outcome':'failed','stage':'logging','cases':[],'metrics':[]}
+    try:
+        verify_trace_store_logging(output,compose)
+        verify_trace_store_logging(output,compose,service='alloy')
+        for transport in ('json','protobuf'):
+            now_ns = time.time_ns()
+            for signal,body in telegram_runtime_privacy.payloads(transport,now_ns).items():
+                proof['stage']='ingest_'+transport+'_'+signal
+                assert_docker_identity()
+                if request('/v1/'+signal,body=body,method='POST',port=14318)[0] != 200:
+                    raise RuntimeError('fixed Telegram OTLP rejected')
+            proof['stage']='storage_'+transport
+            stored = await_fact(lambda: telegram_runtime_oracle.traces(fixture_trace_rows(compose,'telegram-runtime-'+transport),transport,now_ns),bool,
+                                probe='telegram_runtime_full_storage_'+transport,output=output)
+            proof['cases'].append(stored)
+            proof['stage']='metrics_'+transport
+            release = '0.1566.1' if transport == 'json' else '0.1566.2'
+            # Complete service/release vector, never a positive metric-name selector.
+            # Existing600s worker lifetime; one-shot native samples remain visible in that window.
+            path = '/metrics/api/v1/query?'+urllib.parse.urlencode({'query':'last_over_time({service.name="inside-telegram",service.version="'+release+'"}[10m])','nocache':'1'})
+            def metrics():
+                status,raw = request(path,token=token)
+                return telegram_runtime_oracle.metrics(raw,transport) if status == 200 else None
+            proof['metrics'].append(await_fact(metrics,bool,probe='telegram_runtime_metrics_'+transport,output=output))
+        proof.update({'outcome':'passed','stage':'complete','scope':'external JSON/protobuf unsafe corpus and complete stored verdicts; actual SDK, genuine PG/Rabbit and product acceptance separate'})
+    except (RuntimeError,OSError,ValueError,KeyError,TypeError,UnicodeError,subprocess.SubprocessError):
+        pass
+    write_json(output/'telegram-runtime-collector.json',proof)
+    if proof['outcome'] != 'passed':
+        raise RuntimeError('Telegram runtime collector proof failed; raw diagnostics withheld')
 
 
 def email_catalog_corpus(token, output, compose):
@@ -975,6 +1018,7 @@ def smoke(token, output, compose):
     notification_catalog_corpus(token,output,compose)
     dependency_catalog_corpus(token,output,compose)
     email_catalog_corpus(token,output,compose)
+    telegram_runtime_catalog_corpus(token,output,compose)
     trace_store_surface(token, output)
     native = native_probes(token, output)
     write_json(output / "native-mcp.json", native)

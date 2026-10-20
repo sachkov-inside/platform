@@ -45,10 +45,24 @@ export class WorkerLoop {
     }
   }
 
-  async stop(): Promise<void> {
+  beginStop(): void {
     this.controller.abort();
     clearTimeout(this.timer);
+  }
+
+  async stop(): Promise<void> {
+    this.beginStop();
     await this.running;
+  }
+
+  /** A separate barrier cannot mistake a rejected stop wrapper for a settled cycle. */
+  async whenQuiescent(): Promise<void> {
+    await Promise.allSettled(this.running === undefined ? [] : [this.running]);
+  }
+
+  /** Terminal admission is closed and the actual cycle promise has settled. */
+  isStopped(): boolean {
+    return this.controller.signal.aborted && this.running === undefined;
   }
 
   /** An empty cycle is waiting, with the requested polling delay capped by its idle policy. */
