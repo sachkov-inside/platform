@@ -42,6 +42,7 @@ function resolveLogtoBffConfig(
     cookieSecure: config.mode === "production",
     baseUrl: config.identity.baseUrl,
     resources,
+    scopes: ["email"],
   });
 }
 

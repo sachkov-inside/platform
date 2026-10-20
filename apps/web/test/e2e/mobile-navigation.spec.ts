@@ -365,13 +365,11 @@ test("changing account identity clears remembered tabs and the previous account 
       },
     });
   });
-  await page.route("**/api/account/billing/contact", (route) =>
+  await page.route("**/api/account/email", (route) =>
     route.fulfill({
       json: {
         ok: true,
-        contact: null,
-        documents: [],
-        initialEmail: accountId.startsWith("1111")
+        email: accountId.startsWith("1111")
           ? "first@example.com"
           : "second@example.com",
       },

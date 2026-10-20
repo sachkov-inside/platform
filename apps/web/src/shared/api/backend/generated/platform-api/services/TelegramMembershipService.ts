@@ -96,6 +96,11 @@ export class TelegramMembershipService {
    * @throws ApiError
    */
   public readCurrentAccountTelegramMembership(): CancelablePromise<{
+    contact: {
+      displayName: string | null;
+      state: 'available' | 'not_linked' | 'unavailable';
+      username: string | null;
+    };
     link: ({
       kind: 'unlinked';
     } | {

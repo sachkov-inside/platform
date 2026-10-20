@@ -445,7 +445,7 @@ test("cabinet continuation failure keeps Telegram usable and excludes denied, pr
       throw new Error(
         "Continuation status and Telegram must have visible geometry",
       );
-    expect(statusBox.y + statusBox.height).toBeLessThanOrEqual(telegramBox.y);
+    expect(telegramBox.y + telegramBox.height).toBeLessThanOrEqual(statusBox.y);
     await expect(
       page.getByRole("link", { name: /^Продолжить продукт/u }),
     ).toHaveCount(0);

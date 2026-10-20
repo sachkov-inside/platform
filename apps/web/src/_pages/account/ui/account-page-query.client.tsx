@@ -1,9 +1,10 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
-  accountPresentationBrowserQueryOptions,
+  useAccountPresentation,
+  accountProfileChanged,
   accountPresentationQueryKey,
   type AccountPresentationResult,
 } from "@/features/account-access";
@@ -16,8 +17,7 @@ import {
 } from "./account-page";
 
 export function AccountPageQuery() {
-  const options = accountPresentationBrowserQueryOptions();
-  const query = useQuery(options);
+  const query = useAccountPresentation();
   const queryClient = useQueryClient();
 
   if (query.isPending) {
@@ -37,6 +37,7 @@ export function AccountPageQuery() {
             : null
         }
         onProfileChange={(profile) => {
+          accountProfileChanged.announce();
           queryClient.setQueryData<AccountPresentationResult>(
             accountPresentationQueryKey(),
             (current) =>
