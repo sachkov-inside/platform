@@ -176,7 +176,7 @@ class ProducerBoundaries(unittest.TestCase):
                         with self.assertRaises(ValueError if case=='witness' else OSError):
                             module.producer_observation(output,environment={},diagnostic=value)
                     state=value.snapshot()
-                    self.assertEqual((state['phase'],state['reason']),('witness','witness_refusal') if case=='witness' else ('module_write','write_failure'))
+                    self.assertEqual((state['phase'],state['reason']),('witness','witness_refusal' if scope=='sdk' else 'witness_header') if case=='witness' else ('module_write','write_failure'))
                     self.assertNotIn('private-',json.dumps(state))
 
 
