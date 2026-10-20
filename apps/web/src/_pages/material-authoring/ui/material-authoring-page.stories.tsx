@@ -1553,6 +1553,9 @@ export const TelegramAnnouncement: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const canvas = within(canvasElement);
     const checkbox = canvas.getByRole("checkbox", {
       name: /Отправить при первой публикации/u,
@@ -1579,6 +1582,9 @@ export const TelegramAnnouncementPublished: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Параметры" }),
+    );
     const checkbox = within(canvasElement).getByRole("checkbox", {
       name: /Отправить при первой публикации/u,
     });
