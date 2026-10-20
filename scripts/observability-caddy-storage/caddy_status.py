@@ -122,6 +122,8 @@ def _observation(rows):
             group=groups.setdefault(identity,{})
             group[labels.get('le',name.removeprefix(DURATION))]=value
     if len(groups)>MAX_GROUPS: refuse()
+    if ERRORS in simple and TOTAL in simple and simple[ERRORS]>simple[TOTAL]:refuse()
+    if TOTAL in simple and sum(group.get('count',0) for group in groups.values())>simple[TOTAL]:refuse()
     complete=True;duration=[]
     for (method,code),group in sorted(groups.items()):
         visible=[group[bound] for bound in BUCKETS if bound in group]

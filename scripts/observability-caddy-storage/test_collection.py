@@ -11,6 +11,13 @@ from test_observation import acquisition
 
 
 class CuratedCollection(unittest.TestCase):
+    def test_failed_admission_without_an_acquired_project_keeps_only_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();metadata=root/'metadata';metadata.mkdir(mode=0o700)
+            (metadata/'admission.json').write_text('{"ready":false}')
+            collection.collect(root/'never-acquired',metadata,root/'public')
+            self.assertEqual(sorted(path.name for path in (root/'public').iterdir()),['admission.json'])
+
     def test_complete_evidence_is_reserialized_and_invalid_present_never_acquires_destination(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700)

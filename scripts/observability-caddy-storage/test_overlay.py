@@ -30,3 +30,18 @@ class OptInOverlay(unittest.TestCase):
             self.assertNotIn('9091',str(plan['services']['gateway']['ports']))
             self.assertEqual(plan['services']['gateway']['networks'],['pilot','ingress'])
             self.assertEqual(plan['services']['gateway']['logging'],{'driver':'none'})
+
+    def test_private_overlay_content_drift_is_refused_before_container_use(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve()/'private';overlay.prepare(output)
+            overlay.verify(output)
+            (output/'Caddyfile').write_text('private-caddy-sentinel')
+            with self.assertRaises(ValueError):overlay.verify(output)
+
+    def test_changed_private_compose_authority_is_refused_before_acquisition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve()/'private';overlay.prepare(output);overlay.verify(output)
+            plan=json.loads((output/'compose.json').read_text())
+            plan['services']['gateway']['privileged']=True
+            (output/'compose.json').write_text(json.dumps(plan,indent=2)+'\n')
+            with self.assertRaises(ValueError):overlay.verify(output)

@@ -11,6 +11,10 @@ import collector_privacy
 MAX_BYTES=1_048_576
 
 
+class QueryUnavailable(ValueError):
+    """A fully bounded tool-error frame refuses the query, never a valid observation."""
+
+
 def refuse():raise ValueError('closed Caddy MCP refusal')
 
 
@@ -126,8 +130,16 @@ def decode_response(raw,expected_id):
         _bounded(value)
         if (type(value) is not dict or set(value)!={'jsonrpc','id','result'} or value['jsonrpc']!='2.0'
                 or type(value['id']) is not int or value['id']!=expected_id):refuse()
-        if expected_id in (3,4):body(value['result'])
+        if expected_id in (3,4):
+            result=value['result']
+            if type(result) is dict and result.get('isError') is True:
+                if (set(result)!={'content','isError'} or type(result['content']) is not list or len(result['content'])!=1
+                        or type(result['content'][0]) is not dict or set(result['content'][0])!={'type','text'}
+                        or result['content'][0]['type']!='text' or type(result['content'][0]['text']) is not str):refuse()
+                raise QueryUnavailable('closed Caddy MCP refusal')
+            body(result)
         elif expected_id==1:_initialize(value['result'])
         else:_discovery(value['result'])
         return value
+    except QueryUnavailable:raise
     except (ValueError,TypeError,KeyError,UnicodeError,RecursionError,OverflowError):refuse()

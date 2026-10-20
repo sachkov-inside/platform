@@ -38,6 +38,14 @@ class OptInReader(unittest.TestCase):
                     with self.assertRaises(ProcessLookupError): os.kill(pid,0)
 
 class StrictWire(unittest.TestCase):
+    def test_closed_tool_unavailability_is_distinct_from_invalid_protocol_metadata(self):
+        import caddy_mcp
+        error={'jsonrpc':'2.0','id':3,'result':{'content':[{'type':'text','text':'owned query transport failed'}],'isError':True}}
+        with self.assertRaises(caddy_mcp.QueryUnavailable):caddy_mcp.decode_response(json.dumps(error).encode(),3)
+        error['result']['private']='unknown'
+        with self.assertRaises(ValueError) as refused:caddy_mcp.decode_response(json.dumps(error).encode(),3)
+        self.assertNotIsInstance(refused.exception,caddy_mcp.QueryUnavailable)
+
     def test_designated_vm_text_can_exceed1024_but_full_envelope_never_accepts_private_or_duplicate_metadata(self):
         import caddy_mcp
         from test_observation import acquisition

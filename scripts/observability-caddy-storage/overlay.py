@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import stat
 from pathlib import Path
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-pilot'))
@@ -83,3 +84,24 @@ def prepare(output):
         descriptor=os.open(output/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
         with os.fdopen(descriptor,'w') as stream: stream.write(raw)
     pilot.write_json(output/'compose.json',plan(output))
+
+
+def verify(output):
+    import artifact
+    import source_status_query
+    token=source_status_query._read_private_token(output)
+    files=(('Caddyfile',caddy_config().encode(),(0o600,)),('config.alloy',alloy_config().encode(),(0o600,)),
+           ('compose.json',(json.dumps(plan(output),indent=2)+'\n').encode(),(0o600,0o644)),
+           ('auth.json',(json.dumps(pilot.auth_config(token),indent=2)+'\n').encode(),(0o600,)))
+    with artifact.directory(output) as directory_fd:
+        for name,expected,modes in files:
+            descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=directory_fd)
+            with os.fdopen(descriptor,'rb') as stream:
+                before=os.fstat(stream.fileno())
+                if (not stat.S_ISREG(before.st_mode) or before.st_uid!=os.getuid() or before.st_nlink!=1
+                        or stat.S_IMODE(before.st_mode) not in modes or len(expected)>caddy_status.MAX_BODY_BYTES
+                        or before.st_size!=len(expected)):artifact.refuse()
+                raw=stream.read(len(expected)+1)
+                after=os.fstat(stream.fileno());linked=os.stat(name,dir_fd=directory_fd,follow_symlinks=False)
+                identity=lambda value:(value.st_dev,value.st_ino,value.st_size,value.st_mtime_ns,value.st_ctime_ns,value.st_mode,value.st_nlink)
+                if raw!=expected or identity(before)!=identity(after) or identity(after)!=identity(linked):artifact.refuse()

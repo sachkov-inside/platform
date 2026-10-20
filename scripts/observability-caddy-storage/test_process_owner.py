@@ -14,10 +14,10 @@ ROOT=Path(__file__).resolve().parents[2]
 
 class OutsideOwner(unittest.TestCase):
     def test_success_failure_timeout_and_interruption_reap_acquired_native_socket(self):
-        for case in ('success','failure','timeout','interruption'):
-            with self.subTest(case=case),tempfile.TemporaryDirectory() as directory:
+        for protocol,case in ((protocol,case) for protocol in ('--fixture','--held-fixture') for case in ('success','failure','timeout','interruption')):
+            with self.subTest(protocol=protocol,case=case),tempfile.TemporaryDirectory() as directory:
                 report=Path(directory)/'owner.json';state=None
-                owner=subprocess.Popen(['node','scripts/observability-caddy-storage/contract-runner.mjs','--fixture',case,str(report)],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                owner=subprocess.Popen(['node','scripts/observability-caddy-storage/contract-runner.mjs',protocol,case,str(report)],cwd=ROOT,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                 try:
                     deadline=time.monotonic()+4
                     while not report.exists():
@@ -30,7 +30,9 @@ class OutsideOwner(unittest.TestCase):
                     self.assertEqual(owner.wait(timeout=7),0 if case=='success' else 1)
                     for name in ('child','helper','python'):
                         with self.assertRaises(ProcessLookupError):os.kill(state[name],0)
-                    with socket.socket() as probe:probe.bind(('127.0.0.1',state['port']))
+                    with socket.socket() as probe:
+                        probe.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+                        probe.bind(('127.0.0.1',state['port']))
                 finally:
                     if owner.poll() is None:owner.terminate()
                     try:owner.wait(timeout=6)

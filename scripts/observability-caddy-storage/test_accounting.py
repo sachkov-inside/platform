@@ -19,6 +19,8 @@ class PartitionAccounting(unittest.TestCase):
         previous=snapshot(old,old_stamps,95,95.5);now=snapshot(current,stamps,100,101)
         journal=accounting.Traffic()
         journal.record(96,97,'GET',200,count=2)  # Both successful canonical read HTTP requests.
+        self.assertTrue(journal.boundary_clear(95))
+        self.assertFalse(journal.boundary_clear(96.5))
         with self.assertRaises(ValueError):journal.verify(previous,now)
         journal.record(98,98.5,'GET',502)
         self.assertTrue(journal.verify(previous,now))

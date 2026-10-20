@@ -6,8 +6,11 @@ ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'recovery.j
 
 
 def collect(output, metadata, destination):
-    observation = artifact.read(output)
-    run = artifact.read_run(output)
+    if not output.exists() and not output.is_symlink():
+        observation=run=None  # Admission failed before private project acquisition; never a native success.
+    else:
+        observation = artifact.read(output)
+        run = artifact.read_run(output)
     if (observation is not None and run is None
             or run is not None and run['state'] == 'passed' and (
                 observation is None or observation['state'] != 'observed'

@@ -9,6 +9,10 @@ class Traffic:
     def __init__(self):
         self._windows=[]
 
+    def boundary_clear(self,stamp):
+        point=status.clock(stamp)
+        return not any(start<=point<=end for start,end,*_ in self._windows)
+
     def record(self,started,completed,method,code,*,count=1):
         start,end=status.clock(started),status.clock(completed)
         if (not start<=end or end-start>10 or method not in status.METHODS

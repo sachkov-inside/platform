@@ -34,7 +34,7 @@ def _query_one(raw):
     status.clock(point[0])
 
 
-def child(token,*,_connection=None):
+def child(token,*,_connection=None,_ready=None):
     """Private executable entry. No endpoints, queries or credentials are accepted in argv."""
     if not source_status_query.valid_token(token):refuse()
     connection=_connection or http.client.HTTPConnection('127.0.0.1',18427,timeout=SECONDS)
@@ -47,6 +47,7 @@ def child(token,*,_connection=None):
             connection.putheader('Content-Length','7')
             connection.putheader('Connection','close')
             connection.endheaders(b'query=')
+            if _ready is not None:_ready()
             os.write(1,b'R')
             command=b''
             while True:

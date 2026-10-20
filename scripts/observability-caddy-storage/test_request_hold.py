@@ -15,6 +15,13 @@ def peer(*,status=200):
     prefixed=threading.Event();completed=threading.Event()
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*_):pass
+        def respond(self):
+            raw=b'{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[100,"1"]}]}}'
+            self.send_response(status);self.send_header('Content-Length',str(len(raw)));self.end_headers()
+            try:self.wfile.write(raw)
+            except (BrokenPipeError,ConnectionResetError):pass
+        def do_GET(self):
+            if self.path=='/metrics/api/v1/query?query=1' and self.headers.get('Authorization')=='Bearer owned_token':self.respond()
         def do_POST(self):
             self.connection.settimeout(3)
             if (self.path!='/metrics/api/v1/query' or self.headers.get('Authorization')!='Bearer owned_token'
@@ -22,10 +29,7 @@ def peer(*,status=200):
             prefixed.set()
             if self.rfile.read(1)!=b'1':return
             completed.set()
-            raw=b'{"status":"success","data":{"resultType":"vector","result":[{"metric":{},"value":[100,"1"]}]}}'
-            self.send_response(status);self.send_header('Content-Length',str(len(raw)));self.end_headers()
-            try:self.wfile.write(raw)
-            except (BrokenPipeError,ConnectionResetError):pass
+            self.respond()
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     thread=threading.Thread(target=lambda:server.serve_forever(poll_interval=.02));thread.start()
     try:yield server.server_address[1],prefixed,completed
