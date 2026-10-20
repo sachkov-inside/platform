@@ -236,6 +236,8 @@ export class ProductWaitlists {
       return fail("invalid_request");
     try {
       return await this.dependencies.prisma.$transaction(async (tx) => {
+        // Access writers acquire the binding lock before the entitlement lock too.
+        await lockTelegramAccountBinding(tx, accountId);
         await lockAccountEntitlementChanges(tx, accountId);
         const intakeForAccess = await tx.productWaitlistIntake.findUnique({
           where: { id: parsed.data.intakeId },
@@ -256,7 +258,6 @@ export class ProductWaitlists {
             },
           } as const;
         }
-        await lockTelegramAccountBinding(tx, accountId);
         const binding = await this.dependencies.links.readBinding(
           { accountId },
           tx,
@@ -522,24 +523,34 @@ export class ProductWaitlists {
           where: { productId: query.productId, accepting: true },
         });
         if (intake === null) return { ok: true, value: null } as const;
-        const activeRows = await tx.productWaitlistMembership.findMany({
-          where: { intakeId: intake.id, active: true },
-          select: { accountId: true },
-        });
-        const eligible = await this.eligibleAccounts(
-          activeRows.map((row) => row.accountId),
-          query.productId,
-          tx,
-        );
-        const memberships = await tx.productWaitlistMembership.groupBy({
-          by: ["source"],
-          where: {
-            intakeId: intake.id,
-            active: true,
-            accountId: { in: [...eligible] },
-          },
-          _count: true,
-        });
+        const membershipCounts = new Map<string | null, number>();
+        let after: string | undefined;
+        for (;;) {
+          const page = await tx.productWaitlistMembership.findMany({
+            where: {
+              intakeId: intake.id,
+              active: true,
+              ...(after === undefined ? {} : { accountId: { gt: after } }),
+            },
+            select: { accountId: true, source: true },
+            orderBy: { accountId: "asc" },
+            take: 500,
+          });
+          const eligible = await this.eligibleAccounts(
+            page.map((row) => row.accountId),
+            query.productId,
+            tx,
+          );
+          for (const membership of page) {
+            if (eligible.has(membership.accountId))
+              membershipCounts.set(
+                membership.source,
+                (membershipCounts.get(membership.source) ?? 0) + 1,
+              );
+          }
+          if (page.length < 500) break;
+          after = page.at(-1)?.accountId;
+        }
         const events = await tx.productWaitlistEvent.groupBy({
           by: ["source", "kind"],
           where: {
@@ -565,8 +576,8 @@ export class ProductWaitlists {
           }
           return value;
         };
-        for (const group of memberships)
-          row(group.source).active = group._count;
+        for (const [source, count] of membershipCounts)
+          row(source).active = count;
         for (const group of events) {
           if (group.kind === "joined") row(group.source).joined = group._count;
           else row(group.source).withdrawn = group._count;
