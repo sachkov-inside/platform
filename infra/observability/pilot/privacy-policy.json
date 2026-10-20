@@ -365,7 +365,7 @@
     "metrics": ["inside.tracking.operations", "inside.tracking.duration"]
   },
   "waitlist": {
-    "operations": ["deliver"],
+    "operations": ["deliver", "authorize"],
     "outcomes": ["completed", "failed"],
     "metrics": ["inside.waitlist.operations", "inside.waitlist.duration"]
   }

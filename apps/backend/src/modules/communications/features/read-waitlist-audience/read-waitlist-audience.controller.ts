@@ -1,3 +1,6 @@
+import type { FastifyRequest } from "fastify";
+import { admitInternalWaitlistParent } from "../../../../infrastructure/observability/internal-waitlist-parent.js";
+import { runAuthenticatedWaitlistAuthorization } from "../../../../infrastructure/observability/technical-telemetry.js";
 import {
   waitlistConfirmationSchema,
   waitlistConfirmationResultSchema,
@@ -10,6 +13,7 @@ import {
   HttpCode,
   Inject,
   Post,
+  Req,
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -97,6 +101,7 @@ export class ReadWaitlistAudienceController {
   async validate(
     @Headers("authorization") authorization: string | undefined,
     @Body() body: unknown,
+    @Req() request: FastifyRequest,
   ) {
     const config = this.config.communications;
     if (
@@ -113,16 +118,21 @@ export class ReadWaitlistAudienceController {
       );
     const confirmation = waitlistConfirmationSchema.safeParse(body);
     if (confirmation.success) {
-      const status = await this.waitlists.confirmationCurrent(
-        confirmation.data,
+      return runAuthenticatedWaitlistAuthorization(
+        admitInternalWaitlistParent(request.raw.rawHeaders),
+        async () => {
+          const status = await this.waitlists.confirmationCurrent(
+            confirmation.data,
+          );
+          if (status === "unavailable")
+            throw problemException(
+              503,
+              "validation_unavailable",
+              "Waitlist confirmation unavailable",
+            );
+          return { eventId: confirmation.data.eventId, status };
+        },
       );
-      if (status === "unavailable")
-        throw problemException(
-          503,
-          "validation_unavailable",
-          "Waitlist confirmation unavailable",
-        );
-      return { eventId: confirmation.data.eventId, status };
     }
     const parsed = waitlistAudienceRequestSchema.safeParse(body);
     if (!parsed.success)

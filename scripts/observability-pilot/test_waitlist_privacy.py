@@ -10,7 +10,7 @@ class WaitlistPrivacyContract(unittest.TestCase):
     def test_waitlist_has_one_closed_owner_without_reclassifying_jobs(self):
         policy = json.loads((privacy_config.CONFIG/'privacy-policy.json').read_text())
         self.assertEqual(policy.get('waitlist'), {
-            'operations': ['deliver'], 'outcomes': ['completed', 'failed'],
+            'operations': ['deliver', 'authorize'], 'outcomes': ['completed', 'failed'],
             'metrics': ['inside.waitlist.operations', 'inside.waitlist.duration']})
         self.assertNotIn('deliver', policy['operations'])
         actual = privacy_config.render()
@@ -26,7 +26,7 @@ class WaitlistPrivacyContract(unittest.TestCase):
         statements = re.findall(r'`([^`]+)`', span)
         keep = 'keep_keys(attributes, ["waitlist.operation", "waitlist.outcome"]) where (attributes["waitlist.operation"] != nil or attributes["waitlist.outcome"] != nil)'
         self.assertIn(keep, statements)
-        for key, values in (('waitlist.operation', ['deliver']), ('waitlist.outcome', ['completed', 'failed'])):
+        for key, values in (('waitlist.operation', ['deliver', 'authorize']), ('waitlist.outcome', ['completed', 'failed'])):
             rules = [rule for rule in statements if rule.startswith('set(attributes["'+key+'"], "_OTHER")')]
             self.assertEqual(len(rules), 2)
             enum = next(rule for rule in rules if 'not IsMatch' in rule)
