@@ -62,6 +62,10 @@ const allowedS3Attributes = new Set([
 type PrivacyReason =
   | "capture_shape"
   | "corpus_shape"
+  | "corpus_type"
+  | "corpus_empty_string"
+  | "corpus_string_limit"
+  | "corpus_entry_count"
   | "document_count"
   | "document_bytes"
   | "total_bytes"
@@ -111,7 +115,18 @@ export function assertPrivateS3Exports(
       }
       refuse("capture_shape");
     }
-    if (!secrets.success) refuse("corpus_shape");
+    if (!secrets.success) {
+      // Owned schema issue codes only. Never expose issue paths, values or messages.
+      const first = secrets.error.issues[0];
+      if (first?.code === "invalid_type") refuse("corpus_type");
+      if (first?.code === "too_small" && first.origin === "string")
+        refuse("corpus_empty_string");
+      if (first?.code === "too_big") {
+        if (first.origin === "string") refuse("corpus_string_limit");
+        if (first.origin === "array") refuse("corpus_entry_count");
+      }
+      refuse("corpus_shape");
+    }
     const inspect = (value: unknown, depth: number): void => {
       nodes++;
       maximumDepth = Math.max(maximumDepth, depth);

@@ -13,6 +13,19 @@ T=1792494900  # A 300s grid point, also the observed failing CI baseline evaluat
 DIRECT=re.compile(r'label_replace\(\(timestamp_with_name\((\{[^{}]+\})\) or timestamp_with_name\((\{[^{}]+\})\)\),"source_metric","\$1","__name__","\(\.\+\)"\)')
 
 
+GATED=re.compile(r'label_replace\(\(\(timestamp_with_name\((\{[^{}]+\})\) and on\(([^()]+)\) (\{[^{}]+\})( keep_metric_names)?\) or \(timestamp_with_name\((\{[^{}]+\})\) and on\(([^()]+)\) (\{[^{}]+\})( keep_metric_names)?\)\),"source_metric","\$1","__name__","\(\.\+\)"\)')
+IDENTITY={'__name__','job','instance','receiver','exporter','data_type','format','path','type','reason'}
+
+
+def ungated_plan(instant):
+    values=query_plan(instant)[0]
+    expression=urllib.parse.parse_qs(urllib.parse.urlsplit(values).query)['query'][0]
+    collector,trace=re.findall(r'\{[^{}]+\}',expression)
+    stamps='label_replace((timestamp_with_name('+collector+') or timestamp_with_name('+trace+')),"source_metric","$1","__name__","(.+)")'
+    return [values,'/metrics/api/v1/query?'+urllib.parse.urlencode({
+        'query':stamps,'time':str(instant),'timeout':'2s','nocache':'1'})]
+
+
 def legacy_plan(instant):
     values=query_plan(instant)[0]
     expression=urllib.parse.parse_qs(urllib.parse.urlsplit(values).query)['query'][0]
@@ -24,12 +37,27 @@ def legacy_plan(instant):
 query_plan=query.query_plan
 
 
-def observe(scenario, instant, *, plan=None, poison=None):
+def weakened_plan(*, omit=None, keep_names=True):
+    def plan(instant):
+        paths=query_plan(instant)
+        parameters=urllib.parse.parse_qs(urllib.parse.urlsplit(paths[1]).query)
+        expression=parameters['query'][0]
+        if omit:
+            expression=re.sub(r'on\(([^()]+)\)',lambda match:'on('+','.join(
+                key for key in match[1].split(',') if key!=omit)+')',expression)
+        if not keep_names:expression=expression.replace(' keep_metric_names','')
+        parameters['query']=[expression]
+        return [paths[0],'/metrics/api/v1/query?'+urllib.parse.urlencode(parameters,doseq=True)]
+    return plan
+
+
+def observe(scenario, instant, *, plan=None, poison=None, current_extra=(), stale_extra=()):
     requests=[]
     def reply(handler):
         parameters=urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query)
         expression=parameters['query'][0]
-        direct=DIRECT.fullmatch(expression) is not None
+        gated=GATED.fullmatch(expression)
+        direct=gated is not None or DIRECT.fullmatch(expression) is not None
         stamps=direct or expression.startswith('timestamp(label_replace(')
         requests.append(parameters)
         now=int(parameters['time'][0])
@@ -37,9 +65,22 @@ def observe(scenario, instant, *, plan=None, poison=None):
                  {'__name__':'up','job':'platform-trace-store','instance':'pilot'},
                  {'__name__':'vt_rows_ingested_total','job':'platform-trace-store','instance':'pilot',
                   'type':'opentelemetry_traces_otlphttp_protobuf'}]
-        # Real current values omit a disappeared target counter. An old implicit
-        # subquery still has that identity at its earlier aligned grid point.
-        if scenario=='vt_down' and (not stamps or direct):metrics=metrics[:2]
+        # default_rollup keeps a last stale NaN and instant Exec drops its row.
+        # timestamp_with_name drops the stale marker first and retains the old stamp.
+        current=(metrics[:2] if scenario=='vt_down' else metrics)+list(current_extra)
+        metrics=metrics+list(current_extra)+list(stale_extra)
+        if not stamps:
+            metrics=current
+        elif gated:
+            matched=[]
+            for metric in metrics:
+                collector=metric['job']=='platform-collector'
+                labels=set(gated[2 if collector else 6].split(','))
+                # VM resets MetricGroup before on() unless the binary op keeps names.
+                if not gated[4 if collector else 8]:labels.discard('__name__')
+                if any(row['job']==metric['job'] and all(metric.get(key,'')==row.get(key,'') for key in labels) for row in current):
+                    matched.append(metric)
+            metrics=matched
         sample=T+200 if scenario=='stopped' else T if now==T else T+15
         rows=[]
         for metric in metrics:
@@ -83,17 +124,26 @@ class RawTimestampQueries(unittest.TestCase):
         for source in old['sources'].values():
             self.assertEqual(source['state'],'fresh_up')
             self.assertAlmostEqual(source['sample_age_seconds'],5.2,places=5)
+        ungated,_=observe('vt_down',T+17,plan=ungated_plan)
+        self.assertEqual(ungated['query']['state'],'malformed')
         old_down,_=observe('vt_down',T+17,plan=legacy_plan)
         self.assertEqual(old_down['query']['state'],'malformed')
 
     def test_stamp_functions_receive_separate_raw_metric_selectors_before_transform_and_union(self):
         parameters=[urllib.parse.parse_qs(urllib.parse.urlsplit(path).query) for path in query_plan(T)]
         values=parameters[0]['query'][0];stamps=parameters[1]['query'][0]
-        match=DIRECT.fullmatch(stamps)
+        match=GATED.fullmatch(stamps)
         self.assertIsNotNone(match)
-        self.assertEqual(list(match.groups()),re.findall(r'\{[^{}]+\}',values))
+        selectors=re.findall(r'\{[^{}]+\}',values)
+        self.assertEqual([match[1],match[5]],selectors)
+        self.assertEqual(match[1],match[3])
+        self.assertEqual(match[5],match[7])
+        self.assertEqual(set(match[2].split(',')),IDENTITY)
+        self.assertEqual(set(match[6].split(',')),IDENTITY)
+        self.assertEqual(match[4],' keep_metric_names')
+        self.assertEqual(match[8],' keep_metric_names')
         self.assertIn('job="platform-collector"',match[1])
-        self.assertIn('job="platform-trace-store"',match[2])
+        self.assertIn('job="platform-trace-store"',match[5])
         old=urllib.parse.parse_qs(urllib.parse.urlsplit(legacy_plan(T)[1]).query)['query'][0]
         self.assertIsNone(DIRECT.fullmatch(old))
         for parameter in parameters:
@@ -101,6 +151,32 @@ class RawTimestampQueries(unittest.TestCase):
             self.assertEqual(parameter['time'],[str(T)])
             self.assertEqual(parameter['timeout'],['2s'])
             self.assertEqual(parameter['nocache'],['1'])
+
+    def test_name_matching_requires_explicit_name_and_keep_metric_names(self):
+        current={'__name__':'vt_http_requests_total','job':'platform-trace-store','instance':'pilot',
+                 'format':'protobuf','path':'/insert/opentelemetry/v1/traces'}
+        stale={**current,'__name__':'vt_http_errors_total'}
+        for plan_label,plan,expected in (
+                ('complete_identity',None,'observed'),
+                ('ungated',ungated_plan,'malformed'),
+                ('missing_metric_name',weakened_plan(omit='__name__'),'malformed'),
+                ('without_keep_names',weakened_plan(keep_names=False),'malformed')):
+            with self.subTest(expected=expected,plan_label=plan_label):
+                report,_=observe('baseline',T,current_extra=[current],stale_extra=[stale],plan=plan)
+                self.assertEqual(report['query']['state'],expected)
+
+    def test_complete_dimension_matching_prevents_stale_neighbor_cross_matches(self):
+        base={'__name__':'otelcol_receiver_accepted_spans','job':'platform-collector','instance':'pilot',
+              'receiver':'otlp','exporter':'otlphttp','data_type':'traces'}
+        for dimension,other in (('receiver','otlp/pilot'),('exporter','otlphttp/traces'),('data_type','logs')):
+            for plan,expected in ((None,'observed'),(weakened_plan(omit=dimension),'malformed')):
+                report,_=observe('baseline',T,current_extra=[base],stale_extra=[{**base,dimension:other}],plan=plan)
+                self.assertEqual(report['query']['state'],expected)
+        current={'__name__':'vt_rows_dropped_total','job':'platform-trace-store','instance':'pilot','reason':'debug'}
+        for plan,expected in ((None,'observed'),(weakened_plan(omit='reason'),'malformed')):
+            report,_=observe('baseline',T,current_extra=[current],
+                             stale_extra=[{**current,'reason':'too_many_fields'}],plan=plan)
+            self.assertEqual(report['query']['state'],expected)
 
     def test_all_current_rows_and_matching_identities_remain_strict_before_any_pending(self):
         def private(rows,stamps):rows[-1]['metric']['private']='PRIVATE_VALUE'

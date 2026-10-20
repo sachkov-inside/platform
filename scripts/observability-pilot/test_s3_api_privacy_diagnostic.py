@@ -26,6 +26,14 @@ class PrivacyDiagnosticTests(unittest.TestCase):
             for phase in diagnostic.PHASES:
                 self.assertEqual(diagnostic.parse(self.wire(reason=reason, phase=phase)), self.event(reason=reason, phase=phase))
 
+    def test_accepts_closed_corpus_issue_classes_without_extra_issue_details(self):
+        for reason in ('corpus_type', 'corpus_empty_string', 'corpus_string_limit', 'corpus_entry_count'):
+            self.assertEqual(diagnostic.parse(self.wire(reason=reason, phase='input')),
+                             self.event(reason=reason, phase='input'))
+            for key in ('issue', 'path', 'index', 'input', 'message'):
+                with self.assertRaises(diagnostic.InvalidDiagnostic):
+                    diagnostic.parse(self.wire(reason=reason, **{key: 'private-sentinel'}))
+
     def test_rejects_private_unknown_duplicate_escaped_and_multiple_values(self):
         raw = self.wire()
         poison = [b'null', b'[]', b'"private-sentinel"', b'{private-sentinel',
