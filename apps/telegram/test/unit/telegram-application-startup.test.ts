@@ -59,17 +59,22 @@ function configuration() {
   });
 }
 
-
 it("closes newly acquired real Nest owners before init/listen when startup was already stopped", async () => {
   const acquired = deferred<NestFastifyApplication>();
   const release = deferred();
   const create = NestFactory.create.bind(NestFactory);
-  vi.spyOn(NestFactory, "create").mockImplementation(async (module, adapter, options) => {
-    const application = await create<NestFastifyApplication>(module, adapter, options);
-    acquired.resolve(application);
-    await release.promise;
-    return application;
-  });
+  vi.spyOn(NestFactory, "create").mockImplementation(
+    async (module, adapter, options) => {
+      const application = await create<NestFastifyApplication>(
+        module,
+        adapter,
+        options,
+      );
+      acquired.resolve(application);
+      await release.promise;
+      return application;
+    },
+  );
   const destroy = vi.spyOn(Kysely.prototype, "destroy");
   const connect = vi.spyOn(Pool.prototype, "connect");
   const handle = createTelegramApplication(configuration());
