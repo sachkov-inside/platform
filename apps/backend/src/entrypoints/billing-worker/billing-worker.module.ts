@@ -1,3 +1,4 @@
+import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
 import { WebTelemetryModule } from "../../modules/web-telemetry/index.js";
@@ -27,6 +28,7 @@ export class BillingWorkerModule {
         WebTelemetryModule,
         ReadingActivityModule,
         BookmarksModule,
+        ProductTaskResourceFactsModule,
         CommunityEntitlementsModule,
         CoverageCatalogModule,
         RecipientLinksModule,
