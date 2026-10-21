@@ -20,6 +20,19 @@ DATABASES = ("inside", "logto", "inside_telegram")
 ENVFILES = ("old.env", "new.env", "multi.env")
 
 
+class CommandRefused(RuntimeError):
+    def __init__(self, resources, result):
+        self.detail = base.refusal_detail(result, *(resources.directory / name for name in ENVFILES))
+        super().__init__("synthetic command refused")
+
+
+def backrest(resources, container, *args):
+    result = base.backrest(resources, container, *args, check=False)
+    if result.returncode:
+        raise CommandRefused(resources, result)
+    return result
+
+
 def start(resources, image, data, repository, envfile, suffix, *, initialize=False):
     command = ("install -d -o postgres -g postgres -m 700 " + base.DATA + " /backup/old /backup/new; "
                "install -d -o postgres -g postgres /var/run/postgresql; ")
@@ -36,7 +49,7 @@ def start(resources, image, data, repository, envfile, suffix, *, initialize=Fal
 
 
 def labels(resources, container, repo):
-    raw = json.loads(base.backrest(resources, container, "--repo=" + str(repo), "--output=json", "info").stdout)
+    raw = json.loads(backrest(resources, container, "--repo=" + str(repo), "--output=json", "info").stdout)
     backups = raw[0]["backup"]
     if not backups or raw[0]["status"]["code"] != 0:
         raise RuntimeError("transition repository not healthy")
@@ -93,6 +106,7 @@ def proof(image, receipt, directory):
         for path in (old, new, multi):
             path.chmod(0o600)
         data, repository = resources.volume("transition-data"), resources.volume("transition-repository")
+        verdict["stage"] = "old-source"
         source = start(resources, image, data, repository, old, "old-source", initialize=True)
         if resources.command("exec", source, "pgbackrest", "--version").stdout.strip() != "pgBackRest 2.59.3":
             raise ValueError("transition must use the fixed production pgBackRest version")
@@ -101,26 +115,29 @@ def proof(image, receipt, directory):
             base.sql(resources, source, database,
                      "CREATE TABLE proof_marker(id integer PRIMARY KEY, phase text NOT NULL);"
                      "INSERT INTO proof_marker VALUES(1,'backup');")
-        base.backrest(resources, source, "stanza-create")
-        base.backrest(resources, source, "--repo=1", "--type=full", "--no-expire-auto", "backup")
+        verdict["stage"] = "old-full"
+        backrest(resources, source, "stanza-create")
+        backrest(resources, source, "--repo=1", "--type=full", "--no-expire-auto", "backup")
         old_labels = labels(resources, source, 1)
         resources.command("stop", "--time", "30", source)
         before_new = old_manifest(resources, image, data, repository, old, "old-before-new")
         # Only the new namespace is configured. No old metadata or subkeys are copied/read.
+        verdict["stage"] = "new-only-create"
         _, initialized = resources.container(
             "initialize-new-only", image, data, repository, new,
             "exec gosu postgres pgbackrest --config=/dev/null --stanza=proof --no-online stanza-create",
             data_readonly=True)
         if initialized.returncode:
-            raise RuntimeError("new-only stanza initialization failed")
+            raise CommandRefused(resources, initialized)
         after_new = old_manifest(resources, image, data, repository, old, "old-after-new")
         if before_new != after_new:
             raise RuntimeError("creating the new stanza changed old namespace")
+        verdict["stage"] = "multi-source"
         source = start(resources, image, data, repository, multi, "multi-source")
         for repo in (1, 2):
-            base.backrest(resources, source, "--repo=" + str(repo), "check")
+            backrest(resources, source, "--repo=" + str(repo), "check")
         for _ in range(2):
-            base.backrest(resources, source, "--repo=2", "--type=full", "--no-expire-auto", "backup")
+            backrest(resources, source, "--repo=2", "--type=full", "--no-expire-auto", "backup")
         if labels(resources, source, 1) != old_labels or len(labels(resources, source, 2)) != 2:
             raise RuntimeError("backup selector or history preservation failed")
         for database in DATABASES:
@@ -130,9 +147,10 @@ def proof(image, receipt, directory):
             base.sql(resources, source, database, "INSERT INTO proof_marker VALUES(3,'after');")
         base.sql(resources, source, "postgres", "SELECT pg_switch_wal();")
         for repo in (1, 2):
-            base.backrest(resources, source, "--repo=" + str(repo), "check")
+            backrest(resources, source, "--repo=" + str(repo), "check")
         resources.command("stop", "--time", "30", source)
         before_restore = base.source_manifest(resources, image, data, repository, multi, "before-restores")
+        verdict["stage"] = "restores"
         restored(resources, image, repository, old, "old-immediate", "--type=immediate", "backup")
         restored(resources, image, repository, new, "new-immediate", "--type=immediate", "backup")
         for name, env in (("old-pitr", old), ("new-pitr", new)):
@@ -141,12 +159,13 @@ def proof(image, receipt, directory):
         after_restore = base.source_manifest(resources, image, data, repository, multi, "after-restores")
         if before_restore != after_restore:
             raise RuntimeError("restore changed source data or repositories")
+        verdict["stage"] = "rollback"
         source = start(resources, image, data, repository, old, "rollback-source")
         for database in DATABASES:
             base.sql(resources, source, database, "INSERT INTO proof_marker VALUES(4,'rollback');")
         base.sql(resources, source, "postgres", "SELECT pg_switch_wal();")
-        base.backrest(resources, source, "--repo=1", "check")
-        base.backrest(resources, source, "--repo=1", "--type=full", "--no-expire-auto", "backup")
+        backrest(resources, source, "--repo=1", "check")
+        backrest(resources, source, "--repo=1", "--type=full", "--no-expire-auto", "backup")
         if not set(old_labels).issubset(labels(resources, source, 1)) or len(labels(resources, source, 1)) != 2:
             raise RuntimeError("rollback expired old history")
         resources.command("stop", "--time", "30", source)
@@ -157,6 +176,12 @@ def proof(image, receipt, directory):
                        historyPreservedBeyondRetentionCount=True, oldAndNewWalPitr=True,
                        oldAndNewFullRestore=True, rollbackPreservedNewWrites=True,
                        restoreSourcesUnchanged=True, oldNamespaceSha256=before_new)
+        verdict["stage"] = "complete"
+    except Exception as error:
+        verdict["failureClass"] = type(error).__name__
+        if isinstance(error, CommandRefused):
+            verdict["refusal"] = error.detail
+        raise
     finally:
         try:
             resources.cleanup()
