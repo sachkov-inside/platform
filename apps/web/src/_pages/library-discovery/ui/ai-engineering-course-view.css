@@ -73,8 +73,18 @@
 .aie-status:has(.aie-cohort-status) .aie-status-default {
   display: none;
 }
-.aie-status:has(.aie-learning-status, .aie-learning-pending) .aie-status-default {
-  display: none;
+/* Keep the streamed personal action inside the introduction's existing footprint. */
+.aie-status-lead {
+  position: relative;
+}
+.aie-status:has(.aie-learning-status) .aie-status-default {
+  visibility: hidden;
+}
+.aie-status .aie-learning-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
 }
 .aie-status:has(.aie-cohort-status) {
   grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr);

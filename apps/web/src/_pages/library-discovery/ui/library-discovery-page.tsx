@@ -16,7 +16,6 @@ import {
   readReaderProductArtifacts,
 } from "@/features/product-artifacts.server";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { CourseLearningPending } from "@/features/ai-engineering-course";
 import {
   loadPublishedSeries,
   readPublicSeries,
@@ -97,7 +96,7 @@ export async function PublishedSeriesPage({
         </Suspense>
       }
       statusCall={
-        <Suspense fallback={<CourseLearningPending />}>
+        <Suspense fallback={null}>
           <PersonalCohortStatus result={result} />
         </Suspense>
       }

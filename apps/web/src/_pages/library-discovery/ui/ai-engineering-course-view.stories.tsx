@@ -14,7 +14,6 @@ import {
 import {
   CohortCallView,
   CourseLearningLink,
-  CourseLearningPending,
   CohortStatusView,
 } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -418,7 +417,7 @@ export const CourseParticipantResolving: Story = {
         </button>
         <ProductLandingView
           {...args}
-          statusCall={resolved ? args.statusCall : <CourseLearningPending />}
+          statusCall={resolved ? args.statusCall : null}
         />
       </>
     );
@@ -431,12 +430,16 @@ export const CourseParticipantResolving: Story = {
     const offset = () =>
       list.getBoundingClientRect().top - status.getBoundingClientRect().top;
     const before = offset();
+    const heightBefore = status.getBoundingClientRect().height;
     await userEvent.click(
       within(canvasElement).getByRole("button", {
         name: "Завершить проверку доступа",
       }),
     );
     await expect(Math.abs(offset() - before)).toBeLessThan(1);
+    await expect(
+      Math.abs(status.getBoundingClientRect().height - heightBefore),
+    ).toBeLessThan(1);
     await expectParticipantActions(canvasElement);
   },
 };

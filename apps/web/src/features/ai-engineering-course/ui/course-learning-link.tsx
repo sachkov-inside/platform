@@ -5,11 +5,6 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import "./course-learning-link.css";
 
-/** Сохраняет место личного действия, пока сервер проверяет доступ. */
-export function CourseLearningPending() {
-  return <div className="aie-learning-pending" aria-busy="true" />;
-}
-
 /** Действие участника на анимации и в нижнем блоке страницы курса. */
 export function CourseLearningLink({
   slug,

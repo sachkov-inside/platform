@@ -31,11 +31,7 @@
   height: 1rem;
   flex-shrink: 0;
 }
-.aie-learning-pending {
-  min-height: 2.75rem;
-}
 @media (width < 40rem) {
-  .aie-learning-pending,
   .aie-learning-link {
     min-height: 2.25rem;
   }
