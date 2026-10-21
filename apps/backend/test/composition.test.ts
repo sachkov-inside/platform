@@ -33,6 +33,12 @@ import {
 import { ACCOUNT_RIGHTS } from "../src/modules/account-rights/index.js";
 import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
 import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
+import { ReadingActivityRetention } from "../src/modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../src/modules/bookmarks/index.js";
+import {
+  PRODUCT_TASK_RESOURCE_FACTS,
+  type ProductTaskResourceFactsAdapter,
+} from "../src/modules/content-access/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
 
 function isAccessGrants(instance: unknown): boolean {
@@ -187,7 +193,7 @@ describe("backend process composition", () => {
   it("binds the Billing worker to readiness and its access consumers", async () => {
     application = await NestFactory.createApplicationContext(
       BillingWorkerModule.forRoot(config),
-      { logger: false },
+      { abortOnError: false, logger: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
@@ -197,6 +203,20 @@ describe("backend process composition", () => {
     expect(accessGrantFacets(application)).toHaveLength(1);
     expect(application.get(BillingPayments)).toBeDefined();
     expect(application.get(CommunityEntitlements)).toBeDefined();
+    expect(application.get(ReadingActivityRetention)).toBeInstanceOf(
+      ReadingActivityRetention,
+    );
+    expect(application.get(BookmarkActivityRetention)).toBeInstanceOf(
+      BookmarkActivityRetention,
+    );
+    expect(
+      application.get<ProductTaskResourceFactsAdapter>(
+        PRODUCT_TASK_RESOURCE_FACTS,
+      ),
+    ).toMatchObject({
+      findOne: expect.any(Function),
+      findMany: expect.any(Function),
+    });
   });
 
   it("binds the Notifications worker, which loads Membership Entitlements through its consumers", async () => {
