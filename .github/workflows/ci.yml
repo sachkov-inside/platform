@@ -133,7 +133,7 @@ jobs:
       - name: Run tooling, authoring and practice-review tests
         if: ${{ matrix.part == 'tooling' }}
         env:
-          INSIDE_CORE_SOURCE_PROGRESS: '1'
+          INSIDE_CORE_SOURCE_PROGRESS: "1"
         run: pnpm check:unit:tooling
       - name: Run application and package unit tests
         if: ${{ matrix.part == 'modules' }}
