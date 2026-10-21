@@ -31,6 +31,14 @@ process.stdout.write('{}');
 
 
 PIN_PATHS_CODE=r'''
+/** @param {typeof import("node:fs")} original @param {import("node:fs").PathLike} path @param {number|string} flags @param {import("node:fs").Mode|undefined} [mode] @returns {PinFixtureDescriptor} */
+function openPinFixtureDescriptor(original,path,flags,mode){
+ const fd=original.openSync(path,flags,mode);
+ try{const info=original.fstatSync(fd,{bigint:true});return {fd,dev:info.dev,ino:info.ino,active:true};}
+ catch(primary){try{original.closeSync(fd);}catch{/* Preserve the original identity-acquisition error after attempting the single owned close. */}throw primary;}
+}
+
+/** @param {typeof import("node:fs")} original @param {string} directory @param {boolean} shim */
 function pinFixturePaths(original, directory, shim) {
   const before = original.lstatSync(directory, { bigint: true });
   /** @type {PinFixtureDescriptor|undefined} */ let parent;
@@ -122,7 +130,7 @@ import assert from 'node:assert/strict';import fs from 'node:fs';
 const settings=JSON.parse(process.argv[1]),original={...fs};
 ''' + PIN_PATHS_CODE + r'''
 /** @typedef {PinFixtureDescriptor & {path:string}} AliasDirectory */
-/** @typedef {{handles:PinFixtureDescriptor[], rescue:PinFixtureDescriptor[], directories:AliasDirectory[], root?:AliasDirectory, rootHandle?:PinFixtureDescriptor|undefined, rescueRoot?:PinFixtureDescriptor, expected?:unknown, closed?:boolean}} AliasAudit */
+/** @typedef {{handles:PinFixtureDescriptor[], rescue:PinFixtureDescriptor[], directories:AliasDirectory[], root?:AliasDirectory, rootHandle?:PinFixtureDescriptor|undefined, rescueRoot?:PinFixtureDescriptor, expected?:unknown, failedFd?:number, failedHandle?:PinFixtureDescriptor, closed?:boolean}} AliasAudit */
 /** @param {typeof import("node:fs")} original @param {AliasDirectory} entry */
 function aliasDirectoryMatches(original, entry) {
   try {
@@ -162,7 +170,7 @@ function finishRawAliasFixture(original, audit, primary) {
     if(rootOwned()&&aliasDirectoryMatches(original,entry))original.rmdirSync(entry.path);
   });
   let removeRoot=false;
-  attempt(()=>{removeRoot=rootOwned();});
+  attempt(()=>{removeRoot=root!==undefined&&aliasDirectoryMatches(original,root)&&original.realpathSync(root.path)===root.path&&(()=>{const info=original.lstatSync(root.path,{bigint:true});return (info.mode&0o777n)===0o700n&&process.getuid!==undefined&&info.uid===BigInt(process.getuid());})();});
   if(held!==undefined)attempt(()=>close(held));
   audit.closed=[...audit.handles,...(held===undefined?[]:[held])].every(entry=>{
     try{original.fstatSync(entry.fd);return false;}catch(error){return error instanceof Error&&"code" in error&&error.code==="EBADF";}
@@ -224,18 +232,19 @@ function replaceRawAliasParent(original,audit,directory,verdict,failure){
 
 
 function runRawAliasFixture(failure,audit){
-  const root = original.realpathSync(original.mkdtempSync(settings.directory+"/raw-fixture-"));
-  const rootInfo=original.lstatSync(root,{bigint:true});
-  audit.root={path:root,fd:-1,dev:rootInfo.dev,ino:rootInfo.ino,active:false};
-  const rootFd=original.openSync(root,original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY);
-  audit.rootHandle={fd:rootFd,dev:rootInfo.dev,ino:rootInfo.ino,active:true};
-  if(failure!=="none"){
-    const backup=original.openSync(root,original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY);
-    audit.rescueRoot={fd:backup,dev:rootInfo.dev,ino:rootInfo.ino,active:true};
-  }
-  const directory=root+"/parent",handles=audit.handles;
   let primaryActive = false;
   try {
+  const root = original.mkdtempSync(settings.directory+"/raw-fixture-");
+  const rootInfo=original.lstatSync(root,{bigint:true});
+  audit.root={path:root,fd:-1,dev:rootInfo.dev,ino:rootInfo.ino,active:false};
+  if(failure==='root_open'){const error=Object.assign(new Error('controlled root open refusal'),{code:'EMFILE'});audit.expected=error;throw error;}
+  const rootOps=failure==='root_identity'?{...original,fstatSync(fd){audit.failedFd=fd;const actual=original.fstatSync(fd,{bigint:true});audit.failedHandle={fd,dev:actual.dev,ino:actual.ino,active:true};const error=new Error('controlled root identity refusal');audit.expected=error;throw error;}}:original;
+  audit.rootHandle=openPinFixtureDescriptor(rootOps,root,original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY);
+  if(failure!=="none"){
+    if(failure==='backup_open'){const error=Object.assign(new Error('controlled backup open refusal'),{code:'EMFILE'});audit.expected=error;throw error;}
+    audit.rescueRoot=openPinFixtureDescriptor(original,root,original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY);
+  }
+  const directory=root+"/parent",handles=audit.handles;
     original.mkdirSync(directory,{mode:0o700});
     const parentInfo=original.lstatSync(directory,{bigint:true});
     audit.directories.push({path:directory,fd:-1,dev:parentInfo.dev,ino:parentInfo.ino,active:false});
@@ -244,9 +253,7 @@ function runRawAliasFixture(failure,audit){
       original.constants.O_RDONLY |
       original.constants.O_NOFOLLOW |
       original.constants.O_DIRECTORY;
-    const fd = original.openSync(directory, flags);
-    const info = original.fstatSync(fd, { bigint: true });
-    const entry = { fd, dev: info.dev, ino: info.ino, active: true };
+    const entry=openPinFixtureDescriptor(original,directory,flags),fd=entry.fd;
     handles.push({...entry});
     audit.rescue.push({...entry});
     assert.equal(paths.classify(directory, flags), "parent");
@@ -257,9 +264,7 @@ function runRawAliasFixture(failure,audit){
       translations++;
       return io(path);
     };
-    const fd2 = original.openSync(directory, flags);
-    const otherInfo = original.fstatSync(fd2, { bigint: true });
-    const otherEntry={fd:fd2,dev:otherInfo.dev,ino:otherInfo.ino,active:true};
+    const otherEntry=openPinFixtureDescriptor(original,directory,flags),fd2=otherEntry.fd;
     handles.push({...otherEntry});audit.rescue.push({...otherEntry});
     for (const prefix of ["/proc/self/fd/", "/dev/fd/"]) {
       const raw = prefix + fd + "/phase.json.new";
@@ -345,9 +350,10 @@ if(settings.failure){
  try{
   assert.throws(()=>runRawAliasFixture(settings.failure,audit),error=>error===audit.expected);
   assert.equal(audit.closed,true,'fixture left an owned acquisition live');
+  if(audit.failedHandle!==undefined){assert.throws(()=>original.fstatSync(audit.failedHandle.fd),error=>error instanceof Error&&'code' in error&&error.code==='EBADF');audit.failedHandle.active=false;}
   assert.ok(audit.root!==undefined);assert.equal(original.existsSync(audit.root.path),false,'fixture left an owned directory behind');
   process.stdout.write(JSON.stringify({contained:true}));
- }catch(error){primary=true;throw error;}finally{finishRawAliasFixture(original,{...audit,handles:audit.rescue,rootHandle:audit.rescueRoot},primary);}
+ }catch(error){primary=true;throw error;}finally{finishRawAliasFixture(original,{...audit,handles:[...audit.rescue,...(audit.failedHandle===undefined?[]:[audit.failedHandle])],rootHandle:audit.rescueRoot?.active?audit.rescueRoot:audit.rootHandle?.active?audit.rootHandle:undefined},primary);}
 }else{
  runRawAliasFixture('none',{handles:[],rescue:[],directories:[]});process.stdout.write(JSON.stringify({admitted:true}));
 }
@@ -360,7 +366,7 @@ const directory=settings.directory;
 ''' + PIN_PATHS_CODE + r'''
 const paths=pinFixturePaths(original,directory,settings.shim),translate=paths.io;
 for(const name of ['lstatSync','statSync','unlinkSync','realpathSync'])fs[name]=(...args)=>Reflect.apply(original[name],fs,[translate(args[0]),...args.slice(1)]);
-fs.openSync=(p,flags,mode)=>{const kind=paths.classify(p,flags),fd=original.openSync(translate(p),flags,mode);if(kind!==undefined){const info=original.fstatSync(fd,{bigint:true}),entry={fd,dev:info.dev,ino:info.ino,active:true};acquired.push(entry);if(kind==='parent')paths.parent(entry);}return fd;};
+fs.openSync=(p,flags,mode)=>{const kind=paths.classify(p,flags);if(kind===undefined)return original.openSync(translate(p),flags,mode);const entry=openPinFixtureDescriptor(original,translate(p),flags,mode);acquired.push(entry);if(kind==='parent')paths.parent(entry);return entry.fd;};
 fs.closeSync=fd=>{const entry=acquired.find(entry=>entry.active&&entry.fd===fd);if(entry)entry.active=false;original.closeSync(fd);};
 let live=false;
 fs.renameSync=(from,_to)=>{if(paths.classify(from,original.constants.O_RDONLY)!=='temporary')return original.renameSync(from,_to);const path=translate(from),info=original.lstatSync(path,{bigint:true});live=acquired.some(entry=>{if(!entry.active)return false;try{const held=original.fstatSync(entry.fd,{bigint:true});return held.dev===info.dev&&held.ino===info.ino;}catch{return false;}});original.unlinkSync(path);original.writeFileSync(path,'foreign-recreated',{mode:0o600});throw new Error('controlled rename refusal');};
@@ -383,9 +389,9 @@ const directory=settings.directory,fault=settings.fault,retired=new Set();
 ''' + PIN_PATHS_CODE + r'''
 const paths=pinFixturePaths(original,directory,settings.shim),translate=paths.io;
 for(const name of ['realpathSync','statSync','lstatSync'])fs[name]=(...args)=>Reflect.apply(original[name],fs,[translate(args[0]),...args.slice(1)]);
-fs.openSync=(path,flags,mode)=>{const address=paths.classify(path,flags);if(address===undefined)return original.openSync(translate(path),flags,mode);const kind=address==='parent'?'parent':typeof flags==='number'&&(flags&original.constants.O_WRONLY)!==0?'writer':'pin';if(kind==='pin'&&fault==='pin_open')throw new Error('controlled pin refusal');const fd=original.openSync(translate(path),flags,mode),info=original.fstatSync(fd,{bigint:true}),entry={fd,dev:info.dev,ino:info.ino,active:true,attempts:0,kind};active.set(fd,entry);handles.push(entry);if(kind==='parent')paths.parent(entry);return fd;};
+fs.openSync=(path,flags,mode)=>{const address=paths.classify(path,flags);if(address===undefined)return original.openSync(translate(path),flags,mode);const kind=address==='parent'?'parent':typeof flags==='number'&&(flags&original.constants.O_WRONLY)!==0?'writer':'pin';if(kind==='pin'&&fault==='pin_open')throw new Error('controlled pin refusal');const acquired=openPinFixtureDescriptor(original,translate(path),flags,mode),fd=acquired.fd,entry={...acquired,attempts:0,kind};active.set(fd,entry);handles.push(entry);if(kind==='parent')paths.parent(entry);return fd;};
 let unknownClose=false;
-fs.closeSync=fd=>{const entry=active.get(fd);if(entry===undefined){if(retired.has(fd))unknownClose=true;original.closeSync(fd);return;}active.delete(fd);entry.active=false;retired.add(fd);entry.attempts++;original.closeSync(fd);if(fault==='writer_close'&&entry.kind==='writer'){const other=original.openSync(directory+'/foreign-fd',original.constants.O_CREAT|original.constants.O_RDWR,0o600),info=original.fstatSync(other,{bigint:true});foreign.push({fd:other,dev:info.dev,ino:info.ino,active:true});throw new Error('controlled writer close refusal');}if(fault==='pin_close'&&entry.kind==='pin'||fault==='combined'&&entry.kind!=='writer')throw new Error('controlled close refusal');};
+fs.closeSync=fd=>{const entry=active.get(fd);if(entry===undefined){if(retired.has(fd))unknownClose=true;original.closeSync(fd);return;}active.delete(fd);entry.active=false;retired.add(fd);entry.attempts++;original.closeSync(fd);if(fault==='writer_close'&&entry.kind==='writer'){foreign.push(openPinFixtureDescriptor(original,directory+'/foreign-fd',original.constants.O_CREAT|original.constants.O_RDWR,0o600));throw new Error('controlled writer close refusal');}if(fault==='pin_close'&&entry.kind==='pin'||fault==='combined'&&entry.kind!=='writer')throw new Error('controlled close refusal');};
 fs.renameSync=(from,to)=>{if(fault==='combined'&&paths.classify(from,original.constants.O_RDONLY)==='temporary')throw new Error('controlled rename refusal');original.renameSync(translate(from),translate(to));};
 fs.unlinkSync=path=>{if(fault==='combined'&&paths.classify(path,original.constants.O_RDONLY)==='temporary')throw new Error('controlled unlink refusal');original.unlinkSync(translate(path));};
 syncBuiltinESMExports();
@@ -409,7 +415,7 @@ class ProducerEntryPhase(unittest.TestCase):
             self.assertEqual(value,dict(admitted=True))
 
     def test_raw_alias_failures_preserve_primary_and_contain_owned_acquisitions(self):
-        for failure in ('retired','mkdir','remove'):
+        for failure in ('root_open','backup_open','root_identity','retired','mkdir','remove'):
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory:
                 settings=dict(directory=str(Path(directory).resolve()),failure=failure)
                 value=producer_protocol.capture(argv=['node','--input-type=module','-e',ADDRESS_CODE,json.dumps(settings)],budget=3)
