@@ -61,20 +61,44 @@ def _fresh_parts(evaluated_at):
     return expressions
 
 
+def _source_families():
+    """The wire owner admits counter aliases, but never duplicate canonical identities."""
+    families = [(job, ('up',)) for job in source_status.SOURCES.values()]
+    families += [(source_status.SOURCES['collector'], (name, name + '_total'))
+                 for name in sorted(source_status.COLLECTOR_COUNTERS)]
+    families += [(source_status.SOURCES['collector'], (name,))
+                 for name in sorted(source_status.COLLECTOR_GAUGES)]
+    families += [(source_status.SOURCES['trace_store'], (name,))
+                 for name in sorted(source_status.TRACE_COUNTERS)]
+    return families
+
+
+def _family_selector(job, aliases):
+    return ('{__name__=~' + _literal('^(' + '|'.join(aliases) + ')$') +
+            ',job=' + _literal(job) + ',instance="pilot"}')
+
+
+def _family_guard(job, aliases, *, evaluated_at=None, duration=None):
+    selector = _family_selector(job, aliases)
+    samples = (f'increase({selector}[{duration}s])' if duration is not None
+               else f'({selector} @ {evaluated_at})')
+    # Dropping ONLY the spelling (__name__) preserves the entire remaining identity.
+    # Both aliases of the same identity give count2 and refuse instead of masking a missing family.
+    return f'(count({samples}) >= 1) and on() (max(count without(__name__)({samples})) == 1)'
+
+
 def _fresh_mask(evaluated_at):
     values, stamps = _fresh_parts(evaluated_at)
     jobs = '|'.join(source_status.SOURCES.values())
     up = '{__name__="up",job=~"^(' + jobs + ')$",instance="pilot"}'
-    # Count required metric families through their public owner, never a second list.
-    expected = (len(source_status.COLLECTOR_COUNTERS) + len(source_status.COLLECTOR_GAUGES)
-                + len(source_status.TRACE_COUNTERS) + len(source_status.SOURCES))
     age = CATALOGUE['quality_policy']['maximum_current_source_age_seconds']
     terms = [f'count({up} @ {evaluated_at}) == {len(source_status.SOURCES)}',
              f'min({up} @ {evaluated_at}) == 1',
-             f'count(count by(job,__name__)(({values}) @ {evaluated_at})) == {expected}',
              f'count(({values}) @ {evaluated_at}) == count(({stamps}) @ {evaluated_at})',
              f'min({evaluated_at} - (({stamps}) @ {evaluated_at})) >= 0',
              f'max({evaluated_at} - (({stamps}) @ {evaluated_at})) <= {age}']
+    terms += [_family_guard(job, aliases, evaluated_at=evaluated_at)
+              for job, aliases in _source_families()]
     return 'group(' + ' and on() '.join('(' + term + ')' for term in terms) + ')'
 
 
@@ -83,6 +107,11 @@ def _render(service, environment, release, duration, evaluated_at, other_release
               for key, name in CATALOGUE['metrics'].items()}
     collection_names = sorted(name for name in source_status.COLLECTOR_COUNTERS
         if name.endswith('metric_points') and any(part in name for part in ('refused', 'send_failed', 'enqueue_failed')))
+    collection_presence = ' and on() '.join('(' + _family_guard(source_status.SOURCES['collector'],
+        (name, name + '_total'), duration=duration) + ')' for name in collection_names)
+    collection_sum = ('sum(increase({job="' + source_status.SOURCES['collector'] +
+        '",instance="pilot",__name__=~"^(' + '|'.join(collection_names) + ')(_total)?$"}[' +
+        str(duration) + 's]))')
     tokens.update({
         'FIVE': _selector(CATALOGUE['metrics']['REQUEST'], service, environment, release,
                           ',http.response.status_code=~"^5[0-9][0-9]$",http.request.outcome="completed"'),
@@ -91,9 +120,7 @@ def _render(service, environment, release, duration, evaluated_at, other_release
         'ABORTED': _selector(CATALOGUE['metrics']['REQUEST'], service, environment, release,
                              ',http.request.outcome="aborted"'),
         'W': str(duration) + 's', 'FRESH': _fresh_mask(evaluated_at),
-        'COLLECTION': 'sum(increase({job="' + source_status.SOURCES['collector'] +
-            '",instance="pilot",__name__=~"^(' + '|'.join(collection_names) + ')(_total)?$"}[' +
-            str(duration) + 's]))',
+        'COLLECTION': '(' + collection_sum + ') and on() (' + collection_presence + ')',
     })
     rendered = {}
     for kind, fields in CATALOGUE['queries'].items():
@@ -226,7 +253,8 @@ def _fields(raw, query):
     if fields.get('five_xx_share') is not None and fields['five_xx_share'] > 1:
         _refuse()
     quantiles = [fields.get(key) for key in ('p50_seconds', 'p95_seconds', 'p99_seconds')]
-    if all(value is not None for value in quantiles) and quantiles != sorted(quantiles):
+    observed_quantiles = [value for value in quantiles if value is not None]
+    if observed_quantiles != sorted(observed_quantiles):
         _refuse()
     return fields
 
