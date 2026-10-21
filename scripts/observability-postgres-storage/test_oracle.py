@@ -24,6 +24,108 @@ def raw(rows):return json.dumps({'status':'success','data':{'resultType':'vector
 
 
 class WholeVectors(unittest.TestCase):
+    def test_opt_in_failure_reason_preserves_the_original_whole_verdict(self):
+        rows,stamps=vectors();rows[-1]['metric']['private']='not-exported'
+        old=self.check(rows,stamps)
+        self.assertEqual(old['freshness'],'malformed');self.assertEqual(old['reason'],'malformed')
+        observed=self.check(rows,stamps,diagnose=True)
+        self.assertEqual({**observed,'reason':'malformed'},old)
+        self.assertEqual(observed['reason'],'oracle_values_labels')
+        self.assertEqual(oracle.diagnostic_reason(observed),'oracle_values_labels')
+        self.assertIsNone(oracle.diagnostic_reason(dict(observed)))
+
+    def test_fixed_rejections_follow_the_first_actual_predicate_without_hiding_poison(self):
+        cases=[]
+        for channel in ('values','timestamps'):
+            for group in ('decode','envelope','row','labels','number'):
+                rows,stamps=vectors();target=rows if channel=='values' else stamps
+                if group=='row':target[-1]['value']='not-an-array'
+                elif group=='labels':target[-1]['metric']['private-canary']='not-exported'
+                elif group=='number':target[-1]['value'][1]='NaN'
+                values,times=raw(rows),raw(stamps)
+                if group in ('decode','envelope'):
+                    body='{' if group=='decode' else '{"status":"error","private":"not-exported"}'
+                    if channel=='values':values=body
+                    else:times=body
+                cases.append((values,times,{},'oracle_'+channel+'_'+group,'malformed'))
+        for change,reason in (('input','input'),('join','join'),('identity','identity'),('cohort','cohort'),
+                              ('availability','availability_order'),('complete','complete_time'),
+                              ('expected','expected'),('disagree','value_mismatch'),('range','values_number')):
+            rows,stamps=vectors();kwargs={}
+            if change=='input':kwargs['evaluated_at']=True
+            elif change=='join':stamps[-1]['metric']['scope.version']='unknown'
+            elif change=='identity':rows[3]['value'][1]=str(NOW+1)
+            elif change=='cohort':stamps[0]['value'][1]='1789999999.999'
+            elif change=='availability':rows[-1]['value'][1]='0';stamps[-1]['value'][1]='1789999999.999'
+            elif change=='complete':stamps[-1]['value'][1]='1789999999.999'
+            elif change=='expected':kwargs['expected']={}
+            elif change=='disagree':rows[0]['value'][1]='4'
+            else:rows[0]['value'][1]='1000001'
+            cases.append((raw(rows),raw(stamps),kwargs,'oracle_'+reason,'malformed'))
+        rows,stamps=vectors();cases.append((raw(rows),raw(stamps),{'completed_us':NOW+10_000_001},'oracle_stale','stale'))
+        rows[-1]['value'][1]='0';cases.append((raw(rows),raw(stamps),{},'oracle_unavailable','unavailable'))
+        for values,times,options,reason,freshness in cases:
+            with self.subTest(reason=reason):
+                kwargs=dict(evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED);kwargs.update(options)
+                ordinary=oracle.evaluate(values,times,**kwargs)
+                observed=oracle.evaluate(values,times,**kwargs,diagnose=True)
+                self.assertEqual(observed['freshness'],freshness)
+                self.assertEqual(oracle.diagnostic_reason(observed),reason)
+                self.assertEqual({**observed,'reason':ordinary['reason']},ordinary)
+                self.assertNotIn('not-exported',json.dumps(observed))
+                self.assertEqual(oracle.evaluate(values,times,**kwargs,diagnose=False),ordinary)
+        rows,stamps=vectors();rows.pop();stamps.pop();rows[0]['metric']['private']='not-exported'
+        observed=self.check(rows,stamps,diagnose=True,owner_current=False)
+        self.assertEqual(oracle.diagnostic_reason(observed),'oracle_values_labels')
+        self.assertEqual(self.check(rows,stamps,owner_current=False)['freshness'],'malformed')
+
+    def test_diagnostic_provenance_refuses_foreign_subclasses_mutation_and_interruptions(self):
+        from unittest.mock import patch
+        class Hostile:
+            def __getattribute__(self,_):raise AssertionError('foreign attribute read')
+            def __bool__(self):raise AssertionError('foreign bool read')
+            def __eq__(self,_):raise AssertionError('foreign comparison')
+        for value in (Hostile(),{},None):self.assertIsNone(oracle.diagnostic_reason(value))
+        for value in (Hostile(),None,1):
+            with self.assertRaises(ValueError):self.check(*vectors(),diagnose=value)
+        rows,stamps=vectors();rows[-1]['metric']['private']='not-exported'
+        observed=self.check(rows,stamps,diagnose=True)
+        class Foreign(type(observed)):
+            def __getattribute__(self,_):raise AssertionError('foreign report getter')
+        self.assertIsNone(oracle.diagnostic_reason(Foreign(dict(observed))))
+        for raw_value in (Hostile(),{},dict(observed,reason='unknown'),dict(observed,points=Hostile())):
+            with self.assertRaises(ValueError):oracle._DiagnosticReport(raw_value)
+        for key,value in (('reason',Hostile()),('points',True),('age_seconds',float('nan')),('freshness','fresh')):
+            mutated=self.check(rows,stamps,diagnose=True);mutated[key]=value
+            self.assertIsNone(oracle.diagnostic_reason(mutated))
+        class ForeignError(ValueError):
+            def __getattribute__(self,_):raise AssertionError('foreign error getter')
+        class ForeignMalformed(oracle._Malformed):
+            def __getattribute__(self,_):raise AssertionError('foreign malformed getter')
+        with self.assertRaises(ValueError):oracle._Malformed('unknown-private-group')
+        for error in (ForeignError(),ForeignMalformed('decode'),ValueError('oracle_values_labels'),oracle._Malformed.__new__(oracle._Malformed)):
+            with patch.object(oracle.json,'loads',side_effect=error):
+                self.assertEqual(oracle.diagnostic_reason(self.check(*vectors(),diagnose=True)),'oracle_malformed_unknown')
+        for primary in (KeyboardInterrupt(),SystemExit()):
+            with patch.object(oracle.json,'loads',side_effect=primary):
+                try:self.check(*vectors(),diagnose=True)
+                except BaseException as error:self.assertIs(error,primary)
+                else:self.fail('interruption suppressed')
+
+    def test_success_pending_and_protocol_keep_the_original_plain_results(self):
+        rows,stamps=vectors()
+        for selected in (rows,rows[:-1]):
+            times=stamps if len(selected)==7 else stamps[:-1]
+            expected=self.check(selected,times)
+            observed=self.check(selected,times,diagnose=True)
+            self.assertIs(type(observed),dict);self.assertEqual(observed,expected)
+            self.assertIsNone(oracle.diagnostic_reason(observed))
+        ordinary=self.check(rows,stamps)
+        self.assertEqual(ordinary,{'freshness':'fresh','reason':'none','points':7,'age_seconds':0,
+                                   'continuity':'unknown','count_complete':False})
+        self.assertEqual(oracle.evaluate_protocol(raw(rows),raw(stamps),raw(rows),evaluated_at=1790000000,
+                         completed_us=NOW,expected=EXPECTED),ordinary)
+
     def check(self,rows,stamps,**kwargs):
         return oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED,**kwargs)
 

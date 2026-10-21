@@ -2035,6 +2035,16 @@ Python принимает этап только после отправки setu
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
+Для отказа `baseline_first_stored_oracle` или `baseline_second_stored_oracle` существующее
+поле `reason` также допускает закрытые `oracle_*` причины первого локального отказа.
+Они различают stale/unavailable, группы JSON/envelope/row/labels/number для значений
+и timestamps, затем join, identity, cohort и сравнение ожидаемого frame. Это категории
+проверок, а не доказательство причины SQL или сервера. Неизвестная ошибка остаётся
+`oracle_malformed_unknown` либо прежним общим отказом. Старый `query_refused` по-прежнему
+читается без приписывания ему новых фактов. Восемь полей, schema 1, лимит 4096 байт,
+все проверки допуска и порядок отказов сохраняются. Причина не переносится между попытками
+и не превращает failed или pending в passed. Последний ec47 отказ остаётся неизвестным
+до нового отдельно допущенного source-bound прогона; raw vectors для него не сохранены.
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
