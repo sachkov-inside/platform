@@ -1821,3 +1821,17 @@ old schedule took24 virtual seconds and the prepared schedule takes4. With an ad
 cost for every trace read, the same model takes25.5 and6.75 seconds respectively. These figures
 model shared waiting only. They do not measure native latency, command overhead, VT flush behavior
 or production capacity. Exact-source hosted Core completion, freshness and cleanup remain required.
+
+### Resource source-test progress
+
+The Resource stdlib wrapper keeps its existing 30-second process deadline and
+process owner. Its private captured stderr adds fixed start/completed markers for
+the exact source-test inventory. The parent validates the complete ordered prefix
+and byte bounds before reporting only the last started/completed method and count.
+Missing, malformed or truncated markers report `unknown`. Output-limit failures
+report constant `unknown` without reading the captured stderr.
+
+Both original exit-reason and exit-code assertions remain required. Completed means
+that a test stopped, not that it passed. The first HTTP/identity group and third
+real backend corpus group remain unchanged. These source diagnostics do not explain
+earlier hosted timeouts, increase a budget, or establish native capacity acceptance.
