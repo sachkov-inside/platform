@@ -17,7 +17,7 @@ RUN apk add --no-cache \
     libxml2-dev=2.13.9-r1 \
     lz4-dev=1.10.0-r0 \
     openssl-dev=3.5.9-r0 \
-    libssh2-dev=1.11.1-r3 \
+    libssh2-dev=1.11.1-r4 \
     zlib-dev=1.3.2-r1 \
     zstd-dev=1.5.7-r2
 
@@ -52,7 +52,7 @@ RUN apk add --no-cache \
     libbz2=1.0.8-r6 \
     lz4-libs=1.10.0-r0 \
     libpq=18.6-r0 \
-    libssh2=1.11.1-r3 \
+    libssh2=1.11.1-r4 \
     libxml2=2.13.9-r1 \
     libcrypto3=3.5.9-r0 \
     libssl3=3.5.9-r0 \
