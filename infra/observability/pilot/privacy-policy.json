@@ -9,7 +9,8 @@
     "platform-video-deletions-worker",
     "platform-billing-worker",
     "platform-notifications-worker",
-    "inside-telegram"
+    "inside-telegram",
+    "inside-postgresql-source"
   ],
   "environments": ["development", "test", "production", "isolated-pilot"],
   "routes": [
@@ -409,6 +410,17 @@
       "telemetry.trace.export.failures",
       "telemetry.metric.export.failures",
       "telemetry.trace.sampling.ratio"
+    ]
+  },
+  "postgres_server": {
+    "metrics": [
+      "inside.postgresql.server.backends",
+      "inside.postgresql.server.waiting_locks",
+      "inside.postgresql.server.deadlocks_since_reset",
+      "inside.postgresql.server.postmaster_start_time_microseconds",
+      "inside.postgresql.server.statistics_reset_time_microseconds",
+      "inside.postgresql.server.sample_time_microseconds",
+      "inside.postgresql.server.available"
     ]
   }
 }

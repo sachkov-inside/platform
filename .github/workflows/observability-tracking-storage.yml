@@ -8,6 +8,8 @@ on:
       - .github/workflows/observability-tracking-storage.yml
       - .github/actions/setup-platform/**
       - infra/observability/pilot/**
+      - scripts/observability-postgres-storage/**
+      - scripts/observability-postgres-storage.test.mjs
       - scripts/observability-tracking-storage/**
       - scripts/observability-tracking-storage.test.mjs
       - scripts/observability-pilot/**
@@ -103,5 +105,57 @@ jobs:
         with:
           name: observability-tracking-storage-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/inside-tracking-storage-public
+          if-no-files-found: warn
+          retention-days: 7
+
+  postgres-source:
+    name: Isolated ordinary-role PostgreSQL server source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up pinned Platform toolchain
+        uses: ./.github/actions/setup-platform
+      - name: Verify strict source contracts and owned child settlement
+        timeout-minutes: 2
+        run: |
+          bash scripts/heavy-check.sh node --test scripts/observability-postgres-storage/*.test.mjs scripts/observability-postgres-storage.test.mjs
+      - name: Bind source and measure disk admission
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-postgres-storage/postgres_source.py admission \
+            --output "$RUNNER_TEMP/inside-postgres-source-private" \
+            --metadata "$RUNNER_TEMP/inside-postgres-source-metadata"
+      - name: Run isolated ordinary-role PG source
+        # Existing worker600s; after acquisition fixture150s+settlement30s, separate existing cleanup.
+        # Privacy remains incomplete/fail until pinned same-request processing/insertion proof is accepted.
+        timeout-minutes: 22
+        run: |
+          bash scripts/heavy-check.sh python3 scripts/observability-postgres-storage/postgres_source.py run \
+            --output "$RUNNER_TEMP/inside-postgres-source-private"
+      - name: Recover only the registered disposable project
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: |
+          python3 scripts/observability-postgres-storage/postgres_source.py recover \
+            --output "$RUNNER_TEMP/inside-postgres-source-private"
+      - name: Collect only closed public PG evidence
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: |
+          python3 scripts/observability-postgres-storage/postgres_source.py collect \
+            --output "$RUNNER_TEMP/inside-postgres-source-private" \
+            --metadata "$RUNNER_TEMP/inside-postgres-source-metadata" \
+            --public "$RUNNER_TEMP/inside-postgres-source-public"
+      - name: Upload curated PostgreSQL source evidence
+        if: ${{ always() }}
+        timeout-minutes: 2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-postgres-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/inside-postgres-source-public
           if-no-files-found: warn
           retention-days: 7

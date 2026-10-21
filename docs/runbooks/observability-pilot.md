@@ -1814,3 +1814,46 @@ old schedule took24 virtual seconds and the prepared schedule takes4. With an ad
 cost for every trace read, the same model takes25.5 and6.75 seconds respectively. These figures
 model shared waiting only. They do not measure native latency, command overhead, VT flush behavior
 or production capacity. Exact-source hosted Core completion, freshness and cleanup remain required.
+
+### Prepared ordinary-role PostgreSQL server source
+
+The independent `postgres-source` job in `observability-tracking-storage.yml` prepares an opt-in,
+disposable source under `scripts/observability-postgres-storage/`. Existing Core and application
+startup do not launch it. It reuses the tracking owner's pinned PG18.4 container and strict
+ownership without the tracking API, migrations or timer. The fixture administrator creates its
+synthetic role/table and actors only in that disposable database. The sampler uses a separate
+ordinary read-only login with one connection, no monitoring memberships and only CONNECT.
+
+One fixed thirteen-column query supplies seven server gauges: connected backends, waiting locks,
+deadlocks since reset, postmaster start time, statistics reset time, sample time and availability.
+These are separate from the existing application pool gauges and SQL dependency spans. The whole
+private row and both complete stored service vectors are validated before projection. Reset,
+restart, stale data and failed acquisitions do not create complete healthy counting intervals.
+The collector admits these seven names only for `inside-postgresql-source`; its traces/logs are
+dropped, and point attributes/exemplars are cleared. Existing backend/Telegram programs retain
+their catalogs. Exact pinned Linux adaptation and actual database visibility remain NOTRUN.
+
+The fixture uses150 seconds of work plus30 seconds for actor/client settlement after acquisition.
+That180-second envelope excludes Compose startup and existing container cleanup. The existing
+outer600-second worker, up240-second limit, process shutdown and down90-second command remain
+unchanged. Each sampler has at most4 seconds of work plus2 seconds TERM and2 seconds final
+settlement. A successful child exit alone is insufficient: client end, reaping, current ownership
+and backend absence must also be observed within the work boundary. Exhaustion fails without
+expanding grants or deadlines. Native role visibility, eight-second feasibility, lock/deadlock,
+reset/restart, stale recovery and typed cleanup remain NOTRUN.
+
+Privacy challenges additionally read the exact anchored union of the seven server families across
+all services. Every returned row passes the same full raw gate; foreign or extra rows are refused,
+never filtered before validation. The normal two service reads remain unchanged. The combined
+protocol-only three reads share one ten-second deadline and evaluation time. Fresh source values,
+HTTP200 and a single metric edge do not prove that every surviving series from the same request
+has completed processing and insertion. That pinned end-to-end proof is an explicit prerequisite.
+Until independently established and accepted in a subsequent source change, the prepared driver
+fails the privacy phase even when its queries are clean. No successful native privacy verdict is
+available from this preparation.
+
+Public curation validates the owned source receipt and closed `postgres-source.json` before
+creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
+Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
+proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
+production rollout, server changes, capacity conclusions, provider messages or #1579 actions.

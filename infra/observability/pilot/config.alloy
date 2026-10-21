@@ -20,10 +20,12 @@ otelcol.receiver.otlp "pilot" {
 otelcol.processor.filter "catalog" {
   error_mode = "propagate"
   metrics {
-    metric = [`not IsMatch(name, "^(pilot_requests|http\\.server\\.request\\.count|http\\.server\\.active_requests|http\\.server\\.request\\.duration|telemetry\\.trace\\.dropped|telemetry\\.trace\\.export\\.failures|telemetry\\.metric\\.export\\.failures|telemetry\\.trace\\.sampling\\.ratio|messaging\\.client\\.operation\\.duration|messaging\\.client\\.sent\\.messages|messaging\\.client\\.consumed\\.messages|messaging\\.process\\.duration|pgboss\\.queue\\.jobs|inside\\.notification\\.operations|inside\\.notification\\.duration|inside\\.dependency\\.operations|inside\\.dependency\\.duration|inside\\.postgresql\\.pool\\.available|inside\\.postgresql\\.pool\\.total|inside\\.postgresql\\.pool\\.idle|inside\\.postgresql\\.pool\\.waiting|inside\\.postgresql\\.pool\\.registry_overflow|inside\\.email\\.operations|inside\\.email\\.duration|inside\\.tracking\\.operations|inside\\.tracking\\.duration|inside\\.waitlist\\.operations|inside\\.waitlist\\.duration)$") and not (resource.attributes["service.name"] == "inside-telegram") or (resource.attributes["service.name"] == "inside-telegram") and not IsMatch(name, "^(inside\\.telegram\\.operations|inside\\.telegram\\.duration|http\\.server\\.request\\.count|http\\.server\\.request\\.duration|http\\.server\\.active_requests|telemetry\\.trace\\.dropped|telemetry\\.trace\\.export\\.failures|telemetry\\.metric\\.export\\.failures|telemetry\\.trace\\.sampling\\.ratio)$")`]
+    metric = [`not IsMatch(name, "^(pilot_requests|http\\.server\\.request\\.count|http\\.server\\.active_requests|http\\.server\\.request\\.duration|telemetry\\.trace\\.dropped|telemetry\\.trace\\.export\\.failures|telemetry\\.metric\\.export\\.failures|telemetry\\.trace\\.sampling\\.ratio|messaging\\.client\\.operation\\.duration|messaging\\.client\\.sent\\.messages|messaging\\.client\\.consumed\\.messages|messaging\\.process\\.duration|pgboss\\.queue\\.jobs|inside\\.notification\\.operations|inside\\.notification\\.duration|inside\\.dependency\\.operations|inside\\.dependency\\.duration|inside\\.postgresql\\.pool\\.available|inside\\.postgresql\\.pool\\.total|inside\\.postgresql\\.pool\\.idle|inside\\.postgresql\\.pool\\.waiting|inside\\.postgresql\\.pool\\.registry_overflow|inside\\.email\\.operations|inside\\.email\\.duration|inside\\.tracking\\.operations|inside\\.tracking\\.duration|inside\\.waitlist\\.operations|inside\\.waitlist\\.duration)$") and not (resource.attributes["service.name"] == "inside-telegram") and not (resource.attributes["service.name"] == "inside-postgresql-source") or (resource.attributes["service.name"] == "inside-telegram") and not IsMatch(name, "^(inside\\.telegram\\.operations|inside\\.telegram\\.duration|http\\.server\\.request\\.count|http\\.server\\.request\\.duration|http\\.server\\.active_requests|telemetry\\.trace\\.dropped|telemetry\\.trace\\.export\\.failures|telemetry\\.metric\\.export\\.failures|telemetry\\.trace\\.sampling\\.ratio)$") and not (resource.attributes["service.name"] == "inside-postgresql-source") or (resource.attributes["service.name"] == "inside-postgresql-source") and not IsMatch(name, "^(inside\\.postgresql\\.server\\.backends|inside\\.postgresql\\.server\\.waiting_locks|inside\\.postgresql\\.server\\.deadlocks_since_reset|inside\\.postgresql\\.server\\.postmaster_start_time_microseconds|inside\\.postgresql\\.server\\.statistics_reset_time_microseconds|inside\\.postgresql\\.server\\.sample_time_microseconds|inside\\.postgresql\\.server\\.available)$")`]
   }
+  traces { span = [`resource.attributes["service.name"] == "inside-postgresql-source"`] }
+  logs { log_record = [`resource.attributes["service.name"] == "inside-postgresql-source"`] }
   output {
-    metrics = [otelcol.processor.transform.privacy.input]
+    metrics = [otelcol.processor.transform.postgres_source.input]
     logs = [otelcol.processor.transform.privacy.input]
     traces = [otelcol.processor.transform.privacy.input]
   }
@@ -35,7 +37,7 @@ otelcol.processor.transform "privacy" {
     context = "resource"
     statements = [
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
-      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker|platform\\-notifications\\-worker|inside\\-telegram)$")`,
+      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker|platform\\-notifications\\-worker|inside\\-telegram|inside\\-postgresql\\-source)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
       `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")`,
     ]
@@ -52,7 +54,7 @@ otelcol.processor.transform "privacy" {
     context = "resource"
     statements = [
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
-      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker|platform\\-notifications\\-worker|inside\\-telegram)$")`,
+      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker|platform\\-notifications\\-worker|inside\\-telegram|inside\\-postgresql\\-source)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
       `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")`,
     ]
@@ -69,7 +71,7 @@ otelcol.processor.transform "privacy" {
     context = "resource"
     statements = [
       `keep_keys(attributes, ["service.name", "deployment.environment.name", "service.version"])`,
-      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker|platform\\-notifications\\-worker|inside\\-telegram)$")`,
+      `set(attributes["service.name"], "_OTHER") where attributes["service.name"] != nil and not IsMatch(attributes["service.name"], "^(platform\\-api|platform\\-mcp|platform\\-material\\-assets\\-worker|platform\\-pilot|platform\\-profile\\-avatars\\-worker|platform\\-video\\-deletions\\-worker|platform\\-billing\\-worker|platform\\-notifications\\-worker|inside\\-telegram|inside\\-postgresql\\-source)$")`,
       `set(attributes["deployment.environment.name"], "_OTHER") where attributes["deployment.environment.name"] != nil and not IsMatch(attributes["deployment.environment.name"], "^(development|test|production|isolated\\-pilot)$")`,
       `set(attributes["service.version"], "_OTHER") where attributes["service.version"] != nil and not IsMatch(attributes["service.version"], "^([0-9a-f]{40}|[0-9]{1,4}[.][0-9]{1,4}[.][0-9]{1,4})$")`,
     ]
@@ -255,6 +257,18 @@ otelcol.processor.transform "privacy" {
     traces = [otelcol.exporter.otlphttp.traces.input]
   }
 }
+otelcol.processor.transform "postgres_source" {
+  error_mode = "propagate"
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `keep_keys(attributes, []) where (resource.attributes["service.name"] == "inside-postgresql-source")`,
+      `set(exemplars, nil) where (resource.attributes["service.name"] == "inside-postgresql-source")`,
+    ]
+  }
+  output { metrics = [otelcol.processor.transform.privacy.input] }
+}
+
 
 otelcol.exporter.otlphttp "metrics" {
   client {
