@@ -1,4 +1,7 @@
 "use client";
+import { AdminSearchSelect } from "./admin-search-select.client";
+import { OfferBenefitsFields } from "./offer-benefits-fields.client";
+import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import type { z } from "zod";
 import type {
   contentCatalogOutcomeSchema,
@@ -26,7 +29,6 @@ import {
   AdminField,
   AdminSection,
   AdminSelect,
-  AdminTextArea,
   capabilityHint,
   formText,
   onAdminSubmit,
@@ -76,445 +78,580 @@ export function CatalogSection({
   const [editingId, setEditingId] = useState("");
   const editing = tiers.find((item) => item.tier.id === editingId);
 
+  const [optionId, setOptionId] = useState("");
+  const selectedOption = offers.find(
+    (item) => item.paymentOption.id === optionId,
+  );
   const [benefitError, setBenefitError] = useState<string>();
   return (
     <>
-      <AdminSection
-        description="Варианты каталога с редакциями. Выключенный вариант не виден покупателю и не покупается, но остаётся здесь: включить его можно без пересоздания предложения. Архивные позиции не перечисляются."
-        title="Действующий каталог"
-      >
-        {offers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Активных вариантов нет.
-          </p>
-        ) : (
-          <ul className="grid gap-3 text-sm">
-            {catalogOffers(offers).map(({ offer, options }) => {
-              const published = offer.published === true;
-              return (
-                <li
-                  className="grid gap-2 border-b border-border pb-3 last:border-b-0 last:pb-0"
-                  key={offer.id}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold [overflow-wrap:anywhere]">
-                      {offer.name}
-                    </span>
-                    <span
-                      className={
-                        published
-                          ? "rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent-hover"
-                          : "rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                      }
+      <WorkspaceTabs
+        label="Настройка предложений"
+        tabs={[
+          {
+            id: "catalog",
+            label: "Каталог",
+            panel: (
+              <AdminSection
+                description="Варианты каталога с редакциями. Выключенный вариант не виден покупателю и не покупается, но остаётся здесь: включить его можно без пересоздания предложения. Архивные позиции не перечисляются."
+                title="Действующий каталог"
+              >
+                {offers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Активных вариантов нет.
+                  </p>
+                ) : (
+                  <ul className="grid gap-3 text-sm">
+                    {catalogOffers(offers).map(({ offer, options }) => {
+                      const published = offer.published === true;
+                      return (
+                        <li
+                          className="grid gap-2 border-b border-border pb-3 last:border-b-0 last:pb-0"
+                          key={offer.id}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold [overflow-wrap:anywhere]">
+                              {offer.name}
+                            </span>
+                            <span
+                              className={
+                                published
+                                  ? "rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent-hover"
+                                  : "rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                              }
+                            >
+                              {published ? "В продаже" : "Не продаётся"}
+                            </span>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {options
+                              .map(
+                                (snapshot) =>
+                                  `${formatMonths(snapshot.paymentOption.months)} · ${formatKopecks(snapshot.paymentOption.priceKopecks)}`,
+                              )
+                              .join(" · ")}
+                          </span>
+                          <form
+                            onSubmit={onAdminSubmit(() => {
+                              const toggle = published
+                                ? onUnpublishOffer
+                                : onPublishOffer;
+                              toggle({
+                                id: offer.id,
+                                expectedRevision: offer.revision,
+                              });
+                            })}
+                          >
+                            <p>
+                              <Button
+                                className={billingActionClass}
+                                disabled={pending}
+                                type="submit"
+                                variant="outline"
+                              >
+                                {published
+                                  ? "Снять с продажи"
+                                  : "Вернуть в продажу"}
+                              </Button>
+                            </p>
+                          </form>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </AdminSection>
+            ),
+          },
+          {
+            id: "offer",
+            label: "Состав тарифа",
+            panel: (
+              <AdminSection
+                description="Выберите права, продукты и сроки. Сохранение состава не включает продажу и не меняет уже выданный доступ."
+                title="Предложение"
+              >
+                <div className="grid gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEditingId(crypto.randomUUID());
+                    }}
+                  >
+                    Новый тариф
+                  </Button>
+                  {tiers.map((item) => (
+                    <div
+                      key={item.tier.id}
+                      className="flex flex-wrap items-center justify-between gap-2 text-sm"
                     >
-                      {published ? "В продаже" : "Не продаётся"}
-                    </span>
-                  </div>
-                  <span className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">
-                    offer {offer.id} r{offer.revision} ·{" "}
-                    {options
-                      .map(
-                        (snapshot) =>
-                          `option ${snapshot.paymentOption.id} r${String(snapshot.paymentOption.revision)} · ${formatMonths(snapshot.paymentOption.months)} · ${formatKopecks(snapshot.paymentOption.priceKopecks)}`,
-                      )
-                      .join(" · ")}
-                  </span>
+                      <span>
+                        {item.tier.name} ·{" "}
+                        {item.availableForAssignment
+                          ? "назначается"
+                          : "назначение выключено"}
+                        {item.archived ? " · архив" : ""}
+                      </span>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditingId(item.tier.id);
+                        }}
+                      >
+                        Редактировать состав
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                {editingId.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Выберите тариф для изменения или создайте новый.
+                  </p>
+                ) : (
                   <form
-                    onSubmit={onAdminSubmit(() => {
-                      const toggle = published
-                        ? onUnpublishOffer
-                        : onPublishOffer;
-                      toggle({
-                        id: offer.id,
-                        expectedRevision: offer.revision,
+                    key={`${editingId}:${String(editing?.tier.revision ?? 0)}`}
+                    className="grid gap-4"
+                    onSubmit={onAdminSubmit((form) => {
+                      const parsed = parseCapabilities(
+                        formText(form.get("offerBenefits")),
+                      );
+                      if (parsed.capabilities.length === 0) {
+                        setBenefitError(
+                          "Выберите хотя бы одно право в составе тарифа.",
+                        );
+                        return;
+                      }
+                      if (parsed.invalid.length > 0) {
+                        setBenefitError(
+                          `Неизвестные права: ${parsed.invalid.join(", ")}. ${capabilityHint}`,
+                        );
+                        return;
+                      }
+                      setBenefitError(undefined);
+                      const revision = optionalFormNumber(
+                        form.get("offerRevision"),
+                      );
+                      onSaveOffer({
+                        ...(revision === undefined
+                          ? {}
+                          : { expectedRevision: revision }),
+                        value: {
+                          id: formText(form.get("offerId")),
+                          name: formText(form.get("offerName")),
+                          benefits: [...parsed.capabilities],
+                          availableForAssignment:
+                            form.get("offerAssignable") === "on",
+                          coverage:
+                            form.get("offerAllProducts") === "on"
+                              ? {
+                                  productIds: [],
+                                  materialIds: [],
+                                  wholePlatform: true,
+                                }
+                              : {
+                                  productIds: form
+                                    .getAll("offerProducts")
+                                    .map(formText),
+                                  materialIds: [],
+                                },
+                          ...(parsed.periods.length === 0
+                            ? {}
+                            : { benefitPeriods: [...parsed.periods] }),
+                        },
                       });
                     })}
                   >
+                    <input type="hidden" name="offerId" value={editingId} />
+                    <AdminField
+                      label="Название"
+                      maxLength={200}
+                      name="offerName"
+                      defaultValue={editing?.tier.name}
+                      required
+                    />
+                    <OfferBenefitsFields
+                      benefits={editing?.tier.benefits ?? []}
+                      periods={editing?.benefitPeriods ?? []}
+                      products={content.filter(
+                        (item) => item.kind === "product",
+                      )}
+                    />
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        name="offerAssignable"
+                        defaultChecked={editing?.availableForAssignment}
+                      />{" "}
+                      Доступен для назначения
+                    </label>
+                    {catalogError !== undefined ? (
+                      <p role="alert">{catalogError}</p>
+                    ) : null}
+                    <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4">
+                      <legend className="px-2 text-sm">Продукты тарифа</legend>
+                      <label className="flex items-start gap-2 text-sm font-semibold">
+                        <input
+                          type="checkbox"
+                          name="offerAllProducts"
+                          defaultChecked={
+                            editing?.tier.coverage.wholePlatform === true
+                          }
+                        />
+                        <span>Все продукты платформы, включая новые</span>
+                      </label>
+                      {catalogLoading ? (
+                        <p role="status">Загружаем каталог…</p>
+                      ) : (
+                        content
+                          .filter((item) => item.kind === "product")
+                          .map((item) => (
+                            <label
+                              className="flex items-start gap-2 text-sm"
+                              key={item.id}
+                            >
+                              <input
+                                type="checkbox"
+                                name="offerProducts"
+                                value={item.id}
+                                defaultChecked={
+                                  editing?.tier.coverage.productIds.includes(
+                                    item.id,
+                                  ) ?? false
+                                }
+                              />
+                              <span>
+                                Продукт: {item.title}
+                                {item.available ? "" : " · не опубликован"}
+                              </span>
+                            </label>
+                          ))
+                      )}
+                    </fieldset>
+                    {editing !== undefined &&
+                    editing.tier.coverage.materialIds.length > 0 ? (
+                      <p className="text-sm text-destructive" role="note">
+                        В составе этой редакции есть отдельные материалы:{" "}
+                        {editing.tier.coverage.materialIds.length}. Отдельный
+                        материал в тариф не входит, и новая редакция их не
+                        сохранит. Действующие назначения сохраняют свой снимок.
+                      </p>
+                    ) : null}
+                    <p className="text-sm text-muted-foreground">
+                      Новые материалы выбранного продукта входят в состав сами.
+                      Новый продукт входит сам только в состав «Все продукты
+                      платформы», иначе его добавляют явно. Отдельный материал в
+                      тариф не входит.
+                    </p>
+                    <input
+                      type="hidden"
+                      name="offerRevision"
+                      value={editing?.tier.revision ?? ""}
+                    />
+                    {benefitError === undefined ? null : (
+                      <p className="text-sm text-destructive" role="alert">
+                        {benefitError}
+                      </p>
+                    )}
                     <p>
                       <Button
                         className={billingActionClass}
                         disabled={pending}
                         type="submit"
-                        variant="outline"
                       >
-                        {published ? "Снять с продажи" : "Вернуть в продажу"}
+                        Сохранить предложение
                       </Button>
                     </p>
                   </form>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </AdminSection>
-
-      <AdminSection
-        description="Состав предложения — независимые права. Строка `capability=12` задаёт срок в месяцах, `capability=null` — бессрочное право."
-        title="Предложение"
-      >
-        <div className="grid gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setEditingId(crypto.randomUUID());
-            }}
-          >
-            Новый тариф
-          </Button>
-          {tiers.map((item) => (
-            <div
-              key={item.tier.id}
-              className="flex flex-wrap items-center justify-between gap-2 text-sm"
-            >
-              <span>
-                {item.tier.name} ·{" "}
-                {item.availableForAssignment
-                  ? "назначается"
-                  : "назначение выключено"}
-                {item.archived ? " · архив" : ""}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditingId(item.tier.id);
-                }}
-              >
-                Редактировать состав
-              </Button>
-            </div>
-          ))}
-        </div>
-        <form
-          key={`${editingId}:${String(editing?.tier.revision ?? 0)}`}
-          className="grid gap-4"
-          onSubmit={onAdminSubmit((form) => {
-            const parsed = parseCapabilities(
-              formText(form.get("offerBenefits")),
-            );
-            if (parsed.invalid.length > 0) {
-              setBenefitError(
-                `Неизвестные права: ${parsed.invalid.join(", ")}. ${capabilityHint}`,
-              );
-              return;
-            }
-            setBenefitError(undefined);
-            const revision = optionalFormNumber(form.get("offerRevision"));
-            onSaveOffer({
-              ...(revision === undefined ? {} : { expectedRevision: revision }),
-              value: {
-                id: formText(form.get("offerId")),
-                name: formText(form.get("offerName")),
-                benefits: [...parsed.capabilities],
-                availableForAssignment: form.get("offerAssignable") === "on",
-                coverage:
-                  form.get("offerAllProducts") === "on"
-                    ? { productIds: [], materialIds: [], wholePlatform: true }
-                    : {
-                        productIds: form.getAll("offerProducts").map(formText),
-                        materialIds: [],
-                      },
-                ...(parsed.periods.length === 0
-                  ? {}
-                  : { benefitPeriods: [...parsed.periods] }),
-              },
-            });
-          })}
-        >
-          <AdminField
-            hint="UUID существующего предложения или новый."
-            label="Идентификатор"
-            name="offerId"
-            defaultValue={editingId}
-            required
-          />
-          <AdminField
-            label="Название"
-            maxLength={200}
-            name="offerName"
-            defaultValue={editing?.tier.name}
-            required
-          />
-          <AdminTextArea
-            hint={`По одному праву в строке. ${capabilityHint}`}
-            label="Состав"
-            name="offerBenefits"
-            defaultValue={editing?.tier.benefits
-              .map((capability) => {
-                const period = editing.benefitPeriods?.find(
-                  (item) => item.capability === capability,
-                );
-                return period === undefined
-                  ? capability
-                  : `${capability}=${String(period.months)}`;
-              })
-              .join("\n")}
-            required
-          />
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="offerAssignable"
-              defaultChecked={editing?.availableForAssignment}
-            />{" "}
-            Доступен для назначения
-          </label>
-          {catalogError !== undefined ? (
-            <p role="alert">{catalogError}</p>
-          ) : null}
-          <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4">
-            <legend className="px-2 text-sm">Продукты тарифа</legend>
-            <label className="flex items-start gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                name="offerAllProducts"
-                defaultChecked={editing?.tier.coverage.wholePlatform === true}
-              />
-              <span>Все продукты платформы, включая новые</span>
-            </label>
-            {catalogLoading ? (
-              <p role="status">Загружаем каталог…</p>
-            ) : (
-              content
-                .filter((item) => item.kind === "product")
-                .map((item) => (
-                  <label
-                    className="flex items-start gap-2 text-sm"
-                    key={item.id}
+                )}
+                {editing === undefined ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => {
+                      onArchiveOffer({
+                        id: editing.tier.id,
+                        expectedRevision: editing.tier.revision,
+                      });
+                    }}
                   >
-                    <input
-                      type="checkbox"
-                      name="offerProducts"
-                      value={item.id}
-                      defaultChecked={
-                        editing?.tier.coverage.productIds.includes(item.id) ??
-                        false
-                      }
-                    />
-                    <span>
-                      Продукт: {item.title}
-                      {item.available ? "" : " · не опубликован"}
-                    </span>
-                  </label>
-                ))
-            )}
-          </fieldset>
-          {editing !== undefined &&
-          editing.tier.coverage.materialIds.length > 0 ? (
-            <p className="text-sm text-destructive" role="note">
-              В составе этой редакции есть отдельные материалы:{" "}
-              {editing.tier.coverage.materialIds.length}. Отдельный материал в
-              тариф не входит, и новая редакция их не сохранит. Действующие
-              назначения сохраняют свой снимок.
-            </p>
-          ) : null}
-          <p className="text-sm text-muted-foreground">
-            Новые материалы выбранного продукта входят в состав сами. Новый
-            продукт входит сам только в состав «Все продукты платформы», иначе
-            его добавляют явно. Отдельный материал в тариф не входит.
-          </p>
-          <AdminField
-            hint="Пусто — создание нового предложения."
-            inputMode="numeric"
-            label="Ожидаемая редакция"
-            name="offerRevision"
-            defaultValue={editing?.tier.revision}
-          />
-          {benefitError === undefined ? null : (
-            <p className="text-sm text-destructive" role="alert">
-              {benefitError}
-            </p>
-          )}
-          <p>
-            <Button
-              className={billingActionClass}
-              disabled={pending}
-              type="submit"
-            >
-              Сохранить предложение
-            </Button>
-          </p>
-        </form>
-        <ArchiveForm
-          fieldName="archiveOffer"
-          label="Архивировать предложение"
-          onArchive={onArchiveOffer}
-          pending={pending}
-        />
-      </AdminSection>
+                    Архивировать предложение «{editing.tier.name}»
+                  </Button>
+                )}
+              </AdminSection>
+            ),
+          },
+          {
+            id: "price",
+            label: "Цены",
+            panel: (
+              <AdminSection
+                description="Вариант оплаты хранит способ продажи, длительность и цену в копейках. Одно предложение продаётся одним способом, и у сохранённого варианта способ не меняется. Архивирование не отзывает выданные права."
+                title="Вариант оплаты"
+              >
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <AdminSearchSelect
+                    label="Вариант оплаты"
+                    name="selectedPaymentOption"
+                    value={selectedOption === undefined ? "" : optionId}
+                    onValueChange={setOptionId}
+                    options={offers.map((item) => ({
+                      value: item.paymentOption.id,
+                      label: `${item.offer.name} · ${formatMonths(item.paymentOption.months)} · ${formatKopecks(item.paymentOption.priceKopecks)}`,
+                    }))}
+                  />
 
-      <AdminSection
-        description="Вариант оплаты хранит способ продажи, длительность и цену в копейках. Одно предложение продаётся одним способом, и у сохранённого варианта способ не меняется. Архивирование не отзывает выданные права."
-        title="Вариант оплаты"
-      >
-        <form
-          className="grid gap-4"
-          onSubmit={onAdminSubmit((form) => {
-            const revision = optionalFormNumber(form.get("optionRevision"));
-            onSavePaymentOption({
-              ...(revision === undefined ? {} : { expectedRevision: revision }),
-              value: {
-                id: formText(form.get("optionId")),
-                offerId: formText(form.get("optionOfferId")),
-                months: Number(formText(form.get("optionMonths"))),
-                priceKopecks: Number(formText(form.get("optionPrice"))),
-                mode: paymentModeSchema
-                  .catch("one_time")
-                  .parse(formText(form.get("optionMode"))),
-              },
-            });
-          })}
-        >
-          <AdminField label="Идентификатор варианта" name="optionId" required />
-          <AdminField
-            label="Идентификатор предложения"
-            name="optionOfferId"
-            required
-          />
-          <AdminSelect
-            label="Способ продажи"
-            name="optionMode"
-            options={[
-              { value: "one_time", label: "Разовая покупка: без списаний" },
-            ]}
-          />
-          <AdminField
-            hint="Месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
-            inputMode="numeric"
-            label="Месяцев"
-            name="optionMonths"
-            required
-          />
-          <AdminField
-            hint="В копейках: 350000 — это 3 500 ₽."
-            inputMode="numeric"
-            label="Цена"
-            name="optionPrice"
-            required
-          />
-          <AdminField
-            hint="Пусто — создание нового варианта."
-            inputMode="numeric"
-            label="Ожидаемая редакция"
-            name="optionRevision"
-          />
-          <p>
-            <Button
-              className={billingActionClass}
-              disabled={pending}
-              type="submit"
-            >
-              Сохранить вариант
-            </Button>
-          </p>
-        </form>
-        <ArchiveForm
-          fieldName="archiveOption"
-          label="Архивировать вариант"
-          onArchive={onArchivePaymentOption}
-          pending={pending}
-        />
-      </AdminSection>
-
-      <AdminSection
-        description="Скидка действует в своём окне и только на перечисленные предложения и варианты. Пустые списки означают «все»."
-        title="Скидка"
-      >
-        <form
-          className="grid gap-4"
-          onSubmit={onAdminSubmit((form) => {
-            const revision = optionalFormNumber(form.get("promotionRevision"));
-            const usageLimit = optionalFormNumber(form.get("promotionLimit"));
-            onSavePromotion({
-              ...(revision === undefined ? {} : { expectedRevision: revision }),
-              value: {
-                id: formText(form.get("promotionId")),
-                name: formText(form.get("promotionName")),
-                percent: Number(formText(form.get("promotionPercent"))),
-                code: optionalFormText(form.get("promotionCode")) ?? null,
-                startsAt: formText(form.get("promotionStartsAt")),
-                endsAt: formText(form.get("promotionEndsAt")),
-                offerIds: splitIds(formText(form.get("promotionOffers"))),
-                paymentOptionIds: splitIds(
-                  formText(form.get("promotionOptions")),
-                ),
-                usageLimit: usageLimit ?? null,
-              },
-            });
-          })}
-        >
-          <AdminField
-            label="Идентификатор скидки"
-            name="promotionId"
-            required
-          />
-          <AdminField
-            label="Название"
-            maxLength={200}
-            name="promotionName"
-            required
-          />
-          <AdminField
-            inputMode="numeric"
-            label="Процент"
-            name="promotionPercent"
-            required
-          />
-          <AdminField
-            hint="Пусто — публичная скидка без кода."
-            label="Промокод"
-            name="promotionCode"
-          />
-          <AdminField
-            hint="ISO 8601 со смещением: 2026-10-01T00:00:00+03:00."
-            label="Начало"
-            name="promotionStartsAt"
-            required
-          />
-          <AdminField
-            hint="ISO 8601 со смещением."
-            label="Конец"
-            name="promotionEndsAt"
-            required
-          />
-          <AdminField
-            hint="UUID через запятую; пусто — все."
-            label="Предложения"
-            name="promotionOffers"
-          />
-          <AdminField
-            hint="UUID через запятую; пусто — все."
-            label="Варианты оплаты"
-            name="promotionOptions"
-          />
-          <AdminField
-            hint="Пусто — без ограничения."
-            inputMode="numeric"
-            label="Лимит применений"
-            name="promotionLimit"
-          />
-          <AdminField
-            hint="Пусто — создание новой скидки."
-            inputMode="numeric"
-            label="Ожидаемая редакция"
-            name="promotionRevision"
-          />
-          <p>
-            <Button
-              className={billingActionClass}
-              disabled={pending}
-              type="submit"
-            >
-              Сохранить скидку
-            </Button>
-          </p>
-        </form>
-        <ArchiveForm
-          fieldName="archivePromotion"
-          label="Архивировать скидку"
-          onArchive={onArchivePromotion}
-          pending={pending}
-        />
-      </AdminSection>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setOptionId(crypto.randomUUID());
+                    }}
+                  >
+                    Новая цена
+                  </Button>
+                </div>
+                {optionId.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Выберите цену для изменения или добавьте новую.
+                  </p>
+                ) : (
+                  <form
+                    key={`${optionId}:${String(selectedOption?.paymentOption.revision ?? 0)}`}
+                    className="grid gap-4 sm:grid-cols-2"
+                    onSubmit={onAdminSubmit((form) => {
+                      const revision = optionalFormNumber(
+                        form.get("optionRevision"),
+                      );
+                      onSavePaymentOption({
+                        ...(revision === undefined
+                          ? {}
+                          : { expectedRevision: revision }),
+                        value: {
+                          id: formText(form.get("optionId")),
+                          offerId: formText(form.get("optionOfferId")),
+                          months: Number(formText(form.get("optionMonths"))),
+                          priceKopecks: Number(
+                            formText(form.get("optionPrice")),
+                          ),
+                          mode: paymentModeSchema
+                            .catch("one_time")
+                            .parse(formText(form.get("optionMode"))),
+                        },
+                      });
+                    })}
+                  >
+                    <fieldset disabled={pending} className="contents">
+                      <input type="hidden" name="optionId" value={optionId} />
+                      <AdminSearchSelect
+                        label="Предложение"
+                        name="optionOfferId"
+                        defaultValue={selectedOption?.offer.id ?? ""}
+                        options={tiers.map((item) => ({
+                          value: item.tier.id,
+                          label: item.tier.name,
+                        }))}
+                      />
+                      {selectedOption === undefined ? (
+                        <AdminSelect
+                          label="Способ продажи"
+                          name="optionMode"
+                          defaultValue="one_time"
+                          options={[
+                            {
+                              value: "one_time",
+                              label: "Разовая покупка: без списаний",
+                            },
+                          ]}
+                        />
+                      ) : (
+                        <p className="grid gap-1 text-sm">
+                          <span className="font-medium">Способ продажи</span>
+                          <span>
+                            {selectedOption.paymentOption.mode === "one_time"
+                              ? "Разовая покупка: без списаний"
+                              : "Подписка: списания по расписанию"}
+                          </span>
+                          <input
+                            type="hidden"
+                            name="optionMode"
+                            value={
+                              selectedOption.paymentOption.mode ??
+                              "subscription"
+                            }
+                          />
+                        </p>
+                      )}
+                      <AdminField
+                        hint="Месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
+                        inputMode="numeric"
+                        label="Месяцев"
+                        name="optionMonths"
+                        defaultValue={selectedOption?.paymentOption.months}
+                        required
+                      />
+                      <AdminField
+                        hint="В копейках: 350000 — это 3 500 ₽."
+                        inputMode="numeric"
+                        label="Цена"
+                        name="optionPrice"
+                        defaultValue={
+                          selectedOption?.paymentOption.priceKopecks
+                        }
+                        required
+                      />
+                      <input
+                        type="hidden"
+                        name="optionRevision"
+                        value={selectedOption?.paymentOption.revision ?? ""}
+                      />
+                      <p>
+                        <Button
+                          className={billingActionClass}
+                          disabled={pending}
+                          type="submit"
+                        >
+                          Сохранить вариант
+                        </Button>
+                      </p>
+                    </fieldset>
+                  </form>
+                )}
+                {selectedOption === undefined ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => {
+                      onArchivePaymentOption({
+                        id: selectedOption.paymentOption.id,
+                        expectedRevision: selectedOption.paymentOption.revision,
+                      });
+                    }}
+                  >
+                    Архивировать выбранный вариант
+                  </Button>
+                )}
+              </AdminSection>
+            ),
+          },
+          {
+            id: "promotions",
+            label: "Скидки",
+            panel: (
+              <AdminSection
+                description="Скидка действует в своём окне и только на перечисленные предложения и варианты. Пустые списки означают «все»."
+                title="Скидка"
+              >
+                <form
+                  className="grid gap-4"
+                  onSubmit={onAdminSubmit((form) => {
+                    const revision = optionalFormNumber(
+                      form.get("promotionRevision"),
+                    );
+                    const usageLimit = optionalFormNumber(
+                      form.get("promotionLimit"),
+                    );
+                    onSavePromotion({
+                      ...(revision === undefined
+                        ? {}
+                        : { expectedRevision: revision }),
+                      value: {
+                        id: formText(form.get("promotionId")),
+                        name: formText(form.get("promotionName")),
+                        percent: Number(formText(form.get("promotionPercent"))),
+                        code:
+                          optionalFormText(form.get("promotionCode")) ?? null,
+                        startsAt: formText(form.get("promotionStartsAt")),
+                        endsAt: formText(form.get("promotionEndsAt")),
+                        offerIds: splitIds(
+                          formText(form.get("promotionOffers")),
+                        ),
+                        paymentOptionIds: splitIds(
+                          formText(form.get("promotionOptions")),
+                        ),
+                        usageLimit: usageLimit ?? null,
+                      },
+                    });
+                  })}
+                >
+                  <AdminField
+                    label="Идентификатор скидки"
+                    name="promotionId"
+                    required
+                  />
+                  <AdminField
+                    label="Название"
+                    maxLength={200}
+                    name="promotionName"
+                    required
+                  />
+                  <AdminField
+                    inputMode="numeric"
+                    label="Процент"
+                    name="promotionPercent"
+                    required
+                  />
+                  <AdminField
+                    hint="Пусто — публичная скидка без кода."
+                    label="Промокод"
+                    name="promotionCode"
+                  />
+                  <AdminField
+                    hint="ISO 8601 со смещением: 2026-10-01T00:00:00+03:00."
+                    label="Начало"
+                    name="promotionStartsAt"
+                    required
+                  />
+                  <AdminField
+                    hint="ISO 8601 со смещением."
+                    label="Конец"
+                    name="promotionEndsAt"
+                    required
+                  />
+                  <AdminField
+                    hint="UUID через запятую; пусто — все."
+                    label="Предложения"
+                    name="promotionOffers"
+                  />
+                  <AdminField
+                    hint="UUID через запятую; пусто — все."
+                    label="Варианты оплаты"
+                    name="promotionOptions"
+                  />
+                  <AdminField
+                    hint="Пусто — без ограничения."
+                    inputMode="numeric"
+                    label="Лимит применений"
+                    name="promotionLimit"
+                  />
+                  <AdminField
+                    hint="Пусто — создание новой скидки."
+                    inputMode="numeric"
+                    label="Ожидаемая редакция"
+                    name="promotionRevision"
+                  />
+                  <p>
+                    <Button
+                      className={billingActionClass}
+                      disabled={pending}
+                      type="submit"
+                    >
+                      Сохранить скидку
+                    </Button>
+                  </p>
+                </form>
+                <ArchiveForm
+                  fieldName="archivePromotion"
+                  label="Архивировать скидку"
+                  onArchive={onArchivePromotion}
+                  pending={pending}
+                />
+              </AdminSection>
+            ),
+          },
+        ]}
+      />
     </>
   );
 }

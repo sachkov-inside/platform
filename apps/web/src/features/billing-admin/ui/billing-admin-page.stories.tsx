@@ -9,6 +9,7 @@ import {
 import { settleStoryFrame } from "@/storybook/loads-in-place";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
+import { savePaymentOptionInputSchema } from "../model/admin-operations";
 import { BillingAdminPanel } from "./billing-admin-panel.client";
 import {
   billingBeforeRender,
@@ -129,7 +130,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Раздел «Оплата и права» в production-составе: назначения, ссылки активации, перенос из " +
+          "Раздел «Продажи и платежи» в production-составе: назначения, ссылки активации, перенос из " +
           "Tribute, каталог, потоки, скидка респондентам, платежи и права. Панели читают и пишут " +
           "через подменённый BFF billing.",
       },
@@ -150,69 +151,30 @@ export const Catalog: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Оплата и права" }),
+      page.getByRole("heading", { level: 1, name: "Продажи и платежи" }),
     ).toBeVisible();
-    const sections = [
-      "Тарифы и назначения",
-      "Ссылки активации курса",
-      "Подтверждение до регистрации",
-      "Перенос доступа из Tribute",
-      "Действующий каталог",
-      "Поток продукта",
-      "Ссылки на оплату",
-      "Архив анкетных скидок",
-      "Платежи",
-      "Кто этот покупатель",
-      "Права участника",
-    ];
-    const headings = sections.map((name) =>
-      page.getByRole("heading", { name }),
-    );
-    for (const [index, heading] of headings.entries()) {
-      const next = headings[index + 1];
-      if (next === undefined) break;
-      await expect(
-        heading.compareDocumentPosition(next) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    }
+    await expect(page.getByRole("heading", { name: "Платежи" })).toBeVisible();
+    await userEvent.click(page.getByRole("tab", { name: "Предложения" }));
     await expect(page.getAllByText("В продаже")).toHaveLength(2);
     await expect(
       page.getAllByRole("button", { name: "Снять с продажи" }),
     ).toHaveLength(2);
+    await userEvent.click(page.getByRole("tab", { name: "Состав тарифа" }));
     await expect(
       await page.findByText("Подписка Inside · назначается"),
     ).toBeVisible();
+    await userEvent.click(page.getByRole("button", { name: "Новый тариф" }));
     await expect(
       page.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
     ).toBeInTheDocument();
-
     await settleStoryFrame(1440);
     const main = page.getByRole("main");
-    const skipLink = page.getByRole("link", { name: "Перейти к содержанию" });
-    await expect(skipLink).toHaveAttribute("href", `#${main.id}`);
+    await expect(
+      page.getByRole("link", { name: "Перейти к содержанию" }),
+    ).toHaveAttribute("href", `#${main.id}`);
     main.focus();
     await expect(main).toHaveFocus();
-
-    const lastSection = page.getByRole("heading", { name: "Права участника" });
-    await expect(lastSection.getBoundingClientRect().top).toBeGreaterThan(
-      main.getBoundingClientRect().bottom,
-    );
     await expect(getComputedStyle(main).overflowY).toBe("auto");
-    lastSection.scrollIntoView({ block: "start" });
-    await expect(main.scrollTop).toBeGreaterThan(0);
-    await expect(
-      // Scroll positioning rounds fractional layout coordinates to a physical pixel.
-      Math.round(
-        lastSection.getBoundingClientRect().top * window.devicePixelRatio,
-      ),
-    ).toBeGreaterThanOrEqual(
-      Math.round(main.getBoundingClientRect().top * window.devicePixelRatio),
-    );
-    await expect(
-      lastSection.getBoundingClientRect().bottom,
-    ).toBeLessThanOrEqual(main.getBoundingClientRect().bottom);
-    main.scrollTop = 0;
   },
 };
 
@@ -224,6 +186,9 @@ export const CatalogNotOnSale: Story = {
     })),
   },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
     const page = within(canvasElement);
     await expect(page.getAllByText("Не продаётся")).toHaveLength(2);
     await expect(
@@ -252,6 +217,9 @@ export const SaleToggled: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
     const page = within(canvasElement);
     await expect(page.getAllByText("В продаже")).toHaveLength(1);
     await userEvent.click(
@@ -274,6 +242,9 @@ export const CommandRefused: Story = {
     "offers/unpublish": billingRefused("revision_conflict"),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
     const page = within(canvasElement);
     const [first] = page.getAllByRole("button", { name: "Снять с продажи" });
     if (first === undefined) throw new Error("Каталог без тумблера продажи");
@@ -290,6 +261,15 @@ export const CommandRefused: Story = {
 export const CatalogLoading: Story = {
   beforeEach: withReplies({ "content/list": billingNeverAnswers }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Состав тарифа" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "Новый тариф" }),
+    );
     await expect(
       within(canvasElement).getByText("Загружаем каталог…"),
     ).toBeVisible();
@@ -303,10 +283,19 @@ export const PermissionDenied: Story = {
     "tiers/list": billingRefused("forbidden"),
   }),
   play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    const notices = await page.findAllByText(
-      "У вас нет права на это действие.",
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
     );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Состав тарифа" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "Новый тариф" }),
+    );
+    const page = within(canvasElement);
+    const notices = await within(
+      page.getByRole("tabpanel", { name: "Состав тарифа" }),
+    ).findAllByText("У вас нет права на это действие.");
     for (const notice of notices) await expect(notice).toBeVisible();
     await expect(
       page.queryByText("Сессия завершилась. Войдите снова."),
@@ -317,6 +306,15 @@ export const PermissionDenied: Story = {
 export const CatalogUnavailable: Story = {
   beforeEach: withReplies({ "content/list": billingRefused("unavailable") }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Предложения" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Состав тарифа" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("button", { name: "Новый тариф" }),
+    );
     const catalog = within(
       within(canvasElement)
         .getByRole("heading", { name: "Предложение" })
@@ -335,6 +333,9 @@ export const ProductCohort: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Наборы" }),
+    );
     const page = within(canvasElement);
     await expect(
       await page.findByText(/AI Engineering · Поток 1 · Предзаказ до старта/u),
@@ -364,6 +365,9 @@ export const ProductCohort: Story = {
 /** Цена после старта не положительна: форма объясняет ошибку и не отправляет поток. */
 export const ProductCohortInvalidPriceAfterStart: Story = {
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Наборы" }),
+    );
     const page = within(canvasElement);
     await userEvent.click(
       await page.findByRole("button", { name: "Изменить" }),
@@ -387,6 +391,9 @@ export const ProductCohortInvalidPriceAfterStart: Story = {
 export const ProductCohortUnavailable: Story = {
   args: { cohorts: null },
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Наборы" }),
+    );
     const page = within(canvasElement);
     await expect(
       page.getByText(/Не удалось прочитать текущие потоки/u),
@@ -397,33 +404,33 @@ export const ProductCohortUnavailable: Story = {
   },
 };
 
+const paymentFixture = {
+  purchaseRef,
+  accountId,
+  kind: "initial",
+  state: "confirmed",
+  subscriptionRef: null,
+  periodIndex: 1,
+  amountKopecks: 280_000,
+  environment: "demo",
+  terminalRef: "demo-terminal",
+  paymentId: "8811",
+  snapshot: supportOffer,
+  fiscalization: "confirmed",
+  confirmedAt: "2026-09-01T09:05:00.000Z",
+  periodEndsAt: "2026-10-01T09:05:00.000Z",
+  createdAt: "2026-09-01T09:00:00.000Z",
+  updatedAt: "2026-09-01T09:05:00.000Z",
+  access: "ready",
+  refundedKopecks: 0,
+  refundableKopecks: 280_000,
+} as const;
+
 export const Payments: Story = {
   beforeEach: withReplies({
     "payments/list": billingOk({
       outcome: "payments",
-      items: [
-        {
-          purchaseRef,
-          accountId,
-          kind: "initial",
-          state: "confirmed",
-          subscriptionRef: null,
-          periodIndex: 1,
-          amountKopecks: 280_000,
-          environment: "demo",
-          terminalRef: "demo-terminal",
-          paymentId: "8811",
-          snapshot: supportOffer,
-          fiscalization: "confirmed",
-          confirmedAt: "2026-09-01T09:05:00.000Z",
-          periodEndsAt: "2026-10-01T09:05:00.000Z",
-          createdAt: "2026-09-01T09:00:00.000Z",
-          updatedAt: "2026-09-01T09:05:00.000Z",
-          access: "ready",
-          refundedKopecks: 0,
-          refundableKopecks: 280_000,
-        },
-      ],
+      items: [paymentFixture],
       nextCursor: purchaseRef,
     }),
   }),
@@ -435,6 +442,7 @@ export const Payments: Story = {
     await expect(
       page.queryByRole("button", { name: "Исполнить возврат" }),
     ).not.toBeInTheDocument();
+    await userEvent.click(page.getByText("История возвратов", { exact: true }));
     await expect(
       page.getByText(/Продавец выполняет возврат только в кабинете Т-Банка/u),
     ).toBeVisible();
@@ -461,6 +469,14 @@ export const ClassificationUnknown: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Служебные операции" }),
+    );
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", {
+        name: "Классификация аккаунта",
+      }),
+    );
     const section = within(
       within(canvasElement)
         .getByRole("heading", { name: "Кто этот покупатель" })
@@ -494,6 +510,9 @@ export const GrantPreview: Story = {
     }),
   }),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Служебные операции" }),
+    );
     const section = within(
       within(canvasElement)
         .getByRole("heading", { name: "Массовая выдача и классификация" })
@@ -520,12 +539,276 @@ export const Mobile: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Оплата и права" }),
+      page.getByRole("heading", { level: 1, name: "Продажи и платежи" }),
     ).toBeVisible();
     await expect(
       canvasElement.ownerDocument.documentElement.scrollWidth,
     ).toBeLessThanOrEqual(
       canvasElement.ownerDocument.documentElement.clientWidth,
     );
+  },
+};
+
+export const PaymentsMobile: Story = {
+  ...Payments,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(
+      page.getByRole("button", { name: "Показать платежи" }),
+    );
+    const list = await page.findByRole("list", { name: "Платежи" });
+    await expect(within(list).getByText("Оплачен")).toBeVisible();
+    await expect(within(list).getByText("2 800 ₽")).toBeVisible();
+    await expect(within(list).getByText("Готов")).toBeVisible();
+    const row = within(list).getByRole("listitem");
+    await expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(1000);
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    const account = within(
+      page.getByText("Дополнительные фильтры").parentElement ?? canvasElement,
+    ).getByLabelText("Account");
+    await userEvent.type(account, accountId);
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    await expect(account).toHaveValue(accountId);
+    await userEvent.click(page.getByText("Дополнительные фильтры"));
+    await expect(
+      canvasElement.ownerDocument.documentElement.scrollWidth,
+    ).toBeLessThanOrEqual(
+      canvasElement.ownerDocument.documentElement.clientWidth,
+    );
+  },
+};
+
+/** Creation and successive edits must use the catalogue revision returned after each save. */
+export const PriceSavedThenEditedTwice: Story = {
+  beforeEach: () => {
+    let snapshot = materialsOffer;
+    return withReplies({
+      "tiers/list": billingOk({
+        outcome: "tiers",
+        items: [
+          {
+            ...assignmentOnlyTier,
+            tier: {
+              ...assignmentOnlyTier.tier,
+              id: materialsOffer.offer.id,
+              name: materialsOffer.offer.name,
+            },
+          },
+        ],
+        nextCursor: null,
+      }),
+      "payment-options/save": (raw) => {
+        const input = savePaymentOptionInputSchema.parse(raw);
+        const revision = (input.expectedRevision ?? 0) + 1;
+        snapshot = {
+          ...materialsOffer,
+          paymentOption: {
+            ...materialsOffer.paymentOption,
+            ...input.value,
+            revision,
+          },
+        };
+        return billingOk({
+          outcome: "catalog",
+          value: { id: input.value.id, revision, archived: false },
+        });
+      },
+      catalog: () => ({ ok: true, value: [snapshot] }),
+    })();
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(page.getByRole("tab", { name: "Предложения" }));
+    await userEvent.click(page.getByRole("tab", { name: "Цены" }));
+    await userEvent.click(page.getByRole("button", { name: "Новая цена" }));
+    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: "Предложение" }),
+      materialsOffer.offer.id,
+    );
+    await userEvent.type(page.getByLabelText("Месяцев"), "1");
+    for (const [index, price] of [120000, 130000, 140000].entries()) {
+      const field = page.getByLabelText("Цена");
+      await userEvent.clear(field);
+      await userEvent.type(field, String(price));
+      await userEvent.click(
+        page.getByRole("button", { name: "Сохранить вариант" }),
+      );
+      await waitFor(() =>
+        expect(
+          page.getByRole("button", { name: "Сохранить вариант" }),
+        ).toBeEnabled(),
+      );
+      await expect(lastRequest("payment-options/save")).toMatchObject({
+        ...(index === 0 ? {} : { expectedRevision: index }),
+        value: { priceKopecks: price },
+      });
+      if (index === 0)
+        await expect(lastRequest("payment-options/save")).not.toHaveProperty(
+          "expectedRevision",
+        );
+      await expect(page.getByLabelText("Цена")).toHaveValue(String(price));
+      await expect(
+        page.getByRole("combobox", { name: "Вариант оплаты" }),
+      ).not.toHaveValue("");
+    }
+    await expect(
+      billingRequests.mock.calls.filter(([route]) => route === "catalog"),
+    ).toHaveLength(3);
+  },
+};
+
+/** A saved write is never repeated when refreshing its catalogue fails. */
+export const SavedPriceRefreshRetry: Story = {
+  beforeEach: () => {
+    let reads = 0;
+    return withReplies({
+      "tiers/list": billingOk({
+        outcome: "tiers",
+        items: [
+          {
+            ...assignmentOnlyTier,
+            tier: {
+              ...assignmentOnlyTier.tier,
+              id: materialsOffer.offer.id,
+              name: materialsOffer.offer.name,
+            },
+          },
+        ],
+        nextCursor: null,
+      }),
+      "payment-options/save": billingOk({
+        outcome: "catalog",
+        value: {
+          id: materialsOffer.paymentOption.id,
+          revision: 3,
+          archived: false,
+        },
+      }),
+      catalog: () =>
+        ++reads === 1
+          ? billingRefused("unavailable")
+          : {
+              ok: true,
+              value: [
+                {
+                  ...materialsOffer,
+                  paymentOption: {
+                    ...materialsOffer.paymentOption,
+                    revision: 3,
+                    priceKopecks: 170000,
+                  },
+                },
+              ],
+            },
+    })();
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.click(page.getByRole("tab", { name: "Предложения" }));
+    await userEvent.click(page.getByRole("tab", { name: "Цены" }));
+    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: "Вариант оплаты" }),
+      materialsOffer.paymentOption.id,
+    );
+    await userEvent.clear(page.getByLabelText("Цена"));
+    await userEvent.type(page.getByLabelText("Цена"), "170000");
+    await userEvent.click(
+      page.getByRole("button", { name: "Сохранить вариант" }),
+    );
+    await expect(
+      await page.findByText(
+        "Цена сохранена. Обновите каталог перед следующей операцией.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Сохранить вариант" }),
+    ).toBeDisabled();
+    await userEvent.click(
+      page.getByRole("button", { name: "Обновить каталог" }),
+    );
+    await waitFor(() =>
+      expect(
+        page.getByRole("button", { name: "Сохранить вариант" }),
+      ).toBeEnabled(),
+    );
+    await expect(page.getByLabelText("Цена")).toHaveValue("170000");
+    await expect(
+      billingRequests.mock.calls.filter(
+        ([route]) => route === "payment-options/save",
+      ),
+    ).toHaveLength(1);
+    await expect(
+      billingRequests.mock.calls.filter(([route]) => route === "catalog"),
+    ).toHaveLength(2);
+  },
+};
+
+export const PaymentsContinuationKeepsAppliedFilters: Story = {
+  beforeEach: () => {
+    let reads = 0;
+    return withReplies({
+      "payments/list": () =>
+        ++reads === 2
+          ? billingRefused("unavailable")
+          : billingOk({
+              outcome: "payments",
+              items: [paymentFixture],
+              nextCursor: purchaseRef,
+            }),
+    })();
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: "Состояние" }),
+      "confirmed",
+    );
+    await userEvent.click(
+      page.getByRole("button", { name: "Показать платежи" }),
+    );
+    const next = await page.findByRole("button", {
+      name: "Следующая страница",
+    });
+    await expect(next).toBeEnabled();
+    // Unsubmitted filters must not change the cursor's query, including after a failed read.
+    await userEvent.selectOptions(
+      page.getByRole("combobox", { name: "Состояние" }),
+      "failed",
+    );
+    await userEvent.click(next);
+    await waitFor(() =>
+      expect(
+        billingRequests.mock.calls.filter(
+          ([route]) => route === "payments/list",
+        ),
+      ).toHaveLength(2),
+    );
+    await expect(lastRequest("payments/list")).toMatchObject({
+      state: "confirmed",
+      cursor: purchaseRef,
+    });
+    await waitFor(() => expect(next).toBeEnabled());
+    await userEvent.click(next);
+    await waitFor(() =>
+      expect(
+        billingRequests.mock.calls.filter(
+          ([route]) => route === "payments/list",
+        ),
+      ).toHaveLength(3),
+    );
+    await expect(lastRequest("payments/list")).toMatchObject({
+      state: "confirmed",
+      cursor: purchaseRef,
+    });
+    await waitFor(() => expect(next).toBeEnabled());
+    await userEvent.click(
+      page.getByRole("button", { name: "Показать платежи" }),
+    );
+    await waitFor(() =>
+      expect(lastRequest("payments/list")).toMatchObject({ state: "failed" }),
+    );
+    await expect(lastRequest("payments/list")).not.toHaveProperty("cursor");
   },
 };

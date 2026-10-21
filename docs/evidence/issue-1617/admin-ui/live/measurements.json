@@ -1,0 +1,168 @@
+{
+  "sourceCommit": "6f0397c1a282dac71f21a96159333801cf0cffd4",
+  "runtime": "pnpm editor:local, isolated admin1617-preview Compose, synthetic owner and seeded demonstration data",
+  "captures": [
+    {
+      "name": "products",
+      "viewport": 1440,
+      "path": "/authoring/products",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Продукты 6",
+      "violations": []
+    },
+    {
+      "name": "materials",
+      "viewport": 1440,
+      "path": "/authoring/materials",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Материалы",
+      "violations": []
+    },
+    {
+      "name": "topics",
+      "viewport": 1440,
+      "path": "/authoring/topics",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Темы 1",
+      "violations": []
+    },
+    {
+      "name": "people",
+      "viewport": 1440,
+      "path": "/authoring/access",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Люди и доступ",
+      "violations": []
+    },
+    {
+      "name": "payments",
+      "viewport": 1440,
+      "path": "/authoring/billing",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Продажи и платежи",
+      "violations": []
+    },
+    {
+      "name": "analytics",
+      "viewport": 1440,
+      "path": "/authoring/sales-funnel",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Воронка продаж",
+      "violations": []
+    },
+    {
+      "name": "submissions",
+      "viewport": 1440,
+      "path": "/authoring/submissions",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Сдачи",
+      "violations": []
+    },
+    {
+      "name": "product-editor",
+      "viewport": 1440,
+      "path": "/authoring/products/72000000-0000-4000-8000-000000000007",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Создание Platform Inside",
+      "violations": []
+    },
+    {
+      "name": "material-editor",
+      "viewport": 1440,
+      "path": "/authoring/materials/8b43f68c-9677-4a43-9904-7b948b3399bf?from=%2Fauthoring%2Fmaterials",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "title": "Developer Pipeline без потери контекста",
+      "violations": []
+    },
+    {
+      "name": "products",
+      "viewport": 390,
+      "path": "/authoring/products",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Продукты 6",
+      "violations": []
+    },
+    {
+      "name": "materials",
+      "viewport": 390,
+      "path": "/authoring/materials",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Материалы",
+      "violations": []
+    },
+    {
+      "name": "topics",
+      "viewport": 390,
+      "path": "/authoring/topics",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Темы 1",
+      "violations": []
+    },
+    {
+      "name": "people",
+      "viewport": 390,
+      "path": "/authoring/access",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Люди и доступ",
+      "violations": []
+    },
+    {
+      "name": "payments",
+      "viewport": 390,
+      "path": "/authoring/billing",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Продажи и платежи",
+      "violations": []
+    },
+    {
+      "name": "analytics",
+      "viewport": 390,
+      "path": "/authoring/sales-funnel",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Воронка продаж",
+      "violations": []
+    },
+    {
+      "name": "submissions",
+      "viewport": 390,
+      "path": "/authoring/submissions",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Сдачи",
+      "violations": []
+    },
+    {
+      "name": "product-editor",
+      "viewport": 390,
+      "path": "/authoring/products/72000000-0000-4000-8000-000000000007",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Создание Platform Inside",
+      "violations": []
+    },
+    {
+      "name": "material-editor",
+      "viewport": 390,
+      "path": "/authoring/materials/8b43f68c-9677-4a43-9904-7b948b3399bf?from=%2Fauthoring%2Fmaterials",
+      "width": 390,
+      "scrollWidth": 390,
+      "title": "Developer Pipeline без потери контекста",
+      "violations": []
+    }
+  ]
+}

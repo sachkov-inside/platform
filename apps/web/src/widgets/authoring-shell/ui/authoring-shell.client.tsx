@@ -1,268 +1,148 @@
 "use client";
 
-import {
-  CreditCard,
-  Eye,
-  Files,
-  Funnel,
-  Globe2,
-  Inbox,
-  KeyRound,
-  LibraryBig,
-  ListOrdered,
-  PenLine,
-  Tags,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import { cn } from "@/shared/lib/utils";
 import { FullLoadLink } from "@/shared/ui/full-load-link.client";
+import "./authoring-shell.css";
 
-const materialsHref = "/authoring/materials" as Route;
+const groups: readonly {
+  readonly label: string;
+  readonly links: readonly { readonly href: Route; readonly label: string }[];
+}[] = [
+  {
+    label: "Контент",
+    links: [
+      { href: "/authoring/products", label: "Продукты" },
+      { href: "/authoring/materials", label: "Материалы" },
+      { href: "/authoring/topics", label: "Темы" },
+    ],
+  },
+  {
+    label: "Управление",
+    links: [
+      { href: "/authoring/submissions", label: "Сдачи" },
+      { href: "/authoring/access", label: "Люди и доступ" },
+      { href: "/authoring/billing", label: "Продажи и платежи" },
+      { href: "/authoring/sales-funnel", label: "Воронка продаж" },
+    ],
+  },
+];
 
 export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
-  const current = pathname.startsWith("/authoring/billing")
-    ? "billing"
-    : pathname.startsWith("/authoring/access")
-      ? "access"
-      : pathname.startsWith("/authoring/submissions")
-        ? "submissions"
-        : pathname.startsWith("/authoring/sales-funnel")
-          ? "sales-funnel"
-          : pathname.startsWith("/authoring/topics")
-            ? "topics"
-            : pathname.startsWith("/authoring/products") ||
-                pathname.startsWith("/authoring/playlists")
-              ? "playlists"
-              : pathname.endsWith("/preview")
-                ? "preview"
-                : pathname.startsWith(materialsHref)
-                  ? "materials"
-                  : undefined;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPath, setMenuPath] = useState(pathname);
+  // A retained shell closes its mobile navigation when the destination changes.
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setMenuOpen(false);
+  }
+  const currentPath = pathname.endsWith("/preview")
+    ? ""
+    : pathname.startsWith("/authoring/playlists")
+      ? "/authoring/products"
+      : pathname;
+  const currentLabel =
+    groups
+      .flatMap((group) => group.links)
+      .find((link) => currentPath.startsWith(link.href))?.label ?? "Редактор";
+
+  function navigation() {
+    return (
+      <>
+        {groups.map((group) => (
+          <div className="authoring-nav-group" key={group.label}>
+            <p>{group.label}</p>
+            {group.links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={
+                  currentPath.startsWith(link.href) ? "page" : undefined
+                }
+                onClick={() => {
+                  setMenuOpen(false);
+                }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        ))}
+        {pathname.endsWith("/preview") ? (
+          <p className="authoring-preview-note" aria-current="page">
+            Предпросмотр черновика
+          </p>
+        ) : null}
+        <div className="authoring-public-links">
+          <FullLoadLink href="/">Библиотека материалов</FullLoadLink>
+          <FullLoadLink href="/">На публичный сайт</FullLoadLink>
+        </div>
+      </>
+    );
+  }
 
   return (
-    <div
-      className="min-h-svh bg-background text-foreground md:flex md:h-svh md:min-h-0 md:overflow-hidden"
-      data-authoring-shell
-    >
-      <a
-        className="fixed left-4 top-4 z-[100] max-w-[calc(100vw-2rem)] -translate-y-24 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground transition-transform focus:translate-y-0 motion-reduce:transition-none"
-        href="#authoring-content"
-      >
+    <div className="authoring-workspace" data-authoring-shell>
+      <a className="authoring-skip" href="#authoring-content">
         Перейти к содержанию
       </a>
-      <aside
-        aria-label="Редактор"
-        className="hidden w-56 shrink-0 bg-sidebar text-sidebar-foreground md:flex md:flex-col"
-      >
-        <div className="flex min-h-0 flex-1 flex-col px-3 py-4">
-          <Link
-            className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sidebar-foreground no-underline"
-            href={materialsHref}
-          >
-            <span className="grid size-8 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-              <PenLine aria-hidden="true" className="size-4" />
+      <aside className="authoring-sidebar" aria-label="Редактор">
+        <Link className="authoring-brand" href="/authoring/products">
+          <span className="authoring-brand-mark" aria-hidden="true">
+            s.
+          </span>
+          <span>
+            Sachkov Dev
+            <span className="authoring-brand-caption">
+              Рабочее пространство
             </span>
-            <span>
-              <span className="block text-sm font-semibold">
-                Редактор Sachkov Dev
-              </span>
-              <span className="block font-mono text-xs text-sidebar-foreground/60">
-                рабочее пространство
-              </span>
-            </span>
-          </Link>
-          <nav aria-label="Редактор" className="mt-7 grid gap-1">
-            <AuthoringLink
-              current={current === "materials"}
-              href={materialsHref}
-              icon={<Files aria-hidden="true" />}
-              label="Материалы"
-            />
-            <AuthoringLink
-              current={current === "topics"}
-              href="/authoring/topics"
-              icon={<Tags aria-hidden="true" />}
-              label="Темы"
-            />
-            <AuthoringLink
-              current={current === "playlists"}
-              href="/authoring/products"
-              icon={<ListOrdered aria-hidden="true" />}
-              label="Продукты"
-            />
-            {current === "preview" ? (
-              <div
-                aria-current="page"
-                className="flex min-h-11 items-center gap-3 rounded-xl bg-sidebar-accent px-3 text-sm font-medium text-sidebar-accent-foreground"
-              >
-                <Eye
-                  aria-hidden="true"
-                  className="size-5 text-sidebar-primary"
-                />
-                <span>Предпросмотр черновика</span>
-              </div>
-            ) : null}
-            <AuthoringLink
-              current={current === "billing"}
-              href="/authoring/billing"
-              icon={<CreditCard aria-hidden="true" />}
-              label="Оплата и права"
-            />
-            <AuthoringLink
-              current={current === "access"}
-              href="/authoring/access"
-              icon={<KeyRound aria-hidden="true" />}
-              label="Доступ"
-            />
-            <AuthoringLink
-              current={current === "submissions"}
-              href="/authoring/submissions"
-              icon={<Inbox aria-hidden="true" />}
-              label="Сдачи"
-            />
-            <AuthoringLink
-              current={current === "sales-funnel"}
-              href="/authoring/sales-funnel"
-              icon={<Funnel aria-hidden="true" />}
-              label="Воронка продаж"
-            />
-            <AuthoringLink
-              href="/"
-              icon={<LibraryBig aria-hidden="true" />}
-              label="Материалы"
-            />
-          </nav>
-          <div className="mt-auto border-t border-sidebar-border pt-3">
-            <AuthoringLink
-              href="/"
-              icon={<Globe2 aria-hidden="true" />}
-              label="На публичный сайт"
-            />
-          </div>
-        </div>
+          </span>
+        </Link>
+        <nav aria-label="Редактор">{navigation()}</nav>
       </aside>
-      <div className="min-w-0 flex-1 pb-[calc(3.75rem+env(safe-area-inset-bottom))] md:h-full md:pb-0">
+      <div className="authoring-main">
+        <header className="authoring-mobile-bar">
+          <Link className="authoring-mobile-brand" href="/authoring/products">
+            Sachkov Dev
+          </Link>
+          <button
+            className="authoring-menu-trigger"
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="authoring-mobile-menu"
+            onClick={() => {
+              setMenuOpen(!menuOpen);
+            }}
+          >
+            <Menu size={18} aria-hidden="true" />
+            {menuOpen ? "Закрыть меню" : "Меню"}
+          </button>
+        </header>
+        {menuOpen ? (
+          <nav
+            className="authoring-mobile-menu"
+            id="authoring-mobile-menu"
+            aria-label="Редактор на мобильном"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setMenuOpen(false);
+                event.currentTarget.parentElement
+                  ?.querySelector<HTMLButtonElement>(".authoring-menu-trigger")
+                  ?.focus();
+              }
+            }}
+          >
+            <p className="authoring-current-section">{currentLabel}</p>
+            {navigation()}
+          </nav>
+        ) : null}
         {children}
       </div>
-      <nav
-        aria-label="Редактор на мобильном"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
-      >
-        <div className="grid grid-cols-5 px-2 pt-1">
-          <MobileLink
-            current={current === "materials"}
-            href={materialsHref}
-            label="Материалы"
-          >
-            <Files aria-hidden="true" />
-          </MobileLink>
-          <MobileLink
-            current={current === "topics"}
-            href="/authoring/topics"
-            label="Темы"
-          >
-            <Tags aria-hidden="true" />
-          </MobileLink>
-          <MobileLink
-            current={current === "playlists"}
-            href="/authoring/products"
-            label="Продукты"
-          >
-            <ListOrdered aria-hidden="true" />
-          </MobileLink>
-          <MobileLink href="/" label="Материалы">
-            <LibraryBig aria-hidden="true" />
-          </MobileLink>
-          <MobileLink href="/" label="Сайт">
-            <Globe2 aria-hidden="true" />
-          </MobileLink>
-        </div>
-      </nav>
     </div>
-  );
-}
-
-/** Выход из авторской части на сайт отбрасывает память браузера о страницах: см. `FullLoadLink`. */
-function WorkspaceLink({
-  children,
-  className,
-  current,
-  href,
-}: {
-  readonly children: ReactNode;
-  readonly className: string;
-  readonly current: boolean;
-  readonly href: Route;
-}) {
-  const ariaCurrent = current ? "page" : undefined;
-  return href.startsWith("/authoring") ? (
-    <Link aria-current={ariaCurrent} className={className} href={href}>
-      {children}
-    </Link>
-  ) : (
-    <FullLoadLink aria-current={ariaCurrent} className={className} href={href}>
-      {children}
-    </FullLoadLink>
-  );
-}
-
-function AuthoringLink({
-  current = false,
-  href,
-  icon,
-  label,
-}: {
-  readonly current?: boolean;
-  readonly href: Route;
-  readonly icon: ReactNode;
-  readonly label: string;
-}) {
-  return (
-    <WorkspaceLink
-      current={current}
-      className={cn(
-        "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-sidebar-foreground/72 no-underline transition-colors motion-reduce:transition-none",
-        "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        current && "bg-sidebar-accent text-sidebar-accent-foreground",
-      )}
-      href={href}
-    >
-      <span className={cn("[&_svg]:size-5", current && "text-sidebar-primary")}>
-        {icon}
-      </span>
-      <span>{label}</span>
-    </WorkspaceLink>
-  );
-}
-
-function MobileLink({
-  children,
-  current = false,
-  href,
-  label,
-}: {
-  readonly children: ReactNode;
-  readonly current?: boolean;
-  readonly href: Route;
-  readonly label: string;
-}) {
-  return (
-    <WorkspaceLink
-      current={current}
-      className={cn(
-        "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-xs font-medium leading-none text-muted-foreground no-underline",
-        "transition-colors active:bg-muted motion-reduce:transition-none [&_svg]:size-4.5",
-        current && "text-foreground [&_svg]:text-accent",
-      )}
-      href={href}
-    >
-      {children}
-      <span>{label}</span>
-    </WorkspaceLink>
   );
 }

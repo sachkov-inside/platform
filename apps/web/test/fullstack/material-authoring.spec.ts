@@ -77,6 +77,7 @@ for (const access of ["public", "closed"] as const) {
     await page.goto("/authoring/materials/new");
     await fillPublishableDraft(page, title);
     if (access === "closed") {
+      await page.getByRole("tab", { name: "Параметры", exact: true }).click();
       await page.getByRole("combobox", { name: "Доступ" }).click();
       await page.getByRole("option", { name: "Для участников" }).click();
       await placeInSeededProduct(page);
@@ -84,6 +85,7 @@ for (const access of ["public", "closed"] as const) {
     await expect(page).toHaveURL(currentMaterialEditorUrl);
     await waitMaterialSaved(page);
     await expect(page).toHaveURL(currentMaterialEditorUrl);
+    await page.getByRole("tab", { name: "Содержимое", exact: true }).click();
     await page.getByLabel("Выбрать файлы").setInputFiles({
       buffer: Buffer.from("Media convergence attachment\n"),
       mimeType: "text/plain",
@@ -108,6 +110,9 @@ for (const access of ["public", "closed"] as const) {
       .getByLabel("Описание изображения")
       .fill("Изображение общей приёмки");
 
+    await page
+      .getByRole("tab", { name: "Обложка и видео", exact: true })
+      .click();
     await page
       .getByText("Выбрать существующее видео Kinescope", { exact: true })
       .click();
@@ -437,6 +442,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   await expect(visibleEditor).toBeVisible({ timeout: 15_000 });
   const editorUrl = page.url();
 
+  await visibleEditor
+    .getByRole("tab", { name: "Обложка и видео", exact: true })
+    .click();
   await visibleEditor.getByLabel("Видео для загрузки").setInputFiles({
     buffer: Buffer.from("Full-stack test Video\n"),
     mimeType: "video/mp4",
@@ -857,6 +865,9 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
 
     await page.goto(editorUrl);
     await page
+      .getByRole("tab", { name: "Обложка и видео", exact: true })
+      .click();
+    await page
       .getByText("Выбрать существующее видео Kinescope", { exact: true })
       .click();
     await page.getByLabel(/ID видео/u).fill(`test-outage-once-${suffix}`);
@@ -943,6 +954,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
     timeout: 15_000,
   });
 
+  await page.getByRole("tab", { name: "Обложка и видео", exact: true }).click();
   await page.getByLabel("Видео для загрузки").setInputFiles({
     buffer: Buffer.from("Full-stack deletion test Video\n"),
     mimeType: "video/mp4",
@@ -995,6 +1007,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await fillPublishableDraft(page, title);
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.getByRole("combobox", { name: "Доступ" }).click();
   await page.getByRole("option", { name: "Для участников" }).click();
   await placeInSeededProduct(page);
@@ -1002,6 +1015,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
 
+  await page.getByRole("tab", { name: "Обложка и видео", exact: true }).click();
   await page
     .getByText("Выбрать существующее видео Kinescope", { exact: true })
     .click();
@@ -1084,6 +1098,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
 
+  await page.getByRole("tab", { name: "Содержимое", exact: true }).click();
   await page.getByLabel("Выбрать файлы").setInputFiles({
     buffer: Buffer.from("Chooser attachment\n"),
     mimeType: "text/plain",
@@ -1197,6 +1212,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
   await fillPublishableDraft(page, title);
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.getByRole("combobox", { name: "Доступ" }).click();
   await page.getByRole("option", { name: "Для участников" }).click();
   await placeInSeededProduct(page);
@@ -1204,6 +1220,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
 
+  await page.getByRole("tab", { name: "Содержимое", exact: true }).click();
   await page.getByLabel("Выбрать файлы").setInputFiles({
     buffer: Buffer.from("Protected member attachment\n"),
     mimeType: "text/plain",
@@ -1266,8 +1283,17 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
     page.getByRole("button", { name: "Вернуться к материалам" }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("tab", { name: "Параметры", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("tabpanel", { name: "Параметры", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(page.getByLabel("Название")).toBeFocused();
 
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.getByLabel("Название").fill("Current Preview без fake data");
   await expect(page).toHaveURL(currentMaterialEditorUrl);
   await waitMaterialSaved(page);
@@ -1285,6 +1311,7 @@ test("trusted author creates a PostgreSQL draft and opens its current Preview", 
   await page.getByRole("option", { name: "Гайд" }).click();
   await page.getByText("Full stack", { exact: true }).click();
   await page.getByText("Создание Platform Inside", { exact: true }).click();
+  await page.getByRole("tab", { name: "Содержимое", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");
@@ -1466,7 +1493,9 @@ test("full-state Save is live and a stale editor preserves local input through l
   ).toBeVisible();
   await expect(stalePage.getByText(/^v\d+$/u)).toHaveCount(0);
 
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.getByLabel("Название").fill(winnerTitle);
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.getByLabel("Название").press("Enter");
   await expect(
     page
@@ -1476,6 +1505,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   await expect(page.getByRole("button", { name: "Сохранить" })).toHaveCount(0);
 
   const localSummary = "Локальный ввод stale editor должен остаться на месте.";
+  await stalePage.getByRole("tab", { name: "Параметры", exact: true }).click();
   await stalePage.getByLabel("Краткое описание").fill(localSummary);
   await expect(stalePage.getByRole("main").getByRole("alert")).toContainText(
     "Материал изменился в другой сессии",
@@ -1583,6 +1613,7 @@ test("автор получает ссылку сразу после перво�
   await expect(
     page.getByRole("button", { name: "Снять с публикации", exact: true }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Карточка ссылки", exact: true }).click();
   await page
     .getByRole("button", { name: "Скопировать ссылку", exact: true })
     .click();
@@ -1667,6 +1698,7 @@ test("trusted author cancels and confirms deletion of a never-published draft", 
   await waitMaterialSaved(page);
   await expect(page).toHaveURL(currentMaterialEditorUrl);
 
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.locator("summary").filter({ hasText: "Удалить черновик" }).click();
   const openDelete = page.getByRole("button", { name: "Удалить черновик" });
   await openDelete.focus();
@@ -1734,6 +1766,9 @@ test("author edits series metadata on a dedicated page and returns to the list a
     page.getByRole("heading", { name: "Продукт пока пуст" }),
   ).toBeVisible();
   await page
+    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .click();
+  await page
     .getByRole("textbox", { name: "Название продукта" })
     .fill(`${title} · Обновлена`);
   await page
@@ -1742,6 +1777,9 @@ test("author edits series metadata on a dedicated page and returns to the list a
   await page.getByRole("button", { name: "Все продукты", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products$/u);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
+  await page
+    .getByRole("tab", { name: "Описание и обложка", exact: true })
+    .click();
   await expect(
     page.getByRole("textbox", { name: "Название продукта" }),
   ).toHaveValue(`${title} · Обновлена`);
@@ -1769,6 +1807,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     },
     { times: 1 },
   );
+  await page.getByRole("tab", { name: "Программа", exact: true }).click();
   await page
     .getByRole("button", { name: "Добавить материал", exact: true })
     .click();
@@ -2155,6 +2194,7 @@ test("guest cannot reach the production playlist manager", async ({ page }) => {
 });
 
 async function fillPublishableDraft(page: Page, title: string) {
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page.getByLabel("Название").fill(title);
   await page
     .getByLabel("Краткое описание")
@@ -2165,6 +2205,7 @@ async function fillPublishableDraft(page: Page, title: string) {
   await page.getByRole("option", { name: "Платформа" }).click();
   await page.getByRole("combobox", { name: "Формат" }).click();
   await page.getByRole("option", { name: "Гайд" }).click();
+  await page.getByRole("tab", { name: "Содержимое", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Содержимое материала" })
     .fill("Текущее сохранённое содержимое из PostgreSQL.");
@@ -2172,6 +2213,7 @@ async function fillPublishableDraft(page: Page, title: string) {
 
 /** Закрытый материал публикуется только внутри продукта: черновик попадает в засеянный продукт. */
 async function placeInSeededProduct(page: Page) {
+  await page.getByRole("tab", { name: "Параметры", exact: true }).click();
   await page
     .getByRole("checkbox", { name: "Создание Platform Inside", exact: true })
     .check();
