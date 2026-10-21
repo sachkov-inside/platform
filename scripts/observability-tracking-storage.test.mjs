@@ -51,3 +51,17 @@ test("tracking causal roles have actual pinned serializer flags", async () => {
   assert.equal(result.reason, "exit");
   assert.equal(result.code, 0, result.stderr);
 });
+
+// deterministic-test-allow unit-io: existing outside owner reaps controlled producer phase/library children; no application PG or external provider.
+test("producer first-failure phases preserve closed capture ownership", async () => {
+  const result = await runTrackingContracts([
+    "--script",
+    "producer_phase_contract.py",
+  ]);
+  assert.equal(
+    result.reason,
+    "exit",
+    "producer phase contracts interrupted or exceeded budget",
+  );
+  assert.equal(result.code, 0, "producer phase contracts failed");
+});

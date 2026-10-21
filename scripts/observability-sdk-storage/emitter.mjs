@@ -1,6 +1,10 @@
 // @ts-check
 // One SDK/pipeline composition fixture. The HTTP scope is test-owned, not an API request.
 import assert from "node:assert/strict";
+import {
+  admitSdkEmitterPhase,
+  createSdkEmitterPhase,
+} from "./emitter-phase.mjs";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
 import { readFileSync, realpathSync } from "node:fs";
@@ -12,167 +16,210 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const privateMarker = "sdk-storage-private";
 
-/** @param {string} endpoint @param {string} release */
-export async function emit(endpoint, release) {
-  assert.match(endpoint, /^http:\/\/127\.0\.0\.1:[0-9]{1,5}$/u);
-  assert.match(release, /^[0-9a-f]{40}$/u);
-  /** @type {Map<string, string>} */
-  const loaded = new Map();
-  const hooks = registerHooks({
-    load(url, context, nextLoad) {
-      const result = nextLoad(url, context);
-      if (url.startsWith("file:")) {
-        const filename = realpathSync(fileURLToPath(url));
-        const local = relative(root, filename);
-        const dependency = filename.indexOf(`${sep}node_modules${sep}`);
-        const label =
-          dependency >= 0
-            ? `node_modules/${filename
-                .slice(dependency + "/node_modules/".length)
-                .split(sep)
-                .join("/")}`
-            : local.split(sep).join("/");
-        assert.ok(
-          dependency >= 0 ||
-            (!local.startsWith("..") && !local.startsWith(sep)),
-        );
-        assert.ok(loaded.has(label) || loaded.size < 1000);
-        loaded.set(
-          label,
-          createHash("sha256").update(readFileSync(filename)).digest("hex"),
-        );
-      }
-      return result;
-    },
-  });
-  let requests = 0;
-  let providerValid = true;
-  const body = Buffer.from(privateMarker);
-  const server = createServer((request, response) => {
-    requests++;
-    providerValid &&=
-      request.method === "GET" &&
-      request.url?.split("?")[0] ===
-        `/${privateMarker}-protected/assets/${privateMarker}` &&
-      request.headers.authorization?.includes("private-access-key") === true &&
-      request.headers["traceparent"] === undefined &&
-      request.headers["tracestate"] === undefined;
-    request.resume();
-    response
-      .writeHead(200, {
-        "content-type": "application/octet-stream",
-        "content-length": String(body.length),
-        "x-amz-meta-sha256": privateMarker,
-        "x-amz-request-id": "private-provider-id",
-        "content-disposition": 'attachment; filename="private-filename"',
-      })
-      .end(body);
-  });
-  /** @type {undefined | import("../../apps/backend/src/infrastructure/observability/technical-telemetry.js").TechnicalTelemetry} */
-  let sdk;
+/** @param {string} endpoint @param {string} release @param {unknown} [phase] */
+export async function emit(endpoint, release, phase = null) {
+  const observationPhase = admitSdkEmitterPhase(phase);
   try {
-    const runtimeUrl = pathToFileURL(
-      resolve(
-        root,
-        "apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js",
-      ),
-    ).href;
-    const storageUrl = pathToFileURL(
-      resolve(
-        root,
-        "apps/backend/dist/infrastructure/object-storage/s3-object-storage.js",
-      ),
-    ).href;
-    /** @type {typeof import("../../apps/backend/src/infrastructure/observability/technical-telemetry-runtime.js")} */
-    // oxlint-disable-next-line typescript/no-unsafe-assignment -- Fixed compiled local module, typed from its tracked production source and verified by the runtime module witness.
-    const runtime = await import(runtimeUrl);
-    /** @type {typeof import("../../apps/backend/src/infrastructure/object-storage/s3-object-storage.js")} */
-    // oxlint-disable-next-line typescript/no-unsafe-assignment -- Fixed compiled local module, typed from its tracked production source and verified by the runtime module witness.
-    const objectStorage = await import(storageUrl);
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
-    const address = server.address();
-    assert.ok(address !== null && typeof address !== "string");
-    sdk = runtime.technicalTelemetryFromEnvironment({
-      environment: {
-        INSIDE_OTEL_ENABLED: "true",
-        INSIDE_OTEL_ENDPOINT: endpoint,
-        INSIDE_OTEL_SAMPLE_RATIO: "1",
+    observationPhase?.enter("input_validation");
+    assert.match(endpoint, /^http:\/\/127\.0\.0\.1:[0-9]{1,5}$/u);
+    assert.match(release, /^[0-9a-f]{40}$/u);
+    /** @type {Map<string, string>} */
+    const loaded = new Map();
+    observationPhase?.enter("hooks_setup");
+    const hooks = registerHooks({
+      load(url, context, nextLoad) {
+        const result = nextLoad(url, context);
+        if (url.startsWith("file:")) {
+          const filename = realpathSync(fileURLToPath(url));
+          const local = relative(root, filename);
+          const dependency = filename.indexOf(`${sep}node_modules${sep}`);
+          const label =
+            dependency >= 0
+              ? `node_modules/${filename
+                  .slice(dependency + "/node_modules/".length)
+                  .split(sep)
+                  .join("/")}`
+              : local.split(sep).join("/");
+          assert.ok(
+            dependency >= 0 ||
+              (!local.startsWith("..") && !local.startsWith(sep)),
+          );
+          assert.ok(loaded.has(label) || loaded.size < 1000);
+          loaded.set(
+            label,
+            createHash("sha256").update(readFileSync(filename)).digest("hex"),
+          );
+        }
+        return result;
       },
-      service: "platform-api",
-      mode: "test",
-      identity: { release, sourceSha: release },
     });
-    const storage = objectStorage.createS3ObjectStorage({
-      endpoint: `http://127.0.0.1:${address.port}`,
-      buckets: {
-        protected: `${privateMarker}-protected`,
-        public: `${privateMarker}-public`,
-        quarantine: `${privateMarker}-quarantine`,
-      },
-      credentials: {
-        accessKeyId: "private-access-key",
-        secretAccessKey: "private-secret-key",
-      },
-      region: "us-east-1",
-      forcePathStyle: true,
+    let requests = 0;
+    let providerValid = true;
+    const body = Buffer.from(privateMarker);
+    const server = createServer((request, response) => {
+      requests++;
+      providerValid &&=
+        request.method === "GET" &&
+        request.url?.split("?")[0] ===
+          `/${privateMarker}-protected/assets/${privateMarker}` &&
+        request.headers.authorization?.includes("private-access-key") ===
+          true &&
+        request.headers["traceparent"] === undefined &&
+        request.headers["tracestate"] === undefined;
+      request.resume();
+      response
+        .writeHead(200, {
+          "content-type": "application/octet-stream",
+          "content-length": String(body.length),
+          "x-amz-meta-sha256": privateMarker,
+          "x-amz-request-id": "private-provider-id",
+          "content-disposition": 'attachment; filename="private-filename"',
+        })
+        .end(body);
     });
-    const observation = sdk.startHttp({ method: "GET", route: "/pilot" });
-    const started = performance.now();
-    /** @type {Readonly<Record<string, string | boolean>>} */
-    let correlation = {};
+    /** @type {undefined | import("../../apps/backend/src/infrastructure/observability/technical-telemetry.js").TechnicalTelemetry} */
+    let sdk;
+    let result;
     try {
-      const object = await observation.run(async () => {
-        correlation = sdk?.correlation() ?? {};
-        return storage.read("protected", `assets/${privateMarker}`);
-      });
-      assert.ok(object !== null);
-      assert.deepEqual(Buffer.from(object.body), body);
-      assert.equal(object.checksumSha256, privateMarker);
-      assert.equal(object.contentLength, body.length);
-      assert.equal(object.contentType, "application/octet-stream");
-      assert.equal(requests, 1);
-      assert.equal(providerValid, true);
-    } finally {
-      observation.finish(200, performance.now() - started);
-    }
-    await sdk.flush();
-    assert.deepEqual(sdk.diagnostics(), {
-      droppedSpans: 0,
-      failedTraceExports: 0,
-      failedMetricExports: 0,
-    });
-    await sdk.shutdown();
-    assert.equal(typeof correlation["traceId"], "string");
-    assert.equal(typeof correlation["spanId"], "string");
-    for (const path of [
-      "apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js",
-      "apps/backend/dist/infrastructure/observability/technical-telemetry.js",
-      "apps/backend/dist/infrastructure/object-storage/s3-object-storage.js",
-      "apps/backend/dist/infrastructure/object-storage/s3-request-observation.js",
-    ])
-      assert.ok(loaded.has(path));
-    return {
-      schema: 2,
-      trace_id: correlation["traceId"],
-      root_id: correlation["spanId"],
-      provider_requests: requests,
-      body_read: "passed",
-      runtime_modules: [...loaded]
-        .sort()
-        .map(([path, sha256]) => ({ path, sha256 })),
-    };
-  } finally {
-    await sdk?.shutdown();
-    server.closeAllConnections();
-    if (server.listening)
-      await new Promise((resolveClose, reject) =>
-        server.close((error) =>
-          error === undefined ? resolveClose(undefined) : reject(error),
+      observationPhase?.enter("modules_import");
+      const runtimeUrl = pathToFileURL(
+        resolve(
+          root,
+          "apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js",
         ),
-      );
-    assert.equal(server.listening, false);
-    hooks.deregister();
+      ).href;
+      const storageUrl = pathToFileURL(
+        resolve(
+          root,
+          "apps/backend/dist/infrastructure/object-storage/s3-object-storage.js",
+        ),
+      ).href;
+      /** @type {typeof import("../../apps/backend/src/infrastructure/observability/technical-telemetry-runtime.js")} */
+      // oxlint-disable-next-line typescript/no-unsafe-assignment -- Fixed compiled local module, typed from its tracked production source and verified by the runtime module witness.
+      const runtime = await import(runtimeUrl);
+      /** @type {typeof import("../../apps/backend/src/infrastructure/object-storage/s3-object-storage.js")} */
+      // oxlint-disable-next-line typescript/no-unsafe-assignment -- Fixed compiled local module, typed from its tracked production source and verified by the runtime module witness.
+      const objectStorage = await import(storageUrl);
+      observationPhase?.enter("provider_acquisition");
+      server.listen(0, "127.0.0.1");
+      await once(server, "listening");
+      const address = server.address();
+      assert.ok(address !== null && typeof address !== "string");
+      observationPhase?.enter("sdk_acquisition");
+      sdk = runtime.technicalTelemetryFromEnvironment({
+        environment: {
+          INSIDE_OTEL_ENABLED: "true",
+          INSIDE_OTEL_ENDPOINT: endpoint,
+          INSIDE_OTEL_SAMPLE_RATIO: "1",
+        },
+        service: "platform-api",
+        mode: "test",
+        identity: { release, sourceSha: release },
+      });
+      observationPhase?.enter("storage_acquisition");
+      const storage = objectStorage.createS3ObjectStorage({
+        endpoint: `http://127.0.0.1:${address.port}`,
+        buckets: {
+          protected: `${privateMarker}-protected`,
+          public: `${privateMarker}-public`,
+          quarantine: `${privateMarker}-quarantine`,
+        },
+        credentials: {
+          accessKeyId: "private-access-key",
+          secretAccessKey: "private-secret-key",
+        },
+        region: "us-east-1",
+        forcePathStyle: true,
+      });
+      const observation = sdk.startHttp({ method: "GET", route: "/pilot" });
+      const started = performance.now();
+      /** @type {Readonly<Record<string, string | boolean>>} */
+      let correlation = {};
+      try {
+        observationPhase?.enter("scoped_read");
+        const object = await observation.run(async () => {
+          correlation = sdk?.correlation() ?? {};
+          return storage.read("protected", `assets/${privateMarker}`);
+        });
+        observationPhase?.enter("read_contract");
+        assert.ok(object !== null);
+        assert.deepEqual(Buffer.from(object.body), body);
+        assert.equal(object.checksumSha256, privateMarker);
+        assert.equal(object.contentLength, body.length);
+        assert.equal(object.contentType, "application/octet-stream");
+        assert.equal(requests, 1);
+        assert.equal(providerValid, true);
+      } catch (error) {
+        observationPhase?.failed();
+        throw error;
+      } finally {
+        try {
+          observation.finish(200, performance.now() - started);
+        } catch (error) {
+          observationPhase?.failed();
+          // oxlint-disable-next-line eslint/no-unsafe-finally -- Preserve the original cleanup replacement behavior after observing its phase.
+          throw error;
+        }
+      }
+      observationPhase?.enter("sdk_flush");
+      await sdk.flush();
+      observationPhase?.enter("sdk_diagnostics");
+      assert.deepEqual(sdk.diagnostics(), {
+        droppedSpans: 0,
+        failedTraceExports: 0,
+        failedMetricExports: 0,
+      });
+      observationPhase?.enter("sdk_shutdown");
+      await sdk.shutdown();
+      observationPhase?.enter("witness_contract");
+      assert.equal(typeof correlation["traceId"], "string");
+      assert.equal(typeof correlation["spanId"], "string");
+      for (const path of [
+        "apps/backend/dist/infrastructure/observability/technical-telemetry-runtime.js",
+        "apps/backend/dist/infrastructure/observability/technical-telemetry.js",
+        "apps/backend/dist/infrastructure/object-storage/s3-object-storage.js",
+        "apps/backend/dist/infrastructure/object-storage/s3-request-observation.js",
+      ])
+        assert.ok(loaded.has(path));
+      result = {
+        schema: 2,
+        trace_id: correlation["traceId"],
+        root_id: correlation["spanId"],
+        provider_requests: requests,
+        body_read: "passed",
+        runtime_modules: [...loaded]
+          .sort()
+          .map(([path, sha256]) => ({ path, sha256 })),
+      };
+    } catch (error) {
+      observationPhase?.failed();
+      throw error;
+    } finally {
+      try {
+        observationPhase?.enter("cleanup_sdk");
+        await sdk?.shutdown();
+        observationPhase?.enter("cleanup_provider");
+        server.closeAllConnections();
+        if (server.listening)
+          await new Promise((resolveClose, reject) =>
+            server.close((error) =>
+              error === undefined ? resolveClose(undefined) : reject(error),
+            ),
+          );
+        assert.equal(server.listening, false);
+        observationPhase?.enter("cleanup_hooks");
+        hooks.deregister();
+      } catch (error) {
+        observationPhase?.failed();
+        // oxlint-disable-next-line eslint/no-unsafe-finally -- Preserve the original cleanup replacement behavior after observing its phase.
+        throw error;
+      }
+    }
+    observationPhase?.completed();
+    return result;
+  } catch (error) {
+    observationPhase?.failed();
+    throw error;
   }
 }
 
@@ -184,6 +231,7 @@ if (
     const result = await emit(
       "http://127.0.0.1:14318",
       process.env["SDK_STORAGE_RELEASE"] ?? "",
+      createSdkEmitterPhase(process.env),
     );
     process.stdout.write(JSON.stringify(result));
   } catch {

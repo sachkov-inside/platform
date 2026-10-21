@@ -39,8 +39,12 @@ class ProgressSchema(unittest.TestCase):
     def test_marker_collection_is_canonical_and_refuses_present_wrong_source_before_public_copy(self):
         import tracking_storage
         with tempfile.TemporaryDirectory() as directory:
-            root=Path(directory);output=root/'private';metadata=root/'metadata';output.mkdir();metadata.mkdir()
+            root=Path(directory).resolve();output=root/'private';metadata=root/'metadata';output.mkdir(mode=0o700);metadata.mkdir(mode=0o700)
             source=tracking_storage.ci.read_command(['git','-C',str(tracking_storage.pilot.ROOT),'rev-parse','HEAD'])
+            tree=tracking_storage.ci.read_command(['git','-C',str(tracking_storage.pilot.ROOT),'rev-parse','HEAD^{tree}'])
+            (metadata/'source.json').write_text(json.dumps(dict(checkout_sha=source,checkout_tree=tree,
+                repository=None,run_id=None,run_attempt=None,event=None,provider_execution_sha=source,
+                provider_pr_head_sha=None,provider_pr_base_sha=None,inputs={},scope='source-fixture')))
             good=dict(schema=1,scope='tracking',source=source,state='observed',milestone='carrier_confirmed')
             (output/api_progress.NAME).write_text(json.dumps(good,indent=4))
             tracking_storage.collect(output,metadata,root/'public')

@@ -1411,6 +1411,38 @@ active primary exception or its traceback. The worker's existing result-writer b
 Before public copying, collectors strictly read present metadata, exclude its raw files from generic
 collection and write only canonical projections. Invalid present metadata refuses collection.
 
+SDK and tracking additionally prepare separate `sdk-emitter-phase.json` and
+`tracking-producer-phase.json` observations. Each closed record is at most512bytes and contains
+only schema1, fixed scope, captured source SHA, state, phase and reason. The child writes a private
+atomic marker through an owned directory descriptor; the parent reads it only after the unchanged
+capture owner has reaped the child. These source-specific owners never inspect error text, args,
+properties or stack traces. `emit` and `produce` keep their default null observer and unchanged
+capture APIs. The first observed operation or cleanup failure is retained even if later original
+cleanup replaces the thrown exception. `completed` is written only after all original cleanup;
+a later stdout/IPC failure can therefore coexist with a completed marker. Missing markers remain
+unknown, abrupt exit may retain running, and malformed present markers refuse collection.
+
+Collection now intentionally tightens the internal evidence contract: both SDK and tracking require
+the complete bounded11-key `source.json` receipt before creating a public destination, even for
+legacy output with no phase marker. Its checkout SHA must equal the provider execution SHA;
+tracking also requires the current checkout to match that receipt. Valid existing admission receipts in canonical, owned0700 metadata directories
+remain supported. Relative or symlinked metadata paths also refuse under the explicit canonical
+path contract; the hosted workflows already pass canonical absolute paths. Admission can create
+a relative metadata directory, but collection requires its explicit canonical absolute path. Direct calls with
+arbitrary, null-provider or absent metadata, formerly accepted
+by generic artifact copying, now refuse. The existing admission CLI already required
+`HEAD == GITHUB_SHA` before writing its receipt; no local environment fallback is introduced.
+The SDK collector derives authority only from that receipt. Raw phase files are excluded from
+generic copying and rewritten as canonical validated records.
+
+Local library fixtures exercise insertion, first-failure and cleanup semantics using controlled
+module ports and owned loopback listeners. On Mac, unsupported directory-FD path anchoring disables
+the genuine child writer; an explicitly test-owned FD-path shim does not prove OS anchoring or
+native SDK/API behavior. The existing Linux source routes execute the genuine anchored writer and
+actual entrypoint controls without that shim. Fresh hosted Linux results, compiled native modules,
+genuine PostgreSQL and pinned storage remain separate acceptance evidence. No phase observation
+establishes the cause of an earlier run or completes the whole specification.
+
 Trace validation in SDK, tracking and waitlist admits only a constructor-owned fixed reason:
 `trace_decode` at the whole-row decode-contract boundary, or `trace_gate_01` through `trace_gate_20`
 for the original semantic refusal sites. SDK admits only01–12. The checked-in
@@ -1760,3 +1792,25 @@ seven-field2048B diagnostic. These refinements reject the same rows and do not e
 cause. All three owners preserve the original failure and traceback even when persistence throws
 the same exception object. New exact-source hosted feedback remains required; no capacity,
 production deployment or #1579 acceptance follows from these source contracts.
+
+### Dependency corpus scheduling
+
+`dependency_catalog_corpus` first uploads the same sixteen JSON/protobuf trace and metric bodies
+for the dependency, communications and Telegram HTTP pairs. It then runs the same six full stored
+trace oracles, in pair order, followed by the existing whole metric-vector oracle. Each pair keeps
+its original captured timestamp. Logging admission and each upload's daemon-identity check still
+precede unsafe ingress. Sent bodies are released; the scheduling records contain only the six
+fixed partition/transport/timestamp tuples. Polling, query limits and worker deadlines are unchanged.
+
+Failure prefixes differ from the earlier interleaved schedule. A later upload failure leaves no
+successful read cases. A trace refusal happens after all sixteen uploads, so later unsafe fixtures
+can already be present; only earlier successful reads enter the proof. A metric refusal retains
+six successful trace cases. Every refusal still fails the corpus and prevents the next corpus.
+HTTP200 and a completed upload never substitute for a full storage verdict.
+
+The deterministic visibility model uses the real builders, full oracles and existing poll loop.
+With zero upload/read cost and fixed four-second visibility after each pair's final upload, the
+old schedule took24 virtual seconds and the prepared schedule takes4. With an additional0.5-second
+cost for every trace read, the same model takes25.5 and6.75 seconds respectively. These figures
+model shared waiting only. They do not measure native latency, command overhead, VT flush behavior
+or production capacity. Exact-source hosted Core completion, freshness and cleanup remain required.

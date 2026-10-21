@@ -168,7 +168,7 @@ class ProducerBoundaries(unittest.TestCase):
             capture='emitter' if scope=='sdk' else 'capture'
             for case in ('witness','write'):
                 with self.subTest(scope=scope,case=case), tempfile.TemporaryDirectory() as directory:
-                    output=Path(directory);value=diagnostics.Diagnostic(scope)
+                    output=Path(directory).resolve();value=diagnostics.Diagnostic(scope)
                     body=PrivateWireWitness().wire() if scope=='sdk' else wire()
                     if case=='witness': body={'private':'private-diagnostic-witness-sentinel'}
                     else: (output/'runtime-modules.json').mkdir()
@@ -233,7 +233,12 @@ class PublicCollection(unittest.TestCase):
         import tracking_storage
         for scope,module in (('sdk',sdk_storage),('tracking',tracking_storage)):
             with self.subTest(scope=scope), tempfile.TemporaryDirectory() as directory:
-                root=Path(directory);output=root/'private';metadata=root/'metadata';output.mkdir();metadata.mkdir()
+                root=Path(directory).resolve();output=root/'private';metadata=root/'metadata';output.mkdir(mode=0o700);metadata.mkdir(mode=0o700)
+                source=module.ci.read_command(['git','-C',str(module.pilot.ROOT),'rev-parse','HEAD'])
+                tree=module.ci.read_command(['git','-C',str(module.pilot.ROOT),'rev-parse','HEAD^{tree}'])
+                (metadata/'source.json').write_text(json.dumps(dict(checkout_sha=source,checkout_tree=tree,
+                    repository=None,run_id=None,run_attempt=None,event=None,provider_execution_sha=source,
+                    provider_pr_head_sha=None,provider_pr_base_sha=None,inputs={},scope='source-fixture')))
                 destination=root/'legacy'
                 module.collect(output,metadata,destination)
                 self.assertEqual(diagnostics.read(destination/diagnostics.NAME,scope=scope),diagnostics.unknown(scope))
@@ -300,7 +305,7 @@ class ProjectionBudget(unittest.TestCase):
                 row['path']=prefix+'x'*(512-len(prefix))
         # This is the public projection defense in isolation. The actual raw capture cap is not bypassed in a native run.
         with tempfile.TemporaryDirectory() as directory:
-            output=Path(directory);diagnostic=diagnostics.Diagnostic('tracking')
+            output=Path(directory).resolve();diagnostic=diagnostics.Diagnostic('tracking')
             with patch.object(tracking_storage.producer_protocol,'capture',return_value=value):
                 with self.assertRaises(ValueError):
                     tracking_storage.producer_observation(output,environment={},diagnostic=diagnostic)
