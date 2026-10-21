@@ -73,7 +73,7 @@
 .aie-status:has(.aie-cohort-status) .aie-status-default {
   display: none;
 }
-.aie-status:has(.aie-learning-status) .aie-status-default {
+.aie-status:has(.aie-learning-status, .aie-learning-pending) .aie-status-default {
   display: none;
 }
 .aie-status:has(.aie-cohort-status) {

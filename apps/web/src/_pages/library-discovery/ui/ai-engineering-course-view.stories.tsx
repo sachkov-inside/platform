@@ -5,7 +5,7 @@ import {
   type WaitlistState,
 } from "@/features/product-waitlist";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import {
   StartCountdownBadge,
@@ -14,6 +14,7 @@ import {
 import {
   CohortCallView,
   CourseLearningLink,
+  CourseLearningPending,
   CohortStatusView,
 } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -398,6 +399,45 @@ export const CourseParticipantContinuing: Story = {
 };
 export const CourseParticipantContinuingMobile: Story = {
   ...CourseParticipantContinuing,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const CourseParticipantResolving: Story = {
+  ...CourseParticipant,
+  render: function ResolvingParticipant(args) {
+    const [resolved, setResolved] = useState(false);
+    return (
+      <>
+        <button type="button" onClick={() => setResolved(true)}>
+          Завершить проверку доступа
+        </button>
+        <ProductLandingView
+          {...args}
+          statusCall={resolved ? args.statusCall : <CourseLearningPending />}
+        />
+      </>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const status =
+      canvasElement.querySelector<HTMLElement>(".aie-status") ??
+      fail("Нижний блок");
+    const list = status.querySelector("ul") ?? fail("Преимущества");
+    const offset = () =>
+      list.getBoundingClientRect().top - status.getBoundingClientRect().top;
+    const before = offset();
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Завершить проверку доступа",
+      }),
+    );
+    await expect(Math.abs(offset() - before)).toBeLessThan(1);
+    await expectParticipantActions(canvasElement);
+  },
+};
+
+export const CourseParticipantResolvingMobile: Story = {
+  ...CourseParticipantResolving,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
