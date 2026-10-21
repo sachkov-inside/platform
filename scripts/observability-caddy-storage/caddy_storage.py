@@ -51,6 +51,10 @@ def worker(output):
     run=evidence.Run();experiment=None
     def persist():artifact.write_run(output,run.snapshot())
     def progress(kind,value):
+        if kind=='partition_checkpoint':
+            if type(value) is not str or value not in evidence.PARTITION_PHASES:artifact.refuse()
+            run.start(value)
+            return
         if kind=='phase':run.start(value)
         elif kind=='case':run.pass_case(value)
         elif kind=='failure':run.fail(value)
@@ -84,7 +88,14 @@ def worker(output):
                     report=experiment.run()
                     artifact.write(output,report)
                 except BaseException as error:
-                    experiment.failed(error);raise
+                    experiment_traceback=sys.exc_info()[2]
+                    try:
+                        experiment.failed(error)
+                    except BaseException:
+                        pass  # Failure notification cannot replace the active experiment failure.
+                    finally:
+                        BaseException.__traceback__.__set__(error,experiment_traceback)
+                    raise
             run.finish();persist()
             outcome=json.loads((output/'evidence.json').read_text())
             outcome['status']='passed: isolated native Caddy metrics and query scope only'

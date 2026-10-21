@@ -28,9 +28,13 @@ def ownership_phase(role, gate):
     refuse()
 
 
+PARTITION_PHASES = ('partition_initial_acquire', 'partition_initial_state', 'partition_initial_after_cut',
+                    'partition_initial_boundary', 'partition_compare_acquire', 'partition_compare_state',
+                    'partition_compare_journal', 'partition_compare_after_cut')
+
 PHASES = ('acquisition', 'ownership', 'identity', 'seed', 'partition',
           'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps',
-          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES
+          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES
 FAILURES = ('contract', 'timeout', 'transport', 'budget', 'unknown')
 
 
