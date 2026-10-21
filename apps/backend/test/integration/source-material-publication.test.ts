@@ -1,3 +1,4 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { createHash, randomUUID } from "node:crypto";
 import type {
@@ -13,6 +14,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+
+registerFixedClock();
 
 const actor = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const source = {

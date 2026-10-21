@@ -138,7 +138,12 @@ export class ImportSourceMaterialController {
       ...body,
     });
     if (!result.ok) throwMaterialAuthoringError(result.error);
-    return result.value;
+    return {
+      materialId: result.value.materialId,
+      contentVersion: result.value.contentVersion,
+      publicationState: result.value.publicationState,
+      publishedAt: result.value.publishedAt,
+    };
   }
 
   @Post("apply")

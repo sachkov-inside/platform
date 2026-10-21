@@ -1,4 +1,6 @@
 // @ts-check
+import { z } from "zod";
+import { parseJournal } from "./local-boundaries.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -13,6 +15,7 @@ test("publication preview and replay use source identity and version without a p
   let version = 4;
   let status = "published";
   let loseResponse = true;
+  /** @type {Map<string, unknown>} */
   const receipts = new Map();
   /** @type {Record<string, unknown>[]} */
   const writes = [];
@@ -28,7 +31,8 @@ test("publication preview and replay use source identity and version without a p
         metadata: { title: "new B" },
       };
     assert.equal(path, "/authoring/import/materials/publication");
-    writes.push(/** @type {Record<string, unknown>} */ (body));
+    writes.push(z.record(z.string(), z.unknown()).parse(body));
+    assert.ok(typeof key === "string");
     if (!receipts.has(key)) {
       assert.deepEqual(body, {
         materialId,
@@ -75,8 +79,8 @@ test("publication preview and replay use source identity and version without a p
     ),
     false,
   );
-  const journal = JSON.parse(
-    await readFile(join(state, "journal.json"), "utf8"),
+  const journal = parseJournal(
+    JSON.parse(await readFile(join(state, "journal.json"), "utf8")),
   );
   assert.equal(Object.keys(journal.operations).length, 1);
 });
@@ -129,7 +133,10 @@ test("publication rejects changed identity, version, environment and edited plan
     /reports a production runtime/,
   );
   mode = "development";
-  const plan = JSON.parse(await readFile(path, "utf8"));
+  const plan = z
+    .object({ publicationState: z.string() })
+    .passthrough()
+    .parse(JSON.parse(await readFile(path, "utf8")));
   plan.publicationState = "published";
   await writeFile(path, JSON.stringify(plan));
   await assert.rejects(
