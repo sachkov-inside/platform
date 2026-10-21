@@ -1879,7 +1879,11 @@ docker inspect --format '{{if and (eq .State.Status "exited") (not .State.Runnin
 The stop response must be the exact frozen CID (logical cap65UTF8 bytes). The state response must
 be exactly `stopped` with an optional newline (logical cap16UTF8 bytes). These are checks of fixed
 CLI projections, not subprocess allocation bounds. Deadline checks and zero emission use the same
-decreasing remaining phase allowance inside150 seconds. Unknown state, nonzero exit, malformed
+decreasing remaining phase allowance inside150 seconds. The stop passes its frozen absolute
+deadline into `upload`; only `upload` owns the HTTP alarm. Its pre/post ownership checks and HTTP
+transport consume that same remaining time, without a new ten-second allowance or nested alarm.
+Ordinary uploads retain their existing maximum ten seconds. The shared alarm guard still refuses
+an already active timer. Unknown state, nonzero exit, malformed
 response, identity drift, active/unsettled client or exhausted time refuses before emission. A
 failed sampler call is never a substitute for this stopped-owned proof. The ordinary successful
 acquisition path, read-only query and its eight-second accounting remain unchanged.

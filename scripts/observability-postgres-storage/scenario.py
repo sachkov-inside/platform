@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import time
 import json
+import math
 import subprocess
 import urllib.request
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-pilot'))
@@ -87,16 +88,25 @@ class Scenario:
             pilot.verify_trace_store_logging(self.targets.output,self.compose,service='alloy')
         self.remaining()
 
-    def upload(self,value):
-        deadline=time.monotonic()+self.remaining();self.verify_storage(deadline)
+    def upload(self,value,*,deadline=None):
+        now=time.monotonic()
+        if deadline is None:deadline=min(self.end,now+10)
+        if type(deadline) not in (int,float) or not math.isfinite(deadline) or deadline>self.end or deadline-now>10:raise ValueError('collector')
+        if deadline<=now:raise TimeoutError()
+        self.verify_storage(deadline)
         body=json.dumps(value,separators=(',',':'),allow_nan=False).encode()
         if len(body)>65536:raise ValueError('malformed')
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),source_status_query.NoRedirect())
         request=urllib.request.Request('http://127.0.0.1:14318/v1/metrics',data=body,method='POST',headers={'Content-Type':'application/json'})
-        with source_status_query._deadline(max(.001,deadline-time.monotonic())):
-            with opener.open(request,timeout=max(.001,deadline-time.monotonic())) as response:
+        remaining=deadline-time.monotonic()
+        if remaining<=0:raise TimeoutError()
+        with source_status_query._deadline(remaining):
+            remaining=deadline-time.monotonic()
+            if remaining<=0:raise TimeoutError()
+            with opener.open(request,timeout=remaining) as response:
                 if response.status!=200 or len(response.read(4097))>4096:raise ValueError('collector')
         self.verify_storage(deadline)
+        if time.monotonic()>=deadline:raise TimeoutError()
 
     def stored(self,value):
         deadline=time.monotonic()+min(30,self.remaining(30))
@@ -138,8 +148,7 @@ class Scenario:
         if type(state) is not str or len(state.encode('utf-8'))>16 or state not in ('stopped','stopped\n'):raise ValueError('ownership')
         if time.monotonic()>=deadline:raise TimeoutError()
         self.remaining()
-        with source_status_query._deadline(deadline-time.monotonic()):
-            self.upload(frame.unavailable_payload(time.time_ns()//1000))
+        self.upload(frame.unavailable_payload(time.time_ns()//1000),deadline=deadline)
         self.actors=fixture.Fixture()
         return cid
 
