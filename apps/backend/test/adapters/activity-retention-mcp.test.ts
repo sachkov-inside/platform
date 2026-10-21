@@ -1,0 +1,144 @@
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
+import { expect, it, vi } from "vitest";
+import {
+  ActivityRetentionDiagnostics,
+  registerActivityRetentionDiagnosticsTool,
+} from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
+it("checks current delegated admin before retention reads and exposes no cleanup or actor override", async () => {
+  const actor = "10000000-0000-4000-8000-000000000001";
+  const status = vi.fn().mockRejectedValue(new Error("private"));
+  const permission = vi.fn().mockResolvedValue({ ok: true, allowed: false });
+  const server = new McpServer({ name: "retention", version: "1" });
+  registerActivityRetentionDiagnosticsTool(server, {
+    accountId: actor,
+    retention: new ActivityRetentionDiagnostics(
+      { checkPermission: permission },
+      { status },
+      { status },
+    ),
+  });
+  const client = new Client({ name: "retention-contract", version: "1" });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  try {
+    await Promise.all([server.connect(st), client.connect(ct)]);
+    const { tools } = await client.listTools();
+    expect(tools).toHaveLength(1);
+    expect(tools[0]).toMatchObject({
+      name: "activity_retention_diagnostics",
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+      inputSchema: { additionalProperties: false },
+    });
+    expect(
+      await client.callTool({
+        name: "activity_retention_diagnostics",
+        arguments: {},
+      }),
+    ).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, error: { code: "forbidden" } },
+    });
+    expect(permission).toHaveBeenCalledWith({
+      accountId: actor,
+      permission: "platform:admin",
+    });
+    permission.mockClear();
+    expect(
+      await client.callTool({
+        name: "activity_retention_diagnostics",
+        arguments: { accountId: actor },
+      }),
+    ).toMatchObject({ isError: true });
+    expect(permission).not.toHaveBeenCalled();
+    expect(status).not.toHaveBeenCalled();
+  } finally {
+    await client.close();
+    await server.close();
+  }
+});
+it("keeps source failure distinct from a known empty backlog and does not return private errors", async () => {
+  const actor = "10000000-0000-4000-8000-000000000001";
+  const diagnostics = new ActivityRetentionDiagnostics(
+    { checkPermission: vi.fn().mockResolvedValue({ ok: true, allowed: true }) },
+    {
+      status: vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          status: "known",
+          asOf: "2026-10-21T00:00:00.123456Z",
+          cutoff: "2025-10-21T00:00:00.123456Z",
+          hasMore: false,
+          oldestExpiredAt: null,
+          lagSeconds: null,
+        },
+      }),
+    },
+    { status: vi.fn().mockRejectedValue(new Error(`private ${actor}`)) },
+  );
+  const result = await diagnostics.read(actor, {});
+  expect(result).toMatchObject({
+    ok: true,
+    value: {
+      sources: [
+        {
+          source: "learning_started",
+          result: {
+            ok: true,
+            value: { status: "known", hasMore: false, lagSeconds: null },
+          },
+        },
+        {
+          source: "bookmarks",
+          result: {
+            ok: false,
+            status: "unknown",
+            error: { code: "source_unavailable" },
+          },
+        },
+      ],
+    },
+  });
+  expect(JSON.stringify(result)).not.toContain(actor);
+});
+it("rechecks authorization after revocation and rejects invalid direct inputs before all private reads", async () => {
+  const actor = "10000000-0000-4000-8000-000000000001";
+  const status = vi.fn().mockResolvedValue({
+    ok: false,
+    status: "unknown",
+    error: { code: "source_unavailable" },
+  });
+  const permission = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: true, allowed: true })
+    .mockResolvedValueOnce({ ok: true, allowed: false })
+    .mockResolvedValueOnce({ ok: false, error: { code: "internal_error" } });
+  const diagnostics = new ActivityRetentionDiagnostics(
+    { checkPermission: permission },
+    { status },
+    { status },
+  );
+  expect(await diagnostics.read(actor, {})).toMatchObject({ ok: true });
+  status.mockClear();
+  expect(await diagnostics.read(actor, {})).toEqual({
+    ok: false,
+    error: { code: "forbidden" },
+  });
+  expect(await diagnostics.read(actor, {})).toEqual({
+    ok: false,
+    error: { code: "dependency_unavailable" },
+  });
+  expect(await diagnostics.read("invalid", {})).toEqual({
+    ok: false,
+    error: { code: "invalid_request" },
+  });
+  expect(await diagnostics.read(actor, { clean: true })).toEqual({
+    ok: false,
+    error: { code: "invalid_request" },
+  });
+  expect(status).not.toHaveBeenCalled();
+  expect(permission).toHaveBeenCalledTimes(3);
+});

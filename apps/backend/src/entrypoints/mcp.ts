@@ -1,3 +1,4 @@
+import { ActivityRetentionDiagnostics } from "./mcp/activity-retention-diagnostics.js";
 import { ParticipantDiagnostics } from "./mcp/participant-diagnostics.js";
 import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../modules/sales-funnel/index.js";
@@ -87,6 +88,7 @@ async function bootstrap(): Promise<void> {
       funnel: application.get(SalesFunnel),
       queues: application.get(QueueDiagnostics),
       participants: application.get(ParticipantDiagnostics),
+      retention: application.get(ActivityRetentionDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: mcpConfig,
       identityIssuer: config.identity.issuer,

@@ -2143,3 +2143,48 @@ Telegram, combined cross-surface Accounts and unlinked Telegram contacts are exp
 Membership. This report therefore does not complete the cross-surface active-participant criterion.
 It also does not implement physical deletion of activity history. Existing domain records remain
 owned by their capabilities; the read horizon is not evidence of physical retention cleanup.
+
+## Membership analytics-copy retention
+
+`ReadingActivityRetention` and `BookmarkActivityRetention` clean only
+`reading_activity.learning_started_events` and `bookmarks.activity_events`. Primary learning starts,
+reading transition events, command receipts, states/visits, current bookmarks and saved submissions
+remain source records and are not swept. Their existing 365-day report horizon is not physical TTL.
+Expired analytics copies are not reconstructed from first/last opens or current state after deletion.
+
+Each owner uses its PostgreSQL transaction timestamp minus the existing 365-day duration. Selection,
+DELETE recheck and oldest-expired query use the same exact database arithmetic. UTC timestamps are
+serialized as text with six fractional digits; no JavaScript Date round trip changes the cutoff.
+Equality is retained. Each pass locks at most 1000 expired event IDs in `(occurred_at,event_id)` order
+with `SKIP LOCKED`, deletes only those still expired, then reads at most one remaining oldest expired
+row. A pass never drains in a loop or counts the entire backlog. Statement timeout is 2 seconds,
+transaction timeout 5 seconds, acquisition bound 1 second. ReadCommitted transactions expose the oldest
+remaining row at that query; `asOf` is their database transaction clock, not a common cross-owner
+snapshot. A concurrently locked expired row can conservatively remain visible in the lag result.
+
+The existing billing-worker registers `membership-activity.retention`, a tenth fixed pg-boss queue.
+It schedules one pass per minute in UTC and sends one startup job, with no immediate retry. Each job
+attempts both owners once. An earlier committed batch remains committed if the other owner fails;
+the job fails and a later pass continues. Original nine queue policies and the separate daily
+web-telemetry 30-day cleanup stay in place. Existing billing bootstrap validation can prevent this
+worker from starting; this change does not remove that guard or promise cleanup during an outage.
+
+Read `activity_retention_diagnostics` through existing Platform MCP with a trusted delegated Account
+holding current `platform:admin`. Input is exactly `{}`. The tool exposes each fixed owner's known
+or unknown status, database `asOf`/cutoff, `hasMore`, oldestExpiredAt and lagSeconds beyond cutoff.
+It never deletes data or returns event/Account IDs, raw errors or a complete backlog count. A known
+empty result has `hasMore:false` and null oldest/lag. Failed queries remain unknown. The separate
+status tool preserves the existing active-participant query budget. Application logs alone do not
+prove agent-visible lag because the pilot collector redacts their bodies.
+
+Precommit failure rolls back one batch. A postcommit crash before job acknowledgement can leave a
+failed receipt followed by an idempotent next pass. Deleted expired copies cannot be restored by a
+command replay; recovery of historical copies, if required, uses the existing compatible database
+backup/restore procedure. Restored expired copies become eligible again. Primary product behavior
+and durable replay authority are retained. Row deletion does not measure PostgreSQL page/disk
+reclamation, backup retention or Umami cleanup/restore.
+
+Current preparation requires genuine PostgreSQL boundary, concurrency, rollback and primary-state
+invariance evidence plus actual worker scheduling in hosted CI. Source/adapter checks do not prove
+next-day cleanup under backlog or ingestion, worker availability, production capacity or runtime
+privacy. No production cleanup, deployment or server change is authorized by these source changes.

@@ -27,7 +27,7 @@ it("distinguishes an absent queue from a registered empty queue without starting
     value: { workerFreshness: "not_proven", lastSuccessfulWorkAt: null },
   });
   if (!report.ok) throw new Error("Expected available fixture source");
-  expect(report.value.queues).toHaveLength(9);
+  expect(report.value.queues).toHaveLength(10);
   expect(
     report.value.queues.find((row) => row.name === "material-assets.cleanup"),
   ).toEqual({

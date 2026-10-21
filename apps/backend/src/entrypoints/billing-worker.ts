@@ -1,3 +1,5 @@
+import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
 import { jobQueues } from "../infrastructure/job-queues.js";
 import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import "reflect-metadata";
@@ -36,11 +38,13 @@ import {
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
 import {
+  runActivityRetentionJob,
   runRenewalJob,
   runRecoveryJob,
   runNoticeJob,
 } from "./billing-worker/jobs.js";
 
+const activityRetentionQueue = jobQueues.activityRetention;
 const telemetryCleanupQueue = jobQueues.telemetryRetention;
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
 const telemetryReceiptRetentionSeconds = 172_800;
@@ -86,6 +90,7 @@ async function bootstrap(): Promise<void> {
   try {
     const jobs = new PgBoss({
       openTelemetry: technicalTelemetry.pgBoss([
+        activityRetentionQueue,
         telemetryCleanupQueue,
         recoveryQueue,
         renewalQueue,
@@ -108,6 +113,38 @@ async function bootstrap(): Promise<void> {
       process: "billing-worker",
       readiness: application.get(OperationalReadiness),
       async registerJobs() {
+        await jobs.createQueue(activityRetentionQueue, {
+          deleteAfterSeconds: jobRetentionSeconds,
+          expireInSeconds: jobTimeoutSeconds,
+          retryLimit: 0,
+        });
+        await jobs.schedule(
+          activityRetentionQueue,
+          "* * * * *",
+          {},
+          { tz: "Etc/UTC" },
+        );
+        await jobs.send(
+          activityRetentionQueue,
+          {},
+          { singletonSeconds: jobIntervalSeconds },
+        );
+        await jobs.work(
+          activityRetentionQueue,
+          observeJob(
+            "billing-worker",
+            activityRetentionQueue,
+            async () => {
+              const result = await runActivityRetentionJob(
+                application.get(ReadingActivityRetention),
+                application.get(BookmarkActivityRetention),
+              );
+              writeLog("info", "activity_retention_completed", result);
+              return result;
+            },
+            technicalTelemetry,
+          ),
+        );
         await jobs.createQueue(telemetryCleanupQueue, {
           deleteAfterSeconds: telemetryReceiptRetentionSeconds,
           expireInSeconds: jobTimeoutSeconds,

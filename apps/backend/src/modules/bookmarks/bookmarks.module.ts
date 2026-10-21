@@ -1,3 +1,4 @@
+import { BookmarkActivityRetention } from "./features/retain-activity/retain-activity.js";
 import { BookmarkActivityFacts } from "./features/read-confirmed-activity/read-confirmed-activity.js";
 import { Module } from "@nestjs/common";
 import { AccountsModule } from "../accounts/index.js";
@@ -26,6 +27,12 @@ import { Bookmarks } from "./facets/bookmarks/bookmarks.js";
   controllers: [BookmarksController],
   providers: [
     {
+      provide: BookmarkActivityRetention,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new BookmarkActivityRetention(prisma),
+    },
+    {
       provide: BookmarkActivityFacts,
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider) =>
@@ -47,6 +54,6 @@ import { Bookmarks } from "./facets/bookmarks/bookmarks.js";
       ) => new Bookmarks({ prisma, contentAccess, selection, videos }),
     },
   ],
-  exports: [BookmarkActivityFacts],
+  exports: [BookmarkActivityRetention, BookmarkActivityFacts],
 })
 export class BookmarksModule {}

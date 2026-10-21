@@ -1,3 +1,5 @@
+import type { ReadingActivityRetention } from "../../modules/reading-activity/index.js";
+import type { BookmarkActivityRetention } from "../../modules/bookmarks/index.js";
 import type {
   BillingPayments,
   BillingSubscriptions,
@@ -41,4 +43,32 @@ export async function runNoticeJob(
   const result = await notices.scheduleReminders(limit);
   if (!result.ok) throw new Error(result.error.code);
   return result.value;
+}
+
+/** Each owner commits independently; a failure cannot undo a previously committed copy batch. */
+export async function runActivityRetentionJob(
+  reading: Pick<ReadingActivityRetention, "clean">,
+  bookmarks: Pick<BookmarkActivityRetention, "clean">,
+) {
+  const sources = [];
+  for (const [source, owner] of [
+    ["learning_started", reading],
+    ["bookmarks", bookmarks],
+  ] as const) {
+    try {
+      sources.push({ source, result: await owner.clean() });
+    } catch {
+      sources.push({
+        source,
+        result: {
+          ok: false as const,
+          status: "unknown" as const,
+          error: { code: "source_unavailable" as const },
+        },
+      });
+    }
+  }
+  if (sources.some((source) => !source.result.ok))
+    throw new Error("activity_retention_failed");
+  return { sources };
 }

@@ -1,3 +1,6 @@
+import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
+import { ReadingActivityRetention } from "../../src/modules/reading-activity/index.js";
+import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
 import { TaskSubmissionFacts } from "../../src/modules/product-tasks/index.js";
 import { BookmarkActivityFacts } from "../../src/modules/bookmarks/index.js";
 import { ReadingActivityFacts } from "../../src/modules/reading-activity/index.js";
@@ -273,6 +276,11 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
         new ReadingActivityFacts(database.prisma),
         new BookmarkActivityFacts(database.prisma),
         new TaskSubmissionFacts(database.prisma),
+      ),
+      retention: new ActivityRetentionDiagnostics(
+        app.get<Accounts>(ACCOUNTS),
+        new ReadingActivityRetention(database.prisma),
+        new BookmarkActivityRetention(database.prisma),
       ),
       telemetry: app.get(WebTelemetry),
       tokenVerifier: app.get<LogtoAccessTokenVerifier>(

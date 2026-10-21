@@ -26,6 +26,7 @@ const cases = [
     worker: "billing-worker",
     queues: [
       "web-telemetry.retention",
+      "membership-activity.retention",
       "billing.payment-recovery",
       "billing.subscription-renewal",
       "billing.subscription-notices",
@@ -167,7 +168,10 @@ for (const { worker, queues } of cases) {
                   : "* * * * *",
             data: {},
           });
-          if (queue === "web-telemetry.retention")
+          if (
+            queue === "web-telemetry.retention" ||
+            queue === "membership-activity.retention"
+          )
             expect(schedules[0]?.timezone).toBe("Etc/UTC");
           const jobs = await inspector.findJobs(queue);
           expect(

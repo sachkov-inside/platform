@@ -253,6 +253,7 @@
     "profile-avatars.cleanup",
     "videos.deletions",
     "web-telemetry.retention",
+    "membership-activity.retention",
     "billing.payment-recovery",
     "billing.subscription-renewal",
     "billing.subscription-notices",
