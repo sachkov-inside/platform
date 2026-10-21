@@ -206,6 +206,14 @@ boundary. Checkpoints update memory only. The existing terminal failure write
 persists the last category; later progress cannot replace that first failure.
 Default `fresh_after` callers retain their original behavior without checkpoints.
 
+When an initial partition rejects an already acquired nonobserved canonical status, the scenario
+remembers the last such closed report. On a terminal `partition_initial_state` failure, the worker
+makes one best-effort write to the existing `caddy-observation.json`. Its original state, reason,
+age and canonical-passed/MCP-unrun transport stay intact, with no observation or comparison.
+Other failure phases do not write this diagnostic. Validation or persistence failure preserves
+the original scenario failure and traceback. The report is not readiness, MCP equivalence or a
+partition pass; it identifies neither an earlier run's status nor the cause of a native refusal.
+
 Failure notification retains the original experiment exception and traceback even
 when its first persistence attempt fails, including when it raises the same
 exception object. This guard covers notification, not unrelated native cleanup
