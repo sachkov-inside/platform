@@ -53,13 +53,15 @@ def validate(value):
                 or any(type(v) is not str or v not in ('unrun','passed','failed') for v in value['transport'].values())
                 or type(value['state']) is not str or value['state'] not in ('observed','down','missing','stale','incomplete','query_unavailable','malformed')
                 or type(value['reason']) is not str):refuse()
-        allowed={'observed':{'none'},'down':{'none'},'missing':{'none'},'stale':{'none'},'incomplete':{'unseeded','partial'},
+        allowed={'observed':{'none'},'down':{'none'},'missing':{'none'},'stale':{'none'},'incomplete':{'unseeded','partial',*status.PARTIAL_REASONS},
                  'query_unavailable':{'credentials','timeout','transport','http_error','interrupted'},'malformed':{'raw_contract'}}
         state=value['state']
         if value['reason'] not in allowed[state]:refuse()
         age=None if value['sample_age_seconds'] is None else numeric(value['sample_age_seconds'])
         if state in ('down','observed') and (age is None or age>status.MAX_AGE_SECONDS):refuse()
         if state in ('missing','malformed','query_unavailable') and age is not None:refuse()
+        if value['reason'] in status.PARTIAL_REASONS and (age is None or age>status.MAX_AGE_SECONDS
+                or value['transport']!={'canonical':'passed','mcp':'unrun'}):refuse()
         observation=comparison=None
         if state=='observed':
             if value['transport']!={'canonical':'passed','mcp':'passed'}:refuse()
