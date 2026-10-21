@@ -159,6 +159,7 @@ class Resources:
                   data_readonly=False, repository_readonly=False, command_timeout=120, binary=False):
         name = self.register("container", suffix)
         args = ["run", "--name", name, "--label", LABEL + "=" + self.owner,
+                "--init",
                 "--network", "none", "--pull", "never", "--read-only",
                 "--memory", "512m", "--cpus", "2", "--pids-limit", "128",
                 "--tmpfs", "/tmp:rw,size=32m", "--tmpfs", "/var/run/postgresql:rw,size=8m",
@@ -317,7 +318,8 @@ def read_backup_info(resources, image, source, repository, envfile, suffix):
     return result
 
 
-def restore_case(resources, image, repository, envfile, suffix, target, expected_rows, *, data=None):
+def restore_case(resources, image, repository, envfile, suffix, target, expected_rows, *, data=None,
+                 databases=DATABASES):
     if data is None:
         data = resources.volume(suffix + "-data")
     _, result = resources.container(
@@ -352,11 +354,12 @@ def restore_case(resources, image, repository, envfile, suffix, target, expected
             time.sleep(0.25)
         raise TimeoutError("missing WAL did not produce the expected recovery refusal")
     wait_sql(resources, container)
-    for database in DATABASES:
+    for database in databases:
         rows = sql(resources, container, database,
                    "SELECT string_agg(phase, ',' ORDER BY id) FROM proof_marker;")
         if rows != expected_rows:
             raise RuntimeError("restored transaction boundary mismatch")
+    return container
 
 
 def proof(image, receipt, directory, legacy_source=None):

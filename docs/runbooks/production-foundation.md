@@ -371,8 +371,12 @@ reload. Не перезапускайте Logto, Platform или PostgreSQL ра
    ```
 
 Расписание хранится в UTC: full — каждое воскресенье, differential — в остальные дни,
-incremental — каждые шесть часов. WAL архивируется непрерывно; pgBackRest хранит четыре full
-backup. После этого #243 может доставить application release, а #244 — выполнить первый cutover.
+incremental — каждые шесть часов. WAL архивируется непрерывно. Retention parameter задаёт четыре
+full, но source #1627 отключает автоматический expire в config и backup helper для сохранения
+истории. Это не удаляет отдельные expire jobs или provider lifecycle. На момент подготовки
+#1627 production всё ещё использует прежнюю policy. Применение, repo selector и приёмка описаны
+в [переходе repository](pgbackrest-repository-transition.md). После первоначальной проверки
+#243 может доставить application release, а #244 выполнить первый cutover.
 
 PostgreSQL service использует `init: true`: Docker init собирает завершившиеся фоновые процессы
 асинхронного pgBackRest. Если PostgreSQL сам работает PID 1, ошибка такого процесса может попасть
@@ -499,6 +503,7 @@ sudo docker compose \
   --file /opt/inside/foundation/infra/production/database/compose.yaml \
   --profile operations run --rm restore \
   --stanza=production \
+  --repo=1 \
   --type=time \
   --target='YYYY-MM-DD HH:MM:SS.US+00' \
   --target-action=promote \

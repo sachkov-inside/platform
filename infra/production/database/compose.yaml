@@ -12,11 +12,15 @@ x-postgres-environment: &postgres-environment
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/postgres.env
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto-database.env
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest.env
+    - path: ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest-repo2.env
+      required: false
 
 x-pgbackrest-environment: &pgbackrest-environment
   env_file:
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/database.env
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest.env
+    - path: ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest-repo2.env
+      required: false
 
 x-database-volumes: &database-volumes
   volumes:
@@ -53,6 +57,18 @@ services:
     networks: [backup-egress, database]
     profiles: [operations]
     user: root
+
+  initialize-repo2:
+    <<: *database-image
+    entrypoint: ["pgbackrest"]
+    env_file:
+      - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/pgbackrest-repo2.env.staged
+    volumes:
+      - postgres-data:/var/lib/postgresql:ro
+      - ./pgbackrest-initialize-repo2.conf:/etc/pgbackrest/pgbackrest.conf:ro
+    networks: [backup-egress]
+    profiles: [repository-transition]
+    user: postgres
 
 networks:
   backup-egress:

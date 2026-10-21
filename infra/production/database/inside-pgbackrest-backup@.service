@@ -5,6 +5,7 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
+EnvironmentFile=-/etc/inside/foundation/backup-policy.env
 ExecStart=/usr/local/libexec/inside/database-backup %i
 Nice=10
 IOSchedulingClass=best-effort
