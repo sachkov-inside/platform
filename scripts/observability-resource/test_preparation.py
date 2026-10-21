@@ -9,6 +9,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -59,14 +60,19 @@ class Lifetime(unittest.TestCase):
         for mode in ('preparation', 'runtime-worker'):
             with self.subTest(mode=mode):
                 self.late_export(mode)
+        with self.assertRaises(ValueError):
+            self.late_export('handshake-failure')
 
     def late_export(self, mode):
         import runtime
-        child_script = '''import os,socket,sys
+        child_script = '''import os,signal,socket,sys
 from pathlib import Path
 root=Path(sys.argv[1])
 with socket.socket(socket.AF_UNIX) as peer:
-    peer.connect(str(root/'build.sock'));peer.sendall(str(os.getpid()).encode())
+    peer.connect(str(root/'build.sock'))
+    if sys.argv[3]=='handshake-failure':
+        peer.shutdown(socket.SHUT_WR);signal.pause()
+    peer.sendall(str(os.getpid()).encode())
     assert peer.recv(2)==b'go'
     Path(sys.argv[2]).write_text('sha256:'+'b'*64)
     peer.sendall(b'exported');assert peer.recv(2)==b'ok'
@@ -77,7 +83,14 @@ import hosted,preparation
 from test_preparation import Docker,SOURCE,OWNER,DAEMON
 root=Path(sys.argv[1]);docker=Docker()
 with preparation.acquire(root/'images.json',SOURCE,OWNER,DAEMON,'runtime',docker=docker,identify=lambda:DAEMON) as stage:
-    execute=[sys.executable,'-B','-c',sys.argv[2],str(root),str(stage.iidfile('backend'))]
+    execute=[sys.executable,'-B','-c',sys.argv[2],str(root),str(stage.iidfile('backend')),sys.argv[3]]
+    # The outer test owns this one isolated group even if the handshake fails.
+    # Group isolation is covered elsewhere; this fixture tests inherited fd lifetime.
+    create=hosted.subprocess.Popen
+    def owned_group(args,**options):
+        if args==execute:options['start_new_session']=False
+        return create(args,**options)
+    hosted.subprocess.Popen=owned_group
     if sys.argv[3]=='preparation':
         hosted.command(execute,30,pass_fds=stage.pass_fds())
     else:
@@ -113,14 +126,24 @@ with preparation.acquire(root/'images.json',SOURCE,OWNER,DAEMON,'runtime',docker
                     peer.sendall(b'ok')
                 self.assertEqual(stage.release('runtime', cleanup_ok=True)['retired'], [IMAGE])
             finally:
-                if producer.poll() is None:
-                    producer.kill()
-                    producer.wait(timeout=5)
-                if child_pid is not None:
-                    try:
-                        os.killpg(child_pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
+                try:
+                    os.killpg(producer.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                producer.wait(timeout=5)
+                # Observe descriptor release, including child shutdown after a failed handshake.
+                lock = root / 'images.json.preparation/use.lock'
+                if lock.exists():
+                    deadline = time.monotonic() + 5
+                    with lock.open('rb') as stream:
+                        while True:
+                            try:
+                                fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                                break
+                            except BlockingIOError:
+                                if time.monotonic() >= deadline:
+                                    raise
+                                threading.Event().wait(.001)
                 producer.stderr.close()
 
     def test_partial_retirement_records_each_removed_id_and_retry_preserves_original_failure(self):
