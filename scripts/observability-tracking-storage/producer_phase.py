@@ -67,7 +67,7 @@ def _identity(info):
             info.st_size,info.st_mtime_ns,info.st_ctime_ns)
 
 
-def _directory(path):
+def _directory(path,*,preserve_primary=False):
     parent=path.parent
     if not parent.is_absolute() or parent.resolve() != parent: _refuse()
     try:before=os.lstat(parent)
@@ -78,8 +78,13 @@ def _directory(path):
     try:
         if _identity(before) != _identity(os.fstat(descriptor)) or _identity(before) != _identity(os.lstat(parent)):
             _refuse()
-    except BaseException:
-        os.close(descriptor)
+    except BaseException as primary:
+        if preserve_primary:
+            initial=sys.exc_info()[2]
+            try:os.close(descriptor)
+            except BaseException:pass
+            BaseException.__traceback__.__set__(primary,initial)
+        else:os.close(descriptor)
         raise
     return descriptor
 
@@ -97,7 +102,7 @@ def _same_directory(descriptor,path,initial):
 def _read_bytes(path,cap,*,mode=0o600,preserve_primary=False):
     descriptor=directory=None;present=False
     try:
-        directory=_directory(path)
+        directory=_directory(path,preserve_primary=True) if preserve_primary else _directory(path)
         directory_info=os.fstat(directory)
         before=os.stat(path.name,dir_fd=directory,follow_symlinks=False)
         present=True

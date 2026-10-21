@@ -26,7 +26,7 @@ import tracking_oracle
 import diagnostics
 
 SCOPE='One genuine production API/PG carrier/real timer/API-owned SDK tracking success through pinned storage; no retry/crash or capacity acceptance'
-ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','tracking-storage.json','runtime-modules.json','recovery.json','tracking-cleanup.json',diagnostics.NAME,api_progress.NAME,producer_phase.NAME)
+ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','tracking-storage.json','runtime-modules.json','recovery.json','tracking-cleanup.json',diagnostics.NAME,api_progress.NAME,producer_phase.NAME,unexpected_keys.NAME)
 STORAGE_SECONDS=60
 
 
@@ -203,10 +203,14 @@ def collect(output, metadata, destination):
         raise ValueError('closed tracking phase refused')
     phase=api_progress.read(output/api_progress.NAME,scope='tracking',source=source)
     producer_observation=producer_phase.load_for_collection(output,source=source)
-    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME,producer_phase.NAME)))
+    unexpected=producer_phase.read_unexpected_keys(output/unexpected_keys.NAME,source=source)
+    if unexpected['state']=='observed' and (projected['phase'],projected['outcome'],projected['reason'])!=('trace_validation','failed','trace_gate_06_unexpected_key'):
+        raise ValueError(unexpected_keys.MESSAGE) from None
+    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME,producer_phase.NAME,unexpected_keys.NAME)))
     diagnostics.write(destination/diagnostics.NAME, projected, scope='tracking')
     api_progress.write(destination/api_progress.NAME,phase,scope='tracking',source=source)
     producer_phase.write(destination/producer_phase.NAME,producer_observation,source=source)
+    producer_phase.write_unexpected_keys(destination/unexpected_keys.NAME,unexpected,source=source)
 
 
 def main():
