@@ -494,6 +494,12 @@ its public address is loopback, and the published Docker port binds only `127.0.
 foreign Host/Origin are refused; switching uses same-origin POST and an allowlisted profile, never
 an arbitrary Account ID. A signed HttpOnly choice cookie is independent of Logto session expiry;
 a malformed choice fails closed to guest. Identity failure answers unavailable rather than owner.
+Normal top-level links and browser navigation work from any referring site, including a
+`localhost` redirect. A public entry document first establishes the local origin, then loads the
+requested page with the existing SameSite=Strict choice cookie. It contains no owner session or
+protected response, so a previously selected learner or guest remains selected, including after
+an upgrade. Cross-site background requests, embedded documents and
+mutations remain refused; navigating from another site does not authorize a profile switch.
 Any process with access to this machine can act as these local accounts while the gateway runs.
 
 Use the same Compose files when stopping the stand:

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
@@ -16,7 +17,13 @@ test("local accounts: fresh owner, private draft and real denials survive restar
   let gateway:
     Awaited<ReturnType<typeof startLocalAccountsGateway>> | undefined;
   const context = await browser.newContext();
+  const entry = createServer((_request, response) => {
+    response.setHeader("content-type", "text/html");
+    response.end(`<a href="${entryTarget}">Open local stand</a>`);
+  });
+  let entryTarget = "";
   try {
+    await new Promise<void>((done) => entry.listen(0, "127.0.0.1", done));
     await signInFullStack(ownerContext, "OWNER");
     const created = await ownerContext.request.post(
       `${fullStackBaseUrl()}/api/authoring/materials`,
@@ -68,7 +75,15 @@ test("local accounts: fresh owner, private draft and real denials survive restar
     const origin = gateway.origin;
     const page = await context.newPage();
     const preview = `/authoring/materials/${draft.draft.materialId}/preview`;
-    await page.goto(`${origin}${preview}`);
+    entryTarget = `${origin}${preview}`;
+    const entryAddress = entry.address();
+    if (entryAddress === null || typeof entryAddress === "string")
+      throw new Error("Entry fixture is not listening");
+    // localhost -> 127.0.0.1 is a real cross-site link, like an external tab or redirect.
+    const entryOrigin = `http://localhost:${String(entryAddress.port)}`;
+    await page.goto(entryOrigin);
+    await page.getByRole("link", { name: "Open local stand" }).click();
+    await page.waitForURL(entryTarget);
     await expect(
       page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
     ).toBeVisible();
@@ -134,6 +149,50 @@ test("local accounts: fresh owner, private draft and real denials survive restar
         expect(
           await (await context.request.get(`${origin}/auth/status`)).json(),
         ).toMatchObject({ state: "guest", canManageMaterials: false });
+        const selected = (await context.cookies(origin)).find(
+          (cookie) => cookie.name === "inside.local-account",
+        );
+        expect(selected?.sameSite).toBe("Strict");
+        await page.goto(entryOrigin);
+        const firstDocument = page.waitForResponse(
+          (response) =>
+            response.url() === entryTarget &&
+            response.request().isNavigationRequest(),
+        );
+        let resumeEntry: (() => void) | undefined;
+        const pausedEntry = new Promise<void>((done) => {
+          resumeEntry = done;
+        });
+        const entryScript = `${origin}/__local/accounts/entry.js`;
+        await page.route(entryScript, async (route) => {
+          await pausedEntry;
+          await route.continue();
+        });
+        try {
+          // Keep the first document alive until its bytes are checked, then permit navigation.
+          await Promise.all([
+            page.getByRole("link", { name: "Open local stand" }).click(),
+            firstDocument.then(async (response) => {
+              expect(await response.text()).not.toContain(
+                "LOCAL_ACCOUNT_PRIVATE_DRAFT",
+              );
+              resumeEntry?.();
+            }),
+          ]);
+        } finally {
+          resumeEntry?.();
+          await page.unroute(entryScript);
+        }
+        await page.waitForURL(entryTarget);
+        await expect(
+          page.getByText("Локально: Гость", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
+        ).toHaveCount(0);
+        expect(
+          await (await context.request.get(`${origin}/auth/status`)).json(),
+        ).toMatchObject({ state: "guest", canManageMaterials: false });
         const fresh = await browser.newContext();
         try {
           expect(
@@ -168,5 +227,11 @@ test("local accounts: fresh owner, private draft and real denials survive restar
     await context.close();
     await ownerContext.close();
     await gateway?.close();
+    await new Promise<void>((done, reject) => {
+      entry.close((error) => {
+        if (error) reject(error);
+        else done();
+      });
+    });
   }
 });

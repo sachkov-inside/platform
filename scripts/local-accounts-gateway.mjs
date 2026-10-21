@@ -69,6 +69,12 @@ export async function startLocalAccountsGateway(options) {
   async function handle(request, response) {
     const publicUrl = new URL(origin);
     const host = request.headers.host;
+    // A link or localhost redirect may be cross-site. Permit top-level navigation, while
+    // cross-site fetches, embedded documents and mutations remain outside the local boundary.
+    const documentNavigation =
+      (request.method === "GET" || request.method === "HEAD") &&
+      request.headers["sec-fetch-mode"] === "navigate" &&
+      request.headers["sec-fetch-dest"] === "document";
     if (
       host === publicUrl.host.replace("127.0.0.1", "localhost") &&
       (request.method === "GET" || request.method === "HEAD")
@@ -90,7 +96,8 @@ export async function startLocalAccountsGateway(options) {
           character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127,
       ) ||
       host !== publicUrl.host ||
-      request.headers["sec-fetch-site"] === "cross-site" ||
+      (request.headers["sec-fetch-site"] === "cross-site" &&
+        !documentNavigation) ||
       (request.headers.origin !== undefined &&
         request.headers.origin !== origin)
     ) {
@@ -98,10 +105,43 @@ export async function startLocalAccountsGateway(options) {
       return;
     }
     response.setHeader("cache-control", "private, no-store");
+    if (
+      documentNavigation &&
+      request.headers["sec-fetch-site"] === "cross-site"
+    ) {
+      // A previously selected Strict cookie is withheld on this first request. Establish a
+      // local document before resolving identity, so an existing guest can never become owner.
+      response
+        .writeHead(200, {
+          "content-type": "text/html; charset=utf-8",
+          "content-security-policy":
+            "default-src 'none'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+          "referrer-policy": "no-referrer",
+          "x-content-type-options": "nosniff",
+        })
+        .end(
+          request.method === "HEAD"
+            ? ""
+            : '<!doctype html><html lang="ru"><meta charset="utf-8"><title>Открываем локальный стенд</title><p>Открываем локальный стенд…</p><script src="/__local/accounts/entry.js" defer></script></html>',
+        );
+      return;
+    }
     const choice = selection(request.headers.cookie);
     try {
       const path = new URL(request.url ?? "/", origin);
       if (path.pathname.startsWith("/__local/accounts")) {
+        if (
+          path.pathname === "/__local/accounts/entry.js" &&
+          request.method === "GET"
+        ) {
+          response
+            .writeHead(200, {
+              "content-type": "text/javascript; charset=utf-8",
+              "x-content-type-options": "nosniff",
+            })
+            .end("window.location.replace(window.location.href);");
+          return;
+        }
         if (
           path.pathname === "/__local/accounts/theme.css" &&
           request.method === "GET"

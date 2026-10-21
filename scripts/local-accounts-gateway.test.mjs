@@ -57,17 +57,23 @@ test("owned loopback gateway defaults to owner and retains explicit guest and le
   assert.match(await first.text(), /session-owner/u);
   /** Node fetch owns Host itself; raw HTTP exercises the untrusted Host boundary.
    * @param {string} host
-   * @returns {Promise<{ status: number | undefined; location: string | undefined }>} */
-  const hostRequest = (host) =>
+   * @param {Record<string, string>} [extraHeaders]
+   * @returns {Promise<{ status: number | undefined; location: string | undefined; body: string }>} */
+  const hostRequest = (host, extraHeaders = {}) =>
     new Promise((done, reject) => {
       const request = httpRequest(
         gateway.origin,
-        { headers: { host } },
+        { headers: { ...extraHeaders, host } },
         (response) => {
-          response.resume();
-          done({
-            status: response.statusCode,
-            location: response.headers.location,
+          let body = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk) => (body += String(chunk)));
+          response.on("end", () => {
+            done({
+              status: response.statusCode,
+              location: response.headers.location,
+              body,
+            });
           });
         },
       );
@@ -80,6 +86,16 @@ test("owned loopback gateway defaults to owner and retains explicit guest and le
   assert.equal(alias.status, 307);
   assert.equal(alias.location, `${gateway.origin}/`);
   assert.equal((await hostRequest("attacker.test")).status, 403);
+  const beforeNavigation = receivedRequests;
+  const navigation = await hostRequest(new URL(gateway.origin).host, {
+    "sec-fetch-site": "cross-site",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-dest": "document",
+  });
+  assert.equal(navigation.status, 200);
+  assert.match(navigation.body, /\/__local\/accounts\/entry.js/u);
+  assert.doesNotMatch(navigation.body, /session-owner/u);
+  assert.equal(receivedRequests, beforeNavigation);
   const beforeInvalid = receivedRequests;
   /** @type {number | undefined} */
   const invalidTarget = await new Promise((done, reject) => {
@@ -99,8 +115,21 @@ test("owned loopback gateway defaults to owner and retains explicit guest and le
   for (const headers of [
     { origin: "https://attacker.test" },
     { "sec-fetch-site": "cross-site" },
+    {
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-dest": "iframe",
+    },
+    {
+      "sec-fetch-site": "cross-site",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-dest": "document",
+    },
   ]) {
-    assert.equal((await fetch(gateway.origin, { headers })).status, 403);
+    assert.equal(
+      (await hostRequest(new URL(gateway.origin).host, headers)).status,
+      403,
+    );
   }
   for (const headers of [{}, { origin: "https://attacker.test" }]) {
     assert.equal(
@@ -133,6 +162,7 @@ test("owned loopback gateway defaults to owner and retains explicit guest and le
     assert.equal(switched.status, 303);
     assert.equal(switched.headers.get("location"), "/authoring/materials");
     const cookie = switched.headers.getSetCookie()[0]?.split(";")[0];
+    assert.match(switched.headers.getSetCookie()[0] ?? "", /SameSite=Strict/u);
     assert.ok(cookie);
     const next = await fetch(gateway.origin, {
       headers: { cookie: `${cookie}; logto_local-test=old-owner` },
