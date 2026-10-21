@@ -304,7 +304,15 @@ export function desiredMaterial(
     ),
   };
   if (manifest.selection.contentOnly) {
-    const existing = z.array(z.uuid()).max(100).parse(currentMembership);
+    const existing = z
+      .array(
+        z
+          .object({ seriesId: z.uuid(), ordinal: z.number().int().positive() })
+          .strict(),
+      )
+      .max(100)
+      .parse(currentMembership)
+      .map((item) => item.seriesId);
     if (
       canonical([...existing].sort()) !==
       canonical([...metadata.seriesIds].sort())
@@ -891,7 +899,7 @@ export async function syncLocal(
      *     contentVersion: number;
      *     primaryVideoId: string | null;
      *     cover?: { coverId: string } | null | undefined;
-     *     metadata: { slug?: string | undefined; seriesIds?: unknown };
+     *     metadata: { slug?: string | undefined; seriesMemberships?: unknown };
      *     publicationState?: PublicationState | undefined;
      *   }
      * >}
@@ -1293,7 +1301,7 @@ export async function syncLocal(
         primaryVideoId,
         publicationState: publicationOf(row),
         currentMembership: currentMaterials.get(row.sourceId)?.metadata
-          .seriesIds,
+          .seriesMemberships,
       });
     // Validate every document before changing any previously correct Material; only empty Product shells
     // and private reservations exist so far.

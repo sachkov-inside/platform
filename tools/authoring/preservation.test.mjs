@@ -86,7 +86,8 @@ async function fixture(t, publication = "published") {
     metadata: {
       slug: "one",
       access: "free",
-      seriesIds: /** @type {string[]} */ ([]),
+      seriesMemberships:
+        /** @type {{seriesId: string; ordinal: number}[]} */ ([]),
     },
     publicationState: /** @type {'draft'|'published'|'unpublished'} */ (
       publication
@@ -463,7 +464,7 @@ test("bounded preservation retains embedded Task context and writes only the sel
     sourcePath: "untouched.md",
     markdown: "Never import this changed context",
   });
-  f.model.metadata.seriesIds = [productId];
+  f.model.metadata.seriesMemberships = [{ seriesId: productId, ordinal: 1 }];
   lesson.practiceTaskId = "embedded";
   lesson.markdown = "Changed [task](embedded.md) and [context](untouched.md).";
   lesson.links = { "embedded.md": "embedded", "untouched.md": "untouched" };
@@ -642,7 +643,7 @@ test("bounded preview refuses a selected Material membership change before write
     artifactIds: [],
   };
   // Source context omits a Product that still owns the selected Material on target.
-  f.model.metadata.seriesIds = [productId];
+  f.model.metadata.seriesMemberships = [{ seriesId: productId, ordinal: 1 }];
   await writeFile(f.packagePath, canonical(f.manifest));
   await assert.rejects(
     previewPreservation(f.packagePath, f.state, {
