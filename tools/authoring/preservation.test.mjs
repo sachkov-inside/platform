@@ -1,10 +1,17 @@
 // @ts-check
 import { test } from "node:test";
+import { z } from "zod";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { canonical, loadPackage, materialRevision } from "./package.mjs";
+import {
+  canonical,
+  checksum,
+  loadPackage,
+  materialRevision,
+} from "./package.mjs";
+import { convertMarkdown } from "./markdown.mjs";
 import { taskChapterId } from "./task-import.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import {
@@ -730,3 +737,118 @@ test("bounded Task preservation refuses placement drift before writes", async (t
   await preservationState(f.manifest, f.state, "stand", readState, request);
   assert.deepEqual(f.writes, []);
 });
+
+test("preservation uses the legacy Material wire shape when source omits notification intent", async (t) => {
+  const f = await fixture(t);
+  const request = /** @type {import('./target.mjs').LocalTransport} */ (
+    async (path, body, key, options) => {
+      if (path === "/authoring/import/materials/apply") {
+        const command = materialApplyRequest({ path, body })?.body;
+        assert.ok(command);
+        // The running pre-notification DTO rejects extra keys with HTTP 400 at the root.
+        if (Object.hasOwn(command, "notifyTelegram"))
+          throw Object.assign(
+            new Error("400 invalid_request_shape: unrecognized_keys at /"),
+            { status: 400 },
+          );
+      }
+      return f.request(path, body, key, options);
+    }
+  );
+  const result = await previewPreservation(f.packagePath, f.state, {
+    sourceCommit: "a".repeat(40),
+    readState: f.readState,
+    request,
+  });
+  assert.equal(
+    Object.hasOwn(result.preview.preview.materials[0] ?? {}, "notifyTelegram"),
+    false,
+  );
+  // Preserve an old client's definitively rejected command without deleting history.
+  const journalPath = join(f.state, "journal.json");
+  const journal = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  const applied = Object.values(journal.operations).find(
+    (entry) =>
+      isJournalOperation(entry) &&
+      materialApplyRequest(entry.request) !== undefined,
+  );
+  assert.ok(applied && isJournalOperation(applied));
+  const legacy = structuredClone(applied.request);
+  const previous = materialApplyRequest(legacy);
+  assert.ok(previous);
+  previous.body["notifyTelegram"] = false;
+  const derived = await loadPackage(result.receipt.packagePath);
+  const selected = derived.manifest.materials[0];
+  assert.ok(selected);
+  previous.body.source.revision = materialRevision(derived.manifest, selected);
+  previous.body.expectedContentVersion = f.model.contentVersion;
+  previous.body.body = z
+    .object({ schemaVersion: z.number(), doc: z.json() })
+    .parse(
+      convertMarkdown(selected.markdown, {
+        sourceId: `${derived.manifest.sourceNamespace}:${selected.sourceId}`,
+        sourcePath: selected.sourcePath,
+        link: (href) => href,
+        image: (src) => src,
+      }),
+    );
+  const rejectedKey = `authoring:${checksum(canonical(previous))}`;
+  journal.operations[rejectedKey] = {
+    request: previous,
+    status: "rejected",
+    error: {
+      status: 400,
+      message: "400 invalid_request_shape: unrecognized_keys at /",
+    },
+  };
+  await writeFile(journalPath, canonical(journal));
+  const before = structuredClone(journal.operations[rejectedKey]);
+  await applyPreservation(result.path, f.state, {
+    readState: f.readState,
+    request,
+  });
+  const after = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  assert.deepEqual(after.operations[rejectedKey], before);
+  const corrected = structuredClone(previous);
+  delete corrected.body["notifyTelegram"];
+  const correctedKey = `authoring:${checksum(canonical(corrected))}`;
+  const saved = after.operations[correctedKey];
+  assert.ok(saved && isJournalOperation(saved));
+  assert.equal(saved.status, "applied");
+  assert.equal(f.model.contentVersion, 3);
+  assert.deepEqual(f.writes, ["/authoring/import/materials/apply"]);
+});
+
+for (const notifyTelegram of [false, true]) {
+  test(`explicit notification intent ${notifyTelegram} remains on the Material command`, async (t) => {
+    const f = await fixture(t);
+    const row = f.manifest.materials[0];
+    assert.ok(row);
+    row.notifyTelegram = notifyTelegram;
+    await writeFile(f.packagePath, canonical(f.manifest));
+    let observed;
+    const request = /** @type {import('./target.mjs').LocalTransport} */ (
+      async (path, body, key, options) => {
+        if (path === "/authoring/import/materials/apply")
+          observed = materialApplyRequest({ path, body })?.body[
+            "notifyTelegram"
+          ];
+        return f.request(path, body, key, options);
+      }
+    );
+    const result = await previewPreservation(f.packagePath, f.state, {
+      sourceCommit: "a".repeat(40),
+      readState: f.readState,
+      request,
+    });
+    await applyPreservation(result.path, f.state, {
+      readState: f.readState,
+      request,
+    });
+    assert.equal(
+      result.preview.preview.materials[0]?.notifyTelegram,
+      notifyTelegram,
+    );
+    assert.equal(observed, notifyTelegram);
+  });
+}

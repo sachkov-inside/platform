@@ -61,7 +61,7 @@ import { previewRetirement, applyRetirement } from "./retirement.mjs";
  * @property {string} sourceId
  * @property {string} title
  * @property {string} access
- * @property {boolean} notifyTelegram
+ * @property {boolean} [notifyTelegram]
  * @property {boolean} showInFeed
  * @property {string | null} video
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
@@ -238,7 +238,9 @@ export async function previewRelease(
       title: row.title,
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
-      notifyTelegram: row.notifyTelegram ?? false,
+      ...(row.notifyTelegram === undefined
+        ? {}
+        : { notifyTelegram: row.notifyTelegram }),
       video: row.video?.kinescopeId ?? null,
       publication: publicationOfKey(key),
     };

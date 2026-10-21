@@ -45,7 +45,11 @@ Existing journal Material identities and versions must agree; stale journals req
 The profile copies fresh access choices and Task publication into a separately hashed package.
 It selects only already published Materials for the existing release publication mechanism.
 This selection preserves their publication state; it can replace their published body with the assigned content.
-The original package remains unchanged. The profile does not use earlier task-local package or policy snapshots.
+The original package remains unchanged. When an original omits `notifyTelegram`, the Material
+command omits it too. This preserves notification intent on current receivers and remains compatible
+with pre-notification receivers. Explicit `true` or `false` stays explicit; unsupported requested
+notification behavior is not silently downgraded. A definitively rejected earlier command remains
+in the journal, while corrected request bytes receive their own ordinary operation fingerprint. The profile does not use earlier task-local package or policy snapshots.
 
 The returned immutable receipt binds source SHA, original/derived package IDs and paths, reviewed preview,
 and fresh selected target state. Review the ordinary preview changes before applying this receipt.
