@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "inside.pgbackrest.repository-transition.v1",
+  "acceptedSource": "26cfc44324729be14b646998965412e4c04112ad",
+  "mergeCommit": "43959034c405975627989b38cca0dcf2034fcd50",
+  "completedAt": "2026-10-21T10:21:24.886455+00:00",
+  "productionImage": "sha256:e8c0c4e0acd81074186c2bc85dec272d820dae2a7cb55827ebd0d3f404e764a5",
+  "runtime": {
+    "sameDatabaseImageVolumeMountsNetworks": true,
+    "init": true,
+    "sameWriterContainerIdentities": true,
+    "writersHealthy": 10,
+    "publicHttpStatus": {
+      "platform": 200,
+      "identityDiscovery": 200
+    }
+  },
+  "transition": {
+    "independentNewStanzaCreated": true,
+    "repository2Path": "/inside-platform-v2",
+    "sameExistingBucket": true,
+    "cloudCredentialsRotated": false,
+    "autoExpireDisabled": true,
+    "activeScheduledBackupRepository": 2,
+    "walContinuesToBothRepositories": true,
+    "newFull": "20261021-100715F",
+    "systemdIncremental": "20261021-100715F_20261021-102044I",
+    "systemdRoutingVerified": true,
+    "timersActive": 3
+  },
+  "history": {
+    "t0ObservedAt": "2026-10-21T09:45:34.270352+00:00",
+    "t0Labels": 88,
+    "t0LabelsSha256": "da69f7d10e01115b10daceb4c0edf4a54eb88173b9a99c11ad76e18b2986c0a9",
+    "retainedRepository1": 90,
+    "retainedRepository2": 2,
+    "allT0LabelsPreserved": true,
+    "allT0LabelsRestored": true,
+    "walMetadataIntervals": [
+      {
+        "timeline": "00000001",
+        "segments": 15113,
+        "firstSequence": 51057,
+        "lastSequence": 66169,
+        "gaps": 0
+      }
+    ],
+    "allWalPayloadsReplayed": false,
+    "historicalKeyQualityVerified": false
+  },
+  "recovery": {
+    "databases": [
+      "inside",
+      "logto",
+      "inside_telegram"
+    ],
+    "scope": "Recovery completion, database availability and expected base tables. No full historical data equality claim.",
+    "restoreCases": 97,
+    "immediateCases": 92,
+    "pitrCases": [
+      {
+        "backupLabel": "20261011-010316F",
+        "repository": 1,
+        "recoveryType": "time",
+        "target": "2026-10-11T01:04:50+00:00",
+        "finishedAt": "2026-10-21T10:20:40Z"
+      },
+      {
+        "backupLabel": "20261021-100715F",
+        "repository": 2,
+        "recoveryType": "name",
+        "target": "inside_1627_after_transition",
+        "finishedAt": "2026-10-21T10:08:05Z"
+      },
+      {
+        "backupLabel": "20261021-100244F",
+        "repository": 1,
+        "recoveryType": "name",
+        "target": "inside_1627_after_transition",
+        "finishedAt": "2026-10-21T10:08:23Z"
+      },
+      {
+        "backupLabel": "20261021-094614F",
+        "repository": 1,
+        "recoveryType": "name",
+        "target": "inside_1627_before_transition",
+        "finishedAt": "2026-10-21T10:00:55Z"
+      },
+      {
+        "backupLabel": "20261021-100244F",
+        "repository": 1,
+        "recoveryType": "name",
+        "target": "inside_1627_before_transition_retry",
+        "finishedAt": "2026-10-21T10:05:41Z"
+      }
+    ],
+    "allOwnedRestoreVolumesRemoved": true,
+    "receiptSetSha256": "658ecbd112c228065b3824f2460587778057cd689268630dcafcee8837b63a48"
+  },
+  "maintenance": {
+    "attempt1Seconds": 98.5,
+    "attempt2Seconds": 92.5,
+    "totalSeconds": 191.0,
+    "attempt1Result": "Mount order false positive. Old route restored with fresh old full and isolated restore.",
+    "mountComparisonFixed": "Compare complete mount tuples by Destination, independent of Docker list order."
+  },
+  "recoverySecret": {
+    "sopsRecipients": 2,
+    "hostDecryptRoundtrip": true,
+    "encryptedOffhostCopyVerified": true,
+    "offlinePrivateIdentityDecryptPerformed": false,
+    "plaintextPublished": false
+  },
+  "capacity": {
+    "objects": 16850,
+    "bytes": 5206335376,
+    "completedPreviousDays": 7,
+    "dailyStoredBytesAverage": 541120352,
+    "twoRepository30DayForecastBytes": 37673556496,
+    "envelopeBytes": 42949672960,
+    "withinEnvelope": true,
+    "estimatedAt": "2026-10-21T09:45:07.206543+00:00",
+    "estimateOnly": true,
+    "additionalBudgetRub": 1000,
+    "tariffReference": "https://yandex.cloud/ru/docs/storage/pricing",
+    "estimatedStorageAtPublishedExampleRub": 83.36,
+    "estimatedStagingEgressAtPublishedExampleRub": 8.15,
+    "billingAccountActualNotVerified": true
+  },
+  "rngFailureVerified": false,
+  "rngStopPreserved": true,
+  "securityAcceptanceGreen": false,
+  "limitations": [
+    "Historical stanza subkey quality remains unproven.",
+    "WAL filename continuity and selected endpoint PITR do not prove replay of every stored WAL payload.",
+    "No full historical row equality without a historical reference.",
+    "Actual billing account charges and future growth are not verified by the estimate.",
+    "RNG failure criterion remains unverified under STOP."
+  ]
+}
