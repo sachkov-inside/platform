@@ -1,5 +1,40 @@
 # Stand MCP trusts Logto; both adapters sign browser URLs for the published local storage port.
 services:
+  web:
+    # The stand's local identity gateway is its only browser entry. Default Compose and release
+    # compositions do not import this adapter.
+    ports: !reset []
+  local-accounts:
+    profiles: [local-accounts]
+    image: ${COMPOSE_PROJECT_NAME:-inside-platform}-backend-development:local
+    pull_policy: never
+    command: ["node", "scripts/local-accounts-server.mjs"]
+    environment:
+      NODE_ENV: development
+      NODE_EXTRA_CA_CERTS: /identity-tls/certificate.pem
+      LOCAL_ACCOUNTS_PORT: ${WEB_HOST_PORT:-3000}
+    volumes:
+      - ./.identity-proof/tls:/identity-tls:ro
+      - ./.identity-proof/local-accounts.json:/local-accounts/local-accounts.json:ro
+    ports:
+      - "127.0.0.1:${WEB_HOST_PORT:-3000}:${WEB_HOST_PORT:-3000}"
+    depends_on:
+      web:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 10s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:'+process.env.LOCAL_ACCOUNTS_PORT+'/__local/accounts').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
   api:
     environment:
       OBJECT_STORAGE_SIGNED_GET_ENDPOINT: http://127.0.0.1:${OBJECT_STORAGE_HOST_PORT:-9000}

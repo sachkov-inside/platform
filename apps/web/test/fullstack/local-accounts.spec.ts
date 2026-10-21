@@ -1,0 +1,237 @@
+import { randomUUID } from "node:crypto";
+import { createServer } from "node:http";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test } from "@playwright/test";
+import { z } from "zod";
+import {
+  fullStackBaseUrl,
+  signInFullStack,
+} from "../support/full-stack-session";
+
+test("local accounts: fresh owner, private draft and real denials survive restart and isolated contexts", async ({
+  browser,
+}) => {
+  const { startLocalAccountsGateway } =
+    await import("../../../../scripts/local-accounts-gateway.mjs");
+  const ownerContext = await browser.newContext();
+  let gateway:
+    Awaited<ReturnType<typeof startLocalAccountsGateway>> | undefined;
+  const context = await browser.newContext();
+  const entry = createServer((_request, response) => {
+    response.setHeader("content-type", "text/html");
+    response.end(`<a href="${entryTarget}">Open local stand</a>`);
+  });
+  let entryTarget = "";
+  try {
+    await new Promise<void>((done) => entry.listen(0, "127.0.0.1", done));
+    await signInFullStack(ownerContext, "OWNER");
+    const created = await ownerContext.request.post(
+      `${fullStackBaseUrl()}/api/authoring/materials`,
+      {
+        headers: { origin: fullStackBaseUrl() },
+        form: {
+          title: "Local account private draft",
+          summary: "",
+          access: "free",
+          difficulty: "unassigned",
+          formatId: "unassigned",
+          topicId: "unassigned",
+          seriesIds: "[]",
+          submissionId: randomUUID(),
+          document: JSON.stringify({
+            type: "doc",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "text", text: "LOCAL_ACCOUNT_PRIVATE_DRAFT" },
+                ],
+              },
+            ],
+          }),
+        },
+      },
+    );
+    const draft = z
+      .object({
+        kind: z.literal("created"),
+        draft: z.object({ materialId: z.uuid() }),
+      })
+      .parse(await created.json());
+    const sessions: Record<string, string | undefined> = {
+      owner: process.env["FULLSTACK_LOGTO_SESSION"],
+      learner: process.env["FULLSTACK_LOGTO_LOCAL_LEARNER_SESSION"],
+      "learner-with-access":
+        process.env["FULLSTACK_LOGTO_LOCAL_LEARNER_WITH_ACCESS_SESSION"],
+    };
+    gateway = await startLocalAccountsGateway({
+      port: 0,
+      upstream: fullStackBaseUrl(),
+      cookieName: z.string().parse(process.env["FULLSTACK_LOGTO_COOKIE_NAME"]),
+      secret: "local-accounts-browser-proof-cookie-secret",
+      createSession: (choice) =>
+        Promise.resolve(z.string().parse(sessions[choice])),
+    });
+    const origin = gateway.origin;
+    const page = await context.newPage();
+    const preview = `/authoring/materials/${draft.draft.materialId}/preview`;
+    entryTarget = `${origin}${preview}`;
+    const entryAddress = entry.address();
+    if (entryAddress === null || typeof entryAddress === "string")
+      throw new Error("Entry fixture is not listening");
+    // localhost -> 127.0.0.1 is a real cross-site link, like an external tab or redirect.
+    const entryOrigin = `http://localhost:${String(entryAddress.port)}`;
+    await page.goto(entryOrigin);
+    await page.getByRole("link", { name: "Open local stand" }).click();
+    await page.waitForURL(entryTarget);
+    await expect(
+      page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
+    ).toBeVisible();
+    const ownerStatus: unknown = await (
+      await context.request.get(`${origin}/auth/status`)
+    ).json();
+    expect(ownerStatus).toMatchObject({
+      state: "authenticated",
+      canManageMaterials: true,
+    });
+    const ids = new Set<string>();
+    for (const [choice, label] of [
+      ["learner-with-access", "Ученик с доступом"],
+      ["learner", "Ученик без доступа"],
+      ["guest", "Гость"],
+      ["owner", "Владелец"],
+    ] as const) {
+      await page.goto(
+        `${origin}/__local/accounts?returnTo=${encodeURIComponent(preview)}`,
+      );
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await page.getByRole("radio", { name: new RegExp(`^${label}`) }).check();
+      await page.getByRole("button", { name: "Выбрать аккаунт" }).click();
+      await expect(page).toHaveURL(`${origin}${preview}`);
+      await page.waitForLoadState("load");
+      await page.reload();
+      const state = z
+        .object({
+          state: z.string(),
+          canManageMaterials: z.boolean(),
+          accountId: z.string().nullable(),
+        })
+        .parse(
+          await (await context.request.get(`${origin}/auth/status`)).json(),
+        );
+      expect(state.canManageMaterials).toBe(choice === "owner");
+      expect(state.state).toBe(choice === "guest" ? "guest" : "authenticated");
+      if (choice.startsWith("learner"))
+        ids.add(z.string().parse(state.accountId));
+      const authoring = await context.request.get(
+        `${origin}/api/authoring/materials`,
+      );
+      expect(authoring.status()).toBe(
+        choice === "owner" ? 200 : choice === "guest" ? 401 : 403,
+      );
+      if (choice !== "owner")
+        await expect(
+          page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
+        ).toHaveCount(0);
+      if (choice === "guest") {
+        await gateway.close();
+        gateway = await startLocalAccountsGateway({
+          port: Number(new URL(origin).port),
+          upstream: fullStackBaseUrl(),
+          cookieName: z
+            .string()
+            .parse(process.env["FULLSTACK_LOGTO_COOKIE_NAME"]),
+          secret: "local-accounts-browser-proof-cookie-secret",
+          createSession: (profile) =>
+            Promise.resolve(z.string().parse(sessions[profile])),
+        });
+        await page.reload();
+        expect(
+          await (await context.request.get(`${origin}/auth/status`)).json(),
+        ).toMatchObject({ state: "guest", canManageMaterials: false });
+        const selected = (await context.cookies(origin)).find(
+          (cookie) => cookie.name === "inside.local-account",
+        );
+        expect(selected?.sameSite).toBe("Strict");
+        await page.goto(entryOrigin);
+        const firstDocument = page.waitForResponse(
+          (response) =>
+            response.url() === entryTarget &&
+            response.request().isNavigationRequest(),
+        );
+        let resumeEntry: (() => void) | undefined;
+        const pausedEntry = new Promise<void>((done) => {
+          resumeEntry = done;
+        });
+        const entryScript = `${origin}/__local/accounts/entry.js`;
+        await page.route(entryScript, async (route) => {
+          await pausedEntry;
+          await route.continue();
+        });
+        try {
+          // Keep the first document alive until its bytes are checked, then permit navigation.
+          await Promise.all([
+            page.getByRole("link", { name: "Open local stand" }).click(),
+            firstDocument.then(async (response) => {
+              expect(await response.text()).not.toContain(
+                "LOCAL_ACCOUNT_PRIVATE_DRAFT",
+              );
+              resumeEntry?.();
+            }),
+          ]);
+        } finally {
+          resumeEntry?.();
+          await page.unroute(entryScript);
+        }
+        await page.waitForURL(entryTarget);
+        await expect(
+          page.getByText("Локально: Гость", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
+        ).toHaveCount(0);
+        expect(
+          await (await context.request.get(`${origin}/auth/status`)).json(),
+        ).toMatchObject({ state: "guest", canManageMaterials: false });
+        const fresh = await browser.newContext();
+        try {
+          expect(
+            await (await fresh.request.get(`${origin}/auth/status`)).json(),
+          ).toMatchObject({ state: "authenticated", canManageMaterials: true });
+        } finally {
+          await fresh.close();
+        }
+      }
+      await page.goto(
+        `${origin}/materials/developer-pipeline-bez-poteri-konteksta`,
+      );
+      await expect(
+        page.getByText("Закрытое содержимое для участников.", { exact: true }),
+      ).toHaveCount(
+        choice === "owner" || choice === "learner-with-access" ? 1 : 0,
+      );
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth ===
+            document.documentElement.clientWidth,
+        ),
+      ).toBe(true);
+    }
+    expect(ids.size).toBe(2);
+    await page.goto(`${origin}${preview}`);
+    await expect(
+      page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
+    ).toBeVisible();
+  } finally {
+    await context.close();
+    await ownerContext.close();
+    await gateway?.close();
+    await new Promise<void>((done, reject) => {
+      entry.close((error) => {
+        if (error) reject(error);
+        else done();
+      });
+    });
+  }
+});
