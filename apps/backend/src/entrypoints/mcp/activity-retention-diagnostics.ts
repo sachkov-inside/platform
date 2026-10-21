@@ -1,3 +1,5 @@
+import type { PgBossQueueDiagnostics } from "../../infrastructure/pg-boss-queue-diagnostics.js";
+import { activityRetentionReceiptUnknown } from "../../infrastructure/activity-retention.js";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { Accounts } from "../../modules/accounts/index.js";
@@ -12,6 +14,10 @@ export class ActivityRetentionDiagnostics {
     private readonly accounts: Pick<Accounts, "checkPermission">,
     private readonly reading: Pick<ReadingActivityRetention, "status">,
     private readonly bookmarks: Pick<BookmarkActivityRetention, "status">,
+    private readonly receipts: Pick<
+      PgBossQueueDiagnostics,
+      "readActivityRetentionLastPass"
+    >,
   ) {}
 
   async read(accountId: string, input: unknown) {
@@ -53,7 +59,13 @@ export class ActivityRetentionDiagnostics {
           });
         }
       }
-      return { ok: true as const, value: { sources } };
+      let lastPass;
+      try {
+        lastPass = await this.receipts.readActivityRetentionLastPass();
+      } catch {
+        lastPass = activityRetentionReceiptUnknown("source_unavailable");
+      }
+      return { ok: true as const, value: { sources, lastPass } };
     } catch (error) {
       return dependencyFailure(
         { module: "ActivityRetentionDiagnostics", operation: "read" },
@@ -79,7 +91,7 @@ export function registerActivityRetentionDiagnosticsTool(
     {
       title: "Read Membership analytics-copy retention status",
       description:
-        "Requires current platform:admin. Read-only bounded status of the two Membership analytics-copy journals: learning_started_events and bookmarks.activity_events. Database UTC asOf/cutoff, oldest expired row and lag, never a full backlog count. 365-day horizon, independent source snapshots, 2s statement/5s transaction/1s acquire bounds. Source failure is unknown, never zero. No cleanup, identities, original learning/bookmark/submission data changes, providers or caller-selected tables. This does not prove next-day cleanup, worker freshness or physical disk reclamation.",
+        "Requires current platform:admin. Read-only bounded status of the two Membership analytics-copy journals: learning_started_events and bookmarks.activity_events. Database UTC asOf/cutoff, oldest expired row and lag, never a full backlog count. 365-day horizon, independent source snapshots, 2s statement/5s transaction/1s acquire bounds. Source failure is unknown, never zero. A third bounded fixed-queue read exposes only a validated <=4096-byte last terminal pass aggregate, including partial failure; retained queue overflow or invalid/missing latest report stays unknown, with no fallback to earlier success. Pass age over 600 seconds is stale, otherwise recent, neither proves worker health. Three independent reads have at most 18 seconds total acquisition/transaction allowances. No cleanup, identities, original learning/bookmark/submission data changes, providers or caller-selected tables. This does not prove next-day cleanup, worker freshness or physical disk reclamation.",
       inputSchema: querySchema,
       annotations: {
         readOnlyHint: true,

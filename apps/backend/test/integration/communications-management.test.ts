@@ -281,6 +281,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
         app.get<Accounts>(ACCOUNTS),
         new ReadingActivityRetention(database.prisma),
         new BookmarkActivityRetention(database.prisma),
+        new PgBossQueueDiagnostics(database.prisma),
       ),
       telemetry: app.get(WebTelemetry),
       tokenVerifier: app.get<LogtoAccessTokenVerifier>(

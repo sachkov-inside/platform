@@ -9,6 +9,9 @@ it("checks current delegated admin before retention reads and exposes no cleanup
   const actor = "10000000-0000-4000-8000-000000000001";
   const status = vi.fn().mockRejectedValue(new Error("private"));
   const permission = vi.fn().mockResolvedValue({ ok: true, allowed: false });
+  const readReceipt = vi
+    .fn()
+    .mockRejectedValue(new Error("private receipt must not be read"));
   const server = new McpServer({ name: "retention", version: "1" });
   registerActivityRetentionDiagnosticsTool(server, {
     accountId: actor,
@@ -16,6 +19,7 @@ it("checks current delegated admin before retention reads and exposes no cleanup
       { checkPermission: permission },
       { status },
       { status },
+      { readActivityRetentionLastPass: readReceipt },
     ),
   });
   const client = new Client({ name: "retention-contract", version: "1" });
@@ -55,6 +59,7 @@ it("checks current delegated admin before retention reads and exposes no cleanup
     ).toMatchObject({ isError: true });
     expect(permission).not.toHaveBeenCalled();
     expect(status).not.toHaveBeenCalled();
+    expect(readReceipt).not.toHaveBeenCalled();
   } finally {
     await client.close();
     await server.close();
@@ -62,6 +67,12 @@ it("checks current delegated admin before retention reads and exposes no cleanup
 });
 it("keeps source failure distinct from a known empty backlog and does not return private errors", async () => {
   const actor = "10000000-0000-4000-8000-000000000001";
+  const missingReceipt = {
+    ok: false as const,
+    status: "unknown" as const,
+    error: { code: "no_retained_pass" as const },
+  };
+  const readReceipt = vi.fn().mockResolvedValue(missingReceipt);
   const diagnostics = new ActivityRetentionDiagnostics(
     { checkPermission: vi.fn().mockResolvedValue({ ok: true, allowed: true }) },
     {
@@ -78,6 +89,7 @@ it("keeps source failure distinct from a known empty backlog and does not return
       }),
     },
     { status: vi.fn().mockRejectedValue(new Error(`private ${actor}`)) },
+    { readActivityRetentionLastPass: readReceipt },
   );
   const result = await diagnostics.read(actor, {});
   expect(result).toMatchObject({
@@ -116,10 +128,17 @@ it("rechecks authorization after revocation and rejects invalid direct inputs be
     .mockResolvedValueOnce({ ok: true, allowed: true })
     .mockResolvedValueOnce({ ok: true, allowed: false })
     .mockResolvedValueOnce({ ok: false, error: { code: "internal_error" } });
+  const missingReceipt = {
+    ok: false as const,
+    status: "unknown" as const,
+    error: { code: "no_retained_pass" as const },
+  };
+  const readReceipt = vi.fn().mockResolvedValue(missingReceipt);
   const diagnostics = new ActivityRetentionDiagnostics(
     { checkPermission: permission },
     { status },
     { status },
+    { readActivityRetentionLastPass: readReceipt },
   );
   expect(await diagnostics.read(actor, {})).toMatchObject({ ok: true });
   status.mockClear();
@@ -141,4 +160,5 @@ it("rechecks authorization after revocation and rejects invalid direct inputs be
   });
   expect(status).not.toHaveBeenCalled();
   expect(permission).toHaveBeenCalledTimes(3);
+  expect(readReceipt).toHaveBeenCalledOnce();
 });

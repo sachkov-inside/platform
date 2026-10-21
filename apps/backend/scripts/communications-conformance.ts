@@ -177,6 +177,7 @@ const mcp = createMcpHttpServer({
     app.get<Accounts>(ACCOUNTS),
     new ReadingActivityRetention(prisma),
     new BookmarkActivityRetention(prisma),
+    new PgBossQueueDiagnostics(prisma),
   ),
   telemetry: app.get(WebTelemetry),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),

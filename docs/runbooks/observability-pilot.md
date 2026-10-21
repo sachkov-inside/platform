@@ -2188,3 +2188,35 @@ Current preparation requires genuine PostgreSQL boundary, concurrency, rollback 
 invariance evidence plus actual worker scheduling in hosted CI. Source/adapter checks do not prove
 next-day cleanup under backlog or ingestion, worker availability, production capacity or runtime
 privacy. No production cleanup, deployment or server change is authorized by these source changes.
+
+### Partial retention passes and registration failure
+
+A failed cleanup job retains a closed, validated `activityRetention` report on its fixed Error.
+The pinned pg-boss failure path serializes this enumerable field into the failed receipt. It contains
+only the two fixed source outcomes and safe aggregate count/cutoff/lag fields, at most 4096 UTF-8
+bytes. An earlier committed owner batch is therefore distinguishable from a failed other owner;
+no original exception, Account/event ID or payload is attached to that report. Successful receipts
+use the same owned field. Serializer unit evidence is not a real failed-receipt persistence proof.
+
+`activity_retention_diagnostics` returns `lastPass` separately from the current two owner statuses.
+The infrastructure reads only this queue's owned report projection. It materializes at most 2001
+primary-key-ordered retained job headers. More than 2000 candidates yields unknown rather than a
+latest result from a truncated set. Otherwise it selects the latest completed/failed receipt from
+that complete bounded set. Missing, oversized or invalid latest reports remain unknown; an earlier
+success is never substituted. Neither job IDs, payloads, full outputs, messages nor stacks are
+returned. Terminal state and closed report outcome must agree. The original general queue report
+continues to read no payload/output columns.
+
+The last retained receipt includes database clock, completion time and age. Age over 600 seconds is
+`stale`, otherwise `recent`; neither proves worker health or next-day cleanup. Expired receipt
+retention, no terminal receipt, schema failure and budget overflow remain explicit unknown states.
+The three independent reads each retain the existing one-second acquisition/five-second transaction
+allowance (at most 18 seconds total), with no retry or caller budget control.
+
+Only registration of the new retention queue is caught locally. Its sanitized failure is reported
+while registration of the original nine queues proceeds; their own failures and existing bootstrap
+validation still propagate. A billing-worker ready record does not certify retention registration.
+Missing queue, backlog, current lag and missing/stale/unknown pass evidence must be checked together.
+Owned database-trigger registration refusal and actual partial-job continuation fixtures are prepared
+for hosted verification. Local source checks do not establish their native result. A process kill
+precisely after one owner commit and recovery after that crash remain unverified.

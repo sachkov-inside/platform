@@ -1022,6 +1022,21 @@ describe("ReadingActivity on PostgreSQL", () => {
           accountId_productId: { accountId: account, productId: product },
         },
       });
+    await database.prisma.$executeRaw(
+      Prisma.sql`update reading_activity.events set occurred_at=transaction_timestamp()-interval '366 days' where account_id=${account}::uuid`,
+    );
+    const originalStates = await database.prisma.readingMaterialState.findMany({
+      where: { accountId: account },
+      orderBy: { materialId: "asc" },
+    });
+    const originalCommands = await database.prisma.readingCommand.findMany({
+      where: { accountId: account },
+      orderBy: { commandId: "asc" },
+    });
+    const originalVisits = await database.prisma.readingMaterialVisit.findMany({
+      where: { accountId: account },
+      orderBy: { materialId: "asc" },
+    });
     const originalEvents = await database.prisma.readingEvent.findMany({
       where: { accountId: account },
       orderBy: { eventId: "asc" },
@@ -1032,6 +1047,24 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await new ReadingActivityRetention(database.prisma).clean(),
     ).toMatchObject({ ok: true, value: { removed: 1 } });
+    expect(
+      await database.prisma.readingMaterialState.findMany({
+        where: { accountId: account },
+        orderBy: { materialId: "asc" },
+      }),
+    ).toEqual(originalStates);
+    expect(
+      await database.prisma.readingCommand.findMany({
+        where: { accountId: account },
+        orderBy: { commandId: "asc" },
+      }),
+    ).toEqual(originalCommands);
+    expect(
+      await database.prisma.readingMaterialVisit.findMany({
+        where: { accountId: account },
+        orderBy: { materialId: "asc" },
+      }),
+    ).toEqual(originalVisits);
     expect(await home.recordOpen(open)).toEqual(originalReceipt);
     expect(
       await home.recordOpen({ ...open, commandId: randomUUID() }),

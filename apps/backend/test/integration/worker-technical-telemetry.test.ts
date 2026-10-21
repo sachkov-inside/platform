@@ -1,3 +1,5 @@
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { PgBossQueueDiagnostics } from "../../src/infrastructure/pg-boss-queue-diagnostics.js";
 import { startNotificationBroker } from "./setup/broker.js";
 import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import { once } from "node:events";
@@ -19,14 +21,45 @@ import {
 
 const WORKER_FACT_BUDGET_MS = 20_000;
 const cases = [
-  { worker: "notifications-worker", queues: [] },
-  { worker: "profile-avatars-worker", queues: ["profile-avatars.cleanup"] },
-  { worker: "video-deletions-worker", queues: ["videos.deletions"] },
+  { worker: "notifications-worker", queues: [], retentionFailure: "none" },
+  {
+    worker: "profile-avatars-worker",
+    queues: ["profile-avatars.cleanup"],
+    retentionFailure: "none",
+  },
+  {
+    worker: "video-deletions-worker",
+    queues: ["videos.deletions"],
+    retentionFailure: "none",
+  },
   {
     worker: "billing-worker",
+    retentionFailure: "none",
     queues: [
       "web-telemetry.retention",
       "membership-activity.retention",
+      "billing.payment-recovery",
+      "billing.subscription-renewal",
+      "billing.subscription-notices",
+      "tribute.source-reconciliation",
+    ],
+  },
+  {
+    worker: "billing-worker",
+    retentionFailure: "registration_refusal",
+    queues: [
+      "web-telemetry.retention",
+      "billing.payment-recovery",
+      "billing.subscription-renewal",
+      "billing.subscription-notices",
+      "tribute.source-reconciliation",
+    ],
+  },
+  {
+    worker: "billing-worker",
+    retentionFailure: "partial",
+    queues: [
+      "web-telemetry.retention",
       "billing.payment-recovery",
       "billing.subscription-renewal",
       "billing.subscription-notices",
@@ -47,9 +80,11 @@ const log = z
   })
   .loose();
 
-for (const { worker, queues } of cases) {
-  for (const mode of ["enabled", "off", "export-failure"] as const) {
-    test(`${worker} preserves completed jobs and drain with technical telemetry ${mode}`, async () => {
+for (const { worker, queues, retentionFailure } of cases) {
+  for (const mode of retentionFailure === "none"
+    ? (["enabled", "off", "export-failure"] as const)
+    : (["off"] as const)) {
+    test(`${worker} preserves completed jobs and drain with technical telemetry ${mode}${retentionFailure === "none" ? "" : ` (${retentionFailure})`}`, async () => {
       await expect(access(WORKER_READINESS_PATH)).rejects.toThrow();
       const database = await createMigratedTestDatabase();
       const captured: string[] = [];
@@ -80,6 +115,7 @@ for (const { worker, queues } of cases) {
         Awaited<ReturnType<typeof startNotificationBroker>> | undefined;
       let workerPid: number | undefined;
       let signalled = false;
+      let renamedActivity = false;
       const stopWorker = async () => {
         if (child === undefined) return;
         if (
@@ -111,6 +147,26 @@ for (const { worker, queues } of cases) {
           broker = await startNotificationBroker({
             topology: localNotificationTopology("inside-test", 100),
           });
+        if (retentionFailure === "registration_refusal") {
+          await database.prisma.$executeRaw(
+            Prisma.sql`create function public.refuse_activity_retention() returns trigger language plpgsql as $$ begin if NEW.name='membership-activity.retention' then raise exception 'owned queue refusal'; end if; return NEW; end $$`,
+          );
+          await database.prisma.$executeRaw(
+            Prisma.sql`create trigger refuse_activity_retention before insert on pgboss.queue for each row execute function public.refuse_activity_retention()`,
+          );
+        }
+        if (retentionFailure === "partial") {
+          await database.prisma.$executeRaw(
+            Prisma.sql`insert into reading_activity.learning_started_events(event_id,account_id,product_id,command_id,occurred_at) values(gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),transaction_timestamp()-interval '366 days')`,
+          );
+          await database.prisma.$executeRaw(
+            Prisma.sql`insert into bookmarks.activity_events(event_id,account_id,material_id,event_type,occurred_at) values(gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),'bookmark_added',transaction_timestamp()-interval '366 days')`,
+          );
+          await database.prisma.$executeRaw(
+            Prisma.sql`alter table bookmarks.activity_events rename to unavailable_activity_events`,
+          );
+          renamedActivity = true;
+        }
         receiver.listen(0, "127.0.0.1");
         await once(receiver, "listening");
         const address = receiver.address();
@@ -145,6 +201,61 @@ for (const { worker, queues } of cases) {
             );
           }
         }, WORKER_FACT_BUDGET_MS);
+        if (retentionFailure === "registration_refusal") {
+          expect(
+            await inspector.getQueue("membership-activity.retention"),
+          ).toBeNull();
+          expect(
+            await new PgBossQueueDiagnostics(
+              database.prisma,
+            ).readActivityRetentionLastPass(),
+          ).toMatchObject({ ok: false, error: { code: "no_retained_pass" } });
+        }
+        if (retentionFailure === "partial") {
+          const diagnostics = new PgBossQueueDiagnostics(database.prisma);
+          await eventually(async () => {
+            expect(
+              await diagnostics.readActivityRetentionLastPass(),
+            ).toMatchObject({
+              ok: true,
+              value: {
+                state: "failed",
+                report: {
+                  sources: [
+                    { result: { ok: true, value: { removed: 1 } } },
+                    { result: { ok: false } },
+                  ],
+                },
+              },
+            });
+          }, WORKER_FACT_BUDGET_MS);
+          expect(
+            await database.prisma.$queryRaw(
+              Prisma.sql`select count(*)::int as remaining from reading_activity.learning_started_events`,
+            ),
+          ).toEqual([{ remaining: 0 }]);
+          await database.prisma.$executeRaw(
+            Prisma.sql`alter table bookmarks.unavailable_activity_events rename to activity_events`,
+          );
+          renamedActivity = false;
+          await inspector.send("membership-activity.retention", {});
+          await eventually(async () => {
+            expect(
+              await diagnostics.readActivityRetentionLastPass(),
+            ).toMatchObject({
+              ok: true,
+              value: {
+                state: "completed",
+                report: {
+                  sources: [
+                    { result: { ok: true, value: { removed: 0 } } },
+                    { result: { ok: true, value: { removed: 1 } } },
+                  ],
+                },
+              },
+            });
+          }, WORKER_FACT_BUDGET_MS);
+        }
         const completedIds: string[] = [];
         for (const queue of queues) {
           const policy = await inspector.getQueue(queue);
@@ -226,6 +337,14 @@ for (const { worker, queues } of cases) {
       } finally {
         await finishFixtureCleanup([
           stopWorker,
+          async () => {
+            if (renamedActivity) {
+              await database.prisma.$executeRaw(
+                Prisma.sql`alter table bookmarks.unavailable_activity_events rename to activity_events`,
+              );
+              renamedActivity = false;
+            }
+          },
           () => inspector.stop({ close: true, graceful: false }),
           () =>
             new Promise<void>((resolve, reject) =>

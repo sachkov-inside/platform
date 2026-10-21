@@ -2518,6 +2518,24 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     };
     const original = await tasks.submit(historical);
     expect(original).toMatchObject({ ok: true });
+    if (!original.ok) throw new Error(original.error.code);
+    await db.prisma.productTaskAuthorFeedback.create({
+      data: {
+        submissionId: original.value.submissionId,
+        comment: "Retained historical feedback",
+        reviewedAt: new Date(clock.at.getTime() - 366 * 86_400_000),
+        updatedBy: owner,
+        updatedAt: new Date(clock.at.getTime() - 366 * 86_400_000),
+      },
+    });
+    const originalFeedback =
+      await db.prisma.productTaskAuthorFeedback.findUniqueOrThrow({
+        where: { submissionId: original.value.submissionId },
+      });
+    const originalVersions = await db.prisma.productTaskVersion.findMany({
+      where: { taskId: task.taskId },
+      orderBy: { version: "asc" },
+    });
     const originalRows = await db.prisma.productTaskSubmission.findMany({
       where: { accountId: subject.accountId },
       orderBy: { id: "asc" },
@@ -2526,6 +2544,17 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     await new BookmarkActivityRetention(db.prisma).clean();
     vi.setSystemTime(clock.at);
     expect(await tasks.submit(historical)).toEqual(original);
+    expect(
+      await db.prisma.productTaskAuthorFeedback.findUniqueOrThrow({
+        where: { submissionId: original.value.submissionId },
+      }),
+    ).toEqual(originalFeedback);
+    expect(
+      await db.prisma.productTaskVersion.findMany({
+        where: { taskId: task.taskId },
+        orderBy: { version: "asc" },
+      }),
+    ).toEqual(originalVersions);
     expect(
       await db.prisma.productTaskSubmission.findMany({
         where: { accountId: subject.accountId },

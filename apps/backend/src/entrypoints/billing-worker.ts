@@ -113,38 +113,42 @@ async function bootstrap(): Promise<void> {
       process: "billing-worker",
       readiness: application.get(OperationalReadiness),
       async registerJobs() {
-        await jobs.createQueue(activityRetentionQueue, {
-          deleteAfterSeconds: jobRetentionSeconds,
-          expireInSeconds: jobTimeoutSeconds,
-          retryLimit: 0,
-        });
-        await jobs.schedule(
-          activityRetentionQueue,
-          "* * * * *",
-          {},
-          { tz: "Etc/UTC" },
-        );
-        await jobs.send(
-          activityRetentionQueue,
-          {},
-          { singletonSeconds: jobIntervalSeconds },
-        );
-        await jobs.work(
-          activityRetentionQueue,
-          observeJob(
-            "billing-worker",
+        try {
+          await jobs.createQueue(activityRetentionQueue, {
+            deleteAfterSeconds: jobRetentionSeconds,
+            expireInSeconds: jobTimeoutSeconds,
+            retryLimit: 0,
+          });
+          await jobs.schedule(
             activityRetentionQueue,
-            async () => {
-              const result = await runActivityRetentionJob(
-                application.get(ReadingActivityRetention),
-                application.get(BookmarkActivityRetention),
-              );
-              writeLog("info", "activity_retention_completed", result);
-              return result;
-            },
-            technicalTelemetry,
-          ),
-        );
+            "* * * * *",
+            {},
+            { tz: "Etc/UTC" },
+          );
+          await jobs.send(
+            activityRetentionQueue,
+            {},
+            { singletonSeconds: jobIntervalSeconds },
+          );
+          await jobs.work(
+            activityRetentionQueue,
+            observeJob(
+              "billing-worker",
+              activityRetentionQueue,
+              async () => {
+                const result = await runActivityRetentionJob(
+                  application.get(ReadingActivityRetention),
+                  application.get(BookmarkActivityRetention),
+                );
+                writeLog("info", "activity_retention_completed", result);
+                return result;
+              },
+              technicalTelemetry,
+            ),
+          );
+        } catch (error) {
+          reportQueueFailure("billing-worker", error);
+        }
         await jobs.createQueue(telemetryCleanupQueue, {
           deleteAfterSeconds: telemetryReceiptRetentionSeconds,
           expireInSeconds: jobTimeoutSeconds,

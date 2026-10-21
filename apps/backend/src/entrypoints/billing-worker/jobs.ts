@@ -1,3 +1,4 @@
+import { activityRetentionPass } from "../../infrastructure/activity-retention.js";
 import type { ReadingActivityRetention } from "../../modules/reading-activity/index.js";
 import type { BookmarkActivityRetention } from "../../modules/bookmarks/index.js";
 import type {
@@ -45,30 +46,33 @@ export async function runNoticeJob(
   return result.value;
 }
 
-/** Each owner commits independently; a failure cannot undo a previously committed copy batch. */
+class ActivityRetentionFailure extends Error {
+  constructor(
+    readonly activityRetention: ReturnType<typeof activityRetentionPass>,
+  ) {
+    super("activity_retention_failed");
+  }
+}
+/** Each owner commits independently; the failed receipt retains validated partial outcomes. */
 export async function runActivityRetentionJob(
   reading: Pick<ReadingActivityRetention, "clean">,
   bookmarks: Pick<BookmarkActivityRetention, "clean">,
 ) {
-  const sources = [];
-  for (const [source, owner] of [
-    ["learning_started", reading],
-    ["bookmarks", bookmarks],
-  ] as const) {
+  const settle = async (owner: Pick<ReadingActivityRetention, "clean">) => {
     try {
-      sources.push({ source, result: await owner.clean() });
+      return await owner.clean();
     } catch {
-      sources.push({
-        source,
-        result: {
-          ok: false as const,
-          status: "unknown" as const,
-          error: { code: "source_unavailable" as const },
-        },
-      });
+      return {
+        ok: false as const,
+        status: "unknown" as const,
+        error: { code: "source_unavailable" as const },
+      };
     }
-  }
-  if (sources.some((source) => !source.result.ok))
-    throw new Error("activity_retention_failed");
-  return { sources };
+  };
+  const report = activityRetentionPass(
+    await settle(reading),
+    await settle(bookmarks),
+  );
+  if (report.outcome === "failed") throw new ActivityRetentionFailure(report);
+  return { activityRetention: report };
 }

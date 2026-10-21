@@ -40,12 +40,24 @@ import {
   providers: [
     {
       provide: ActivityRetentionDiagnostics,
-      inject: [ACCOUNTS, ReadingActivityRetention, BookmarkActivityRetention],
+      inject: [
+        ACCOUNTS,
+        ReadingActivityRetention,
+        BookmarkActivityRetention,
+        PgBossQueueDiagnostics,
+      ],
       useFactory: (
         accounts: Accounts,
         reading: ReadingActivityRetention,
         bookmarks: BookmarkActivityRetention,
-      ) => new ActivityRetentionDiagnostics(accounts, reading, bookmarks),
+        receipts: PgBossQueueDiagnostics,
+      ) =>
+        new ActivityRetentionDiagnostics(
+          accounts,
+          reading,
+          bookmarks,
+          receipts,
+        ),
     },
     OperationalReadiness,
     PgBossQueueDiagnostics,
