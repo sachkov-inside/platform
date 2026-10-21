@@ -72,7 +72,7 @@ def worker(output):
                              lambda row:row[0]==200,output=output,probe='postgres_source_query_ready')
             def ready():
                 deadline=time.monotonic()+3;driver.verify_pg(deadline)
-                try:driver.read(['docker','exec',driver.targets.targets['postgres']['id'],'pg_isready','-U','tracking','-d','tracking'])
+                try:driver.read(['docker','exec',driver.targets.targets['postgres']['id'],*ownership.PG_READY_COMMAND])
                 except Exception:return False
                 return True
             pilot.await_fact(ready,lambda value:value,output=output,probe='postgres_source_pg_ready')

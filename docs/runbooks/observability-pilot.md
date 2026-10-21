@@ -2007,6 +2007,15 @@ latest retained native failure remains baseline/query_refused with empty cases a
 failing boundary; privacy was not reached. A future source-bound run can distinguish that boundary,
 while diagnosis of its internal cause and native completion acceptance remain separate.
 
+Перед первым клиентом PostgreSQL и после перезапуска проверяется TCP `127.0.0.1:5432`
+внутри уже проверенного контейнера, а не временный Unix socket инициализации.
+PG и Tracking используют один фиксированный `pg_isready -h 127.0.0.1 -p 5432 -t 1`
+с прежними пользователем и базой. Общие сроки, ограничения команды и существующий цикл
+ожидания сохраняются; успешная проверка слушателя не подтверждает SQL или приватность.
+Последний измеренный отказ `baseline_setup_connect/query_refused` занял 39,522 с с учётом
+подготовки. Исправление устраняет неверный критерий готовности; связь с конкретным
+native-отказом ещё не подтверждена новым прогоном.
+
 Внутри `baseline_setup` последний вход в операцию можно уточнить до
 `baseline_setup_connect`, `baseline_setup_identity`, `baseline_setup_reader`,
 `baseline_setup_grant_connect`, `baseline_setup_read_only`, `baseline_setup_schema`,
@@ -2021,7 +2030,7 @@ Python принимает этап только после отправки setu
 Код никогда не превращает отказ в успех и не добавляет времени ожидания.
 В `postgres-source.json` остаются восемь полей и лимит 4096 байт; технический этап
 не допускается в успешных case-записях. Это измерение места отказа, а не исправление SQL.
-Последний native-прогон остановился в `baseline_setup/query_refused` за 39,710 с
+До уточнения этапа native-прогон остановился в `baseline_setup/query_refused` за 39,710 с
 с учётом подготовки. Причина пока неизвестна; приватность не проверена.
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before

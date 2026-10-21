@@ -158,7 +158,7 @@ def worker(output):
                 def pg_ready():
                     pilot.assert_docker_identity()
                     try:
-                        pilot.command(['docker','exec',targets.postgres(),'pg_isready','-U','tracking','-d','tracking'],timeout=3)
+                        pilot.command(['docker','exec',targets.postgres(),*ownership.PG_READY_COMMAND],timeout=3)
                         return True
                     except Exception:
                         return False

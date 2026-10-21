@@ -13,6 +13,7 @@ import capture
 import frame
 import fixture
 import queries
+import pg_ownership
 # Caller loads this owner's oracle by its fixed file identity, avoiding cross-owner module-name aliases.
 STOPPED='{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}'
 
@@ -60,7 +61,7 @@ class Scenario:
         deadline=time.monotonic()+self.remaining()
         while True:
             self.verify_pg(deadline)
-            try:self.read(['docker','exec',cid,'pg_isready','-U','tracking','-d','tracking'])
+            try:self.read(['docker','exec',cid,*pg_ownership.PG_READY_COMMAND])
             except subprocess.CalledProcessError:
                 left=min(pilot.POLL_INTERVAL_SECONDS,deadline-time.monotonic())
                 if left<=0:raise TimeoutError()

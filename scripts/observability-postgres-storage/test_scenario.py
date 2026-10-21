@@ -71,9 +71,57 @@ class Driver(unittest.TestCase):
         with patch.object(driver,'verify_pg',side_effect=deadlines.append),patch.object(driver,'read',side_effect=read), \
              patch.object(scenario.time,'sleep'):
             driver.await_postgres(cid)
-        self.assertEqual(calls,[['docker','exec',cid,'pg_isready','-U','tracking','-d','tracking']]*2)
+        self.assertEqual(calls,[['docker','exec',cid,'pg_isready','-h','127.0.0.1','-p','5432','-t','1','-U','tracking','-d','tracking']]*2)
         self.assertEqual(len(set(deadlines)),1)
         self.assertLessEqual(deadlines[0],time.monotonic()+10)
+
+    def test_restart_waits_for_final_tcp_not_temporary_unix_with_one_owned_deadline(self):
+        from types import SimpleNamespace
+        for expires in (False,True):
+            with self.subTest(expires=expires):
+                driver=scenario.Scenario(None,[],'fixed',None);driver.end=250
+                cid='a'*64;clock=[100.0];state=['temporary'];caps=[];probes=[];owned=[]
+                driver.targets=SimpleNamespace(postgres=lambda:cid)
+                def daemon(*,deadline):owned.append(deadline)
+                def command(args,*,timeout):
+                    self.assertEqual(args[:4],['docker','exec',cid,'pg_isready'])
+                    flags=dict(zip(args[4::2],args[5::2]))
+                    self.assertEqual(flags['-U'],'tracking');self.assertEqual(flags['-d'],'tracking')
+                    caps.append(timeout)
+                    self.assertAlmostEqual(timeout,110-clock[0])
+                    clock[0]+=min(.5,timeout)
+                    if '-h' not in flags:
+                        probes.append('temporary_unix_accepts');return ''
+                    self.assertEqual(flags['-h'],'127.0.0.1');self.assertEqual(flags['-p'],'5432')
+                    self.assertEqual(flags['-t'],'1')
+                    if state[0]=='temporary':
+                        probes.append('temporary_tcp_refuses');raise subprocess.CalledProcessError(1,args)
+                    probes.append('persistent_tcp_accepts');return ''
+                def sleep(delay):
+                    self.assertGreater(delay,0);self.assertLessEqual(delay,scenario.pilot.POLL_INTERVAL_SECONDS)
+                    clock[0]+=delay
+                    if not expires:state[0]='persistent'
+                with patch.object(scenario.time,'monotonic',side_effect=lambda:clock[0]), \
+                     patch.object(scenario.time,'sleep',side_effect=sleep), \
+                     patch.object(scenario.pilot,'assert_docker_identity',side_effect=daemon), \
+                     patch.object(scenario.pilot,'command',side_effect=command):
+                    if expires:
+                        with self.assertRaises(TimeoutError):driver.await_postgres(cid)
+                    else:
+                        driver.await_postgres(cid)
+                        self.assertEqual(probes,['temporary_tcp_refuses','persistent_tcp_accepts'])
+                        self.assertEqual(state[0],'persistent')
+                self.assertGreaterEqual(len(caps),2)
+                self.assertTrue(all(a>b for a,b in zip(caps,caps[1:])))
+                self.assertEqual(set(owned),{110.0});self.assertEqual(len(owned),len(probes))
+        driver=scenario.Scenario(None,[],'fixed',None);driver.end=time.monotonic()+150
+        primary=ValueError('ownership')
+        with patch.object(scenario.pilot,'assert_docker_identity',side_effect=primary), \
+             patch.object(scenario.pilot,'command') as command:
+            try:driver.await_postgres('a'*64)
+            except ValueError as error:self.assertIs(error,primary)
+            else:self.fail('daemon ownership refusal suppressed')
+        command.assert_not_called()
 
     def test_only_parent_verified_failed_acquisition_emits_current_zero_without_advancing_ledger(self):
         import capture
