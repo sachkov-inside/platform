@@ -12,9 +12,12 @@ class Privacy(unittest.TestCase):
             def accept(self,value):pass
         class Source:
             ledger=Ledger();token='fixed';cases=[]
-            def __init__(self):self.uploads=[]
+            def __init__(self):self.uploads=[];self.logging_checks=0
             def acquire(self):return EXPECTED.copy()
-            def upload(self,value):self.uploads.append(value)
+            def before_unsafe_upload(self):self.logging_checks+=1
+            def upload(self,value):
+                if self.logging_checks!=len(self.uploads)+1:raise AssertionError("unsafe upload before logging check")
+                self.uploads.append(value)
             def stored(self,value):return {'freshness':'fresh'}
             def verify_storage(self,deadline):pass
             def remaining(self,cap=10):return cap

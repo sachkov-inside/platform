@@ -27,7 +27,7 @@ def challenge(value,kind):
 
 def run(source):
     for kind in KINDS:
-        value=source.acquire();source.upload(challenge(value,kind));source.stored(value)
+        value=source.acquire();source.before_unsafe_upload();source.upload(challenge(value,kind));source.stored(value)
         source.ledger.accept(value)
         if kind in ('backend','telegram','foreign','missing'):
             observed=queries.protocol_read(source.token,source.verify_storage,value,budget=source.remaining())

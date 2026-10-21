@@ -73,6 +73,12 @@ class Scenario:
         self.remaining()
         return value
 
+    def before_unsafe_upload(self):
+        # Existing finite service guard, bounded by this phase's remaining work, never a fresh allowance.
+        with source_status_query._deadline(self.remaining()):
+            pilot.verify_trace_store_logging(self.targets.output,self.compose,service='alloy')
+        self.remaining()
+
     def upload(self,value):
         deadline=time.monotonic()+self.remaining();self.verify_storage(deadline)
         body=json.dumps(value,separators=(',',':'),allow_nan=False).encode()
