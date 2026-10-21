@@ -94,7 +94,7 @@ const timingFields = Object.freeze([
   "runner",
 ]);
 
-/** @param {unknown} value @param {string} key */
+/** @param {unknown} value @param {string} key @returns {unknown} */
 function ownData(value, key) {
   if (typeof value !== "object" || value === null || types.isProxy(value))
     return undefined;
