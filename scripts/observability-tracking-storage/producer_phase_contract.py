@@ -30,23 +30,182 @@ process.stdout.write('{}');
 '''
 
 
+PIN_PATHS_CODE=r'''
+function pinFixturePaths(original, directory, shim) {
+  const before = original.lstatSync(directory, { bigint: true });
+  /** @type {PinFixtureDescriptor|undefined} */ let parent;
+  const flags =
+    original.constants.O_RDONLY |
+    original.constants.O_NOFOLLOW |
+    original.constants.O_DIRECTORY;
+  /** @param {import("node:fs").BigIntStats} info */
+  const same = (info) =>
+    info.isDirectory() &&
+    ["dev", "ino", "uid", "gid", "mode"].every(
+      (key) => Reflect.get(info, key) === Reflect.get(before, key),
+    );
+  const privateDirectory = () => {
+    try {
+      return (
+        process.getuid !== undefined &&
+        before.uid === BigInt(process.getuid()) &&
+        (before.mode & 0o777n) === 0o700n &&
+        original.realpathSync(directory) === directory &&
+        same(original.lstatSync(directory, { bigint: true }))
+      );
+    } catch {
+      return false;
+    }
+  };
+  const liveParent = () => {
+    try {
+      return (
+        parent !== undefined &&
+        parent.active &&
+        privateDirectory() &&
+        same(original.fstatSync(parent.fd, { bigint: true }))
+      );
+    } catch {
+      return false;
+    }
+  };
+  /** @param {import("node:fs").PathLike} path */
+  const canonical = (path) => {
+    if (!liveParent()) return undefined;
+    if (path === directory + "/phase.json.new") return "temporary";
+    if (typeof path !== "string") return undefined;
+    const match = /^\/(?:proc\/self\/fd|dev\/fd)\/(0|[1-9][0-9]*)\/phase\.json\.new$/u.exec(path);
+    return match !== null && match[1] === String(parent?.fd)
+      ? "temporary"
+      : undefined;
+  };
+  return {
+    /** @param {import("node:fs").PathLike} path @param {number|string} requested */
+    classify(path, requested) {
+      if (path === directory && requested === flags && privateDirectory())
+        return "parent";
+      return canonical(path);
+    },
+    /** @param {PinFixtureDescriptor} entry */
+    parent(entry) {
+      if (
+        !privateDirectory() ||
+        !same(original.fstatSync(entry.fd, { bigint: true }))
+      )
+        throw new Error("fixture parent identity mismatch");
+      parent = entry;
+    },
+    /** @param {import("node:fs").PathLike} path */
+    io(path) {
+      if (!shim || typeof path !== "string" || !liveParent()) return path;
+      const match = /^\/(?:proc\/self\/fd|dev\/fd)\/(0|[1-9][0-9]*)(|\/|\/phase\.json|\/phase\.json\.new)$/u.exec(path);
+      if (match === null || match[1] !== String(parent?.fd)) return path;
+      return directory + match[2];
+    },
+  };
+}
+
+function finishPinHandles(original,handles,foreign,primary){
+ let failure;
+ for(const entry of [...handles,...foreign]){
+  if(!entry.active)continue;entry.active=false;
+  try{let info;try{info=original.fstatSync(entry.fd,{bigint:true});}catch(error){if(error?.code==='EBADF')continue;throw error;}
+   if(info.dev===entry.dev&&info.ino===entry.ino)original.closeSync(entry.fd);
+  }catch(error){failure??=error;}
+ }
+ if(failure&&!primary)throw failure;
+}
+'''
+
+ADDRESS_CODE=r'''
+import assert from 'node:assert/strict';import fs from 'node:fs';
+const settings=JSON.parse(process.argv[1]),original={...fs},directory=settings.directory,handles=[];
+''' + PIN_PATHS_CODE + r'''
+let primary=false;
+try{
+ const paths=pinFixturePaths(original,directory,false),flags=original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY;
+ const fd=original.openSync(directory,flags),info=original.fstatSync(fd,{bigint:true}),entry={fd,dev:info.dev,ino:info.ino,active:true};handles.push(entry);
+ assert.equal(paths.classify(directory,flags),'parent');paths.parent(entry);
+    const io = paths.io;
+    let translations = 0;
+    paths.io = (path) => {
+      translations++;
+      return io(path);
+    };
+    const fd2 = original.openSync(directory, flags);
+    const otherInfo = original.fstatSync(fd2, { bigint: true });
+    handles.push({ fd: fd2, dev: otherInfo.dev, ino: otherInfo.ino, active: true });
+    for (const prefix of ["/proc/self/fd/", "/dev/fd/"]) {
+      const raw = prefix + fd + "/phase.json.new";
+      assert.equal(paths.classify(raw, original.constants.O_WRONLY), "temporary");
+      assert.equal(paths.classify(raw, original.constants.O_RDONLY), "temporary");
+      assert.equal(io(raw), raw, "real I/O address was rewritten");
+      for (const invalid of [
+        prefix + fd2 + "/phase.json.new",
+        prefix + "2147483647/phase.json.new",
+        prefix + "0" + fd + "/phase.json.new",
+        prefix + fd + "/other.json.new",
+        prefix + fd + "/phase.json.new/extra",
+        prefix + fd + "/../phase.json.new",
+        prefix + fd + "/phase.json.new?x",
+        prefix + fd + "/phase.json.new\n",
+        "/proc/1/fd/" + fd + "/phase.json.new",
+        directory + "/foreign-module.mjs",
+      ]) {
+        assert.equal(paths.classify(invalid, original.constants.O_RDONLY), undefined);
+        assert.equal(io(invalid), invalid);
+      }
+    }
+    assert.equal(translations, 0, "classification invoked the path translator");
+    const shim = pinFixturePaths(original, directory, true);
+    shim.parent(entry);
+    assert.equal(shim.io("/proc/self/fd/" + fd + "/phase.json.new"), directory + "/phase.json.new");
+    assert.equal(shim.io("/dev/fd/" + fd2 + "/phase.json.new"), "/dev/fd/" + fd2 + "/phase.json.new");
+    original.chmodSync(directory, 0o755);
+    try {
+      assert.equal(paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags), undefined);
+    } finally {
+      original.chmodSync(directory, 0o700);
+    }
+    original.renameSync(directory, directory + "-moved");
+    try {
+      original.mkdirSync(directory, { mode: 0o700 });
+      assert.equal(paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags), undefined);
+    } finally {
+      original.rmSync(directory, { recursive: true });
+      original.renameSync(directory + "-moved", directory);
+    }
+    entry.active = false;
+    assert.equal(paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags), undefined);
+    original.closeSync(fd);
+    // A separate actual acquisition tests stale live bookkeeping without reviving a retired entry.
+    const stale = pinFixturePaths(original, directory, false),other=handles.find(record=>record.fd===fd2);
+    assert.ok(other!==undefined);stale.parent(other);original.closeSync(fd2);
+    assert.equal(stale.classify("/proc/self/fd/" + fd2 + "/phase.json.new", flags), undefined);
+ process.stdout.write(JSON.stringify({admitted:true}));
+}catch(error){primary=true;throw error;}finally{finishPinHandles(original,handles,[],primary);}
+'''
+
 PIN_CODE=r'''
 import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
 const settings=JSON.parse(process.argv[1]),original={...fs},acquired=[];
 const directory=settings.directory;
-const translate=p=>settings.shim&&typeof p==='string'&&/^\/proc\/self\/fd\/[0-9]+(?:\/|$)/.test(p)?directory+p.replace(/^\/proc\/self\/fd\/[0-9]+/,''):p;
+''' + PIN_PATHS_CODE + r'''
+const paths=pinFixturePaths(original,directory,settings.shim),translate=paths.io;
 for(const name of ['lstatSync','statSync','unlinkSync','realpathSync'])fs[name]=(...args)=>Reflect.apply(original[name],fs,[translate(args[0]),...args.slice(1)]);
-fs.openSync=(p,...args)=>{const fd=original.openSync(translate(p),...args);acquired.push(fd);return fd;};
+fs.openSync=(p,flags,mode)=>{const kind=paths.classify(p,flags),fd=original.openSync(translate(p),flags,mode);if(kind!==undefined){const info=original.fstatSync(fd,{bigint:true}),entry={fd,dev:info.dev,ino:info.ino,active:true};acquired.push(entry);if(kind==='parent')paths.parent(entry);}return fd;};
+fs.closeSync=fd=>{const entry=acquired.find(entry=>entry.active&&entry.fd===fd);if(entry)entry.active=false;original.closeSync(fd);};
 let live=false;
-fs.renameSync=(from,_to)=>{const path=translate(from),info=original.lstatSync(path,{bigint:true});live=acquired.some(fd=>{try{const held=original.fstatSync(fd,{bigint:true});return held.dev===info.dev&&held.ino===info.ino;}catch{return false;}});original.unlinkSync(path);original.writeFileSync(path,'foreign-recreated',{mode:0o600});throw new Error('controlled rename refusal');};
+fs.renameSync=(from,_to)=>{if(paths.classify(from,original.constants.O_RDONLY)!=='temporary')return original.renameSync(from,_to);const path=translate(from),info=original.lstatSync(path,{bigint:true});live=acquired.some(entry=>{if(!entry.active)return false;try{const held=original.fstatSync(entry.fd,{bigint:true});return held.dev===info.dev&&held.ino===info.ino;}catch{return false;}});original.unlinkSync(path);original.writeFileSync(path,'foreign-recreated',{mode:0o600});throw new Error('controlled rename refusal');};
 syncBuiltinESMExports();
+let primary=false;
 try{
  const {createTrackingProducerPhase}=await import(settings.phase);
  const phase=createTrackingProducerPhase({INSIDE_TRACKING_PRODUCER_PHASE_PATH:directory+'/phase.json',INSIDE_TRACKING_PRODUCER_PHASE_SOURCE:'a'.repeat(40)});
  if(phase===null)throw new Error('controlled owner absent');phase.enter('input_validation');phase.failed();
- const closed=acquired.every(fd=>{try{original.fstatSync(fd);return false;}catch{return true;}});
+ const closed=acquired.every(entry=>{if(entry.active)return false;try{original.fstatSync(entry.fd);return false;}catch(error){return error?.code==='EBADF';}});
  process.stdout.write(JSON.stringify({live,closed,foreign:original.readFileSync(directory+'/phase.json.new','utf8')==='foreign-recreated',marker:original.existsSync(directory+'/phase.json')}));
-}catch{process.exitCode=4;}
+}catch(error){primary=true;process.exitCode=4;}finally{finishPinHandles(original,acquired,[],primary);}
 '''
 
 
@@ -54,23 +213,34 @@ PIN_FAULT_CODE=r'''
 import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
 const settings=JSON.parse(process.argv[1]),original={...fs},active=new Map(),handles=[],foreign=[];
 const directory=settings.directory,fault=settings.fault,retired=new Set();
-const translate=p=>settings.shim&&typeof p==='string'&&/^\/proc\/self\/fd\/[0-9]+(?:\/|$)/.test(p)?directory+p.replace(/^\/proc\/self\/fd\/[0-9]+/,''):p;
+''' + PIN_PATHS_CODE + r'''
+const paths=pinFixturePaths(original,directory,settings.shim),translate=paths.io;
 for(const name of ['realpathSync','statSync','lstatSync'])fs[name]=(...args)=>Reflect.apply(original[name],fs,[translate(args[0]),...args.slice(1)]);
-fs.openSync=(path,flags,mode)=>{const named=translate(path);if(named!==directory&&named!==directory+'/phase.json.new')return original.openSync(named,flags,mode);const kind=named===directory?'parent':typeof flags==='number'&&(flags&original.constants.O_WRONLY)!==0?'writer':'pin';if(kind==='pin'&&fault==='pin_open')throw new Error('controlled pin refusal');const fd=original.openSync(named,flags,mode),entry={attempts:0,kind};active.set(fd,entry);handles.push(entry);return fd;};
+fs.openSync=(path,flags,mode)=>{const address=paths.classify(path,flags);if(address===undefined)return original.openSync(translate(path),flags,mode);const kind=address==='parent'?'parent':typeof flags==='number'&&(flags&original.constants.O_WRONLY)!==0?'writer':'pin';if(kind==='pin'&&fault==='pin_open')throw new Error('controlled pin refusal');const fd=original.openSync(translate(path),flags,mode),info=original.fstatSync(fd,{bigint:true}),entry={fd,dev:info.dev,ino:info.ino,active:true,attempts:0,kind};active.set(fd,entry);handles.push(entry);if(kind==='parent')paths.parent(entry);return fd;};
 let unknownClose=false;
-fs.closeSync=fd=>{const entry=active.get(fd);if(entry===undefined){if(retired.has(fd))unknownClose=true;original.closeSync(fd);return;}active.delete(fd);retired.add(fd);entry.attempts++;original.closeSync(fd);if(fault==='writer_close'&&entry.kind==='writer'){foreign.push(original.openSync(directory+'/foreign-fd',original.constants.O_CREAT|original.constants.O_RDWR,0o600));throw new Error('controlled writer close refusal');}if(fault==='pin_close'&&entry.kind==='pin'||fault==='combined'&&entry.kind!=='writer')throw new Error('controlled close refusal');};
-fs.renameSync=(from,to)=>{if(fault==='combined')throw new Error('controlled rename refusal');original.renameSync(translate(from),translate(to));};
-fs.unlinkSync=path=>{if(fault==='combined')throw new Error('controlled unlink refusal');original.unlinkSync(translate(path));};
+fs.closeSync=fd=>{const entry=active.get(fd);if(entry===undefined){if(retired.has(fd))unknownClose=true;original.closeSync(fd);return;}active.delete(fd);entry.active=false;retired.add(fd);entry.attempts++;original.closeSync(fd);if(fault==='writer_close'&&entry.kind==='writer'){const other=original.openSync(directory+'/foreign-fd',original.constants.O_CREAT|original.constants.O_RDWR,0o600),info=original.fstatSync(other,{bigint:true});foreign.push({fd:other,dev:info.dev,ino:info.ino,active:true});throw new Error('controlled writer close refusal');}if(fault==='pin_close'&&entry.kind==='pin'||fault==='combined'&&entry.kind!=='writer')throw new Error('controlled close refusal');};
+fs.renameSync=(from,to)=>{if(fault==='combined'&&paths.classify(from,original.constants.O_RDONLY)==='temporary')throw new Error('controlled rename refusal');original.renameSync(translate(from),translate(to));};
+fs.unlinkSync=path=>{if(fault==='combined'&&paths.classify(path,original.constants.O_RDONLY)==='temporary')throw new Error('controlled unlink refusal');original.unlinkSync(translate(path));};
 syncBuiltinESMExports();
+let primary=false;
 try {
+ const unrelated=directory+'/foreign-module.mjs',unrelatedFd=fs.openSync(unrelated,original.constants.O_WRONLY|original.constants.O_CREAT|original.constants.O_EXCL,0o600);
+ fs.closeSync(unrelatedFd);fs.renameSync(unrelated,unrelated+'.moved');fs.unlinkSync(unrelated+'.moved');
+ if(handles.length!==0)throw new Error('fixture adopted unrelated open');
  const {createTrackingProducerPhase}=await import(settings.phase);const phase=createTrackingProducerPhase({INSIDE_TRACKING_PRODUCER_PHASE_PATH:directory+'/phase.json',INSIDE_TRACKING_PRODUCER_PHASE_SOURCE:'a'.repeat(40)});if(phase===null)throw new Error('controlled owner absent');phase.enter('input_validation');const count=handles.length;phase.failed();
- const preserved=foreign.every(fd=>{try{original.fstatSync(fd);return true;}catch{return false;}});
+ const preserved=foreign.every(entry=>{try{const info=original.fstatSync(entry.fd,{bigint:true});return info.dev===entry.dev&&info.ino===entry.ino;}catch{return false;}});
  process.stdout.write(JSON.stringify({closed:active.size===0&&handles.every(entry=>entry.attempts===1),retired:!unknownClose,disabled:count===handles.length,preserved,marker:original.existsSync(directory+'/phase.json')}));
-} finally {for(const fd of foreign)original.closeSync(fd);}
+}catch(error){primary=true;throw error;}finally{finishPinHandles(original,handles,foreign,primary);}
 '''
 
 
 class ProducerEntryPhase(unittest.TestCase):
+    def test_raw_anchor_admission_precedes_translation_and_rejects_unknown_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings=dict(directory=str(Path(directory).resolve()))
+            value=producer_protocol.capture(argv=['node','--input-type=module','-e',ADDRESS_CODE,json.dumps(settings)],budget=3)
+            self.assertEqual(value,dict(admitted=True))
+
     def test_pin_faults_attempt_all_closes_without_reusing_foreign_descriptor(self):
         for fault in ('pin_open','writer_close','combined','pin_close'):
             with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:

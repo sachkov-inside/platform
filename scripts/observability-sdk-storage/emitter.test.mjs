@@ -296,6 +296,222 @@ function finishPinFixture(
   if (failed && !primaryActive) throw first;
 }
 
+/**
+ * Test bookkeeping only. Actual Linux I/O retains its original anchored address.
+ * @param {typeof import("node:fs")} original
+ * @param {string} directory
+ * @param {boolean} shim
+ */
+function pinFixturePaths(original, directory, shim) {
+  const before = original.lstatSync(directory, { bigint: true });
+  /** @type {PinFixtureDescriptor|undefined} */ let parent;
+  const flags =
+    original.constants.O_RDONLY |
+    original.constants.O_NOFOLLOW |
+    original.constants.O_DIRECTORY;
+  /** @param {import("node:fs").BigIntStats} info */
+  const same = (info) =>
+    info.isDirectory() &&
+    ["dev", "ino", "uid", "gid", "mode"].every(
+      (key) => Reflect.get(info, key) === Reflect.get(before, key),
+    );
+  const privateDirectory = () => {
+    try {
+      return (
+        process.getuid !== undefined &&
+        before.uid === BigInt(process.getuid()) &&
+        (before.mode & 0o777n) === 0o700n &&
+        original.realpathSync(directory) === directory &&
+        same(original.lstatSync(directory, { bigint: true }))
+      );
+    } catch {
+      return false;
+    }
+  };
+  const liveParent = () => {
+    try {
+      return (
+        parent !== undefined &&
+        parent.active &&
+        privateDirectory() &&
+        same(original.fstatSync(parent.fd, { bigint: true }))
+      );
+    } catch {
+      return false;
+    }
+  };
+  /** @param {import("node:fs").PathLike} path */
+  const canonical = (path) => {
+    if (!liveParent()) return undefined;
+    if (path === directory + "/phase.json.new") return "temporary";
+    if (typeof path !== "string") return undefined;
+    const match =
+      /^\/(?:proc\/self\/fd|dev\/fd)\/(0|[1-9][0-9]*)\/phase\.json\.new$/u.exec(
+        path,
+      );
+    return match !== null && match[1] === String(parent?.fd)
+      ? "temporary"
+      : undefined;
+  };
+  return {
+    /** @param {import("node:fs").PathLike} path @param {number|string} requested */
+    classify(path, requested) {
+      if (path === directory && requested === flags && privateDirectory())
+        return "parent";
+      return canonical(path);
+    },
+    /** @param {PinFixtureDescriptor} entry */
+    parent(entry) {
+      if (
+        !privateDirectory() ||
+        !same(original.fstatSync(entry.fd, { bigint: true }))
+      )
+        throw new Error("fixture parent identity mismatch");
+      parent = entry;
+    },
+    /** @param {import("node:fs").PathLike} path */
+    io(path) {
+      if (!shim || typeof path !== "string" || !liveParent()) return path;
+      const match =
+        /^\/(?:proc\/self\/fd|dev\/fd)\/(0|[1-9][0-9]*)(|\/|\/phase\.json|\/phase\.json\.new)$/u.exec(
+          path,
+        );
+      if (match === null || match[1] !== String(parent?.fd)) return path;
+      return directory + match[2];
+    },
+  };
+}
+
+// deterministic-test-allow unit-io: raw FD-address bookkeeping uses real owned identities before any Mac-only translation; no OS anchoring is claimed.
+test("SDK fixture admits raw owned anchor addresses before translation and excludes unknown paths", async () => {
+  const fs = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const original = { ...fs.default };
+  const directory = original.realpathSync(
+    original.mkdtempSync(join(tmpdir(), "inside-sdk-raw-anchor-")),
+  );
+  /** @type {PinFixtureDescriptor[]} */ const handles = [];
+  let primaryActive = false;
+  try {
+    const paths = pinFixturePaths(original, directory, false);
+    const flags =
+      original.constants.O_RDONLY |
+      original.constants.O_NOFOLLOW |
+      original.constants.O_DIRECTORY;
+    const fd = original.openSync(directory, flags);
+    const info = original.fstatSync(fd, { bigint: true });
+    const entry = { fd, dev: info.dev, ino: info.ino, active: true };
+    handles.push(entry);
+    assert.equal(paths.classify(directory, flags), "parent");
+    paths.parent(entry);
+    const io = paths.io;
+    let translations = 0;
+    paths.io = (path) => {
+      translations++;
+      return io(path);
+    };
+    const fd2 = original.openSync(directory, flags);
+    const otherInfo = original.fstatSync(fd2, { bigint: true });
+    handles.push({
+      fd: fd2,
+      dev: otherInfo.dev,
+      ino: otherInfo.ino,
+      active: true,
+    });
+    for (const prefix of ["/proc/self/fd/", "/dev/fd/"]) {
+      const raw = prefix + fd + "/phase.json.new";
+      assert.equal(
+        paths.classify(raw, original.constants.O_WRONLY),
+        "temporary",
+      );
+      assert.equal(
+        paths.classify(raw, original.constants.O_RDONLY),
+        "temporary",
+      );
+      assert.equal(io(raw), raw, "real I/O address was rewritten");
+      for (const invalid of [
+        prefix + fd2 + "/phase.json.new",
+        prefix + "2147483647/phase.json.new",
+        prefix + "0" + fd + "/phase.json.new",
+        prefix + fd + "/other.json.new",
+        prefix + fd + "/phase.json.new/extra",
+        prefix + fd + "/../phase.json.new",
+        prefix + fd + "/phase.json.new?x",
+        prefix + fd + "/phase.json.new\n",
+        "/proc/1/fd/" + fd + "/phase.json.new",
+        directory + "/foreign-module.mjs",
+      ]) {
+        assert.equal(
+          paths.classify(invalid, original.constants.O_RDONLY),
+          undefined,
+        );
+        assert.equal(io(invalid), invalid);
+      }
+    }
+    assert.equal(translations, 0, "classification invoked the path translator");
+    const shim = pinFixturePaths(original, directory, true);
+    shim.parent(entry);
+    assert.equal(
+      shim.io("/proc/self/fd/" + fd + "/phase.json.new"),
+      directory + "/phase.json.new",
+    );
+    assert.equal(
+      shim.io("/dev/fd/" + fd2 + "/phase.json.new"),
+      "/dev/fd/" + fd2 + "/phase.json.new",
+    );
+    original.chmodSync(directory, 0o755);
+    try {
+      assert.equal(
+        paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags),
+        undefined,
+      );
+    } finally {
+      original.chmodSync(directory, 0o700);
+    }
+    original.renameSync(directory, directory + "-moved");
+    try {
+      original.mkdirSync(directory, { mode: 0o700 });
+      assert.equal(
+        paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags),
+        undefined,
+      );
+    } finally {
+      original.rmSync(directory, { recursive: true });
+      original.renameSync(directory + "-moved", directory);
+    }
+    entry.active = false;
+    assert.equal(
+      paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags),
+      undefined,
+    );
+    original.closeSync(fd);
+    // A separate actual acquisition tests stale live bookkeeping without reviving a retired entry.
+    const stale = pinFixturePaths(original, directory, false);
+    const other = handles.find((record) => record.fd === fd2);
+    assert.ok(other !== undefined);
+    stale.parent(other);
+    original.closeSync(fd2);
+    assert.equal(
+      stale.classify("/proc/self/fd/" + fd2 + "/phase.json.new", flags),
+      undefined,
+    );
+  } catch (error) {
+    primaryActive = true;
+    throw error;
+  } finally {
+    finishPinFixture(
+      original,
+      [],
+      () => {},
+      directory,
+      handles,
+      [],
+      primaryActive,
+    );
+  }
+});
+
 // deterministic-test-allow unit-io: actual product-owned file descriptors and controlled owned-directory rename refusal; FD-path shim on Mac is not Linux anchoring evidence.
 test("SDK writer pins its original temporary inode through rename failure cleanup", async () => {
   const fs = await import("node:fs");
@@ -312,13 +528,12 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
   let primaryActive = false;
   const patches = [];
   let live = false;
-  /** @param {import("node:fs").PathLike} path */
-  const translated = (path) =>
-    process.platform !== "linux" &&
-    typeof path === "string" &&
-    /^\/proc\/self\/fd\/[0-9]+(?:\/|$)/u.test(path)
-      ? directory + path.replace(/^\/proc\/self\/fd\/[0-9]+/u, "")
-      : path;
+  const paths = pinFixturePaths(
+    original,
+    directory,
+    process.platform !== "linux",
+  );
+  const translated = paths.io;
   try {
     for (const name of /** @type {const} */ ([
       "realpathSync",
@@ -349,13 +564,14 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
           /** @type {number|string} */ flags,
           /** @type {import("node:fs").Mode|undefined} */ mode,
         ) => {
-          const named = translated(path),
-            fd = original.openSync(named, flags, mode);
-          if (named === directory || named === directory + "/phase.json.new") {
+          const kind = paths.classify(path, flags);
+          const fd = original.openSync(translated(path), flags, mode);
+          if (kind !== undefined) {
             const info = original.fstatSync(fd, { bigint: true });
             const entry = { fd, dev: info.dev, ino: info.ino, active: true };
             acquired.push(entry);
             active.set(fd, entry);
+            if (kind === "parent") paths.parent(entry);
           }
           return fd;
         },
@@ -379,6 +595,8 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
           /** @type {import("node:fs").PathLike} */ from,
           /** @type {import("node:fs").PathLike} */ _to,
         ) => {
+          if (paths.classify(from, original.constants.O_RDONLY) !== "temporary")
+            return original.renameSync(from, _to);
           const path = translated(from),
             info = original.lstatSync(path, { bigint: true });
           live = acquired.some((entry) => {
@@ -456,13 +674,12 @@ async function runSdkPinFault(fault, skipClose = false, audit = {}) {
   const patches = [];
   let unknownClose = false;
   /** @type {Set<number>} */ const retired = new Set();
-  /** @param {import("node:fs").PathLike} path */
-  const translated = (path) =>
-    process.platform !== "linux" &&
-    typeof path === "string" &&
-    /^\/proc\/self\/fd\/[0-9]+(?:\/|$)/u.test(path)
-      ? directory + path.replace(/^\/proc\/self\/fd\/[0-9]+/u, "")
-      : path;
+  const paths = pinFixturePaths(
+    original,
+    directory,
+    process.platform !== "linux",
+  );
+  const translated = paths.io;
   try {
     for (const name of /** @type {const} */ ([
       "realpathSync",
@@ -491,11 +708,11 @@ async function runSdkPinFault(fault, skipClose = false, audit = {}) {
           /** @type {number|string} */ flags,
           /** @type {import("node:fs").Mode|undefined} */ mode,
         ) => {
-          const named = translated(path);
-          if (named !== directory && named !== directory + "/phase.json.new")
-            return original.openSync(named, flags, mode);
+          const address = paths.classify(path, flags);
+          if (address === undefined)
+            return original.openSync(translated(path), flags, mode);
           const kind =
-            named === directory
+            address === "parent"
               ? "parent"
               : typeof flags === "number" &&
                   (flags & original.constants.O_WRONLY) !== 0
@@ -503,7 +720,7 @@ async function runSdkPinFault(fault, skipClose = false, audit = {}) {
                 : "pin";
           if (kind === "pin" && fault === "pin_open")
             throw new Error("controlled pin open refusal");
-          const fd = original.openSync(named, flags, mode),
+          const fd = original.openSync(translated(path), flags, mode),
             info = original.fstatSync(fd, { bigint: true }),
             entry = {
               fd,
@@ -515,6 +732,7 @@ async function runSdkPinFault(fault, skipClose = false, audit = {}) {
             };
           active.set(fd, entry);
           handles.push(entry);
+          if (kind === "parent") paths.parent(entry);
           return fd;
         },
       ),
@@ -566,7 +784,10 @@ async function runSdkPinFault(fault, skipClose = false, audit = {}) {
           /** @type {import("node:fs").PathLike} */ from,
           /** @type {import("node:fs").PathLike} */ to,
         ) => {
-          if (fault === "combined")
+          if (
+            fault === "combined" &&
+            paths.classify(from, original.constants.O_RDONLY) === "temporary"
+          )
             throw new Error("controlled rename refusal");
           original.renameSync(translated(from), translated(to));
         },
@@ -577,13 +798,33 @@ async function runSdkPinFault(fault, skipClose = false, audit = {}) {
         fs.default,
         "unlinkSync",
         (/** @type {import("node:fs").PathLike} */ path) => {
-          if (fault === "combined")
+          if (
+            fault === "combined" &&
+            paths.classify(path, original.constants.O_RDONLY) === "temporary"
+          )
             throw new Error("controlled unlink refusal");
           original.unlinkSync(translated(path));
         },
       ),
     );
     syncBuiltinESMExports();
+    // An unrelated owned path must pass through without ledger admission or synthetic faults.
+    const unrelated = directory + "/foreign-module.mjs";
+    const unrelatedFd = fs.default.openSync(
+      unrelated,
+      original.constants.O_WRONLY |
+        original.constants.O_CREAT |
+        original.constants.O_EXCL,
+      0o600,
+    );
+    fs.default.closeSync(unrelatedFd);
+    fs.default.renameSync(unrelated, unrelated + ".moved");
+    fs.default.unlinkSync(unrelated + ".moved");
+    assert.equal(
+      handles.length,
+      0,
+      "fixture adopted an unrelated file operation",
+    );
     const { createSdkEmitterPhase } = await import("./emitter-phase.mjs");
     const phase = createSdkEmitterPhase({
       INSIDE_SDK_EMITTER_PHASE_PATH: directory + "/phase.json",
