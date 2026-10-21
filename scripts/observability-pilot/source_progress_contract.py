@@ -105,6 +105,56 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                         self.assertIs(BaseException.__traceback__.__get__(primary),before)
         writer.fault=None
 
+        # Project actual stdlib result records without executing any of the original274 bodies.
+        cases=[CoreSourceProgress(method) for method in PROTOCOL_METHODS]
+        observed=unittest.TextTestResult(io.StringIO(),True,1)
+        for case in cases:observed.startTest(case);observed.stopTest(case)
+        primaries=[]
+        for case,callback in ((cases[0],observed.addFailure),(cases[2],observed.addError)):
+            try:raise AssertionError('controlled private-canary')
+            except AssertionError as error:
+                primaries.append(error);callback(case,sys.exc_info())
+        failure_record=observed.failures[0];error_record=observed.errors[0]
+        tracebacks=[error.__traceback__ for error in primaries]
+        output=io.StringIO()
+        with patch.object(unittest.TextTestRunner,'run',return_value=observed):
+            returned=ProtocolRunner(stream=output).run(unittest.TestSuite())
+        self.assertIs(returned,observed)
+        self.assertEqual(output.getvalue(),'CORE_PROTOCOL_V1 failures F-E\n')
+        self.assertIs(observed.failures[0],failure_record);self.assertIs(observed.errors[0],error_record)
+        for error,before in zip(primaries,tracebacks):self.assertIs(error.__traceback__,before)
+        class BrokenWriter(io.StringIO):
+            def write(self,value):raise self.fault
+        for fault in (OSError(),ValueError(),KeyboardInterrupt(),SystemExit()):
+            output=BrokenWriter();output.fault=fault
+            with patch.object(unittest.TextTestRunner,'run',return_value=observed):
+                self.assertIs(ProtocolRunner(stream=output).run(unittest.TestSuite()),observed)
+        successful=unittest.TextTestResult(io.StringIO(),True,1);output=io.StringIO()
+        with patch.object(unittest.TextTestRunner,'run',return_value=successful):
+            self.assertIs(ProtocolRunner(stream=output).run(unittest.TestSuite()),successful)
+        self.assertEqual(output.getvalue(),'')
+        primary=KeyboardInterrupt()
+        with patch.object(unittest.TextTestRunner,'run',side_effect=primary):
+            try:ProtocolRunner(stream=output).run(unittest.TestSuite())
+            except KeyboardInterrupt as error:self.assertIs(error,primary)
+            else:self.fail('original runner primary replaced')
+        # Neither overridden id nor a foreign/subtest representation participates in projection.
+        with patch.object(CoreSourceProgress,'id',side_effect=AssertionError('foreign id')):
+            self.assertEqual(_protocol_failure_summary(observed),'CORE_PROTOCOL_V1 failures F-E\n')
+        class Foreign:
+            def __getattribute__(self,name):raise AssertionError('foreign attribute')
+        self.assertIsNone(_protocol_failure_summary(Foreign()))
+        observed.failures=[(cases[0],Foreign())]
+        self.assertEqual(_protocol_failure_summary(observed),'CORE_PROTOCOL_V1 failures F-E\n')
+        subtest=unittest.case._SubTest(cases[0],None,{})
+        for foreign in (Foreign(),subtest,CoreSourceProgress('runTest')):
+            observed.failures=[(foreign,'opaque')]
+            self.assertIsNone(_protocol_failure_summary(observed))
+        observed.failures=[failure_record,failure_record]
+        self.assertIsNone(_protocol_failure_summary(observed))
+        observed.failures=[failure_record];observed.errors=[(cases[0],'opaque')]
+        self.assertIsNone(_protocol_failure_summary(observed))
+
     def test_runner_uses_original_discovery_and_refuses_inventory_drift(self):
         import core_source_progress as owner
         source=Path(__file__).with_name('source_runner.py').read_text()
@@ -196,4 +246,45 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
             self.assertEqual(imports,['sys'])
 
 
-if __name__=='__main__':unittest.main()
+PROTOCOL_METHODS=(
+    'test_inventory_preserves_all_baseline_methods_and_exact_additions',
+    'test_markers_preserve_first_primary_and_completed_is_not_success',
+    'test_runner_uses_original_discovery_and_refuses_inventory_drift',
+)
+
+
+def _protocol_failure_summary(result):
+    # Only stdlib-owned result/case identities are read; formatted traceback members are opaque.
+    if type(result) is not unittest.TextTestResult or result.testsRun!=3:return None
+    if any(type(values) is not list or values for values in
+           (result.skipped,result.expectedFailures,result.unexpectedSuccesses)):return None
+    vector=['-']*3
+    for values,category in ((result.failures,'F'),(result.errors,'E')):
+        if type(values) is not list or len(values)>3:return None
+        for entry in values:
+            if type(entry) is not tuple or len(entry)!=2:return None
+            case=entry[0]
+            if type(case) is not CoreSourceProgress:return None
+            identifier=unittest.TestCase.id(case)
+            identifiers=tuple(CoreSourceProgress.__module__+'.CoreSourceProgress.'+name for name in PROTOCOL_METHODS)
+            if identifier not in identifiers:return None
+            index=identifiers.index(identifier)
+            if vector[index]!='-':return None
+            vector[index]=category
+    if vector==['-']*3:return None
+    return 'CORE_PROTOCOL_V1 failures '+''.join(vector)+'\n'
+
+
+class ProtocolRunner(unittest.TextTestRunner):
+    def run(self,test):
+        result=super().run(test)
+        if not result.wasSuccessful():
+            # The failed stdlib verdict is already authoritative; optional observation cannot replace it.
+            try:
+                summary=_protocol_failure_summary(result)
+                if summary is not None:self.stream.write(summary);self.stream.flush()
+            except BaseException:pass
+        return result
+
+
+if __name__=='__main__':unittest.main(testRunner=ProtocolRunner)
