@@ -38,7 +38,12 @@ export function TaskMcpSetup({
   return (
     <div className={styles["stepContent"]} data-task-connection>
       <div className={styles["stepHeader"]}>
-        <h3 className="text-lg font-semibold">Подключение MCP</h3>
+        <div className="grid gap-1">
+          <h3 className="text-lg font-semibold">Подключение MCP</h3>
+          <p className={styles["stepDescription"]}>
+            Подключи один раз для всех заданий.
+          </p>
+        </div>
         <Button
           type="button"
           variant="outline"
@@ -57,9 +62,6 @@ export function TaskMcpSetup({
           )}
         </Button>
       </div>
-      <p className={styles["stepDescription"]}>
-        Подключи один раз для всех заданий.
-      </p>
       <div id={contentId} hidden={!expanded}>
         <div className="grid gap-4 text-sm leading-6">
           <p>

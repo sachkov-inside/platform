@@ -6,7 +6,7 @@ import {
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use, useState } from "react";
 import { MaterialReadingScope } from "@/entities/material";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import {
   closedProductTask,
@@ -111,8 +111,8 @@ export const Submitted: Story = {
       "Свобода",
       "Сдача задания",
       "Подключение MCP",
-      "Начало проверки",
-      "Результат и обратная связь",
+      "Проверка задания",
+      "Результат проверки",
       "Материалы к заданию",
     ])
       await expect(page.getByRole("heading", { name })).toBeVisible();
@@ -166,61 +166,30 @@ export const SubmissionsClosed: Story = {
   },
   play: async ({ canvasElement }) => {
     const page = routeContent(canvasElement);
-    await userEvent.click(
-      page.getByText("Нет агента с MCP? Сдать через форму"),
-    );
     await expect(
-      page.getByRole("button", { name: "Отправить сдачу" }),
-    ).toBeDisabled();
+      page.getByText(
+        "Приём сдач скоро откроется. Проверить работу у агента уже можно.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.queryByRole("button", { name: "Отправить сдачу" }),
+    ).toBeNull();
   },
 };
 
-const submitSpy = fn((input: RequestInfo | URL, _init?: RequestInit) =>
-  Promise.resolve(
-    (input instanceof Request ? input.url : input.toString()).endsWith(
-      "/api/product-tasks/submissions",
-    )
-      ? Response.json({
-          kind: "submitted",
-          submittedAt: "2026-10-05T16:40:00.000Z",
-        })
-      : new Response(null, { status: 404 }),
-  ),
-);
-
-/** Запасная форма отправляет заметку, репозиторий и отчёт; ветку и commit ученик не вводит. */
-export const FormSubmits: Story = {
+/** The participant starts submission through their agent, with no website form. */
+export const AgentOnlySubmission: Story = {
   args: { submissions: notSubmittedYet },
-  decorators: [withMutationFetch(submitSpy)],
   play: async ({ canvasElement }) => {
-    submitSpy.mockClear();
     const page = routeContent(canvasElement);
-    await userEvent.click(
-      page.getByText("Нет агента с MCP? Сдать через форму"),
-    );
-    await expect(page.queryByLabelText(/Ветка|Commit/u)).toBeNull();
-    await userEvent.type(
-      page.getByLabelText(/Репозиторий/u),
-      "https://github.com/learner/devportal",
-    );
-    await userEvent.type(
-      page.getByLabelText(/Заметка для автора/u),
-      "Сделал выдачу доступа.",
-    );
-    await userEvent.click(
-      page.getByRole("button", { name: "Отправить сдачу" }),
-    );
-    await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(1));
-    const body = submitSpy.mock.calls[0]?.[1]?.body;
-    if (!(body instanceof FormData)) throw new Error("Форма не отправлена");
-    await expect(Object.fromEntries(body)).toMatchObject({
-      code: "aie-ch1-onboarding",
-      taskVersion: "2",
-      note: "Сделал выдачу доступа.",
-      repositoryUrl: "https://github.com/learner/devportal",
-    });
     await expect(
-      await page.findByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
+      page.queryByText("Нет агента с MCP? Сдать через форму"),
+    ).toBeNull();
+    await expect(
+      canvasElement.querySelector("[data-product-task-form]"),
+    ).toBeNull();
+    await expect(
+      page.getByRole("button", { name: "Скопировать запрос" }),
     ).toBeVisible();
   },
 };

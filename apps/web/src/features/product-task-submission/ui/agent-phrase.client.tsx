@@ -4,6 +4,7 @@ import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
+import styles from "./task-submission-workspace.module.css";
 
 type CopyState = "idle" | "copied" | "failed";
 
@@ -24,16 +25,14 @@ export function AgentPhrase({ text }: { readonly text: string }) {
     [],
   );
   return (
-    <div
-      className="grid gap-5 rounded-xl bg-foreground p-6 text-card"
-      data-agent-phrase
-    >
+    <div className={styles["request"]} data-agent-phrase>
       <p className="text-pretty font-mono text-[0.8125rem] leading-6 [overflow-wrap:anywhere]">
         {text}
       </p>
       <Button
         aria-label={labels[state]}
-        className="min-h-11 w-fit max-w-full whitespace-normal rounded-lg bg-card px-4 text-foreground hover:bg-card/90"
+        variant="outline"
+        className="min-h-11 w-fit max-w-full shrink-0 whitespace-normal rounded-lg bg-card px-3 text-foreground hover:bg-muted"
         onClick={() => {
           clearTimeout(reset.current);
           void navigator.clipboard
