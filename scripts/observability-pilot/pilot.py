@@ -87,7 +87,9 @@ def compose_plan(source, output, images, *, credential_owner):
         "environment": {"XDG_CONFIG_HOME": "/tmp/config", "XDG_DATA_HOME": "/tmp/data"}})
     services["grafana"].update({"ports": ["127.0.0.1:13000:3000"],
         "volumes": ["grafana:/var/lib/grafana", f"{output / 'plugins'}:/var/lib/grafana/plugins:ro",
-                    f"{output / 'datasources.json'}:/etc/grafana/provisioning/datasources/pilot.yaml:ro"],
+                    f"{output / 'datasources.json'}:/etc/grafana/provisioning/datasources/pilot.yaml:ro",
+                    f"{output / 'dashboard-provider.json'}:/etc/grafana/provisioning/dashboards/owner.yaml:ro",
+                    f"{output / 'owner-overview'}:/etc/grafana/owner-overview:ro"],
         "environment": {"GF_AUTH_ANONYMOUS_ENABLED": "true", "GF_AUTH_ANONYMOUS_ORG_ROLE": "Viewer",
             "GF_AUTH_DISABLE_LOGIN_FORM": "true", "GF_AUTH_BASIC_ENABLED": "false",
             "GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION": "true", "GF_ANALYTICS_REPORTING_ENABLED": "false",
@@ -449,6 +451,11 @@ def prepare(output):
         datasource["jsonData"] = {"httpHeaderName1": "Authorization"}
         datasource["secureJsonData"] = {"httpHeaderValue1": "Bearer " + token}
     write_json(output / "datasources.json", {"apiVersion": 1, "datasources": datasources})
+    import owner_overview
+    view = owner_overview.dashboard()
+    write_json(output / "dashboard-provider.json", view["provider"])
+    (output / "owner-overview").mkdir()
+    write_json(output / "owner-overview/dashboard.json", view["dashboard"])
     (output / "plugins").mkdir()
     return token
 

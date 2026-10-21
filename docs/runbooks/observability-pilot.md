@@ -2288,3 +2288,11 @@ Missing queue, backlog, current lag and missing/stale/unknown pass evidence must
 Owned database-trigger registration refusal and actual partial-job continuation fixtures are prepared
 for hosted verification. Local source checks do not establish their native result. A process kill
 precisely after one owner commit and recovery after that crash remain unverified.
+
+## Owner overview и сравнение двух SHA
+
+Ограниченный HTTP overview, единый query catalogue, completion provenance и рецепт
+native MCP описаны в [инструкции расследования](observability-investigation.md).
+Provisioned vendor dashboard остаётся временным semantic UI внутри #1566.
+Native grammar, latency/cost, Grafana variable/time semantics и визуальная приёмка
+ещё обязательны; этот source unit не означает полного покрытия #1565 или production GO.
