@@ -383,10 +383,11 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                 self.assertEqual(name,'sys')
                 self._parity_stage='refusal'
                 return actual_import(name,*args,**kwargs)
-            with patch.object(sys,'platform',platform),patch.object(sys,'argv',argv), \
-                 patch.object(builtins,'__import__',side_effect=only_sys):
+            compiled=compile(source,str(root/'source_runner.py'),'exec')
+            with patch.object(sys,'platform',platform),patch.object(sys,'argv',argv):
                 with self.assertRaisesRegex(SystemExit,'^closed Core source runner refused$'):
-                    exec(compile(source,str(root/'source_runner.py'),'exec'),{'__name__':'__main__'})
+                    with patch.object(builtins,'__import__',side_effect=only_sys):
+                        exec(compiled,{'__name__':'__main__'})
             self._parity_stage='import_tail'
             self.assertEqual(imports,['sys'])
         self._parity_stage=None
