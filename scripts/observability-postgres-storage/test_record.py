@@ -11,6 +11,46 @@ import record
 class Records(unittest.TestCase):
     def value(self):return record.report('a'*40)
 
+    def test_closed_oracle_reasons_roundtrip_only_on_failed_baseline_oracles_before_copy(self):
+        import oracle
+        import postgres_source
+        self.assertIs(record.ORACLE_REASONS,oracle.ORACLE_REASONS)
+        self.assertEqual(len(record.ORACLE_REASONS),23)
+        from test_public import AdmissionComposition
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve()
+            for reason in oracle.ORACLE_REASONS:
+                for phase in ('baseline_first_stored_oracle','baseline_second_stored_oracle'):
+                    value=self.value();value.update(state='failed',phase=phase,reason=reason)
+                    record.write(root,value);self.assertEqual(record.read(root,'a'*40),value)
+                    self.assertEqual(len(value),8);self.assertLessEqual((root/record.NAME).stat().st_size,4096)
+                    for bad in ({**value,'state':'incomplete'},{**value,'state':'passed'},{**value,'phase':'baseline_first_stored_read'}):
+                        with self.assertRaises(ValueError):record.validate(bad,'a'*40)
+            legacy=self.value();legacy.update(state='failed',phase='baseline_first_stored_oracle',reason='query_refused')
+            record.write(root,legacy);self.assertEqual(record.read(root,'a'*40),legacy)
+        for control in ('valid','unknown','wrong_phase','wrong_state','duplicate','truncated','cap','extra'):
+            with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700)
+                metadata=root/'metadata';public=root/'public'
+                value=self.value();value.update(state='failed',phase='baseline_first_stored_oracle',reason='oracle_values_labels')
+                with AdmissionComposition().external_reads(root):
+                    postgres_source.admission(metadata)
+                    record.write(output,value);raw=json.dumps(value).encode()
+                    if control=='unknown':raw=json.dumps({**value,'reason':'oracle_private-canary'}).encode()
+                    elif control=='wrong_phase':raw=json.dumps({**value,'phase':'baseline_first_upload'}).encode()
+                    elif control=='wrong_state':raw=json.dumps({**value,'state':'incomplete'}).encode()
+                    elif control=='duplicate':raw=raw[:-1]+b',"reason":"oracle_values_labels"}'
+                    elif control=='truncated':raw=raw[:-1]
+                    elif control=='cap':raw=b' '*4097
+                    elif control=='extra':raw=json.dumps({**value,'raw_value':'private-canary'}).encode()
+                    (output/record.NAME).write_bytes(raw)
+                    if control=='valid':
+                        postgres_source.collect(output,metadata,public)
+                        self.assertEqual(record.read(public,'a'*40),value)
+                    else:
+                        with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
+                        self.assertFalse(public.exists())
+
     def test_owned_atomic_record_roundtrip_and_present_invalid_refuse(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve();value=self.value();record.write(root,value)

@@ -12,6 +12,8 @@ import source_status_query
 import capture
 import frame
 import fixture
+import record
+from types import ModuleType
 import queries
 import pg_ownership
 # Caller loads this owner's oracle by its fixed file identity, avoiding cross-owner module-name aliases.
@@ -28,7 +30,7 @@ class Scenario:
     def __init__(self,targets,compose,token,oracle):
         self.targets,self.compose,self.token,self.oracle=targets,compose,token,oracle
         self.phase='acquisition';self.clock_deadline=None;self.end=None;self.cleanup_end=None;self.last_attempt=None
-        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[]
+        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None
 
     def remaining(self,cap=10):
         value=min(cap,self.end-time.monotonic())
@@ -122,16 +124,24 @@ class Scenario:
         if time.monotonic()>=deadline:raise TimeoutError()
 
     def stored(self,value,*,_baseline=None):
+        self.oracle_failure_reason=None
         if _baseline is not None and (type(_baseline) is not str or _baseline not in BASELINE_PHASES):raise ValueError('query_refused')
         phases=None if _baseline is None else BASELINE_PHASES[_baseline]
         deadline=time.monotonic()+min(30,self.remaining(30))
         while time.monotonic()<deadline:
+            self.oracle_failure_reason=None
             if phases is not None:self.phase=phases['stored_read']
             raw,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,deadline-time.monotonic()))
             if phases is not None:self.phase=phases['stored_oracle']
-            observed=self.oracle.evaluate(raw,stamps,evaluated_at=evaluated,completed_us=completed,expected=value)
+            observed=self.oracle.evaluate(raw,stamps,evaluated_at=evaluated,completed_us=completed,expected=value,**({} if phases is None else {'diagnose':True}))
             if observed['freshness']=='fresh':return observed
-            if observed['freshness'] not in ('missing',):raise ValueError('storage')
+            if observed['freshness'] not in ('missing',):
+                if phases is not None and type(self.oracle) is ModuleType:
+                    try:
+                        reason=self.oracle.diagnostic_reason(observed)
+                        if type(reason) is str and reason in record.ORACLE_REASONS:self.oracle_failure_reason=reason
+                    except BaseException:pass
+                raise ValueError('storage')
             if phases is not None:self.phase=phases['stored_pending']
             left=min(pilot.POLL_INTERVAL_SECONDS,deadline-time.monotonic())
             if left>0:time.sleep(left)
