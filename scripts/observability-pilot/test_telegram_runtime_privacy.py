@@ -81,24 +81,80 @@ class TelegramRuntimePrivacyContract(unittest.TestCase):
         # Accepted ROOT b512 has deliver-only enums; this is not a byte-equivalence claim to ROOT.
         # This compares source instructions, not execution by pinned Alloy.
         expected = {'span': (60, 'e9d97d2f76aa8c1944daba7d1c7b08c112deb288776594219bf05cb396ca4ab0'), 'datapoint': (42, 'a3ce885937e0faeadbbdc5956ba6b31ae4d8f7e9482892ae6faae04e84a02660')}
+        import copy
+        from pathlib import Path
+        import tempfile
+        from unittest.mock import patch
         prefix = '(not ('+SERVICE+'))'
+        policy = json.loads((privacy_config.CONFIG/'privacy-policy.json').read_text())
+        route = '/authoring/import/materials/publication'
+        queue = 'membership-activity.retention'
+        projected_policy = copy.deepcopy(policy)
+        for key, addition in (('routes', route), ('queues', queue)):
+            self.assertEqual(projected_policy[key].count(addition), 1)
+            projected_policy[key].remove(addition)
         actual = privacy_config.render()
-        for context, (count, digest) in expected.items():
-            body = actual.split('context = "'+context+'"', 1)[1].split('    ]', 1)[0]
-            backend = []
-            for rule in re.findall(r'`([^`]+)`', body):
-                command, separator, predicate = rule.partition(' where ')
-                if predicate == prefix:
-                    backend.append(command)
-                elif predicate.startswith(prefix+' and (') and predicate.endswith(')'):
-                    backend.append(command+' where '+predicate[len(prefix+' and ('):-1])
-                elif rule == 'set(exemplars, nil)' and context == 'datapoint':
-                    backend.append(rule)
-                else:
-                    self.assertIn(SERVICE, predicate, 'every non-Telegram instruction requires an explicit service guard')
-                    self.assertFalse(predicate.startswith(prefix))
-            self.assertEqual(len(backend), count)
-            self.assertEqual(hashlib.sha256(json.dumps(backend,separators=(',',':')).encode()).hexdigest(), digest)
+        with tempfile.TemporaryDirectory(prefix='core-catalogue-') as directory:
+            temporary = Path(directory)
+            def render_policy(value):
+                target = temporary/'privacy-policy.json'
+                target.write_text(json.dumps(value));target.chmod(0o600)
+                with patch.object(privacy_config, 'CONFIG', temporary):return privacy_config.render()
+            projected = render_policy(projected_policy)
+            poisoned = []
+            for key, neighbour in (('routes', route+'/private'), ('queues', queue+'.private')):
+                changed = copy.deepcopy(projected_policy);changed[key].append(neighbour)
+                poisoned.append(render_policy(changed))
+
+        def rules(text, context):
+            body = text.split('context = "'+context+'"', 1)[1].split('    ]', 1)[0]
+            return re.findall(r'`([^`]+)`', body)
+
+        normalized = actual
+        for key, catalogue in (('http.route', 'routes'), ('messaging.destination.name', 'queues')):
+            current = 'IsMatch(attributes['+privacy_config.literal(key)+'], '+privacy_config.literal(privacy_config.pattern(policy[catalogue]))+')'
+            previous = 'IsMatch(attributes['+privacy_config.literal(key)+'], '+privacy_config.literal(privacy_config.pattern(projected_policy[catalogue]))+')'
+            self.assertNotEqual(current, previous)
+            self.assertEqual(actual.count(current), 2)
+            for context in expected:
+                self.assertEqual(sum(current in rule for rule in rules(actual, context)), 1)
+            normalized = normalized.replace(current, previous)
+        # Nothing except the two fixed enum operands in each context may differ anywhere in Alloy.
+        self.assertEqual(normalized, projected)
+        queue_expression = privacy_config.pattern(policy['queues'])
+        self.assertIsNotNone(re.fullmatch(queue_expression, queue))
+        self.assertIsNotNone(re.fullmatch(queue_expression, '_OTHER'))
+        for rejected in (queue+'.private', queue+'/private-person@example.test', queue+'?token=SECRET', queue+'._OTHER'):
+            self.assertIsNone(re.fullmatch(queue_expression, rejected))
+        self.assertTrue(privacy_config.enum_rule('messaging.destination.name', policy['queues']).startswith(
+            'set(attributes["messaging.destination.name"], "_OTHER") where '))
+
+        def require_original(text):
+            for context, (count, digest) in expected.items():
+                backend = []
+                for rule in rules(text, context):
+                    command, separator, predicate = rule.partition(' where ')
+                    if predicate == prefix:
+                        backend.append(command)
+                    elif predicate.startswith(prefix+' and (') and predicate.endswith(')'):
+                        backend.append(command+' where '+predicate[len(prefix+' and ('):-1])
+                    elif rule == 'set(exemplars, nil)' and context == 'datapoint':
+                        backend.append(rule)
+                    else:
+                        self.assertIn(SERVICE, predicate, 'every non-Telegram instruction requires an explicit service guard')
+                        self.assertFalse(predicate.startswith(prefix))
+                self.assertEqual(len(backend), count)
+                self.assertEqual(hashlib.sha256(json.dumps(backend,separators=(',',':')).encode()).hexdigest(), digest)
+        require_original(projected)
+        # Feed changes to actual rendered source into the same retained literal contract.
+        old_rules = rules(projected, 'span')
+        first, second = ('`'+rule+'`' for rule in old_rules[:2])
+        pair = first+',\n      '+second
+        self.assertIn(pair, projected)
+        changed_predicate = projected.replace(first, first[:-1]+' and true`', 1)
+        reordered = projected.replace(pair, second+',\n      '+first, 1)
+        for changed in [changed_predicate, reordered, *poisoned]:
+            with self.assertRaises(AssertionError):require_original(changed)
 
     def test_metric_operation_http_and_health_families_do_not_share_labels(self):
         actual = privacy_config.render()

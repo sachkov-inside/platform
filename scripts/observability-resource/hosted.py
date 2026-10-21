@@ -11,6 +11,7 @@ import binding
 import acquisition
 import runtime
 import disk_feedback
+import preparation
 
 SCOPE = 'hosted short synthetic SDK-only comparison; acceptance pending; not physical-host capacity'
 REPOSITORY = 'sachkov-inside/platform'
@@ -138,7 +139,7 @@ def record_failure(recorder, error):
         recorder.fail('unknown_failure')
 
 
-def command(args, timeout, *, recorder=None, stage=None, kind=None):
+def command(args, timeout, *, recorder=None, stage=None, kind=None, pass_fds=()):
     # Own the complete Docker CLI/plugin group, including timeout and interruption.
     process = None
     try:
@@ -149,7 +150,7 @@ def command(args, timeout, *, recorder=None, stage=None, kind=None):
         if recorder:
             recorder.start(stage, 'child_spawn', kind=kind)
         process = subprocess.Popen(runtime.pilot.docker_args(args), cwd=binding.ROOT,
-            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, pass_fds=pass_fds)
         if recorder:
             recorder.start(stage, 'child_wait')
         status = process.wait(timeout=timeout)
@@ -191,12 +192,12 @@ def command(args, timeout, *, recorder=None, stage=None, kind=None):
                 raise cleanup_error
 
 
-def prepare(metadata, images):
+def prepare(metadata, images, *, consumer):
     source, disk = metadata_source(metadata)
     recorder = acquisition.Recorder(metadata, source['checkout_sha'])
     numeric = disk_feedback.Record(source['checkout_sha'])
     try:
-        prepare_images(source, disk, images, recorder, numeric)
+        prepare_images(source, disk, images, recorder, numeric, consumer)
     except BaseException as error:
         record_failure(recorder, error)
         raise
@@ -204,7 +205,7 @@ def prepare(metadata, images):
         numeric.persist(metadata / disk_feedback.NAME)
 
 
-def prepare_images(source, disk, images, recorder, numeric):
+def prepare_images(source, disk, images, recorder, numeric, consumer):
     if not isinstance(disk, dict) or disk.get('ready') is not True:
         raise ValueError('resource_disk_admission_required')
     if images.exists() or images.is_symlink():
@@ -226,19 +227,30 @@ def prepare_images(source, disk, images, recorder, numeric):
     runtime.pilot.FROZEN_DOCKER_ENDPOINT = identity['endpoint']
     runtime.pilot.FROZEN_DOCKER_IDENTITY = identity
     recorder.passed()
+    with preparation.acquire(images, source['checkout_sha'], owner, identity, consumer) as stage:
+        prepare_acquired(source, images, recorder, numeric, identity, owner, pins, stage)
+
+
+def prepare_acquired(source, images, recorder, numeric, identity, owner, pins, stage):
     numeric.attempt()
     with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop,observe_samples=True) as samples:
         numeric.entered(samples)
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],
-                 '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds')
+                 '--label', preparation.LABEL + '=' + stage.receipt['token'],
+                 '--iidfile', str(stage.iidfile('backend')),
+                 '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds', pass_fds=stage.pass_fds())
+        stage.capture()
         numeric.after_backend_build()
         command(['docker', 'build', '--file', 'infra/production/database/Dockerfile',
+                 '--label', preparation.LABEL + '=' + stage.receipt['token'],
+                 '--iidfile', str(stage.iidfile('foundation')),
                  '--tag', owner + '-foundation:local', 'infra/production/database'], 180,
-                 recorder=recorder, stage='foundation_build', kind='builds')
+                 recorder=recorder, stage='foundation_build', kind='builds', pass_fds=stage.pass_fds())
+        stage.capture()
         for service, image in pins.items():
             numeric.first_pull()
-            command(['docker', 'pull', image], 90, recorder=recorder, stage='preload_'+service, kind='pulls')
+            command(['docker', 'pull', image], 90, recorder=recorder, stage='preload_'+service, kind='pulls', pass_fds=stage.pass_fds())
         value = {'schema': 1, 'source': source['checkout_sha'], 'owner': owner}
         for key, suffix in (('backend', '-backend:v1'), ('foundation', '-foundation:local')):
             recorder.start(key+'_inspect', 'identity_probe')
@@ -261,16 +273,24 @@ def prepare_images(source, disk, images, recorder, numeric):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('admission', 'prepare', 'collect'))
+    parser.add_argument('action', choices=('admission', 'prepare', 'retain', 'collect'))
     parser.add_argument('--metadata', type=Path, required=True)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--public', type=Path)
     parser.add_argument('--images', type=Path)
+    parser.add_argument('--consumer', help='named next runtime output path')
+    parser.add_argument('--purpose', help='reason to retain for the additional runtime')
     args = parser.parse_args()
     if args.action == 'admission':
         return admission(args.metadata)
-    if args.action == 'prepare' and args.images:
-        prepare(args.metadata, args.images)
+    if args.action == 'prepare' and args.images and args.consumer:
+        prepare(args.metadata, args.images, consumer=str(Path(args.consumer).resolve()))
+    elif args.action == 'retain' and args.images and args.consumer and args.purpose:
+        source, _disk = metadata_source(args.metadata)
+        stage = preparation.recover_stage(args.images)
+        if stage.receipt['source'] != source['checkout_sha']:
+            raise ValueError('preparation_source_changed')
+        stage.retain(str(Path(args.consumer).resolve()), args.purpose)
     elif args.action == 'collect' and args.output and args.public:
         collect(args.output, args.public, metadata=args.metadata)
     else:

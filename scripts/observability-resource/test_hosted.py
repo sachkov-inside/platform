@@ -187,6 +187,8 @@ with (root / 'commands.jsonl').open('a') as stream:
     stream.write(json.dumps(args)+'\\n')
 if args[:1] == ['--host']:
     args = args[2:]
+state_path = root / 'images-state.json'
+state = json.loads(state_path.read_text()) if state_path.exists() else {}
 stage = None
 if args[:1] == ['build']:
     stage = 'backend_build' if '--target' in args else 'foundation_build'
@@ -199,21 +201,64 @@ if stage is not None and os.environ.get('RESOURCE_TEST_FAIL_STAGE') == stage:
     sys.exit(23)
 if args == ['context', 'show']:
     print('owned-fixture')
-elif args[:2] == ['context', 'inspect']:
+elif args == ['context', 'inspect', 'owned-fixture', '--format', '{{.Endpoints.docker.Host}}']:
     print('unix://' + str(root / 'engine.sock'))
-elif 'info' in args:
+elif args == ['--context', 'owned-fixture', 'info', '--format', '{{json .}}']:
     print(json.dumps({'ID': 'owned-fixture', 'DockerRootDir': str(root)}))
+elif args[:2] == ['image', 'ls']:
+    selected = state
+    if '--filter' in args:
+        expression = args[args.index('--filter')+1]
+        if expression.startswith('reference='):
+            selected = {key: row for key,row in state.items() if expression[10:] in row['RepoTags']}
+        else:
+            key,value = expression[6:].split('=',1)
+            selected = {key_:row for key_,row in state.items() if row['Config']['Labels'].get(key)==value}
+    print('\\n'.join(selected))
 elif args[:2] == ['image', 'inspect']:
-    print('sha256:' + ('b' if args[2].endswith('-backend:v1') else 'c')*64)
+    if '--format' in args:
+        print('sha256:' + ('b' if args[2].endswith('-backend:v1') else 'c')*64)
+    else:
+        print(json.dumps([state[args[2]]]))
+elif args[:2] == ['image', 'rm']:
+    state.pop(args[-1]);state_path.write_text(json.dumps(state))
+elif args[:2] == ['container','ls']:
+    pass
+elif args[:1] == ['build']:
+    image='sha256:'+('b' if '--target' in args else 'c')*64
+    key,value=args[args.index('--label')+1].split('=',1)
+    state[image]={'Id':image,'RepoTags':[args[args.index('--tag')+1]],'RepoDigests':[], 'Config':{'Labels':{key:value}}}
+    state_path.write_text(json.dumps(state))
+    pathlib.Path(args[args.index('--iidfile')+1]).write_text(image)
 elif args[:1] not in (['build'], ['pull']):
     sys.exit(9)
 '''
             executable.write_text('#!' + sys.executable + '\n' + fake)
             executable.chmod(0o700)
             read = hosted.runtime.ci.read_command
+            raw = hosted.runtime.pilot._raw_command
+            show = ('docker', 'context', 'show')
+            inspect = ('docker', 'context', 'inspect', 'owned-fixture', '--format', '{{.Endpoints.docker.Host}}')
+            info = ('docker', '--context', 'owned-fixture', 'info', '--format', '{{json .}}')
+            replies = {show: 'owned-fixture\n', inspect: 'unix://' + str(endpoint) + '\n',
+                info: json.dumps({'ID': 'owned-fixture', 'DockerRootDir': str(root)}) + '\n'}
+            identity_calls = []
+            fallback_calls = []
+            def identity_transport(args, **options):
+                if (type(args) is not list or not args or args[0] != 'docker'
+                        or any(type(value) is not str for value in args)):
+                    raise ValueError('fixture_identity_argv')
+                key = tuple(args)
+                identity_calls.append(key)
+                if key in replies:
+                    return replies[key]
+                fallback_calls.append(key)
+                return raw(args, **options)
             def git_boundary(args):
                 # The Git cleanliness double isolates a working test checkout.
-                return '' if args[-2:] == ['status', '--porcelain'] else read(args)
+                if args[-2:] == ['status', '--porcelain']:
+                    return ''
+                return identity_transport(args) if args[:1] == ['docker'] else read(args)
             old_endpoint = hosted.runtime.pilot.FROZEN_DOCKER_ENDPOINT
             old_identity = hosted.runtime.pilot.FROZEN_DOCKER_IDENTITY
             try:
@@ -223,13 +268,58 @@ elif args[:1] not in (['build'], ['pull']):
                             'DOCKER_HOST': '', 'DOCKER_TLS_VERIFY': '', 'DOCKER_CERT_PATH': '',
                             'RESOURCE_TEST_FAIL_STAGE': failure or ''}), \
                             patch.object(hosted.runtime.ci, 'read_command', side_effect=git_boundary), \
+                            patch.object(hosted.runtime.pilot, '_raw_command', side_effect=identity_transport), \
                             patch.object(hosted.runtime.pilot.shutil,'disk_usage',return_value=SimpleNamespace(free=20*1024**3)):
+                        if not failure:
+                            identity = hosted.runtime.pilot.daemon.identify(identity_transport)
+                            self.assertEqual(identity['daemon_id'], 'owned-fixture')
+                            self.assertEqual(identity['socket_inode'], endpoint.stat().st_ino)
+                            self.assertEqual(identity_calls, [show, inspect, info])
+                            self.assertEqual(fallback_calls, [], 'readonly identity fixture spawned a process')
+                            for args, expected in replies.items():
+                                self.assertEqual(raw(list(args)), expected)
+                            for invalid in (None, (), [], ['foreign', 'context', 'show'], ['docker', 1]):
+                                with self.subTest(argv=invalid), self.assertRaises(ValueError):
+                                    identity_transport(invalid)
+                            import subprocess
+                            unknown = [
+                                ['docker', 'context', 'show', '--extra'],
+                                ['docker', 'context', 'inspect', 'foreign', '--format', '{{.Endpoints.docker.Host}}'],
+                                ['docker', '--context', 'foreign', 'info', '--format', '{{json .}}'],
+                                ['docker', '--context', 'owned-fixture', '--format', '{{json .}}', 'info'],
+                                ['docker', 'image', 'info'],
+                            ]
+                            for args in unknown:
+                                with self.subTest(argv=args), self.assertRaises(subprocess.CalledProcessError):
+                                    identity_transport(args, timeout=3)
+                                self.assertEqual(fallback_calls[-1], tuple(args))
+                            for reply in ('{', json.dumps({'ID': '', 'DockerRootDir': str(root)})):
+                                def malformed(args):
+                                    value = identity_transport(args)
+                                    return reply if tuple(args) == info else value
+                                with self.assertRaises((ValueError, RuntimeError)):
+                                    hosted.runtime.pilot.daemon.identify(malformed)
+                            def not_socket(args):
+                                value = identity_transport(args)
+                                return 'unix://' + str(executable) if tuple(args) == inspect else value
+                            with self.assertRaisesRegex(RuntimeError, 'not a socket'):
+                                hosted.runtime.pilot.daemon.identify(not_socket)
+                            def foreign(args, **options):
+                                value = identity_transport(args, **options)
+                                return json.dumps({'ID': 'foreign', 'DockerRootDir': str(root)}) if tuple(args) == info else value
+                            with patch.object(hosted.runtime.pilot, 'FROZEN_DOCKER_IDENTITY', identity), \
+                                    patch.object(hosted.runtime.pilot, '_raw_command', side_effect=foreign):
+                                with self.assertRaisesRegex(RuntimeError, 'Docker identity changed'):
+                                    hosted.runtime.pilot.assert_docker_identity()
+                            identity_calls.clear()
+                            fallback_calls.clear()
+                            log.write_text('')
                         if failure:
                             import subprocess
                             with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
-                                hosted.prepare(admitted, root / 'images.json')
+                                hosted.prepare(admitted, root / 'images.json', consumer=str(root / 'private'))
                         else:
-                            hosted.prepare(admitted, root / 'images.json')
+                            hosted.prepare(admitted, root / 'images.json', consumer=str(root / 'private'))
                 if failure:
                     source = json.loads((admitted / 'source.json').read_text())['checkout_sha']
                     value = hosted.acquisition.read(admitted / hosted.acquisition.NAME, source)
@@ -238,6 +328,7 @@ elif args[:1] not in (['build'], ['pull']):
                                      (failure, expected_boundary, 'command_exit', 23))
                     self.assertNotIn('private-output-sentinel', (admitted / hosted.acquisition.NAME).read_text())
                     self.assertFalse((root / 'images.json').exists())
+                    self.assertEqual(json.loads(state_path.read_text()) if (state_path := root/'images-state.json').exists() else {}, {})
                     with self.assertRaisesRegex(ValueError, 'resource_project_not_acquired'):
                         hosted.collect(root / 'private', root / 'public', metadata=admitted)
                     self.assertEqual(hosted.acquisition.read(root / 'public' / hosted.acquisition.NAME, source)['stage'], failure)
@@ -250,12 +341,22 @@ elif args[:1] not in (['build'], ['pull']):
                 self.assertEqual(value['source'], source)
                 commands = [json.loads(row) for row in log.read_text().splitlines()]
                 commands = [args[2:] if args[:1] == ['--host'] else args for args in commands]
+                readonly = [args for args in identity_calls if args in replies]
+                self.assertTrue(readonly, 'actual preparation skipped identity validation')
+                self.assertEqual(readonly, [show, inspect, info] * (len(readonly) // 3))
+                self.assertEqual(fallback_calls, [args for args in identity_calls if args not in replies])
+                self.assertFalse(any(tuple(['docker', *args]) in replies for args in commands))
+                receipt = json.loads((hosted.preparation.directory(root/'images.json')/'receipt.json').read_text())
                 builds = [args for args in commands if args[:1] == ['build']]
                 self.assertEqual(builds, [
                     ['build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                      '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA='+source,
+                     '--label', hosted.preparation.LABEL+'='+receipt['token'],
+                     '--iidfile', str(hosted.preparation.directory(root/'images.json')/'backend.iid'),
                      '--tag', 'inside-platform-production-smoke-cache-123-1-backend:v1', '.'],
-                    ['build', '--file', 'infra/production/database/Dockerfile', '--tag',
+                    ['build', '--file', 'infra/production/database/Dockerfile',
+                     '--label', hosted.preparation.LABEL+'='+receipt['token'],
+                     '--iidfile', str(hosted.preparation.directory(root/'images.json')/'foundation.iid'), '--tag',
                      'inside-platform-production-smoke-cache-123-1-foundation:local', 'infra/production/database']])
                 pulls = [args for args in commands if args[:1] == ['pull']]
                 self.assertEqual(len(pulls), 7)

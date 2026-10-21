@@ -60,7 +60,8 @@ jobs:
         run: |
           bash scripts/heavy-check.sh python3 scripts/observability-resource/hosted.py prepare \
             --metadata "$RUNNER_TEMP/inside-resource-metadata" \
-            --images "$RUNNER_TEMP/inside-resource-images.json"
+            --images "$RUNNER_TEMP/inside-resource-images.json" \
+            --consumer "$RUNNER_TEMP/inside-resource-private"
       - name: Run short profile through unchanged 600-second supervisor
         timeout-minutes: 22
         run: |
@@ -72,7 +73,8 @@ jobs:
         timeout-minutes: 5
         run: |
           python3 scripts/observability-resource/runtime.py recover \
-            --output "$RUNNER_TEMP/inside-resource-private"
+            --output "$RUNNER_TEMP/inside-resource-private" \
+            --images "$RUNNER_TEMP/inside-resource-images.json"
       - name: Collect only closed evidence and actual admission metadata
         if: ${{ always() }}
         timeout-minutes: 1
