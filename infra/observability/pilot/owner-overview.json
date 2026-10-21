@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "services": ["platform-api", "platform-mcp"],
+  "environments": ["test", "isolated-pilot", "production"],
+  "quality_policy": {
+    "minimum_duration_observations": 100,
+    "minimum_counter_samples": 2,
+    "expected_export_period_seconds": 5,
+    "allowed_sample_deficit": 2,
+    "maximum_current_source_age_seconds": 10,
+    "maximum_resets": 0,
+    "maximum_metric_export_failure_estimate": 0,
+    "historical_gap_completeness": "unknown"
+  },
+  "metrics": {
+    "REQUEST": "http.server.request.count",
+    "DURATION_COUNT": "http.server.request.duration_count",
+    "BUCKET": "http.server.request.duration_bucket",
+    "ACTIVE": "http.server.active_requests",
+    "SAMPLING": "telemetry.trace.sampling.ratio",
+    "EXPORT_FAILURE": "telemetry.metric.export.failures",
+    "TRACE_DROP": "telemetry.trace.dropped"
+  },
+  "queries": {
+    "volume": {
+      "requests_estimate": "sum(increase($REQUEST[$W]))",
+      "five_xx_estimate": "sum(increase($FIVE[$W]))",
+      "four_xx_estimate": "sum(increase($FOUR[$W]))",
+      "aborted_estimate": "sum(increase($ABORTED[$W]))",
+      "duration_observations_estimate": "sum(increase($DURATION_COUNT[$W]))"
+    },
+    "speed": {
+      "p50_seconds": "histogram_quantile(0.50,sum by(le)(increase($BUCKET[$W])))",
+      "p95_seconds": "histogram_quantile(0.95,sum by(le)(increase($BUCKET[$W])))",
+      "p99_seconds": "histogram_quantile(0.99,sum by(le)(increase($BUCKET[$W])))",
+      "five_xx_share": "sum(increase($FIVE[$W])) / sum(increase($REQUEST[$W]))"
+    },
+    "load": {
+      "requests_per_second_estimate": "sum(rate($REQUEST[$W]))",
+      "active_requests_sample_mean": "sum(avg_over_time($ACTIVE[$W]))",
+      "active_requests_sample_max": "sum(max_over_time($ACTIVE[$W]))"
+    },
+    "quality": {
+      "minimum_counter_samples": "min(count_over_time($REQUEST[$W]))",
+      "minimum_histogram_samples": "min(count_over_time($DURATION_COUNT[$W]))",
+      "counter_resets": "sum(resets($REQUEST[$W])) + sum(resets($DURATION_COUNT[$W]))",
+      "minimum_trace_sampling_ratio": "min(min_over_time($SAMPLING[$W]))",
+      "metric_export_failures_estimate": "sum(increase($EXPORT_FAILURE[$W]))",
+      "trace_drops_estimate": "sum(increase($TRACE_DROP[$W]))",
+      "current_sources_usable": "$FRESH",
+      "collection_failure_estimate": "$COLLECTION"
+    }
+  },
+  "panels": [
+    {
+      "kind": "volume",
+      "title": "Observed request estimates"
+    },
+    {
+      "kind": "speed",
+      "title": "Speed and 5xx share, quality gated"
+    },
+    {
+      "kind": "load",
+      "title": "Stored HTTP observations"
+    },
+    {
+      "kind": "quality",
+      "title": "Coverage and collection symptoms"
+    }
+  ]
+}

@@ -156,6 +156,18 @@ class PilotPreparationTest(unittest.TestCase):
             self.assertEqual(reader.get("user"), f"{auth.st_uid}:{auth.st_gid}")
             self.assertEqual(reader["cap_drop"], ["ALL"])
             self.assertNotIn("cap_add", reader)
+            grafana = plan["services"]["grafana"]
+            self.assertIn(f"{output / 'dashboard-provider.json'}:/etc/grafana/provisioning/dashboards/owner.yaml:ro", grafana["volumes"])
+            self.assertIn(f"{output / 'owner-overview'}:/etc/grafana/owner-overview:ro", grafana["volumes"])
+            view = json.loads((output / "owner-overview/dashboard.json").read_text())
+            self.assertEqual(view["uid"], "platform-owner-overview")
+            self.assertFalse(view["editable"])
+            targets = [target for panel in view["panels"] for target in panel.get("targets", [])]
+            self.assertEqual(len(targets), 10)
+            self.assertNotIn(json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"], json.dumps(view))
+            provider = json.loads((output / "dashboard-provider.json").read_text())
+            self.assertNotIn(json.loads((output / "auth.json").read_text())["users"][0]["bearer_token"], json.dumps(provider))
+            self.assertEqual(provider["providers"][0]["options"]["path"], "/etc/grafana/owner-overview")
 
     def test_prepared_stack_keeps_storage_ports_private_and_drops_host_capabilities(self):
         plan = pilot.compose_plan(Path("/source"), Path("/owned-run"),
