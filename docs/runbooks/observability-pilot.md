@@ -1567,21 +1567,32 @@ the original full-workspace frozen install and shared BuildKit cache mount. The 
 image also runs Web, so it still includes Web dependencies and root tooling. The former global
 backend-only install filter broke that image and remains removed from the shared branch.
 
-Only backend production uses the separate `production-dependencies` branch. It selects the backend
-transitive workspace dependencies and root tooling, retaining development dependencies and lifecycle
-scripts needed to compile the payload. Its store is a fresh private `/tmp/inside-backend-pnpm.XXXXXX`
-directory created inside that `RUN`, without a cache/bind mount or configurable store path.
-Package import stays `copy`. Only that exact temporary store is removed in the same `RUN` before
-success. An install failure keeps its original exit status even if cleanup also fails; a cleanup
-failure after a successful install fails the build. No host, shared or global store is pruned.
+Backend production now derives `production-build` directly from `dependency-inputs`, with the
+filtered source copied before installation. One `RUN` installs the backend transitive workspace
+selection and root tooling, removes its fresh private `/tmp/inside-backend-pnpm.XXXXXX` install
+store, compiles, deploys, then removes only the seven fixed root/selected-workspace `node_modules`
+roots. Frozen-lock, package-import `copy`, lifecycle and deploy options are preserved. An install
+failure retains its original status even if its store cleanup fails; later failure stops the build.
+The complete `.production` parent must be absent before installation and is constructed by this
+RUN. Physical ownership and same-RUN device/inode captures protect its ancestry and deployed output;
+all seven dependency roots are checked before any removal. These checks assume a private, synchronous
+RUN; they do not provide atomic protection against a concurrent writer with the same user identity.
+The isolated production payload, dist,
+CA and source artifacts remain. The deploy command's separate default store is unchanged and
+unpruned. This does not remove source/toolchain layers or prove lower peak consumption.
 
-`production-source` copies the same filtered checkout and restores patch metadata from the isolated
-install. Backend release identity also derives from that branch, so its late final `COPY` cannot
-pull the full development install back into the production graph. Identity arguments remain outside
-payload compilation. Web development, production and release identity retain their full dependencies.
-Source graph and shell contracts do not prove image compatibility, storage savings or guard fit.
-Exact-source hosted cold/cache image, shared development and resource acquisition/cleanup checks
-remain required under the unchanged filesystem policy. No production capacity or deployment is accepted.
+The original `production-dependencies` and `production-source` targets retain their direct-use
+contents, but neither is a FROM/COPY ancestor of the selected production payload or late identity.
+`release-identity` derives from the completed `production-build`; its arguments remain late. It
+re-admits physical output ownership with fresh stage-local device/inode captures, without claiming
+inode equality across Docker layers. Only that stage creates the fixed root `node_modules` link
+to the deployed dependency closure for the unchanged identity writer and its existing zod import.
+Final runtime COPY/commands and Web/development ancestry remain unchanged. These filesystem/source
+contracts do not establish actual deployed ESM/native closure, cold/cache image equivalence,
+cache reuse, savings, resource fit or production capacity. Exact-source hosted reference/candidate,
+shared-development and complete resource checks remain required under the unchanged cumulative 4 GiB
+policy and original baseline/floor. Peak allocation may still trigger the guard before cleanup;
+no pruning, larger allowance, new baseline or deployment follows from this preparation.
 
 For acquisition failures, `resource-acquisition.json` records a closed stage and boundary
 (identity probe, child wait, inspection or publication), bounded outcome/counters/elapsed
