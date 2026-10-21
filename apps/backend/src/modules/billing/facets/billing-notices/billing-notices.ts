@@ -1,3 +1,4 @@
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -117,6 +118,7 @@ export type BillingNoticeSource =
     };
 
 interface Dependencies {
+  readonly sale?: Pick<SaleCapability, "subscriptions">;
   readonly prisma: BillingPrismaClient;
   readonly enrollments: EnrollmentEndings;
   readonly clock?: () => Date;
@@ -288,6 +290,7 @@ export class BillingNotices {
     now: Date,
     limit: number,
   ): Promise<NoticeOutcome[]> {
+    if (this.dependencies.sale?.subscriptions !== true) return [];
     const scheduled =
       await this.dependencies.prisma.billingSubscription.findMany({
         where: {
@@ -491,6 +494,11 @@ export class BillingNotices {
         ? offerCheckoutPath(ending.offerId)
         : undefined;
     }
+    if (
+      this.dependencies.sale?.subscriptions !== true &&
+      (notice.kind === "renewal_reminder" || notice.kind === "access_ending")
+    )
+      return undefined;
     if (notice.kind !== "renewal_reminder" && notice.kind !== "access_ending")
       return BILLING_CABINET_PATH;
     if (!hasText(notice.subscriptionRef)) return undefined;

@@ -330,14 +330,14 @@ test("раздел подписки показывает оплаченный с
   });
   await page.goto("/account/subscription");
 
-  await expect(page.getByText("Действует")).toBeVisible();
-  await expect(page.getByText("1 октября 2026 г.").first()).toBeVisible();
+  await expect(page).toHaveURL(/\/account$/u);
+  await expect(
+    page.getByRole("heading", { name: "Личный кабинет", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Отменить продление" }),
-  ).toBeEnabled();
-  // Financial details remain collapsed until the owner opens purchases.
-  await expect(page.getByText("Оплаченный доступ")).not.toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Способ оплаты" }),
-  ).not.toBeVisible();
+  ).toHaveCount(0);
 });

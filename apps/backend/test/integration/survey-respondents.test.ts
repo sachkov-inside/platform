@@ -114,6 +114,7 @@ describe("скидка респондентам анкеты: список ни�
       sale: { payments: true, subscriptions: true },
     });
     operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       accounts,
       pricing,

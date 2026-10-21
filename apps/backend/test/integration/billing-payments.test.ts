@@ -290,6 +290,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     });
     const runtime = (projector = grants) =>
       new BillingPayments({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank,
         contact,

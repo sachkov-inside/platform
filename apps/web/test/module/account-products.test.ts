@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { accountProducts } from "@/features/billing-subscription/model/account-products";
 import {
   cabinetProduct,
+  courseEnrollment,
   cabinetProductGround as ground,
   cabinetProductPayment as payment,
 } from "@/storybook/billing.fixtures";
@@ -74,3 +75,23 @@ describe("one cabinet card per product", () => {
     expect(cards[1]?.product.slug).toBeNull();
   });
 });
+
+it.each(["scheduled", "expired", "revoked"] as const)(
+  "retains the Product for a %s course assignment without inventing current access",
+  (state) => {
+    const assignment = {
+      ...courseEnrollment,
+      state,
+      content: [cabinetProduct],
+    };
+    expect(accountProducts([], [], [assignment])).toMatchObject([
+      {
+        product: cabinetProduct,
+        assignments: [assignment],
+        retainedState: state,
+        access: undefined,
+        payment: undefined,
+      },
+    ]);
+  },
+);

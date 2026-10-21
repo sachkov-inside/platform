@@ -245,7 +245,7 @@ async function changeCatalog(
       if (current && "mode" in current && current.mode !== mode)
         return failure("invalid_request");
       // Вариант подписки у продаваемого предложения сразу поступает в продажу.
-      if (mode === "subscription" && offer.published && !sale.subscriptions)
+      if (mode === "subscription" && !sale.subscriptions)
         return failure("method_unavailable");
       const data = { ...command.value, mode, revision, archived: false };
       await tx.billingPaymentOption.upsert({

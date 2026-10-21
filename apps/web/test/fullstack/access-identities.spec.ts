@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
+import { tierSchema } from "@/entities/subscription";
 import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
@@ -35,8 +36,8 @@ const productA = {
 const productB = {
   closedBody: "FULLSTACK_PRIVATE_PRACTICE_BODY",
 } as const;
-/** Сидовое предложение «Материалы»: существующий ресурс для запрещённой Billing mutation. */
-const seededOfferId = "72000000-0000-4000-8000-000000000501";
+/** Сидовое разовое предложение продукта: существующий ресурс для запрещённой Billing mutation. */
+const seededOfferId = "72000000-0000-4000-8000-000000000503";
 /** Сидовый опубликованный бесплатный материал: существующий ресурс для Materials mutation. */
 const publishedMaterial = {
   slug: "kak-ustroen-inside-platform",
@@ -52,11 +53,7 @@ const tierItemsSchema = z.object({
     result: z.object({
       items: z.array(
         z.object({
-          tier: z.object({
-            id: z.string(),
-            name: z.string(),
-            revision: z.number(),
-          }),
+          tier: tierSchema,
         }),
       ),
     }),
@@ -165,7 +162,7 @@ async function billing(
   return response.json();
 }
 
-/** Значение тарифа «материалы только Product A»: так устроено и сидовое предложение «Материалы». */
+/** Явное назначение материалов только Product A для проверки границы доступа. */
 function productAOffer(id: string, name: string) {
   return {
     id,
@@ -188,10 +185,18 @@ async function seededOffer(observer: Page) {
 }
 
 /** Валидное переименование существующего предложения с его текущей ревизией. */
-function renameSeededOffer(page: Page, offer: { readonly revision: number }) {
+function renameSeededOffer(page: Page, offer: z.infer<typeof tierSchema>) {
   return billing(page, "offers/save", {
     expectedRevision: offer.revision,
-    value: productAOffer(seededOfferId, "Переименовано без права"),
+    value: {
+      id: offer.id,
+      name: "Переименовано без права",
+      benefits: offer.benefits,
+      coverage: offer.coverage,
+      ...(offer.benefitPeriods === undefined
+        ? {}
+        : { benefitPeriods: offer.benefitPeriods }),
+    },
   });
 }
 
@@ -315,7 +320,9 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
         exact: true,
       }),
     ).toBeVisible();
-    expect((await seededOffer(billingManager.page)).name).toBe("Материалы");
+    expect((await seededOffer(billingManager.page)).name).toBe(
+      "Руководство «Создание Platform Inside»",
+    );
 
     const before = await authoringMaterial(observer.page);
     expect(await unpublishMaterial(billingManager.page, before)).toEqual(

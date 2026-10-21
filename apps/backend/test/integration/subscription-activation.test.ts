@@ -81,6 +81,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       clock: () => now,
     });
     const service = new SubscriptionActivation({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       grants,
       bindings: new TelegramAccountLinks(db.prisma),
@@ -675,6 +676,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
         }),
     };
     const rollbackActivation = new SubscriptionActivation({
+      sale: { subscriptions: true },
       prisma: rollbackPrisma,
       grants,
       bindings: new TelegramAccountLinks(db.prisma),

@@ -35,6 +35,7 @@ export interface IssueInvitationRequest {
 }
 
 export interface InvitationsViewProps {
+  readonly allowIssue?: boolean;
   /** Каталог владельца: из него берутся названия предложений и выбор формы. */
   readonly offers: readonly PriceSnapshot[];
   readonly invitations: readonly Invitation[];
@@ -83,11 +84,13 @@ export function InvitationsView(props: InvitationsViewProps) {
   const names = invitationOfferNames(props.offers);
   return (
     <div className="grid gap-6">
-      <IssueInvitationForm
-        busy={props.busy}
-        offers={props.offers}
-        onIssue={props.onIssue}
-      />
+      {props.allowIssue === false ? null : (
+        <IssueInvitationForm
+          busy={props.busy}
+          offers={props.offers}
+          onIssue={props.onIssue}
+        />
+      )}
       <p aria-live="polite" className="break-words text-sm" role="status">
         {props.message}
       </p>
@@ -118,7 +121,9 @@ export function InvitationsView(props: InvitationsViewProps) {
         props.invitations.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {props.filter === "all"
-              ? "Приглашений пока нет. Выдайте первое формой выше."
+              ? props.allowIssue === false
+                ? "Исторических приглашений нет."
+                : "Приглашений пока нет. Выдайте первое формой выше."
               : "В этом состоянии приглашений нет."}
           </p>
         ) : null}

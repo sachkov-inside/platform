@@ -921,8 +921,10 @@ grep -v '^TBANK_CONFIG_JSON=' "$runtime_config_dir/api.env" >"$runtime_config_di
 expect_sale_configuration_refusal "$runtime_config_dir/api-without-terminal.env" dist/entrypoints/api.js \
   "Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured"
 catalog_sql "insert into billing.payment_options (id, revision, offer_id, months, price_kopecks, mode) values ('00000000-0000-4000-8000-000000000529', 1, '$sale_offer_id', 1, 100000, 'subscription');"
-expect_sale_configuration_refusal "$runtime_config_dir/billing-worker.env" dist/entrypoints/billing-worker.js \
-  "Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed"
+# Historical subscription rows are dormant under the current sale policy. They must not stop
+# reconciliation of old payments when the worker restarts on a non-recurring terminal.
+"${application_compose[@]}" restart billing-worker
+wait_for_worker_health healthy
 catalog_sql "update billing.offers set published = false where id = '$sale_offer_id';"
 
 record_stage_timing routes-and-sale-configuration

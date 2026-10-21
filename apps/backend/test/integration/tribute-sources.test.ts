@@ -107,6 +107,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         {
           provide: SubscriptionActivation,
           useValue: new SubscriptionActivation({
+            sale: { subscriptions: true },
             prisma: db.prisma,
             grants,
             bindings: links,

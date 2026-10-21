@@ -1,5 +1,9 @@
 import { productCapability } from "@inside/access-capabilities";
-import type { AccessGround, OwnPayment } from "@/entities/subscription";
+import type {
+  AccessGround,
+  Enrollment,
+  OwnPayment,
+} from "@/entities/subscription";
 
 type Product = NonNullable<AccessGround["content"]>[number];
 
@@ -7,10 +11,11 @@ type Product = NonNullable<AccessGround["content"]>[number];
 export function accountProducts(
   grounds: readonly AccessGround[],
   payments: readonly OwnPayment[],
+  enrollments: readonly Enrollment[] = [],
 ) {
   const purchases = payments.filter((payment) => payment.kind === "one_time");
   const products = new Map<string, Product>();
-  for (const source of [...grounds, ...purchases])
+  for (const source of [...grounds, ...purchases, ...enrollments])
     for (const entry of source.content ?? [])
       if (entry.kind === "product" && !products.has(entry.id))
         products.set(entry.id, entry);
@@ -22,6 +27,16 @@ export function accountProducts(
           (entry) => entry.kind === "product" && entry.id === product.id,
         ) === true,
     );
+    const assignments = enrollments.filter(
+      (item) =>
+        item.content?.some(
+          (entry) => entry.kind === "product" && entry.id === product.id,
+        ) === true,
+    );
+    const retainedState = assignments.some((item) => item.state === "active")
+      ? undefined
+      : (assignments.find((item) => item.state === "scheduled")?.state ??
+        assignments[0]?.state);
     const history = purchases
       .filter(
         (payment) =>
@@ -50,6 +65,8 @@ export function accountProducts(
         ?.access ?? payment?.access;
     return {
       product,
+      assignments,
+      retainedState,
       bases,
       history,
       payment,

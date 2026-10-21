@@ -199,8 +199,11 @@ def main():
             status, _ = request(endpoint + "/api/my-account/first-email/start", {"email": "limited@example.test"}, second)
             assert status == (201 if attempt < 10 else 429), (attempt, status)
         no_scope = user_token(second_id, "openid")
-        assert request(endpoint + "/api/my-account/first-email/start", {"email": "scope@example.test"}, no_scope)[0] >= 400
-        assert request(endpoint + "/api/my-account/first-email", token=no_scope)[0] == 401
+        assert request(endpoint + "/api/my-account/first-email", token=no_scope) == (200, {"email": None}), "Existing authenticated session must not require another sign-in"
+        legacy_address = "scope@example.test"
+        legacy_challenge = start(no_scope, legacy_address)
+        assert confirm(no_scope, legacy_challenge, code(legacy_address))[0] == 204
+        assert request(endpoint + "/api/my-account/first-email", token=no_scope) == (200, {"email": legacy_address})
         assert request(endpoint + "/api/my-account/first-email/start", {"email": "a" * 64 + "@" + "b" * 59 + ".test"}, second)[0] == 400
         password_id = user("password-exclusion")
         api("/users/" + password_id + "/password", {"password": "ProfileProof-Password-938"}, "PATCH")
@@ -212,9 +215,21 @@ def main():
         # by changing only this disposable provider fixture after its user token was minted.
         assert re.fullmatch(r"[a-z0-9]+", app_id)
         docker("exec", db_name, "psql", "-U", "logto", "-c", f"update applications set is_third_party=true where id='{app_id}'")
-        assert request(endpoint + "/api/my-account/first-email/start", {"email": "third-party@example.test"}, second)[0] == 403
+        assert request(endpoint + "/api/my-account/first-email", token=no_scope)[0] == 403
+        assert request(endpoint + "/api/my-account/first-email/start", {"email": "third-party@example.test"}, no_scope)[0] == 403
+        assert confirm(no_scope, legacy_challenge, code(legacy_address))[0] == 403
         docker("exec", db_name, "psql", "-U", "logto", "-c", f"update applications set is_third_party=false where id='{app_id}'")
-        print("PASS: own email, same subject, wrong code, foreign challenge, occupied email, retry, no replacement, anonymous, concurrency, expiration, exhausted attempts, send cap, scope, credential exclusions, third-party refusal", flush=True)
+        api("/account-center", {"enabled": True, "fields": {"email": "ReadOnly"}}, "PATCH")
+        for status, failure in [
+            request(endpoint + "/api/my-account/first-email", token=no_scope),
+            request(endpoint + "/api/my-account/first-email/start", {"email": "readonly@example.test"}, no_scope),
+            confirm(no_scope, legacy_challenge, code(legacy_address)),
+        ]:
+            assert status == 400 and failure["code"] == "account_center.field_not_editable", (status, failure)
+        api("/account-center", {"enabled": False}, "PATCH")
+        status, failure = request(endpoint + "/api/my-account/first-email", token=no_scope)
+        assert 400 <= status < 500, (status, failure)
+        print("PASS: own email, same subject, wrong code, foreign challenge, occupied email, retry, no replacement, anonymous, concurrency, expiration, exhausted attempts, send cap, existing openid-only session, credential exclusions, third-party refusal, field permissions", flush=True)
     except Exception:
         if task + "-idp" in names:
             print(docker("logs", "--tail", "35", task + "-idp"))
