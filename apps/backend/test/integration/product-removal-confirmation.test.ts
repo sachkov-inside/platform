@@ -115,7 +115,7 @@ describe("снятие материала из купленного руково
       summary: "Шаг купленного руководства",
       access: "closed" as const,
       topicId,
-      formatId: "guide",
+      formatId: "guide" as const,
       tagIds: [],
       difficulty: null,
       outcomes: [],
@@ -179,6 +179,95 @@ describe("снятие материала из купленного руково
       })
     ).map(({ seriesId }) => seriesId);
   }
+
+  test("source publication retains the purchased Product removal confirmation", async () => {
+    const product = await materials.authoring.reserveSourceProduct({
+      actor: owner,
+      sourceId: "publication-removal-product",
+      name: "Publication removal",
+      slug: "publication-removal",
+      summary: "",
+    });
+    if (!product.ok) throw new Error(product.error.code);
+    await grant({
+      capabilities: [`product:${product.value.id}`],
+      validUntil: null,
+    });
+    const source = {
+      id: "publication-removal-material",
+      path: "lesson.md",
+      revision: "a".repeat(64),
+      showInFeed: false,
+    };
+    const reserved = await materials.authoring.reserveSourceMaterial({
+      actor: owner,
+      source,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const materialId = reserved.value.materialId;
+    expect(
+      await materials.authoring.applySourceMaterial({
+        actor: owner,
+        source,
+        materialId,
+        expectedContentVersion: 1,
+        publicationState: "published",
+        idempotencyKey: "publication-removal-initial",
+        primaryVideoId: null,
+        metadata: metadata([product.value.id]),
+        body: representativeDocument("Purchased lesson"),
+      }),
+    ).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    const transition = {
+      actor: owner,
+      sourceId: source.id,
+      materialId,
+      expectedContentVersion: 2,
+      publicationState: "unpublished" as const,
+      idempotencyKey: "publication-removal-unpublish",
+    };
+    expect(
+      await materials.authoring.transitionSourcePublication(transition),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        code: "product_removal_confirmation_required",
+        products: [{ productId: product.value.id, holders: 1 }],
+      },
+    });
+    expect(
+      await materials.authoring.loadMaterial({ actor: owner, materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: { contentVersion: 2, publicationState: "published" },
+    });
+    const confirmed = {
+      ...transition,
+      confirmedProductRemovals: [product.value.id],
+    };
+    const result =
+      await materials.authoring.transitionSourcePublication(confirmed);
+    expect(result).toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    expect(
+      await materials.authoring.transitionSourcePublication(confirmed),
+    ).toEqual(result);
+    expect(
+      await materials.authoring.loadMaterial({ actor: owner, materialId }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        metadata: { seriesMemberships: [{ seriesId: product.value.id }] },
+      },
+    });
+    expect(
+      await materials.authoring.transitionSourcePublication({
+        ...transition,
+        publicationState: "published",
+        expectedContentVersion: 3,
+        idempotencyKey: "publication-removal-republish",
+      }),
+    ).toMatchObject({ ok: true, value: { contentVersion: 4 } });
+  });
 
   test("держателей считают в транзакции снятия, когда она держит весь пул", async () => {
     now = new Date("2030-01-01T00:00:00Z");

@@ -4,7 +4,15 @@ import {
 } from "../../../../config/platform-config.js";
 import { z } from "zod";
 import { validateSourceBodySchema } from "./import-source-material.contract.js";
-import { Body, Controller, Get, Headers, Inject, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Inject,
+  Post,
+} from "@nestjs/common";
 import {
   ApiBody,
   ApiHeader,
@@ -29,6 +37,7 @@ import {
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import {
+  sourcePublicationBodySchema,
   reserveSourceBodySchema,
   applySourceBodySchema,
 } from "./import-source-material.contract.js";
@@ -97,6 +106,36 @@ export class ImportSourceMaterialController {
     const result = await this.authoring.reserveSourceMaterial({
       actor: account.accountId,
       source: body.source,
+    });
+    if (!result.ok) throwMaterialAuthoringError(result.error);
+    return result.value;
+  }
+
+  @Post("publication")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "transitionSourcePublication",
+    summary:
+      "Change publication of the current source-owned Material without replacing content",
+  })
+  @ApiHeader({
+    name: "idempotency-key",
+    required: true,
+    schema: toOpenApiSchema(idempotencyKeySchema),
+  })
+  @ApiBody({ schema: toOpenApiSchema(sourcePublicationBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(materialMutationReceiptSchema) })
+  @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
+  async publication(
+    @CurrentAccount() account: AuthenticatedAccount,
+    @Headers("idempotency-key") key: string | undefined,
+    @Body() input: unknown,
+  ) {
+    const body = parseMaterialAuthoringBody(sourcePublicationBodySchema, input);
+    const result = await this.authoring.transitionSourcePublication({
+      actor: account.accountId,
+      idempotencyKey: key ?? "",
+      ...body,
     });
     if (!result.ok) throwMaterialAuthoringError(result.error);
     return result.value;
