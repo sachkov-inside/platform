@@ -153,9 +153,18 @@ function protocolFailureMessage(stderr) {
     if (!line.includes("CORE_PROTOCOL")) continue;
     if (end !== stderr.length - 1 || Buffer.byteLength(line) + 1 > 64)
       return PROTOCOL_UNKNOWN;
-    const match = /^CORE_PROTOCOL_V1 failures ([-FE]{3})$/u.exec(line);
+    const match =
+      /^CORE_PROTOCOL_V1 failures ([-FE]{3})(?: field (exit|program|warnings|tests|failures|errors|skips|discovery|output))?$/u.exec(
+        line,
+      );
     const vector = match?.[1];
-    if (vector === undefined || vector === "---") return PROTOCOL_UNKNOWN;
+    const field = match?.[2];
+    if (
+      vector === undefined ||
+      vector === "---" ||
+      (field !== undefined && vector[2] === "-")
+    )
+      return PROTOCOL_UNKNOWN;
     return (
       "Core protocol: " +
       PROTOCOL_METHODS.flatMap((method, index) => {
@@ -163,7 +172,8 @@ function protocolFailureMessage(stderr) {
         return category === "-"
           ? []
           : [method + "=" + (category === "F" ? "failure" : "error")];
-      }).join("; ")
+      }).join("; ") +
+      (field === undefined ? "" : `; field=${field}`)
     );
   }
   return PROTOCOL_UNKNOWN;
