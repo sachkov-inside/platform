@@ -65,7 +65,7 @@ it("counts overlapping confirmed commands once across Moscow midnight through de
   });
   const accounts = assembleAccounts({
     prisma: database.prisma,
-    emailFingerprintKey: "participant-test-fingerprint",
+    emailFingerprintKey: "participant-diagnostics-test-fingerprint-key-v1",
   });
   const authorPolicy = { canManage: (actor: string) => actor === owner };
   const materials = assembleMaterials({
