@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+from pg_oracle_reasons import ORACLE_REASONS
 
 NAME='postgres-source.json'
 TEMPORARY='.postgres-source.json.new'
@@ -19,11 +20,6 @@ PHASES=CASE_PHASES+('baseline_actor_start','baseline_setup',
     'baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
     'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
     'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
-ORACLE_REASONS=(
-    'oracle_input','oracle_values_decode','oracle_values_envelope','oracle_values_row','oracle_values_labels','oracle_values_number',
-    'oracle_timestamps_decode','oracle_timestamps_envelope','oracle_timestamps_row','oracle_timestamps_labels','oracle_timestamps_number',
-    'oracle_join','oracle_identity','oracle_cohort','oracle_availability_order','oracle_complete_time','oracle_complete_identity',
-    'oracle_age','oracle_expected','oracle_value_mismatch','oracle_stale','oracle_unavailable','oracle_malformed_unknown')
 REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup',*ORACLE_REASONS)
 FRESHNESS=('fresh','stale','missing','unavailable','malformed')
 CONTINUITY=('initial','same_epoch','statistics_reset','server_restart','ownership_changed','unknown')

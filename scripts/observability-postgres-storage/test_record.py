@@ -14,6 +14,8 @@ class Records(unittest.TestCase):
     def test_closed_oracle_reasons_roundtrip_only_on_failed_baseline_oracles_before_copy(self):
         import oracle
         import postgres_source
+        self.assertIs(record.ORACLE_REASONS,oracle.ORACLE_REASONS)
+        self.assertEqual(len(record.ORACLE_REASONS),23)
         from test_public import AdmissionComposition
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve()

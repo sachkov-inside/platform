@@ -2,6 +2,7 @@
 from decimal import Decimal
 import json
 import re
+from pg_oracle_reasons import ORACLE_REASONS
 
 _MAX=9007199254740991
 _FIXED={'service.name':'inside-postgresql-source','deployment.environment.name':'isolated-pilot',
@@ -10,11 +11,6 @@ _NAMES={'inside.postgresql.server.'+name for name in ('backends','waiting_locks'
         'postmaster_start_time_microseconds','statistics_reset_time_microseconds','sample_time_microseconds','available')}
 
 
-ORACLE_REASONS=(
-    'oracle_input','oracle_values_decode','oracle_values_envelope','oracle_values_row','oracle_values_labels','oracle_values_number',
-    'oracle_timestamps_decode','oracle_timestamps_envelope','oracle_timestamps_row','oracle_timestamps_labels','oracle_timestamps_number',
-    'oracle_join','oracle_identity','oracle_cohort','oracle_availability_order','oracle_complete_time','oracle_complete_identity',
-    'oracle_age','oracle_expected','oracle_value_mismatch','oracle_stale','oracle_unavailable','oracle_malformed_unknown')
 _VECTOR_REASONS={
     'values':dict(zip(('decode','envelope','row','labels','number'),ORACLE_REASONS[1:6])),
     'timestamps':dict(zip(('decode','envelope','row','labels','number'),ORACLE_REASONS[6:11]))}
