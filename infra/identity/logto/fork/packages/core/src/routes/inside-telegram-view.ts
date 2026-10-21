@@ -144,9 +144,9 @@ async function poll() {
     const botLink = state.status === 'pending' ? telegramBotLinks(state.deepLink) : undefined;
     if (botLink && !attemptedBotOpen) {
       attemptedBotOpen = true;
-      // The app protocol keeps this waiting document alive; an HTTPS same-tab redirect would lose it.
-      // Browsers may require another gesture. The validated HTTPS fallback remains available.
-      try { window.open(botLink.app, '_self'); } catch { /* Keep polling and the manual fallback. */ }
+      // Never target the waiting document: external-protocol handlers may replace or close it.
+      // A blocked popup leaves the validated, user-activated HTTPS fallback available.
+      try { window.open(botLink.app, '_blank', 'noopener,noreferrer'); } catch { /* Keep polling and the manual fallback. */ }
     }
     if (state.status === 'approved' && state.callback) {
       stopped = true;
