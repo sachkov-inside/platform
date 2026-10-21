@@ -42,6 +42,8 @@ class Scenario:
     def phase(self,name):self.progress('phase',name)
     def passed(self,name):self.progress('case',name)
 
+    def _partition_checkpoint(self,name):self.progress('partition_checkpoint',name)
+
     def failed(self,error):
         self.progress('failure',failure_reason(error))
 
@@ -99,9 +101,20 @@ class Scenario:
         if not stamps or len(set(stamps.values()))!=1:status.refuse()
         return next(iter(stamps.values()))
 
-    def fresh_after(self,cut,previous=None):
-        return self._until(lambda:self.snapshot(previous),lambda value:value[0]['state']=='observed'
-            and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])))
+    def fresh_after(self,cut,previous=None,*,_partition=False):
+        if not _partition:
+            return self._until(lambda:self.snapshot(previous),lambda value:value[0]['state']=='observed'
+                and self.stamp(value[1])>status.clock(cut) and self.journal.boundary_clear(self.stamp(value[1])))
+        self._partition_checkpoint('partition_initial_acquire')
+        def check(value):
+            if value[0]['state']!='observed':
+                self._partition_checkpoint('partition_initial_state');return False
+            if not self.stamp(value[1])>status.clock(cut):
+                self._partition_checkpoint('partition_initial_after_cut');return False
+            if not self.journal.boundary_clear(self.stamp(value[1])):
+                self._partition_checkpoint('partition_initial_boundary');return False
+            return True
+        return self._until(lambda:self.snapshot(previous),check)
 
     def matching(self,canonical,*,previous=None):
         report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
@@ -113,17 +126,22 @@ class Scenario:
 
     def partition(self,cut):
         self.phase('partition')
-        _,baseline=self.fresh_after(cut)
+        _,baseline=self.fresh_after(cut,_partition=True)
         # Repeat every controlled response class inside a journaled interval, including recovery502s.
         batch_cut=self.seed()
         self.phase('partition')
+        self._partition_checkpoint('partition_compare_acquire')
         def check(value):
             report,acquired=value
-            if report['state']!='observed':return False
-            return self.journal.verify(baseline,acquired) is True
+            if report['state']!='observed':
+                self._partition_checkpoint('partition_compare_state');return False
+            if self.journal.verify(baseline,acquired) is not True:
+                self._partition_checkpoint('partition_compare_journal');return False
+            return True
         while True:
             _,current=self._until(lambda:self.snapshot(baseline),check)
             if self.stamp(current)>status.clock(batch_cut):break
+            self._partition_checkpoint('partition_compare_after_cut')
             baseline=current
         self.matching(current)
         self.passed('partition');self.passed('mcp')

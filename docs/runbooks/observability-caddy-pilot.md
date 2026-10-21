@@ -194,9 +194,28 @@ already admitted `budget` reason at both scenario and worker boundaries. Ordinar
 errors, identical error text and subclasses of this refusal remain `unknown`.
 No acquisition counts or exception details are published.
 
-This is source-only diagnostic coverage. Earlier native partition failures remain
-unattributed. A future `budget` result would establish that this guard fired, but
-would not explain why acquisitions accumulated or establish native acceptance.
+The same six-field, 8192-byte `caddy-run.json` record also admits eight finite
+partition checkpoints: `partition_initial_acquire`, `partition_initial_state`,
+`partition_initial_after_cut`, `partition_initial_boundary`,
+`partition_compare_acquire`, `partition_compare_state`,
+`partition_compare_journal` and `partition_compare_after_cut`. The acquire phases
+mean no predicate result has been observed in that subphase. Other phases record
+the last rejected predicate category before a later failure. The journal category
+does not distinguish an incomplete comparison from a request crossing a scrape
+boundary. Checkpoints update memory only. The existing terminal failure write
+persists the last category; later progress cannot replace that first failure.
+Default `fresh_after` callers retain their original behavior without checkpoints.
+
+Failure notification retains the original experiment exception and traceback even
+when its first persistence attempt fails, including when it raises the same
+exception object. This guard covers notification, not unrelated native cleanup
+failures. No raw errors, numeric counters, extra reads, polling writes or larger
+budgets are introduced.
+
+These changes provide source diagnostic coverage. Earlier native partition
+failures remain unattributed. A `budget` result identifies the existing acquisition
+guard, but a checkpoint alone does not explain why acquisitions accumulated or
+establish native acceptance. Fresh source-bound native evidence is still required.
 
 ## Source test progress
 
