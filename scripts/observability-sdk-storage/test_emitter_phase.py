@@ -168,12 +168,12 @@ def assert_pin_cleanup_failures(test,write,temporary_name,*,buffered=False):
             root=Path(directory).resolve();path=root/'phase.json';temporary=root/temporary_name
             primary=KeyboardInterrupt() if stage=='interrupt' else SystemExit(2) if stage=='system_exit' else OSError('controlled first failure');secondary=OSError('controlled later failure')
             originals={name:getattr(os,name) for name in ('open','dup','close','fstat','write','replace','unlink','fdopen')}
-            acquired={};attempts=[];pins=[];foreign=[];operation_failed=False;primary_trace=[]
+            acquired={};records=[];attempts=[];pins=[];foreign=[];operation_failed=False;primary_trace=[]
             def opened(*args,**kwargs):
-                fd=originals['open'](*args,**kwargs);info=originals['fstat'](fd);acquired[fd]=dict(fd=fd,dev=info.st_dev,ino=info.st_ino,directory=stat.S_ISDIR(info.st_mode),active=True);return fd
+                fd=originals['open'](*args,**kwargs);info=originals['fstat'](fd);acquired[fd]=dict(fd=fd,dev=info.st_dev,ino=info.st_ino,directory=stat.S_ISDIR(info.st_mode),active=True);records.append(acquired[fd]);return fd
             def duplicated(fd):
                 if stage=='dup':raise primary
-                pin=originals['dup'](fd);info=originals['fstat'](pin);acquired[pin]=dict(fd=pin,dev=info.st_dev,ino=info.st_ino,directory=False,active=True);pins.append(pin);return pin
+                pin=originals['dup'](fd);info=originals['fstat'](pin);acquired[pin]=dict(fd=pin,dev=info.st_dev,ino=info.st_ino,directory=False,active=True);records.append(acquired[pin]);pins.append(pin);return pin
             def fstat(fd):
                 if stage=='pin_stat' and fd in pins:raise primary
                 return originals['fstat'](fd)
@@ -241,7 +241,7 @@ def assert_pin_cleanup_failures(test,write,temporary_name,*,buffered=False):
                 if stage in ('pin_close','directory_close'):test.assertTrue(path.is_file())
                 else:test.assertFalse(path.exists())
             finally:
-                rescue_fixture_descriptors([*acquired.values(),*foreign],fstat=originals['fstat'],close=originals['close'])
+                rescue_fixture_descriptors([*records,*foreign],fstat=originals['fstat'],close=originals['close'])
 
 
 class SdkOwnershipFailureTest(unittest.TestCase):

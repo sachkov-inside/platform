@@ -234,7 +234,7 @@ test("SDK genuine phase anchoring follows the host capability without a path fal
  * @param {typeof import("node:fs")} original
  * @param {{mock:{restore():void}}[]} patches
  * @param {()=>void} sync
- * @param {string} directory
+ * @param {string|undefined} directory
  * @param {PinFixtureDescriptor[]} handles
  * @param {PinFixtureDescriptor[]} foreign
  * @param {boolean} primaryActive
@@ -291,7 +291,8 @@ function finishPinFixture(
   rescue(handles);
   attempt(observe);
   rescue(foreign);
-  attempt(() => original.rmSync(directory, { recursive: true }));
+  if (directory !== undefined)
+    attempt(() => original.rmSync(directory, { recursive: true }));
   if (failed && !primaryActive) throw first;
 }
 
@@ -660,7 +661,8 @@ test("SDK pin faults attempt every close and cannot retire a foreign reused desc
 
 // deterministic-test-allow unit-io: intentionally omitted product close must fail its assertion before fixture rescue; real descriptors only.
 test("SDK failed pin fixture rescues its skipped close and preserves the retired-number foreign handle", async () => {
-  const original = await import("node:fs");
+  const fs = await import("node:fs");
+  const original = { ...fs.default };
   /** @type {{leaked?:PinFixtureDescriptor,ownClosed?:boolean,foreignPreserved?:boolean,originalError?:unknown}} */ const audit =
     {};
   let primaryActive = false;
@@ -684,30 +686,14 @@ test("SDK failed pin fixture rescues its skipped close and preserves the retired
     primaryActive = true;
     throw error;
   } finally {
-    if (audit.leaked !== undefined && audit.leaked.active) {
-      audit.leaked.active = false;
-      try {
-        let info;
-        try {
-          info = original.fstatSync(audit.leaked.fd, { bigint: true });
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            "code" in error &&
-            error.code === "EBADF"
-          )
-            info = undefined;
-          else throw error;
-        }
-        if (
-          info !== undefined &&
-          info.dev === audit.leaked.dev &&
-          info.ino === audit.leaked.ino
-        )
-          original.closeSync(audit.leaked.fd);
-      } catch (error) {
-        if (!primaryActive) throw error;
-      }
-    }
+    finishPinFixture(
+      original,
+      [],
+      () => {},
+      undefined,
+      audit.leaked === undefined ? [] : [audit.leaked],
+      [],
+      primaryActive,
+    );
   }
 });
