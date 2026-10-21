@@ -92,25 +92,39 @@ def protocol_read(token,verify_owner,expected,*,budget=10,deadline=None):
         return _protocol(token,verify_owner,expected,budget,deadline)
 
 
+_alarm_broken=False
+
+
 @contextmanager
 def _completion_deadline(seconds):
-    """Preserve first failure and finish handler restoration if the inherited clear fails."""
+    """Only a proved clear permits restoring the previous signal handler."""
+    global _alarm_broken
+    if _alarm_broken:raise ValueError('cleanup')
+    if type(seconds) not in (int,float) or not math.isfinite(seconds) or not 0<seconds<=10:raise ValueError('storage')
+    if threading.current_thread() is not threading.main_thread() or signal.getitimer(signal.ITIMER_REAL)!=(0,0):raise ValueError('storage')
+    prior=signal.getsignal(signal.SIGALRM);inert=False;arm_attempted=False
     primary=None;tb=None
-    owned=threading.current_thread() is threading.main_thread() and signal.getitimer(signal.ITIMER_REAL)==(0,0)
-    prior=signal.getsignal(signal.SIGALRM)
+    def expired(_signum,_frame):
+        if not inert:raise TimeoutError()
     try:
-        with source_status_query._deadline(seconds):
-            try:yield
-            except BaseException as error:
-                primary,tb=error,sys.exc_info()[2]
-                raise
-    except BaseException as error:
-        if primary is None:primary,tb=error,sys.exc_info()[2]
+        signal.signal(signal.SIGALRM,expired)
+        arm_attempted=True
+        signal.setitimer(signal.ITIMER_REAL,seconds)
+        yield
+    except BaseException as error:primary,tb=error,sys.exc_info()[2]
     finally:
-        if owned:
-            try:
-                if signal.getsignal(signal.SIGALRM)!=prior:signal.signal(signal.SIGALRM,prior)
+        # This flag changes the ALREADY installed closure before any fallible settlement.
+        # An uncertain timer can then expire harmlessly while the worker unwinds.
+        inert=True;disarmed=not arm_attempted
+        if arm_attempted:
+            try:signal.setitimer(signal.ITIMER_REAL,0);disarmed=True
             except BaseException as error:
+                _alarm_broken=True
+                if primary is None:primary,tb=error,sys.exc_info()[2]
+        if disarmed:
+            try:signal.signal(signal.SIGALRM,prior)
+            except BaseException as error:
+                _alarm_broken=True
                 if primary is None:primary,tb=error,sys.exc_info()[2]
         if primary is not None:BaseException.__traceback__.__set__(primary,tb)
     if primary is not None:raise primary from None

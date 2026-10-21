@@ -117,9 +117,30 @@ def overlay():
     return text.replace(OLD,NEW).encode()
 
 
+
+def _owner(output,name):
+    if name not in ('auth.json',AUTH,CONFIG):refuse()
+    with record.directory(output) as directory:
+        descriptor=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_CLOEXEC,dir_fd=directory)
+        try:
+            info=os.fstat(descriptor);_check(info)
+            if record.identity(info)!=record.identity(os.stat(name,dir_fd=directory,follow_symlinks=False)):refuse()
+            return info.st_uid,info.st_gid
+        finally:_close(descriptor)
+
+
+def _reader(output):
+    identity=_owner(output,'auth.json')
+    if _owner(output,AUTH)!=identity or _owner(output,CONFIG)!=identity:refuse()
+    return str(identity[0])+':'+str(identity[1])
+
+
 def plan(output):
     result=tracking.plan(output);key=secret(output)
     if _config(output)!=overlay():refuse()
+    reader=_reader(output)
+    if result['services']['vmauth']['user']!=reader:refuse()
+    result['services']['alloy']['user']=reader
     result['services']['alloy']['volumes']=[str(output/CONFIG)+':/etc/alloy/config.alloy:ro']
     metrics=result['services']['metrics']
     if 'environment' in metrics or any('envflag' in arg or 'forceFlushAuthKey' in arg for arg in metrics['command']):refuse()
@@ -153,7 +174,23 @@ class Targets(source_status_scenario.OwnedTargets):
 
     postgres=tracking.TrackingTargets.postgres
 
+    def alloy_private(self,deadline):
+        if time.monotonic()>=deadline:raise TimeoutError()
+        pilot.assert_docker_identity(deadline=deadline)
+        target=self.targets['alloy'];cid=self.read(self.compose+['ps','-q','alloy']).strip()
+        if cid!=target['id'] or self.inspect('alloy',cid)!=target:refuse()
+        template='{"user":{{json .Config.User}},"command":{{json .Config.Cmd}},"caps":{{json .HostConfig.CapDrop}},"readonly":{{json .HostConfig.ReadonlyRootfs}},"running":{{json .State.Running}}}'
+        raw=self.read(['docker','inspect','--format',template,cid]).encode()
+        if len(raw)>8192:refuse()
+        value=source_status.decode_json(raw);expected=plan(self.output)['services']['alloy']
+        if (type(value) is not dict or set(value)!={'user','command','caps','readonly','running'}
+                or value['user']!=expected['user'] or value['command']!=expected['command']
+                or value['caps']!=['ALL'] or value['readonly'] is not True or value['running'] is not True):refuse()
+        pilot.assert_docker_identity(deadline=deadline)
+        if time.monotonic()>=deadline:raise TimeoutError()
+
     def metrics_private(self,deadline):
+        self.alloy_private(deadline)
         if time.monotonic()>=deadline:raise TimeoutError()
         pilot.assert_docker_identity(deadline=deadline)
         target=self.targets['metrics'];cid=self.read(self.compose+['ps','-q','metrics']).strip()

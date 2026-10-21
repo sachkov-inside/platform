@@ -30,6 +30,7 @@ import http.client
 import json
 from pathlib import Path
 import signal
+import subprocess
 import sys
 import socket
 import tempfile
@@ -299,28 +300,62 @@ class Settlement(unittest.TestCase):
         self.assertEqual(signal.getsignal(signal.SIGALRM),prior);self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
 
     def test_timer_restoration_fault_keeps_original_interrupt_or_same_primary(self):
-        original=signal.setitimer
-        for primary in (KeyboardInterrupt(),SystemExit(11),RuntimeError('same timer primary')):
-            with self.subTest(kind=type(primary).__name__):
-                calls=[];saved=[];caught=None
-                def timer(kind,seconds,*args):
-                    calls.append(seconds)
-                    if seconds==0:raise primary
-                    return original(kind,seconds,*args)
-                try:
-                    with patch.object(signal,'setitimer',side_effect=timer):
-                        try:
-                            with queries._completion_deadline(1):
-                                try:raise primary
-                                except BaseException:saved.append(primary.__traceback__);raise
-                        except BaseException as error:caught=error
-                    self.assertIs(caught,primary);self.assertEqual(calls,[1,0])
-                    names=[];trace=caught.__traceback__
-                    while trace is not None:names.append(trace.tb_frame.f_code.co_name);trace=trace.tb_next
-                    self.assertNotIn('timer',names)
-                finally:
-                    # Independent safety only after evaluating restoration failure, never an admission proof.
-                    original(signal.ITIMER_REAL,0)
+        # Prior SIG_DFL and real pending expiry exist ONLY in this group-owned child.
+        code=r'''import json,os,select,signal,sys
+sys.path.insert(0,sys.argv[1])
+import queries
+primary={'runtime':RuntimeError('first'),'interrupt':KeyboardInterrupt(),'exit':SystemExit(47),'same':RuntimeError('same'),'none':None}[sys.argv[2]]
+secondary=primary if sys.argv[2]=='same' else OSError('clear refused')
+original_signal=signal.signal;original_timer=signal.setitimer
+read,write=os.pipe();clears=[];arms=[];installs=[];saved=[];caught=None
+original_signal(signal.SIGALRM,signal.SIG_DFL)
+def install(kind,handler):
+    installs.append(handler)
+    if kind==signal.SIGALRM and callable(handler):
+        def observed(signum,frame):
+            handler(signum,frame)
+            os.write(write,b'x')
+        return original_signal(kind,observed)
+    return original_signal(kind,handler)
+def timer(kind,seconds,*args):
+    if seconds==0:clears.append(seconds);raise secondary
+    arms.append(seconds);return original_timer(kind,seconds,*args)
+signal.signal=install;signal.setitimer=timer
+try:
+    try:
+        with queries._completion_deadline(.05):
+            if primary is not None:
+                try:raise primary
+                except BaseException:saved.append(primary.__traceback__);raise
+    except BaseException as error:caught=error
+    # The old implementation restores SIG_DFL here and the real signal kills ONLY this child.
+    ready,_,_=select.select([read],[],[],1)
+    assert ready and os.read(read,1)==b'x','real pending expiry not observed'
+    assert caught is (secondary if primary is None else primary) and clears==[0] and arms==[.05]
+    trace=caught.__traceback__;names=[];frames=[]
+    while trace is not None:names.append(trace.tb_frame.f_code.co_name);frames.append(trace);trace=trace.tb_next
+    if primary is not None:assert any(item is saved[0] for item in frames) and 'timer' not in names
+    assert queries._alarm_broken and signal.getsignal(signal.SIGALRM)!=signal.SIG_DFL
+    before=(len(arms),len(clears),len(installs))
+    try:
+        with queries._completion_deadline(.1):raise AssertionError('poisoned protocol entered')
+    except ValueError:pass
+    else:raise AssertionError('poisoned protocol admitted')
+    assert before==(len(arms),len(clears),len(installs))
+    print(json.dumps({'primary':True,'traceback':True,'single_clear':True,'real_expiry':True,'inert_handler':True,'future_refused':True}))
+finally:
+    # Independent rescue AFTER verdict; never claims that the production clear succeeded.
+    signal.signal=original_signal;signal.setitimer=original_timer
+    original_timer(signal.ITIMER_REAL,0);original_signal(signal.SIGALRM,signal.SIG_DFL)
+    os.close(read);os.close(write)
+'''
+        expected={'primary':True,'traceback':True,'single_clear':True,'real_expiry':True,'inert_handler':True,'future_refused':True}
+        for kind in ('runtime','interrupt','exit','same','none'):
+            with self.subTest(kind=kind):
+                result=subprocess.run([sys.executable,'-B','-c',code,str(Path(__file__).resolve().parent),kind],
+                    capture_output=True,text=True,timeout=3)
+                self.assertEqual(result.returncode,0,'owned timer child failed')
+                self.assertEqual(json.loads(result.stdout),expected)
 
 
 class ActualPacket(unittest.TestCase):

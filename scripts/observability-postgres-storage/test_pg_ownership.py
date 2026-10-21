@@ -19,6 +19,10 @@ class PrivatePlan(unittest.TestCase):
             output=Path(directory).resolve()/'private'
             postgres_source.ownership.prepare(output)
             actual=postgres_source.ownership.plan(output)
+            credential=(output/'auth.json').stat()
+            reader=str(credential.st_uid)+':'+str(credential.st_gid)
+            self.assertEqual(actual['services']['alloy'].get('user','0:0'),reader)
+            self.assertNotIn('user',tracking.plan(output)['services']['alloy'])
             self.assertEqual(actual['services']['metrics']['logging'],{'driver':'none'})
             self.assertTrue(actual==json.loads((output/'compose.json').read_text()),'private compose plan mismatch')
             self.assertEqual(actual['services']['metrics']['command'][-2:],['-envflag.enable=true','-envflag.prefix=INSIDE_PG_SOURCE_'])
@@ -30,6 +34,7 @@ class PrivatePlan(unittest.TestCase):
                 normalized['services']['metrics'][field]=baseline['services']['metrics'][field]
             del normalized['services']['metrics']['environment']
             normalized['services']['alloy']['volumes']=baseline['services']['alloy']['volumes']
+            del normalized['services']['alloy']['user']
             self.assertEqual(normalized,baseline)
             text=(output/'postgres-completion.alloy').read_text()
             self.assertIn('timeout = "2s"',text)
@@ -74,7 +79,7 @@ class PrivatePlan(unittest.TestCase):
 
     def test_exact_private_metrics_env_and_local_bridge_admission_refuse_foreign_state(self):
         import pg_ownership
-        for fault in (None,'logging','env','extra_env','command','image','network','driver','internal','attachment','ip','gateway','bridge','remote','nonlinux'):
+        for fault in (None,'logging','env','extra_env','command','image','network','driver','internal','attachment','ip','gateway','bridge','remote','nonlinux','alloy_user','alloy_caps','alloy_readonly','alloy_command','alloy_state'):
             with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
                 target,fake=self.targets(Path(directory).resolve()/'private');original=target.read;project=target.project;network='b'*64
                 config={'Id':network,'Name':project+'_pilot','Driver':'bridge','Internal':True,
@@ -92,9 +97,14 @@ class PrivatePlan(unittest.TestCase):
                 if fault=='extra_env':env.append(pg_ownership.PREFIX+'other=1')
                 state={'logging':'json-file' if fault=='logging' else 'none','environment':env,
                     'command':['-forceFlushAuthKey=foreign'] if fault=='command' else fake.plan['services']['metrics']['command'],'running':True}
+                alloy={'user':'0:0' if fault=='alloy_user' else fake.plan['services']['alloy']['user'],
+                    'command':[] if fault=='alloy_command' else fake.plan['services']['alloy']['command'],
+                    'caps':[] if fault=='alloy_caps' else ['ALL'],
+                    'readonly':fault!='alloy_readonly','running':fault!='alloy_state'}
                 def read(args):
                     if args[:3]==['docker','network','inspect']:return json.dumps(config)
                     if args[:3]==['docker','inspect','--format']:
+                        if '.Config.User' in args[3]:return json.dumps(alloy)
                         if '.Config.Env' in args[3]:return json.dumps(state)
                         if 'index .NetworkSettings.Networks' in args[3]:return json.dumps(attachment)
                         value=original(args)
@@ -142,3 +152,13 @@ class PrivatePlan(unittest.TestCase):
                 self.assertTrue(any(item is saved[0] for item in frames));self.assertNotIn('close',names)
                 for descriptor in opened:
                     with self.assertRaises(OSError):original_stat(descriptor)
+
+    def test_private_reader_requires_same_trusted_credential_and_overlay_owner(self):
+        import pg_ownership
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory).resolve()/'private';pg_ownership.prepare(output)
+            actual=pg_ownership._owner
+            def mismatch(root,name):
+                uid,gid=actual(root,name)
+                return (uid,gid+1) if name==pg_ownership.CONFIG else (uid,gid)
+            with patch.object(pg_ownership,'_owner',side_effect=mismatch),self.assertRaises(ValueError):pg_ownership.plan(output)
