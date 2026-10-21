@@ -58,7 +58,7 @@ test("tooling builds the real backend before launching every serializer contract
   assert.equal(result.status, 0);
   assert.equal(result.calls.length, 2);
   assert.equal(result.calls[0], "pnpm --filter @inside/backend build");
-  assert.ok(result.calls[1]?.startsWith("node --test --test-concurrency=2 "));
+  assert.ok(result.calls[1]?.startsWith("node --test --test-concurrency=1 "));
   for (const scope of ["tracking", "waitlist"]) {
     assert.ok(
       result.calls[1]?.includes(

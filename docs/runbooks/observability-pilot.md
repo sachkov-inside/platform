@@ -46,6 +46,11 @@ bash scripts/heavy-check.sh node --test scripts/observability-pilot.test.mjs
 pnpm docs:check
 ```
 
+`test:tooling` допускает Node test files последовательно (`--test-concurrency=1`).
+Состав проверок, предварительная сборка backend, ограничения дочерних процессов и CI job
+сохранены. Production concurrency не меняется. Общее время набора может вырасти;
+причина прежних тайм-аутов и улучшение времени в hosted CI пока не подтверждены.
+
 `preflight` сообщает место **на файловой системе checkout**, не измеряет Docker VM и не
 подтверждает готовность Docker. При недостатке места возвращает 2. `prepare` создаёт
 случайный каталог `.reports/observability-pilot-*`, Compose JSON, временный query key и
