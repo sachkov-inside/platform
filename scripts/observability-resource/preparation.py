@@ -202,7 +202,7 @@ class Stage:
                 return self._release(consumer, cleanup_ok=cleanup_ok)
         except BaseException:
             try:
-                self._record({'state': 'retained', 'reason': 'retirement_failed', 'retired': []})
+                self._record({'state': 'retained', 'reason': 'retirement_failed', 'retired': None})
             except BaseException:
                 pass
             raise
@@ -265,6 +265,9 @@ class Stage:
                 if self.identify() != self.receipt['daemon']:
                     raise ValueError('preparation_daemon_changed')
                 self.docker(['image', 'rm', '--no-prune', image])
+                retired_receipt = self.path / ('retired-' + image[7:] + '.json')
+                if not retired_receipt.exists():
+                    write_once(retired_receipt, {'id': image})
                 result['retired'].append(image)
             unknown = set()
             for tag in self.receipt['tags']:

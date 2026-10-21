@@ -54,6 +54,28 @@ class Docker:
 
 
 class Lifetime(unittest.TestCase):
+    def test_partial_retirement_records_each_removed_id_and_retry_preserves_original_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            docker = Docker()
+            foundation = 'sha256:' + 'c' * 64
+            failure = subprocess.CalledProcessError(23, 'remove fixture')
+            def fail_second(args):
+                if args[:2] == ['image', 'rm'] and args[-1] == foundation:
+                    raise failure
+                return docker(args)
+            stage = preparation.begin(Path(directory) / 'images.json', SOURCE, OWNER, DAEMON, 'runtime',
+                docker=fail_second, identify=lambda: DAEMON)
+            docker.build(stage)
+            docker.images[foundation] = {'Id': foundation, 'RepoTags': [OWNER + '-foundation:local'],
+                'RepoDigests': [], 'Config': {'Labels': {preparation.LABEL: stage.receipt['token']}}}
+            stage.iidfile('foundation').write_text(foundation)
+            with self.assertRaises(subprocess.CalledProcessError) as caught:
+                stage.release('runtime', cleanup_ok=True)
+            self.assertIs(caught.exception, failure)
+            self.assertEqual(json.loads((stage.path / ('retired-' + IMAGE[7:] + '.json')).read_text()), {'id': IMAGE})
+            recovered = preparation.open_stage(Path(directory) / 'images.json', docker=docker, identify=lambda: DAEMON)
+            self.assertEqual(recovered.release('runtime', cleanup_ok=True)['retired'], [foundation])
+
     def test_recovery_waits_for_active_preparation_and_observes_its_final_build_results(self):
         with tempfile.TemporaryDirectory() as directory:
             docker = Docker()
