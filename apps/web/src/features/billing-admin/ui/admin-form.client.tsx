@@ -23,7 +23,7 @@ export function AdminSection({
   readonly children: ReactNode;
 }) {
   return (
-    <section className="min-w-0 rounded-2xl border border-border bg-card p-6 shadow-card">
+    <section className="admin-section">
       <h2 className="text-xl font-semibold tracking-[-0.02em]">{title}</h2>
       {description === undefined ? null : (
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
@@ -52,7 +52,7 @@ export function AdminField({
         {label}
       </label>
       <input
-        className="min-h-11 w-full rounded-xl border border-input bg-background px-3 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="min-h-11 w-full rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         id={id}
         name={name}
         {...rest}
@@ -81,7 +81,7 @@ export function AdminTextArea({
         {label}
       </label>
       <textarea
-        className="min-h-24 w-full rounded-xl border border-input bg-background p-3 font-mono text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="min-h-24 w-full rounded-lg border border-input bg-card p-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         id={id}
         name={name}
         {...rest}
@@ -141,7 +141,7 @@ export function AdminSelect({
         {label}
       </label>
       <select
-        className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="min-h-11 w-full rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         id={id}
         name={name}
         defaultValue={

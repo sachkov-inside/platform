@@ -354,7 +354,7 @@ async function expectSharedListFrame(
   if (content === null)
     throw new Error("Содержимое каркаса списка материалов не отрисовано");
   const expected =
-    viewport === "desktop" ? { left: 40, top: 48 } : { left: 16, top: 28 };
+    viewport === "desktop" ? { left: 40, top: 36 } : { left: 16, top: 24 };
   const frameStyle = getComputedStyle(frame);
   await expect(frame.tagName).toBe("MAIN");
   await expect(frameStyle.overflowY).toBe("auto");

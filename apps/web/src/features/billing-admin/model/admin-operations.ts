@@ -239,6 +239,7 @@ export const catalogOutcomeSchema = envelope(
     }),
   }),
 );
+export const ownerCatalogSchema = z.array(priceSnapshotSchema);
 export const catalogOffersOutcomeSchema = envelope(
   z.object({
     outcome: z.literal("catalogOffers"),

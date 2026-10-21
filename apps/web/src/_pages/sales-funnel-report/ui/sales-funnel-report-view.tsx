@@ -1,3 +1,4 @@
+import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import { WaitlistDemandView } from "./waitlist-demand-view";
 import type { ReactNode } from "react";
 
@@ -11,8 +12,7 @@ import {
 
 const fieldClass =
   "min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30";
-const cardClass =
-  "min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6";
+const cardClass = "admin-section";
 
 /**
  * Temporary semantic UI for #816.
@@ -22,7 +22,7 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
   const product = view.products.find((item) => item.id === view.productId);
   return (
     <SalesFunnelReportFrame>
-      <header className="grid gap-2">
+      <header className="authoring-page-heading">
         <h1 className="text-balance text-3xl font-bold tracking-[-0.04em]">
           Воронка продаж
         </h1>
@@ -117,92 +117,125 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
         </p>
       ) : null}
 
-      <section aria-labelledby="sales-funnel-table-title" className={cardClass}>
-        <h2
-          className="text-xl font-semibold tracking-[-0.02em]"
-          id="sales-funnel-table-title"
-        >
-          {product === undefined ? "Шаги бота" : product.name}
-        </h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          {formatPeriod(view.from, view.to)}, по московскому времени
-          {view.chapterName === null ? "" : `. Глава: ${view.chapterName}`}
-        </p>
-        {view.rows.length === 0 ? (
-          <p className="mt-5 text-sm leading-6" data-report-empty>
-            За этот период никто не дошёл ни до одного шага.
-          </p>
-        ) : (
-          <div
-            aria-label="Таблица воронки по источникам"
-            className="mt-5 overflow-x-auto"
-            role="region"
-            tabIndex={0}
-          >
-            <table className="w-full min-w-[40rem] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border text-left align-bottom">
-                  <th className="py-2 pr-4 font-medium" scope="col">
-                    Источник
-                  </th>
-                  {funnelSteps.map((step) => (
-                    <th
-                      className="px-3 py-2 text-right font-medium"
-                      key={step.key}
-                      scope="col"
-                    >
-                      <span className="block">{step.label}</span>
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        {step.unit}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {view.rows.map((row) => (
-                  <tr className="border-b border-border/60" key={row.key}>
-                    <th
-                      className="py-2.5 pr-4 text-left font-medium"
-                      scope="row"
-                    >
-                      {row.label}
-                    </th>
-                    {row.counts.map((count) => (
-                      <Count key={count.step} value={count.value} />
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="font-semibold">
-                  <th className="py-2.5 pr-4 text-left" scope="row">
-                    Всего
-                  </th>
-                  {view.total.map((count) => (
-                    <Count key={count.step} value={count.value} />
-                  ))}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </section>
+      <WorkspaceTabs
+        label="Разделы отчёта"
+        tabs={[
+          {
+            id: "funnel",
+            label: "Воронка",
+            panel: (
+              <section
+                aria-labelledby="sales-funnel-table-title"
+                className={cardClass}
+              >
+                <h2
+                  className="text-xl font-semibold tracking-[-0.02em]"
+                  id="sales-funnel-table-title"
+                >
+                  {product === undefined ? "Шаги бота" : product.name}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  {formatPeriod(view.from, view.to)}, по московскому времени
+                  {view.chapterName === null
+                    ? ""
+                    : `. Глава: ${view.chapterName}`}
+                </p>
+                {view.rows.length === 0 ? (
+                  <p className="mt-5 text-sm leading-6" data-report-empty>
+                    За этот период никто не дошёл ни до одного шага.
+                  </p>
+                ) : (
+                  <div
+                    aria-label="Таблица воронки по источникам"
+                    className="mt-5 overflow-x-auto"
+                    role="region"
+                    tabIndex={0}
+                  >
+                    <table className="w-full min-w-[40rem] border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-border text-left align-bottom">
+                          <th className="py-2 pr-4 font-medium" scope="col">
+                            Источник
+                          </th>
+                          {funnelSteps.map((step) => (
+                            <th
+                              className="px-3 py-2 text-right font-medium"
+                              key={step.key}
+                              scope="col"
+                            >
+                              <span className="block">{step.label}</span>
+                              <span className="block text-xs font-normal text-muted-foreground">
+                                {step.unit}
+                              </span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {view.rows.map((row) => (
+                          <tr
+                            className="border-b border-border/60"
+                            key={row.key}
+                          >
+                            <th
+                              className="py-2.5 pr-4 text-left font-medium"
+                              scope="row"
+                            >
+                              {row.label}
+                            </th>
+                            {row.counts.map((count) => (
+                              <Count key={count.step} value={count.value} />
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr className="font-semibold">
+                          <th className="py-2.5 pr-4 text-left" scope="row">
+                            Всего
+                          </th>
+                          {view.total.map((count) => (
+                            <Count key={count.step} value={count.value} />
+                          ))}
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ),
+          },
+          {
+            id: "waitlist",
+            label: "Ожидание набора",
+            panel: (
+              <>
+                {view.waitlist === null ? null : (
+                  <WaitlistDemandView
+                    data={view.waitlist}
+                    productName={product?.name ?? "Продукт"}
+                    from={view.from}
+                    to={view.to}
+                  />
+                )}
 
-      {view.waitlist === null ? null : (
-        <WaitlistDemandView
-          data={view.waitlist}
-          productName={product?.name ?? "Продукт"}
-          from={view.from}
-          to={view.to}
-        />
-      )}
-      <SurveyRespondents respondents={view.surveyRespondents} />
-
-      <section aria-labelledby="sales-funnel-rules" className={cardClass}>
-        <h2 className="text-base font-semibold" id="sales-funnel-rules">
-          Как считаются числа
-        </h2>
+                {view.waitlist === null ? (
+                  <p className="text-sm text-muted-foreground">
+                    Для этого продукта нет списка ожидания набора.
+                  </p>
+                ) : null}
+              </>
+            ),
+          },
+          {
+            id: "survey",
+            label: "Анкетные скидки",
+            panel: <SurveyRespondents respondents={view.surveyRespondents} />,
+          },
+        ]}
+      />
+      <details className="authoring-disclosure">
+        <summary>Как считаются числа</summary>
         <ul className="mt-3 grid list-disc gap-2 pl-5 text-sm leading-6 text-muted-foreground">
           <li>
             Воронка идёт за когортой: это люди, которые впервые вошли в бот в
@@ -237,7 +270,7 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
             ? ""
             : ` Последнее событие бота получено ${view.lastBotEventAt}.`}
         </p>
-      </section>
+      </details>
     </SalesFunnelReportFrame>
   );
 }
@@ -262,7 +295,7 @@ function SurveyRespondents({
       {respondents === null ? (
         <p className="mt-2 text-sm leading-6" data-survey-respondents-missing>
           Показатель недоступен: список ников анкеты ещё не загружен в разделе
-          «Оплата и права».
+          «Продажи и платежи».
         </p>
       ) : (
         <dl className="mt-4 grid gap-4 sm:grid-cols-4">
@@ -311,14 +344,12 @@ export function SalesFunnelReportFrame({
   return (
     <main
       aria-label="Воронка продаж"
-      className="flex h-full min-h-svh flex-col overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
+      className="authoring-page"
       data-sales-funnel-report
       id="authoring-content"
       tabIndex={-1}
     >
-      <div className="mx-auto grid w-full max-w-[76rem] content-start gap-6 px-4 py-7 pb-16 sm:px-7 sm:py-10 lg:px-10 lg:py-12">
-        {children}
-      </div>
+      <div className="authoring-page-body">{children}</div>
     </main>
   );
 }

@@ -5,7 +5,7 @@ import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
 } from "@/widgets/material-authoring/route-states";
-import { withMutationFetch } from "@/storybook/mutation-mock";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import {
   authoringPageEnvironment,
   routeContent,
@@ -59,12 +59,27 @@ const meta = {
   ...environment,
   args: { initialCollections: products, kind: "series" },
   component: ContentCollectionsPageClient,
-  decorators: [
-    withMutationFetch(() =>
-      Promise.resolve(Response.json({ kind: "saved", collection: product })),
-    ),
-    ...environment.decorators,
+  beforeEach: [
+    environment.beforeEach,
+    fetchBeforeRender((input) => {
+      const path = new URL(
+        input instanceof Request ? input.url : String(input),
+        window.location.origin,
+      ).pathname;
+      if (path === "/api/authoring/home-pin") {
+        return Promise.resolve(
+          Response.json({
+            kind: "ready",
+            pin: { seriesId: product.id, version: 1 },
+          }),
+        );
+      }
+      return Promise.resolve(
+        Response.json({ kind: "saved", collection: product }),
+      );
+    }),
   ],
+  decorators: environment.decorators,
   title: "Pages/Authoring/Продукты",
 } satisfies Meta<typeof ContentCollectionsPageClient>;
 

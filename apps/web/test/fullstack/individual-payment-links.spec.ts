@@ -27,6 +27,9 @@ test("individual payment link shows its fixed price and terms, revokes across op
     },
   );
   await page.goto("/authoring/billing");
+  await page
+    .getByRole("tab", { name: "Ссылки на оплату", exact: true })
+    .click();
   const content = await fullStackBrowserRequest(
     page,
     "/api/authoring/billing/content/list",
@@ -121,6 +124,13 @@ test("individual payment link shows its fixed price and terms, revokes across op
     })
     .parse(await created.json()).value.result.value;
   await page.reload();
+  await page
+    .getByRole("tab", { name: "Ссылки на оплату", exact: true })
+    .click();
+  await page
+    .getByText("Архив анкетных скидок", { exact: true })
+    .first()
+    .click();
   const heading = page.getByRole("heading", {
     name: "Ссылки на оплату",
     exact: true,
@@ -251,6 +261,9 @@ test("individual payment link shows its fixed price and terms, revokes across op
       },
     );
     await secondOwner.goto("/authoring/billing");
+    await secondOwner
+      .getByRole("tab", { name: "Ссылки на оплату", exact: true })
+      .click();
     const secondRegion = secondOwner.getByRole("region", {
       name: "Ссылки на оплату",
       exact: true,

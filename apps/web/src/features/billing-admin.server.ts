@@ -23,6 +23,7 @@ export {
   handleSaveCohort,
   handleUnpublishOffer,
   loadBillingOffersForOwner,
+  handleOwnerCatalogRead,
 } from "./billing-admin/api/billing-admin.server";
 
 export {

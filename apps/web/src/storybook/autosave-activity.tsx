@@ -93,15 +93,20 @@ export async function autosaveWhileHidden(
     );
     advanceAutosaveClock();
     await flushPendingEdits();
-    for (const outcome of await canvas.findAllByText(outcomeText)) {
-      await expect(outcome).toBeVisible();
-    }
+    const outcomes = (await canvas.findAllByText(outcomeText)).filter(
+      (element) => element.getClientRects().length > 0,
+    );
+    // Retained task panels may contain another status; the active task must expose the result.
+    await expect(outcomes.length).toBeGreaterThan(0);
+    for (const outcome of outcomes) await expect(outcome).toBeVisible();
     // The saved/retry outcome pins the returned state; cross its next debounce window too.
     advanceAutosaveClock();
     await flushPendingEdits();
-    for (const outcome of canvas.getAllByText(outcomeText)) {
-      await expect(outcome).toBeVisible();
-    }
+    const currentOutcomes = canvas
+      .getAllByText(outcomeText)
+      .filter((element) => element.getClientRects().length > 0);
+    await expect(currentOutcomes.length).toBeGreaterThan(0);
+    for (const outcome of currentOutcomes) await expect(outcome).toBeVisible();
     await expect(request).toHaveBeenCalledTimes(expectedRequests);
   } finally {
     reply.resolve(undefined);

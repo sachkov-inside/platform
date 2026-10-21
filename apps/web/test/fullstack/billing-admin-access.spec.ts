@@ -51,6 +51,7 @@ async function createTariff(page: Page) {
   );
   expect(await priced.json()).toMatchObject({ ok: true });
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   return { id, name, row: page.getByRole("listitem", { name, exact: true }) };
 }
 const saleCommandSchema = z.object({
@@ -126,6 +127,7 @@ test("one-time product sale keeps saved eligibility and revision across reload",
     .parse(await (await saveResponse).json());
   const revision = saved.value.result.value.revision;
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   await expect(select).toHaveValue("invitation_only");
   // Unsaved eligibility does not replace the persisted setting or revision.
   await select.selectOption("everyone");

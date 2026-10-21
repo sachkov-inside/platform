@@ -736,6 +736,8 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
       .click();
   }
   await expect(page).toHaveURL(/\/authoring\/materials$/u);
+  if (testInfo.project.name === "mobile-chromium")
+    await page.getByRole("button", { name: "Меню", exact: true }).click();
   await page.getByRole("link", { name: "Темы", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Темы", level: 1 }),
@@ -746,6 +748,8 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   ).toBeVisible();
   await captureIssue195Evidence(page, testInfo, "admin-topics");
 
+  if (testInfo.project.name === "mobile-chromium")
+    await page.getByRole("button", { name: "Меню", exact: true }).click();
   await page.getByRole("link", { name: "Продукты", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Продукты", level: 1 }),
