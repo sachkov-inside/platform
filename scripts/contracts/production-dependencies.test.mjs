@@ -552,7 +552,7 @@ function fusedInstruction(source) {
     "pnpm install --frozen-lockfile --store-dir=\"$backend_store\" --package-import-method=copy --filter '@inside/backend...'";
   const compile = "pnpm --filter @inside/backend build:production";
   const deploy =
-    "pnpm --config.inject-workspace-packages=true --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend";
+    'pnpm --store-dir="$deploy_store" --config.inject-workspace-packages=true --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend';
   const removal =
     "rm -rf -- " + moduleRoots.map((path) => "/workspace/" + path).join(" ");
   for (const text of [install, compile, deploy, removal])
@@ -560,7 +560,7 @@ function fusedInstruction(source) {
   assert.ok(run.indexOf(install) < run.indexOf(compile));
   assert.ok(run.indexOf(compile) < run.indexOf(deploy));
   assert.ok(run.indexOf(deploy) < run.indexOf(removal));
-  assert.equal([...run.matchAll(/\brm -rf -- /gu)].length, 2);
+  assert.equal([...run.matchAll(/\brm -rf -- /gu)].length, 3);
   const actualRemoval = /rm -rf -- (\/workspace\/[^;]+);/u.exec(run)?.[1];
   assert.deepEqual(
     actualRemoval?.trim().split(/\s+/u),
@@ -609,8 +609,9 @@ if(command==='mktemp') {
  if(config.temporary)bail(config.temporary);const store=path.join(root,'private store');fs.mkdirSync(store,{mode:0o700});process.stdout.write(store+'\n');bail(0);
 }
 if(command==='stat') {
- if(args.length!==4 || args[0]!=='-c' || !['%d:%i','%d:%i:%u'].includes(args[1]) || args[2]!=='--')bail(91);
- const target=args[3]; if(!target.startsWith(workspace))bail(91);
+ if(args.length!==4 || args[0]!=='-c' || !['%d:%i','%d:%i:%u','%a'].includes(args[1]) || args[2]!=='--')bail(91);
+ const target=args[3]; if(!target.startsWith(workspace) && target!==root && target!==path.join(root,'deploy-private'))bail(91);
+ if(target===path.join(root,'deploy-private') && config.fault==='deploy_store_stat_failure' && fs.existsSync(path.join(root,'deployed')))bail(47);
  log('stat'); if(config.fault==='stat_missing')bail(127);
  const info=fs.lstatSync(target,{bigint:true});
  const countPath=path.join(root,'stat-counts.json'), counts=fs.existsSync(countPath)?JSON.parse(fs.readFileSync(countPath,'utf8')):{};
@@ -619,7 +620,8 @@ if(command==='stat') {
  let uid=info.uid;
  if(config.fault==='owner_mismatch' || config.fault==='owner_after_compile' && fs.existsSync(path.join(root,'compiled')))uid+=1n;
  const offset=late && config.shiftStage?1000000000n:0n;
- const result=[info.dev+offset,info.ino+offset,...args[1]==='%d:%i:%u'?[uid]:[]].join(':');
+ if(target===path.join(root,'deploy-private') && config.fault==='deploy_store_owner')uid+=1n;
+ const result=args[1]==='%a'?(Number(info.mode)&0o7777).toString(8):[info.dev+offset,info.ino+offset,...args[1]==='%d:%i:%u'?[uid]:[]].join(':');
  if(config.fault==='stat_malformed')process.stdout.write('1:02:bad\n'); else process.stdout.write(result+'\n');
  if(config.fault==='stat_failed_after_output')bail(47);
  if(!late && target===path.join(workspace,'.production/backend') && config.fault==='replace_payload' && n===1){replace(target);mkdir(path.join(target,'node_modules'));fs.writeFileSync(path.join(target,'package.json'),'{}');}
@@ -633,8 +635,10 @@ if(command==='stat') {
  bail(0);
 }
 if(command==='rm') {
+ const deployStore=['-rf','--',path.join(root,'deploy-private')];
  const store=['-rf','--',path.join(root,'private store')], roots=['-rf','--',...modules.map(p=>path.join(workspace,p))];
  if(equal(args,store)){log('remove_store');if(config.storeCleanup)bail(config.storeCleanup);}
+ else if(equal(args,deployStore)){log('remove_deploy_store');if(config.deployStoreCleanup)bail(config.deployStoreCleanup);const payload=path.join(workspace,'.production/backend');if(fs.existsSync(payload))fs.writeFileSync(path.join(root,'payload-before-store.json'),JSON.stringify(payloadTree(payload)));}
  else if(equal(args,roots)){log('remove_modules');fs.writeFileSync(path.join(root,'payload-before.json'),JSON.stringify(payloadTree(path.join(workspace,'.production/backend'))));if(config.modulesCleanup)bail(config.modulesCleanup);}
  else bail(92);
  const r=cp.spawnSync('/bin/rm',args,{stdio:'ignore'});bail(r.status??93);
@@ -653,15 +657,26 @@ if(command==='pnpm') {
   log('compile');if(!fs.existsSync(path.join(workspace,'node_modules/native.bin')) || fs.existsSync(path.join(root,'private store')))bail(94);
   mkdir(path.join(workspace,'apps/backend/dist'));fs.writeFileSync(path.join(workspace,'apps/backend/dist/main.js'),'compiled-fixture');fs.writeFileSync(path.join(root,'compiled'),'yes');mutate('compile');bail(config.compile??0);
  }
- if(equal(args,['--config.inject-workspace-packages=true','--filter','@inside/backend','deploy','--prod','--ignore-scripts',path.join(workspace,'.production/backend')])) {
-  log('deploy');if(config.deploy)bail(config.deploy);const payload=path.join(workspace,'.production/backend');
+ const deployStoreFlag='--store-dir='+path.join(root,'deploy-private');
+ const deployArgs=args.filter(arg=>arg!==deployStoreFlag);
+ if(equal(deployArgs,['--config.inject-workspace-packages=true','--filter','@inside/backend','deploy','--prod','--ignore-scripts',path.join(workspace,'.production/backend')])) {
+  log('deploy');const store=args.includes(deployStoreFlag)?path.join(root,'deploy-private'):path.join(root,'deploy-store');
+  if(args.includes(deployStoreFlag) && !fs.existsSync(store))bail(91);
+  mkdir(store);fs.writeFileSync(path.join(store,'cafs.bin'),'deploy-cafs-fixture');
+  fs.writeFileSync(path.join(root,'deployed'),'yes');
+  if(config.deploy)bail(config.deploy);const payload=path.join(workspace,'.production/backend');
   fs.mkdirSync(payload);mkdir(path.join(payload,'node_modules'));
   fs.writeFileSync(path.join(payload,'package.json'),'{}\n',{mode:0o644});
   fs.linkSync(path.join(workspace,'node_modules/native.bin'),path.join(payload,'node_modules/native.bin'));
+  fs.linkSync(path.join(store,'cafs.bin'),path.join(payload,'node_modules/cafs.bin'));
   fs.symlinkSync('native.bin',path.join(payload,'node_modules/portable-link'));
   if(config.externalPayloadLink)fs.symlinkSync(path.join(workspace,'node_modules/native.bin'),path.join(payload,'node_modules/escape-link'));
+  if(config.externalStoreLink)fs.symlinkSync(path.join(store,'cafs.bin'),path.join(payload,'node_modules/store-escape-link'));
   if(config.zodSource)fs.cpSync(config.zodSource,path.join(payload,'node_modules/zod'),{recursive:true});
-  mkdir(path.join(root,'deploy-store'));fs.writeFileSync(path.join(root,'deploy-store/sentinel'),'deploy-store-unchanged');
+  if(config.fault==='deploy_store_directory')replace(store);
+  if(config.fault==='deploy_store_link')replace(store,true);
+  if(config.fault==='deploy_store_payload_alias'){fs.renameSync(store,path.join(root,'held-deploy-store'));fs.symlinkSync(payload,store);}
+  if(config.fault==='deploy_store_mode')fs.chmodSync(store,0o777);
   mutate('deploy');bail(0);
  }
  bail(91);
@@ -676,7 +691,7 @@ bail(91);
 
 /** @param {string} value */
 const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
-/** @typedef {{install?:number|undefined,storeCleanup?:number|undefined,temporary?:number|undefined,compile?:number|undefined,deploy?:number|undefined,modulesCleanup?:number|undefined,fault?:string,stage?:string,shiftStage?:boolean,zodSource?:string,externalPayloadLink?:boolean,release?:string,sourceSha?:string}} FusedConfig */
+/** @typedef {{install?:number|undefined,storeCleanup?:number|undefined,deployStoreCleanup?:number|undefined,temporary?:number|undefined,compile?:number|undefined,deploy?:number|undefined,modulesCleanup?:number|undefined,fault?:string,stage?:string,shiftStage?:boolean,zodSource?:string,externalPayloadLink?:boolean,externalStoreLink?:boolean,release?:string,sourceSha?:string}} FusedConfig */
 /** @param {(fixture:{directory:string,workspace:string,bin:string,run:(config?:FusedConfig,identity?:boolean)=>ReturnType<typeof runOwnedProcess>,events:()=>string[]})=>Promise<void>} action */
 async function withFusedFixture(action) {
   const created = mkdtempSync(join(tmpdir(), "inside-fused-contract-"));
@@ -688,6 +703,11 @@ async function withFusedFixture(action) {
       bin = join(directory, "bin");
     mkdirSync(workspace);
     mkdirSync(bin);
+    mkdirSync(join(directory, "deploy-store"));
+    writeFileSync(
+      join(directory, "deploy-store/sentinel"),
+      "deploy-store-unchanged",
+    );
     mkdirSync(join(directory, "foreign-data"));
     writeFileSync(
       join(directory, "foreign-data/sentinel"),
@@ -730,6 +750,14 @@ async function withFusedFixture(action) {
         ? stage.lines.find((line) => line.startsWith("RUN "))?.slice(4)
         : fusedInstruction(read("apps/backend/Dockerfile"));
       assert.ok(instruction);
+      // Relocate the only new absolute store literal, never the host /tmp or old mktemp template.
+      const relocated = instruction
+        .replaceAll("/workspace", workspace)
+        .replaceAll(
+          "/tmp/inside-backend-deploy-store",
+          join(directory, "deploy-private"),
+        );
+      assert.ok(!relocated.includes("/tmp/inside-backend-deploy-store"));
       return await runOwnedProcess(
         "env",
         [
@@ -741,10 +769,7 @@ async function withFusedFixture(action) {
           "INSIDE_SOURCE_SHA=" + (config.sourceSha ?? "a".repeat(40)),
           "sh",
           "-c",
-          "cd " +
-            quote(workspace) +
-            "; " +
-            instruction.replaceAll("/workspace", workspace),
+          "cd " + quote(workspace) + "; " + relocated,
         ],
         { timeoutMs: 5000 },
       );
@@ -873,6 +898,129 @@ test("fused RUN settles original command status before real seven-root removal a
           assert.ok(existsSync(join(fixture.workspace, path)));
     });
   }
+});
+
+// deterministic-test-allow unit-io: the real relocated RUN owns its private store while pnpm is a bounded command double; real hardlinks prove cleanup does not remove payload bytes.
+test("deploy CAFS is private and removed without mutating the default store or hardlinked payload", async () => {
+  await withFusedFixture(async (fixture) => {
+    const result = await fixture.run();
+    assert.equal(result.reason, "exit");
+    assert.equal(result.code, 0, result.stderr);
+    assert.ok(!existsSync(join(fixture.directory, "deploy-private")));
+    assert.ok(!existsSync(join(fixture.directory, "deploy-store/cafs.bin")));
+    assert.equal(
+      readFileSync(join(fixture.directory, "deploy-store/sentinel"), "utf8"),
+      "deploy-store-unchanged",
+    );
+    assert.equal(
+      readFileSync(
+        join(fixture.workspace, ".production/backend/node_modules/cafs.bin"),
+        "utf8",
+      ),
+      "deploy-cafs-fixture",
+    );
+    assert.deepEqual(
+      payloadTree(join(fixture.workspace, ".production/backend")),
+      JSON.parse(
+        readFileSync(
+          join(fixture.directory, "payload-before-store.json"),
+          "utf8",
+        ),
+      ),
+    );
+    assertPortablePayload(join(fixture.workspace, ".production/backend"));
+  });
+});
+
+// deterministic-test-allow unit-io: existing outside process owner bounds the extracted RUN; private real rm fault controls observe settled deploy status and prevent later module cleanup.
+test("private deploy cleanup settles failure without hiding the original deploy status", async () => {
+  for (const [deploy, deployStoreCleanup, expected] of [
+    [43, 0, 43],
+    [0, 47, 47],
+    [43, 47, 43],
+  ])
+    await withFusedFixture(async (fixture) => {
+      const result = await fixture.run({ deploy, deployStoreCleanup });
+      assert.equal(result.reason, "exit");
+      assert.equal(result.code, expected, result.stderr);
+      assert.ok(fixture.events().includes("remove_deploy_store"));
+      assert.ok(!fixture.events().includes("remove_modules"));
+      assert.equal(
+        existsSync(join(fixture.directory, "deploy-private")),
+        deployStoreCleanup !== 0,
+      );
+      assert.ok(!existsSync(join(fixture.directory, "deploy-store/cafs.bin")));
+      for (const path of moduleRoots)
+        assert.ok(existsSync(join(fixture.workspace, path)));
+    });
+});
+
+// deterministic-test-allow unit-io: preexisting collisions and real directory/link/mode substitutions remain under the constructor-owned fixture; stat failures use the existing finite command fault port.
+test("private deploy store never adopts collisions or removes a substituted root", async () => {
+  for (const kind of ["directory", "file", "link", "dangling"])
+    await withFusedFixture(async (fixture) => {
+      const target = join(fixture.directory, "deploy-private");
+      if (kind === "directory") {
+        mkdirSync(target);
+        writeFileSync(join(target, "sentinel"), "foreign-store");
+      } else if (kind === "file") writeFileSync(target, "foreign-store");
+      else
+        symlinkSync(
+          join(fixture.directory, kind === "link" ? "foreign-data" : "missing"),
+          target,
+        );
+      const before = lstatSync(target),
+        link = before.isSymbolicLink() ? readlinkSync(target) : undefined;
+      const result = await fixture.run();
+      assert.equal(result.reason, "exit");
+      assert.notEqual(result.code, 0);
+      assert.ok(!fixture.events().includes("deploy"));
+      assert.ok(!fixture.events().includes("remove_deploy_store"));
+      assert.ok(!fixture.events().includes("remove_modules"));
+      assert.equal(lstatSync(target).ino, before.ino);
+      if (link !== undefined) assert.equal(readlinkSync(target), link);
+      else
+        assert.equal(
+          readFileSync(
+            kind === "directory" ? join(target, "sentinel") : target,
+            "utf8",
+          ),
+          "foreign-store",
+        );
+    });
+  for (const fault of [
+    "deploy_store_owner",
+    "deploy_store_stat_failure",
+    "deploy_store_directory",
+    "deploy_store_link",
+    "deploy_store_payload_alias",
+    "deploy_store_mode",
+  ])
+    await withFusedFixture(async (fixture) => {
+      const result = await fixture.run({ fault });
+      assert.equal(result.reason, "exit");
+      assert.notEqual(result.code, 0, fault);
+      assert.ok(!fixture.events().includes("remove_deploy_store"), fault);
+      assert.ok(!fixture.events().includes("remove_modules"), fault);
+      assert.equal(
+        readFileSync(join(fixture.directory, "foreign-data/sentinel"), "utf8"),
+        "foreign-preserved",
+      );
+      if (fault === "deploy_store_owner")
+        assert.ok(!fixture.events().includes("deploy"));
+      for (const path of moduleRoots)
+        assert.ok(existsSync(join(fixture.workspace, path)), fault);
+    });
+  await withFusedFixture(async (fixture) => {
+    const result = await fixture.run({
+      deploy: 43,
+      fault: "deploy_store_stat_failure",
+    });
+    assert.equal(result.reason, "exit");
+    assert.equal(result.code, 43, result.stderr);
+    assert.ok(!fixture.events().includes("remove_deploy_store"));
+    assert.ok(!fixture.events().includes("remove_modules"));
+  });
 });
 
 /** Test-owned full payload vector; no image/native equivalence claim.
@@ -1060,9 +1208,13 @@ test("all seven root and protected ancestry substitutions refuse before any depe
 
 // deterministic-test-allow unit-io: real hardlinks/symlinks and byte/mode vectors are tested in a disposable filesystem; no actual package install/native payload assertion.
 test("real removal preserves the complete owned payload vector and the independent closure oracle rejects an escaping link", async () => {
-  for (const externalPayloadLink of [false, true])
+  for (const config of [
+    {},
+    { externalPayloadLink: true },
+    { externalStoreLink: true },
+  ])
     await withFusedFixture(async (fixture) => {
-      const result = await fixture.run({ externalPayloadLink });
+      const result = await fixture.run(config);
       assert.equal(result.reason, "exit");
       assert.equal(result.code, 0, result.stderr);
       const payload = join(fixture.workspace, ".production/backend");
@@ -1072,7 +1224,7 @@ test("real removal preserves the complete owned payload vector and the independe
           readFileSync(join(fixture.directory, "payload-before.json"), "utf8"),
         ),
       );
-      if (externalPayloadLink)
+      if (config.externalPayloadLink || config.externalStoreLink)
         assert.throws(
           () => assertPortablePayload(payload),
           /payload link escapes/u,

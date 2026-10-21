@@ -1576,15 +1576,31 @@ Backend production now derives `production-build` directly from `dependency-inpu
 filtered source copied before installation. One `RUN` installs the backend transitive workspace
 selection and root tooling, removes its fresh private `/tmp/inside-backend-pnpm.XXXXXX` install
 store, compiles, deploys, then removes only the seven fixed root/selected-workspace `node_modules`
-roots. Frozen-lock, package-import `copy`, lifecycle and deploy options are preserved. An install
+roots. Frozen-lock, initial package-import `copy`, lifecycle and the existing deploy selectors/runtime
+flags are preserved. An install
 failure retains its original status even if its store cleanup fails; later failure stops the build.
 The complete `.production` parent must be absent before installation and is constructed by this
 RUN. Physical ownership and same-RUN device/inode captures protect its ancestry and deployed output;
 all seven dependency roots are checked before any removal. These checks assume a private, synchronous
 RUN; they do not provide atomic protection against a concurrent writer with the same user identity.
 The isolated production payload, dist,
-CA and source artifacts remain. The deploy command's separate default store is unchanged and
-unpruned. This does not remove source/toolchain layers or prove lower peak consumption.
+CA and source artifacts remain. Deploy now uses the fresh literal private store
+`/tmp/inside-backend-deploy-store`, constructed exclusively with mode 0700 after refusing any
+existing file, directory or link. It keeps the existing package import policy. Same-RUN physical
+parent/root ownership checks precede deploy and store removal; deploy settles before cleanup.
+A deploy failure remains primary if cleanup also fails. A successful deploy with failed or unsafe
+store cleanup fails the RUN before the seven dependency roots can be removed. Default stores,
+cache/state directories and unrelated paths are not pruned. Store unlinking preserves hardlinked
+payload files; hardlinks or clones can make the actual reclaimed bytes much smaller than apparent
+store size. This does not remove source/toolchain layers or prove lower peak consumption.
+
+Pinned pnpm records the resolved store path in deployed `node_modules/.modules.yaml`. Its new
+fixed storeDir (`/tmp/inside-backend-deploy-store/v11`) is an intentional payload metadata difference
+from the previous default-store location. The fixed path adds no random constructor suffix;
+existing pnpm `prunedAt` can still vary between fresh installs. Full old/new payload byte equality
+has not been established. The identity-only exclusion in the earlier native comparison plan does
+not silently exclude or normalize this metadata; comparison needs an explicit reviewed disposition.
+No pnpm-owned payload metadata is rewritten by this cleanup.
 
 The original `production-dependencies` and `production-source` targets retain their direct-use
 contents, but neither is a FROM/COPY ancestor of the selected production payload or late identity.
