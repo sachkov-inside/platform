@@ -521,10 +521,11 @@ class LinkStorageOwnershipError(RuntimeError):
 
 
 def verify_trace_store_logging(output, compose, *, service='traces'):
-    """Observe logging=none on one of two fixed owned private-signal services; never read logs."""
-    if service not in ('traces','alloy'):
+    """Observe logging=none on one of three fixed owned private-signal services; never read logs."""
+    if service not in ('traces','alloy','postgres'):
         raise ValueError('unknown fixed private-signal service')
-    proof_name = 'trace-store-logging.json' if service == 'traces' else 'collector-logging.json'
+    proof_name = {'traces':'trace-store-logging.json','alloy':'collector-logging.json',
+                  'postgres':'postgres-source-logging.json'}[service]
     deadline = time.monotonic()+QUERY_TIMEOUT_SECONDS
     proof = {'outcome':'failed','ownership':'unverified','driver':'unverified'}
     def read(args):
