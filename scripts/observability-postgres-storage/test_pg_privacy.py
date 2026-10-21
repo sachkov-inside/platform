@@ -1,32 +1,29 @@
 """Prepared protocol driver cannot mistake fresh source rows for insertion completion."""
 import copy
 import unittest
+import time
 from unittest.mock import patch
 import privacy
 from test_oracle import EXPECTED
 
 
 class Privacy(unittest.TestCase):
-    def test_source_prepared_protocol_never_passes_without_pinned_end_to_end_boundary_proof(self):
+    def test_current_ingest_failure_cannot_be_replaced_by_fresh_stored_positives(self):
+        calls=[]
         class Ledger:
-            def accept(self,value):pass
+            def accept(self,value):raise AssertionError('unproved frame accepted')
         class Source:
-            ledger=Ledger();token='fixed';cases=[]
-            def __init__(self):self.uploads=[];self.logging_checks=0
-            def acquire(self):return EXPECTED.copy()
-            def before_unsafe_upload(self):self.logging_checks+=1
-            def upload(self,value):
-                if self.logging_checks!=len(self.uploads)+1:raise AssertionError("unsafe upload before logging check")
-                self.uploads.append(value)
+            ledger=Ledger();token='A'*32;end=time.monotonic()+150
+            def acquire(self):calls.append('acquire');return EXPECTED.copy()
+            def before_unsafe_upload(self):calls.append('logging')
+            def upload(self,value):raise AssertionError('legacy upload cannot supply completion')
             def stored(self,value):return {'freshness':'fresh'}
             def verify_storage(self,deadline):pass
-            def remaining(self,cap=10):return cap
-        source=Source()
-        with patch.object(privacy.queries,'protocol_read',return_value={'freshness':'fresh'}) as read, self.assertRaisesRegex(ValueError,'^storage$'):
-            privacy.run(source)
-        self.assertEqual(read.call_count,4)
-        self.assertEqual(len(source.uploads),6)
-        self.assertEqual(source.cases,[])
+        with patch.object(privacy.completion,'_ingest',side_effect=ValueError('storage')), \
+                patch.object(privacy.completion,'_flush') as flush, \
+                patch.object(privacy.completion.queries,'protocol_read') as read, self.assertRaisesRegex(ValueError,'^storage$'):
+            privacy.run(Source())
+        flush.assert_not_called();read.assert_not_called();self.assertEqual(calls,['acquire','logging'])
 
     def test_only_fixed_challenges_exist_and_original_frame_is_not_mutated(self):
         original=copy.deepcopy(EXPECTED)

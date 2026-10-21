@@ -208,8 +208,7 @@ class Scenario:
             if stale is None or stale['freshness'] not in ('stale','missing'):raise ValueError('stale')
             _,verdict=self.observe();self.case('stale',verdict)
             self.phase='privacy'
-            privacy(self)
-            self.case('privacy',self.stored(self.ledger.last))
+            self.case('privacy',privacy(self))
         except BaseException as error:
             primary,primary_tb=error,sys.exc_info()[2]
             raise
