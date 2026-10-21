@@ -150,7 +150,7 @@ export async function PersonalCohortStatus({
 }
 
 /**
- * На анимации участник видит действие обучения, остальные видят наклейку до старта потока.
+ * На анимации остаётся наклейка до старта потока; участнику доступно действие обучения.
  */
 export async function PersonalCourseFilmOverlay({
   result,
@@ -161,14 +161,19 @@ export async function PersonalCourseFilmOverlay({
   const productId = result.reference.id;
   if (productId === undefined) return null;
   const accessToken = await getOptionalPlatformAccessToken();
-  if (
+  const learningAvailable =
     accessToken !== undefined &&
-    (await readProductAccess(productId, accessToken)) === "open"
-  )
-    return <CourseLearningLink slug={result.reference.slug} placement="film" />;
+    (await readProductAccess(productId, accessToken)) === "open";
   const read = await loadProductCohort(productId);
   const countdown = read.kind === "ready" ? cohortCountdown(read.cohort) : null;
-  return countdown === null ? null : <StartCountdownBadge text={countdown} />;
+  return (
+    <>
+      {countdown === null ? null : <StartCountdownBadge text={countdown} />}
+      {learningAvailable ? (
+        <CourseLearningLink slug={result.reference.slug} placement="film" />
+      ) : null}
+    </>
+  );
 }
 
 function withoutCohort(slug: string): CohortCall {

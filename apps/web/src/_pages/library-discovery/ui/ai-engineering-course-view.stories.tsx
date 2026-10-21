@@ -342,7 +342,12 @@ async function expectParticipantActions(canvasElement: HTMLElement) {
 export const CourseParticipant: Story = {
   parameters: { account: "authenticated" },
   args: {
-    heroBadge: <CourseLearningLink slug="ai-engineering" placement="film" />,
+    heroBadge: (
+      <>
+        <StartCountdownBadge text="до старта 10 дней" />
+        <CourseLearningLink slug="ai-engineering" placement="film" />
+      </>
+    ),
     statusCall: <CourseLearningLink slug="ai-engineering" placement="status" />,
     heroCall: (
       <CohortCallView

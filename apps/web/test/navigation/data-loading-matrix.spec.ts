@@ -332,9 +332,22 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           page.locator('[data-product-landing="performance-course"]'),
         ).toBeVisible();
         const bodyReady = await page.evaluate(() => performance.now());
-        if (role === "active-owner")
+        if (role === "active-owner") {
           await expect(page.locator(".aie-cohort-status")).toHaveCount(0);
-        else {
+          for (const selector of [
+            ".aie-learning-film",
+            ".aie-learning-status",
+          ]) {
+            await expect(
+              page
+                .locator(selector)
+                .getByRole("link", { name: "Продолжить обучение" }),
+            ).toHaveAttribute("href", "/products/performance-course/programme");
+          }
+          await expect(
+            page.locator(".aie-status-lead .aie-status-default"),
+          ).toBeHidden();
+        } else {
           await expect(page.locator(".aie-cohort-status")).toBeVisible();
           await expect(
             page.locator(".aie-cohort-status-countdown"),
