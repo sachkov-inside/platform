@@ -1,7 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { configuration, acquire } from "./sample.mjs";
+import { configuration, acquire, isSettledFailure } from "./sample.mjs";
 import { fields, SQL, decode } from "./query.mjs";
 // deterministic-test-allow unit-io: fixed public Client lifecycle double; no network, timers or PG.
 test("a valid source packet is unavailable until public client end settles", async () => {
@@ -120,4 +120,30 @@ test("rollback and end cleanup preserve the first private failure object", async
     ),
     (error) => error === primary,
   );
+});
+
+test("failed query classification requires actual end settlement and remaining work", async () => {
+  const primary = new Error("controlled query refusal");
+  for (const state of ["closed", "end_failed", "expired"]) {
+    let ended = false;
+    const client = {
+      connect: async () => {},
+      query: async () => {
+        throw primary;
+      },
+      end: async () => {
+        ended = true;
+        if (state === "end_failed") throw new Error("controlled close failure");
+      },
+    };
+    await assert.rejects(
+      acquire(
+        client,
+        () => (state === "expired" && ended ? 0 : 4000),
+        () => 1790000000000000,
+      ),
+      (error) => error === primary,
+    );
+    assert.equal(isSettledFailure(primary), state === "closed");
+  }
 });

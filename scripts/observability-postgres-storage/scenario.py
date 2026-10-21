@@ -69,7 +69,14 @@ class Scenario:
                 # Rate bounds only: a fresh admitted SQL/owned storage fact ends each phase, never this pause.
                 time.sleep(left)
         self.last_attempt=time.monotonic()
-        value=capture.acquire(self.verify_pg,lambda deadline:self.actors.act('sampler_absent',deadline),budget=self.remaining(4))
+        try:value=capture.acquire(self.verify_pg,lambda deadline:self.actors.act('sampler_absent',deadline),budget=self.remaining(4))
+        except capture.ClosedClientFailure as primary:
+            tb=sys.exc_info()[2]
+            try:
+                if primary.verified:self.upload(frame.unavailable_payload(time.time_ns()//1000))
+            except BaseException:pass
+            finally:BaseException.__traceback__.__set__(primary,tb)
+            raise
         self.remaining()
         return value
 

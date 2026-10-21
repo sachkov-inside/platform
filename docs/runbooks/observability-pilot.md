@@ -1845,7 +1845,12 @@ That180-second envelope excludes Compose startup and existing container cleanup.
 outer600-second worker, up240-second limit, process shutdown and down90-second command remain
 unchanged. Each sampler has at most4 seconds of work plus2 seconds TERM and2 seconds final
 settlement. A successful child exit alone is insufficient: client end, reaping, current ownership
-and backend absence must also be observed within the work boundary. Exhaustion fails without
+and backend absence must also be observed within the work boundary. The private failure exit2
+means only that public client end fulfilled; the parent still requires reaping, current ownership
+and backend absence under the same work deadline. Only that verified failure may publish current
+availability0, without refreshing the six facts or advancing the continuity ledger. Unproved
+settlement/ownership exports nothing. The first failure survives verification or emission failures.
+Exhaustion fails without
 expanding grants or deadlines. Native role visibility, eight-second feasibility, lock/deadlock,
 reset/restart, stale recovery and typed cleanup remain NOTRUN.
 

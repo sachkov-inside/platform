@@ -13,6 +13,12 @@ ROOT=HERE.parents[1]
 READER_PASSWORD='postgres_source_fixture_reader'
 
 
+class ClosedClientFailure(ValueError):
+    """Private fixed exit2 fact; parent verification is required before availability-zero export."""
+    def __init__(self):
+        super().__init__('query_refused');self.verified=False
+
+
 def environment(remaining):
     node=shutil.which('node')
     if node is None or not 0<remaining<=4:raise ValueError('connection')
@@ -37,7 +43,9 @@ def child(argv,env,deadline):
                 if len(data)>4096:raise ValueError('malformed')
         remaining=deadline-time.monotonic()
         if remaining<=0:raise TimeoutError()
-        if process.wait(timeout=remaining)!=0:raise ValueError('query_refused')
+        status=process.wait(timeout=remaining)
+        if status==2 and not data:raise ClosedClientFailure()
+        if status!=0:raise ValueError('query_refused')
         return bytes(data)
     finally:
         primary,tb=sys.exc_info()[1:];secondary=None
@@ -66,7 +74,19 @@ def acquire(check_owner,verify_settled=None,*,budget=4):
     check_owner(deadline)
     remaining=deadline-time.monotonic()
     node,env=environment(remaining)
-    wire=child([str(node),str(HERE/'sample.mjs')],env,deadline)
+    try:wire=child([str(node),str(HERE/'sample.mjs')],env,deadline)
+    except ClosedClientFailure as primary:
+        tb=sys.exc_info()[2]
+        try:
+            if time.monotonic()>=deadline:raise TimeoutError()
+            check_owner(deadline)
+            if verify_settled is None:raise ValueError('cleanup')
+            verify_settled(deadline)
+            if time.monotonic()>=deadline:raise TimeoutError()
+            primary.verified=True
+        except BaseException:pass
+        finally:BaseException.__traceback__.__set__(primary,tb)
+        raise
     if time.monotonic()>=deadline:raise TimeoutError()
     check_owner(deadline)
     if verify_settled is not None:verify_settled(deadline)

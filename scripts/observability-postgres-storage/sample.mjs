@@ -6,6 +6,14 @@ import { SQL, controls, packet } from "./query.mjs";
 /** @typedef {(value:string)=>string|boolean} Parser */
 /** @typedef {{text:string,rowMode?:"array",binary?:boolean,query_timeout:number,types?:{getTypeParser:(oid:number,format:string)=>Parser}}} Statement */
 /** @typedef {{connect:()=>Promise<unknown>,query:(statement:Statement)=>Promise<unknown>,end:()=>Promise<unknown>}} SourceClient */
+/** Actual lifecycle facts only; never read properties/getters from the thrown value. */
+const settledFailures = new WeakSet();
+/** @param {unknown} error */
+export function isSettledFailure(error) {
+  return (
+    error !== null && typeof error === "object" && settledFailures.has(error)
+  );
+}
 /** @param {string} password @param {number} remainingMs */
 export function configuration(password, remainingMs) {
   if (
@@ -43,6 +51,7 @@ export function configuration(password, remainingMs) {
 export async function acquire(client, remainingMs, completedUs) {
   let result;
   let failed = false;
+  let ended = false;
   /** @type {unknown} */ let primary;
   try {
     await client.connect();
@@ -72,6 +81,8 @@ export async function acquire(client, remainingMs, completedUs) {
   } catch (error) {
     failed = true;
     primary = error;
+    if (error !== null && typeof error === "object")
+      settledFailures.delete(error);
   } finally {
     try {
       const remaining = remainingMs();
@@ -87,6 +98,7 @@ export async function acquire(client, remainingMs, completedUs) {
     } finally {
       try {
         await client.end();
+        ended = true;
       } catch (error) {
         if (!failed) {
           failed = true;
@@ -95,7 +107,13 @@ export async function acquire(client, remainingMs, completedUs) {
       }
     }
   }
-  if (failed) throw primary;
+  if (failed) {
+    if (primary !== null && typeof primary === "object") {
+      settledFailures.delete(primary);
+      if (ended && remainingMs() > 0) settledFailures.add(primary);
+    }
+    throw primary;
+  }
   if (remainingMs() <= 0) throw new Error("query_timeout");
   return packet(result, completedUs());
 }
@@ -141,7 +159,7 @@ export async function main() {
   process.stdout.write(wire);
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  main().catch(() => {
-    process.exitCode = 1;
+  main().catch((error) => {
+    process.exitCode = isSettledFailure(error) ? 2 : 1;
   });
 }

@@ -91,3 +91,26 @@ else:
                     for child in owned:
                         if child.poll() is None:child.kill()
                         child.wait(timeout=2)
+
+    def test_closed_client_failure_needs_same_deadline_postowner_and_backend_absence_before_zero(self):
+        for failure in (None,'owner','absence','expired'):
+            primary=capture.ClosedClientFailure();deadlines=[]
+            def owner(deadline):
+                deadlines.append(deadline)
+                if len(deadlines)>1 and failure=='owner':raise ValueError('ownership')
+            def absence(deadline):
+                deadlines.append(deadline)
+                if failure=='absence':raise ValueError('cleanup')
+                if failure=='expired':raise TimeoutError()
+            with self.subTest(failure=failure),patch.object(capture,'child',side_effect=primary):
+                try:capture.acquire(owner,absence)
+                except capture.ClosedClientFailure as caught:self.assertIs(caught,primary)
+                else:self.fail('failed query returned a sample')
+            self.assertEqual(primary.verified,failure is None)
+            self.assertEqual(len(set(deadlines)),1)
+        # A closed client signal requires a reaped, empty-output process; valid-looking stdout cannot help.
+        for wire in ('','{}'):
+            args=[sys.executable,'-B','-c','import sys;sys.stdout.write(sys.argv[1]);sys.exit(2)',wire]
+            try:capture.child(args,{},time.monotonic()+1)
+            except ValueError as caught:self.assertEqual(isinstance(caught,capture.ClosedClientFailure),wire=='')
+            else:self.fail('nonzero child accepted')
