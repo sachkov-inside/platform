@@ -31,7 +31,16 @@ RUN test "$(pkg-config --modversion libpq)" = "18.4" \
 # Official distribution asset includes generated sources; GitHub archive/checkout is not equivalent.
 # SHA256 matches the official release asset digest and its published .sha256sum file.
 ADD --checksum=sha256:14037901db002e5536a948bf9f0fc0ff6cde31f4e675d3e9b46f129071bf2e5f https://github.com/pgbackrest/pgbackrest/releases/download/release/2.59.3/pgbackrest-2.59.3.tar.gz /build/pgbackrest.tar.gz
-RUN mkdir -p /build/source \
+# Keep only installed COPY inputs in this successful build layer. Both temporary
+# roots must be newly constructed here and retain their identities before removal.
+RUN test -d /build && test ! -L /build \
+    && test ! -e /build/source && test ! -L /build/source \
+    && test ! -e /build/output && test ! -L /build/output \
+    && mkdir /build/source \
+    && foundation_source_identity="$(stat -c '%d:%i' -- /build/source)" \
+    && readonly foundation_source_identity \
+    && case "$foundation_source_identity" in ''|*[!0-9:]*|:*|*:|*:*:*) exit 1;; esac \
+    && test "$foundation_source_identity" != "${foundation_source_identity#*:}" \
     && tar -xzf /build/pgbackrest.tar.gz -C /build/source --strip-components=1 \
     && test -f /build/source/dist \
     && meson setup /build/output /build/source --prefix=/usr --buildtype=release --wrap-mode=nodownload \
@@ -39,8 +48,21 @@ RUN mkdir -p /build/source \
        -Dc_args='-fstack-protector-strong -D_FORTIFY_SOURCE=2' \
        -Dc_link_args='-Wl,-z,relro,-z,now' \
        -Dlibssh2=enabled -Dlibzstd=enabled -Dlibsystemd=disabled \
+    && test -d /build/output && test ! -L /build/output \
+    && foundation_output_identity="$(stat -c '%d:%i' -- /build/output)" \
+    && readonly foundation_output_identity \
+    && case "$foundation_output_identity" in ''|*[!0-9:]*|:*|*:|*:*:*) exit 1;; esac \
+    && test "$foundation_output_identity" != "${foundation_output_identity#*:}" \
     && meson compile -C /build/output --jobs 2 \
-    && meson install -C /build/output --no-rebuild --destdir /build/install
+    && meson install -C /build/output --no-rebuild --destdir /build/install \
+    && test -d /build && test ! -L /build \
+    && test -d /build/source && test ! -L /build/source \
+    && test -d /build/output && test ! -L /build/output \
+    && foundation_current_source_identity="$(stat -c '%d:%i' -- /build/source)" \
+    && test "$foundation_current_source_identity" = "$foundation_source_identity" \
+    && foundation_current_output_identity="$(stat -c '%d:%i' -- /build/output)" \
+    && test "$foundation_current_output_identity" = "$foundation_output_identity" \
+    && rm -rf -- /build/source /build/output
 
 FROM postgres-base
 
