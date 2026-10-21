@@ -1,4 +1,8 @@
 import {
+  registerParticipantDiagnosticsTool,
+  type ParticipantDiagnostics,
+} from "./participant-diagnostics.js";
+import {
   registerQueueDiagnosticsTool,
   type QueueDiagnostics,
 } from "./queue-diagnostics.js";
@@ -33,6 +37,7 @@ import {
 
 export interface InsideMcpToolDependencies {
   readonly accountId: string;
+  readonly participants: Pick<ParticipantDiagnostics, "read">;
   readonly queues: Pick<QueueDiagnostics, "read">;
   readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
   readonly authoring: MaterialAuthoring;
@@ -59,6 +64,10 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
+  });
+  registerParticipantDiagnosticsTool(server, {
+    accountId,
+    participants: dependencies.participants,
   });
   registerQueueDiagnosticsTool(server, {
     accountId,
