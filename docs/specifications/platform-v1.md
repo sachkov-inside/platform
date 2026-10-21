@@ -1,5 +1,13 @@
 # Platform v1 application specification
 
+Current Product commerce follows [ADR 0037](../adr/0037-products-without-subscriptions.md), accepted
+2026-10-20: one-time Product purchases and grants, with no current subscription sales, renewal
+controls, invitation checkout or new recurring charges. Historical financial reconciliation and
+rights remain intact. The account presents Products, including retained revoked/expired
+assignments, and keeps financial history separate. A Product's community entry uses its explicit
+Telegram-group association and Account-scoped admission; the current provider serves `primary`.
+
+
 Общая пользовательская категория — «продукт» по [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181).
 Product отображается на существующий Product, а Series остаётся совместимым техническим именем;
 определения находятся в [GLOSSARY](../../GLOSSARY.md), коммерческая граница — в

@@ -82,12 +82,12 @@ export function AccountAccessView({
             aria-labelledby="account-connections"
             className="rounded-2xl border border-border/70 bg-card p-5 sm:p-6"
           >
-            <div className="mb-6">
+            <div className="mb-4">
               <h2 className="text-lg font-semibold" id="account-connections">
                 Контакты и вход
               </h2>
             </div>
-            <div className="space-y-8">
+            <div className="space-y-5">
               {emailSlot}
               {loading ? (
                 <p className="py-4 text-sm text-muted-foreground" role="status">

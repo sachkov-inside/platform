@@ -1,5 +1,15 @@
 # Platform billing v1: локальный контракт реализации
 
+[ADR 0037](../adr/0037-products-without-subscriptions.md), accepted 2026-10-20, supersedes the
+subscription-commerce paths below for the current runtime. Product purchases are one-time;
+subscription quote/purchase/resume/paid changes and new recurring effects are unavailable.
+Subscription invitations cannot be issued or redeemed into checkout, including old redeemed
+links. Renewal reminders are neither scheduled nor allowed through pre-send validation.
+A proven unsent prepared subscription attempt is closed and its reservation released; sent or
+uncertain provider outcomes still reconcile. The historical contracts and snapshots below remain
+for recovery and audit, not as permission to re-enable Product subscriptions.
+
+
 Статус: **принятая спецификация #403** ([PR #417](https://github.com/sachkov-inside/platform/pull/417)).
 Access foundation поставлен в #404, pricing — в #405; остальные billing slices остаются
 отдельными поставками. Основание — одобренный

@@ -59,15 +59,16 @@ export function AccountTelegramPanel({
       <article className="flex flex-col items-start gap-4 sm:flex-row sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="min-w-0 [overflow-wrap:anywhere]">
-            <p className="text-sm font-medium">{presentation.account.title}</p>
+            {link.kind === "linked" && contact?.state === "available" ? null : (
+              <p className="text-sm font-medium">
+                {presentation.account.title}
+              </p>
+            )}
             {contact?.state === "available" ? (
               <p className="mt-2 break-words text-sm">
                 {contact.displayName}
                 {contact.username === null ? (
-                  <span className="text-muted-foreground">
-                    {" "}
-                    · Username не задан
-                  </span>
+                  <span className="text-muted-foreground"> </span>
                 ) : (
                   <span className="text-muted-foreground">
                     {" "}
@@ -80,7 +81,7 @@ export function AccountTelegramPanel({
                 Не удалось загрузить имя и username из Telegram.
               </p>
             ) : null}
-            {link.kind === "unlinked" ? null : (
+            {link.kind === "unlinked" || link.kind === "linked" ? null : (
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
                 {presentation.account.description}
               </p>

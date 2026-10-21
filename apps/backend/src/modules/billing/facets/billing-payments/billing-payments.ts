@@ -21,7 +21,10 @@ import type {
   CoverageCatalog,
   AccessGrants,
 } from "../../../account-rights/index.js";
-import { saleCapability } from "../../domain/sale-capability.js";
+import {
+  saleCapability,
+  type SaleCapability,
+} from "../../domain/sale-capability.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import {
@@ -102,14 +105,22 @@ interface Dependencies {
   >;
   readonly contentCatalog?: Pick<CoverageCatalog, "resolve" | "resolveMany">;
   readonly bank: Tbank | undefined;
+  /** Process commerce capability; absent uses the current product-only policy. */
+  readonly sale?: SaleCapability;
   readonly clock?: () => Date;
 }
 
 /** Purchase, authoritative confirmation and recoverable fulfillment. Never repeats Init. */
 export class BillingPayments {
   private readonly clock: () => Date;
+  private readonly sale: SaleCapability;
   constructor(private readonly dependencies: Dependencies) {
     this.clock = dependencies.clock ?? (() => new Date());
+    this.sale = saleCapability(
+      dependencies.bank?.config,
+      dependencies.sale?.payments ?? true,
+      dependencies.sale?.subscriptions ?? false,
+    );
   }
 
   async purchase(
@@ -214,7 +225,7 @@ export class BillingPayments {
       const admission = paymentAdmission({
         context: "purchase",
         snapshot,
-        sale: saleCapability(bank.config, true),
+        sale: this.sale,
         grounds,
         recurringAllowed: legacy.recurringAllowed,
       });
@@ -381,7 +392,7 @@ export class BillingPayments {
             const admission = paymentAdmission({
               context: "purchase",
               snapshot: reservation.value,
-              sale: saleCapability(bank.config, true),
+              sale: this.sale,
               grounds,
               recurringAllowed: legacy.recurringAllowed,
             });
@@ -897,7 +908,7 @@ export class BillingPayments {
         !row.chargeCalled &&
         payment.Status === "NEW"
       ) {
-        if (renewalTerminal(bank.config) !== "ready")
+        if (renewalTerminal(bank.config, this.sale) !== "ready")
           return paymentFailure("method_unavailable");
         const charged = await this.chargeSaved(row.id, paymentId);
         if (charged === "configuration_idle")
@@ -1019,7 +1030,7 @@ export class BillingPayments {
     const { prisma, bank } = this.dependencies;
     try {
       const now = this.clock();
-      const terminal = renewalTerminal(bank?.config);
+      const terminal = renewalTerminal(bank?.config, this.sale);
       const due = await dueRenewals(prisma, now, limit);
       let started = 0,
         blocked = 0,
@@ -1088,6 +1099,29 @@ export class BillingPayments {
       )
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
+      if (
+        paymentMode(priceSnapshotSchema.parse(row.snapshot).paymentOption) ===
+          "subscription" &&
+        this.dependencies.sale?.subscriptions !== true
+      ) {
+        // Prepared proves Init has not been sent. Release this reservation so an obsolete
+        // subscription cannot block a later one-time Product purchase for the Account.
+        await tx.billingPurchase.update({
+          where: { id: attemptRef },
+          data: {
+            state: "failed",
+            lifecycleActive: false,
+            paymentUrl: null,
+            updatedAt: this.clock(),
+          },
+        });
+        if (isQuotedPurchase(kind))
+          await tx.billingPromoReservation.updateMany({
+            where: { purchaseRef: attemptRef },
+            data: { state: "failed" },
+          });
+        return { status: "retired" } as const;
+      }
       const now = this.clock();
       if (hasText(row.subscriptionRef)) {
         await lockBillingSubscription(tx, row.subscriptionRef);
@@ -1112,7 +1146,10 @@ export class BillingPayments {
           return undefined;
         }
       }
-      if (!isQuotedPurchase(kind) && renewalTerminal(bank.config) !== "ready")
+      if (
+        !isQuotedPurchase(kind) &&
+        renewalTerminal(bank.config, this.sale) !== "ready"
+      )
         return { status: "configuration_idle" } as const;
       await tx.billingPurchase.update({
         where: { id: attemptRef },
@@ -1126,6 +1163,7 @@ export class BillingPayments {
       return { status: "prepared", row, kind } as const;
     });
     if (prepared?.status === "configuration_idle") return "configuration_idle";
+    if (prepared?.status === "retired") return "skipped";
     if (!prepared) return "skipped";
     const { row, kind } = prepared;
     try {
@@ -1229,7 +1267,7 @@ export class BillingPayments {
     const admission = paymentAdmission({
       context: "renewal",
       snapshot,
-      sale: saleCapability(bank.config, true),
+      sale: this.sale,
       grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
       recurringAllowed: legacy.recurringAllowed,
 
@@ -1308,7 +1346,7 @@ export class BillingPayments {
     paymentId: string,
   ): Promise<"charged" | "skipped" | "configuration_idle" | "failed"> {
     const { prisma, bank } = this.dependencies;
-    if (!bank || renewalTerminal(bank.config) !== "ready")
+    if (!bank || renewalTerminal(bank.config, this.sale) !== "ready")
       return "configuration_idle";
     const prepared = await prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);

@@ -1,3 +1,4 @@
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import {
   accessCapabilitySchema,
   productIdFromCapability,
@@ -37,6 +38,7 @@ import {
 export class SubscriptionActivation {
   constructor(
     private readonly dependencies: {
+      sale?: Pick<SaleCapability, "subscriptions">;
       prisma: BillingPrismaClient;
       grants: AccessGrants;
       bindings: ActivationBindings &
@@ -317,6 +319,14 @@ export class SubscriptionActivation {
     const parsed = redeemInvitationSchema.safeParse(input);
     if (!parsed.success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
+    if (this.dependencies.sale?.subscriptions !== true)
+      return {
+        ok: true as const,
+        value: {
+          contractVersion: ACTIVATION_CONTRACT_VERSION,
+          state: "unavailable" as const,
+        },
+      };
     const { siteOrigin, grants, bindings } = this.dependencies;
     try {
       const linked = await bindings.findCurrentByIdentity(

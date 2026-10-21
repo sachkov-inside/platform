@@ -172,3 +172,7 @@ Fork `inside.8` adds authenticated, first-party `/api/my-account/first-email` re
 owns eligibility, proof ownership, collision/retry semantics and required Account Center/SMTP setup.
 The existing `inside.7` changes remain included. The disposable API proof runs with
 `python3 scripts/account-email-proof.py --image <built-image>` after building this Dockerfile.
+
+Fork `inside.11` allows existing authenticated first-party sessions to use these routes without
+renewing consent for the `email` scope. The same subject, field permissions, code verification
+and first-attachment restrictions still apply.

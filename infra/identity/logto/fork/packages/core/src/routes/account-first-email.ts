@@ -1,5 +1,5 @@
 import { TemplateType } from '@logto/connector-kit';
-import { UserScope, emailRegEx } from '@logto/core-kit';
+import { emailRegEx } from '@logto/core-kit';
 import { AccountCenterControlValue, SentinelActivityAction, SignInIdentifier, Users, VerificationType } from '@logto/schemas';
 import { sql } from '@silverhand/slonik';
 import { z } from 'zod';
@@ -19,14 +19,13 @@ import type { UserRouter, RouterInitArgs } from './types.js';
 
 const { table, fields } = convertToIdentifiers(Users);
 
-/** First attachment only. Never replaces a credential, merges users, or accepts a target user ID. */
+/** Existing first-party user sessions need no new email-scope consent. First attachment only. Never replaces a credential, merges users, or accepts a target user ID. */
 export default function accountFirstEmailRoutes<T extends UserRouter>(...[router, tenant]: RouterInitArgs<T>) {
   const { queries, libraries, sentinel } = tenant;
   router.get('/my-account/first-email', koaGuard({
     response: z.object({ email: z.string().nullable() }), status: [200, 401, 403],
   }), async (ctx, next) => {
     await assertFirstPartyClient(queries, ctx.auth.clientId);
-    assertThat(ctx.auth.scopes.has(UserScope.Email), new RequestError({ code: 'auth.unauthorized', status: 401 }));
     assertThat(ctx.accountCenter.fields.email === AccountCenterControlValue.Edit, 'account_center.field_not_editable');
     const user = await queries.users.findUserById(ctx.auth.id);
     ctx.body = { email: user.primaryEmail };
@@ -38,9 +37,8 @@ export default function accountFirstEmailRoutes<T extends UserRouter>(...[router
     response: z.object({ verificationRecordId: z.string(), expiresAt: z.string() }),
     status: [201, 400, 401, 403, 422, 429, 501],
   }), async (ctx, next) => {
-    const { id: userId, scopes, clientId: applicationId } = ctx.auth;
+    const { id: userId, clientId: applicationId } = ctx.auth;
     await assertFirstPartyClient(queries, applicationId);
-    assertThat(scopes.has(UserScope.Email), 'auth.unauthorized');
     assertThat(ctx.accountCenter.fields.email === AccountCenterControlValue.Edit, 'account_center.field_not_editable');
     const user = await queries.users.findUserById(userId);
     assertThat(user.identities['inside-telegram'] && !user.primaryEmail && !user.primaryPhone && !user.passwordEncrypted,
@@ -65,9 +63,8 @@ export default function accountFirstEmailRoutes<T extends UserRouter>(...[router
     body: z.object({ verificationRecordId: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) }),
     status: [204, 400, 401, 403, 422, 429, 501],
   }), async (ctx, next) => {
-    const { id: userId, scopes, clientId } = ctx.auth;
+    const { id: userId, clientId } = ctx.auth;
     await assertFirstPartyClient(queries, clientId);
-    assertThat(scopes.has(UserScope.Email), 'auth.unauthorized');
     assertThat(ctx.accountCenter.fields.email === AccountCenterControlValue.Edit, 'account_center.field_not_editable');
     const { verificationRecordId, code } = ctx.guard.body;
     const record = await queries.verificationRecords.findActiveVerificationRecordById(verificationRecordId);

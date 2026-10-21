@@ -52,15 +52,11 @@ export const accountSections: readonly AccountSection[] =
   Object.values(accountSectionById);
 
 /**
- * Раздел подписки доступен для управления уже купленной подпиской.
+ * Текущий кабинет показывает только продукты. Историческая подписка не возвращает раздел.
  */
-export function visibleAccountSections({
-  subscriptionOwned,
-}: {
+export function visibleAccountSections(_input: {
   readonly subscriptionOffered: boolean;
   readonly subscriptionOwned: boolean;
 }): readonly AccountSection[] {
-  return accountSections.filter(
-    (section) => section.id !== "subscription" || subscriptionOwned,
-  );
+  return accountSections.filter((section) => section.id !== "subscription");
 }

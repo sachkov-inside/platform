@@ -1,7 +1,7 @@
 FROM ghcr.io/logto-io/logto:1.44.0@sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.44.0-inside.10"
+LABEL org.opencontainers.image.version="1.44.0-inside.11"
 LABEL inside.logto.upstream-revision="79e9e3b0d9f505260d09c80d8a015e56fbc0ec01"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx

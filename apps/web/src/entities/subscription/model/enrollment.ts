@@ -17,7 +17,13 @@ export const enrollmentSchema = z.object({
   id: z.uuid(),
   accountId: z.uuid(),
   tier: tierSchema,
-  origin: z.enum(["course", "tribute", "manual", "platform_payment"]),
+  origin: z.enum([
+    "course",
+    "tribute",
+    "manual",
+    "platform_payment",
+    "invitation",
+  ]),
   startsAt: z.iso.datetime(),
   endsAt: z.iso.datetime().nullable(),
   endPolicy: z.enum(["fixed", "confirmed_external", "temporary_membership"]),
@@ -60,6 +66,7 @@ export const enrollmentSourceLabels = {
   tribute: "Оплачено через Tribute",
   manual: "Назначено владельцем",
   platform_payment: "Оформлено на Platform",
+  invitation: "Предоставлено по приглашению",
 } as const;
 export const enrollmentStateLabels = {
   scheduled: "Начнётся позже",

@@ -15,3 +15,6 @@ export {
 } from "./ui/subscription-panel.client";
 
 export { BillingSignIn } from "./ui/billing-sign-in";
+
+export { ProductAccessList } from "./ui/product-access-list";
+export { BillingHistory } from "./ui/billing-history.client";
