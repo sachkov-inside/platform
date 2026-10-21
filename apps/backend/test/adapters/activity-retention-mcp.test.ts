@@ -162,3 +162,69 @@ it("rechecks authorization after revocation and rejects invalid direct inputs be
   expect(permission).toHaveBeenCalledTimes(3);
   expect(readReceipt).toHaveBeenCalledOnce();
 });
+it("starts all independent reads behind one authorization before releasing any held result", async () => {
+  const started: string[] = [];
+  const held = <T>(name: string) => {
+    let release!: (value: T) => void;
+    const promise = new Promise<T>((resolve) => {
+      release = resolve;
+    });
+    return {
+      read: () => {
+        started.push(name);
+        return promise;
+      },
+      release,
+    };
+  };
+  const known = {
+    ok: true as const,
+    value: {
+      status: "known" as const,
+      asOf: "2026-10-21T00:00:00.000000Z",
+      cutoff: "2025-10-21T00:00:00.000000Z",
+      hasMore: false,
+      oldestExpiredAt: null,
+      lagSeconds: null,
+    },
+  };
+  const reading = held<typeof known>("reading"),
+    bookmarks = held<typeof known>("bookmarks");
+  const receipt = held<{
+    ok: false;
+    status: "unknown";
+    error: { code: "no_retained_pass" };
+  }>("receipt");
+  const permission = vi.fn().mockResolvedValue({ ok: true, allowed: true });
+  const diagnostics = new ActivityRetentionDiagnostics(
+    { checkPermission: permission },
+    { status: reading.read },
+    { status: bookmarks.read },
+    { readActivityRetentionLastPass: receipt.read },
+  );
+  const pending = diagnostics.read("10000000-0000-4000-8000-000000000001", {});
+  try {
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(started).toEqual(["reading", "bookmarks", "receipt"]);
+  } finally {
+    reading.release(known);
+    bookmarks.release(known);
+    receipt.release({
+      ok: false,
+      status: "unknown",
+      error: { code: "no_retained_pass" },
+    });
+  }
+  expect(await pending).toMatchObject({
+    ok: true,
+    value: {
+      sources: [
+        { source: "learning_started", result: { ok: true } },
+        { source: "bookmarks", result: { ok: true } },
+      ],
+      lastPass: { ok: false, error: { code: "no_retained_pass" } },
+    },
+  });
+  expect(permission).toHaveBeenCalledOnce();
+});

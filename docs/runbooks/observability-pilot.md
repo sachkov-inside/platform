@@ -2210,8 +2210,10 @@ continues to read no payload/output columns.
 The last retained receipt includes database clock, completion time and age. Age over 600 seconds is
 `stale`, otherwise `recent`; neither proves worker health or next-day cleanup. Expired receipt
 retention, no terminal receipt, schema failure and budget overflow remain explicit unknown states.
-The three independent reads each retain the existing one-second acquisition/five-second transaction
-allowance (at most 18 seconds total), with no retry or caller budget control.
+After one current admin check, the three independent reads start concurrently. Each retains the
+existing one-second acquisition/five-second transaction allowance, so their composition has a
+six-second allowance plus the existing authorization check, with no retry or caller budget control.
+Actual end-to-end compliance with the ten-second query requirement still needs hosted evidence.
 
 Only registration of the new retention queue is caught locally. Its sanitized failure is reported
 while registration of the original nine queues proceeds; their own failures and existing bootstrap

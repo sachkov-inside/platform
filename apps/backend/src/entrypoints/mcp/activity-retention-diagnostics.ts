@@ -41,30 +41,35 @@ export class ActivityRetentionDiagnostics {
         };
       if (!permission.ok || !permission.allowed)
         return { ok: false as const, error: { code: "forbidden" as const } };
-      const sources = [];
-      for (const [source, owner] of [
+      const owners = [
         ["learning_started", this.reading],
         ["bookmarks", this.bookmarks],
-      ] as const) {
+      ] as const;
+      const sourceReads = owners.map(async ([source, owner]) => {
         try {
-          sources.push({ source, result: await owner.status() });
+          return { source, result: await owner.status() };
         } catch {
-          sources.push({
+          return {
             source,
             result: {
               ok: false as const,
               status: "unknown" as const,
               error: { code: "source_unavailable" as const },
             },
-          });
+          };
         }
-      }
-      let lastPass;
-      try {
-        lastPass = await this.receipts.readActivityRetentionLastPass();
-      } catch {
-        lastPass = activityRetentionReceiptUnknown("source_unavailable");
-      }
+      });
+      const receiptRead = (async () => {
+        try {
+          return await this.receipts.readActivityRetentionLastPass();
+        } catch {
+          return activityRetentionReceiptUnknown("source_unavailable");
+        }
+      })();
+      const [sources, lastPass] = await Promise.all([
+        Promise.all(sourceReads),
+        receiptRead,
+      ]);
       return { ok: true as const, value: { sources, lastPass } };
     } catch (error) {
       return dependencyFailure(
@@ -91,7 +96,7 @@ export function registerActivityRetentionDiagnosticsTool(
     {
       title: "Read Membership analytics-copy retention status",
       description:
-        "Requires current platform:admin. Read-only bounded status of the two Membership analytics-copy journals: learning_started_events and bookmarks.activity_events. Database UTC asOf/cutoff, oldest expired row and lag, never a full backlog count. 365-day horizon, independent source snapshots, 2s statement/5s transaction/1s acquire bounds. Source failure is unknown, never zero. A third bounded fixed-queue read exposes only a validated <=4096-byte last terminal pass aggregate, including partial failure; retained queue overflow or invalid/missing latest report stays unknown, with no fallback to earlier success. Pass age over 600 seconds is stale, otherwise recent, neither proves worker health. Three independent reads have at most 18 seconds total acquisition/transaction allowances. No cleanup, identities, original learning/bookmark/submission data changes, providers or caller-selected tables. This does not prove next-day cleanup, worker freshness or physical disk reclamation.",
+        "Requires current platform:admin. Read-only bounded status of the two Membership analytics-copy journals: learning_started_events and bookmarks.activity_events. Database UTC asOf/cutoff, oldest expired row and lag, never a full backlog count. 365-day horizon, independent source snapshots, 2s statement/5s transaction/1s acquire bounds. Source failure is unknown, never zero. A third bounded fixed-queue read exposes only a validated <=4096-byte last terminal pass aggregate, including partial failure; retained queue overflow or invalid/missing latest report stays unknown, with no fallback to earlier success. Pass age over 600 seconds is stale, otherwise recent, neither proves worker health. After authorization, the three independent reads run concurrently with at most 6 seconds acquisition/transaction allowance for their composition, plus the existing authorization check. Actual end-to-end latency remains unverified. No cleanup, identities, original learning/bookmark/submission data changes, providers or caller-selected tables. This does not prove next-day cleanup, worker freshness or physical disk reclamation.",
       inputSchema: querySchema,
       annotations: {
         readOnlyHint: true,
