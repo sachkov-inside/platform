@@ -378,9 +378,14 @@ it.each(["focus", "pageshow", "online", "visibilitychange"])(
 it("expires locally while the provider remains unavailable", async () => {
   const page = await browser.newPage();
   try {
-    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    const waitingAt = new Date("2026-01-01T00:01:00Z");
+    await page.clock.install({
+      time: new Date(waitingAt.getTime() - 60_000),
+    });
+    // Page loading must not spend the fixture's short expiration window.
+    await page.clock.pauseAt(waitingAt);
     await open(page, "pending");
-    const expiresAt = "2026-01-01T00:00:02.000Z";
+    const expiresAt = new Date(waitingAt.getTime() + 2000).toISOString();
     state = { status: "unavailable", expiresAt };
     await poll(page);
     await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
