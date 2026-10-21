@@ -133,6 +133,38 @@ if (
           /Core protocol: test_markers_preserve_first_primary_and_completed_is_not_success=failure/u,
       },
     );
+    for (const field of [
+      "exit",
+      "program",
+      "warnings",
+      "tests",
+      "failures",
+      "errors",
+      "skips",
+      "discovery",
+      "output",
+    ]) {
+      for (const category of ["F", "E"]) {
+        assert.throws(
+          () =>
+            assertCoreProtocolContracts({
+              status: 1,
+              signal: null,
+              stderr: `private-canary\nCORE_PROTOCOL_V1 failures --${category} field ${field}\n`,
+            }),
+          (error) =>
+            error instanceof assert.AssertionError &&
+            error.message.includes(
+              "test_runner_uses_original_discovery_and_refuses_inventory_drift=" +
+                (category === "F" ? "failure" : "error") +
+                "; field=" +
+                field,
+            ) &&
+            !error.message.includes("private-canary") &&
+            !error.stack?.includes("private-canary"),
+        );
+      }
+    }
     const { readFile } = await import("node:fs/promises");
     /** @type {unknown} */
     const raw = JSON.parse(
@@ -252,6 +284,15 @@ if (
       "",
       "private-canary",
       "CORE_SOURCE_V1 start fixed\n",
+      "CORE_PROTOCOL_V1 failures F-- field output\n",
+      "CORE_PROTOCOL_V1 failures -E- field output\n",
+      "CORE_PROTOCOL_V1 failures --- field output\n",
+      "CORE_PROTOCOL_V1 failures --F field private-canary\n",
+      "CORE_PROTOCOL_V1 failures --F field output field exit\n",
+      "CORE_PROTOCOL_V1 failures --F field output",
+      "CORE_PROTOCOL_V1 failures --F field output\nCORE_PROTOCOL_V1 failures --F\n",
+      "CORE_PROTOCOL_V1 failures --F field output\r\n",
+      "CORE_PROTOCOL_V1 failures --F field " + "x".repeat(64) + "\n",
       footer.slice(0, -1),
       footer + footer,
       footer + "trailing\n",
@@ -308,6 +349,23 @@ if (
       get stderr() {
         throw new Error("never inspect getter");
       },
+    });
+    for (const outcome of [
+      { status: 0, signal: "SIGTERM" },
+      { status: null, signal: null },
+      { status: 0, signal: null, error: { code: "ETIMEDOUT" } },
+      { status: 0, signal: null, error: { code: "ENOBUFS" } },
+    ])
+      assert.throws(() =>
+        assertCoreProtocolContracts({
+          ...outcome,
+          stderr: "CORE_PROTOCOL_V1 failures --F field output\n",
+        }),
+      );
+    assertCoreProtocolContracts({
+      status: 0,
+      signal: null,
+      stderr: "CORE_PROTOCOL_V1 failures --F field output\n",
     });
     assertCoreProtocolContracts({ status: 0, signal: null, stderr: footer });
     assert.equal(traps, 0);

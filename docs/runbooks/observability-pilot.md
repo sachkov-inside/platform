@@ -2170,7 +2170,10 @@ Three separate synthetic Python protocol controls live outside `test_*.py`; they
 replace any of the original 274 methods. Synthetic dispatch/parity checks do not establish an
 actual admitted Linux run or explain an earlier source timeout. Their separate assertion can
 identify a failed protocol method and the fixed category `failure` or `error` from one optional
-failure-only footer. It reads no traceback text. The three fixed positions do not report start,
+failure-only footer. An already failed third method may also identify one fixed parity field: `exit`,
+`program`, `warnings`, `tests`, `failures`, `errors`, `skips`, `discovery` or `output`. The original
+nine exact comparisons and aggregate assertion remain; the field does not explain why values differ.
+It reads no traceback text. The three fixed positions do not report start,
 completion or success. Missing, foreign, truncated or oversized metadata stays `unknown`; native
 status, spawn error and signal remain authoritative. This feedback does not fix or explain a
 Python-version-specific failure. Hosted exact-source verification
