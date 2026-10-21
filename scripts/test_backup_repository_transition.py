@@ -4,8 +4,22 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+import importlib.util
+from unittest import mock
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+class TransitionAdmission(unittest.TestCase):
+    def test_mutable_image_is_refused_before_daemon_access(self):
+        spec = importlib.util.spec_from_file_location(
+            "transition", ROOT / "scripts/foundation-repository-transition.py")
+        transition = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(transition)
+        with mock.patch.object(transition.base, "admit") as admit:
+            with self.assertRaisesRegex(ValueError, "immutable"):
+                transition.proof("postgres:latest", pathlib.Path("unused"), pathlib.Path("unused"))
+            admit.assert_not_called()
 
 
 class BackupCommand(unittest.TestCase):

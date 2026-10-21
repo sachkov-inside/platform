@@ -57,10 +57,12 @@ class InventoryProjection(unittest.TestCase):
         result = inventory.collect(1, execute=execute)
         self.assertEqual(result["backupCount"], 1)
         self.assertNotIn("PRIVATE", json.dumps(result))
-        self.assertEqual(calls, [["docker", "--host", "unix:///var/run/docker.sock", "exec",
-                                "--user", "postgres", "inside-production-database-postgres-1",
-                                "pgbackrest", "--stanza=production", "--repo=1", "--output=json",
-                                "--log-level-console=off", "--log-level-file=off", "info"]])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][:7], ["docker", "--host", "unix:///var/run/docker.sock", "exec",
+                                      "--user", "postgres", "inside-production-database-postgres-1"])
+        self.assertEqual(calls[0][-7:], ["pgbackrest", "--stanza=production", "--repo=1", "--output=json",
+                                         "--log-level-console=off", "--log-level-file=off", "info"])
+        self.assertIn("setsid", calls[0][9])
 
     def test_failed_command_never_returns_partial_metadata(self):
         def execute(arguments):

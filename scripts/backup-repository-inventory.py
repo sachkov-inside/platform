@@ -11,6 +11,30 @@ import sys
 
 BACKUP_LABEL = r"[0-9]{8}-[0-9]{6}F(?:_[0-9]{8}-[0-9]{6}[DI])?"
 
+# The daemon's exec process is not owned by the Docker client's host process group.
+# Its watchdog therefore lives INSIDE the container, with separate owned process groups.
+BOUNDED_READ = r'''
+seconds="$1"
+shift
+setsid "$@" &
+worker=$!
+setsid sh -c 'sleep "$1"; kill -KILL -- "-$2" 2>/dev/null' guard "$seconds" "$worker" &
+guard=$!
+cleanup() {
+  trap - EXIT HUP INT TERM
+  kill -KILL -- "-$worker" "-$guard" "$worker" "$guard" 2>/dev/null || true
+  wait "$worker" 2>/dev/null || true
+  wait "$guard" 2>/dev/null || true
+  # A child may have entered setsid between the first group signal and its direct signal.
+  kill -KILL -- "-$worker" "-$guard" 2>/dev/null || true
+}
+trap cleanup EXIT
+trap 'exit 124' HUP INT TERM
+wait "$worker"
+status=$?
+exit "$status"
+'''
+
 
 def checked(value, pattern):
     if not isinstance(value, str) or not re.fullmatch(pattern, value):
@@ -106,6 +130,7 @@ def collect(repository, *, execute=command):
         raise ValueError("invalid repository")
     result = execute(["docker", "--host", "unix:///var/run/docker.sock", "exec",
                       "--user", "postgres", "inside-production-database-postgres-1",
+                      "sh", "-c", BOUNDED_READ, "bounded-info", "45",
                       "pgbackrest", "--stanza=production", f"--repo={repository}", "--output=json",
                       "--log-level-console=off", "--log-level-file=off", "info"])
     if result.returncode:
