@@ -48,3 +48,26 @@ class Reads(unittest.TestCase):
         self.assertEqual(handlers[0].proxies,{})
         self.assertIsInstance(handlers[1],queries.source_status_query.NoRedirect)
         self.assertEqual(len(queries.paths(1790000000)),2)
+
+    def test_absolute_protocol_deadline_is_not_reset_and_expiry_prevents_http(self):
+        requests=[];owners=[];now=[100.0];rows,stamps=vectors()
+        class Response:
+            status=200
+            def __init__(self,body):self.body=body.encode();self.headers=Message()
+            def __enter__(self):return self
+            def __exit__(self,*_):return False
+            def read(self,cap):return self.body
+        class Opener:
+            def open(self,request,timeout):
+                requests.append(timeout);now[0]+=1
+                return Response(raw(stamps if len(requests)==2 else rows))
+        def owner(deadline):owners.append(deadline)
+        with patch.object(queries.time,'monotonic',side_effect=lambda:now[0]), \
+                patch.object(queries.time,'time',return_value=1790000000),patch.object(queries.time,'time_ns',return_value=NOW*1000), \
+                patch.object(queries.urllib.request,'build_opener',return_value=Opener()):
+            result=queries.protocol_read('A'*32,owner,EXPECTED,deadline=105.0)
+            self.assertEqual(result['freshness'],'fresh');self.assertEqual(requests,[5,4,3]);self.assertEqual(set(owners),{105.0})
+            for invalid in (True,float('nan'),float('inf'),99,114):
+                with self.subTest(deadline=invalid),self.assertRaises((ValueError,TimeoutError)):
+                    queries.protocol_read('A'*32,owner,EXPECTED,deadline=invalid)
+            self.assertEqual(requests,[5,4,3])

@@ -14,7 +14,7 @@ sys.path.insert(0,str(HERE.parent/'observability-pilot'))
 sys.path.insert(0,str(HERE.parent/'observability-tracking-storage'))
 import pilot
 import ci
-import ownership
+import pg_ownership as ownership
 import source_status_query
 import record
 import scenario
@@ -63,8 +63,9 @@ def worker(output):
             driver=scenario.Scenario(None,compose,None,oracle_owner())
             # The same decreasing read closure is retained for construction AND subsequent sampler checks.
             driver.clock_deadline=time.monotonic()+pilot.QUERY_TIMEOUT_SECONDS
-            driver.targets=ownership.TrackingTargets(output,compose,expected,driver.read)
+            driver.targets=ownership.Targets(output,compose,expected,driver.read)
             for service in ('alloy','postgres'):pilot.verify_trace_store_logging(output,compose,service=service)
+            driver.targets.metrics_private(driver.clock_deadline)
             pilot.await_otlp_ready(output=output)
             driver.token=source_status_query._read_private_token(output)
             pilot.await_fact(lambda:pilot.request('/metrics/api/v1/query?query=1',token=driver.token),

@@ -1,7 +1,7 @@
-"""Fixed private collector challenges. Native processing/insertion completion remains unproved."""
+"""Fixed challenges require current synchronous export, owned flush and whole vector validation."""
 import copy
 import frame
-import queries
+import completion
 
 KINDS=('backend','telegram','foreign','missing','unknown_family','sentinel')
 
@@ -26,13 +26,10 @@ def challenge(value,kind):
 
 
 def run(source):
+    observation=None
     for kind in KINDS:
-        value=source.acquire();source.before_unsafe_upload();source.upload(challenge(value,kind));source.stored(value)
-        source.ledger.accept(value)
-        if kind in ('backend','telegram','foreign','missing'):
-            observed=queries.protocol_read(source.token,source.verify_storage,value,budget=source.remaining())
-            if observed['freshness']!='fresh':raise ValueError('storage')
-    # Deliberate acceptance prerequisite, never bypassed by an argument/environment or a healthy query.
-    # Exact pinned end-to-end processing/insertion completion proof must be independently established
-    # before a separately reviewed source change can permit the native privacy case to pass.
-    raise ValueError('storage')
+        value=source.acquire();source.before_unsafe_upload()
+        observation=completion.process(source,value,kind)
+        continuity=source.ledger.accept(value)
+        observation={**observation,'continuity':continuity['continuity'],'count_complete':continuity['count_complete']}
+    return observation

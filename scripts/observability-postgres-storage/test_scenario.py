@@ -105,7 +105,7 @@ class Driver(unittest.TestCase):
             driver.end=250;driver.clock_deadline=110
             roles=('postgres','alloy','metrics','gateway');ids={role:f'{index+1:064x}' for index,role in enumerate(roles)}
             plan={'services':{role:{'image':'fixture/'+role+'@sha256:'+'a'*64,'networks':['pilot','ingress']} for role in roles},'volumes':{}}
-            targets=postgres_source.ownership.TrackingTargets.__new__(postgres_source.ownership.TrackingTargets)
+            targets=postgres_source.ownership.Targets.__new__(postgres_source.ownership.Targets)
             targets.output=Path('/task');targets.compose=driver.compose;targets.project=driver.compose[3];targets.plan=plan;targets.read=driver.read
             targets._ownership_observer=None;targets._ownership_callback_error=None;targets.targets={};driver.targets=targets
             def daemon(args,**kwargs):
@@ -154,3 +154,26 @@ class Driver(unittest.TestCase):
             self.assertEqual(requests!=[],fault in (None,'http_failure','expired_response'))
             self.assertTrue(all(deadline==110 for deadline in identity_deadlines))
             self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
+
+    def test_privacy_case_records_actual_completion_verdict_without_a_new_stored_query(self):
+        from types import SimpleNamespace
+        from test_oracle import EXPECTED
+        driver=scenario.Scenario(None,['compose'],'fixed',None);observations={};counter=[0]
+        verdict={'freshness':'fresh','continuity':'same_epoch','count_complete':True,'points':7,'age_seconds':0}
+        def observe(*args):
+            phase=driver.phase;observations[phase]=observations.get(phase,0)+1;counter[0]+=1
+            value=EXPECTED.copy();value['sample_us']+=counter[0]*1000
+            if phase=='deadlocks':value['deadlocks']=EXPECTED['deadlocks']+1
+            if phase in ('reset','restart','stale'):value['stats_reset_us']+=1000;value['deadlocks']=0
+            if phase in ('restart','stale'):value['postmaster_us']+=1000
+            state=driver.ledger.accept(value)
+            return value,{**verdict,'continuity':state['continuity'],'count_complete':state['count_complete']}
+        final={**verdict,'age_seconds':.125}
+        driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
+        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart' else 'stale'})
+        with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
+                patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
+                patch.object(scenario.queries,'read',return_value=('','','',0)),patch.object(driver,'stored',side_effect=AssertionError('new stored query forbidden')), \
+                patch.object(scenario.time,'sleep'):
+            cases=driver.run(lambda source:final)
+        self.assertEqual(cases[-1],{**final,'phase':'privacy'})
