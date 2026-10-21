@@ -229,6 +229,7 @@ elif args[:1] == ['build']:
     key,value=args[args.index('--label')+1].split('=',1)
     state[image]={'Id':image,'RepoTags':[args[args.index('--tag')+1]],'RepoDigests':[], 'Config':{'Labels':{key:value}}}
     state_path.write_text(json.dumps(state))
+    pathlib.Path(args[args.index('--iidfile')+1]).write_text(image)
 elif args[:1] not in (['build'], ['pull']):
     sys.exit(9)
 '''
@@ -281,9 +282,11 @@ elif args[:1] not in (['build'], ['pull']):
                     ['build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                      '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA='+source,
                      '--label', hosted.preparation.LABEL+'='+receipt['token'],
+                     '--iidfile', str(hosted.preparation.directory(root/'images.json')/'backend.iid'),
                      '--tag', 'inside-platform-production-smoke-cache-123-1-backend:v1', '.'],
                     ['build', '--file', 'infra/production/database/Dockerfile',
-                     '--label', hosted.preparation.LABEL+'='+receipt['token'], '--tag',
+                     '--label', hosted.preparation.LABEL+'='+receipt['token'],
+                     '--iidfile', str(hosted.preparation.directory(root/'images.json')/'foundation.iid'), '--tag',
                      'inside-platform-production-smoke-cache-123-1-foundation:local', 'infra/production/database']])
                 pulls = [args for args in commands if args[:1] == ['pull']]
                 self.assertEqual(len(pulls), 7)

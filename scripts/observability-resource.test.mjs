@@ -84,9 +84,9 @@ test("resource source progress projects canonical complete and active ordered pr
         `RESOURCE_SOURCE_V1 start ${id}\nRESOURCE_SOURCE_V1 completed ${id}\n`,
     )
     .join("");
-  assert.equal(sourceIds.length, 98);
-  assert.equal(Buffer.byteLength(complete), 24446);
-  assert.equal(sourceProgress(complete)?.completedCount, 98);
+  assert.equal(sourceIds.length, 110);
+  assert.equal(Buffer.byteLength(complete), 27482);
+  assert.equal(sourceProgress(complete)?.completedCount, 110);
 });
 
 test("resource source progress refuses malformed private duplicate truncated and oversized metadata", () => {

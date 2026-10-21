@@ -1,11 +1,13 @@
 """Preparation-owned image lifetime at the Docker/filesystem boundary, no live daemon."""
 import json
+import fcntl
 import os
 from pathlib import Path
 import selectors
 import signal
 import subprocess
 import sys
+import threading
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -48,9 +50,65 @@ class Docker:
     def build(self, stage, image=IMAGE, tags=None):
         self.images[image] = {'Id': image, 'RepoTags': tags if tags is not None else [OWNER + '-backend:v1'],
             'RepoDigests': [], 'Config': {'Labels': {preparation.LABEL: stage.receipt['token']}}}
+        stage.iidfile('backend').write_text(image)
 
 
 class Lifetime(unittest.TestCase):
+    def test_recovery_waits_for_active_preparation_and_observes_its_final_build_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            docker = Docker()
+            entered = threading.Event()
+            result = []
+            thread = None
+            try:
+                with preparation.acquire(Path(directory) / 'images.json', SOURCE, OWNER, DAEMON, 'runtime',
+                        docker=docker, identify=lambda: DAEMON) as stage:
+                    docker.build(stage)
+                    recovery = preparation.open_stage(Path(directory) / 'images.json', docker=docker, identify=lambda: DAEMON)
+                    def release():
+                        entered.set()
+                        result.append(recovery.release('runtime', cleanup_ok=True))
+                    thread = threading.Thread(target=release)
+                    thread.start()
+                    self.assertTrue(entered.wait(timeout=5))
+                    with (stage.path / 'use.lock').open('rb') as lock:
+                        with self.assertRaises(BlockingIOError):
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    foundation = 'sha256:' + 'c' * 64
+                    docker.images[foundation] = {'Id': foundation, 'RepoTags': [OWNER + '-foundation:local'],
+                        'RepoDigests': [], 'Config': {'Labels': {preparation.LABEL: stage.receipt['token']}}}
+                    stage.iidfile('foundation').write_text(foundation)
+            finally:
+                if thread is not None:
+                    thread.join(timeout=10)
+                    self.assertFalse(thread.is_alive())
+            self.assertEqual(set(result[0]['retired']), {IMAGE, foundation})
+
+    def test_missing_build_result_retains_unknown_tag_until_its_own_result_can_be_recovered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            docker = Docker()
+            stage = preparation.begin(Path(directory) / 'images.json', SOURCE, OWNER, DAEMON, 'runtime',
+                docker=docker, identify=lambda: DAEMON)
+            docker.build(stage)
+            stage.iidfile('backend').unlink()
+            self.assertEqual(stage.release('runtime', cleanup_ok=True)['protected'], [IMAGE])
+            self.assertIn(IMAGE, docker.images)
+            stage.iidfile('backend').write_text(IMAGE)
+            self.assertEqual(stage.release('runtime', cleanup_ok=True)['retired'], [IMAGE])
+
+    def test_inherited_label_never_makes_a_later_foreign_descendant_owned(self):
+        with tempfile.TemporaryDirectory() as directory:
+            docker = Docker()
+            stage = preparation.begin(Path(directory) / 'images.json', SOURCE, OWNER, DAEMON, 'runtime',
+                docker=docker, identify=lambda: DAEMON)
+            docker.build(stage)
+            stage.capture()
+            foreign = 'sha256:' + '1' * 64
+            docker.images[foreign] = {'Id': foreign, 'RepoTags': [], 'RepoDigests': [],
+                'Config': {'Labels': {preparation.LABEL: stage.receipt['token']}}}
+            self.assertEqual(stage.release('runtime', cleanup_ok=True)['retired'], [IMAGE])
+            self.assertIn(foreign, docker.images)
+
     def test_named_next_consumer_keeps_images_until_its_final_release(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

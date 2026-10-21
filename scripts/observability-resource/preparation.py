@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import secrets
 import stat
+import threading
 from acquisition import decode_json
 
 LABEL = 'dev.inside.resource-preparation'
@@ -93,6 +94,33 @@ class Stage:
     def __init__(self, path, receipt, docker, identify):
         self.path, self.receipt = path, receipt
         self.docker, self.identify = docker, identify
+        self._use_mutex = threading.RLock()
+        self._use_descriptor = None
+
+    @contextmanager
+    def in_use(self):
+        """One active producer/runtime; retention registration remains available separately."""
+        with self._use_mutex:
+            if self._use_descriptor is not None:
+                yield
+                return
+            with self.locked():
+                descriptor = os.open(self.path / 'use.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+                if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                    os.close(descriptor)
+                    raise ValueError('preparation_lock_required')
+            try:
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                self._use_descriptor = descriptor
+                yield
+            finally:
+                self._use_descriptor = None
+                os.close(descriptor)
+
+    def iidfile(self, role):
+        if role not in ('backend', 'foundation'):
+            raise ValueError('preparation_build_role')
+        return self.path / (role + '.iid')
 
     @contextmanager
     def locked(self):
@@ -115,11 +143,20 @@ class Stage:
             self._capture()
 
     def _capture(self):
-        ids = self.docker(['image', 'ls', '--quiet', '--no-trunc', '--filter',
-            'label=' + LABEL + '=' + self.receipt['token']]).split()
-        if len(ids) > 16 or any(not image_id(value) for value in ids):
-            raise ValueError('preparation_image_ids')
-        for value in set(ids):
+        # Labels are inherited by FROM descendants. Only this producer's fixed build-result
+        # files may establish ownership, including later recovery after an uncatchable kill.
+        for role in ('backend', 'foundation'):
+            iidfile = self.iidfile(role)
+            if not iidfile.exists() and not iidfile.is_symlink():
+                continue
+            descriptor = os.open(iidfile, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(descriptor, 'rb') as stream:
+                info = os.fstat(stream.fileno())
+                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                    raise ValueError('preparation_build_result')
+                value = stream.read(256).decode().strip()
+            if not image_id(value):
+                raise ValueError('preparation_build_result')
             path = self.path / ('image-' + value[7:] + '.json')
             if not path.exists():
                 write_once(path, {'id': value})
@@ -161,7 +198,8 @@ class Stage:
 
     def release(self, consumer, *, cleanup_ok):
         try:
-            return self._release(consumer, cleanup_ok=cleanup_ok)
+            with self.in_use():
+                return self._release(consumer, cleanup_ok=cleanup_ok)
         except BaseException:
             try:
                 self._record({'state': 'retained', 'reason': 'retirement_failed', 'retired': []})
@@ -191,11 +229,13 @@ class Stage:
             if any(not image_id(value) for value in present):
                 raise ValueError('preparation_image_ids')
             result = {'state': 'retired', 'reason': 'last_consumer_released', 'retired': [], 'protected': []}
+            owned = set()
             for path in sorted(self.path.glob('image-*.json')):
                 value = read(path)
                 if not isinstance(value, dict) or set(value) != {'id'} or not image_id(value['id']):
                     raise ValueError('preparation_image_receipt')
                 image = value['id']
+                owned.add(image)
                 if image not in present:
                     continue
                 raw = self.docker(['image', 'inspect', image])
@@ -210,10 +250,13 @@ class Stage:
                 config = row.get('Config')
                 labels = config.get('Labels') if isinstance(config, dict) else None
                 if (row.get('Id') != image or not isinstance(tags, list) or not all(isinstance(x, str) for x in tags)
-                        or not isinstance(digests, list) or not isinstance(labels, dict)):
+                        or not isinstance(digests, list) or not all(isinstance(x, str) for x in digests)
+                        or not isinstance(labels, dict)):
                     raise ValueError('preparation_image_inspection')
+                repositories = [tag.rsplit(':', 1)[0] for tag in self.receipt['tags']]
+                foreign_digest = any(not any(value.startswith(repo + '@sha256:') for repo in repositories) for value in digests)
                 if (image in self.receipt['preexisting'] or labels.get(LABEL) != self.receipt['token']
-                        or digests or set(tags) - set(self.receipt['tags'])
+                        or foreign_digest or set(tags) - set(self.receipt['tags'])
                         or self.docker(['container', 'ls', '--all', '--quiet', '--filter', 'ancestor=' + image]).strip()):
                     result['protected'].append(image)
                     continue
@@ -223,9 +266,16 @@ class Stage:
                     raise ValueError('preparation_daemon_changed')
                 self.docker(['image', 'rm', '--no-prune', image])
                 result['retired'].append(image)
+            unknown = set()
+            for tag in self.receipt['tags']:
+                ids = self.docker(['image', 'ls', '--quiet', '--no-trunc', '--filter', 'reference=' + tag]).split()
+                if len(ids) > 1 or any(not image_id(value) for value in ids):
+                    raise ValueError('preparation_image_ids')
+                unknown.update(set(ids) - owned)
+            result['protected'].extend(sorted(unknown))
             if result['protected']:
                 result['state'] = 'retained'
-                result['reason'] = 'protected_reference'
+                result['reason'] = 'build_result_unavailable' if unknown else 'protected_reference'
             return self._record(result)
 
     def _record(self, value):
@@ -260,21 +310,19 @@ def begin(images, source, owner, daemon, consumer, *, docker=docker_command, ide
 @contextmanager
 def acquire(images, source, owner, daemon, consumer, *, docker=docker_command, identify=current_identity):
     stage = begin(images, source, owner, daemon, consumer, docker=docker, identify=identify)
-    try:
-        yield stage
-        stage.capture()
-    except BaseException as primary:
+    with stage.in_use():
+        stage.require_consumer(consumer)
         try:
+            yield stage
             stage.capture()
-            stage.release(consumer, cleanup_ok=True)
-        except BaseException as cleanup_error:
-            # Keep the original build failure/interruption and a recoverable immutable owner receipt.
-            primary.add_note('Preparation retirement incomplete: ' + type(cleanup_error).__name__)
+        except BaseException as primary:
             try:
-                stage._record({'state': 'retained', 'reason': 'retirement_failed', 'retired': []})
-            except BaseException:
-                pass
-        raise
+                stage.capture()
+                stage.release(consumer, cleanup_ok=True)
+            except BaseException as cleanup_error:
+                # Keep the original build failure/interruption and a recoverable immutable owner receipt.
+                primary.add_note('Preparation retirement incomplete: ' + type(cleanup_error).__name__)
+            raise
 
 
 def open_stage(images, *, docker=docker_command, identify=current_identity):
