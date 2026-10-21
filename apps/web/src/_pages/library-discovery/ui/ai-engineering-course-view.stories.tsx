@@ -5,7 +5,7 @@ import {
   type WaitlistState,
 } from "@/features/product-waitlist";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import {
   StartCountdownBadge,
@@ -13,6 +13,7 @@ import {
 } from "@/entities/subscription";
 import {
   CohortCallView,
+  CourseLearningLink,
   CohortStatusView,
 } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -319,9 +320,35 @@ export const CohortPreorderMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+async function expectParticipantActions(canvasElement: HTMLElement) {
+  for (const selector of [".aie-hero-film", ".aie-status"]) {
+    const section =
+      canvasElement.querySelector<HTMLElement>(selector) ?? fail(selector);
+    await expect(
+      within(section).getByRole("link", { name: "Продолжить обучение" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+  }
+  const status =
+    canvasElement.querySelector<HTMLElement>(".aie-status") ??
+    fail("Нижний блок");
+  await expect(
+    within(status).getByText(/В программе восемь глав/u),
+  ).not.toBeVisible();
+  await expect(
+    within(status).getByText("Бессрочный доступ к курсу"),
+  ).toBeInTheDocument();
+}
+
 export const CourseParticipant: Story = {
   parameters: { account: "authenticated" },
   args: {
+    heroBadge: (
+      <>
+        <StartCountdownBadge text="до старта 10 дней" />
+        <CourseLearningLink slug="ai-engineering" placement="film" />
+      </>
+    ),
+    statusCall: <CourseLearningLink slug="ai-engineering" placement="status" />,
     heroCall: (
       <CohortCallView
         call={cohortCall({
@@ -344,11 +371,13 @@ export const CourseParticipant: Story = {
     await expect(
       within(hero).queryByText("Идёт набор на первый поток"),
     ).toBeNull();
+    await expectParticipantActions(canvasElement);
   },
 };
 export const CourseParticipantContinuing: Story = {
   ...CourseParticipant,
   args: {
+    ...CourseParticipant.args,
     heroCall: (
       <CohortCallView
         call={cohortCall({
@@ -367,12 +396,61 @@ export const CourseParticipantContinuing: Story = {
       canvasElement.querySelector<HTMLElement>(".aie-hero") ??
       fail("Первый экран курса");
     await expect(
-      within(hero).getByRole("link", { name: "Продолжить обучение" }),
-    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+      within(hero).getAllByRole("link", { name: "Продолжить обучение" }),
+    ).toHaveLength(2);
+    await expectParticipantActions(canvasElement);
   },
 };
 export const CourseParticipantContinuingMobile: Story = {
   ...CourseParticipantContinuing,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const CourseParticipantResolving: Story = {
+  ...CourseParticipant,
+  render: function ResolvingParticipant(args) {
+    const [resolved, setResolved] = useState(false);
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => {
+            setResolved(true);
+          }}
+        >
+          Завершить проверку доступа
+        </button>
+        <ProductLandingView
+          {...args}
+          statusCall={resolved ? args.statusCall : null}
+        />
+      </>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const status =
+      canvasElement.querySelector<HTMLElement>(".aie-status") ??
+      fail("Нижний блок");
+    const list = status.querySelector("ul") ?? fail("Преимущества");
+    const offset = () =>
+      list.getBoundingClientRect().top - status.getBoundingClientRect().top;
+    const before = offset();
+    const heightBefore = status.getBoundingClientRect().height;
+    await userEvent.click(
+      within(canvasElement).getByRole("button", {
+        name: "Завершить проверку доступа",
+      }),
+    );
+    await expect(Math.abs(offset() - before)).toBeLessThan(1);
+    await expect(
+      Math.abs(status.getBoundingClientRect().height - heightBefore),
+    ).toBeLessThan(1);
+    await expectParticipantActions(canvasElement);
+  },
+};
+
+export const CourseParticipantResolvingMobile: Story = {
+  ...CourseParticipantResolving,
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
