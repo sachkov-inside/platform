@@ -119,13 +119,138 @@ function finishPinHandles(original,handles,foreign,primary){
 
 ADDRESS_CODE=r'''
 import assert from 'node:assert/strict';import fs from 'node:fs';
-const settings=JSON.parse(process.argv[1]),original={...fs},directory=settings.directory,handles=[];
+const settings=JSON.parse(process.argv[1]),original={...fs};
 ''' + PIN_PATHS_CODE + r'''
-let primary=false;
-try{
- const paths=pinFixturePaths(original,directory,false),flags=original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY;
- const fd=original.openSync(directory,flags),info=original.fstatSync(fd,{bigint:true}),entry={fd,dev:info.dev,ino:info.ino,active:true};handles.push(entry);
- assert.equal(paths.classify(directory,flags),'parent');paths.parent(entry);
+/** @typedef {PinFixtureDescriptor & {path:string}} AliasDirectory */
+/** @typedef {{handles:PinFixtureDescriptor[], rescue:PinFixtureDescriptor[], directories:AliasDirectory[], root?:AliasDirectory, rootHandle?:PinFixtureDescriptor|undefined, rescueRoot?:PinFixtureDescriptor, expected?:unknown, closed?:boolean}} AliasAudit */
+/** @param {typeof import("node:fs")} original @param {AliasDirectory} entry */
+function aliasDirectoryMatches(original, entry) {
+  try {
+    const info = original.lstatSync(entry.path, { bigint: true });
+    return info.isDirectory() && info.dev === entry.dev && info.ino === entry.ino;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+/** @param {typeof import("node:fs")} original @param {AliasAudit} audit @param {boolean} primary */
+function finishRawAliasFixture(original, audit, primary) {
+  let failed = false;
+  /** @type {unknown} */ let first;
+  /** @param {()=>void} operation */
+  const attempt = operation => { try { operation(); } catch(error) { if(!failed){failed=true;first=error;} } };
+  /** @param {PinFixtureDescriptor} entry */
+  const close = entry => {
+    if(!entry.active)return;
+    entry.active=false;
+    for(const backup of audit.rescue)if(backup.fd===entry.fd&&backup.dev===entry.dev&&backup.ino===entry.ino)backup.active=false;
+    let info;
+    try { info=original.fstatSync(entry.fd,{bigint:true}); }
+    catch(error){if(error instanceof Error&&"code" in error&&error.code==="EBADF")return;throw error;}
+    if(info.dev===entry.dev&&info.ino===entry.ino)original.closeSync(entry.fd);
+  };
+  for(const entry of audit.handles)attempt(()=>close(entry));
+  const root=audit.root,held=audit.rootHandle;
+  const rootOwned=()=>{
+    if(root===undefined||held===undefined||!held.active||!aliasDirectoryMatches(original,root))return false;
+    const info=original.fstatSync(held.fd,{bigint:true});
+    return info.isDirectory()&&info.dev===root.dev&&info.ino===root.ino&&
+      original.realpathSync(root.path)===root.path&&(info.mode&0o777n)===0o700n&&
+      process.getuid!==undefined&&info.uid===BigInt(process.getuid());
+  };
+  for(const entry of [...audit.directories].reverse())attempt(()=>{
+    if(rootOwned()&&aliasDirectoryMatches(original,entry))original.rmdirSync(entry.path);
+  });
+  let removeRoot=false;
+  attempt(()=>{removeRoot=rootOwned();});
+  if(held!==undefined)attempt(()=>close(held));
+  audit.closed=[...audit.handles,...(held===undefined?[]:[held])].every(entry=>{
+    try{original.fstatSync(entry.fd);return false;}catch(error){return error instanceof Error&&"code" in error&&error.code==="EBADF";}
+  });
+  if(removeRoot&&root!==undefined)attempt(()=>{if(aliasDirectoryMatches(original,root))original.rmdirSync(root.path);});
+  if(failed&&!primary)throw first;
+}
+/** @param {typeof import("node:fs")} original @param {AliasAudit} audit @param {string} directory @param {()=>void} verdict @param {string} failure */
+function replaceRawAliasParent(original,audit,directory,verdict,failure){
+  const info=original.lstatSync(directory,{bigint:true});
+  const moved=directory+"-moved";
+  const identity={path:moved,fd:-1,dev:info.dev,ino:info.ino,active:false};
+  audit.directories.push(identity);
+  const ownedRoot=()=>{
+    const root=audit.root,held=audit.rootHandle;
+    if(root===undefined||held===undefined||!held.active||!aliasDirectoryMatches(original,root))return false;
+    const current=original.fstatSync(held.fd,{bigint:true});
+    return current.isDirectory()&&current.dev===root.dev&&current.ino===root.ino&&
+      original.realpathSync(root.path)===root.path&&(current.mode&0o777n)===0o700n&&
+      process.getuid!==undefined&&current.uid===BigInt(process.getuid());
+  };
+  if(!ownedRoot())throw new Error("fixture root identity mismatch");
+  try{original.lstatSync(moved);throw new Error("fixture move destination already exists");}
+  catch(error){if(!(error instanceof Error&&"code" in error&&error.code==="ENOENT"))throw error;}
+  original.renameSync(directory,moved);
+  /** @type {AliasDirectory|undefined} */ let replacement;
+  let primary=false;
+  const cleanup=()=>{
+    let failed=false;/** @type {unknown} */ let first;
+    /** @param {()=>void} operation */
+    const attempt=operation=>{try{operation();}catch(error){if(!failed){failed=true;first=error;}}};
+    attempt(()=>{
+      if(replacement!==undefined&&ownedRoot()&&aliasDirectoryMatches(original,replacement)){
+        if(failure==="remove")throw new Error("controlled removal refusal");
+        original.rmdirSync(directory);
+      }
+    });
+    attempt(()=>{
+      if(!ownedRoot()||!aliasDirectoryMatches(original,identity))return;
+      try{original.lstatSync(directory);return;}
+      catch(error){if(!(error instanceof Error&&"code" in error&&error.code==="ENOENT"))throw error;}
+      original.renameSync(moved,directory);
+    });
+    if(failed&&!primary)throw first;
+  };
+  try{
+    if(failure==="mkdir"){const error=new Error("controlled mkdir refusal");audit.expected=error;throw error;}
+    original.mkdirSync(directory,{mode:0o700});
+    const created=original.lstatSync(directory,{bigint:true});
+    replacement={path:directory,fd:-1,dev:created.dev,ino:created.ino,active:false};
+    audit.directories.push(replacement);
+    if(failure==="remove"){
+      try{assert.fail("controlled replacement verdict");}catch(error){audit.expected=error;throw error;}
+    }
+    verdict();
+  }catch(error){primary=true;throw error;}finally{cleanup();
+  }
+}
+
+
+function runRawAliasFixture(failure,audit){
+  const root = original.realpathSync(original.mkdtempSync(settings.directory+"/raw-fixture-"));
+  const rootInfo=original.lstatSync(root,{bigint:true});
+  audit.root={path:root,fd:-1,dev:rootInfo.dev,ino:rootInfo.ino,active:false};
+  const rootFd=original.openSync(root,original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY);
+  audit.rootHandle={fd:rootFd,dev:rootInfo.dev,ino:rootInfo.ino,active:true};
+  if(failure!=="none"){
+    const backup=original.openSync(root,original.constants.O_RDONLY|original.constants.O_NOFOLLOW|original.constants.O_DIRECTORY);
+    audit.rescueRoot={fd:backup,dev:rootInfo.dev,ino:rootInfo.ino,active:true};
+  }
+  const directory=root+"/parent",handles=audit.handles;
+  let primaryActive = false;
+  try {
+    original.mkdirSync(directory,{mode:0o700});
+    const parentInfo=original.lstatSync(directory,{bigint:true});
+    audit.directories.push({path:directory,fd:-1,dev:parentInfo.dev,ino:parentInfo.ino,active:false});
+    const paths = pinFixturePaths(original, directory, false);
+    const flags =
+      original.constants.O_RDONLY |
+      original.constants.O_NOFOLLOW |
+      original.constants.O_DIRECTORY;
+    const fd = original.openSync(directory, flags);
+    const info = original.fstatSync(fd, { bigint: true });
+    const entry = { fd, dev: info.dev, ino: info.ino, active: true };
+    handles.push({...entry});
+    audit.rescue.push({...entry});
+    assert.equal(paths.classify(directory, flags), "parent");
+    paths.parent(entry);
     const io = paths.io;
     let translations = 0;
     paths.io = (path) => {
@@ -134,11 +259,18 @@ try{
     };
     const fd2 = original.openSync(directory, flags);
     const otherInfo = original.fstatSync(fd2, { bigint: true });
-    handles.push({ fd: fd2, dev: otherInfo.dev, ino: otherInfo.ino, active: true });
+    const otherEntry={fd:fd2,dev:otherInfo.dev,ino:otherInfo.ino,active:true};
+    handles.push({...otherEntry});audit.rescue.push({...otherEntry});
     for (const prefix of ["/proc/self/fd/", "/dev/fd/"]) {
       const raw = prefix + fd + "/phase.json.new";
-      assert.equal(paths.classify(raw, original.constants.O_WRONLY), "temporary");
-      assert.equal(paths.classify(raw, original.constants.O_RDONLY), "temporary");
+      assert.equal(
+        paths.classify(raw, original.constants.O_WRONLY),
+        "temporary",
+      );
+      assert.equal(
+        paths.classify(raw, original.constants.O_RDONLY),
+        "temporary",
+      );
       assert.equal(io(raw), raw, "real I/O address was rewritten");
       for (const invalid of [
         prefix + fd2 + "/phase.json.new",
@@ -152,38 +284,73 @@ try{
         "/proc/1/fd/" + fd + "/phase.json.new",
         directory + "/foreign-module.mjs",
       ]) {
-        assert.equal(paths.classify(invalid, original.constants.O_RDONLY), undefined);
+        assert.equal(
+          paths.classify(invalid, original.constants.O_RDONLY),
+          undefined,
+        );
         assert.equal(io(invalid), invalid);
       }
     }
     assert.equal(translations, 0, "classification invoked the path translator");
     const shim = pinFixturePaths(original, directory, true);
     shim.parent(entry);
-    assert.equal(shim.io("/proc/self/fd/" + fd + "/phase.json.new"), directory + "/phase.json.new");
-    assert.equal(shim.io("/dev/fd/" + fd2 + "/phase.json.new"), "/dev/fd/" + fd2 + "/phase.json.new");
+    assert.equal(
+      shim.io("/proc/self/fd/" + fd + "/phase.json.new"),
+      directory + "/phase.json.new",
+    );
+    assert.equal(
+      shim.io("/dev/fd/" + fd2 + "/phase.json.new"),
+      "/dev/fd/" + fd2 + "/phase.json.new",
+    );
     original.chmodSync(directory, 0o755);
     try {
-      assert.equal(paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags), undefined);
+      assert.equal(
+        paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags),
+        undefined,
+      );
     } finally {
       original.chmodSync(directory, 0o700);
     }
-    original.renameSync(directory, directory + "-moved");
-    try {
-      original.mkdirSync(directory, { mode: 0o700 });
-      assert.equal(paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags), undefined);
-    } finally {
-      original.rmSync(directory, { recursive: true });
-      original.renameSync(directory + "-moved", directory);
-    }
+    replaceRawAliasParent(original,audit,directory,()=>{
+      assert.equal(paths.classify("/proc/self/fd/"+fd+"/phase.json.new",flags),undefined);
+    },failure);
     entry.active = false;
-    assert.equal(paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags), undefined);
+    if(failure==="retired"){try{assert.fail("controlled retired verdict");}catch(error){audit.expected=error;throw error;}}
+    assert.equal(
+      paths.classify("/proc/self/fd/" + fd + "/phase.json.new", flags),
+      undefined,
+    );
+    handles[0].active=false;audit.rescue[0].active=false;
     original.closeSync(fd);
     // A separate actual acquisition tests stale live bookkeeping without reviving a retired entry.
-    const stale = pinFixturePaths(original, directory, false),other=handles.find(record=>record.fd===fd2);
-    assert.ok(other!==undefined);stale.parent(other);original.closeSync(fd2);
-    assert.equal(stale.classify("/proc/self/fd/" + fd2 + "/phase.json.new", flags), undefined);
- process.stdout.write(JSON.stringify({admitted:true}));
-}catch(error){primary=true;throw error;}finally{finishPinHandles(original,handles,[],primary);}
+    const stale = pinFixturePaths(original, directory, false);
+    const other = handles.find((record) => record.fd === fd2);
+    assert.ok(other !== undefined);
+    stale.parent({...other});
+    handles[1].active=false;audit.rescue[1].active=false;
+    original.closeSync(fd2);
+    assert.equal(
+      stale.classify("/proc/self/fd/" + fd2 + "/phase.json.new", flags),
+      undefined,
+    );
+  } catch (error) {
+    primaryActive = true;
+    throw error;
+  } finally {
+    finishRawAliasFixture(original,audit,primaryActive);
+  }
+}
+if(settings.failure){
+ const audit={handles:[],rescue:[],directories:[]};let primary=false;
+ try{
+  assert.throws(()=>runRawAliasFixture(settings.failure,audit),error=>error===audit.expected);
+  assert.equal(audit.closed,true,'fixture left an owned acquisition live');
+  assert.ok(audit.root!==undefined);assert.equal(original.existsSync(audit.root.path),false,'fixture left an owned directory behind');
+  process.stdout.write(JSON.stringify({contained:true}));
+ }catch(error){primary=true;throw error;}finally{finishRawAliasFixture(original,{...audit,handles:audit.rescue,rootHandle:audit.rescueRoot},primary);}
+}else{
+ runRawAliasFixture('none',{handles:[],rescue:[],directories:[]});process.stdout.write(JSON.stringify({admitted:true}));
+}
 '''
 
 PIN_CODE=r'''
@@ -240,6 +407,13 @@ class ProducerEntryPhase(unittest.TestCase):
             settings=dict(directory=str(Path(directory).resolve()))
             value=producer_protocol.capture(argv=['node','--input-type=module','-e',ADDRESS_CODE,json.dumps(settings)],budget=3)
             self.assertEqual(value,dict(admitted=True))
+
+    def test_raw_alias_failures_preserve_primary_and_contain_owned_acquisitions(self):
+        for failure in ('retired','mkdir','remove'):
+            with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory:
+                settings=dict(directory=str(Path(directory).resolve()),failure=failure)
+                value=producer_protocol.capture(argv=['node','--input-type=module','-e',ADDRESS_CODE,json.dumps(settings)],budget=3)
+                self.assertEqual(value,dict(contained=True))
 
     def test_pin_faults_attempt_all_closes_without_reusing_foreign_descriptor(self):
         for fault in ('pin_open','writer_close','combined','pin_close'):
