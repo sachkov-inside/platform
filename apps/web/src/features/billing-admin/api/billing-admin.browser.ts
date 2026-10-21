@@ -1,11 +1,14 @@
 import {
   billingCommandPayload,
+  readBillingEndpoint,
+  type PriceSnapshot,
   billingCommandResult,
   type BillingCommandResult,
 } from "@/entities/subscription";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
   catalogOutcomeSchema,
+  ownerCatalogSchema,
   classificationOutcomeSchema,
   grantBatchOutcomeSchema,
   grantOutcomeSchema,
@@ -342,5 +345,15 @@ export async function revokeAccessGrant(
       billingCommandPayload(input),
     ),
     grantOutcomeSchema,
+  );
+}
+
+/** Re-read canonical prices and revisions after an acknowledged catalogue write. */
+export function readOwnerBillingCatalog(): Promise<
+  BillingCommandResult<PriceSnapshot[]>
+> {
+  return readBillingEndpoint(
+    "/api/authoring/billing/catalog",
+    ownerCatalogSchema,
   );
 }

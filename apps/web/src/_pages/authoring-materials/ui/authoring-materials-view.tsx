@@ -2,9 +2,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CloudOff,
-  Eye,
   FilePenLine,
-  FilePlus2,
   FilterX,
   LibraryBig,
   LockKeyhole,
@@ -67,10 +65,10 @@ export function AuthoringMaterialsView({
       busy={isRefreshing}
       labelledBy="authoring-materials-heading"
     >
-      <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1
-            className="text-3xl font-semibold tracking-[-0.03em] sm:text-4xl"
+            className="text-[1.75rem] font-semibold tracking-[-0.035em]"
             id="authoring-materials-heading"
           >
             Материалы
@@ -83,7 +81,6 @@ export function AuthoringMaterialsView({
               returnHref,
             )}
           >
-            <FilePlus2 aria-hidden="true" data-icon="inline-start" />
             Новый материал
           </Link>
         </Button>
@@ -129,14 +126,12 @@ function AuthoringMaterialsFrame({
       aria-busy={busy || undefined}
       aria-label={label}
       aria-labelledby={labelledBy}
-      className="flex h-full min-h-svh flex-col overflow-y-auto bg-background text-foreground md:min-h-0 md:overscroll-y-contain"
+      className="authoring-page flex flex-col"
       data-authoring-materials-frame
       id="authoring-content"
       tabIndex={-1}
     >
-      <div className="mx-auto flex w-full max-w-[76rem] grow flex-col px-4 py-7 sm:px-7 sm:py-10 lg:px-10 lg:py-12">
-        {children}
-      </div>
+      <div className="authoring-page-body flex grow flex-col">{children}</div>
     </main>
   );
 }
@@ -155,7 +150,7 @@ function AuthoringMaterialsFilters({
   return (
     <section
       aria-labelledby="authoring-materials-filter-heading"
-      className="py-6"
+      className="pb-2"
     >
       <div className="flex items-center justify-between gap-4">
         <h2
@@ -341,12 +336,12 @@ function AuthoringMaterialRow({
   const editorPath = `/authoring/materials/${material.materialId}`;
   const title = material.title ?? "Черновик без названия";
   return (
-    <li className="group grid gap-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:py-6">
+    <li className="group grid gap-3 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <PublicationState state={material.publicationState} />
         </div>
-        <h3 className="mt-2 text-lg font-semibold tracking-[-0.02em] sm:text-xl">
+        <h3 className="mt-2 text-base font-medium">
           <Link
             className="rounded-sm text-foreground no-underline outline-none group-hover:underline group-hover:decoration-accent group-hover:underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/30"
             href={authoringDestinationHref(editorPath, returnHref)}
@@ -359,7 +354,7 @@ function AuthoringMaterialRow({
             {material.materialId}
           </p>
         ) : null}
-        <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+        <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <MaterialFact
             label="Тема"
             value={localizedTaxonomyValue(material.topic)}
@@ -381,7 +376,6 @@ function AuthoringMaterialRow({
       <div className="grid grid-cols-2 gap-2 sm:flex sm:max-w-[36rem] sm:flex-wrap sm:justify-end">
         <Button asChild className="min-h-11" variant="outline">
           <Link href={authoringDestinationHref(editorPath, returnHref)}>
-            <FilePenLine aria-hidden="true" data-icon="inline-start" />
             Редактировать
           </Link>
         </Button>
@@ -389,7 +383,6 @@ function AuthoringMaterialRow({
           <Link
             href={authoringMaterialPreviewHref(material.materialId, returnHref)}
           >
-            <Eye aria-hidden="true" data-icon="inline-start" />
             Предпросмотр
           </Link>
         </Button>
@@ -410,7 +403,7 @@ function MaterialFact({
   readonly value: string;
 }) {
   return (
-    <div className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-muted px-2.5 py-1">
+    <div className="inline-flex items-center gap-1.5">
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="text-xs font-medium text-foreground">{value}</dd>
     </div>
@@ -658,7 +651,7 @@ export function AuthoringMaterialsLoading() {
         <div className="mt-10 h-11 w-full rounded-xl bg-muted" />
         <div className="mt-8 divide-y divide-border border-y border-border">
           {[0, 1, 2].map((item) => (
-            <div className="py-6" key={item}>
+            <div className="pb-2" key={item}>
               <div className="h-5 w-24 rounded bg-muted" />
               <div className="mt-3 h-7 w-2/3 rounded bg-muted" />
               <div className="mt-3 h-4 w-1/2 rounded bg-muted" />

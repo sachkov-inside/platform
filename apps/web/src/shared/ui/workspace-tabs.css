@@ -1,0 +1,49 @@
+.workspace-tasks {
+  min-width: 0;
+}
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.workspace-tabs > button {
+  position: relative;
+  min-height: 44px;
+  padding: 10px 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+}
+.workspace-tabs > button:hover {
+  color: var(--foreground);
+}
+.workspace-tabs > button[aria-selected="true"] {
+  color: var(--foreground);
+  border-bottom-color: var(--accent);
+}
+.workspace-tabs > button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.workspace-tab-panel {
+  min-width: 0;
+}
+.workspace-tab-panel:not([hidden]) {
+  display: grid;
+  gap: 24px;
+}
+.workspace-tab-panel:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 6px;
+}
+@media (max-width: 47.999rem) {
+  .workspace-tabs {
+    gap: 2px 12px;
+    margin-bottom: 20px;
+  }
+}

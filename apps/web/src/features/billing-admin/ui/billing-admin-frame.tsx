@@ -10,12 +10,8 @@ export function BillingAdminFrame({
   readonly children: ReactNode;
 }) {
   return (
-    <main
-      className="h-full min-h-svh overflow-y-auto md:min-h-0"
-      id="authoring-content"
-      tabIndex={-1}
-    >
-      <div className="mx-auto grid max-w-4xl gap-6 pb-16">{children}</div>
+    <main className="authoring-page" id="authoring-content" tabIndex={-1}>
+      <div className="authoring-page-body">{children}</div>
     </main>
   );
 }

@@ -80,9 +80,9 @@ export function AiEngineeringCourseView({
   readonly result: ResolvedSeriesResult;
   readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
-  /** Плашка набора на поток вместо заголовка нижнего блока, пока поток не стартовал. */
+  /** Личное действие обучения или плашка набора вместо вступления нижнего блока. */
   readonly statusCall?: ReactNode;
-  /** Наклейка «до старта N дней» на углу анимации, пока поток набирается. */
+  /** Действие обучения на анимации или наклейка «до старта N дней». */
   readonly heroBadge?: ReactNode;
 }) {
   const { reference } = result;

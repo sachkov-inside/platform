@@ -1,5 +1,7 @@
 "use client";
+import { Button } from "@/shared/ui/button";
 import type { ReactNode } from "react";
+import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 import type { PriceSnapshot } from "@/entities/subscription";
 
 import { BillingAdminFrame } from "./billing-admin-frame";
@@ -32,6 +34,8 @@ export interface BillingAdminViewProps
     Omit<GrantsSectionProps, "pending">,
     Omit<ClassificationSectionProps, "pending"> {
   readonly offers: readonly PriceSnapshot[];
+  readonly catalogRefresh?:
+    { readonly pending: boolean; readonly onRetry: () => void } | undefined;
   readonly enrollmentControls?: ReactNode;
   /** Historical survey facts remain readable beside the common payment-link workflow. */
   readonly respondentControls?: ReactNode;
@@ -50,6 +54,7 @@ export function BillingAdminView({
   tiers,
   catalogLoading,
   catalogError,
+  catalogRefresh,
   cohorts,
   onSaveCohort,
   enrollmentControls,
@@ -58,6 +63,7 @@ export function BillingAdminView({
   offers,
   payments,
   paymentsCursor,
+  paymentsFilters,
   payment,
   refunds,
   grants,
@@ -90,13 +96,12 @@ export function BillingAdminView({
 }: BillingAdminViewProps) {
   return (
     <BillingAdminFrame>
-      <header className="grid gap-2">
+      <header className="authoring-page-heading">
         <h1 className="text-balance text-3xl font-bold tracking-[-0.04em]">
-          Оплата и права
+          Продажи и платежи
         </h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          Проверенные владельческие операции вместо правки базы. Выдачи и смена
-          терминала требуют отдельного разрешения. Возвраты выполняются в
+          Платежи, предложения и ссылки на оплату. Возвраты выполняются в
           кабинете Т-Банка.
         </p>
       </header>
@@ -118,59 +123,141 @@ export function BillingAdminView({
         </p>
       )}
 
-      {enrollmentControls}
-      <CatalogSection
-        content={content}
-        tiers={tiers}
-        catalogLoading={catalogLoading}
-        catalogError={catalogError}
-        offers={offers}
-        onArchiveOffer={onArchiveOffer}
-        onPublishOffer={onPublishOffer}
-        onUnpublishOffer={onUnpublishOffer}
-        onArchivePaymentOption={onArchivePaymentOption}
-        onArchivePromotion={onArchivePromotion}
-        onSaveOffer={onSaveOffer}
-        onSavePaymentOption={onSavePaymentOption}
-        onSavePromotion={onSavePromotion}
-        pending={pending}
-      />
-      <CohortSection
-        cohorts={cohorts}
-        content={content}
-        onSaveCohort={onSaveCohort}
-        pending={pending}
-      />
-      {paymentLinkControls}
-      {respondentControls}
-      <PaymentsSection
-        onCancelSubscription={onCancelSubscription}
-        onListPayments={onListPayments}
-        onReadPayment={onReadPayment}
-        onReadRefunds={onReadRefunds}
-        onReconcilePayment={onReconcilePayment}
-        payment={payment}
-        payments={payments}
-        paymentsCursor={paymentsCursor}
-        pending={pending}
-        refunds={refunds}
-      />
-      <ClassificationSection
-        classification={classification}
-        onClassifyAccount={onClassifyAccount}
-        onReadClassification={onReadClassification}
-        pending={pending}
-      />
-      <GrantsSection
-        batch={batch}
-        grants={grants}
-        onApplyBatch={onApplyBatch}
-        onExtendGrant={onExtendGrant}
-        onPreviewBatch={onPreviewBatch}
-        onReadGrants={onReadGrants}
-        onRevokeGrant={onRevokeGrant}
-        pending={pending}
-        preview={preview}
+      {catalogRefresh === undefined ? null : (
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 text-sm"
+          role="status"
+        >
+          <p>
+            {catalogRefresh.pending
+              ? "Обновляем цены и редакции каталога…"
+              : "Цена сохранена. Обновите каталог перед следующей операцией."}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={catalogRefresh.pending}
+            onClick={catalogRefresh.onRetry}
+          >
+            Обновить каталог
+          </Button>
+        </div>
+      )}
+      <WorkspaceTabs
+        label="Разделы продаж"
+        tabs={[
+          {
+            id: "payments",
+            label: "Платежи",
+            panel: (
+              <PaymentsSection
+                onCancelSubscription={onCancelSubscription}
+                onListPayments={onListPayments}
+                onReadPayment={onReadPayment}
+                onReadRefunds={onReadRefunds}
+                onReconcilePayment={onReconcilePayment}
+                payment={payment}
+                payments={payments}
+                paymentsCursor={paymentsCursor}
+                paymentsFilters={paymentsFilters}
+                pending={pending}
+                refunds={refunds}
+              />
+            ),
+          },
+          {
+            id: "catalog",
+            label: "Предложения",
+            panel: (
+              <CatalogSection
+                content={content}
+                tiers={tiers}
+                catalogLoading={catalogLoading}
+                catalogError={catalogError}
+                offers={offers}
+                onArchiveOffer={onArchiveOffer}
+                onPublishOffer={onPublishOffer}
+                onUnpublishOffer={onUnpublishOffer}
+                onArchivePaymentOption={onArchivePaymentOption}
+                onArchivePromotion={onArchivePromotion}
+                onSaveOffer={onSaveOffer}
+                onSavePaymentOption={onSavePaymentOption}
+                onSavePromotion={onSavePromotion}
+                pending={pending}
+              />
+            ),
+          },
+          {
+            id: "links",
+            label: "Ссылки на оплату",
+            panel: (
+              <>
+                {paymentLinkControls}
+                <details className="authoring-disclosure">
+                  <summary>Архив анкетных скидок</summary>
+                  {respondentControls}
+                </details>
+              </>
+            ),
+          },
+          {
+            id: "cohorts",
+            label: "Наборы",
+            panel: (
+              <CohortSection
+                cohorts={cohorts}
+                content={content}
+                onSaveCohort={onSaveCohort}
+                pending={pending}
+              />
+            ),
+          },
+          {
+            id: "assignments",
+            label: "Назначения и перенос",
+            panel: enrollmentControls,
+          },
+          {
+            id: "advanced",
+            label: "Служебные операции",
+            panel: (
+              <WorkspaceTabs
+                label="Операции с доступом"
+                tabs={[
+                  {
+                    id: "grants",
+                    label: "Основания и массовая выдача",
+                    panel: (
+                      <GrantsSection
+                        batch={batch}
+                        grants={grants}
+                        onApplyBatch={onApplyBatch}
+                        onExtendGrant={onExtendGrant}
+                        onPreviewBatch={onPreviewBatch}
+                        onReadGrants={onReadGrants}
+                        onRevokeGrant={onRevokeGrant}
+                        pending={pending}
+                        preview={preview}
+                      />
+                    ),
+                  },
+                  {
+                    id: "classification",
+                    label: "Классификация аккаунта",
+                    panel: (
+                      <ClassificationSection
+                        classification={classification}
+                        onClassifyAccount={onClassifyAccount}
+                        onReadClassification={onReadClassification}
+                        pending={pending}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            ),
+          },
+        ]}
       />
     </BillingAdminFrame>
   );
