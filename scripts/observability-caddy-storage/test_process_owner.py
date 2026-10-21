@@ -69,27 +69,31 @@ def _witness_snapshot(witness):
 
 def cleanup_launcher(owner,state,*,_witness=None):
     primary=sys.exc_info()[1]
+    primary_traceback=sys.exc_info()[2]
     try:
         try:
-            _witness_event(_witness,'launcher_poll')
-            if owner.poll() is None:
-                _witness_event(_witness,'launcher_terminate');owner.terminate()
             try:
-                _witness_event(_witness,'launcher_wait');owner.wait(timeout=6)
-            except subprocess.TimeoutExpired:
-                _witness_event(_witness,'launcher_kill');owner.kill()
-                _witness_event(_witness,'launcher_reap');owner.wait(timeout=3)
-        finally:
-            # The launcher can already be gone while its registered group still owns a socket.
-            if state is not None:
-                _witness_event(_witness,'rescue_enter')
-                if type(_witness) is _CleanupWitness:rescue_registered(state,_witness=_witness)
-                else:rescue_registered(state)
-    except Exception:
-        _witness_event(_witness,category='cleanup')
-        if primary is None:raise
-        if hasattr(primary,'add_note'):primary.add_note('closed fixture cleanup failed')
-        else:primary.__notes__=[*getattr(primary,'__notes__',[]),'closed fixture cleanup failed']
+                _witness_event(_witness,'launcher_poll')
+                if owner.poll() is None:
+                    _witness_event(_witness,'launcher_terminate');owner.terminate()
+                try:
+                    _witness_event(_witness,'launcher_wait');owner.wait(timeout=6)
+                except subprocess.TimeoutExpired:
+                    _witness_event(_witness,'launcher_kill');owner.kill()
+                    _witness_event(_witness,'launcher_reap');owner.wait(timeout=3)
+            finally:
+                # The launcher can already be gone while its registered group still owns a socket.
+                if state is not None:
+                    _witness_event(_witness,'rescue_enter')
+                    if type(_witness) is _CleanupWitness:rescue_registered(state,_witness=_witness)
+                    else:rescue_registered(state)
+        except Exception:
+            _witness_event(_witness,category='cleanup')
+            if primary is None:raise
+            if hasattr(primary,'add_note'):primary.add_note('closed fixture cleanup failed')
+            else:primary.__notes__=[*getattr(primary,'__notes__',[]),'closed fixture cleanup failed']
+    finally:
+        if primary is not None:BaseException.__traceback__.__set__(primary,primary_traceback)
 
 
 def rescue_registered(state,*,_witness=None):
@@ -288,7 +292,7 @@ def _witness_controls(case):
             case.assertTrue(_witness_snapshot(witness) is _WITNESS_UNKNOWN)
 
     # Every state/PID/clock/socket operation below is an existing external seam double.
-    def refusal(kind,witness,primary=None):
+    def refusal(kind,witness,primary=None,observer_owner=False):
         trace=[];ticks=0
         owner=Mock();owner.poll.side_effect=lambda:trace.append(('poll',)) or 0
         owner.wait.side_effect=lambda timeout:trace.append(('wait',timeout)) or 0
@@ -318,7 +322,15 @@ def _witness_controls(case):
                 try:raise primary
                 except BaseException:
                     before=sys.exc_info()[2]
-                    cleanup_launcher(owner,state,_witness=witness)
+                    actual_observe=_CleanupWitness.observe
+                    def nested_observer(*args):
+                        active=sys.exc_info()[1]
+                        if active is not None and active is not primary:raise primary
+                        return actual_observe(*args)
+                    if observer_owner:
+                        with patch.object(_CleanupWitness,'observe',side_effect=nested_observer):
+                            cleanup_launcher(owner,state,_witness=witness)
+                    else:cleanup_launcher(owner,state,_witness=witness)
                     case.assertIs(BaseException.__traceback__.__get__(primary),before)
                     caught=primary
         if primary is None and kind=='unknown':case.assertIs(caught,private)
@@ -344,6 +356,14 @@ def _witness_controls(case):
             with patch.object(_CleanupWitness,'observe',side_effect=OSError('private-canary')):absent(witness)
             case.assertEqual(_witness_snapshot(witness),expected_record)
             case.assertNotIn('private-canary',str(_witness_snapshot(witness)))
+
+    # The owning boundary retains A even while rescue B is active and an observer raises A.
+    for kind in ('foreign','remaining','unknown'):
+        for primary in (AssertionError('owned primary'),KeyboardInterrupt(),SystemExit()):
+            error,trace=refusal(kind,_CleanupWitness(),primary,observer_owner=True)
+            case.assertIs(error,primary)
+            _,expected_trace=refusal(kind,_CleanupWitness())
+            case.assertEqual(trace,expected_trace)
 
     # Secondary observer faults cannot replace or mutate the active primary traceback.
     for primary in (AssertionError('owned primary'),KeyboardInterrupt(),SystemExit()):
