@@ -312,15 +312,26 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
             throw new Error("Expected original publication rejection");
           expect(report.failures).toContain(publication.error);
         }
-        stage = "terminal_reopen";
+        stage = "terminal_open";
         await ownedBroker.open();
+        stage = "terminal_connected";
         expect(ownedBroker.connected).toBe(false);
+        stage = "terminal_tcp_admissions";
         expect(openedGate.acceptedCount()).toBe(1);
-        for (const category of ["subscription", "material"] as const)
-          expect(
-            (await control.checkQueue(`telegram.notifications.${category}.v1`))
-              .consumerCount,
-          ).toBe(0);
+        for (const category of ["subscription", "material"] as const) {
+          stage =
+            category === "subscription"
+              ? "terminal_subscription_queue_read"
+              : "terminal_material_queue_read";
+          const queue = await control.checkQueue(
+            `telegram.notifications.${category}.v1`,
+          );
+          stage =
+            category === "subscription"
+              ? "terminal_subscription_consumers"
+              : "terminal_material_consumers";
+          expect(queue.consumerCount).toBe(0);
+        }
       } catch (error: unknown) {
         failures.push(error);
         firstFailureStage ??= stage;
