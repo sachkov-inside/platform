@@ -154,15 +154,16 @@ function protocolFailureMessage(stderr) {
     if (end !== stderr.length - 1 || Buffer.byteLength(line) + 1 > 64)
       return PROTOCOL_UNKNOWN;
     const match =
-      /^CORE_PROTOCOL_V1 failures ([-FE]{3})(?: field (exit|program|warnings|tests|failures|errors|skips|discovery|output))?$/u.exec(
+      /^CORE_PROTOCOL_V1 failures ([-FE]{3})(?: field (exit|program|warnings|tests|failures|errors|skips|discovery|output)| stage (owner_import|source_shape|inventory_guard|stdlib_imports|fixture_setup|import_order|execution|record|import_list|comparison_tail|count|exit|refusal|import_guard|import_tail))?$/u.exec(
         line,
       );
     const vector = match?.[1];
     const field = match?.[2];
+    const stage = match?.[3];
     if (
       vector === undefined ||
       vector === "---" ||
-      (field !== undefined && vector[2] === "-")
+      ((field !== undefined || stage !== undefined) && vector[2] === "-")
     )
       return PROTOCOL_UNKNOWN;
     return (
@@ -173,7 +174,11 @@ function protocolFailureMessage(stderr) {
           ? []
           : [method + "=" + (category === "F" ? "failure" : "error")];
       }).join("; ") +
-      (field === undefined ? "" : `; field=${field}`)
+      (field !== undefined
+        ? `; field=${field}`
+        : stage !== undefined
+          ? `; stage=${stage}`
+          : "")
     );
   }
   return PROTOCOL_UNKNOWN;

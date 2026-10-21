@@ -22,6 +22,9 @@ TOTAL=PREFIX+'requests_total'
 ERRORS=PREFIX+'request_errors_total'
 FLIGHT=PREFIX+'requests_in_flight'
 NAMES=('up',TOTAL,ERRORS,FLIGHT,DURATION+'bucket',DURATION+'sum',DURATION+'count')
+PARTIAL_REASONS=('partial_missing_total','partial_missing_errors','partial_missing_flight',
+    'partial_no_duration_groups','partial_missing_bucket','partial_missing_sum','partial_missing_count',
+    'partial_count_sum','partial_timestamps')
 NOT_COVERED=['production-caddy','host','tcp','tls','http3','pre-route-parse','raw-errors']
 
 
@@ -113,6 +116,10 @@ def acquire(values,timestamps,*,evaluated_at,completed_at):
 
 
 def _observation(rows):
+    return _observation_result(rows)[0]
+
+
+def _observation_result(rows,*,diagnose=False):
     simple={};groups={}
     for key,value in rows.items():
         labels=dict(key);name=labels['__name__']
@@ -124,7 +131,7 @@ def _observation(rows):
     if len(groups)>MAX_GROUPS: refuse()
     if ERRORS in simple and TOTAL in simple and simple[ERRORS]>simple[TOTAL]:refuse()
     if TOTAL in simple and sum(group.get('count',0) for group in groups.values())>simple[TOTAL]:refuse()
-    complete=True;duration=[]
+    complete=True;duration=[];missing_bucket=missing_sum=missing_count=False
     for (method,code),group in sorted(groups.items()):
         visible=[group[bound] for bound in BUCKETS if bound in group]
         if any(a>b for a,b in zip(visible,visible[1:])):refuse()
@@ -133,20 +140,38 @@ def _observation(rows):
                     or '+Inf' in group and group['+Inf']!=group['count']
                     or group['count']==0 and group.get('sum',0)!=0):refuse()
         if set(group)!=set((*BUCKETS,'sum','count')):
-            complete=False;continue
+            complete=False
+            if diagnose is True:
+                missing_bucket=missing_bucket or any(bound not in group for bound in BUCKETS)
+                missing_sum=missing_sum or 'sum' not in group
+                missing_count=missing_count or 'count' not in group
+            continue
         buckets=[int(group[bound]) for bound in BUCKETS];count=int(group['count'])
         if any(a>b for a,b in zip(buckets,buckets[1:])) or buckets[-1]!=count: refuse()
         duration.append({'method':method,'code':code,'count':count,'sum_seconds':float(group['sum']),'buckets':buckets})
-    if set(simple)!={TOTAL,ERRORS,FLIGHT} or not groups or not complete:return None
+    if set(simple)!={TOTAL,ERRORS,FLIGHT} or not groups or not complete:
+        reason=None
+        if diagnose is True:
+            if TOTAL not in simple:reason='partial_missing_total'
+            elif ERRORS not in simple:reason='partial_missing_errors'
+            elif FLIGHT not in simple:reason='partial_missing_flight'
+            elif not groups:reason='partial_no_duration_groups'
+            elif missing_bucket:reason='partial_missing_bucket'
+            elif missing_sum:reason='partial_missing_sum'
+            elif missing_count:reason='partial_missing_count'
+        return None,reason
     if simple[ERRORS]>simple[TOTAL] or sum(g['count'] for g in duration)>simple[TOTAL]: refuse()
-    if sum(g['count'] for g in duration)!=simple[TOTAL]:return None
-    return {'requests_total':simple[TOTAL],'request_errors_total':simple[ERRORS],'in_flight':simple[FLIGHT],'duration':duration}
+    if sum(g['count'] for g in duration)!=simple[TOTAL]:return None,'partial_count_sum' if diagnose is True else None
+    return {'requests_total':simple[TOTAL],'request_errors_total':simple[ERRORS],'in_flight':simple[FLIGHT],'duration':duration},None
 
 
-def evaluate(values,timestamps,*,evaluated_at,completed_at,previous=None,completion_clock=None):
+def evaluate(values,timestamps,*,evaluated_at,completed_at,previous=None,completion_clock=None,diagnose=False):
     try:
         rows,stamps=acquire(values,timestamps,evaluated_at=evaluated_at,completed_at=completed_at)
-        observed=_observation(rows)  # Validate every group even when availability is missing/down.
+        # Validate every group even when availability is missing/down.
+        partial_reason=None
+        if diagnose is True:observed,partial_reason=_observation_result(rows,diagnose=True)
+        else:observed=_observation(rows)
         completed=clock(completed_at)
         if completion_clock is not None:
             final=clock(completion_clock())
@@ -159,7 +184,12 @@ def evaluate(values,timestamps,*,evaluated_at,completed_at,previous=None,complet
             if age>MAX_AGE_SECONDS:result=record('stale',age=age)
             elif rows[up]==0:result=record('down',age=age)
             elif any(completed-stamp>MAX_AGE_SECONDS for stamp in stamps.values()):result=record('stale',age=age)
-            elif observed is None or len(set(stamps.values()))!=1:result=record('incomplete','unseeded' if len(rows)==1 else 'partial',age)
+            elif observed is None or len(set(stamps.values()))!=1:
+                reason='unseeded' if len(rows)==1 else 'partial'
+                if diagnose is True and reason=='partial':
+                    if observed is not None:partial_reason='partial_timestamps'
+                    if type(partial_reason) is str and partial_reason in PARTIAL_REASONS:reason=partial_reason
+                result=record('incomplete',reason,age)
             else:result=record('observed',age=age,observation=observed)
         if previous is not None:
             # Prior acquisitions are validated afresh; never trust a projected caller-created baseline.

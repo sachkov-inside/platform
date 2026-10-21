@@ -88,6 +88,168 @@ class WholeObservation(unittest.TestCase):
             self.assertIsNone(refused['observation'])
             self.assertNotIn('private',json.dumps(refused))
 
+        # Native-only detail never changes the ordinary failed observation.
+        partial_values,partial_stamps=acquisition()
+        for vector in (partial_values,partial_stamps):
+            vector['data']['result']=[row for row in vector['data']['result'] if row['metric']['__name__']!='caddy_http_requests_total']
+        raw=(json.dumps(partial_values).encode(),json.dumps(partial_stamps).encode())
+        legacy=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101)
+        detailed=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=True)
+        self.assertEqual(legacy['reason'],'partial')
+        self.assertEqual(detailed,{**legacy,'reason':'partial_missing_total'})
+
+        import artifact
+        import caddy_query
+        import collection
+        import evidence
+        from pathlib import Path
+        import sys
+        import tempfile
+        from test_query import Response
+        from unittest.mock import patch
+
+        class Hostile:
+            def __getattribute__(self,_):raise AssertionError('private-getter')
+            def __bool__(self):raise AssertionError('private-flag-coercion')
+            def __str__(self):raise AssertionError('private-detail-coercion')
+            def __eq__(self,_):raise AssertionError('private-detail-comparison')
+        class ForeignText(str):pass
+
+        cases=[]
+        for expected,missing in (
+                ('partial_missing_total','caddy_http_requests_total'),
+                ('partial_missing_errors','caddy_http_request_errors_total'),
+                ('partial_missing_flight','caddy_http_requests_in_flight'),
+                ('partial_no_duration_groups','duration'),
+                ('partial_missing_bucket','bucket'),
+                ('partial_missing_sum','sum'),
+                ('partial_missing_count','count'),
+                ('partial_count_sum',None),('partial_timestamps',None)):
+            left,right=acquisition()
+            for vector in (left,right):
+                if missing is not None:
+                    def keep(row):
+                        metric=row['metric'];name=metric['__name__']
+                        if missing=='duration':return not name.startswith('caddy_http_request_duration_seconds_')
+                        if missing in ('bucket','sum','count'):
+                            return not (name=='caddy_http_request_duration_seconds_'+missing and metric.get('code')=='200'
+                                and (missing!='bucket' or metric.get('le')=='0.005'))
+                        return name!=missing
+                    vector['data']['result']=[row for row in vector['data']['result'] if keep(row)]
+            if expected=='partial_count_sum':left['data']['result'][1]['value'][1]='4'
+            if expected=='partial_timestamps':right['data']['result'][-1]['value'][1]='98'
+            cases.append((expected,left,right))
+
+        legacy={'schema':1,'scope':'isolated-pilot-caddy','partition':'srv0/subroute','state':'incomplete',
+            'reason':'partial','sample_age_seconds':2.0,'observation':None,'comparison':None,
+            'transport':{'canonical':'unrun','mcp':'unrun'},
+            'not_covered':['production-caddy','host','tcp','tls','http3','pre-route-parse','raw-errors']}
+        for expected,left,right in cases:
+            with self.subTest(diagnostic=expected):
+                raw=(json.dumps(left).encode(),json.dumps(right).encode())
+                self.assertEqual(caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101),legacy)
+                for flag in (False,None,1,'true',Hostile()):
+                    self.assertEqual(caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=flag),legacy)
+                self.assertEqual(caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=True),{**legacy,'reason':expected})
+                for flag in (False,None,1,Hostile(),True):
+                    responses=[Response(body) for body in raw]
+                    with patch('urllib.request.OpenerDirector.open',side_effect=responses) as opened,patch.object(
+                            caddy_status,'evaluate',wraps=caddy_status.evaluate) as evaluated:
+                        report,packet=caddy_query.read_snapshot('owned_token',evaluated_at=100,wall_clock=lambda:101,diagnose=flag)
+                    self.assertEqual(opened.call_count,2)
+                    expected_report={**legacy,'reason':expected if flag is True else 'partial',
+                        'transport':{'canonical':'passed','mcp':'unrun'}}
+                    self.assertEqual(report,expected_report)
+                    self.assertEqual(packet,{'values':raw[0],'timestamps':raw[1],'evaluated_at':100,'completed_at':101})
+                    self.assertEqual('diagnose' in evaluated.call_args.kwargs,flag is True)
+                    if flag is True:self.assertIs(evaluated.call_args.kwargs['diagnose'],True)
+                with tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory).resolve();private=root/'private';private.mkdir(mode=0o700)
+                    metadata=root/'metadata';metadata.mkdir(mode=0o700)
+                    artifact.write(private,report)
+                    self.assertEqual(artifact.read(private),report)
+                    failed=evidence.Run();failed.start('partition_initial_state');failed.fail('budget')
+                    artifact.write_run(private,failed.snapshot())
+                    destination=root/'public';collection.collect(private,metadata,destination)
+                    self.assertEqual(artifact.read(destination),report)
+                    self.assertEqual(artifact.read_run(destination),failed.snapshot())
+                    poisons=[{**report,'reason':'private-caddy-sentinel'},
+                        {**report,'private':'private-caddy-sentinel'},
+                        {**report,'state':'observed'},{**report,'state':'stale'},
+                        {**report,'sample_age_seconds':None},{**report,'sample_age_seconds':11},
+                        {**report,'transport':{'canonical':'passed','mcp':'passed'}},
+                        {**report,'transport':{'canonical':'failed','mcp':'unrun'}}]
+                    poisoned=[json.dumps(poison) for poison in poisons]
+                    poisoned.extend((json.dumps(report)[:-1],json.dumps(report)[:-1]+',"reason":"partial"}',
+                        ' '*(131072+1),'{"private":"private-caddy-sentinel"}'))
+                    for raw_poison in poisoned:
+                        (private/artifact.NAME).write_text(raw_poison)
+                        refused=root/'refused'
+                        with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
+                            collection.collect(private,metadata,refused)
+                        self.assertFalse(refused.exists())
+                    for reason in (ForeignText(expected),Hostile()):
+                        with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
+                            artifact.validate({**report,'reason':reason})
+                # Entire raw validation retains precedence, including a poison in the last visible row.
+                for poison in ('private','duplicate','nonfinite','count','bucket'):
+                    bad=copy.deepcopy(left)
+                    if poison=='private':bad['data']['result'][-1]['metric']['private']='private-caddy-sentinel'
+                    elif poison=='duplicate':bad['data']['result'].append(copy.deepcopy(bad['data']['result'][-1]))
+                    elif poison=='nonfinite':bad['data']['result'][-1]['value'][1]='NaN'
+                    elif poison=='count':
+                        for row in bad['data']['result']:
+                            if row['metric']['__name__']=='caddy_http_request_duration_seconds_count':row['value'][1]='99'
+                    else:
+                        for row in bad['data']['result']:
+                            if row['metric'].get('le')=='0.005':row['value'][1]='99'
+                    # The no-duration case has no count/bucket to poison.
+                    if poison in ('count','bucket') and expected=='partial_no_duration_groups':continue
+                    refused=caddy_status.evaluate(json.dumps(bad).encode(),raw[1],evaluated_at=100,completed_at=101,diagnose=True)
+                    self.assertEqual((refused['state'],refused['reason']),('malformed','raw_contract'))
+                    self.assertNotIn('private',json.dumps(refused))
+
+        # Default-mode complete/availability/previous/reset semantics remain byte-result identical.
+        for state in ('observed','missing','down','stale','unseeded'):
+            left,right=acquisition()
+            if state=='missing':
+                for vector in (left,right):vector['data']['result']=vector['data']['result'][1:]
+            elif state=='down':left['data']['result'][0]['value'][1]='0'
+            elif state=='unseeded':
+                for vector in (left,right):vector['data']['result']=vector['data']['result'][:1]
+            raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            options={'evaluated_at':100,'completed_at':111 if state=='stale' else 101}
+            normal=caddy_status.evaluate(*raw,**options)
+            self.assertEqual(normal['state'],'incomplete' if state=='unseeded' else state)
+            self.assertEqual(caddy_status.evaluate(*raw,**options,diagnose=True),normal)
+        for baseline in ('down','reset','invalid'):
+            old,old_stamps=acquisition(point=80,stamp=79)
+            if baseline=='down':old['data']['result'][0]['value'][1]='0'
+            elif baseline=='reset':
+                for row in old['data']['result']:
+                    if row['metric']['__name__'] not in ('up','caddy_http_requests_in_flight'):
+                        row['value'][1]=str(float(row['value'][1])*2)
+            previous={'values':json.dumps(old).encode(),'timestamps':json.dumps(old_stamps).encode(),'evaluated_at':80,'completed_at':81}
+            if baseline=='invalid':previous['private']='private-caddy-sentinel'
+            left,right=acquisition();raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            normal=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,previous=previous)
+            self.assertEqual(caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,previous=previous,diagnose=True),normal)
+        left,right=acquisition();raw=(json.dumps(left).encode(),json.dumps(right).encode())
+        for metadata in (None,'unknown',ForeignText('partial_missing_total'),Hostile()):
+            with patch.object(caddy_status,'_observation_result',return_value=(None,metadata)):
+                self.assertEqual(caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=True),legacy)
+        for kind in (KeyboardInterrupt,SystemExit):
+            primary=kind('private-original');traces=[]
+            def interrupted():
+                try:raise primary
+                except BaseException:traces.append(sys.exc_info()[2]);raise
+            try:caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,completion_clock=interrupted,diagnose=True)
+            except BaseException as caught:
+                self.assertIs(caught,primary);trace=sys.exc_info()[2];chain=[]
+                while trace:chain.append(trace);trace=trace.tb_next
+                self.assertIn(traces[0],chain)
+            else:self.fail('original interrupt hidden')
+
     def test_comparison_cannot_use_a_fresh_down_baseline_as_observed_traffic(self):
         values,stamps=acquisition()
         old,old_stamps=acquisition(point=95,stamp=94)

@@ -165,6 +165,104 @@ if (
         );
       }
     }
+    assert.throws(
+      () =>
+        assertCoreProtocolContracts({
+          status: 1,
+          signal: null,
+          stderr:
+            "private-canary\nCORE_PROTOCOL_V1 failures --F stage source_shape\n",
+        }),
+      (error) =>
+        error instanceof assert.AssertionError &&
+        error.message.includes("; stage=source_shape") &&
+        !error.message.includes("private-canary"),
+    );
+    const stages = [
+      "owner_import",
+      "source_shape",
+      "inventory_guard",
+      "stdlib_imports",
+      "fixture_setup",
+      "import_order",
+      "execution",
+      "record",
+      "import_list",
+      "comparison_tail",
+      "count",
+      "exit",
+      "refusal",
+      "import_guard",
+      "import_tail",
+    ];
+    for (const stage of stages) {
+      for (const category of ["F", "E"]) {
+        const line = `CORE_PROTOCOL_V1 failures --${category} stage ${stage}\n`;
+        assert.ok(Buffer.byteLength(line) <= 64);
+        assert.throws(
+          () =>
+            assertCoreProtocolContracts({
+              status: 1,
+              signal: null,
+              stderr: "private-stage-canary\n" + line,
+            }),
+          (error) =>
+            error instanceof assert.AssertionError &&
+            error.message.includes("; stage=" + stage) &&
+            !error.message.includes("private-stage-canary") &&
+            !error.stack?.includes("private-stage-canary"),
+        );
+      }
+    }
+    for (const stderr of [
+      "CORE_PROTOCOL_V1 failures --F stage private-stage-canary\n",
+      "CORE_PROTOCOL_V1 failures --F stage Exit\n",
+      "CORE_PROTOCOL_V1 failures --F stage  exit\n",
+      "CORE_PROTOCOL_V1 failures --F stage exit stage count\n",
+      "CORE_PROTOCOL_V1 failures --F stage exit field output\n",
+      "CORE_PROTOCOL_V1 failures --F field output stage exit\n",
+      "CORE_PROTOCOL_V1 failures F-- stage exit\n",
+      "CORE_PROTOCOL_V1 failures -E- stage exit\n",
+      "CORE_PROTOCOL_V1 failures --- stage exit\n",
+      "CORE_PROTOCOL_V1 failures --F stage exit",
+      "CORE_PROTOCOL_V1 failures --F stage exit\r\n",
+      "CORE_PROTOCOL_V1 failures --F stage exit\ntrailing\n",
+      "CORE_PROTOCOL_V1 failures --F stage exit\nCORE_PROTOCOL_V1 failures --F stage exit\n",
+      "CORE_PROTOCOL_V1 failures --F stage " + "x".repeat(64) + "\n",
+      "x".repeat(1_048_576) + "CORE_PROTOCOL_V1 failures --F stage exit\n",
+    ]) {
+      assert.throws(
+        () => assertCoreProtocolContracts({ status: 1, signal: null, stderr }),
+        (error) =>
+          error instanceof assert.AssertionError &&
+          error.message.includes("Core protocol: unknown") &&
+          !error.message.includes("private-stage-canary") &&
+          !error.stack?.includes("private-stage-canary"),
+      );
+    }
+    let stageTraps = 0;
+    assert.throws(
+      () =>
+        assertCoreProtocolContracts({
+          status: null,
+          signal: null,
+          error: { code: "ENOBUFS" },
+          get stderr() {
+            stageTraps += 1;
+            throw new Error("private-stage-canary");
+          },
+        }),
+      { message: /Core protocol: unknown/u },
+    );
+    assertCoreProtocolContracts({
+      status: 0,
+      signal: null,
+      get stderr() {
+        stageTraps += 1;
+        throw new Error("private-stage-canary");
+      },
+    });
+    assert.equal(stageTraps, 0);
     const { readFile } = await import("node:fs/promises");
     /** @type {unknown} */
     const raw = JSON.parse(

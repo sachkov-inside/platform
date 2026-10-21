@@ -41,7 +41,7 @@ class AcquisitionBudget(unittest.TestCase):
             with self.assertRaises(scenario.AcquisitionBudgetRefusal) as caught:experiment.snapshot()
             self.assertIsInstance(caught.exception,RuntimeError)
             self.assertEqual(str(caught.exception),'closed Caddy acquisition cap')
-            query.assert_called_once_with('owned_token',previous=None,deadline_seconds=unittest.mock.ANY)
+            query.assert_called_once_with('owned_token',previous=None,deadline_seconds=unittest.mock.ANY,diagnose=True)
             journal.assert_called_once_with(10,11,'GET',200,count=2)
             self.assertEqual(clock.call_count,2)
 
@@ -68,9 +68,9 @@ class AcquisitionBudget(unittest.TestCase):
                 fixtures=[acquired(100,99,down=name=='initial_state')]
                 if not initial and name!='compare_acquire':
                     fixtures.append(acquired(102,102 if name=='compare_journal' else 101,down=name=='compare_state'))
-                def query(_,previous,deadline_seconds):
+                def query(_,previous,deadline_seconds,diagnose=False):
                     current=fixtures.pop(0)
-                    report=scenario.status.evaluate(**current,previous=previous)
+                    report=scenario.status.evaluate(**current,previous=previous,diagnose=diagnose)
                     self.assertNotEqual(report['state'],'malformed')
                     report['transport']['canonical']='passed'
                     return report,current
@@ -125,8 +125,8 @@ class AcquisitionBudget(unittest.TestCase):
         experiment=scenario.Scenario(None,'owned_token',None,Mock());experiment.deadline=600
         down=acquired(100,99,down=True);stale=acquired(140,99);fresh=acquired(142,141)
         fixtures=[down,stale,fresh];expected=[]
-        def read(_,previous,deadline_seconds):
-            current=fixtures.pop(0);report=scenario.status.evaluate(**current,previous=previous)
+        def read(_,previous,deadline_seconds,diagnose=False):
+            current=fixtures.pop(0);report=scenario.status.evaluate(**current,previous=previous,diagnose=diagnose)
             report['transport']['canonical']='passed';expected.append(report)
             if len(expected)==2:self.assertEqual(experiment.last_report,expected[0])
             return report,current

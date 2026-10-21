@@ -89,7 +89,7 @@ class Scenario:
         self.acquisitions+=1
         started=time.time()
         report,acquired=caddy_query.read_snapshot(self.token,previous=previous,
-            deadline_seconds=min(10,self.remaining()))
+            deadline_seconds=min(10,self.remaining()),diagnose=True)
         if acquired is None or report['state']=='malformed' or report['transport']['canonical']!='passed':
             raise ValueError('closed Caddy canonical query refused')
         self.journal.record(started,time.time(),'GET',200,count=2)
