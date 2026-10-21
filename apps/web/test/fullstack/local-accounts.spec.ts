@@ -92,6 +92,8 @@ test("local accounts: fresh owner, private draft and real denials survive restar
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
       await page.getByRole("radio", { name: new RegExp(`^${label}`) }).check();
       await page.getByRole("button", { name: "Выбрать аккаунт" }).click();
+      await expect(page).toHaveURL(`${origin}${preview}`);
+      await page.waitForLoadState("load");
       await page.reload();
       const state = z
         .object({
