@@ -1,5 +1,10 @@
 """Hosted evidence trust at its public filesystem/provider boundary, without Docker."""
 import json
+import hashlib
+import subprocess
+import sys
+from contextlib import contextmanager
+from builtins import setattr as _set_source_constant
 from pathlib import Path
 from types import SimpleNamespace
 import tempfile
@@ -8,6 +13,108 @@ import hosted
 import binding
 import os
 from unittest.mock import patch
+
+
+_SOURCE_ROOT = binding.ROOT
+_SOURCE_SCRIPTS = binding.SCRIPTS
+
+
+@contextmanager
+def _synthetic_source_checkout():
+    if any(name.startswith('GIT_') and (name != 'GIT_PAGER' or type(value) is not str or value != 'cat')
+           for name, value in os.environ.items()):
+        raise ValueError('synthetic_git_environment_refused')
+    if binding.ROOT is not _SOURCE_ROOT or binding.SCRIPTS is not _SOURCE_SCRIPTS:
+        raise ValueError('synthetic_source_constants_refused')
+    owned = tempfile.TemporaryDirectory(prefix='resource-source-fixture-')
+    try:
+        private = Path(owned.name)
+        checkout = private / 'checkout'
+        checkout.mkdir(mode=0o700)
+        hooks = private / 'hooks'
+        template = private / 'template'
+        hooks.mkdir(mode=0o700)
+        template.mkdir(mode=0o700)
+        files = {
+            'apps/backend/Dockerfile': b'FROM scratch\n# Synthetic binding fixture, never built.\n',
+            'scripts/observability-resource/source_fixture.py': b'SYNTHETIC_SOURCE_INPUT = 1\n',
+            '.github/workflows/observability-resource.yml': b'name: synthetic-source-input\n',
+        }
+        for name, content in files.items():
+            parent = checkout
+            for part in Path(name).parts[:-1]:
+                parent = parent / part
+                if not parent.exists():
+                    parent.mkdir(mode=0o700)
+            with os.fdopen(os.open(checkout / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
+                stream.write(content)
+        environment = {'PATH': os.environ['PATH'], 'LC_ALL': 'C',
+            'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_TERMINAL_PROMPT': '0',
+            'GIT_AUTHOR_NAME': 'Resource source fixture', 'GIT_AUTHOR_EMAIL': 'resource-fixture@example.invalid',
+            'GIT_COMMITTER_NAME': 'Resource source fixture', 'GIT_COMMITTER_EMAIL': 'resource-fixture@example.invalid',
+            'GIT_AUTHOR_DATE': '2000-01-01T00:00:00+0000', 'GIT_COMMITTER_DATE': '2000-01-01T00:00:00+0000'}
+        setup_exits = []
+        result = subprocess.run(['git', 'init', '--quiet', '--object-format=sha1',
+            '--initial-branch=resource-source-fixture', '--template=' + str(template), str(checkout)],
+            env=environment, check=True, capture_output=True, timeout=5)
+        setup_exits.append(result.returncode)
+        for key, value in (('core.hooksPath', str(hooks)), ('core.fsmonitor', 'false'),
+                ('core.attributesFile', '/dev/null'), ('commit.gpgsign', 'false'),
+                ('user.name', 'Resource source fixture'), ('user.email', 'resource-fixture@example.invalid')):
+            result = subprocess.run(['git', '-C', str(checkout), 'config', '--local', '--replace-all', key, value],
+                env=environment, check=True, capture_output=True, timeout=5)
+            setup_exits.append(result.returncode)
+        result = subprocess.run(['git', '-C', str(checkout), 'add', '--', *files],
+            env=environment, check=True, capture_output=True, timeout=5)
+        setup_exits.append(result.returncode)
+        result = subprocess.run(['git', '-C', str(checkout), '-c', 'commit.gpgsign=false', 'commit',
+            '--quiet', '--no-gpg-sign', '-m', 'Synthetic Resource source fixture'],
+            env=environment, check=True, capture_output=True, timeout=5)
+        setup_exits.append(result.returncode)
+        # Private Git internals are owned fixture data too, never a shared object store.
+        for directory, directories, names in os.walk(checkout / '.git'):
+            os.chmod(directory, 0o700)
+            for name in names:
+                os.chmod(Path(directory) / name, 0o600)
+        result = subprocess.run(['git', '-C', str(checkout), 'ls-files', '-z'],
+            env=environment, check=True, capture_output=True, timeout=5)
+        setup_exits.append(result.returncode)
+        listed = result.stdout.decode().split('\0')
+        if set(listed) != {*files, ''}:
+            raise ValueError('synthetic_source_names_refused')
+        identities = []
+        for expression in ('HEAD', 'HEAD^{tree}'):
+            result = subprocess.run(['git', '-C', str(checkout), 'rev-parse', expression],
+                env=environment, check=True, capture_output=True, timeout=5)
+            setup_exits.append(result.returncode)
+            value = result.stdout.decode().strip()
+            if len(value) != 40 or any(character not in '0123456789abcdef' for character in value):
+                raise ValueError('synthetic_source_identity_refused')
+            identities.append(value)
+        _set_source_constant(binding, 'ROOT', checkout)
+        _set_source_constant(binding, 'SCRIPTS', checkout / 'scripts/observability-resource')
+        actual = binding.source(*identities)
+        expected = {name: hashlib.sha256(content).hexdigest() for name, content in files.items()}
+        if (binding.ROOT is not checkout or binding.SCRIPTS != checkout / 'scripts/observability-resource'
+                or actual['inputs'] != expected or any((checkout / name).read_bytes() != content for name, content in files.items())):
+            raise ValueError('synthetic_source_inputs_refused')
+        binding.write(private / 'source-receipt.json', {'commit': identities[0], 'tree': identities[1],
+            'inputs': actual['inputs'], 'setup_exits': setup_exits})
+        yield checkout
+    finally:
+        primary, traceback = sys.exc_info()[1:]
+        cleanup_error = None
+        for operation in (lambda: _set_source_constant(binding, 'ROOT', _SOURCE_ROOT),
+                          lambda: _set_source_constant(binding, 'SCRIPTS', _SOURCE_SCRIPTS), owned.cleanup):
+            try:
+                operation()
+            except BaseException as error:
+                if cleanup_error is None:
+                    cleanup_error = error
+        if primary is not None:
+            BaseException.__traceback__.__set__(primary, traceback)
+        elif cleanup_error is not None:
+            raise cleanup_error
 
 
 def metadata(root):
@@ -51,7 +158,7 @@ class Routing(unittest.TestCase):
 
 class EvidenceTrust(unittest.TestCase):
     def test_collection_preserves_provider_binding_and_never_exports_private_inputs(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with _synthetic_source_checkout() as checkout, tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             admitted = metadata(root)
             output = root / 'private'
@@ -68,6 +175,71 @@ class EvidenceTrust(unittest.TestCase):
             self.assertEqual(json.loads((public / 'resource-proof.json').read_text())['state'], 'partial')
             self.assertEqual(json.loads((public / 'source.json').read_text())['run_id'], '123')
 
+            self.assertIs(binding.ROOT, checkout)
+            self.assertEqual(binding.SCRIPTS, checkout / 'scripts/observability-resource')
+            actual, _ = hosted.metadata_source(admitted)
+            receipt = json.loads((checkout.parent / 'source-receipt.json').read_text())
+            self.assertEqual(receipt['setup_exits'], [0] * 12)
+            self.assertEqual((receipt['commit'], receipt['tree']), (actual['checkout_sha'], actual['checkout_tree']))
+            self.assertEqual(receipt['inputs'], actual['inputs'])
+            self.assertEqual(set(actual['inputs']), {'apps/backend/Dockerfile',
+                'scripts/observability-resource/source_fixture.py', '.github/workflows/observability-resource.yml'})
+            for expression, field in (('HEAD', 'checkout_sha'), ('HEAD^{tree}', 'checkout_tree')):
+                self.assertEqual(hosted.runtime.ci.read_command(['git', '-C', str(checkout), 'rev-parse', expression]), actual[field])
+            for name, digest in actual['inputs'].items():
+                path = checkout / name
+                self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), digest)
+                self.assertFalse(path.is_symlink())
+                self.assertEqual(path.stat().st_nlink, 1)
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            dockerfile = checkout / 'apps/backend/Dockerfile'
+            original = dockerfile.read_bytes()
+            try:
+                dockerfile.write_bytes(original + b'# Controlled private source mutation.\n')
+                with self.assertRaisesRegex(ValueError, '^resource_source_inputs_changed$'):
+                    hosted.collect(output, root / 'changed-public', metadata=admitted)
+                self.assertFalse((root / 'changed-public').exists())
+            finally:
+                dockerfile.write_bytes(original)
+            self.assertEqual(hosted.metadata_source(admitted)[0], actual)
+        self.assertIs(binding.ROOT, _SOURCE_ROOT)
+        self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+        self.assertFalse(checkout.parent.exists())
+
+        # Faults affect only our registered TEMP cleanup, never a source/hash/Git oracle.
+        actual_temp = tempfile.TemporaryDirectory
+        for primary in (RuntimeError('controlled fixture primary'), KeyboardInterrupt(), SystemExit()):
+            for secondary in (None, primary, OSError('controlled cleanup secondary')):
+                owned_paths = []
+                def temporary(*args, **kwargs):
+                    owned = actual_temp(*args, **kwargs)
+                    owned_paths.append(Path(owned.name))
+                    cleanup = owned.cleanup
+                    def close():
+                        cleanup()
+                        if secondary is not None:
+                            raise secondary
+                    owned.cleanup = close
+                    return owned
+                with patch.object(tempfile, 'TemporaryDirectory', side_effect=temporary):
+                    try:
+                        with _synthetic_source_checkout():
+                            try:
+                                raise primary
+                            except BaseException:
+                                traceback = sys.exc_info()[2]
+                                raise
+                    except BaseException as error:
+                        self.assertIs(error, primary)
+                        self.assertIs(BaseException.__traceback__.__get__(error), traceback)
+                    else:
+                        self.fail('synthetic fixture primary suppressed')
+                self.assertIs(binding.ROOT, _SOURCE_ROOT)
+                self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+                self.assertEqual(len(owned_paths), 1)
+                self.assertTrue(all(not path.exists() for path in owned_paths))
+
+
     def test_changed_source_metadata_is_refused_before_collection(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -81,13 +253,71 @@ class EvidenceTrust(unittest.TestCase):
             self.assertFalse((root / 'public').exists())
 
     def test_missing_project_cannot_manufacture_a_measurement(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with _synthetic_source_checkout() as checkout, tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             admitted = metadata(root)
             with self.assertRaisesRegex(ValueError, 'resource_project_not_acquired'):
                 hosted.collect(root / 'private', root / 'public', metadata=admitted)
             self.assertEqual(json.loads((root / 'public/resource-hosted.json').read_text())['state'], 'no_registered_project')
             self.assertFalse((root / 'public/resource-proof.json').exists())
+
+            self.assertIs(binding.ROOT, checkout)
+            workflow = checkout / '.github/workflows/observability-resource.yml'
+            original = workflow.read_bytes()
+            try:
+                workflow.unlink()
+                with self.assertRaises(FileNotFoundError):
+                    hosted.collect(root / 'private', root / 'workflow-public', metadata=admitted)
+                self.assertFalse((root / 'workflow-public').exists())
+            finally:
+                with os.fdopen(os.open(workflow, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'wb') as stream:
+                    stream.write(original)
+            scripts = binding.SCRIPTS
+            try:
+                _set_source_constant(binding, 'SCRIPTS', _SOURCE_SCRIPTS)
+                with self.assertRaises(ValueError):
+                    hosted.collect(root / 'private', root / 'inconsistent-public', metadata=admitted)
+                self.assertFalse((root / 'inconsistent-public').exists())
+            finally:
+                _set_source_constant(binding, 'SCRIPTS', scripts)
+            hosted.metadata_source(admitted)
+        self.assertIs(binding.ROOT, _SOURCE_ROOT)
+        self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+        self.assertFalse(checkout.parent.exists())
+
+        setter = _set_source_constant
+        actual_temp = tempfile.TemporaryDirectory
+        for phase in ('install', 'restore'):
+            owned_paths = []
+            restored = []
+            primary = RuntimeError('controlled source constant failure')
+            def temporary(*args, **kwargs):
+                owned = actual_temp(*args, **kwargs)
+                owned_paths.append(Path(owned.name))
+                return owned
+            def setting(module, name, value):
+                if phase == 'install' and name == 'SCRIPTS' and value is not _SOURCE_SCRIPTS:
+                    raise primary
+                setter(module, name, value)
+                if value is _SOURCE_ROOT or value is _SOURCE_SCRIPTS:
+                    restored.append(name)
+                    if phase == 'restore' and name == 'ROOT':
+                        raise primary
+            with patch.object(tempfile, 'TemporaryDirectory', side_effect=temporary), \
+                    patch(__name__ + '._set_source_constant', side_effect=setting):
+                try:
+                    with _synthetic_source_checkout():
+                        pass
+                except RuntimeError as error:
+                    self.assertIs(error, primary)
+                else:
+                    self.fail('synthetic source constant failure suppressed')
+            self.assertEqual(restored, ['ROOT', 'SCRIPTS'])
+            self.assertIs(binding.ROOT, _SOURCE_ROOT)
+            self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+            self.assertEqual(len(owned_paths), 1)
+            self.assertTrue(all(not path.exists() for path in owned_paths))
+
 
     def test_missing_provider_identity_is_refused_before_any_acquisition(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -105,7 +335,7 @@ class EvidenceTrust(unittest.TestCase):
 
 
     def test_unknown_metadata_fields_never_reach_public_artifacts(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with _synthetic_source_checkout() as checkout, tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             admitted = metadata(root)
             for name in ('source.json', 'admission.json'):
@@ -118,6 +348,89 @@ class EvidenceTrust(unittest.TestCase):
                     hosted.collect(root / 'private', root / 'public', metadata=admitted)
                 self.assertFalse((root / 'public').exists())
                 path.write_text(original)
+
+
+            path = admitted / 'source.json'
+            original = path.read_text()
+            value = json.loads(original)
+            value['inputs'] = []
+            try:
+                binding.write(path, value)
+                with self.assertRaisesRegex(ValueError, '^resource_source_inputs_changed$'):
+                    hosted.collect(root / 'private', root / 'malformed-public', metadata=admitted)
+                self.assertFalse((root / 'malformed-public').exists())
+            finally:
+                path.write_text(original)
+            hosted.metadata_source(admitted)
+        self.assertIs(binding.ROOT, _SOURCE_ROOT)
+        self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+        self.assertFalse(checkout.parent.exists())
+
+        # Test-owned environment controls, not an operational filtering/repair path.
+        environment = dict(os.environ)
+        for change in ({'GIT_PAGER': 'cat --controlled-invalid'}, {'GIT_RESOURCE_FIXTURE_REFUSED': 'controlled'}):
+            with patch.dict(os.environ, change), \
+                    patch.object(tempfile, 'TemporaryDirectory', side_effect=AssertionError('TEMP acquired before refusal')):
+                with self.assertRaisesRegex(ValueError, '^synthetic_git_environment_refused$'):
+                    with _synthetic_source_checkout():
+                        self.fail('Git steering accepted')
+            self.assertTrue(dict(os.environ) == environment, 'test-owned environment not restored')
+        for pager in (None, 'cat'):
+            with patch.dict(os.environ):
+                if pager is None:
+                    os.environ.pop('GIT_PAGER', None)
+                else:
+                    os.environ['GIT_PAGER'] = pager
+                with _synthetic_source_checkout() as accepted:
+                    self.assertIs(binding.ROOT, accepted)
+                self.assertFalse(accepted.parent.exists())
+            self.assertTrue(dict(os.environ) == environment, 'test-owned environment not restored')
+
+        actual_run = subprocess.run
+        actual_temp = tempfile.TemporaryDirectory
+        owned_paths = []
+        def temporary(*args, **kwargs):
+            owned = actual_temp(*args, **kwargs)
+            owned_paths.append(Path(owned.name))
+            return owned
+        def command(args, **options):
+            if args[:2] == ['git', 'init']:
+                # Real fixed failing Git command in this helper's own checkout, not a result double.
+                return actual_run(['git', 'init', '--resource-fixture-invalid-option', args[-1]], **options)
+            return actual_run(args, **options)
+        with patch.object(tempfile, 'TemporaryDirectory', side_effect=temporary), \
+                patch.object(subprocess, 'run', side_effect=command):
+            with self.assertRaises(subprocess.CalledProcessError):
+                with _synthetic_source_checkout():
+                    self.fail('failed Git setup accepted')
+        self.assertIs(binding.ROOT, _SOURCE_ROOT)
+        self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+        self.assertEqual(len(owned_paths), 1)
+        self.assertTrue(all(not path.exists() for path in owned_paths))
+
+        owned_paths = []
+        failure = OSError('controlled cleanup failure without primary')
+        def failing_temporary(*args, **kwargs):
+            owned = actual_temp(*args, **kwargs)
+            owned_paths.append(Path(owned.name))
+            cleanup = owned.cleanup
+            def close():
+                cleanup()
+                raise failure
+            owned.cleanup = close
+            return owned
+        with patch.object(tempfile, 'TemporaryDirectory', side_effect=failing_temporary):
+            try:
+                with _synthetic_source_checkout():
+                    pass
+            except OSError as error:
+                self.assertIs(error, failure)
+            else:
+                self.fail('cleanup failure without primary suppressed')
+        self.assertIs(binding.ROOT, _SOURCE_ROOT)
+        self.assertIs(binding.SCRIPTS, _SOURCE_SCRIPTS)
+        self.assertEqual(len(owned_paths), 1)
+        self.assertTrue(all(not path.exists() for path in owned_paths))
 
 
 class AcquisitionProcessOwnership(unittest.TestCase):
