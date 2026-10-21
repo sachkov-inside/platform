@@ -74,6 +74,7 @@
     "/authoring/import/content-covers/{ownerKind}/{ownerId}",
     "/authoring/import/materials/apply",
     "/authoring/import/materials/environment",
+    "/authoring/import/materials/publication",
     "/authoring/import/materials/reserve",
     "/authoring/import/materials/validate",
     "/authoring/import/practices/apply",
