@@ -1812,8 +1812,8 @@ never recorded. The mapping is owned by `scripts/observability-tracking-storage/
 
 The observer binds the existing producer Git read once; direct oracle/producer/storage callers
 with the default `observation=None` allocate no observer and perform no additional observation IO.
-The full row predicates, their order, original refusal and polling budget remain unchanged. Only
-an actual first `trace_gate_06_unexpected_key` refusal produces `observed`; an earlier different
+The observation channel itself leaves the row predicates, their order, original refusal and polling
+budget unchanged. Only an actual first `trace_gate_06_unexpected_key` refusal produces `observed`; an earlier different
 refusal or no observation stays `unknown`. An internal observer fault yields `refused`, and an
 unbound observer writes nothing. Observation persistence never replaces an already active error
 or its traceback. With no active error, a persistence failure refuses the diagnostic operation.
@@ -1831,6 +1831,30 @@ These source controls do not identify the unexpected key from a prior hosted fai
 source-bound hosted tracking result is required to identify any catalog ID and role. `other: true`
 cannot identify a key outside that catalog. This feature changes no collector acceptance rule,
 production setting or deployment status.
+
+### Tracking provider HTTP success evidence
+
+Tracking provider spans now require the existing three dependency attributes plus exact
+`http.request.method=POST` and `http.response.status_code=200`. Both original-HTTP and delivery
+provider edges must carry these fields. The production communications observer emits the method
+and records the actual response status; the owned success provider returns200 for both operations.
+The existing backend collector retains these fields under its method enum and integer-status
+filter. The Tracking oracle owns this success expectation; collector and producer behavior are
+unchanged.
+
+This corrects an admission mismatch. The previous oracle rejected the legitimate provider HTTP
+fields and admitted synthetic provider rows that omitted them. Those missing rows now refuse;
+other methods/statuses, nonstring raw fields, wrong roles and unsafe extras still refuse. The
+permanent gate identifiers and predicate syntax/order remain fixed, while the provider's required
+attribute set intentionally changes. The closed unexpected-key observation remains diagnostic only.
+
+The bound680d failure reported provider catalog IDs `a02` and `a04`, with `other=false` at attempt40.
+It measured key presence, not their raw values. `POST/200` comes from the checked source contract;
+no raw native value measurement is inferred. The actual compiled factory source contract is
+prepared to pass its strictly validated provider HTTP pair into the full oracle alongside the
+existing JSON/protobuf flag witness. Source tests do not establish native API/PG/Alloy/storage
+success. A fresh source-bound hosted Tracking run and cleanup are still required, and a later
+refusal remains a failure requiring its own diagnosis.
 
 ### Dependency corpus scheduling
 

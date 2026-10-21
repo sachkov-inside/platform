@@ -162,7 +162,7 @@ def traces(raw, *, trace_id, root_id, observation=None):
             elif name == 'tracking deliver':
                 role, kind = 'delivery','1'; attrs = {'tracking.operation':'deliver','tracking.outcome':'completed'}
             elif name == 'telegram communications.execute':
-                role, kind = 'provider','3'; attrs = {'dependency.name':'telegram','dependency.operation':'communications.execute','dependency.outcome':'completed'}
+                role, kind = 'provider','3'; attrs = {'dependency.name':'telegram','dependency.operation':'communications.execute','dependency.outcome':'completed','http.request.method':'POST','http.response.status_code':'200'}
             elif name in ('postgresql query','postgresql acquire'):
                 role, kind = 'postgresql','3'; operation = name.split(' ')[1]
                 attrs = {'dependency.name':'postgresql','dependency.operation':operation,'dependency.outcome':'completed'}

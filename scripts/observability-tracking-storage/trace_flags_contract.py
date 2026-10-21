@@ -59,7 +59,15 @@ const { JsonTraceSerializer, ProtobufTraceSerializer } = exporter('@opentelemetr
       const encoded = JSON.parse(Buffer.from(JsonTraceSerializer.serializeRequest([span])).toString('utf8'));
       const converted = encoded.resourceSpans.flatMap(resource => resource.scopeSpans.flatMap(scope => scope.spans));
       assert.equal(converted.length, 1);
-      return {role, name: span.name, json_flags: converted[0].flags,
+      let providerHttp = null;
+      if (span.name === 'telegram communications.execute') {
+        const method = span.attributes['http.request.method'];
+        const status = span.attributes['http.response.status_code'];
+        assert.equal(method, 'POST');
+        assert.equal(status, 200);
+        providerHttp = {method, status};
+      }
+      return {role, name: span.name, json_flags: converted[0].flags, provider_http: providerHttp,
         parent_remote: span.parentSpanContext?.isRemote === true,
         self_remote: span.spanContext().isRemote === true,
         protobuf: Buffer.from(ProtobufTraceSerializer.serializeRequest([span])).toString('base64')};
@@ -79,14 +87,20 @@ class ActualTrackingFlags(unittest.TestCase):
             self.fail('closed tracking serializer witness failed')
         expected = {'root':257,'delivery':769,'provider_http':257,'provider_delivery':257,
                     'query_http':257,'query_delivery':257,'acquire_http':257,'acquire_delivery':257}
-        json_flags, proto_flags, parent_remote, self_remote = {}, {}, {}, {}
+        json_flags, proto_flags, parent_remote, self_remote, provider_http = {}, {}, {}, {}, {}
         for row in value['rows']:
-            if (type(row) is not dict or set(row) != {'role','name','json_flags','parent_remote','self_remote','protobuf'} or type(row['role']) is not str or row['role'] not in expected or row['role'] in json_flags
+            if (type(row) is not dict or set(row) != {'role','name','json_flags','parent_remote','self_remote','protobuf','provider_http'} or type(row['role']) is not str or row['role'] not in expected or row['role'] in json_flags
                     or type(row['name']) is not str or type(row['json_flags']) is not int or not 0 <= row['json_flags'] < 2**32
                     or type(row['parent_remote']) is not bool or type(row['self_remote']) is not bool
                     or type(row['protobuf']) is not str or len(row['protobuf']) > 65536):
                 self.fail('closed tracking serializer row failed')
-            role=row['role']
+            role=row['role'];http=row['provider_http']
+            if role in ('provider_http','provider_delivery'):
+                if (type(http) is not dict or set(http)!={'method','status'} or type(http['method']) is not str
+                        or http['method']!='POST' or type(http['status']) is not int or http['status']!=200):
+                    self.fail('closed tracking provider HTTP witness failed')
+                provider_http[role]=http
+            elif http is not None:self.fail('closed tracking nonprovider HTTP witness failed')
             json_flags[role]=row['json_flags']
             encoded=protobuf_flags(row['protobuf'])
             if set(encoded) != {row['name']}: self.fail('closed tracking protobuf role failed')
@@ -107,6 +121,9 @@ class ActualTrackingFlags(unittest.TestCase):
                         operation='provider' if row['name']=='telegram communications.execute' else row['name'].split(' ')[1]
                         role=operation+'_'+parent
                     row['flags']=str(flags[role])
+                    if role in ('provider_http','provider_delivery'):
+                        row['span_attr:http.request.method']=provider_http[role]['method']
+                        row['span_attr:http.response.status_code']=str(provider_http[role]['status'])
                 proof=tracking_oracle.traces('\n'.join(json.dumps(row) for row in rows),trace_id=TRACE,root_id=ROOT)
                 self.assertIsNotNone(proof)
                 self.assertEqual(proof['persisted_causality'],'passed')
