@@ -1972,6 +1972,20 @@ remains pending. The latest pre-barrier native run stopped in baseline/query_ref
 completed cases; its exact failing step and cause are unknown. A successful native privacy verdict
 is not established by the source controls or this documentation.
 
+Baseline failures retain the existing reason projection and eight-field, schema1,4096-byte
+`postgres-source.json`. Its top-level phase now identifies the last entered fixed boundary:
+`baseline_actor_start`, `baseline_setup`, `baseline_waiting_locks`, or one of
+`baseline_first_acquire`, `baseline_first_upload`, `baseline_first_stored_read`,
+`baseline_first_stored_oracle`, `baseline_first_stored_pending`, `baseline_first_ledger`,
+`baseline_second_acquire`, `baseline_second_upload`, `baseline_second_stored_read`,
+`baseline_second_stored_oracle`, `baseline_second_stored_pending`, `baseline_second_ledger`.
+First and second are the two existing baseline observations. Entry does not prove completion
+or identify the underlying cause. Successful cases keep phase `baseline`; these technical phases
+are refused in case entries. The markers add no query, clock, IO, retry or time allowance. The
+latest retained native failure remains baseline/query_refused with empty cases and an unknown
+failing boundary; privacy was not reached. A future source-bound run can distinguish that boundary,
+while diagnosis of its internal cause and native completion acceptance remain separate.
+
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
