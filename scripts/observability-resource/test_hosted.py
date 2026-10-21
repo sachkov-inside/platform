@@ -187,6 +187,8 @@ with (root / 'commands.jsonl').open('a') as stream:
     stream.write(json.dumps(args)+'\\n')
 if args[:1] == ['--host']:
     args = args[2:]
+state_path = root / 'images-state.json'
+state = json.loads(state_path.read_text()) if state_path.exists() else {}
 stage = None
 if args[:1] == ['build']:
     stage = 'backend_build' if '--target' in args else 'foundation_build'
@@ -203,8 +205,30 @@ elif args[:2] == ['context', 'inspect']:
     print('unix://' + str(root / 'engine.sock'))
 elif 'info' in args:
     print(json.dumps({'ID': 'owned-fixture', 'DockerRootDir': str(root)}))
+elif args[:2] == ['image', 'ls']:
+    selected = state
+    if '--filter' in args:
+        expression = args[args.index('--filter')+1]
+        if expression.startswith('reference='):
+            selected = {key: row for key,row in state.items() if expression[10:] in row['RepoTags']}
+        else:
+            key,value = expression[6:].split('=',1)
+            selected = {key_:row for key_,row in state.items() if row['Config']['Labels'].get(key)==value}
+    print('\\n'.join(selected))
 elif args[:2] == ['image', 'inspect']:
-    print('sha256:' + ('b' if args[2].endswith('-backend:v1') else 'c')*64)
+    if '--format' in args:
+        print('sha256:' + ('b' if args[2].endswith('-backend:v1') else 'c')*64)
+    else:
+        print(json.dumps([state[args[2]]]))
+elif args[:2] == ['image', 'rm']:
+    state.pop(args[-1]);state_path.write_text(json.dumps(state))
+elif args[:2] == ['container','ls']:
+    pass
+elif args[:1] == ['build']:
+    image='sha256:'+('b' if '--target' in args else 'c')*64
+    key,value=args[args.index('--label')+1].split('=',1)
+    state[image]={'Id':image,'RepoTags':[args[args.index('--tag')+1]],'RepoDigests':[], 'Config':{'Labels':{key:value}}}
+    state_path.write_text(json.dumps(state))
 elif args[:1] not in (['build'], ['pull']):
     sys.exit(9)
 '''
@@ -227,9 +251,9 @@ elif args[:1] not in (['build'], ['pull']):
                         if failure:
                             import subprocess
                             with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
-                                hosted.prepare(admitted, root / 'images.json')
+                                hosted.prepare(admitted, root / 'images.json', consumer=str(root / 'private'))
                         else:
-                            hosted.prepare(admitted, root / 'images.json')
+                            hosted.prepare(admitted, root / 'images.json', consumer=str(root / 'private'))
                 if failure:
                     source = json.loads((admitted / 'source.json').read_text())['checkout_sha']
                     value = hosted.acquisition.read(admitted / hosted.acquisition.NAME, source)
@@ -238,6 +262,7 @@ elif args[:1] not in (['build'], ['pull']):
                                      (failure, expected_boundary, 'command_exit', 23))
                     self.assertNotIn('private-output-sentinel', (admitted / hosted.acquisition.NAME).read_text())
                     self.assertFalse((root / 'images.json').exists())
+                    self.assertEqual(json.loads(state_path.read_text()) if (state_path := root/'images-state.json').exists() else {}, {})
                     with self.assertRaisesRegex(ValueError, 'resource_project_not_acquired'):
                         hosted.collect(root / 'private', root / 'public', metadata=admitted)
                     self.assertEqual(hosted.acquisition.read(root / 'public' / hosted.acquisition.NAME, source)['stage'], failure)
@@ -250,12 +275,15 @@ elif args[:1] not in (['build'], ['pull']):
                 self.assertEqual(value['source'], source)
                 commands = [json.loads(row) for row in log.read_text().splitlines()]
                 commands = [args[2:] if args[:1] == ['--host'] else args for args in commands]
+                receipt = json.loads((hosted.preparation.directory(root/'images.json')/'receipt.json').read_text())
                 builds = [args for args in commands if args[:1] == ['build']]
                 self.assertEqual(builds, [
                     ['build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                      '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA='+source,
+                     '--label', hosted.preparation.LABEL+'='+receipt['token'],
                      '--tag', 'inside-platform-production-smoke-cache-123-1-backend:v1', '.'],
-                    ['build', '--file', 'infra/production/database/Dockerfile', '--tag',
+                    ['build', '--file', 'infra/production/database/Dockerfile',
+                     '--label', hosted.preparation.LABEL+'='+receipt['token'], '--tag',
                      'inside-platform-production-smoke-cache-123-1-foundation:local', 'infra/production/database']])
                 pulls = [args for args in commands if args[:1] == ['pull']]
                 self.assertEqual(len(pulls), 7)

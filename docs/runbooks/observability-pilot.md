@@ -1566,6 +1566,40 @@ representative production load, full retention, whole-host reserve or seven actu
 The workflow adds no mandatory release gate. Native image builds and runtime compatibility
 must be observed in a source-bound hosted attempt before claiming they work.
 
+#### Жизненный цикл подготовленных образов
+
+`hosted.py prepare` требует `--consumer` с абсолютным путём следующего runtime output.
+Подготовка создаёт приватный каталог `<images manifest>.preparation` с неизменяемыми
+receipts: source, daemon identity, прежние IDs, уникальная label подготовки, созданные IDs
+и именованный потребитель. Backend и foundation получают эту label; семь скачиваемых
+общих сервисов остаются вне владения подготовки. Существующий owner tag останавливает
+подготовку до build. Ошибка, timeout и обрабатываемое прерывание освобождают отменённого
+потребителя и пытаются удалить только собственные образы. После необрабатываемого
+завершения остаётся явный recovery по receipt, а не обещание сработавшего trap.
+
+Runtime освобождает свой input после подтверждённых `down: passed` и `residue: passed`.
+Неудачный down сохраняет образы для восстановления. Для последующего восстановления
+передайте тот же `--images` в `runtime.py recover`; если runtime ещё не зарегистрировал owner,
+эта команда освобождает отменённого потребителя подготовки. Прежние manifests без
+каталога receipts по-прежнему являются входами только для чтения.
+
+До завершения первого runtime следующий эксперимент регистрируется явно:
+
+```bash
+python3 scripts/observability-resource/hosted.py retain \
+  --metadata "$RESOURCE_METADATA" --images "$RESOURCE_IMAGES" \
+  --consumer "$NEXT_RESOURCE_OUTPUT" --purpose "admitted next exact-source experiment"
+```
+
+Именованный следующий потребитель удерживает образы до собственного `run`/`recover`.
+Повторное удержание после начала удаления отклоняется. Уборка перепроверяет daemon identity,
+label, прежние IDs, теги, registry digests и ссылки всех контейнеров. Она сохраняет общие,
+чужие, текущие и recovery inputs, использует immutable ID без `--force`, с `--no-prune`
+для защиты родительских слоёв. Неоднозначное владение и ошибки сохраняют receipt для
+повторного восстановления; исторические образы не выбираются. Receipts приватные и не
+добавлены к публичному whitelist. Host free before/lowest observed/after измеряются отдельно:
+сумма перекрывающихся `Image.Size` не означает физически освобождённые байты.
+
 Backend and Web development roles keep the same complete dependency install ancestry. Their
 `dependency-inputs` stages copy the same manifests and lifecycle sources; `dependencies` retains
 the original full-workspace frozen install and shared BuildKit cache mount. The shared development
