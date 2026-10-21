@@ -44,6 +44,7 @@ jobs:
             scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \
             scripts/foundation-repository-transition.py scripts/backup-repository-inventory.py \
             scripts/test_backup_repository_inventory.py scripts/test_backup_repository_transition.py \
+            scripts/test_backup_repository_compose.py \
             .github/workflows/foundation-recovery.yml || status=$?
           case "$status" in
             0) echo 'required=false' >>"$GITHUB_OUTPUT" ;;
@@ -70,7 +71,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Run admission and ownership contracts
-        run: python3 -B -m unittest discover -s scripts -p test_foundation_recovery_proof.py
+        run: |
+          python3 -B -m unittest discover -s scripts -p test_foundation_recovery_proof.py
+          python3 -B scripts/test_backup_repository_compose.py
       - name: Build the native foundation image
         run: |
           set -euo pipefail

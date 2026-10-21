@@ -134,8 +134,7 @@ def proof(image, receipt, directory):
             raise RuntimeError("creating the new stanza changed old namespace")
         verdict["stage"] = "multi-source"
         source = start(resources, image, data, repository, multi, "multi-source")
-        for repo in (1, 2):
-            backrest(resources, source, "--repo=" + str(repo), "check")
+        backrest(resources, source, "check")
         for _ in range(2):
             backrest(resources, source, "--repo=2", "--type=full", "--no-expire-auto", "backup")
         if labels(resources, source, 1) != old_labels or len(labels(resources, source, 2)) != 2:
@@ -146,8 +145,7 @@ def proof(image, receipt, directory):
         for database in DATABASES:
             base.sql(resources, source, database, "INSERT INTO proof_marker VALUES(3,'after');")
         base.sql(resources, source, "postgres", "SELECT pg_switch_wal();")
-        for repo in (1, 2):
-            backrest(resources, source, "--repo=" + str(repo), "check")
+        backrest(resources, source, "check")
         resources.command("stop", "--time", "30", source)
         before_restore = base.source_manifest(resources, image, data, repository, multi, "before-restores")
         verdict["stage"] = "restores"
@@ -164,7 +162,7 @@ def proof(image, receipt, directory):
         for database in DATABASES:
             base.sql(resources, source, database, "INSERT INTO proof_marker VALUES(4,'rollback');")
         base.sql(resources, source, "postgres", "SELECT pg_switch_wal();")
-        backrest(resources, source, "--repo=1", "check")
+        backrest(resources, source, "check")
         backrest(resources, source, "--repo=1", "--type=full", "--no-expire-auto", "backup")
         if not set(old_labels).issubset(labels(resources, source, 1)) or len(labels(resources, source, 1)) != 2:
             raise RuntimeError("rollback expired old history")

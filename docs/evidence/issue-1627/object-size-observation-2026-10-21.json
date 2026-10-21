@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-10-21T08:03:47.705209+00:00",
+  "repository": 1,
+  "stanza": "production",
+  "command": "pgbackrest --stanza=production --repo=1 --output=json --log-level-console=off --log-level-file=off --recurse repo-ls <section>",
+  "sections": {
+    "backup/production": {"fileCount": 1679, "bytes": 2081920480},
+    "archive/production": {"fileCount": 15070, "bytes": 3070829424}
+  },
+  "observationOnly": true,
+  "consistentSnapshot": false,
+  "rawPayloadRetained": false,
+  "includesOtherNamespaces": false
+}

@@ -75,3 +75,11 @@ encrypted recovery и legacy compatibility. Проверять нужно source
 принятие подготовленного HIGH результата, свежий backup/isolated restore, план сохранения
 новых записей при rollback и объявленное окно. Используется существующий
 [foundation runbook](production-foundation.md). Этим комплектом production не обновляется.
+
+Расширение #1627 добавляет ordinary synthetic repository transition на тех же hosted runners:
+[порядок применения и границы](pgbackrest-repository-transition.md). Initializer Compose проверяется
+отдельно на synthetic env. Переход проверяет три БД, old/new full restore и PITR, сохранение old
+metadata и истории сверх retention count, возврат маршрута с новыми записями и cleanup.
+Это дополнительное доказательство, которое требует успешного artifact и job; наличие кода не PASS.
+Оно не меняет отложенный RNG-критерий, не проверяет production S3 IAM и не доказывает качество
+исторических подключей. Lifecycle suite теперь включает inventory timeout/client disconnect.
