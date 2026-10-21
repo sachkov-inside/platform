@@ -46,6 +46,11 @@ bash scripts/heavy-check.sh node --test scripts/observability-pilot.test.mjs
 pnpm docs:check
 ```
 
+`test:tooling` допускает Node test files последовательно (`--test-concurrency=1`).
+Состав проверок, предварительная сборка backend, ограничения дочерних процессов и CI job
+сохранены. Production concurrency не меняется. Общее время набора может вырасти;
+причина прежних тайм-аутов и улучшение времени в hosted CI пока не подтверждены.
+
 `preflight` сообщает место **на файловой системе checkout**, не измеряет Docker VM и не
 подтверждает готовность Docker. При недостатке места возвращает 2. `prepare` создаёт
 случайный каталог `.reports/observability-pilot-*`, Compose JSON, временный query key и
@@ -2044,6 +2049,39 @@ Linux-прогон на закреплённых образах. Доступн�
 порядок обработки настоящего экспортёра, видимость после flush, отказ при пропущенных
 чужих строках и соблюдение временных границ требуют отдельного подтверждения в CI.
 Эта подготовка не подтверждает готовность production или размер необходимого сервера.
+
+### Passive Core source-test feedback
+
+The fixed source runner is selected only on Linux with `INSIDE_CORE_SOURCE_PROGRESS=1`.
+Default callers and every non-Linux caller, including a Mac with that flag, retain the original
+registration, synchronous `python3 -m unittest discover` call, arguments, options and assertions.
+The opt-in uses `source_runner.py` with the same original synchronous `spawnSync` lifetime and
+30-second timeout. `maxBuffer` remains omitted, preserving the inherited Node default. No new
+combined or per-pipe capture allowance, process owner, signal handling, rescue or process-tree
+cleanup guarantee is introduced.
+
+Normal unittest discovery still owns the original 274 methods, order, warnings, result and exit
+semantics. The progress owner validates the entire fixed inventory before running the original
+suite. Fixed start/completed lines share captured stderr with normal unittest output. `completed`
+means the original `stopTest` callback was reached; it does not establish success. Marker write
+`OSError` can lose optional metadata. An active original exception and its built-in traceback
+remain primary; an otherwise unhandled interrupt or exit is not swallowed.
+
+The Linux assertion validates the whole ordered marker prefix before showing only fixed source
+IDs and a completed count. Missing, malformed, oversized or foreign metadata yields `unknown`.
+`ENOBUFS` selects `unknown` before inspecting stderr. The independent parser bounds are 1 MiB of
+UTF-8 stderr and 131072 marker bytes; they do not change the omitted `spawnSync.maxBuffer` default.
+Native exit status, spawn error and signal remain authoritative. Even a complete marker stream
+cannot turn a failed native outcome into a pass, while missing markers do not reject a successful
+native outcome. Raw captured unittest text is not the opt-in Linux assertion message.
+
+Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
+replace any of the original 274 methods. Synthetic dispatch/parity checks do not establish an
+actual admitted Linux run or explain an earlier source timeout. Hosted exact-source verification
+is still required. The stronger withdrawn owner/guardian proposals and their open
+`CORE-PROG-SEC-01`, `CPROG-PRE-01` and `CPROG-PRE-02` findings are neither fixed nor waived here.
+Application CI activation is a separate reviewed change to the existing tooling step only; it
+must not opt in the direct functional workflow or widen any source or native gate.
 
 ## Confirmed active Membership Accounts
 
