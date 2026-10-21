@@ -10,8 +10,28 @@ from unittest.mock import patch
 
 class CoreSourceProgress(unittest.TestCase):
     def test_inventory_preserves_all_baseline_methods_and_exact_additions(self):
-        import source_progress as owner
+        import core_source_progress as owner
         root=Path(__file__).parent;expected=[]
+        # A fresh interpreter reproduces Caddy's actual pilot-before-Caddy search order.
+        # Import identities and fixed inventories only; no original fixture body executes.
+        import subprocess
+        identity="""import importlib,json,sys,unittest
+from pathlib import Path
+pilot,caddy=map(Path,sys.argv[1:])
+sys.path[:0]=[str(pilot),str(caddy)]
+assert 'source_progress' not in sys.modules and 'core_source_progress' not in sys.modules
+caddy_owner=importlib.import_module('source_progress')
+core_owner=importlib.import_module('core_source_progress')
+assert Path(caddy_owner.__file__).resolve()==caddy/'source_progress.py'
+assert Path(core_owner.__file__).resolve()==pilot/'core_source_progress.py'
+assert issubclass(caddy_owner.ProgressResult,unittest.TextTestResult)
+assert issubclass(core_owner.PassiveRunner,unittest.TextTestRunner)
+print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
+"""
+        result=subprocess.run([sys.executable,'-c',identity,str(root.resolve()),
+            str(root.resolve().parent/'observability-caddy-storage')],capture_output=True,timeout=5)
+        self.assertEqual(result.returncode,0,'closed Core/Caddy module identity refused')
+        self.assertEqual(result.stdout,b'[80, 274]\n')
         for path in sorted(root.glob('test_*.py')):
             for cls in ast.parse(path.read_text()).body:
                 if isinstance(cls,ast.ClassDef):
@@ -31,7 +51,7 @@ class CoreSourceProgress(unittest.TestCase):
             owner.verify_inventory(unittest.TestSuite())
 
     def test_markers_preserve_first_primary_and_completed_is_not_success(self):
-        import source_progress as owner
+        import core_source_progress as owner
         # Synthetic body only; its identity is an existing fixed source ID, not original fixture execution.
         identifier=owner.SOURCE_IDS[0];module,cls,method=identifier.split('.')
         case=type(cls,(unittest.TestCase,),{'__module__':module,method:lambda self:self.fail('controlled private-canary')})(method)
@@ -86,7 +106,7 @@ class CoreSourceProgress(unittest.TestCase):
         writer.fault=None
 
     def test_runner_uses_original_discovery_and_refuses_inventory_drift(self):
-        import source_progress as owner
+        import core_source_progress as owner
         source=Path(__file__).with_name('source_runner.py').read_text()
         tree=ast.parse(source)
         self.assertEqual(ast.dump(tree.body[0]),ast.dump(ast.Import(names=[ast.alias(name='sys')])))
@@ -131,7 +151,7 @@ class CoreSourceProgress(unittest.TestCase):
                         try:super().__init__(*args,**kwargs)
                         finally:programs.append(self)
                 def importing(name,*args,**kwargs):
-                    if name=='source_progress':
+                    if name=='core_source_progress':
                         self.assertEqual(len(discovered),1)
                         self.assertEqual(sys.path[0],str(root));imported.append(name)
                     return actual_import(name,*args,**kwargs)
@@ -156,7 +176,7 @@ class CoreSourceProgress(unittest.TestCase):
                         output=re.sub(r'\nCORE_SOURCE_V1 (?:start|completed) [A-Za-z0-9_.]+\n','',output)
                     records.append((code,program.progName,program.warnings,result.testsRun,len(result.failures),
                                     len(result.errors),len(result.skipped),discovered,output))
-                    self.assertEqual(imported,[] if legacy else ['source_progress'])
+                    self.assertEqual(imported,[] if legacy else ['core_source_progress'])
                 finally:sys.path[:]=saved_path;sys.argv[:]=saved_argv
             self.assertEqual(records[0],records[1])
             self.assertEqual(records[0][3],0 if empty else 3)
