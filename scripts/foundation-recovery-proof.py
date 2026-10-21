@@ -159,6 +159,7 @@ class Resources:
                   data_readonly=False, repository_readonly=False, command_timeout=120, binary=False):
         name = self.register("container", suffix)
         args = ["run", "--name", name, "--label", LABEL + "=" + self.owner,
+                "--init",
                 "--network", "none", "--pull", "never", "--read-only",
                 "--memory", "512m", "--cpus", "2", "--pids-limit", "128",
                 "--tmpfs", "/tmp:rw,size=32m", "--tmpfs", "/var/run/postgresql:rw,size=8m",

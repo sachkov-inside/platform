@@ -157,6 +157,7 @@ class OwnedResources(unittest.TestCase):
                                  data_readonly=True, repository_readonly=True)
         run = self.calls[-1]
         self.assertEqual(run[run.index("--network") + 1], "none")
+        self.assertIn("--init", run)
         self.assertNotIn("--publish", run)
         self.assertIn("type=volume,src=data,dst=/var/lib/postgresql,readonly", run)
         self.assertIn("type=volume,src=repo,dst=/backup,readonly", run)
