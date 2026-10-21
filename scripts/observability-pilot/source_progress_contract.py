@@ -123,6 +123,50 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         self.assertEqual(output.getvalue(),'CORE_PROTOCOL_V1 failures F-E\n')
         self.assertIs(observed.failures[0],failure_record);self.assertIs(observed.errors[0],error_record)
         for error,before in zip(primaries,tracebacks):self.assertIs(error.__traceback__,before)
+        # Exercise the actual comparison seam, not a duplicate parity model.
+        parity=cases[2];fixed=('fixed',)*9
+        for index,label in enumerate(('exit','program','warnings','tests','failures','errors','skips','discovery','output')):
+            unequal=list(fixed);unequal[index]='controlled private-canary'
+            failed=unittest.TextTestResult(io.StringIO(),True,1)
+            for case in cases:failed.startTest(case);failed.stopTest(case)
+            try:parity._assert_parity_records(fixed,tuple(unequal))
+            except AssertionError:failed.addFailure(parity,sys.exc_info())
+            else:self.fail('unequal parity component accepted')
+            self.assertEqual(_protocol_failure_summary(failed),'CORE_PROTOCOL_V1 failures --F field '+label+'\n')
+            parity._assert_parity_records(fixed,fixed)
+            self.assertIsNone(parity._parity_field)
+            # An actual later failure on the same case has no stale comparison attribution.
+            try:parity.fail('controlled later private-canary')
+            except AssertionError:
+                later=unittest.TextTestResult(io.StringIO(),True,1)
+                for case in cases:later.startTest(case);later.stopTest(case)
+                later.addFailure(parity,sys.exc_info())
+            self.assertEqual(_protocol_failure_summary(later),'CORE_PROTOCOL_V1 failures --F\n')
+        class ForeignField:
+            def __getattribute__(self,name):raise AssertionError('foreign field read')
+        class ForeignString(str):pass
+        for invalid in (None,'private-canary',ForeignString('output'),ForeignField()):
+            parity.__dict__['_parity_field']=invalid
+            self.assertEqual(_protocol_failure_summary(observed),'CORE_PROTOCOL_V1 failures F-E\n')
+        del parity.__dict__['_parity_field']
+        def forbidden_field(case):raise AssertionError('foreign field getter')
+        with patch.object(CoreSourceProgress,'_parity_field',property(forbidden_field),create=True):
+            self.assertEqual(_protocol_failure_summary(observed),'CORE_PROTOCOL_V1 failures F-E\n')
+        cases[0].__dict__['_parity_field']='output'
+        self.assertEqual(_protocol_failure_summary(observed),'CORE_PROTOCOL_V1 failures F-E\n')
+        parity._parity_field='output'
+        with patch.object(unittest.TextTestRunner,'run',return_value=observed):
+            output=io.StringIO();self.assertIs(ProtocolRunner(stream=output).run(unittest.TestSuite()),observed)
+        self.assertEqual(output.getvalue(),'CORE_PROTOCOL_V1 failures F-E field output\n')
+        self.assertIs(observed.failures[0],failure_record);self.assertIs(observed.errors[0],error_record)
+        for error,before in zip(primaries,tracebacks):self.assertIs(error.__traceback__,before)
+        parity._parity_field=None
+        class ForeignCase(CoreSourceProgress):pass
+        foreign_case=ForeignCase(PROTOCOL_METHODS[2]);foreign_case._parity_field='output'
+        with patch.object(observed,'errors',[(foreign_case,'opaque')]):
+            self.assertIsNone(_protocol_failure_summary(observed))
+        with patch.dict(parity.__dict__,{'_testMethodName':ForeignString(PROTOCOL_METHODS[2])}):
+            self.assertIsNone(_protocol_failure_summary(observed))
         class BrokenWriter(io.StringIO):
             def write(self,value):raise self.fault
         for fault in (OSError(),ValueError(),KeyboardInterrupt(),SystemExit()):
@@ -156,6 +200,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         self.assertIsNone(_protocol_failure_summary(observed))
 
     def test_runner_uses_original_discovery_and_refuses_inventory_drift(self):
+        self._parity_field=None
         import core_source_progress as owner
         source=Path(__file__).with_name('source_runner.py').read_text()
         tree=ast.parse(source)
@@ -228,7 +273,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                                     len(result.errors),len(result.skipped),discovered,output))
                     self.assertEqual(imported,[] if legacy else ['core_source_progress'])
                 finally:sys.path[:]=saved_path;sys.argv[:]=saved_argv
-            self.assertEqual(records[0],records[1])
+            self._assert_parity_records(records[0],records[1])
             self.assertEqual(records[0][3],0 if empty else 3)
             outputs.append(records[0][0])
         self.assertEqual(outputs[0],1)
@@ -245,6 +290,17 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                     exec(compile(source,str(root/'source_runner.py'),'exec'),{'__name__':'__main__'})
             self.assertEqual(imports,['sys'])
 
+    def _assert_parity_records(self,left,right):
+        self._parity_field=None
+        for index,field in enumerate(PARITY_FIELDS):
+            self._parity_field=field
+            self.assertEqual(left[index],right[index])
+            self._parity_field=None
+        self.assertEqual(left,right)
+
+
+PARITY_FIELDS=('exit','program','warnings','tests','failures','errors','skips','discovery','output')
+
 
 PROTOCOL_METHODS=(
     'test_inventory_preserves_all_baseline_methods_and_exact_additions',
@@ -258,21 +314,25 @@ def _protocol_failure_summary(result):
     if type(result) is not unittest.TextTestResult or result.testsRun!=3:return None
     if any(type(values) is not list or values for values in
            (result.skipped,result.expectedFailures,result.unexpectedSuccesses)):return None
-    vector=['-']*3
+    vector=['-']*3;field=None
     for values,category in ((result.failures,'F'),(result.errors,'E')):
         if type(values) is not list or len(values)>3:return None
         for entry in values:
             if type(entry) is not tuple or len(entry)!=2:return None
             case=entry[0]
             if type(case) is not CoreSourceProgress:return None
-            identifier=unittest.TestCase.id(case)
-            identifiers=tuple(CoreSourceProgress.__module__+'.CoreSourceProgress.'+name for name in PROTOCOL_METHODS)
-            if identifier not in identifiers:return None
-            index=identifiers.index(identifier)
+            own=unittest.TestCase.__dict__['__dict__'].__get__(case,CoreSourceProgress)
+            if type(own) is not dict:return None
+            method=own.get('_testMethodName')
+            if type(method) is not str or method not in PROTOCOL_METHODS:return None
+            index=PROTOCOL_METHODS.index(method)
+            if index==2:
+                value=own.get('_parity_field')
+                if type(value) is str and value in PARITY_FIELDS:field=value
             if vector[index]!='-':return None
             vector[index]=category
     if vector==['-']*3:return None
-    return 'CORE_PROTOCOL_V1 failures '+''.join(vector)+'\n'
+    return 'CORE_PROTOCOL_V1 failures '+''.join(vector)+(' field '+field if field is not None else '')+'\n'
 
 
 class ProtocolRunner(unittest.TextTestRunner):
