@@ -73,6 +73,9 @@
 .aie-status:has(.aie-cohort-status) .aie-status-default {
   display: none;
 }
+.aie-status:has(.aie-learning-status) .aie-status-default {
+  display: none;
+}
 .aie-status:has(.aie-cohort-status) {
   grid-template-columns: minmax(0, 1.2fr) minmax(17rem, 0.8fr);
   grid-template-areas:

@@ -37,6 +37,7 @@ vi.mock("@/features/account-access", () => ({
 import {
   PersonalCohortCall,
   PersonalCohortStatus,
+  PersonalCourseFilmOverlay,
 } from "@/_pages/library-discovery/ui/cohort-call.server";
 import { WaitlistProvider } from "@/_pages/library-discovery/ui/waitlist-provider.client";
 import { productWaitlistKey } from "@/features/product-waitlist";
@@ -129,6 +130,17 @@ test("active membership is hidden when learning is available", async () => {
   expect(html).not.toContain("списке ожидания");
   expect(html).not.toContain("Отказаться от ожидания");
   expect(html).not.toContain("Вступить в список ожидания");
+  expect(html).toContain("aie-learning-status");
+});
+test("learners can continue from the film without loading a sale or cohort", async () => {
+  fakes.access.mockResolvedValue("open");
+  const html = renderToStaticMarkup(
+    await PersonalCourseFilmOverlay({ result }),
+  );
+  expect(html).toContain("aie-learning-film");
+  expect(html).toContain("Продолжить обучение");
+  expect(html).toContain("/products/ai-engineering/programme");
+  expect(fakes.sale).not.toHaveBeenCalled();
 });
 test("an inactive learner keeps learning without a new join CTA", async () => {
   const html = await compose("open", false);
