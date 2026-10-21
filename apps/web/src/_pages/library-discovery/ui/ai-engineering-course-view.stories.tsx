@@ -408,7 +408,12 @@ export const CourseParticipantResolving: Story = {
     const [resolved, setResolved] = useState(false);
     return (
       <>
-        <button type="button" onClick={() => setResolved(true)}>
+        <button
+          type="button"
+          onClick={() => {
+            setResolved(true);
+          }}
+        >
           Завершить проверку доступа
         </button>
         <ProductLandingView
