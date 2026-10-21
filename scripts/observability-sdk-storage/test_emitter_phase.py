@@ -97,7 +97,124 @@ class SdkPhaseTest(unittest.TestCase):
 
 
 
+
+def assert_live_temporary_pin(test,write,temporary_name,error_type):
+    """Real product descriptors, no external pin and no simulated inode identities."""
+    with tempfile.TemporaryDirectory() as directory:
+        root=Path(directory).resolve();path=root/'phase.json';temporary=root/temporary_name
+        acquired=[];observed=[];original_open=os.open;original_dup=os.dup
+        def opened(*args,**kwargs):
+            fd=original_open(*args,**kwargs);acquired.append(fd);return fd
+        def duplicated(fd):
+            result=original_dup(fd);acquired.append(result);return result
+        def replace(*_args,**_kwargs):
+            info=temporary.stat();live=[]
+            for fd in acquired:
+                try:held=os.fstat(fd)
+                except OSError:continue
+                if (held.st_dev,held.st_ino)==(info.st_dev,info.st_ino):live.append(fd)
+            observed.append(bool(live))
+            temporary.unlink();temporary.write_bytes(b'foreign-recreated');temporary.chmod(0o600)
+            raise OSError('controlled replace refusal')
+        with patch.object(os,'open',side_effect=opened),patch.object(os,'dup',side_effect=duplicated),patch.object(os,'replace',side_effect=replace):
+            with test.assertRaises(error_type):write(path)
+        test.assertEqual(observed,[True],'writer released original temp before named cleanup')
+        for fd in acquired:
+            with test.assertRaises(OSError):os.fstat(fd)
+        test.assertEqual(temporary.read_bytes(),b'foreign-recreated')
+        test.assertFalse(path.exists())
+
+def assert_pin_cleanup_failures(test,write,temporary_name,*,buffered=False):
+    """Exercise actual file handles; a close-then-error must never close a reused foreign FD."""
+    import stat
+    for stage in ('dup','pin_stat','write','fdopen','flush','writer_close','replace','cleanup_unlink','combined','interrupt','system_exit','pin_close','directory_close'):
+        if buffered and stage=='directory_close' or not buffered and stage in ('fdopen','flush'):continue
+        with test.subTest(stage=stage),tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();path=root/'phase.json';temporary=root/temporary_name
+            primary=KeyboardInterrupt() if stage=='interrupt' else SystemExit(2) if stage=='system_exit' else OSError('controlled first failure');secondary=OSError('controlled later failure')
+            originals={name:getattr(os,name) for name in ('open','dup','close','fstat','write','replace','unlink','fdopen')}
+            acquired={};attempts=[];pins=[];foreign=[];operation_failed=False;primary_trace=[]
+            def opened(*args,**kwargs):
+                fd=originals['open'](*args,**kwargs);info=originals['fstat'](fd);acquired[fd]=(info.st_dev,info.st_ino,stat.S_ISDIR(info.st_mode));return fd
+            def duplicated(fd):
+                if stage=='dup':raise primary
+                pin=originals['dup'](fd);info=originals['fstat'](pin);acquired[pin]=(info.st_dev,info.st_ino,False);pins.append(pin);return pin
+            def fstat(fd):
+                if stage=='pin_stat' and fd in pins:raise primary
+                return originals['fstat'](fd)
+            def fail_after_close(fd,close):
+                attempts.append(fd);close()
+                is_pin=fd in pins;is_directory=acquired[fd][2]
+                should_fail=(stage=='pin_close' and is_pin or stage=='directory_close' and is_directory
+                             or stage=='writer_close' and not is_pin and not is_directory)
+                if operation_failed and stage in ('combined','interrupt','system_exit'):raise secondary
+                if should_fail:
+                    # Real allocation may reuse the retired number. It belongs to the fixture only.
+                    foreign.append(originals['open'](root/'foreign-fd',os.O_CREAT|os.O_RDWR,0o600))
+                    raise primary
+            def close(fd):fail_after_close(fd,lambda:originals['close'](fd))
+            def written(fd,data):
+                if stage=='write':raise primary
+                return originals['write'](fd,data)
+            def replaced(*args,**kwargs):
+                nonlocal operation_failed
+                if stage in ('replace','cleanup_unlink','combined','interrupt','system_exit'):
+                    operation_failed=True
+                    try:raise primary
+                    except BaseException:
+                        import sys
+                        primary_trace.append(sys.exc_info()[2]);raise
+                return originals['replace'](*args,**kwargs)
+            def unlink(*args,**kwargs):
+                if stage=='cleanup_unlink':raise secondary
+                return originals['unlink'](*args,**kwargs)
+            class Stream:
+                def __init__(self,stream):self.stream=stream
+                def write(self,data):
+                    if stage=='write':raise primary
+                    return self.stream.write(data)
+                def flush(self):
+                    if stage=='flush':raise primary
+                    return self.stream.flush()
+                def close(self):
+                    fd=self.stream.fileno();fail_after_close(fd,self.stream.close)
+            def fdopen(*args,**kwargs):
+                if stage=='fdopen':raise primary
+                return Stream(originals['fdopen'](*args,**kwargs))
+            try:
+                with patch.object(os,'open',side_effect=opened),patch.object(os,'dup',side_effect=duplicated),patch.object(os,'fstat',side_effect=fstat),patch.object(os,'close',side_effect=close),patch.object(os,'write',side_effect=written),patch.object(os,'replace',side_effect=replaced),patch.object(os,'unlink',side_effect=unlink),patch.object(os,'fdopen',side_effect=fdopen):
+                    try:write(path)
+                    except BaseException as error:
+                        observed=error;observed_trace=BaseException.__traceback__.__get__(error)
+                    else:test.fail('writer fault was silently accepted')
+                if buffered or stage in ('interrupt','system_exit'):
+                    test.assertTrue(observed is primary,'later cleanup replaced original failure')
+                    if primary_trace:
+                        while observed_trace is not None and observed_trace is not primary_trace[0]:
+                            test.assertNotEqual(observed_trace.tb_frame.f_code.co_name,'close','secondary close traceback leaked')
+                            observed_trace=observed_trace.tb_next
+                        test.assertTrue(observed_trace is primary_trace[0],'original traceback changed')
+                else:test.assertIsInstance(observed,(OSError,ValueError))
+                if stage=='combined' and not buffered:test.assertIsInstance(observed,ValueError)
+                test.assertLessEqual(len(pins),1)
+                for fd in acquired:
+                    test.assertEqual(attempts.count(fd),1,'acquired descriptor close was skipped or retried')
+                    if fd not in foreign:
+                        with test.assertRaises(OSError):originals['fstat'](fd)
+                for fd in foreign:originals['fstat'](fd)
+                if stage in ('pin_close','directory_close'):test.assertTrue(path.is_file())
+                else:test.assertFalse(path.exists())
+            finally:
+                for fd in foreign:originals['close'](fd)
+
+
 class SdkOwnershipFailureTest(unittest.TestCase):
+    def test_pin_failures_attempt_all_owned_closes_without_foreign_fd_retry(self):
+        assert_pin_cleanup_failures(self,lambda path:phase.write(path,record(),source=SOURCE),'phase.json.new')
+
+    def test_product_pin_survives_writer_close_and_no_external_pin_recreation(self):
+        assert_live_temporary_pin(self,lambda path:phase.write(path,record(),source=SOURCE),'phase.json.new',ValueError)
+
     def test_temp_collision_and_recreated_foreign_inode_are_never_removed(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory).resolve();path=output/phase.NAME;temporary=output/'phase.json.new'

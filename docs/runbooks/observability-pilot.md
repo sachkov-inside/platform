@@ -1432,6 +1432,13 @@ a relative metadata directory, but collection requires its explicit canonical ab
 arbitrary, null-provider or absent metadata, formerly accepted
 by generic artifact copying, now refuse. The existing admission CLI already required
 `HEAD == GITHUB_SHA` before writing its receipt; no local environment fallback is introduced.
+Temporary-file writers keep a separate owned descriptor to the original inode until all named
+cleanup decisions finish. The writing descriptor still closes before atomic commit. This prevents
+cleanup from treating a recycled inode number as proof that a recreated foreign temp is owned.
+Every acquired descriptor gets a close attempt; original failures and tracebacks survive later
+cleanup errors. This source repair still requires a corrected Linux source gate; local file controls
+do not prove native SDK transport or pinned storage acceptance.
+
 The SDK collector derives authority only from that receipt. Raw phase files are excluded from
 generic copying and rewritten as canonical validated records.
 

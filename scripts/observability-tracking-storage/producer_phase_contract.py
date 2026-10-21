@@ -30,7 +30,60 @@ process.stdout.write('{}');
 '''
 
 
+PIN_CODE=r'''
+import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const settings=JSON.parse(process.argv[1]),original={...fs},acquired=[];
+const directory=settings.directory;
+const translate=p=>settings.shim&&typeof p==='string'&&/^\/proc\/self\/fd\/[0-9]+(?:\/|$)/.test(p)?directory+p.replace(/^\/proc\/self\/fd\/[0-9]+/,''):p;
+for(const name of ['lstatSync','statSync','unlinkSync','realpathSync'])fs[name]=(...args)=>Reflect.apply(original[name],fs,[translate(args[0]),...args.slice(1)]);
+fs.openSync=(p,...args)=>{const fd=original.openSync(translate(p),...args);acquired.push(fd);return fd;};
+let live=false;
+fs.renameSync=(from,_to)=>{const path=translate(from),info=original.lstatSync(path,{bigint:true});live=acquired.some(fd=>{try{const held=original.fstatSync(fd,{bigint:true});return held.dev===info.dev&&held.ino===info.ino;}catch{return false;}});original.unlinkSync(path);original.writeFileSync(path,'foreign-recreated',{mode:0o600});throw new Error('controlled rename refusal');};
+syncBuiltinESMExports();
+try{
+ const {createTrackingProducerPhase}=await import(settings.phase);
+ const phase=createTrackingProducerPhase({INSIDE_TRACKING_PRODUCER_PHASE_PATH:directory+'/phase.json',INSIDE_TRACKING_PRODUCER_PHASE_SOURCE:'a'.repeat(40)});
+ if(phase===null)throw new Error('controlled owner absent');phase.enter('input_validation');phase.failed();
+ const closed=acquired.every(fd=>{try{original.fstatSync(fd);return false;}catch{return true;}});
+ process.stdout.write(JSON.stringify({live,closed,foreign:original.readFileSync(directory+'/phase.json.new','utf8')==='foreign-recreated',marker:original.existsSync(directory+'/phase.json')}));
+}catch{process.exitCode=4;}
+'''
+
+
+PIN_FAULT_CODE=r'''
+import fs from 'node:fs';import {syncBuiltinESMExports} from 'node:module';
+const settings=JSON.parse(process.argv[1]),original={...fs},active=new Map(),handles=[],foreign=[];
+const directory=settings.directory,fault=settings.fault,retired=new Set();
+const translate=p=>settings.shim&&typeof p==='string'&&/^\/proc\/self\/fd\/[0-9]+(?:\/|$)/.test(p)?directory+p.replace(/^\/proc\/self\/fd\/[0-9]+/,''):p;
+for(const name of ['realpathSync','statSync','lstatSync'])fs[name]=(...args)=>Reflect.apply(original[name],fs,[translate(args[0]),...args.slice(1)]);
+fs.openSync=(path,flags,mode)=>{const named=translate(path);if(named!==directory&&named!==directory+'/phase.json.new')return original.openSync(named,flags,mode);const kind=named===directory?'parent':typeof flags==='number'&&(flags&original.constants.O_WRONLY)!==0?'writer':'pin';if(kind==='pin'&&fault==='pin_open')throw new Error('controlled pin refusal');const fd=original.openSync(named,flags,mode),entry={attempts:0,kind};active.set(fd,entry);handles.push(entry);return fd;};
+let unknownClose=false;
+fs.closeSync=fd=>{const entry=active.get(fd);if(entry===undefined){if(retired.has(fd))unknownClose=true;original.closeSync(fd);return;}active.delete(fd);retired.add(fd);entry.attempts++;original.closeSync(fd);if(fault==='writer_close'&&entry.kind==='writer'){foreign.push(original.openSync(directory+'/foreign-fd',original.constants.O_CREAT|original.constants.O_RDWR,0o600));throw new Error('controlled writer close refusal');}if(fault==='pin_close'&&entry.kind==='pin'||fault==='combined'&&entry.kind!=='writer')throw new Error('controlled close refusal');};
+fs.renameSync=(from,to)=>{if(fault==='combined')throw new Error('controlled rename refusal');original.renameSync(translate(from),translate(to));};
+fs.unlinkSync=path=>{if(fault==='combined')throw new Error('controlled unlink refusal');original.unlinkSync(translate(path));};
+syncBuiltinESMExports();
+try {
+ const {createTrackingProducerPhase}=await import(settings.phase);const phase=createTrackingProducerPhase({INSIDE_TRACKING_PRODUCER_PHASE_PATH:directory+'/phase.json',INSIDE_TRACKING_PRODUCER_PHASE_SOURCE:'a'.repeat(40)});if(phase===null)throw new Error('controlled owner absent');phase.enter('input_validation');const count=handles.length;phase.failed();
+ const preserved=foreign.every(fd=>{try{original.fstatSync(fd);return true;}catch{return false;}});
+ process.stdout.write(JSON.stringify({closed:active.size===0&&handles.every(entry=>entry.attempts===1),retired:!unknownClose,disabled:count===handles.length,preserved,marker:original.existsSync(directory+'/phase.json')}));
+} finally {for(const fd of foreign)original.closeSync(fd);}
+'''
+
+
 class ProducerEntryPhase(unittest.TestCase):
+    def test_pin_faults_attempt_all_closes_without_reusing_foreign_descriptor(self):
+        for fault in ('pin_open','writer_close','combined','pin_close'):
+            with self.subTest(fault=fault),tempfile.TemporaryDirectory() as directory:
+                settings=dict(shim=sys.platform!='linux',fault=fault,directory=str(Path(directory).resolve()),phase=Path(__file__).with_name('producer-phase.mjs').as_uri())
+                value=producer_protocol.capture(argv=['node','--input-type=module','-e',PIN_FAULT_CODE,json.dumps(settings)],budget=3)
+                self.assertEqual(value,dict(closed=True,retired=True,disabled=True,preserved=True,marker=fault=='pin_close'))
+
+    def test_product_pin_survives_rename_failure_without_external_fd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings=dict(shim=sys.platform!='linux',directory=str(Path(directory).resolve()),phase=Path(__file__).with_name('producer-phase.mjs').as_uri())
+            value=producer_protocol.capture(argv=['node','--input-type=module','-e',PIN_CODE,json.dumps(settings)],budget=3)
+            self.assertEqual(value,dict(live=True,closed=True,foreign=True,marker=False))
+
     def test_real_entry_input_observation_preserves_native_exit_and_reaps_child(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory).resolve();report=output/'fixture.json';captured=None

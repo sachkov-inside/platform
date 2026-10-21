@@ -1,11 +1,13 @@
 """Tracking-owned phase schema/capture/source authority controls, without API/PG."""
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'observability-sdk-storage'))
 import producer_phase as phase
 
 SOURCE='a'*40
@@ -16,6 +18,14 @@ def record(state='running',name='input_validation',reason='none'):
 
 
 class TrackingPhaseTest(unittest.TestCase):
+    def test_pin_failures_attempt_all_owned_closes_without_foreign_fd_retry(self):
+        from test_emitter_phase import assert_pin_cleanup_failures
+        assert_pin_cleanup_failures(self,lambda path:phase.write(path,record(),source=SOURCE),'phase.json.new')
+
+    def test_product_pin_survives_writer_close_and_no_external_pin_recreation(self):
+        from test_emitter_phase import assert_live_temporary_pin
+        assert_live_temporary_pin(self,lambda path:phase.write(path,record(),source=SOURCE),'phase.json.new',ValueError)
+
     def test_exact_tracking_profile_refuses_sdk_and_parent_child_forgery(self):
         self.assertEqual(phase.validate(record('failed','migration','operation_failed'),source=SOURCE),record('failed','migration','operation_failed'))
         for value in [record(name='sdk_flush'),{**record(),'scope':'sdk'},{**record(),'source':'b'*40},record(name='result_ready'),{**record(),'private':'secret'}]:

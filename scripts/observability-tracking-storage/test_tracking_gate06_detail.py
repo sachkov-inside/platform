@@ -12,6 +12,14 @@ import diagnostics
 
 
 class Gate06Detail(unittest.TestCase):
+    def test_shared_pin_failures_keep_primary_and_attempt_every_owned_close(self):
+        from test_emitter_phase import assert_pin_cleanup_failures
+        assert_pin_cleanup_failures(self,lambda path:diagnostics.write(path,diagnostics.unknown('tracking'),scope='tracking'),'.storage-diagnostic.new',buffered=True)
+
+    def test_shared_writer_pins_its_own_temp_without_fixture_held_descriptor(self):
+        from test_emitter_phase import assert_live_temporary_pin
+        assert_live_temporary_pin(self,lambda path:diagnostics.write(path,diagnostics.unknown('tracking'),scope='tracking'),'.storage-diagnostic.new',OSError)
+
     def test_four_rejected_row_contracts_keep_gate_and_publish_only_fixed_detail(self):
         for detail in ('missing_mandatory','unexpected_key','expected_value','optional_value'):
             rows=copy.deepcopy(trace_rows())
