@@ -30,6 +30,7 @@ import {
   describe,
   it,
   expect,
+  vi,
 } from "vitest";
 import { createDatabase } from "../../src/database/create-database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
@@ -319,17 +320,20 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         stage = "terminal_tcp_admissions";
         expect(openedGate.acceptedCount()).toBe(1);
         for (const category of ["subscription", "material"] as const) {
-          stage =
-            category === "subscription"
-              ? "terminal_subscription_queue_read"
-              : "terminal_material_queue_read";
-          const queue = await control.checkQueue(
-            `telegram.notifications.${category}.v1`,
-          );
-          stage =
-            category === "subscription"
-              ? "terminal_subscription_consumers"
-              : "terminal_material_consumers";
+          const queue = await vi.waitUntil(async () => {
+            stage =
+              category === "subscription"
+                ? "terminal_subscription_queue_read"
+                : "terminal_material_queue_read";
+            const current = await control.checkQueue(
+              `telegram.notifications.${category}.v1`,
+            );
+            stage =
+              category === "subscription"
+                ? "terminal_subscription_consumers"
+                : "terminal_material_consumers";
+            return current.consumerCount === 0 ? current : undefined;
+          });
           expect(queue.consumerCount).toBe(0);
         }
       } catch (error: unknown) {
