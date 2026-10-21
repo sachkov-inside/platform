@@ -373,8 +373,9 @@ reload. Не перезапускайте Logto, Platform или PostgreSQL ра
 Расписание хранится в UTC: full — каждое воскресенье, differential — в остальные дни,
 incremental — каждые шесть часов. WAL архивируется непрерывно. Retention parameter задаёт четыре
 full, но source #1627 отключает автоматический expire в config и backup helper для сохранения
-истории. Это не удаляет отдельные expire jobs или provider lifecycle. На момент подготовки
-#1627 production всё ещё использует прежнюю policy. Применение, repo selector и приёмка описаны
+истории. Это не удаляет отдельные expire jobs или provider lifecycle. Переход #1627 применён
+21.10.2026: расписание создаёт backups в repo2, WAL продолжает поступать в repo1 и repo2,
+старая история сохранена. Фактические receipts, ограничения и порядок будущих изменений описаны
 в [переходе repository](pgbackrest-repository-transition.md). После первоначальной проверки
 #243 может доставить application release, а #244 выполнить первый cutover.
 
@@ -408,6 +409,10 @@ PostgreSQL service использует `init: true`: Docker init собирае
 
 2. Доставьте файлы foundation из проверенного commit `main`: каталоги `infra/identity/logto`,
    `infra/production/logto` и `infra/production/database` в `/opt/inside/foundation/infra/`.
+   При доставке database исключите действующий `pgbackrest.conf`: после #1627 он содержит
+   принятую multi-repository конфигурацию, а tracked файл является исходным repo1 template.
+   Не перезаписывайте live-файл этим шаблоном. Его изменения доставляются отдельным проверенным
+   diff по [порядку перехода repository](pgbackrest-repository-transition.md).
 3. Сделайте свежий backup: `systemctl start inside-pgbackrest-backup@incr.service`. Alteration
    меняет схему базы `logto`, и путь назад без backup требует `npm run alteration rollback`.
 4. Примените стек без сборки на сервере:
