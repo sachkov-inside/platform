@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { ownTaskSubmissionsSchema } from "@/features/product-task-submission/model/product-task-page";
+import { z } from "zod";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
@@ -33,7 +33,9 @@ async function seedLegacySubmission(page: Page, code: string, note: string) {
     `/api/product-tasks/submissions?code=${encodeURIComponent(code)}`,
   );
   expect(historyResponse.ok()).toBe(true);
-  const history = ownTaskSubmissionsSchema.parse(await historyResponse.json());
+  const history = z
+    .object({ currentVersion: z.number().int().positive() })
+    .parse(await historyResponse.json());
   const response = await page.request.post("/api/product-tasks/submissions", {
     headers: { origin: new URL(page.url()).origin },
     multipart: {
