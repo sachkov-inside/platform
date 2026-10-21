@@ -76,7 +76,7 @@ class ProtocolVectors(unittest.TestCase):
 
     def test_global_vector_validates_all_raw_shapes_and_exact_frame_agreement(self):
         rows,stamps=vectors()
-        for change in ('env','version','scope','label','duplicate','overflow','noncanonical','disagree'):
+        for change in ('env','version','scope','label','duplicate','overflow','noncanonical','disagree','partial_disagree'):
             bad=copy.deepcopy(rows)
             if change in ('env','version','scope','label'):
                 key={'env':'deployment.environment.name','version':'service.version','scope':'scope.name','label':'private'}[change]
@@ -84,12 +84,15 @@ class ProtocolVectors(unittest.TestCase):
             elif change=='duplicate':bad.append(copy.deepcopy(bad[-1]))
             elif change=='overflow':bad=bad*3
             elif change=='noncanonical':bad[-1]['value'][1]='1e0'
+            elif change=='partial_disagree':bad=bad[:1];bad[0]['value'][1]='4'
             else:bad[0]['value'][1]='4'
             with self.subTest(change=change):self.assertEqual(self.check(bad)['freshness'],'malformed')
         for malformed in ('{}','\ufeff{}','x'*65537,'{"status":"success","status":"success"}',
                           '{"status":"success","data":{"resultType":"vector","result":[NaN]}}'):
             self.assertEqual(oracle.evaluate_protocol(raw(rows),raw(stamps),malformed,evaluated_at=1790000000,
                 completed_us=NOW,expected=EXPECTED)['freshness'],'malformed')
+        future=copy.deepcopy(rows[5:6]);future[0]['value'][1]=str(NOW+1)
+        self.assertEqual(self.check(future,ordinary=rows[:-1],stamps=stamps[:-1])['freshness'],'malformed')
         poisoned=copy.deepcopy(rows);poisoned[-1]['metric']['private']='controlled'
         self.assertEqual(self.check(poisoned,ordinary=rows[:-1],stamps=stamps[:-1])['freshness'],'malformed')
 
@@ -101,3 +104,41 @@ class UnavailableVectors(unittest.TestCase):
             result=oracle.evaluate(raw(rows),raw(bad),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED)
             self.assertEqual(result['freshness'],'malformed')
         self.assertEqual(oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED)['freshness'],'unavailable')
+
+    def test_zero_missing_and_ownership_verdicts_validate_all_present_retained_identities(self):
+        rows,stamps=vectors();rows[-1]['value'][1]='0'
+        for available in ('0','1',None):
+            for owner in (True,False):
+                for fault in ('future_sample','future_postmaster','future_reset','after_sample','mixed_stamp','identity_stamp','partial_future','bad_last'):
+                    bad=copy.deepcopy(rows);times=copy.deepcopy(stamps)
+                    if fault=='future_sample':bad[5]['value'][1]=str(NOW+1)
+                    elif fault=='future_postmaster':bad[3]['value'][1]=str(NOW+1)
+                    elif fault=='future_reset':bad[4]['value'][1]=str(NOW+1)
+                    elif fault=='after_sample':
+                        bad[5]['value'][1]=str(NOW-20_000_000)
+                        for stamp in times[:-1]:stamp['value'][1]='1789999980'
+                    elif fault=='mixed_stamp':times[1]['value'][1]='1789999999.999'
+                    elif fault=='identity_stamp':
+                        for stamp in times[:-1]:stamp['value'][1]='1789999999'
+                    elif fault=='partial_future':bad=[bad[3],bad[-1]];times=[times[3],times[-1]];bad[0]['value'][1]=str(NOW+1)
+                    else:bad[0]['metric']['private']='controlled'
+                    if available is None:
+                        bad=[row for row in bad if row['metric']['__name__']!='inside.postgresql.server.available']
+                        times=[row for row in times if row['metric']['__name__']!='inside.postgresql.server.available']
+                    else:bad[-1]['value'][1]=available
+                    with self.subTest(available=available,owner=owner,fault=fault):
+                        self.assertEqual(oracle.evaluate(raw(bad),raw(times),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED,owner_current=owner)['freshness'],'malformed')
+
+
+    def test_current_singleton_zero_and_old_valid_six_keep_distinct_timestamps(self):
+        rows,stamps=vectors();rows[-1]['value'][1]='0'
+        result=oracle.evaluate(raw(rows[-1:]),raw(stamps[-1:]),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED)
+        self.assertEqual(result['freshness'],'unavailable');self.assertFalse(result['count_complete'])
+        for index in (3,4,5):rows[index]['value'][1]=str(int(rows[index]['value'][1])-30_000_000)
+        for stamp in stamps[:-1]:stamp['value'][1]='1789999970'
+        result=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED)
+        self.assertEqual(result['freshness'],'unavailable');self.assertFalse(result['count_complete'])
+        self.assertIsNone(result['age_seconds'])
+        for stamp in stamps:stamp['value'][1]='1789999970'
+        result=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED)
+        self.assertEqual(result['freshness'],'stale')

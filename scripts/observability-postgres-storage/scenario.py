@@ -13,6 +13,7 @@ import frame
 import fixture
 import queries
 # Caller loads this owner's oracle by its fixed file identity, avoiding cross-owner module-name aliases.
+STOPPED='{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}'
 
 
 class Scenario:
@@ -121,6 +122,27 @@ class Scenario:
     def case(self,phase,observation):
         self.cases.append({key:observation[key] for key in ('freshness','continuity','count_complete','points','age_seconds')}|{'phase':phase})
 
+    def stop_postgres(self):
+        """Only an explicitly owned graceful stop with settled clients may emit controlled-down zero."""
+        deadline=time.monotonic()+self.remaining()
+        self.actors.close(deadline)
+        if self.actors.process is not None and self.actors.process.poll()!=0:raise ValueError('cleanup')
+        self.verify_pg(deadline);cid=self.targets.targets['postgres']['id']
+        self.clock_deadline=deadline
+        stopped=self.read(['docker','stop','--time','2',cid])
+        if type(stopped) is not str or len(stopped.encode('utf-8'))>65 or stopped not in (cid,cid+'\n'):raise ValueError('ownership')
+        pilot.assert_docker_identity(deadline=deadline)
+        if self.targets.inspect('postgres',cid)!=self.targets.targets['postgres']:raise ValueError('ownership')
+        state=self.read(['docker','inspect','--format',STOPPED,cid])
+        # Logical cap on the fixed daemon-side boolean projection, not a general subprocess allocation cap.
+        if type(state) is not str or len(state.encode('utf-8'))>16 or state not in ('stopped','stopped\n'):raise ValueError('ownership')
+        if time.monotonic()>=deadline:raise TimeoutError()
+        self.remaining()
+        with source_status_query._deadline(deadline-time.monotonic()):
+            self.upload(frame.unavailable_payload(time.time_ns()//1000))
+        self.actors=fixture.Fixture()
+        return cid
+
     def run(self,privacy):
         """privacy is the one source-specific protocol driver, separately reviewed before wiring."""
         started=time.monotonic();self.end=started+150;self.cleanup_end=started+180
@@ -149,12 +171,7 @@ class Scenario:
             if verdict['continuity']!='statistics_reset' or verdict['count_complete']:raise ValueError('reset')
             self.case('reset',verdict)
             self.phase='restart'
-            self.actors.close(time.monotonic()+self.remaining());self.actors=fixture.Fixture()
-            self.verify_pg(time.monotonic()+self.remaining());cid=self.targets.targets['postgres']['id']
-            self.clock_deadline=time.monotonic()+self.remaining();self.read(['docker','stop','--time','2',cid])
-            try:self.acquire()
-            except Exception:self.upload(frame.unavailable_payload(time.time_ns()//1000))
-            else:raise ValueError('ownership')
+            cid=self.stop_postgres()
             unavailable_deadline=time.monotonic()+self.remaining()
             while True:
                 if time.monotonic()>=unavailable_deadline:raise TimeoutError()

@@ -69,15 +69,32 @@ def _report(freshness,reason,points=0,age=None,continuity='unknown'):
             'continuity':continuity,'count_complete':False}
 
 
+def _present_sample(values,completed_us):
+    sample=values.get('inside.postgresql.server.sample_time_microseconds')
+    for suffix in ('sample_time_microseconds','postmaster_start_time_microseconds','statistics_reset_time_microseconds'):
+        value=values.get('inside.postgresql.server.'+suffix)
+        if value is not None and (not 0<value<=completed_us or sample is not None and value>sample):_refuse()
+    return sample
+
+
 def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owner_current=True):
     try:
         if (type(evaluated_at) is not int or evaluated_at<=0 or type(completed_us) is not int
                 or not 0<completed_us<=_MAX or type(owner_current) is not bool):_refuse()
         values,labels=_vector(raw_values,evaluated_at);stamps,time_labels=_vector(raw_timestamps,evaluated_at,timestamps=True)
         if labels!=time_labels or any(not 0<stamp<=Decimal(completed_us)/1_000_000 for stamp in stamps.values()):_refuse()
-        if not owner_current:return _report('unavailable','ownership',len(values),continuity='ownership_changed')
+        # Check every present retained identity/cohort before missing, ownership or zero projection.
+        sample=_present_sample(values,completed_us)
+        retained={name:stamp for name,stamp in stamps.items() if name!='inside.postgresql.server.available'}
+        if len(set(retained.values()))>1:_refuse()
+        if sample is not None and any(stamp!=Decimal(int(sample)//1000)/1000 for stamp in retained.values()):_refuse()
         available=values.get('inside.postgresql.server.available')
-        if available==0:return _report('unavailable','connection',len(values))
+        if available==0 and retained and stamps['inside.postgresql.server.available']<next(iter(retained.values())):_refuse()
+        if not owner_current:return _report('unavailable','ownership',len(values),continuity='ownership_changed')
+        if available==0:
+            failure_age=Decimal(completed_us)/1_000_000-stamps['inside.postgresql.server.available']
+            if failure_age>10:return _report('stale','stale',len(values),min(float(failure_age),600))
+            return _report('unavailable','connection',len(values))
         if set(values)!=_NAMES or set(stamps)!=_NAMES:return _report('missing','storage',len(values))
         sample=values['inside.postgresql.server.sample_time_microseconds']
         if sample<=0 or sample>completed_us+2_000_000 or any(stamp<=0 for stamp in stamps.values()):_refuse()
@@ -110,9 +127,11 @@ def evaluate_protocol(raw_values,raw_timestamps,raw_global,*,evaluated_at,comple
     try:
         # Validate even a poisoned last global row before returning ordinary pending/health.
         global_values,global_labels=_vector(raw_global,evaluated_at)
+        _present_sample(global_values,completed_us)
         values,labels=_vector(raw_values,evaluated_at)
         ordinary=evaluate(raw_values,raw_timestamps,evaluated_at=evaluated_at,completed_us=completed_us,expected=expected)
         if ordinary['freshness']!='fresh':return ordinary
+        if any(global_values[name]!=values[name] or global_labels[name]!=labels[name] for name in global_values):_refuse()
         if set(global_values)!=_NAMES:return _report('missing','storage',len(global_values))
         if global_values!=values or global_labels!=labels:_refuse()
         return ordinary

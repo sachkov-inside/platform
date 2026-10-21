@@ -11,8 +11,15 @@ test("a valid source packet is unavailable until public client end settles", asy
   const closed = new Promise((resolve) => {
     release = () => resolve(undefined);
   });
+  /** @type {()=>void} */ let enter = () => {
+    throw new Error("end not registered");
+  };
+  const entered = new Promise((resolve) => {
+    enter = () => resolve(undefined);
+  });
   /** @type {string[]} */ const calls = [];
   let exported = false;
+  let packetRead = false;
   const client = {
     connect: async () => {},
     /** @param {import('./sample.mjs').Statement} statement */
@@ -45,18 +52,25 @@ test("a valid source packet is unavailable until public client end settles", asy
         ],
       };
     },
-    end: () => closed,
+    end: () => {
+      enter();
+      return closed;
+    },
   };
   const pending = acquire(
     client,
     () => 4000,
-    () => 1790000000000000,
+    () => {
+      packetRead = true;
+      return 1790000000000000;
+    },
   ).then((value) => {
     exported = true;
     return value;
   });
-  await Promise.resolve();
-  await Promise.resolve();
+  await entered;
+  assert.equal(calls.at(-1), "ROLLBACK");
+  assert.equal(packetRead, false);
   assert.equal(exported, false);
   release();
   const wire = await pending;

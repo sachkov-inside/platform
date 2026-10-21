@@ -1847,12 +1847,33 @@ unchanged. Each sampler has at most4 seconds of work plus2 seconds TERM and2 sec
 settlement. A successful child exit alone is insufficient: client end, reaping, current ownership
 and backend absence must also be observed within the work boundary. The private failure exit2
 means only that public client end fulfilled; the parent still requires reaping, current ownership
-and backend absence under the same work deadline. Only that verified failure may publish current
-availability0, without refreshing the six facts or advancing the continuity ledger. Unproved
-settlement/ownership exports nothing. The first failure survives verification or emission failures.
-Exhaustion fails without
-expanding grants or deadlines. Native role visibility, eight-second feasibility, lock/deadlock,
+and backend absence under the same work deadline. There are exactly two admitted zero origins:
+a verified failed acquisition, or the controlled graceful stop proof described below. Both publish
+only current availability0, without refreshing the six facts or advancing the continuity ledger.
+Unproved settlement/ownership exports nothing. The first failure survives verification or emission
+failures. Exhaustion fails without expanding grants or deadlines. Native role visibility, eight-second feasibility, lock/deadlock,
 reset/restart, stale recovery and typed cleanup remain NOTRUN.
+
+The controlled stop closes/reaps fixture clients first, checks the current frozen PostgreSQL
+owner, stops that exact CID with the existing two-second grace, checks daemon identity and fully
+re-inspects the same frozen target. It then performs only this fixed daemon-side projection:
+
+```text
+docker inspect --format '{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}' <frozen PostgreSQL CID>
+```
+
+The stop response must be the exact frozen CID (logical cap65UTF8 bytes). The state response must
+be exactly `stopped` with an optional newline (logical cap16UTF8 bytes). These are checks of fixed
+CLI projections, not subprocess allocation bounds. Deadline checks and zero emission use the same
+decreasing remaining phase allowance inside150 seconds. Unknown state, nonzero exit, malformed
+response, identity drift, active/unsettled client or exhausted time refuses before emission. A
+failed sampler call is never a substitute for this stopped-owned proof. The ordinary successful
+acquisition path, read-only query and its eight-second accounting remain unchanged.
+
+All present retained identity values and their raw timestamp cohort are validated before zero,
+missing or ownership projection. Current singleton0 is admitted; a newer availability0 may coexist
+with six valid older facts. Their sample timestamp is not refreshed. Future/mixed/inconsistent
+retained identities are refused, and an old availability0 observation is stale rather than current.
 
 Privacy challenges additionally read the exact anchored union of the seven server families across
 all services. Every returned row passes the same full raw gate; foreign or extra rows are refused,
