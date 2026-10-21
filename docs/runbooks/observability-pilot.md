@@ -1800,6 +1800,38 @@ cause. All three owners preserve the original failure and traceback even when pe
 the same exception object. New exact-source hosted feedback remains required; no capacity,
 production deployment or #1579 acceptance follows from these source contracts.
 
+### Tracking unexpected-key facts
+
+The tracking worker prepares a separate `tracking-unexpected-keys.json` after its original storage
+cleanup, result and diagnostic finalizers. This diagnostic-only record has exactly eight fields
+(`schema`, `scope`, `source`, `state`, `gate`, `role`, `known_keys`, `other`) and a512-byte limit.
+The first unexpected-key refusal can retain one of five fixed causal roles and sorted IDs
+`a01` through `a21` from the existing non-Telegram collector span catalog. An arbitrary additional
+key is represented only by `other: true`. Raw keys, values, hashes, row IDs and error details are
+never recorded. The mapping is owned by `scripts/observability-tracking-storage/unexpected_keys.py`.
+
+The observer binds the existing producer Git read once; direct oracle/producer/storage callers
+with the default `observation=None` allocate no observer and perform no additional observation IO.
+The full row predicates, their order, original refusal and polling budget remain unchanged. Only
+an actual first `trace_gate_06_unexpected_key` refusal produces `observed`; an earlier different
+refusal or no observation stays `unknown`. An internal observer fault yields `refused`, and an
+unbound observer writes nothing. Observation persistence never replaces an already active error
+or its traceback. With no active error, a persistence failure refuses the diagnostic operation.
+
+Collection admits the complete record and existing source receipt before creating the public
+copy. `observed` additionally requires the original validated diagnostic to report
+`trace_validation`, `failed`, `trace_gate_06_unexpected_key`. A missing legacy record becomes
+canonical `unknown`; an invalid present record refuses. The collector rewrites canonical JSON
+through the tracking-owned pinned-inode writer and never copies raw record bytes. This adds no
+new receipt input-map, tree or scope-text equality requirement. Only the new record reader opts
+into preserving first acquisition/read errors across secondary close failures; legacy read and
+source-receipt defaults retain their previous behavior.
+
+These source controls do not identify the unexpected key from a prior hosted failure. A fresh,
+source-bound hosted tracking result is required to identify any catalog ID and role. `other: true`
+cannot identify a key outside that catalog. This feature changes no collector acceptance rule,
+production setting or deployment status.
+
 ### Dependency corpus scheduling
 
 `dependency_catalog_corpus` first uploads the same sixteen JSON/protobuf trace and metric bodies
