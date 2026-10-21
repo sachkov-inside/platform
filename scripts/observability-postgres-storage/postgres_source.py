@@ -105,12 +105,28 @@ def collect(output,metadata,destination):
     record.write(destination,projected)
 
 
+def admission(metadata):
+    """Create the PG-owned strict receipt privately through the unchanged shared producer."""
+    previous=os.umask(0o077)
+    primary=None;tb=None
+    try:return ci.admission(metadata,inputs=source_inputs(),scope=SCOPE)
+    except BaseException as error:
+        primary,tb=error,sys.exc_info()[2]
+        raise
+    finally:
+        try:os.umask(previous)
+        except BaseException:
+            if primary is None:raise
+        finally:
+            if primary is not None:BaseException.__traceback__.__set__(primary,tb)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('admission','run','worker','recover','collect'))
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path)
     args=parser.parse_args();output=args.output.resolve()
-    if args.action=='admission':return ci.admission(args.metadata,inputs=source_inputs(),scope=SCOPE)
+    if args.action=='admission':return admission(args.metadata)
     if args.action=='run':
         if sys.platform!='linux':raise ValueError('ownership')
         primary=None;tb=None
