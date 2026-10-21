@@ -435,7 +435,7 @@ export function CatalogSection({
                             formText(form.get("optionPrice")),
                           ),
                           mode: paymentModeSchema
-                            .catch("subscription")
+                            .catch("one_time")
                             .parse(formText(form.get("optionMode"))),
                         },
                       });
@@ -456,12 +456,8 @@ export function CatalogSection({
                         <AdminSelect
                           label="Способ продажи"
                           name="optionMode"
-                          defaultValue="subscription"
+                          defaultValue="one_time"
                           options={[
-                            {
-                              value: "subscription",
-                              label: "Подписка: списания по расписанию",
-                            },
                             {
                               value: "one_time",
                               label: "Разовая покупка: без списаний",
@@ -487,7 +483,7 @@ export function CatalogSection({
                         </p>
                       )}
                       <AdminField
-                        hint="У подписки это период списания. У разовой покупки месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
+                        hint="Месяцы ни на что не влияют: срок права задаётся в составе предложения, а без него право бессрочно."
                         inputMode="numeric"
                         label="Месяцев"
                         name="optionMonths"

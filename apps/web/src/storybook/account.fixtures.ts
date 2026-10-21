@@ -106,6 +106,8 @@ export function notificationPreferencesResponse({
  */
 export const subscribedMemberRoutes: Readonly<Record<string, RouteResponse>> = {
   "/api/account": () => accountPresentationResponse(),
+  "/api/personal-home": () =>
+    Response.json({ kind: "ready", continuation: {} }),
   "/api/account/email": () =>
     Response.json({ ok: true, email: "member@example.test" }),
   "/api/account/billing": () =>

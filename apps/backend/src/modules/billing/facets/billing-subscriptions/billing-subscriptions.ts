@@ -75,7 +75,10 @@ import {
 } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
-import { saleCapability } from "../../domain/sale-capability.js";
+import {
+  saleCapability,
+  type SaleCapability,
+} from "../../domain/sale-capability.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 // The live-owner transaction covers the unchanged bank timeout plus a database persistence window.
@@ -106,6 +109,8 @@ interface Dependencies {
   >;
   readonly notices: Pick<BillingNotices, "readNotices">;
   readonly bank: Tbank | undefined;
+  /** Process commerce capability; absent uses the current product-only policy. */
+  readonly sale?: SaleCapability;
   readonly clock?: () => Date;
 }
 
@@ -115,8 +120,14 @@ interface Dependencies {
  */
 export class BillingSubscriptions {
   private readonly clock: () => Date;
+  private readonly sale: SaleCapability;
   constructor(private readonly dependencies: Dependencies) {
     this.clock = dependencies.clock ?? (() => new Date());
+    this.sale = saleCapability(
+      dependencies.bank?.config,
+      dependencies.sale?.payments ?? true,
+      dependencies.sale?.subscriptions ?? false,
+    );
   }
 
   /**
@@ -241,11 +252,10 @@ export class BillingSubscriptions {
         // Возобновляется только действующий оплаченный срок на прежних условиях.
         if (row.state !== "canceled" || row.paidUntil <= now)
           return paymentFailure("not_found");
-        const bank = this.dependencies.bank;
         const admission = paymentAdmission({
           context: "resume",
           snapshot: subscriptionSnapshotSchema.parse(row.snapshot),
-          sale: saleCapability(bank?.config, true),
+          sale: this.sale,
           grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
           recurringAllowed: legacy.recurringAllowed,
 
@@ -636,7 +646,8 @@ export class BillingSubscriptions {
     const command = parsed.data;
     const digest = commandFingerprint("changeMethod", command);
     const { prisma, bank } = this.dependencies;
-    if (!bank?.config.cardBinding) return paymentFailure("method_unavailable");
+    if (!bank?.config.cardBinding || !this.sale.subscriptions)
+      return paymentFailure("method_unavailable");
     let flowRef: string;
     try {
       const previous = await prisma.billingPaymentMethodFlow.findUnique({
@@ -992,7 +1003,7 @@ export class BillingSubscriptions {
     const admission = paymentAdmission({
       context: "change",
       snapshot,
-      sale: saleCapability(bank?.config, true),
+      sale: this.sale,
       grounds,
       recurringAllowed,
     });
@@ -1020,7 +1031,7 @@ export class BillingSubscriptions {
     const charge = paymentAdmission({
       context: "change",
       snapshot,
-      sale: saleCapability(bank.config, true),
+      sale: this.sale,
       grounds,
       recurringAllowed,
 

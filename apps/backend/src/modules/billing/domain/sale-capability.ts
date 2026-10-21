@@ -34,11 +34,15 @@ export function subscriptionSaleConfirmed(
 export function saleCapability(
   terminal: (SubscriptionTerminal & Partial<PaymentAmountLimits>) | undefined,
   receiptContactConfigured: boolean,
+  subscriptionsAllowed = false,
 ): SaleCapability {
   const payments = terminal !== undefined && receiptContactConfigured;
   return {
     payments,
-    subscriptions: payments && subscriptionSaleConfirmed(terminal),
+    // Product commerce currently supports one-time purchases only. Bank capabilities
+    // cannot enable the separate, future subscription product.
+    subscriptions:
+      payments && subscriptionsAllowed && subscriptionSaleConfirmed(terminal),
     ...(terminal?.minimumKopecks === undefined ||
     terminal.maximumKopecks === undefined
       ? {}

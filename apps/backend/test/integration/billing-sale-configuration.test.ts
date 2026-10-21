@@ -150,14 +150,10 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
     await expect(check(allMethods, contact)).resolves.toBeUndefined();
   });
 
-  test("subscription sale on a terminal without both confirmations refuses to start", async () => {
+  test("dormant subscription options do not require a recurring terminal", async () => {
     await offer("subscription");
-    await expect(check(allMethods, contact)).rejects.toThrow(
-      "Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed",
-    );
-    await expect(
-      check({ ...cardOnly, cardOnlyHostedConfirmed: false }, contact),
-    ).rejects.toThrow("Subscription sale");
+    await expect(check()).resolves.toBeUndefined();
+    await expect(check(allMethods, contact)).resolves.toBeUndefined();
     await expect(check(cardOnly, contact)).resolves.toBeUndefined();
   });
 });

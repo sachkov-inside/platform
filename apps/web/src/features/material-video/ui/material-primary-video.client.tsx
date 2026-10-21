@@ -101,7 +101,21 @@ export function MaterialPrimaryVideo({
     // A call is not narrowed, so each check reads the value the cleanup may have changed.
     const isActive = () => active;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
-    let removeTimeListener: (() => void) | undefined;
+    let requestedHref = window.location.href;
+    let seekToReadyFragment: ((href: string) => void) | undefined;
+    const captureFragment = (event: HashChangeEvent) => {
+      // Capture navigation even while the session or SDK is still loading.
+      const href = event.newURL === "" ? window.location.href : event.newURL;
+      requestedHref = href;
+      if (readVideoTimeFragment(new URL(href).hash, Infinity) === null) return;
+      // Keep Next's canonical URL in sync before a pending refresh can erase it.
+      window.history.replaceState(null, "", href);
+      seekToReadyFragment?.(href);
+    };
+    window.addEventListener("hashchange", captureFragment);
+    const removeTimeListener = () => {
+      window.removeEventListener("hashchange", captureFragment);
+    };
     const loadPlayer = async () => {
       try {
         const session = await createPlaybackSession({
@@ -180,7 +194,7 @@ export function MaterialPrimaryVideo({
         const resumeSeconds = resolveVideoStartPosition(
           savedPositionSeconds,
           duration,
-          window.location.hash,
+          new URL(requestedHref).hash,
         );
         let currentTime = resumeSeconds ?? 0;
         const updateChapter = (seconds: number) => {
@@ -210,23 +224,12 @@ export function MaterialPrimaryVideo({
             seeking = false;
           }
         };
-        const seekToFragment = (event: HashChangeEvent) => {
-          // A pending router commit can rewrite location before this event is delivered.
-          // Native events retain the requested URL; same-chapter clicks use a synthetic event.
-          const href =
-            event.newURL === "" ? window.location.href : event.newURL;
+        seekToReadyFragment = (href) => {
           const seconds = readVideoTimeFragment(new URL(href).hash, duration);
           if (!isActive() || seconds === null) return;
-          // Native hash navigation leaves Next's canonical URL behind. Its next refresh
-          // must retain this moment, including a chapter selected while the SDK is seeking.
-          window.history.replaceState(null, "", href);
           void seekToMoment(seconds).catch(() => {
             if (isActive()) setPhase("error");
           });
-        };
-        window.addEventListener("hashchange", seekToFragment);
-        removeTimeListener = () => {
-          window.removeEventListener("hashchange", seekToFragment);
         };
         if (resumeSeconds !== null) {
           await seekToMoment(resumeSeconds);
@@ -275,7 +278,7 @@ export function MaterialPrimaryVideo({
         setPhase("playing");
       } catch {
         if (isActive()) {
-          removeTimeListener?.();
+          removeTimeListener();
           void mountedPlayer?.destroy();
           mountedPlayer = null;
           setPhase("error");
@@ -285,7 +288,7 @@ export function MaterialPrimaryVideo({
     void loadPlayer();
     return () => {
       active = false;
-      removeTimeListener?.();
+      removeTimeListener();
       void mountedPlayer?.destroy();
     };
   }, [

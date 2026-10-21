@@ -30,7 +30,7 @@ import {
 import {
   PendingCohortCall,
   PersonalCohortCall,
-  PersonalCohortCountdown,
+  PersonalCourseFilmOverlay,
   PersonalCohortStatus,
 } from "./cohort-call.server";
 import { PersonalSeries } from "./personal-series.server";
@@ -102,7 +102,7 @@ export async function PublishedSeriesPage({
       }
       heroBadge={
         <Suspense fallback={null}>
-          <PersonalCohortCountdown result={result} />
+          <PersonalCourseFilmOverlay result={result} />
         </Suspense>
       }
       offerTerms={offerTerms}
@@ -181,7 +181,7 @@ async function PersonalProduct({
       result={result}
       heroCall={<PersonalCohortCall result={result} />}
       statusCall={<PersonalCohortStatus result={result} />}
-      heroBadge={<PersonalCohortCountdown result={result} />}
+      heroBadge={<PersonalCourseFilmOverlay result={result} />}
       returnTarget={returnTarget}
     />
   );

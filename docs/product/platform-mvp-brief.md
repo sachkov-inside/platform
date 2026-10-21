@@ -1,5 +1,12 @@
 # Sachkov Dev — brief первой версии платформы
 
+Current commerce follows [ADR 0037](../adr/0037-products-without-subscriptions.md): Products are
+purchased once or granted without payment. There is no current subscription sale, renewal or
+subscription-based Product access. Future subscriptions are separate from Products. The account
+shows Products, their access and payment history. Telegram connection success is shown once,
+without repeated setup confirmations. The header fallback is a neutral user icon on white.
+
+
 ## Публичное название сайта
 
 С 19.10.2026 по решению владельца публичное название сайта — «Сачков Дев»
@@ -854,6 +861,10 @@ body 16/24, заголовки разделов 18/24 mobile и 24/30 desktop, �
 может перестроить композицию. Платёжный запуск и миграция `sachkov.dev` — отдельные работы.
 
 ### Прохождение продукта
+
+На странице AI Engineering участник с доступом видит «Продолжить обучение» поверх верхней
+анимации и в нижнем блоке вместо вводного текста о количестве глав. Обе кнопки ведут в программу;
+список того, что входит в курс, остаётся в нижнем блоке.
 
 Программа продукта показывает прогресс по всему опубликованному составу, действие продолжения
 последнего незавершённого материала и непрерывный маршрут со сквозной нумерацией. Уроки

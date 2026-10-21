@@ -4,6 +4,10 @@ status: accepted
 
 # Explicit Product community rights and whole-Product revocation
 
+Current subscription commerce and course terms follow [ADR 0037](0037-products-without-subscriptions.md)
+(owner decision 2026-10-20). Its explicit supersessions take precedence over the historical decisions below.
+
+
 The owner accepted #1442–#1444 together on 2026-10-14. A Product and Support no longer imply a
 community benefit for new purchases. This supersedes that implication in ADR 0022 and ADR 0024;
 their capability-package and Telegram delivery boundaries remain valid.

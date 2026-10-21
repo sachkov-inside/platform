@@ -11,6 +11,7 @@ import {
 } from "@/entities/subscription.sale.server";
 import {
   CohortCallView,
+  CourseLearningLink,
   courseLearningAction,
   CohortStatusView,
   type CohortCall,
@@ -101,8 +102,7 @@ export async function PersonalCohortCall({
 }
 
 /**
- * Личная часть нижнего блока: плашка набора на поток, пока он не стартовал. Без набора блок
- * остаётся со своим текстом из описания курса, поэтому здесь тогда ничего не рисуется.
+ * Личная часть нижнего блока: участник продолжает обучение, остальные видят набор на поток.
  */
 export async function PersonalCohortStatus({
   result,
@@ -113,6 +113,11 @@ export async function PersonalCohortStatus({
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;
   const accessToken = await getOptionalPlatformAccessToken();
+  if (
+    accessToken !== undefined &&
+    (await readProductAccess(productId, accessToken)) === "open"
+  )
+    return <CourseLearningLink slug={slug} placement="status" />;
   const sale = await (accessToken === undefined
     ? readGuestProductSale(productId)
     : readViewerProductSale(productId, accessToken));
@@ -145,10 +150,9 @@ export async function PersonalCohortStatus({
 }
 
 /**
- * Наклейка «до старта N дней» на анимации первого экрана. Ей нужен только поток — он публичный и
- * одинаков для всех, поэтому чтение не спрашивает ни цену, ни доступ человека.
+ * На анимации остаётся наклейка до старта потока; участнику доступно действие обучения.
  */
-export async function PersonalCohortCountdown({
+export async function PersonalCourseFilmOverlay({
   result,
 }: {
   readonly result: ResolvedSeries;
@@ -156,9 +160,20 @@ export async function PersonalCohortCountdown({
   await connection();
   const productId = result.reference.id;
   if (productId === undefined) return null;
+  const accessToken = await getOptionalPlatformAccessToken();
+  const learningAvailable =
+    accessToken !== undefined &&
+    (await readProductAccess(productId, accessToken)) === "open";
   const read = await loadProductCohort(productId);
   const countdown = read.kind === "ready" ? cohortCountdown(read.cohort) : null;
-  return countdown === null ? null : <StartCountdownBadge text={countdown} />;
+  return (
+    <>
+      {countdown === null ? null : <StartCountdownBadge text={countdown} />}
+      {learningAvailable ? (
+        <CourseLearningLink slug={result.reference.slug} placement="film" />
+      ) : null}
+    </>
+  );
 }
 
 function withoutCohort(slug: string): CohortCall {

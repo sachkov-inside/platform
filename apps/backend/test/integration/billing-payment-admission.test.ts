@@ -306,6 +306,7 @@ test.each([
         )
       : undefined;
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       grants,
       contact,

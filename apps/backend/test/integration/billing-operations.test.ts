@@ -475,6 +475,7 @@ describe("владельческие операции billing: платежи, �
     const bank = new BankFixture();
     const client = bank.client();
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: database.prisma,
       bank: client,
       contact: fixtureContact,
@@ -482,11 +483,13 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: database.prisma,
       enrollments: grants,
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: database.prisma,
       bank: client,
       contact: fixtureContact,
@@ -496,6 +499,7 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: options.operationsPrisma ?? database.prisma,
       accounts: fixtureAccounts,
       pricing: fixturePricing,

@@ -217,6 +217,7 @@ describe("служебные сообщения подписки (реальны
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -224,11 +225,13 @@ describe("служебные сообщения подписки (реальны
       clock: () => now,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       enrollments: grants,
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -972,6 +975,7 @@ describe("служебные сообщения подписки (реальны
       });
       await withExhaustedPool(isolated, async (prisma) => {
         const notices = new BillingNotices({
+          sale: { subscriptions: true },
           prisma,
           enrollments: assembleAccessGrants({
             prisma,

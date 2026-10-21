@@ -33,7 +33,7 @@ export function AccessAdminSection({
         {
           id: "invitations",
           label: "Приглашения",
-          panel: <InvitationsPanel offers={offers} />,
+          panel: <InvitationsPanel allowIssue={false} offers={offers} />,
         },
         {
           id: "summary",

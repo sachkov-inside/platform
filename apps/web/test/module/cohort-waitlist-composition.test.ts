@@ -9,9 +9,13 @@ import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 const fakes = vi.hoisted(() => ({
   access: vi.fn(),
   sale: vi.fn(),
+  cohort: vi.fn(),
   token: vi.fn(() => Promise.resolve("synthetic-viewer-token")),
 }));
 vi.mock("next/server", () => ({ connection: () => Promise.resolve() }));
+vi.mock("@/entities/subscription.catalog.server", () => ({
+  loadProductCohort: fakes.cohort,
+}));
 vi.mock("@/entities/subscription.sale.server", () => ({
   readProductAccess: fakes.access,
   readGuestProductSale: fakes.sale,
@@ -37,6 +41,7 @@ vi.mock("@/features/account-access", () => ({
 import {
   PersonalCohortCall,
   PersonalCohortStatus,
+  PersonalCourseFilmOverlay,
 } from "@/_pages/library-discovery/ui/cohort-call.server";
 import { WaitlistProvider } from "@/_pages/library-discovery/ui/waitlist-provider.client";
 import { productWaitlistKey } from "@/features/product-waitlist";
@@ -110,6 +115,7 @@ async function compose(access: "open" | "closed", active: boolean) {
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  fakes.cohort.mockResolvedValue({ kind: "ready", cohort: sale.cohort });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -129,6 +135,19 @@ test("active membership is hidden when learning is available", async () => {
   expect(html).not.toContain("списке ожидания");
   expect(html).not.toContain("Отказаться от ожидания");
   expect(html).not.toContain("Вступить в список ожидания");
+  expect(html).toContain("aie-learning-status");
+});
+test("learners keep the countdown and can continue from the film without loading a sale", async () => {
+  fakes.access.mockResolvedValue("open");
+  const html = renderToStaticMarkup(
+    await PersonalCourseFilmOverlay({ result }),
+  );
+  expect(html).toContain("aie-learning-film");
+  expect(html).toContain("Продолжить обучение");
+  expect(html).toContain("/products/ai-engineering/programme");
+  expect(html).toContain("до старта");
+  expect(html).toContain("start-countdown-badge");
+  expect(fakes.sale).not.toHaveBeenCalled();
 });
 test("an inactive learner keeps learning without a new join CTA", async () => {
   const html = await compose("open", false);
