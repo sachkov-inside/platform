@@ -85,7 +85,10 @@ export async function startLocalAccountsGateway(options) {
       !request.url?.startsWith("/") ||
       request.url.startsWith("//") ||
       request.url.includes("\\") ||
-      [...request.url].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127) ||
+      [...request.url].some(
+        (character) =>
+          character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127,
+      ) ||
       host !== publicUrl.host ||
       request.headers["sec-fetch-site"] === "cross-site" ||
       (request.headers.origin !== undefined &&

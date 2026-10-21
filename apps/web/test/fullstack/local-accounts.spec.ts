@@ -2,15 +2,16 @@ import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
-import { startLocalAccountsGateway } from "../../../../scripts/local-accounts-gateway.mjs";
 import {
   fullStackBaseUrl,
   signInFullStack,
 } from "../support/full-stack-session";
 
-test("local accounts: fresh owner, private draft and real learner/guest denials survive reload", async ({
+test("local accounts: fresh owner, private draft and real denials survive restart and isolated contexts", async ({
   browser,
 }) => {
+  const { startLocalAccountsGateway } =
+    await import("../../../../scripts/local-accounts-gateway.mjs");
   const ownerContext = await browser.newContext();
   let gateway:
     Awaited<ReturnType<typeof startLocalAccountsGateway>> | undefined;
@@ -115,6 +116,31 @@ test("local accounts: fresh owner, private draft and real learner/guest denials 
         await expect(
           page.getByText("LOCAL_ACCOUNT_PRIVATE_DRAFT", { exact: true }),
         ).toHaveCount(0);
+      if (choice === "guest") {
+        await gateway.close();
+        gateway = await startLocalAccountsGateway({
+          port: Number(new URL(origin).port),
+          upstream: fullStackBaseUrl(),
+          cookieName: z
+            .string()
+            .parse(process.env["FULLSTACK_LOGTO_COOKIE_NAME"]),
+          secret: "local-accounts-browser-proof-cookie-secret",
+          createSession: (profile) =>
+            Promise.resolve(z.string().parse(sessions[profile])),
+        });
+        await page.reload();
+        expect(
+          await (await context.request.get(`${origin}/auth/status`)).json(),
+        ).toMatchObject({ state: "guest", canManageMaterials: false });
+        const fresh = await browser.newContext();
+        try {
+          expect(
+            await (await fresh.request.get(`${origin}/auth/status`)).json(),
+          ).toMatchObject({ state: "authenticated", canManageMaterials: true });
+        } finally {
+          await fresh.close();
+        }
+      }
       await page.goto(
         `${origin}/materials/developer-pipeline-bez-poteri-konteksta`,
       );
