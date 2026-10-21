@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-21T08:26:38.572960+00:00",
+  "hostAlias": "inside-production",
+  "readOnly": true,
+  "diskBytes": {
+    "total": 50839412736,
+    "used": 12623101952,
+    "free": 38157750272
+  },
+  "imageIdentity": "sha256:e8c0c4e0acd81074186c2bc85dec272d820dae2a7cb55827ebd0d3f404e764a5 running",
+  "effectiveEnvFlags": "unset\nunset\nunset",
+  "databaseSizesBytes": "106534591|37893823|120493759",
+  "backupUnitNames": "inside-pgbackrest-backup@.service static  -\ninside-pgbackrest-diff.timer      enabled enabled\ninside-pgbackrest-full.timer      enabled enabled\ninside-pgbackrest-incr.timer      enabled enabled",
+  "database-backupSha256": "affb3c396f7d4b84be3aeb06c81729d5e1046dc9ccb17e711832e267b139120a",
+  "inside-pgbackrest-backup@.serviceSha256": "25b06c3ff8930e57f8b3c57ab7e4e8a3fa259d8fe6f0e76416178c327821bb4c",
+  "cronMentionsExpire": false
+}

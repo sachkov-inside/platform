@@ -90,9 +90,15 @@ def worker(output):
                 except BaseException as error:
                     experiment_traceback=sys.exc_info()[2]
                     try:
-                        experiment.failed(error)
+                        try:experiment.failed(error)
+                        except BaseException:pass  # Optional notification cannot replace the primary.
+                        terminal=run.snapshot();report=experiment.last_report
+                        if (terminal['state'] in ('failed','interrupted') and terminal['phase']=='partition_initial_state'
+                                and type(report) is dict and report.get('state') in ('down','missing','stale','incomplete')
+                                and report.get('transport')=={'canonical':'passed','mcp':'unrun'}):
+                            artifact.write(output,report)
                     except BaseException:
-                        pass  # Failure notification cannot replace the active experiment failure.
+                        pass  # Optional closed observation cannot replace the active primary or traceback.
                     finally:
                         BaseException.__traceback__.__set__(error,experiment_traceback)
                     raise

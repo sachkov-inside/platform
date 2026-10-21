@@ -52,6 +52,8 @@ import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
+import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
+import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
 import {
@@ -89,8 +91,16 @@ type SaveMaterialEffect = {
 
 export function assembleSaveMaterial(
   dependencies: MaterialAuthoringDependencies,
-  source?: AuthoringSource,
+  source?:
+    | AuthoringSource
+    | {
+        readonly id: string;
+        readonly publicationOnly: true;
+        readonly snapshotContentVersion: number;
+      },
 ): SaveMaterialOperation {
+  const publication =
+    source !== undefined && "publicationOnly" in source ? source : undefined;
   return async (input) => {
     const parsed = parseCommand(saveMaterialCommand, input);
     if (!parsed.ok) {
@@ -123,26 +133,41 @@ export function assembleSaveMaterial(
       return failure(authorization.error);
     }
 
-    const fingerprint = fingerprintCommand({
-      operation: "save_material",
-      source: source ?? null,
-      materialId: command.materialId,
-      expectedContentVersion: command.expectedContentVersion,
-      publicationState: command.publicationState,
-      ...(command.notifyTelegram === undefined
-        ? {}
-        : { notifyTelegram: command.notifyTelegram }),
-      metadata: selection.value.toValues(),
-      body: body.value,
-      primaryVideoId: command.primaryVideoId,
-      deleteVideoId: command.deleteVideoId,
-      videoChapters: command.videoChapters ?? null,
-      confirmedProductRemovals: [...command.confirmedProductRemovals].sort(),
-      // Absent when empty, so a Save recorded before detachment existed replays with its own key.
-      ...(command.detachVideoIds.length === 0
-        ? {}
-        : { detachVideoIds: command.detachVideoIds }),
-    });
+    const fingerprint = fingerprintCommand(
+      publication === undefined
+        ? {
+            operation: "save_material",
+            source: source ?? null,
+            materialId: command.materialId,
+            expectedContentVersion: command.expectedContentVersion,
+            publicationState: command.publicationState,
+            ...(command.notifyTelegram === undefined
+              ? {}
+              : { notifyTelegram: command.notifyTelegram }),
+            metadata: selection.value.toValues(),
+            body: body.value,
+            primaryVideoId: command.primaryVideoId,
+            deleteVideoId: command.deleteVideoId,
+            videoChapters: command.videoChapters ?? null,
+            confirmedProductRemovals: [
+              ...command.confirmedProductRemovals,
+            ].sort(),
+            // Absent when empty, so a Save recorded before detachment existed replays with its own key.
+            ...(command.detachVideoIds.length === 0
+              ? {}
+              : { detachVideoIds: command.detachVideoIds }),
+          }
+        : {
+            operation: "source_publication",
+            sourceId: publication.id,
+            materialId: command.materialId,
+            expectedContentVersion: command.expectedContentVersion,
+            publicationState: command.publicationState,
+            confirmedProductRemovals: [
+              ...command.confirmedProductRemovals,
+            ].sort(),
+          },
+    );
     let materializedMetadata: MaterialMetadata | undefined;
     const result = await executeAuthoringTransaction<
       SaveMaterialEffect,
@@ -161,11 +186,16 @@ export function assembleSaveMaterial(
           },
           rollback,
           async () => {
-            const memberships = await loadChangedProductMemberships(
-              transaction,
-              command.materialId,
-              selection.value.toValues().seriesIds,
-            );
+            const memberships =
+              publication === undefined
+                ? await loadChangedProductMemberships(
+                    transaction,
+                    command.materialId,
+                    selection.value.toValues().seriesIds,
+                  )
+                : [];
+            if (publication !== undefined)
+              await lockMaterialSeries(transaction, command.materialId, []);
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
             ]);
@@ -188,6 +218,18 @@ export function assembleSaveMaterial(
               ],
             );
             if (sourceError !== null) return rollback(sourceError);
+            // A server snapshot may race with a save. Never publish its old body at a newer version.
+            // Replay is resolved before this check and remains bound only to the status command.
+            if (
+              publication !== undefined &&
+              publication.snapshotContentVersion !==
+                locked.lifecycle.contentVersion
+            ) {
+              return rollback({
+                code: "stale_content_version",
+                currentContentVersion: locked.lifecycle.contentVersion,
+              });
+            }
 
             if (source !== undefined && command.deleteVideoId !== null) {
               return rollback({
@@ -291,12 +333,29 @@ export function assembleSaveMaterial(
             if (!next.ok) {
               return rollback(next.error);
             }
-            materializedMetadata = await materializeMetadataSelection(
-              transaction,
-              command.materialId,
-              selection.value,
-              slug,
-            );
+            if (publication === undefined) {
+              materializedMetadata = await materializeMetadataSelection(
+                transaction,
+                command.materialId,
+                selection.value,
+                slug,
+              );
+            } else {
+              // Composition has its own version. Reload it under the same series locks; never
+              // recreate a membership from the earlier authoring snapshot during a status change.
+              const current = await loadCurrentMaterial(
+                transaction,
+                dependencies.materialBodyOperations,
+                command.materialId,
+              );
+              if (current === undefined)
+                return rollback({ code: "material_not_found" });
+              if (!current.ok) return rollback(current.error);
+              materializedMetadata = selection.value.materialize(
+                current.value.metadata.seriesMemberships,
+                slug,
+              );
+            }
             const requiresPublicationValidity =
               next.value.publicationState === "published";
             const publishable = materializedMetadata.validateForPublication();
@@ -367,7 +426,9 @@ export function assembleSaveMaterial(
             ).map(({ seriesId }) => seriesId);
             const nextProductIds =
               next.value.publicationState === "published"
-                ? selectedValues.seriesIds
+                ? materializedMetadata.seriesMemberships.map(
+                    ({ seriesId }) => seriesId,
+                  )
                 : [];
             const heldRemovals = await heldProductRemovals(
               transaction,
@@ -405,40 +466,50 @@ export function assembleSaveMaterial(
             await transaction.material.update({
               where: { id: command.materialId },
               data: {
-                ...(source === undefined
-                  ? {}
-                  : {
-                      sourcePath: source.path,
-                      sourceRevision: source.revision,
-                      showInFeed: source.showInFeed,
-                    }),
-                notifyTelegram: command.notifyTelegram ?? locked.notifyTelegram,
-                slug: materializedMetadata.slug,
-                title: materializedMetadata.title,
-                summary: materializedMetadata.summary,
-                difficulty: materializedMetadata.difficulty,
-                outcomes: [...materializedMetadata.outcomes],
-                topicId: materializedMetadata.topicId,
-                formatId: materializedMetadata.formatId,
-                schemaVersion: body.value.schemaVersion,
-                body: toDatabaseJson(body.value.doc),
-                access: materializedMetadata.access,
+                ...(publication === undefined
+                  ? {
+                      ...(source === undefined || "publicationOnly" in source
+                        ? {}
+                        : {
+                            sourcePath: source.path,
+                            sourceRevision: source.revision,
+                            showInFeed: source.showInFeed,
+                          }),
+                      notifyTelegram:
+                        command.notifyTelegram ?? locked.notifyTelegram,
+                      slug: materializedMetadata.slug,
+                      title: materializedMetadata.title,
+                      summary: materializedMetadata.summary,
+                      difficulty: materializedMetadata.difficulty,
+                      outcomes: [...materializedMetadata.outcomes],
+                      topicId: materializedMetadata.topicId,
+                      formatId: materializedMetadata.formatId,
+                      schemaVersion: body.value.schemaVersion,
+                      body: toDatabaseJson(body.value.doc),
+                      access: materializedMetadata.access,
+                    }
+                  : { slug }),
                 publicationState: next.value.publicationState,
                 contentVersion: BigInt(next.value.contentVersion),
                 firstPublishedAt: next.value.firstPublishedAt,
                 publishedAt: next.value.publishedAt,
                 publishedBy,
-                primaryVideoId: command.primaryVideoId,
-                videoChapters: toDatabaseJson([...videoChapters]),
-                coverId: locked.coverId,
+                ...(publication === undefined
+                  ? {
+                      primaryVideoId: command.primaryVideoId,
+                      videoChapters: toDatabaseJson([...videoChapters]),
+                      coverId: locked.coverId,
+                    }
+                  : {}),
                 updatedAt: savedAt,
               },
             });
-            await replaceCurrentRelations(
-              transaction,
-              command.materialId,
-              materializedMetadata,
-            );
+            if (publication === undefined)
+              await replaceCurrentRelations(
+                transaction,
+                command.materialId,
+                materializedMetadata,
+              );
             if (next.value.publicationState === "published") {
               if (!publishable.ok || publishedBy === null) {
                 return rollback({
@@ -486,11 +557,14 @@ export function assembleSaveMaterial(
                 where: { materialId: command.materialId },
               });
             }
-            await markUnreferencedMaterialAssets(transaction, {
-              materialId: command.materialId,
-              orphanedAt: savedAt,
-              referencedAssetIds: assetReferences.map(({ assetId }) => assetId),
-            });
+            if (publication === undefined)
+              await markUnreferencedMaterialAssets(transaction, {
+                materialId: command.materialId,
+                orphanedAt: savedAt,
+                referencedAssetIds: assetReferences.map(
+                  ({ assetId }) => assetId,
+                ),
+              });
             if (command.deleteVideoId !== null) {
               const deletion = await requestVideoDeletion(
                 transaction,

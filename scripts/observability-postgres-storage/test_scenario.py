@@ -61,6 +61,88 @@ def baseline_ports(test, fault=None, primary=None, secondary=None, waiting=False
 
 
 class Driver(unittest.TestCase):
+    def test_only_terminal_owned_baseline_oracle_adopts_reason_and_each_attempt_clears_it(self):
+        import json
+        import oracle
+        from test_oracle import vectors,raw,EXPECTED,NOW
+        driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250
+        rows,stamps=vectors();rows[-1]['metric']['private']='not-exported'
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+             patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+            with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(EXPECTED,_baseline='first')
+        self.assertEqual(driver.phase,'baseline_first_stored_oracle')
+        self.assertEqual(driver.oracle_failure_reason,'oracle_values_labels')
+        rows,stamps=vectors()
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+             patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+            self.assertEqual(driver.stored(EXPECTED,_baseline='second')['freshness'],'fresh')
+        self.assertIsNone(driver.oracle_failure_reason)
+        for primary in (OSError('private transport'),KeyboardInterrupt(),SystemExit()):
+            driver.oracle_failure_reason='oracle_values_labels'
+            with patch.object(scenario.time,'monotonic',return_value=100), \
+                 patch.object(scenario.queries,'read',side_effect=primary):
+                try:driver.stored(EXPECTED,_baseline='first')
+                except BaseException as error:self.assertIs(error,primary)
+                else:self.fail('transport interruption suppressed')
+            self.assertIsNone(driver.oracle_failure_reason)
+        for secondary in (ValueError('private observer'),KeyboardInterrupt(),SystemExit()):
+            with patch.object(scenario.time,'monotonic',return_value=100), \
+                 patch.object(scenario.queries,'read',return_value=('{',raw(stamps),1790000000,NOW)), \
+                 patch.object(oracle,'diagnostic_reason',side_effect=secondary):
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(EXPECTED,_baseline='first')
+            self.assertIsNone(driver.oracle_failure_reason)
+        self.assertNotIn('not-exported',json.dumps({'reason':driver.oracle_failure_reason}))
+
+    def test_pending_and_foreign_oracle_results_cannot_borrow_a_diagnosed_failure(self):
+        import oracle
+        from test_oracle import vectors,raw,EXPECTED,NOW
+        driver=scenario.Scenario(None,[],'fixed',oracle);driver.end=250
+        rows,stamps=vectors();complete=(raw(rows),raw(stamps),1790000000,NOW)
+        pending=(raw(rows[:-1]),raw(stamps[:-1]),1790000000,NOW)
+        driver.oracle_failure_reason='oracle_values_labels';seen=[]
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+             patch.object(scenario.time,'sleep',side_effect=lambda _:seen.append(driver.oracle_failure_reason)), \
+             patch.object(scenario.queries,'read',side_effect=[pending,complete]):
+            self.assertEqual(driver.stored(EXPECTED,_baseline='first')['freshness'],'fresh')
+        self.assertEqual(seen,[None]);self.assertIsNone(driver.oracle_failure_reason)
+        fabricated={'freshness':'malformed','reason':'oracle_values_labels','points':0,'age_seconds':None,
+                    'continuity':'unknown','count_complete':False}
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+             patch.object(scenario.queries,'read',return_value=complete), \
+             patch.object(oracle,'evaluate',return_value=fabricated):
+            with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(EXPECTED,_baseline='first')
+        self.assertIsNone(driver.oracle_failure_reason)
+        rows[-1]['metric']['private']='not-exported'
+        with patch.object(scenario.time,'monotonic',return_value=100), \
+             patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+            with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(EXPECTED)
+        self.assertIsNone(driver.oracle_failure_reason)
+
+    def test_real_oracle_storage_primary_survives_same_and_different_actor_cleanup_failures(self):
+        import sys
+        import oracle
+        from test_oracle import vectors,raw,NOW
+        rows,stamps=vectors();rows[-1]['metric']['private']='not-exported'
+        for mode in ('same','different','interrupt','exit'):
+            with self.subTest(mode=mode),baseline_ports(self) as (driver,events,clock,raised,stop):
+                driver.oracle=oracle;seen=[]
+                def close(_deadline):
+                    primary,tb=sys.exc_info()[1:];seen.append((primary,tb))
+                    if mode=='same':raise primary
+                    if mode=='interrupt':raise KeyboardInterrupt()
+                    if mode=='exit':raise SystemExit()
+                    raise RuntimeError('private cleanup failure')
+                driver.actors.close=close
+                with patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+                    try:driver.run(None)
+                    except ValueError as primary:
+                        self.assertEqual(str(primary),'storage');self.assertIs(primary,seen[0][0])
+                        trace=primary.__traceback__;frames=[];names=[]
+                        while trace is not None:frames.append(trace);names.append(trace.tb_frame.f_code.co_name);trace=trace.tb_next
+                        self.assertIn(seen[0][1],frames);self.assertIn('stored',names);self.assertNotIn('close',names)
+                    else:self.fail('storage failure replaced')
+                self.assertEqual(driver.oracle_failure_reason,'oracle_values_labels')
+
     def test_restart_readiness_uses_only_frozen_postgres_and_same_remaining_deadline(self):
         driver=scenario.Scenario(None,['compose'],'fixed',None);driver.end=time.monotonic()+150
         calls=[];deadlines=[];cid='a'*64

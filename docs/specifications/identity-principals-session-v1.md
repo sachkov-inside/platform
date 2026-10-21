@@ -249,6 +249,10 @@ Approval queues a separate, deduplicated Telegram receipt in the same transactio
 It asks the person to return to the original browser and does not claim Account finalization.
 Undelivered receipts stop being eligible after linking or request expiry. Final success still
 edits the original prompt only after the committed link; a late receipt cannot overwrite that edit.
+
+The automatic Telegram app handoff targets a separate browsing context with no opener instead of
+the waiting document. If the popup is blocked, the existing HTTPS bot button remains.
+
 The waiting page retries transient `unavailable` and network failures, checks immediately on
 visible return or network restoration, and keeps at most one status request in flight. Waiting
 ends at the interaction expiry, with a five-minute browser budget if no expiry can be read.

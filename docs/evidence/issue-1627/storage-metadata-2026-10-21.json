@@ -1,0 +1,16 @@
+{
+  "lifecycleHttpStatus": 404,
+  "noConfiguredLifecycle": true,
+  "rawPayloadRetained": false,
+  "lifecycleRulesNeedReview": false,
+  "versioningHttpStatus": 200,
+  "versioningStatus": "unconfigured",
+  "newPrefixProbeHttpStatus": 200,
+  "newPrefixEmpty": true,
+  "classProbeHttpStatus": 200,
+  "sampleStorageClass": "STANDARD",
+  "provider": "Yandex Object Storage",
+  "region": "ru-central1",
+  "repositoryAlias": "existing-backup-bucket",
+  "observedAt": "2026-10-21T08:24:45.549606+00:00"
+}

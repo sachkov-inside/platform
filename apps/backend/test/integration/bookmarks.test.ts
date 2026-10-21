@@ -1,3 +1,4 @@
+import { BookmarkActivityRetention } from "../../src/modules/bookmarks/index.js";
 import { activityTestClock } from "./setup/activity-test-clock.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -502,5 +503,51 @@ describe("Bookmarks on PostgreSQL", () => {
     expect(report.value.rows.some((row) => row.accountId === accountId)).toBe(
       false,
     );
+  });
+
+  test("retaining analytics copies preserves current bookmark dedup and genuine later transitions", async () => {
+    const clock = await activityTestClock(database.prisma);
+    vi.setSystemTime(clock.at);
+    const id = await material();
+    const account = randomUUID();
+    const command = { accountId: account, materialId: id };
+    expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: true });
+    const current = await database.prisma.bookmarkedMaterial.findMany({
+      where: { accountId: account },
+    });
+    await database.prisma.$executeRaw(
+      Prisma.sql`update bookmarks.activity_events set occurred_at=transaction_timestamp()-interval '366 days' where account_id=${account}::uuid`,
+    );
+    expect(
+      await new BookmarkActivityRetention(database.prisma).clean(),
+    ).toMatchObject({ ok: true, value: { removed: 1 } });
+    expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: true });
+    expect(
+      await database.prisma.bookmarkedMaterial.findMany({
+        where: { accountId: account },
+      }),
+    ).toEqual(current);
+    const empty = await new BookmarkActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!empty.ok) throw new Error(empty.error.code);
+    expect(empty.value.rows.some((row) => row.accountId === account)).toBe(
+      false,
+    );
+    expect(await bookmarks.removeBookmark(command)).toMatchObject({ ok: true });
+    expect(await bookmarks.removeBookmark(command)).toMatchObject({ ok: true });
+    expect(await bookmarks.addBookmark(command)).toMatchObject({ ok: true });
+    const report = await new BookmarkActivityFacts(database.prisma).read(
+      clock.window,
+    );
+    if (!report.ok) throw new Error(report.error.code);
+    expect(
+      report.value.rows
+        .filter((row) => row.accountId === account)
+        .map(({ kind, eventCount }) => ({ kind, eventCount })),
+    ).toEqual([
+      { kind: "bookmark_added", eventCount: 1 },
+      { kind: "bookmark_removed", eventCount: 1 },
+    ]);
   });
 });

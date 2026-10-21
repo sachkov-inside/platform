@@ -134,3 +134,85 @@ export function assertCoreContracts(result) {
   assert.ok(signal.value === null, message);
   assert.ok(!failedSpawn, message);
 }
+
+const PROTOCOL_METHODS = Object.freeze([
+  "test_inventory_preserves_all_baseline_methods_and_exact_additions",
+  "test_markers_preserve_first_primary_and_completed_is_not_success",
+  "test_runner_uses_original_discovery_and_refuses_inventory_drift",
+]);
+const PROTOCOL_UNKNOWN = "Core protocol: unknown";
+/** @param {unknown} stderr */
+function protocolFailureMessage(stderr) {
+  if (typeof stderr !== "string" || Buffer.byteLength(stderr) > 1_048_576)
+    return PROTOCOL_UNKNOWN;
+  let offset = 0;
+  while (offset < stderr.length) {
+    const end = stderr.indexOf("\n", offset);
+    const line = stderr.slice(offset, end < 0 ? stderr.length : end);
+    offset = end < 0 ? stderr.length : end + 1;
+    if (!line.includes("CORE_PROTOCOL")) continue;
+    if (end !== stderr.length - 1 || Buffer.byteLength(line) + 1 > 64)
+      return PROTOCOL_UNKNOWN;
+    const match = /^CORE_PROTOCOL_V1 failures ([-FE]{3})$/u.exec(line);
+    const vector = match?.[1];
+    if (vector === undefined || vector === "---") return PROTOCOL_UNKNOWN;
+    return (
+      "Core protocol: " +
+      PROTOCOL_METHODS.flatMap((method, index) => {
+        const category = vector[index];
+        return category === "-"
+          ? []
+          : [method + "=" + (category === "F" ? "failure" : "error")];
+      }).join("; ")
+    );
+  }
+  return PROTOCOL_UNKNOWN;
+}
+
+/** The separate three-method protocol retains its native verdict; no274 progress claim.
+ * @param {unknown} result
+ */
+export function assertCoreProtocolContracts(result) {
+  const status = data(result, "status");
+  const signal = data(result, "signal");
+  const error = data(result, "error");
+  if (
+    !status.valid ||
+    !status.present ||
+    !(
+      status.value === null ||
+      (typeof status.value === "number" &&
+        Number.isSafeInteger(status.value) &&
+        status.value >= 0)
+    ) ||
+    !signal.valid ||
+    !signal.present ||
+    !(
+      signal.value === null ||
+      (typeof signal.value === "string" &&
+        signal.value.length <= 16 &&
+        /^SIG[A-Z0-9]+$/u.test(signal.value))
+    ) ||
+    !error.valid
+  )
+    assert.fail(PROTOCOL_UNKNOWN);
+  const failedSpawn = error.value !== undefined;
+  if (status.value === 0 && signal.value === null && !failedSpawn) return;
+  let mayRead = !failedSpawn;
+  if (failedSpawn) {
+    const code = data(error.value, "code");
+    mayRead =
+      code.valid === true &&
+      code.present === true &&
+      code.value === "ETIMEDOUT";
+  }
+  let message = PROTOCOL_UNKNOWN;
+  if (mayRead) {
+    const stderr = data(result, "stderr");
+    if (stderr.valid && stderr.present)
+      message = protocolFailureMessage(stderr.value);
+  }
+  assert.equal(status.value, 0, message);
+  assert.ok(signal.value === null, message);
+  assert.ok(!failedSpawn, message);
+}

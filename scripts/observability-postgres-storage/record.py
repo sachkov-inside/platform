@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+from pg_oracle_reasons import ORACLE_REASONS
 
 NAME='postgres-source.json'
 TEMPORARY='.postgres-source.json.new'
@@ -19,7 +20,7 @@ PHASES=CASE_PHASES+('baseline_actor_start','baseline_setup',
     'baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
     'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
     'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
-REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup')
+REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup',*ORACLE_REASONS)
 FRESHNESS=('fresh','stale','missing','unavailable','malformed')
 CONTINUITY=('initial','same_epoch','statistics_reset','server_restart','ownership_changed','unknown')
 
@@ -106,6 +107,8 @@ def validate(value,source):
             or type(value['cases']) is not list or len(value['cases'])>16
             or type(value['duration_seconds']) not in (int,float) or not math.isfinite(value['duration_seconds'])
             or not 0<=value['duration_seconds']<=600):refuse()
+    if value['reason'] in ORACLE_REASONS and (value['state']!='failed'
+            or value['phase'] not in ('baseline_first_stored_oracle','baseline_second_stored_oracle')):refuse()
     cases=[]
     for case in value['cases']:
         if (type(case) is not dict or set(case)!={'phase','freshness','continuity','count_complete','points','age_seconds'}

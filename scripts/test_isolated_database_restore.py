@@ -17,7 +17,8 @@ class RestoreSafety(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.repo = pathlib.Path(self.directory.name)
         self.cipher = self.repo / "cipher.env"
-        self.cipher.touch(mode=0o600)
+        self.cipher.write_text("PGBACKREST_REPO1_CIPHER_PASS=synthetic-fixture-only\n")
+        self.cipher.chmod(0o600)
         self.calls = []
 
     def docker(self, *args, input_text=None):
@@ -39,6 +40,29 @@ class RestoreSafety(unittest.TestCase):
                 self.assertEqual(args[args.index("--network") + 1], "none")
                 self.assertNotIn("--publish", args)
         self.assertEqual(self.calls[-1][0], ("volume", "rm", result["volume"]))
+
+    def test_selected_repo2_and_named_target_are_bound_to_the_recovery_receipt(self):
+        self.cipher.write_text("PGBACKREST_REPO2_CIPHER_PASS=synthetic-new-only\n")
+        result = restore.restore("sha256:" + "a" * 64, self.repo, self.cipher,
+                                 "20261021-100000F", self.docker, repository_index=2,
+                                 target_name="transition_target")
+        command = next(args for args, _ in self.calls if "restore" == args[-1])
+        self.assertIn("--repo=2", command)
+        self.assertIn("--type=name", command)
+        self.assertIn("--target=transition_target", command)
+        self.assertIn("--config=/dev/null", command)
+        self.assertEqual(result["recoveryType"], "name")
+        self.assertEqual(result["repository"], 2)
+
+    def test_time_target_and_unsupported_environment_are_validated_before_docker(self):
+        with self.assertRaises(ValueError):
+            restore.restore("sha256:" + "a" * 64, self.repo, self.cipher,
+                            "20261021-100000F", self.docker, target_time="not-a-date")
+        self.assertEqual(self.calls, [])
+        self.cipher.write_text("PGBACKREST_REPO1_CIPHER_PASS=synthetic\nPGDATA=/other\n")
+        with self.assertRaises(ValueError):
+            restore.restore("sha256:" + "a" * 64, self.repo, self.cipher, "20261021-100000F", self.docker)
+        self.assertEqual(self.calls, [])
 
     def test_failed_restore_cleans_new_volume_and_returns_no_receipt(self):
         def fail(*args, input_text=None):

@@ -16,6 +16,10 @@ SPEC = importlib.util.spec_from_file_location(
     "foundation_proof", pathlib.Path(__file__).with_name("foundation-recovery-proof.py"))
 proof = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(proof)
+INVENTORY_SPEC = importlib.util.spec_from_file_location(
+    "inventory", pathlib.Path(__file__).with_name("backup-repository-inventory.py"))
+inventory = importlib.util.module_from_spec(INVENTORY_SPEC)
+INVENTORY_SPEC.loader.exec_module(inventory)
 
 
 def start(resources, image, *, detached=True, command="exec sleep 60", timeout=120):
@@ -78,6 +82,36 @@ class DockerLifecycle(unittest.TestCase):
         resources = self.resources()
         _, result = start(resources, self.image, detached=False, command="true")
         self.assertEqual(result.returncode, 0)
+
+    def inventory_watchdog(self, disconnect):
+        resources = self.resources()
+        name, result = start(resources, self.image)
+        self.assertEqual(result.returncode, 0)
+        args = ["exec", name, "sh", "-c", inventory.BOUNDED_READ, "bounded-test", "3", "sh", "-c",
+                "sleep 600 & child=$!; echo $$ $child >/tmp/inventory-worker; wait $child"]
+        if disconnect:
+            with self.assertRaises(subprocess.TimeoutExpired):
+                resources.command(*args, timeout=2)
+        else:
+            self.assertNotEqual(resources.command(*args, timeout=15, check=False).returncode, 0)
+        witness = resources.command("exec", name, "cat", "/tmp/inventory-worker").stdout.strip()
+        self.assertRegex(witness, r"^[0-9]+ [0-9]+$")
+        deadline = time.monotonic() + 8
+        while True:
+            absent = resources.command("exec", name, "sh", "-c",
+                                       "for pid in " + witness + "; do test ! -e /proc/$pid/stat || exit 1; done",
+                                       check=False)
+            if absent.returncode == 0:
+                break
+            if time.monotonic() >= deadline:
+                self.fail("inventory exec worker or descendant survived its in-container watchdog")
+            time.sleep(0.1)
+
+    def test_inventory_watchdog_cleans_container_worker_and_descendant(self):
+        self.inventory_watchdog(False)
+
+    def test_inventory_watchdog_survives_docker_client_disconnect(self):
+        self.inventory_watchdog(True)
 
     def test_command_failure(self):
         resources = self.resources()

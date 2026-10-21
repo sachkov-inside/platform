@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 import {
   loadPackage,
+  materialRevision,
   canonical,
   checksum,
   productShellScope,
@@ -50,6 +51,7 @@ import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
 import { preflightTaskPages } from "./task-page.mjs";
 import { previewTasks, resolveTaskAccess } from "./task-import.mjs";
+import { previewPublication, applyPublication } from "./publication.mjs";
 import { previewRetirement, applyRetirement } from "./retirement.mjs";
 
 /**
@@ -68,6 +70,7 @@ import { previewRetirement, applyRetirement } from "./retirement.mjs";
  * @property {boolean} [videoChange]
  * @property {import("./local-sync.mjs").DesiredPublication} publication
  * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
+ * @property {{ current: string | null; desired: string }} [contentReplacement]
  * @property {string} [conflictReason]
  * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
@@ -308,6 +311,10 @@ export async function previewRelease(
     materials.push({
       ...item,
       change,
+      contentReplacement: {
+        current: current.source?.revision ?? null,
+        desired: materialRevision(manifest, row),
+      },
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
       ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
       ...(publicationConflictFound
@@ -631,6 +638,14 @@ export async function applyRelease(
     .object({ scope: z.string().optional() })
     .passthrough()
     .parse(JSON.parse(await readFile(previewPath, "utf8")));
+  if (envelope.scope === "material-publication") {
+    if (archive.length > 0)
+      throw new Error("Publication apply uses only its reviewed target");
+    return applyPublication(previewPath, stateDirectory, {
+      request: transport,
+      accessToken,
+    });
+  }
   if (envelope.scope === "material-retirement") {
     if (archive.length > 0)
       throw new Error("Retirement apply uses only its reviewed UUID targets");
@@ -715,6 +730,8 @@ if (
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
+      "source-id": { type: "string" },
+      status: { type: "string" },
       package: { type: "string" },
       content: { type: "string" },
       product: { type: "string" },
@@ -735,13 +752,24 @@ if (
     },
   });
   const [command] = positionals;
-  if (command !== "retirement-preview" && values.material.length > 0)
+  if (
+    command !== "publication-preview" &&
+    (values["source-id"] !== undefined || values.status !== undefined)
+  )
+    throw new Error("--source-id and --status are publication-preview choices");
+  if (
+    !["retirement-preview", "publication-preview"].includes(command ?? "") &&
+    values.material.length > 0
+  )
     throw new Error("--material is a retirement-preview choice");
   if (command !== "preview" && values["task-access"].length > 0)
     throw new Error(
       "--task-access is a preview choice; apply uses the reviewed choices",
     );
-  if (command !== "preview" && values["confirm-product-removal"].length > 0)
+  if (
+    !["preview", "publication-preview"].includes(command ?? "") &&
+    values["confirm-product-removal"].length > 0
+  )
     throw new Error(
       "--confirm-product-removal is a preview choice; apply uses the reviewed choices",
     );
@@ -753,6 +781,38 @@ if (
       : undefined;
   };
   if (
+    command === "publication-preview" &&
+    values.target &&
+    values.state &&
+    values.material.length === 1 &&
+    values["source-id"] &&
+    values.status
+  ) {
+    if (
+      values.package ||
+      values.content ||
+      values.product ||
+      values.publish.length > 0 ||
+      values["publish-all"] ||
+      values.archive.length > 0
+    )
+      throw new Error(
+        "Publication preview accepts only source identity, target, version and status",
+      );
+    const { path, preview } = await previewPublication(values.state, {
+      origin: values.target,
+      materialId: z.uuid().parse(values.material[0]),
+      sourceId: values["source-id"],
+      publicationState: z
+        .enum(["published", "unpublished"])
+        .parse(values.status),
+      confirmedProductRemovals: values["confirm-product-removal"],
+      accessToken: sessionFor(values.target),
+    });
+    process.stdout.write(
+      `${JSON.stringify({ preview: path, ...preview }, null, 2)}\n`,
+    );
+  } else if (
     command === "retirement-preview" &&
     values.package &&
     values.target &&
@@ -816,7 +876,7 @@ if (
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release publication-preview --material UUID --source-id SOURCE_ID --status published|unpublished --target editor|stand|production --state STATE_DIRECTORY [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

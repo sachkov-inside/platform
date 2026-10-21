@@ -39,7 +39,7 @@ if (
 
   test("Core passive progress validates the entire bounded fixed prefix", async () => {
     const { readFile } = await import("node:fs/promises");
-    const { sourceProgress, assertCoreContracts } =
+    const { sourceProgress, assertCoreProtocolContracts } =
       await import("./observability-pilot/source-progress.mjs");
     /** @type {unknown} */
     const raw = JSON.parse(
@@ -109,7 +109,7 @@ if (
       { lastStarted: first, lastCompleted: null, completedCount: 0 },
     );
     // deterministic-test-allow unit-io: the fixed separate three-method synthetic entry acquires only private stdio; it never runs the original274 fixtures.
-    assertCoreContracts(
+    assertCoreProtocolContracts(
       spawnSync(
         "python3",
         ["scripts/observability-pilot/source_progress_contract.py"],
@@ -119,8 +119,20 @@ if (
   });
 
   test("Core passive assertions retain native outcome and redact foreign captures", async () => {
-    const { sourceProgress, assertCoreContracts } =
+    const { sourceProgress, assertCoreContracts, assertCoreProtocolContracts } =
       await import("./observability-pilot/source-progress.mjs");
+    assert.throws(
+      () =>
+        assertCoreProtocolContracts({
+          status: 1,
+          signal: null,
+          stderr: "private-canary\nCORE_PROTOCOL_V1 failures -F-\n",
+        }),
+      {
+        message:
+          /Core protocol: test_markers_preserve_first_primary_and_completed_is_not_success=failure/u,
+      },
+    );
     const { readFile } = await import("node:fs/promises");
     /** @type {unknown} */
     const raw = JSON.parse(
@@ -223,6 +235,81 @@ if (
         assert.ok(error.message.includes("Core source progress:"));
       }
     }
+    const footer = "CORE_PROTOCOL_V1 failures F-E\n";
+    assert.throws(
+      () =>
+        assertCoreProtocolContracts({
+          status: 1,
+          signal: null,
+          stderr: footer,
+        }),
+      {
+        message:
+          /Core protocol: test_inventory_preserves_all_baseline_methods_and_exact_additions=failure; test_runner_uses_original_discovery_and_refuses_inventory_drift=error/u,
+      },
+    );
+    for (const stderr of [
+      "",
+      "private-canary",
+      "CORE_SOURCE_V1 start fixed\n",
+      footer.slice(0, -1),
+      footer + footer,
+      footer + "trailing\n",
+      "prefix " + footer,
+      footer.replace("V1", "V2"),
+      footer.replace("F-E", "---"),
+      footer.replace("F-E", "FE"),
+      footer.replace("F-E", "FFE-"),
+      footer.replace("F-E", "F?E"),
+      footer.replace("\n", "\r\n"),
+      "CORE_PROTOCOL foreign\n" + footer,
+      "x".repeat(1_048_576) + footer,
+    ]) {
+      assert.throws(
+        () => assertCoreProtocolContracts({ status: 1, signal: null, stderr }),
+        {
+          message: /Core protocol: unknown/u,
+        },
+      );
+    }
+    for (const value of failures) {
+      assert.throws(
+        () => assertCoreProtocolContracts(value),
+        (error) =>
+          error instanceof assert.AssertionError &&
+          error.message.includes("Core protocol:") &&
+          !error.message.includes("private-canary") &&
+          !error.stack?.includes("private-canary"),
+      );
+    }
+    for (const value of [
+      beforeRead,
+      {
+        status: 1,
+        signal: null,
+        error: { code: "ENOENT" },
+        get stderr() {
+          throw new Error("private-canary");
+        },
+      },
+    ])
+      assert.throws(() => assertCoreProtocolContracts(value), {
+        message: /Core protocol: unknown/u,
+      });
+    for (const value of [
+      { status: 0, signal: "SIGTERM", stderr: footer },
+      { status: null, signal: null, stderr: footer },
+      { status: 0, signal: null, error: { code: "ETIMEDOUT" }, stderr: footer },
+    ])
+      assert.throws(() => assertCoreProtocolContracts(value));
+    assertCoreProtocolContracts({
+      status: 0,
+      signal: null,
+      get stderr() {
+        throw new Error("never inspect getter");
+      },
+    });
+    assertCoreProtocolContracts({ status: 0, signal: null, stderr: footer });
     assert.equal(traps, 0);
     for (const stderr of [
       "legacy private-canary",

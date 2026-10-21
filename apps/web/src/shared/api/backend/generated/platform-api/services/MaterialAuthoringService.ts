@@ -643,6 +643,39 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Change publication of the current source-owned Material without replacing content
+   * @returns any
+   * @throws ApiError
+   */
+  public transitionSourcePublication({
+    idempotencyKey,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    requestBody: {
+      confirmedProductRemovals?: Array<string>;
+      expectedContentVersion: number;
+      materialId: string;
+      publicationState: 'published' | 'unpublished';
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    contentVersion: number;
+    materialId: string;
+    publicationState: 'draft' | 'published' | 'unpublished';
+    publishedAt: string | null;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/materials/publication',
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Reserve a stable authoring source identity without publishing
    * @returns any
    * @throws ApiError

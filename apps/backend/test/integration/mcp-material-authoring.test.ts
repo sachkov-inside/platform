@@ -1,3 +1,4 @@
+import { ActivityRetentionDiagnostics } from "../../src/entrypoints/mcp/activity-retention-diagnostics.js";
 import { ParticipantDiagnostics } from "../../src/entrypoints/mcp/participant-diagnostics.js";
 import { QueueDiagnostics } from "../../src/entrypoints/mcp/queue-diagnostics.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/index.js";
@@ -147,6 +148,7 @@ describe("delegated Material authoring over MCP", () => {
       funnel: application.get(SalesFunnel),
       queues: application.get(QueueDiagnostics),
       participants: application.get(ParticipantDiagnostics),
+      retention: application.get(ActivityRetentionDiagnostics),
       telemetry: application.get(WebTelemetry),
       config: {
         host: "127.0.0.1",

@@ -2035,6 +2035,16 @@ Python принимает этап только после отправки setu
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
+Для отказа `baseline_first_stored_oracle` или `baseline_second_stored_oracle` существующее
+поле `reason` также допускает закрытые `oracle_*` причины первого локального отказа.
+Они различают stale/unavailable, группы JSON/envelope/row/labels/number для значений
+и timestamps, затем join, identity, cohort и сравнение ожидаемого frame. Это категории
+проверок, а не доказательство причины SQL или сервера. Неизвестная ошибка остаётся
+`oracle_malformed_unknown` либо прежним общим отказом. Старый `query_refused` по-прежнему
+читается без приписывания ему новых фактов. Восемь полей, schema 1, лимит 4096 байт,
+все проверки допуска и порядок отказов сохраняются. Причина не переносится между попытками
+и не превращает failed или pending в passed. Последний ec47 отказ остаётся неизвестным
+до нового отдельно допущенного source-bound прогона; raw vectors для него не сохранены.
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
@@ -2119,7 +2129,12 @@ native outcome. Raw captured unittest text is not the opt-in Linux assertion mes
 
 Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
 replace any of the original 274 methods. Synthetic dispatch/parity checks do not establish an
-actual admitted Linux run or explain an earlier source timeout. Hosted exact-source verification
+actual admitted Linux run or explain an earlier source timeout. Their separate assertion can
+identify a failed protocol method and the fixed category `failure` or `error` from one optional
+failure-only footer. It reads no traceback text. The three fixed positions do not report start,
+completion or success. Missing, foreign, truncated or oversized metadata stays `unknown`; native
+status, spawn error and signal remain authoritative. This feedback does not fix or explain a
+Python-version-specific failure. Hosted exact-source verification
 is still required. The stronger withdrawn owner/guardian proposals and their open
 `CORE-PROG-SEC-01`, `CPROG-PRE-01` and `CPROG-PRE-02` findings are neither fixed nor waived here.
 Application CI activation is a separate reviewed change to the existing tooling step only; it
@@ -2152,3 +2167,82 @@ Telegram, combined cross-surface Accounts and unlinked Telegram contacts are exp
 Membership. This report therefore does not complete the cross-surface active-participant criterion.
 It also does not implement physical deletion of activity history. Existing domain records remain
 owned by their capabilities; the read horizon is not evidence of physical retention cleanup.
+
+## Membership analytics-copy retention
+
+`ReadingActivityRetention` and `BookmarkActivityRetention` clean only
+`reading_activity.learning_started_events` and `bookmarks.activity_events`. Primary learning starts,
+reading transition events, command receipts, states/visits, current bookmarks and saved submissions
+remain source records and are not swept. Their existing 365-day report horizon is not physical TTL.
+Expired analytics copies are not reconstructed from first/last opens or current state after deletion.
+
+Each owner uses its PostgreSQL transaction timestamp minus the existing 365-day duration. Selection,
+DELETE recheck and oldest-expired query use the same exact database arithmetic. UTC timestamps are
+serialized as text with six fractional digits; no JavaScript Date round trip changes the cutoff.
+Equality is retained. Each pass locks at most 1000 expired event IDs in `(occurred_at,event_id)` order
+with `SKIP LOCKED`, deletes only those still expired, then reads at most one remaining oldest expired
+row. A pass never drains in a loop or counts the entire backlog. Statement timeout is 2 seconds,
+transaction timeout 5 seconds, acquisition bound 1 second. ReadCommitted transactions expose the oldest
+remaining row at that query; `asOf` is their database transaction clock, not a common cross-owner
+snapshot. A concurrently locked expired row can conservatively remain visible in the lag result.
+
+The existing billing-worker registers `membership-activity.retention`, a tenth fixed pg-boss queue.
+It schedules one pass per minute in UTC and sends one startup job, with no immediate retry. Each job
+attempts both owners once. An earlier committed batch remains committed if the other owner fails;
+the job fails and a later pass continues. Original nine queue policies and the separate daily
+web-telemetry 30-day cleanup stay in place. Existing billing bootstrap validation can prevent this
+worker from starting; this change does not remove that guard or promise cleanup during an outage.
+
+Read `activity_retention_diagnostics` through existing Platform MCP with a trusted delegated Account
+holding current `platform:admin`. Input is exactly `{}`. The tool exposes each fixed owner's known
+or unknown status, database `asOf`/cutoff, `hasMore`, oldestExpiredAt and lagSeconds beyond cutoff.
+It never deletes data or returns event/Account IDs, raw errors or a complete backlog count. A known
+empty result has `hasMore:false` and null oldest/lag. Failed queries remain unknown. The separate
+status tool preserves the existing active-participant query budget. Application logs alone do not
+prove agent-visible lag because the pilot collector redacts their bodies.
+
+Precommit failure rolls back one batch. A postcommit crash before job acknowledgement can leave a
+failed receipt followed by an idempotent next pass. Deleted expired copies cannot be restored by a
+command replay; recovery of historical copies, if required, uses the existing compatible database
+backup/restore procedure. Restored expired copies become eligible again. Primary product behavior
+and durable replay authority are retained. Row deletion does not measure PostgreSQL page/disk
+reclamation, backup retention or Umami cleanup/restore.
+
+Current preparation requires genuine PostgreSQL boundary, concurrency, rollback and primary-state
+invariance evidence plus actual worker scheduling in hosted CI. Source/adapter checks do not prove
+next-day cleanup under backlog or ingestion, worker availability, production capacity or runtime
+privacy. No production cleanup, deployment or server change is authorized by these source changes.
+
+### Partial retention passes and registration failure
+
+A failed cleanup job retains a closed, validated `activityRetention` report on its fixed Error.
+The pinned pg-boss failure path serializes this enumerable field into the failed receipt. It contains
+only the two fixed source outcomes and safe aggregate count/cutoff/lag fields, at most 4096 UTF-8
+bytes. An earlier committed owner batch is therefore distinguishable from a failed other owner;
+no original exception, Account/event ID or payload is attached to that report. Successful receipts
+use the same owned field. Serializer unit evidence is not a real failed-receipt persistence proof.
+
+`activity_retention_diagnostics` returns `lastPass` separately from the current two owner statuses.
+The infrastructure reads only this queue's owned report projection. It materializes at most 2001
+primary-key-ordered retained job headers. More than 2000 candidates yields unknown rather than a
+latest result from a truncated set. Otherwise it selects the latest completed/failed receipt from
+that complete bounded set. Missing, oversized or invalid latest reports remain unknown; an earlier
+success is never substituted. Neither job IDs, payloads, full outputs, messages nor stacks are
+returned. Terminal state and closed report outcome must agree. The original general queue report
+continues to read no payload/output columns.
+
+The last retained receipt includes database clock, completion time and age. Age over 600 seconds is
+`stale`, otherwise `recent`; neither proves worker health or next-day cleanup. Expired receipt
+retention, no terminal receipt, schema failure and budget overflow remain explicit unknown states.
+After one current admin check, the three independent reads start concurrently. Each retains the
+existing one-second acquisition/five-second transaction allowance, so their composition has a
+six-second allowance plus the existing authorization check, with no retry or caller budget control.
+Actual end-to-end compliance with the ten-second query requirement still needs hosted evidence.
+
+Only registration of the new retention queue is caught locally. Its sanitized failure is reported
+while registration of the original nine queues proceeds; their own failures and existing bootstrap
+validation still propagate. A billing-worker ready record does not certify retention registration.
+Missing queue, backlog, current lag and missing/stale/unknown pass evidence must be checked together.
+Owned database-trigger registration refusal and actual partial-job continuation fixtures are prepared
+for hosted verification. Local source checks do not establish their native result. A process kill
+precisely after one owner commit and recovery after that crash remain unverified.

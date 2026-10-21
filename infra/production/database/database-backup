@@ -2,6 +2,7 @@
 set -euo pipefail
 
 backup_type="${1:-}"
+repository="${INSIDE_BACKUP_REPOSITORY:-1}"
 case "$backup_type" in
   full | diff | incr) ;;
   *)
@@ -9,6 +10,17 @@ case "$backup_type" in
     exit 64
     ;;
 esac
+case "$repository" in
+  1 | 2) ;;
+  *)
+    echo "Backup repository must be 1 or 2" >&2
+    exit 64
+    ;;
+esac
+if [ "$#" -ne 1 ]; then
+  echo "Usage: database-backup full|diff|incr" >&2
+  exit 64
+fi
 
 foundation_root="${INSIDE_FOUNDATION_ROOT:-/opt/inside/foundation/infra/production}"
 foundation_config_dir="${FOUNDATION_CONFIG_DIR:-/etc/inside/foundation}"
@@ -19,5 +31,7 @@ exec docker compose \
   --profile operations \
   run --rm pgbackrest \
   --stanza=production \
+  --repo="$repository" \
+  --no-expire-auto \
   --type="$backup_type" \
   backup

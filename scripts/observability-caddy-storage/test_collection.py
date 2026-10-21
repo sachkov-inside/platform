@@ -39,3 +39,23 @@ class CuratedCollection(unittest.TestCase):
             (output/'caddy-run.json').write_text(json.dumps({**run.snapshot(),'private':'private-caddy-sentinel'}))
             with self.assertRaises(ValueError):collection.collect(output,metadata,root/'refused')
             self.assertFalse((root/'refused').exists())
+
+            # A failed initial partition may retain only its already acquired closed nonobserved status.
+            values['data']['result'][0]['value'][1]='0'
+            down=caddy_status.evaluate(json.dumps(values).encode(),json.dumps(stamps).encode(),evaluated_at=100,completed_at=101)
+            down['transport']['canonical']='passed'
+            artifact.write(output,down);artifact.write_run(output,run.snapshot())
+            with self.assertRaises(ValueError):collection.collect(output,metadata,root/'false-positive')
+            self.assertFalse((root/'false-positive').exists())
+            failed=evidence.Run();failed.start('partition_initial_state');failed.fail('budget')
+            artifact.write_run(output,failed.snapshot())
+            collection.collect(output,metadata,root/'failed-public')
+            self.assertEqual(artifact.read(root/'failed-public'),down)
+            self.assertEqual(artifact.read_run(root/'failed-public'),failed.snapshot())
+            self.assertEqual(down['transport'],{'canonical':'passed','mcp':'unrun'})
+            self.assertIsNone(down['observation']);self.assertIsNone(down['comparison'])
+            for name,poison in (('private-field',{**down,'private':'private-caddy-sentinel'}),
+                    ('unproven-observed',{**good,'transport':{'canonical':'passed','mcp':'unrun'}})):
+                (output/artifact.NAME).write_text(json.dumps(poison))
+                with self.assertRaises(ValueError):collection.collect(output,metadata,root/name)
+                self.assertFalse((root/name).exists())

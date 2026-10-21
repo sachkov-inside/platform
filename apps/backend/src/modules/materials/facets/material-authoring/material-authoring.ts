@@ -11,6 +11,7 @@ import type {
 } from "../../features/import-source-product/import-source-product.contract.js";
 import type { ValidateSourceOperation } from "../../features/import-source-material/import-source-material.contract.js";
 import type {
+  SourcePublicationOperation,
   ReserveSourceOperation,
   ApplySourceOperation,
 } from "../../features/import-source-material/import-source-material.contract.js";
@@ -42,6 +43,7 @@ export interface MaterialAuthoring {
   readonly reorderSourceProduct: ReorderSourceProductOperation;
   readonly validateSourceContent: ValidateSourceOperation;
   readonly reserveSourceMaterial: ReserveSourceOperation;
+  readonly transitionSourcePublication: SourcePublicationOperation;
   readonly applySourceMaterial: ApplySourceOperation;
   readonly loadHomePin: LoadHomePinOperation;
   readonly setHomePin: SetHomePinOperation;

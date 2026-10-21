@@ -101,6 +101,13 @@ class AcquisitionBudget(unittest.TestCase):
                 self.assertEqual(boundary.call_count,0 if name in ('initial_acquire','initial_state','initial_after_cut') else 1)
                 self.assertEqual(verify.call_count,1 if name in ('compare_journal','compare_after_cut') else 0)
                 self.assertEqual((run.snapshot()['phase'],run.snapshot()['reason']),('partition_'+name,'budget'))
+                if name=='initial_state':
+                    self.assertIsNotNone(experiment.last_report)
+                    self.assertEqual(experiment.last_report['state'],'down')
+                    self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'unrun'})
+                    self.assertIsNone(experiment.last_report['observation'])
+                    self.assertIsNone(experiment.last_report['comparison'])
+                else:self.assertIsNone(experiment.last_report)
                 before=run.snapshot();experiment.phase('reset');experiment.failed(SystemExit('private-canary'))
                 self.assertEqual(run.snapshot(),before)
                 self.assertNotIn('private-canary',json.dumps(before))
@@ -113,6 +120,29 @@ class AcquisitionBudget(unittest.TestCase):
              patch.object(experiment,'stamp',wraps=experiment.stamp) as stamp:
             self.assertEqual(experiment.fresh_after(98),(report,current))
         self.assertEqual(stamp.call_count,2);self.assertEqual(reads.call_count,1);progress.assert_not_called()
+
+        # Two real rejected statuses are remembered; a later observed acquisition still follows normal matching.
+        experiment=scenario.Scenario(None,'owned_token',None,Mock());experiment.deadline=600
+        down=acquired(100,99,down=True);stale=acquired(140,99);fresh=acquired(142,141)
+        fixtures=[down,stale,fresh];expected=[]
+        def read(_,previous,deadline_seconds):
+            current=fixtures.pop(0);report=scenario.status.evaluate(**current,previous=previous)
+            report['transport']['canonical']='passed';expected.append(report)
+            if len(expected)==2:self.assertEqual(experiment.last_report,expected[0])
+            return report,current
+        with patch.object(scenario.caddy_query,'read_snapshot',side_effect=read) as reads, \
+             patch.object(scenario.time,'time',return_value=150), \
+             patch.object(scenario.time,'monotonic',return_value=0),patch.object(scenario.time,'sleep'):
+            report,current=experiment.fresh_after(98,_partition=True)
+        self.assertEqual([value['state'] for value in expected],['down','stale','observed'])
+        self.assertEqual(experiment.last_report,expected[1]);self.assertEqual(reads.call_count,3)
+        self.assertEqual((report,current),(expected[2],fresh))
+        mcp=scenario.status.evaluate(**fresh);mcp['transport']['mcp']='passed'
+        with patch.object(scenario.mcp_snapshot,'read_snapshot',return_value=(mcp,fresh)) as matching:
+            self.assertEqual(experiment.matching(fresh),fresh)
+        matching.assert_called_once_with(None,'owned_token',evaluated_at=142,previous=None,progress=unittest.mock.ANY)
+        self.assertEqual(experiment.last_report['state'],'observed')
+        self.assertEqual(experiment.last_report['transport'],{'canonical':'passed','mcp':'passed'})
 
     def test_classification_never_reads_foreign_metadata_or_matches_text(self):
         class Foreign(RuntimeError):
@@ -189,70 +219,98 @@ class AcquisitionBudget(unittest.TestCase):
         # Actual worker -> Scenario.partition -> failed -> progress -> first persist.
         import sys
         from test_observation import acquisition
-        for kind,reason in (('budget','budget'),('interrupt','interrupted'),('exit','unknown')):
-            for secondary in ('same','different'):
-                with self.subTest(inner_kind=kind,inner_secondary=secondary),tempfile.TemporaryDirectory() as directory:
-                    runtime=Runtime(directory);primaries=[];original_tbs=[];writes=[];failed_writes=[];cleaned=[]
-                    primary=None if kind=='budget' else KeyboardInterrupt('private-canary') if kind=='interrupt' else SystemExit('private-canary')
-                    original_write=artifact.write_run;original_failed=scenario.Scenario.failed
-                    original_init=scenario.Scenario.__init__
-                    def initialize(experiment,*args):
-                        original_init(experiment,*args);experiment.acquisitions=127;experiment.deadline=600
-                    def failed(experiment,error):
-                        primaries.append(error);original_tbs.append(sys.exc_info()[2])
-                        original_failed(experiment,error)
-                    def write(output,value):
-                        original_write(output,value);writes.append(value)
-                        if value['state'] in ('failed','interrupted'):
-                            failed_writes.append(value)
-                            # Both inner and outer writes fail; first failure remains latched.
-                            if secondary=='same':raise primaries[0]
-                            raise OSError('private-canary')
-                    @contextmanager
-                    def executable(_):
-                        try:yield '/owned-executable'
-                        finally:cleaned.append('executable')
-                    @contextmanager
-                    def storage(*_):
-                        try:yield
-                        finally:cleaned.append('storage')
-                    values,stamps=acquisition()
-                    acquired={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),
-                              'evaluated_at':100,'completed_at':101}
-                    report=scenario.status.evaluate(**acquired);report['transport']['canonical']='passed'
-                    def perform(case,_):
-                        method,code=scenario.traffic.CASES[case]
-                        return {'started':110,'completed':110,'method':method,'code':200 if type(code) is tuple else code}
-                    def sleep(_):
-                        if primary is not None:raise primary
-                    error,record=runtime.fail_worker(self,extra=(
-                        patch.object(caddy_storage.pilot,'worker_storage_guard',side_effect=storage),
-                        patch.object(caddy_storage.owned.Targets,'caddy_identity'),
-                        patch.object(caddy_storage.owned.Targets,'change'),
-                        patch.object(caddy_storage.native_fault,'inject'),
-                        patch.object(caddy_storage.native_asset,'executable',side_effect=executable),
-                        patch.object(artifact,'write_run',side_effect=write),
-                        patch.object(scenario.Scenario,'__init__',initialize),
-                        patch.object(scenario.Scenario,'failed',failed),
-                        patch.object(scenario.caddy_query,'read_snapshot',return_value=(report,acquired)),
-                        patch.object(scenario.traffic,'perform',side_effect=perform),
-                        patch.object(scenario.time,'monotonic',return_value=0),
-                        patch.object(scenario.time,'time',return_value=110),
-                        patch.object(scenario.time,'sleep',side_effect=sleep)))
-                    self.assertEqual(len(primaries),1);self.assertIs(error,primaries[0])
-                    if primary is not None:self.assertIs(error,primary)
-                    else:self.assertIs(type(error),scenario.AcquisitionBudgetRefusal)
-                    self.assertEqual(cleaned,['executable','storage'])
-                    self.assertEqual((record['phase'],record['reason']),('partition_initial_after_cut',reason))
-                    self.assertEqual(record['state'],'interrupted' if kind=='interrupt' else 'failed')
-                    self.assertEqual(len(failed_writes),2)
-                    self.assertEqual(failed_writes[0],failed_writes[1])
-                    self.assertFalse(any(value['state']=='incomplete' and value['phase'].startswith('partition_') for value in writes))
-                    self.assertEqual({k for k,v in record['cases'].items() if v=='passed'},
-                                     {'logging','identity','http_get','http_post','unauthorized','fallback','body_limit','upstream_error'})
-                    tb=BaseException.__traceback__.__get__(error);frames=[]
-                    self.assertIs(tb.tb_next,original_tbs[0])
-                    while tb is not None:frames.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
-                    self.assertNotIn('write',frames);self.assertNotIn('failed',frames)
-                    self.assertEqual(frames[-1],'snapshot' if kind=='budget' else 'sleep')
-                    self.assertNotIn('private-canary',json.dumps(record))
+        for checkpoint,observation_fault in (('after_cut',None),('state',None),('state','same'),
+                ('state','different'),('state','interrupt'),('state','exit'),('state','invalid'),('state','replace'),('state','close')):
+            for kind,reason in (('budget','budget'),('interrupt','interrupted'),('exit','unknown')):
+                for secondary in ('same','different'):
+                    if observation_fault is not None and (kind!='budget' or secondary!='same'):continue
+                    with self.subTest(checkpoint=checkpoint,observation_fault=observation_fault,inner_kind=kind,inner_secondary=secondary),tempfile.TemporaryDirectory() as directory:
+                        runtime=Runtime(directory);primaries=[];original_tbs=[];writes=[];failed_writes=[];cleaned=[]
+                        primary=None if kind=='budget' else KeyboardInterrupt('private-canary') if kind=='interrupt' else SystemExit('private-canary')
+                        original_write=artifact.write_run;original_failed=scenario.Scenario.failed
+                        original_observation=artifact.write;observations=[]
+                        def observation(output,value):
+                            observations.append(value)
+                            if observation_fault=='same':raise primaries[0]
+                            if observation_fault=='different':raise OSError('private-canary')
+                            if observation_fault=='interrupt':raise KeyboardInterrupt('private-canary')
+                            if observation_fault=='exit':raise SystemExit('private-canary')
+                            if observation_fault=='invalid':return original_observation(output,{**value,'private':'private-canary'})
+                            if observation_fault=='replace':
+                                with patch.object(artifact.os,'replace',side_effect=OSError('private-canary')):
+                                    return original_observation(output,value)
+                            if observation_fault=='close':
+                                actual_close=artifact.os.close
+                                def close(fd):actual_close(fd);raise primaries[0]
+                                with patch.object(artifact.os,'close',side_effect=close):return original_observation(output,value)
+                            return original_observation(output,value)
+                        original_init=scenario.Scenario.__init__
+                        def initialize(experiment,*args):
+                            original_init(experiment,*args);experiment.acquisitions=127;experiment.deadline=600
+                        def failed(experiment,error):
+                            primaries.append(error);original_tbs.append(sys.exc_info()[2])
+                            original_failed(experiment,error)
+                        def write(output,value):
+                            original_write(output,value);writes.append(value)
+                            if value['state'] in ('failed','interrupted'):
+                                failed_writes.append(value)
+                                # Both inner and outer writes fail; first failure remains latched.
+                                if secondary=='same':raise primaries[0]
+                                raise OSError('private-canary')
+                        @contextmanager
+                        def executable(_):
+                            try:yield '/owned-executable'
+                            finally:cleaned.append('executable')
+                        @contextmanager
+                        def storage(*_):
+                            try:yield
+                            finally:cleaned.append('storage')
+                        values,stamps=acquisition()
+                        if checkpoint=='state':values['data']['result'][0]['value'][1]='0'
+                        acquired={'values':json.dumps(values).encode(),'timestamps':json.dumps(stamps).encode(),
+                                  'evaluated_at':100,'completed_at':101}
+                        report=scenario.status.evaluate(**acquired);report['transport']['canonical']='passed'
+                        def perform(case,_):
+                            method,code=scenario.traffic.CASES[case]
+                            return {'started':110,'completed':110,'method':method,'code':200 if type(code) is tuple else code}
+                        def sleep(_):
+                            if primary is not None:raise primary
+                        error,record=runtime.fail_worker(self,extra=(
+                            patch.object(caddy_storage.pilot,'worker_storage_guard',side_effect=storage),
+                            patch.object(caddy_storage.owned.Targets,'caddy_identity'),
+                            patch.object(caddy_storage.owned.Targets,'change'),
+                            patch.object(caddy_storage.native_fault,'inject'),
+                            patch.object(caddy_storage.native_asset,'executable',side_effect=executable),
+                            patch.object(artifact,'write_run',side_effect=write),
+                            patch.object(artifact,'write',side_effect=observation),
+                            patch.object(scenario.Scenario,'__init__',initialize),
+                            patch.object(scenario.Scenario,'failed',failed),
+                            patch.object(scenario.caddy_query,'read_snapshot',return_value=(report,acquired)),
+                            patch.object(scenario.traffic,'perform',side_effect=perform),
+                            patch.object(scenario.time,'monotonic',return_value=0),
+                            patch.object(scenario.time,'time',return_value=110),
+                            patch.object(scenario.time,'sleep',side_effect=sleep)))
+                        self.assertEqual(len(primaries),1);self.assertIs(error,primaries[0])
+                        if primary is not None:self.assertIs(error,primary)
+                        else:self.assertIs(type(error),scenario.AcquisitionBudgetRefusal)
+                        self.assertEqual(cleaned,['executable','storage'])
+                        self.assertEqual((record['phase'],record['reason']),('partition_initial_'+checkpoint,reason))
+                        self.assertEqual(record['state'],'interrupted' if kind=='interrupt' else 'failed')
+                        self.assertEqual(len(failed_writes),2)
+                        self.assertEqual(failed_writes[0],failed_writes[1])
+                        self.assertFalse(any(value['state']=='incomplete' and value['phase'].startswith('partition_') for value in writes))
+                        self.assertEqual({k for k,v in record['cases'].items() if v=='passed'},
+                                         {'logging','identity','http_get','http_post','unauthorized','fallback','body_limit','upstream_error'})
+                        tb=BaseException.__traceback__.__get__(error);frames=[]
+                        self.assertIs(tb.tb_next,original_tbs[0])
+                        while tb is not None:frames.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
+                        self.assertNotIn('write',frames);self.assertNotIn('failed',frames)
+                        self.assertEqual(frames[-1],'snapshot' if kind=='budget' else 'sleep')
+                        self.assertNotIn('private-canary',json.dumps(record))
+                        if checkpoint=='state':
+                            self.assertEqual(observations,[report])
+                            self.assertEqual(artifact.read(runtime.output),report if observation_fault in (None,'close') else None)
+                            self.assertFalse((runtime.output/('.'+artifact.NAME+'.new')).exists())
+                        else:
+                            self.assertEqual(observations,[])
+                            self.assertIsNone(artifact.read(runtime.output))

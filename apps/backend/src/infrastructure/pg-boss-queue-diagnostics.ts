@@ -1,3 +1,8 @@
+import {
+  activityRetentionLastPass,
+  activityRetentionReceiptUnknown,
+  ACTIVITY_RETENTION_REPORT_BYTES,
+} from "./activity-retention.js";
 import { Inject, Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { expectedPgBossSchemaVersion } from "../migrations/runtime-schema.js";
@@ -38,7 +43,7 @@ const snapshotSchema = z
   .array(z.object({ asOf: z.date(), version: z.number().int() }))
   .length(1);
 
-/** Infrastructure owns the pg-boss schema. Never starts pg-boss or reads payload/output columns. */
+/** Infrastructure owns pg-boss. read() remains payload-free; the separate fixed retention projection reads only its validated aggregate report. */
 @Injectable()
 export class PgBossQueueDiagnostics {
   constructor(
@@ -135,6 +140,53 @@ export class PgBossQueueDiagnostics {
           coverage: "unknown" as const,
           error: { code: "source_unavailable" as const },
         },
+      );
+    }
+  }
+  async readActivityRetentionLastPass() {
+    try {
+      return await this.prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw(Prisma.sql`set transaction read only`);
+        await setDiagnosticStatementBudget(transaction);
+        const snapshot = snapshotSchema.parse(
+          await transaction.$queryRaw(
+            Prisma.sql`select transaction_timestamp() as "asOf",version from pgboss.version`,
+          ),
+        )[0];
+        if (
+          snapshot === undefined ||
+          snapshot.version !== expectedPgBossSchemaVersion
+        )
+          return activityRetentionReceiptUnknown("schema_mismatch");
+        const raw: unknown = await transaction.$queryRaw(Prisma.sql`
+        with candidates as materialized (
+          select id,state,completed_on from pgboss.job where name=${jobQueues.activityRetention} order by id limit 2001
+        ), budget as (select count(*)::integer as n,coalesce(bool_or(state in ('completed','failed') and completed_on is null),false) as invalid from candidates),
+        latest as (
+          select id,state,completed_on from candidates cross join budget where budget.n<=2000 and not budget.invalid and state in ('completed','failed')
+          order by completed_on desc nulls last,id desc limit 1
+        )
+        select to_char(transaction_timestamp() at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "asOf",budget.n as "candidateCount",budget.invalid as "headerInvalid",latest.state::text as state,
+          to_char(latest.completed_on at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "completedAt",
+          date_part('epoch',transaction_timestamp()-latest.completed_on)::double precision as "ageSeconds",
+          case when latest.id is null or budget.n>2000 then null
+            when job.output->'activityRetention' is null then 'missing_report'
+            when octet_length((job.output->'activityRetention')::text)>${ACTIVITY_RETENTION_REPORT_BYTES} then 'oversized_report' else null end as "reportReason",
+          case when budget.n<=2000 and octet_length((job.output->'activityRetention')::text)<=${ACTIVITY_RETENTION_REPORT_BYTES}
+            then job.output->'activityRetention' else null end as report
+        from budget left join latest on true
+        left join pgboss.job job on job.name=${jobQueues.activityRetention} and job.id=latest.id
+      `);
+        return activityRetentionLastPass(raw);
+      }, diagnosticSnapshotOptions);
+    } catch (error) {
+      return dependencyFailure(
+        {
+          module: "PgBossQueueDiagnostics",
+          operation: "readActivityRetentionLastPass",
+        },
+        error,
+        activityRetentionReceiptUnknown("source_unavailable"),
       );
     }
   }

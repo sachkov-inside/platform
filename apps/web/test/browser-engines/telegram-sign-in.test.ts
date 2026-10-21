@@ -121,10 +121,14 @@ async function open(
 ) {
   // Intercept the OS boundary: synthetic tests must never open the owner's Telegram app.
   await page.addInitScript(() => {
-    const launches: { url: string; target: string | undefined }[] = [];
+    const launches: {
+      url: string;
+      target: string | undefined;
+      features: string | undefined;
+    }[] = [];
     Object.assign(window, { telegramLaunches: launches });
-    window.open = (url, target) => {
-      launches.push({ url: String(url), target });
+    window.open = (url, target, features) => {
+      launches.push({ url: String(url), target, features });
       return null;
     };
   });
@@ -159,7 +163,8 @@ it("opens Telegram once, keeps a usable fallback when blocked, and completes in 
     expect(await launches()).toEqual([
       {
         url: "tg://resolve?domain=inside_fixture_bot&start=test-only",
-        target: "_self",
+        target: "_blank",
+        features: "noopener,noreferrer",
       },
     ]);
     expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
@@ -373,9 +378,14 @@ it.each(["focus", "pageshow", "online", "visibilitychange"])(
 it("expires locally while the provider remains unavailable", async () => {
   const page = await browser.newPage();
   try {
-    await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+    const waitingAt = new Date("2026-01-01T00:01:00Z");
+    await page.clock.install({
+      time: new Date(waitingAt.getTime() - 60_000),
+    });
+    // Page loading must not spend the fixture's short expiration window.
+    await page.clock.pauseAt(waitingAt);
     await open(page, "pending");
-    const expiresAt = "2026-01-01T00:00:02.000Z";
+    const expiresAt = new Date(waitingAt.getTime() + 2000).toISOString();
     state = { status: "unavailable", expiresAt };
     await poll(page);
     await page.getByRole("status").filter({ hasText: "Нет связи" }).waitFor();
@@ -701,3 +711,36 @@ it.each(["headers", "body"] as const)(
   },
   20000,
 );
+
+it("preserves the waiting document when the app handler navigates the selected browsing context", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install();
+    // Model a browser whose external-protocol handler replaces the selected context.
+    // The OS/app boundary is synthetic; no real Telegram app or account is touched.
+    await page.addInitScript(() => {
+      window.open = (_url, target) => {
+        if (target === "_self") location.replace("/external-app-handoff");
+        return null;
+      };
+    });
+    offline = false;
+    state = { status: "pending", deepLink: botLink };
+    const pendingResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/api/inside-telegram/status"),
+    );
+    await page.goto(`${fixtureOrigin}/api/inside-telegram`);
+    await pendingResponse;
+    // Rendering the fallback establishes that the handoff attempt has executed.
+    await page.locator("#bot").waitFor({ timeout: 3000 });
+    expect(page.url()).toBe(`${fixtureOrigin}/api/inside-telegram`);
+    state = {
+      status: "approved",
+      callback: `${fixtureOrigin}/callback?fixture=preserved`,
+    };
+    await poll(page);
+    await page.waitForURL(`${fixtureOrigin}/callback?fixture=preserved`);
+  } finally {
+    await page.close();
+  }
+});

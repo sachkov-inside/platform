@@ -108,6 +108,7 @@ class Scenario:
         self._partition_checkpoint('partition_initial_acquire')
         def check(value):
             if value[0]['state']!='observed':
+                self.last_report=value[0]
                 self._partition_checkpoint('partition_initial_state');return False
             if not self.stamp(value[1])>status.clock(cut):
                 self._partition_checkpoint('partition_initial_after_cut');return False

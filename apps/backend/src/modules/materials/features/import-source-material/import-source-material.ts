@@ -1,6 +1,8 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { MaterialMetadataSelection } from "../../domain/material-metadata.js";
 import {
+  sourcePublicationBodySchema,
+  type SourcePublicationOperation,
   validateSourceBodySchema,
   type ValidateSourceOperation,
 } from "./import-source-material.contract.js";
@@ -15,6 +17,7 @@ import {
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { assembleCreateDraft } from "../create-draft/create-draft.js";
+import { assembleLoadMaterial } from "../load-material/load-material.js";
 import { assembleSaveMaterial } from "../save-material/save-material.js";
 import {
   reserveSourceBodySchema,
@@ -169,5 +172,50 @@ export function assembleValidateSourceContent(
       if (!publishable.ok) return publishable;
     }
     return { ok: true, value: { valid: true } };
+  };
+}
+
+/** Publication accepts no desired source content. The server snapshot is bound again under Save's lock. */
+export function assembleTransitionSourcePublication(
+  dependencies: MaterialAuthoringDependencies,
+): SourcePublicationOperation {
+  return async (input) => {
+    const parsed = parseCommand(
+      sourcePublicationBodySchema.extend({
+        actor: accountId,
+        idempotencyKey: idempotencyKeySchema,
+      }),
+      input,
+    );
+    if (!parsed.ok) return parsed;
+    const command = parsed.value;
+    const current = await assembleLoadMaterial(dependencies)({
+      actor: command.actor,
+      materialId: command.materialId,
+    });
+    if (!current.ok) return current;
+    const {
+      seriesMemberships,
+      slug: _slug,
+      ...metadata
+    } = current.value.metadata;
+    return assembleSaveMaterial(dependencies, {
+      id: command.sourceId,
+      publicationOnly: true,
+      snapshotContentVersion: current.value.contentVersion,
+    })({
+      actor: command.actor,
+      idempotencyKey: command.idempotencyKey,
+      materialId: command.materialId,
+      expectedContentVersion: command.expectedContentVersion,
+      publicationState: command.publicationState,
+      confirmedProductRemovals: command.confirmedProductRemovals ?? [],
+      primaryVideoId: current.value.primaryVideoId,
+      metadata: {
+        ...metadata,
+        seriesIds: seriesMemberships.map(({ seriesId }) => seriesId),
+      },
+      body: current.value.body,
+    });
   };
 }

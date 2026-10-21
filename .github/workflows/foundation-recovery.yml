@@ -5,6 +5,9 @@ on:
     paths:
       - infra/production/database/**
       - scripts/foundation-recovery-proof*
+      - scripts/foundation-repository-transition.py
+      - scripts/backup-repository-inventory.py
+      - scripts/test_backup_repository*.py
       - scripts/test_foundation_recovery_proof.py
       - scripts/test_foundation_recovery_lifecycle_docker.py
       - .github/workflows/foundation-recovery.yml
@@ -39,6 +42,9 @@ jobs:
           git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- \
             infra/production/database scripts/foundation-recovery-proof.py \
             scripts/test_foundation_recovery_proof.py scripts/test_foundation_recovery_lifecycle_docker.py \
+            scripts/foundation-repository-transition.py scripts/backup-repository-inventory.py \
+            scripts/test_backup_repository_inventory.py scripts/test_backup_repository_transition.py \
+            scripts/test_backup_repository_compose.py \
             .github/workflows/foundation-recovery.yml || status=$?
           case "$status" in
             0) echo 'required=false' >>"$GITHUB_OUTPUT" ;;
@@ -65,7 +71,9 @@ jobs:
         with:
           persist-credentials: false
       - name: Run admission and ownership contracts
-        run: python3 -B -m unittest discover -s scripts -p test_foundation_recovery_proof.py
+        run: |
+          python3 -B -m unittest discover -s scripts -p test_foundation_recovery_proof.py
+          python3 -B scripts/test_backup_repository_compose.py
       - name: Build the native foundation image
         run: |
           set -euo pipefail
@@ -97,6 +105,13 @@ jobs:
             --legacy-source-image "$(cat "$RUNNER_TEMP/legacy-foundation-image.id")" \
             --state-directory "$RUNNER_TEMP/foundation-legacy-proof" \
             --receipt "$RUNNER_TEMP/foundation-legacy-recovery.json"
+      - name: Prove history preservation and independent repository transition
+        run: |
+          set -euo pipefail
+          python3 -B scripts/foundation-repository-transition.py \
+            --image "$(cat "$RUNNER_TEMP/foundation-image.id")" \
+            --state-directory "$RUNNER_TEMP/foundation-transition-proof" \
+            --receipt "$RUNNER_TEMP/foundation-transition.json"
       - name: Verify real resource cleanup on success, failure, timeout and interruption
         run: |
           set -euo pipefail
@@ -106,7 +121,7 @@ jobs:
           import json, os, pathlib
           path = pathlib.Path(os.environ['RUNNER_TEMP']) / 'foundation-recovery.json'
           receipt = json.loads(path.read_text())
-          receipt['lifecycleCasesPassed'] = 5
+          receipt['lifecycleCasesPassed'] = 7
           path.write_text(json.dumps(receipt, indent=2) + '\n')
           PY
       - name: Clean only journaled proof resources after success or interruption
@@ -117,6 +132,10 @@ jobs:
             test -d "$state" || continue
             python3 -B scripts/foundation-recovery-proof.py --cleanup-only --state-directory "$state"
           done
+          if test -d "$RUNNER_TEMP/foundation-transition-proof"; then
+            python3 -B scripts/foundation-repository-transition.py --cleanup-only \
+              --state-directory "$RUNNER_TEMP/foundation-transition-proof"
+          fi
       - name: Retain recovery verdict without synthetic secrets
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -125,4 +144,5 @@ jobs:
           path: |
             ${{ runner.temp }}/foundation-recovery.json
             ${{ runner.temp }}/foundation-legacy-recovery.json
+            ${{ runner.temp }}/foundation-transition.json
           if-no-files-found: ignore
