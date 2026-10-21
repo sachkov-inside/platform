@@ -1,30 +1,103 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
+import { MaterialReadingScope } from "@/entities/material";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 import {
   accountPresentationResponse,
+  memberAccountId,
   respondByPath,
   subscribedMemberRoutes,
 } from "@/storybook/account.fixtures";
 import {
   currentBillingResponse,
+  courseEnrollment,
   enrollmentsResponse,
 } from "@/storybook/billing.fixtures";
 import { AccountAccessPage } from "./account-access-page.client";
 
+const courseContent = (courseEnrollment.content ?? []).map((entry) => ({
+  ...entry,
+  title: "Inside AI Engineering",
+  slug: "inside-ai-engineering",
+}));
+
 const environment = accountSectionEnvironment("/account", {
-  fetch: () => respondByPath(subscribedMemberRoutes),
+  fetch: () =>
+    respondByPath({
+      ...subscribedMemberRoutes,
+      "/api/account/billing": () =>
+        currentBillingResponse(null, {
+          grounds: [
+            {
+              source: "manual",
+              capabilities: ["materials", "community"],
+              startsAt: courseEnrollment.startsAt,
+              validUntil: null,
+              active: true,
+              content: courseContent,
+            },
+            {
+              source: "manual",
+              capabilities: ["support"],
+              startsAt: courseEnrollment.startsAt,
+              validUntil: "2027-03-14T10:00:00.000Z",
+              active: true,
+              content: courseContent,
+            },
+          ],
+        }),
+      "/api/personal-home": () =>
+        Response.json({
+          kind: "ready",
+          continuation: {
+            series: {
+              collection: {
+                id: "00000000-0000-4000-8000-000000000f01",
+                slug: "inside-ai-engineering",
+                name: "Inside AI Engineering",
+                summary: null,
+                cover: null,
+                count: 17,
+                previewItems: [],
+              },
+              read: 0,
+              total: 17,
+            },
+          },
+        }),
+      "/api/account/community-entry": () =>
+        Response.json({
+          ok: true,
+          value: { kind: "join", botUrl: "https://t.me/example_bot" },
+        }),
+    }),
 });
 const meta = {
   component: AccountAccessPage,
   title: "Pages/Account/Live cabinet",
   args: { policies: [] },
+  decorators: [
+    (Story) => (
+      <MaterialReadingScope
+        value={{
+          accountId: memberAccountId,
+          resolved: true,
+          states: new Map(),
+          failed: false,
+          register: () => () => undefined,
+          refresh: () => Promise.resolve(),
+        }}
+      >
+        <Story />
+      </MaterialReadingScope>
+    ),
+  ],
 } satisfies Meta<typeof AccountAccessPage>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const WithSubscription: Story = {
+export const WithProducts: Story = {
   ...environment,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -32,8 +105,20 @@ export const WithSubscription: Story = {
       await canvas.findByRole("heading", { name: "Личный кабинет" }),
     ).toBeVisible();
     await expect(
-      await canvas.findByRole("button", { name: "Отменить продление" }),
-    ).toBeEnabled();
+      canvas.queryByRole("heading", { name: "Подписка" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Отменить продление" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      await canvas.findByRole("heading", { name: "Мои продукты" }),
+    ).toBeVisible();
+    await expect(
+      await canvas.findByRole("link", { name: "Вступить в сообщество" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Готово. Аккаунт связан с ботом платформы."),
+    ).not.toBeInTheDocument();
     await expect(
       await canvas.findByRole("textbox", { name: "Отображаемое имя" }),
     ).toHaveValue("Кирилл Сачков");
@@ -53,50 +138,17 @@ export const WithoutPurchases: Story = {
   }),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(await canvas.findByText("Telegram подключён")).toBeVisible();
+    await expect(
+      await canvas.findByRole("heading", { name: "Telegram" }),
+    ).toBeVisible();
     await expect(
       canvas.queryByRole("heading", { name: "Подписка" }),
     ).not.toBeInTheDocument();
   },
 };
 export const Mobile: Story = {
-  ...WithSubscription,
+  ...WithProducts,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
-};
-
-export const PaymentFailureSurvivesCollapse: Story = {
-  ...accountSectionEnvironment("/account", {
-    fetch: () =>
-      respondByPath({
-        ...subscribedMemberRoutes,
-        "/api/account/billing/payment-method/revoke": () =>
-          Response.json({
-            ok: false,
-            code: "provider_unavailable",
-          }),
-      }),
-  }),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const purchases = await canvas.findByRole("button", {
-      name: /Покупки и оплаты/,
-    });
-    await userEvent.click(purchases);
-    await userEvent.click(
-      await canvas.findByRole("button", { name: "Запретить использование" }),
-    );
-    const error = await canvas.findByText(
-      "Банк сейчас не отвечает. Повторите позже — повторный запрос безопасен.",
-    );
-    await expect(error).toBeVisible();
-    await userEvent.click(purchases);
-    await expect(error).not.toBeVisible();
-    await userEvent.click(purchases);
-    await expect(error).toBeVisible();
-    await expect(
-      canvas.queryByRole("button", { name: /История оплат, чеки и возвраты/ }),
-    ).toBeVisible();
-  },
 };
 
 export const FirstEmailAttachment: Story = {

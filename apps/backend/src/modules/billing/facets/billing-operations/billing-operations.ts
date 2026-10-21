@@ -1,3 +1,4 @@
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { TributeConvergence } from "../tribute-convergence/tribute-convergence.js";
 import { z } from "zod";
 import { benefitPeriodsSchema } from "../../domain/pricing.js";
@@ -62,6 +63,7 @@ import type { BillingSubscriptions } from "../billing-subscriptions/billing-subs
 
 interface Dependencies {
   readonly tribute?: TributeConvergence;
+  readonly sale?: Pick<SaleCapability, "subscriptions">;
   readonly prisma: BillingPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly pricing: Pick<
@@ -127,6 +129,11 @@ export class BillingOperations {
       if (
         command.operation === "refunds.decide" ||
         command.operation === "refunds.execute"
+      )
+        return ownerFailure("method_unavailable");
+      if (
+        command.operation === "invitations.issue" &&
+        this.dependencies.sale?.subscriptions !== true
       )
         return ownerFailure("method_unavailable");
       if (isOwnerReadOperation(command.operation))

@@ -233,16 +233,19 @@ describe("приёмка обоих источников Notifications (реал
     bank = new BankFixture(config);
     const client = bank.client();
     payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: platform.prisma,
       bank: client,
       contact,
       grants,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: platform.prisma,
       enrollments: grants,
     });
     subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: platform.prisma,
       bank: client,
       contact,
@@ -251,6 +254,7 @@ describe("приёмка обоих источников Notifications (реал
       notices,
     });
     operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: platform.prisma,
       accounts,
       pricing,

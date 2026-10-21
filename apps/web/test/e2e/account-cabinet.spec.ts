@@ -134,7 +134,7 @@ for (const [path, hash] of [
   ["access", ""],
   ["notifications", ""],
   ["purchases", "#purchases"],
-  ["subscription", "#subscription"],
+  ["subscription", ""],
   ["email", "#purchases"],
 ] as const) {
   test(`старый адрес ${path} открывает единый кабинет`, async ({ page }) => {
@@ -177,39 +177,26 @@ test("сбой Telegram не прячет документы и выход", asy
   ).toBeVisible();
 });
 
-test("сбой представления Telegram не блокирует управление подпиской", async ({
+test("историческая подписка не возвращает управление подпиской в кабинет", async ({
   page,
 }) => {
   await stubAccount(page, {
     subscription: activeSubscription,
     grounds: [paidGround],
   });
-  await page.route("**/api/account", (route) => route.fulfill({ status: 503 }));
-  await page.goto("/account");
+  await page.goto("/account/subscription");
+  await expect(page).toHaveURL(/\/account$/u);
   await expect(
-    page.getByText("Состояние аккаунта сейчас недоступно."),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Отменить продление" }),
-  ).toBeEnabled();
-  await page.getByText("Покупки и оплаты", { exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Привязать другую карту" }),
-  ).toBeEnabled();
-});
-
-test("завершённая подписка остаётся в истории без блока управления", async ({
-  page,
-}) => {
-  await stubAccount(page, {
-    subscription: { ...activeSubscription, state: "ended" },
-  });
-  await page.goto("/account");
-  await expect(
-    page.getByText("Покупки и оплаты", { exact: true }),
+    page.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Подписка", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Отменить продление" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Привязать другую карту" }),
   ).toHaveCount(0);
 });
 
@@ -233,145 +220,16 @@ test("кабинет не имеет серьёзных нарушений до�
   ).toBe(false);
 });
 
-function renewalState() {
-  const state = { canceled: false };
-  const canceled = {
-    ...activeSubscription,
-    revision: activeSubscription.revision + 1,
-    state: "canceled",
-  };
-  const billing = () => ({
-    ok: true,
-    value: {
-      subscription: state.canceled ? canceled : activeSubscription,
-      notices: [],
-      grounds: [paidGround],
-      payments: [],
-    },
-  });
-  return async (page: Page) => {
-    await stubAccount(page, {
-      grounds: [paidGround],
-      subscription: activeSubscription,
-    });
-    await page.route("**/api/account/billing", (route) =>
-      route.fulfill({ json: billing() }),
-    );
-    await page.route("**/api/account/billing/subscription/cancel", (route) => {
-      state.canceled = true;
-      void route.fulfill({ json: { ok: true, value: canceled } });
-    });
-  };
-}
-
-test("отмена продления меняет раздел «Подписка», открытый второй поверхностью", async ({
-  page,
-  context,
-}) => {
-  const stubRenewal = renewalState();
-  await stubRenewal(page);
-
-  // Раздел открыт заранее и остаётся открытым: отмена произойдёт не в нём.
-  await page.goto("/account/subscription");
-  await expect(
-    page.getByRole("button", { name: "Отменить продление" }),
-  ).toBeEnabled();
-
-  const other = await context.newPage();
-  await stubRenewal(other);
-  await other.goto("/account/subscription");
-  await other.getByRole("button", { name: "Отменить продление" }).click();
-  await expect(
-    other.getByRole("button", { name: "Возобновить автопродление" }),
-  ).toBeVisible();
-
-  // Первый раздел не должен предлагать отменить уже отменённое продление.
-  await expect(
-    page.getByRole("button", { name: "Возобновить автопродление" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Отменить продление" }),
-  ).toHaveCount(0);
-});
-
-test("начатая привязка карты видна в разделе «Покупки», открытом второй поверхностью", async ({
-  page,
-  context,
-}) => {
-  // Команда не возвращает нового вида подписки: обе поверхности узнают о привязке только
-  // перечитыванием, а соседняя — только по объявлению.
-  const state = { started: false };
-  const flowRef = "00000000-0000-4000-8000-000000000701";
-  const stubMethod = async (target: Page) => {
-    await stubAccount(target, {
-      grounds: [paidGround],
-      subscription: activeSubscription,
-    });
-    await target.route("**/api/account/billing", (route) =>
-      route.fulfill({
-        json: {
-          ok: true,
-          value: {
-            subscription: {
-              ...activeSubscription,
-              pendingMethodChange: state.started
-                ? { flowRef, formUrl: null }
-                : null,
-            },
-            notices: [],
-            grounds: [paidGround],
-            payments: [],
-          },
-        },
-      }),
-    );
-    await target.route(
-      "**/api/account/billing/payment-method/change",
-      (route) => {
-        state.started = true;
-        void route.fulfill({
-          json: {
-            ok: true,
-            value: {
-              flowRef,
-              formUrl: null,
-              methodRef: null,
-              state: "started",
-            },
-          },
-        });
-      },
-    );
-  };
-  const started = /Начата привязка нового способа оплаты/u;
-
-  await stubMethod(page);
-  await page.goto("/account");
-  await page.getByText("Покупки и оплаты", { exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Привязать другую карту" }),
-  ).toBeEnabled();
-  await expect(page.getByText(started)).toHaveCount(0);
-
-  const other = await context.newPage();
-  await stubMethod(other);
-  await other.goto("/account");
-  await other.getByText("Покупки и оплаты", { exact: true }).click();
-  await other.getByRole("button", { name: "Привязать другую карту" }).click();
-  await expect(other.getByText(started)).toBeVisible();
-
-  await expect(page.getByText(started)).toBeVisible();
-});
-
 for (const [state, label] of [
   ["scheduled", "Начнётся позже"],
   ["expired", "Срок завершён"],
   ["revoked", "Отозвано"],
 ] as const) {
-  test(`назначение ${state} доступно из профиля без платёжной подписки`, async ({
+  test(`кабинет сохраняет продукт с состоянием ${state} без блока подписки`, async ({
     page,
   }) => {
     await stubAccount(page);
+    const productId = "00000000-0000-4000-8000-000000000701";
     await page.route("**/api/account/billing/enrollments", (route) =>
       route.fulfill({
         json: {
@@ -384,18 +242,27 @@ for (const [state, label] of [
                 tier: {
                   id: "00000000-0000-4000-8000-000000000626",
                   revision: 1,
-                  name: "История тарифа",
-                  benefits: ["community"],
-                  coverage: { productIds: [], materialIds: [] },
+                  name: "История доступа",
+                  benefits: [`product:${productId}`],
+                  coverage: { productIds: [productId], materialIds: [] },
                 },
-                origin: "manual",
+                origin: "course",
                 startsAt: "2030-01-01T00:00:00.000Z",
-                endsAt: "2030-02-01T00:00:00.000Z",
+                endsAt: null,
                 endPolicy: "fixed",
                 revision: 1,
                 state,
                 renewal: "not_applicable",
                 nextChargeAt: null,
+                content: [
+                  {
+                    kind: "product",
+                    id: productId,
+                    title: "Инженерная практика",
+                    slug: "engineering-practice",
+                    available: true,
+                  },
+                ],
               },
             ],
           },
@@ -403,12 +270,17 @@ for (const [state, label] of [
       }),
     );
     await page.goto("/account");
+    const card = page.locator(`[data-account-product="${productId}"]`);
     await expect(
-      page.getByRole("heading", { name: "История тарифа", exact: true }),
+      card.getByRole("heading", { name: "Инженерная практика" }),
     ).toBeVisible();
+    await expect(card.getByText(label, { exact: true })).toBeVisible();
     await expect(
-      page.getByRole("article").getByText(label, { exact: true }),
-    ).toBeVisible();
+      card.getByRole("link", { name: "Открыть продукт" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Подписка", exact: true }),
+    ).toHaveCount(0);
   });
 }
 

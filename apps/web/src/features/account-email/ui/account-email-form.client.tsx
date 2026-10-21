@@ -78,13 +78,11 @@ export function AccountEmailForm({
       ) : email !== null ? (
         <div className="mt-3">
           <p className="break-all text-sm">{email}</p>
-          <p
-            className="mt-1 text-sm text-muted-foreground"
-            role={verified ? "status" : undefined}
-          >
-            {verified ? "Почта подтверждена и привязана." : "Подтверждена."}{" "}
-            Можно использовать для входа.
-          </p>
+          {verified ? (
+            <p className="mt-1 text-sm text-muted-foreground" role="status">
+              Почта подтверждена и привязана.
+            </p>
+          ) : null}
         </div>
       ) : (
         <>

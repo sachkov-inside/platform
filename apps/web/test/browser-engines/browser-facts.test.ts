@@ -6,7 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { createServer, type ViteDevServer } from "vite";
-import { afterAll, beforeAll, test } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 
 let server: ViteDevServer | undefined;
 let browser: Browser | undefined;
@@ -694,5 +694,46 @@ test("two reading surfaces share one fact channel while both receive a write", a
     browserExpect(await counts()).toEqual({ opened: 2, closed: 1 });
   } finally {
     await context.close();
+  }
+});
+
+test("Product community cache never shows Account A's group while Account B is being checked", async () => {
+  const page = await runningBrowser().newPage();
+  let release: (() => void) | undefined;
+  let requests = 0;
+  try {
+    await page.route("**/api/account/community-entry?*", async (route) => {
+      requests += 1;
+      if (requests === 1)
+        return route.fulfill({
+          json: {
+            ok: true,
+            value: {
+              kind: "member",
+              groupUrl: "https://t.me/c/123456789/1",
+            },
+          },
+        });
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await route.fulfill({ json: { ok: true, value: { kind: "none" } } });
+    });
+    await page.goto(`${baseURL}?community=1`);
+    await browserExpect(
+      page.getByRole("link", { name: "Открыть сообщество" }),
+    ).toBeVisible();
+    const requestB = page.waitForRequest("**/api/account/community-entry?*");
+    await page.getByRole("button", { name: "Switch Account" }).click();
+    await requestB;
+    await browserExpect(
+      page.getByRole("link", { name: "Открыть сообщество" }),
+    ).toHaveCount(0);
+    release?.();
+    await browserExpect(page.locator("[data-product-community]")).toBeEmpty();
+    expect(requests).toBe(2);
+  } finally {
+    release?.();
+    await page.close();
   }
 });

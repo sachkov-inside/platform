@@ -219,7 +219,7 @@ test("покупатель курса проходит путь от стран�
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
   await expect(
-    page.getByRole("heading", { name: "Ваши продукты" }),
+    page.getByRole("heading", { name: "Мои продукты" }),
   ).toBeVisible();
   const productCard = page.locator("[data-account-product]");
   await expect(productCard).toHaveCount(1);

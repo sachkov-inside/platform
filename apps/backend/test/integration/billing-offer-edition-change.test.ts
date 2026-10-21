@@ -224,6 +224,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     });
     const paymentsOn = (contact: BillingContact) =>
       new BillingPayments({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank,
         contact,

@@ -1,9 +1,6 @@
 import type { PlatformConfig } from "../../../../config/platform-config.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import {
-  subscriptionSaleConfirmed,
-  type SubscriptionTerminal,
-} from "../../domain/sale-capability.js";
+import { type SubscriptionTerminal } from "../../domain/sale-capability.js";
 
 /** Настройки процесса, от которых зависит включённая в каталоге продажа. */
 export interface SalePaymentConfiguration {
@@ -26,7 +23,11 @@ export async function assertSaleConfigured(
   configuration: SalePaymentConfiguration,
 ): Promise<void> {
   const modes = await prisma.billingPaymentOption.findMany({
-    where: { archived: false, offer: { archived: false, published: true } },
+    where: {
+      mode: "one_time",
+      archived: false,
+      offer: { archived: false, published: true },
+    },
     select: { mode: true },
     distinct: ["mode"],
   });
@@ -39,12 +40,4 @@ export async function assertSaleConfigured(
     throw new SaleConfigurationError(
       "Sale is enabled in the billing catalog, but BILLING_CONTACT_* is not configured",
     );
-  if (
-    modes.some((option) => option.mode === "subscription") &&
-    !subscriptionSaleConfirmed(configuration.tbank)
-  ) {
-    throw new SaleConfigurationError(
-      "Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed",
-    );
-  }
 }
