@@ -5,14 +5,14 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { canonical, checksum, loadPackage } from "./package.mjs";
+import { canonical, checksum, loadPackage, taskPositions } from "./package.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
 import {
   authoringTarget,
   transportFor,
   assertTargetEnvironment,
 } from "./target.mjs";
-import { authoredTaskBody } from "./task-import.mjs";
+import { authoredTaskBody, taskChapterId } from "./task-import.mjs";
 import { previewRelease, applyRelease } from "./release.mjs";
 import {
   targetStateSchema,
@@ -167,6 +167,30 @@ export async function preservationState(
       product.archived === true
     )
       throw new Error(`Unknown Task source/product identity: ${task.sourceId}`);
+    if (manifest.selection.contentOnly) {
+      const bound = manifest.materials.find(
+        (row) => row.practiceTaskId === task.sourceId,
+      );
+      const embeddedMaterialId =
+        bound === undefined
+          ? null
+          : journal.materials[key(bound.sourceId)]?.materialId;
+      if (
+        current.chapterId !== taskChapterId(manifest, task) ||
+        current.position !== taskPositions(manifest).get(task.sourceId) ||
+        current.afterMaterialSourceId !==
+          (task.afterMaterialId === undefined
+            ? null
+            : key(task.afterMaterialId)) ||
+        current.programmeVisibility !==
+          (task.programmeVisibility ?? "standalone") ||
+        embeddedMaterialId === undefined ||
+        current.embeddedMaterialId !== embeddedMaterialId
+      )
+        throw new Error(
+          `${task.sourceId}: bounded content refuses Task placement changes`,
+        );
+    }
     const api = parseLocalResponse(
       "/authoring/import/tasks/validate",
       await send(

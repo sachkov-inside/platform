@@ -28,7 +28,10 @@ and Task positions. Duplicate, missing, empty or unknown selections fail before 
 nonempty `artifactIds` are unsupported. The required feature and selection must appear together.
 Bounded apply requires the reviewed local stand route and refuses pending operations and archive
 or Product removal choices. It reads Product identities without updating Product details, covers,
-chapters, composition or artifacts. Its preview carries `contentOnly` and no Product changes.
+chapters, composition or artifacts. Selected Material memberships must match fresh API metadata;
+Task chapter, position, visibility, anchor and embedded binding must match fresh database state.
+A mismatch stops before content writes and requires the separately reviewed composition route.
+Its preview carries `contentOnly` and no Product changes.
 
 Without that envelope, the package itself defines the selected Material and Task source IDs. Unselected originals are not imported.
 The profile queries only those identities in `materials.materials` and `product_tasks.tasks`.

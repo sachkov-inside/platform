@@ -274,6 +274,7 @@ export async function previewRelease(
       defaultAccess,
       primaryVideoId: attached,
       publicationState: item.publication,
+      currentMembership: current.metadata["seriesIds"],
     });
     const currentPublication = targetPublication(
       current.publicationState,

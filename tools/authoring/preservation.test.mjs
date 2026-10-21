@@ -5,6 +5,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { canonical, loadPackage, materialRevision } from "./package.mjs";
+import { taskChapterId } from "./task-import.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import {
   isJournalOperation,
@@ -82,7 +83,11 @@ async function fixture(t, publication = "published") {
     contentVersion: 1,
     primaryVideoId: null,
     cover: null,
-    metadata: { slug: "one", access: "free" },
+    metadata: {
+      slug: "one",
+      access: "free",
+      seriesIds: /** @type {string[]} */ ([]),
+    },
     publicationState: /** @type {'draft'|'published'|'unpublished'} */ (
       publication
     ),
@@ -458,6 +463,7 @@ test("bounded preservation retains embedded Task context and writes only the sel
     sourcePath: "untouched.md",
     markdown: "Never import this changed context",
   });
+  f.model.metadata.seriesIds = [productId];
   lesson.practiceTaskId = "embedded";
   lesson.markdown = "Changed [task](embedded.md) and [context](untouched.md).";
   lesson.links = { "embedded.md": "embedded", "untouched.md": "untouched" };
@@ -626,3 +632,100 @@ for (const invalid of [
     assert.deepEqual(f.writes, []);
   });
 }
+
+test("bounded preview refuses a selected Material membership change before writes", async (t) => {
+  const f = await fixture(t);
+  f.manifest.requiredFeatures = ["bounded-content-v1"];
+  f.manifest.selection.contentOnly = {
+    materialIds: ["one"],
+    taskIds: [],
+    artifactIds: [],
+  };
+  // Source context omits a Product that still owns the selected Material on target.
+  f.model.metadata.seriesIds = [productId];
+  await writeFile(f.packagePath, canonical(f.manifest));
+  await assert.rejects(
+    previewPreservation(f.packagePath, f.state, {
+      sourceCommit: "a".repeat(40),
+      readState: f.readState,
+      request: f.request,
+    }),
+    /refuses Product membership changes/u,
+  );
+  assert.deepEqual(f.writes, []);
+});
+
+test("bounded Task preservation refuses placement drift before writes", async (t) => {
+  const f = await fixture(t);
+  const task = {
+    sourceId: "task-one",
+    productId: "course",
+    chapterId: "chapter",
+    title: "Task",
+    access: /** @type {const} */ ("free"),
+    definition: { intro: "Unchanged criteria" },
+    relatedMaterialIds: [],
+    publicationState: /** @type {const} */ ("published"),
+    provenance: {
+      repository: "synthetic/content",
+      commit: "a".repeat(40),
+      path: "task.md",
+    },
+  };
+  f.manifest.tasks = [task];
+  f.manifest.selection.contentOnly = {
+    materialIds: [],
+    taskIds: ["task-one"],
+    artifactIds: [],
+  };
+  const current = {
+    sourceId: "synthetic:task-one",
+    taskId,
+    code: "task-one",
+    productId,
+    chapterId: taskChapterId(f.manifest, task),
+    position: 2,
+    afterMaterialSourceId: null,
+    programmeVisibility: /** @type {const} */ ("standalone"),
+    embeddedMaterialId: null,
+    revision: 3,
+    access: /** @type {const} */ ("free"),
+    publicationState: /** @type {const} */ ("published"),
+  };
+  const readState = async () => ({ materials: [], tasks: [current] });
+  const request = /** @type {import('./target.mjs').LocalTransport} */ (
+    async (path, body) => {
+      if (path === "/authoring/collections?kind=product")
+        return [
+          {
+            id: productId,
+            slug: "course",
+            sourceId: "synthetic:course",
+            name: "Course",
+            summary: "",
+            version: 1,
+          },
+        ];
+      if (path === "/authoring/import/tasks/validate")
+        return {
+          valid: true,
+          current: {
+            taskId,
+            code: "task-one",
+            revision: 3,
+            currentVersion: 1,
+            definitionDigest: "b".repeat(64),
+            publicationState: "published",
+          },
+        };
+      return f.request(path, body);
+    }
+  );
+  await assert.rejects(
+    preservationState(f.manifest, f.state, "stand", readState, request),
+    /refuses Task placement changes/u,
+  );
+  current.position = 1;
+  await preservationState(f.manifest, f.state, "stand", readState, request);
+  assert.deepEqual(f.writes, []);
+});

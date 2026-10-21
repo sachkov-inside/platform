@@ -275,12 +275,20 @@ export function publicationConflict(row, current, desired) {
  *   defaultAccess: DefaultAccess;
  *   primaryVideoId: string | null;
  *   publicationState: DesiredPublication;
+ *   currentMembership?: unknown;
  * }} targets
  */
 export function desiredMaterial(
   manifest,
   row,
-  { topicIds, productIds, defaultAccess, primaryVideoId, publicationState },
+  {
+    topicIds,
+    productIds,
+    defaultAccess,
+    primaryVideoId,
+    publicationState,
+    currentMembership,
+  },
 ) {
   const metadata = {
     title: row.title,
@@ -295,6 +303,16 @@ export function desiredMaterial(
       productIds.get(product.sourceId),
     ),
   };
+  if (manifest.selection.contentOnly) {
+    const existing = z.array(z.uuid()).max(100).parse(currentMembership);
+    if (
+      canonical([...existing].sort()) !==
+      canonical([...metadata.seriesIds].sort())
+    )
+      throw new Error(
+        `${row.sourceId}: bounded content refuses Product membership changes`,
+      );
+  }
   const videoChapters = primaryVideoId === null ? [] : row.videoChapters;
   return {
     metadata,
@@ -873,7 +891,7 @@ export async function syncLocal(
      *     contentVersion: number;
      *     primaryVideoId: string | null;
      *     cover?: { coverId: string } | null | undefined;
-     *     metadata: { slug?: string | undefined };
+     *     metadata: { slug?: string | undefined; seriesIds?: unknown };
      *     publicationState?: PublicationState | undefined;
      *   }
      * >}
@@ -895,6 +913,7 @@ export async function syncLocal(
           source: source(row),
         }));
       const current =
+        !pkg.manifest.selection.contentOnly &&
         previous?.revision === source(row).revision &&
         previous.url !== undefined &&
         previous.url !== "" &&
@@ -1273,6 +1292,8 @@ export async function syncLocal(
         defaultAccess,
         primaryVideoId,
         publicationState: publicationOf(row),
+        currentMembership: currentMaterials.get(row.sourceId)?.metadata
+          .seriesIds,
       });
     // Validate every document before changing any previously correct Material; only empty Product shells
     // and private reservations exist so far.
