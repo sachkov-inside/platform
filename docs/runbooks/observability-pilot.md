@@ -1792,3 +1792,25 @@ seven-field2048B diagnostic. These refinements reject the same rows and do not e
 cause. All three owners preserve the original failure and traceback even when persistence throws
 the same exception object. New exact-source hosted feedback remains required; no capacity,
 production deployment or #1579 acceptance follows from these source contracts.
+
+### Dependency corpus scheduling
+
+`dependency_catalog_corpus` first uploads the same sixteen JSON/protobuf trace and metric bodies
+for the dependency, communications and Telegram HTTP pairs. It then runs the same six full stored
+trace oracles, in pair order, followed by the existing whole metric-vector oracle. Each pair keeps
+its original captured timestamp. Logging admission and each upload's daemon-identity check still
+precede unsafe ingress. Sent bodies are released; the scheduling records contain only the six
+fixed partition/transport/timestamp tuples. Polling, query limits and worker deadlines are unchanged.
+
+Failure prefixes differ from the earlier interleaved schedule. A later upload failure leaves no
+successful read cases. A trace refusal happens after all sixteen uploads, so later unsafe fixtures
+can already be present; only earlier successful reads enter the proof. A metric refusal retains
+six successful trace cases. Every refusal still fails the corpus and prevents the next corpus.
+HTTP200 and a completed upload never substitute for a full storage verdict.
+
+The deterministic visibility model uses the real builders, full oracles and existing poll loop.
+With zero upload/read cost and fixed four-second visibility after each pair's final upload, the
+old schedule took24 virtual seconds and the prepared schedule takes4. With an additional0.5-second
+cost for every trace read, the same model takes25.5 and6.75 seconds respectively. These figures
+model shared waiting only. They do not measure native latency, command overhead, VT flush behavior
+or production capacity. Exact-source hosted Core completion, freshness and cleanup remain required.
