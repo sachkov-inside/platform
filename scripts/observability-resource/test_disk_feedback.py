@@ -342,14 +342,15 @@ class Preparation(unittest.TestCase):
             stack.enter_context(patch.object(hosted,'metadata_source',return_value=(source,{'ready':True})))
             stack.enter_context(patch.object(numeric,'Record',return_value=record))
             stack.enter_context(patch.object(hosted.runtime.ci,'read_command',return_value=''))
-            stack.enter_context(patch.object(hosted.runtime.pilot.daemon,'identify',return_value={'storage':'/synthetic','endpoint':'synthetic'}))
+            stack.enter_context(patch.object(hosted.runtime.pilot.daemon,'identify',return_value={'platform':'linux','storage':'/synthetic','endpoint':'synthetic'}))
             stack.enter_context(patch.object(hosted.runtime.pilot,'disk_budget',side_effect=guard))
             stack.enter_context(patch.object(hosted,'command',side_effect=command))
             stack.enter_context(patch.object(hosted.runtime.pilot,'assert_docker_identity'))
-            stack.enter_context(patch.object(hosted.runtime.pilot,'command',side_effect=['sha256:'+'b'*64,'sha256:'+'c'*64]))
+            stack.enter_context(patch.object(hosted.runtime.pilot,'command',side_effect=lambda args,**options:
+                '' if args[1:3]==['image','ls'] else 'sha256:'+('b' if args[3].endswith('-backend:v1') else 'c')*64))
             if write_failure is not None:stack.enter_context(patch.object(numeric,'write',side_effect=write_failure))
             if snapshot_failure is not None:stack.enter_context(patch.object(DiskSamples,'current',new_callable=lambda:property(lambda self:(_ for _ in ()).throw(snapshot_failure))))
-            hosted.prepare(root,images)
+            hosted.prepare(root,images,consumer='numeric-fixture')
         return record,events,images
 
     def test_first_pull_is_once_before_command_and_retains_stale_baseline(self):

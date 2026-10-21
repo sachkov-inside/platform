@@ -18,8 +18,9 @@ class SourceProgress(unittest.TestCase):
             'test_source_progress.SourceProgress.test_discovery_matches_fixed_inventory_and_original_methods_once',
             'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
             'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome'}
-        self.assertEqual(len(source_progress.SOURCE_IDS),98)
-        self.assertEqual(len(set(source_progress.SOURCE_IDS)),98)
+        added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_preparation.'))
+        self.assertEqual(len(source_progress.SOURCE_IDS),112)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),112)
         self.assertTrue(added<=set(source_progress.SOURCE_IDS))
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),95)

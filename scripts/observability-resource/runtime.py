@@ -1,5 +1,6 @@
 """Public supervised first real application SDK-only resource experiment, not capacity acceptance."""
 import argparse
+from contextlib import nullcontext
 import json
 import math
 import os
@@ -24,6 +25,7 @@ import measurements
 import sdk_diagnostics
 import binding
 import profile as resource_profile
+import preparation
 
 PROJECT_PREFIX = resource_profile.PROJECT_PREFIX
 SERVICES = (*pilot.SERVICES, 'postgres', 'migrations', 'api', 'provider', 'loadgen')
@@ -521,6 +523,19 @@ def cleanup_private(output, *, acquired=False):
                     path.unlink()
 
 
+def release_preparation(output, images, *, unacquired=False, stage=None):
+    """A failed down retains the named recovery input; legacy manifests remain read-only."""
+    if not preparation.directory(images).exists() and not preparation.directory(images).is_symlink():
+        return
+    stage = stage or preparation.recover_stage(images)
+    cleanup = output / 'cleanup.json'
+    confirmed = False
+    if cleanup.is_file() and not cleanup.is_symlink() and cleanup.stat().st_size <= binding.MAX_BYTES:
+        value = json.loads(cleanup.read_text())
+        confirmed = isinstance(value, dict) and value.get('down') == 'passed' and value.get('residue') == 'passed'
+    return stage.release(str(output), cleanup_ok=confirmed or unacquired)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('run', 'worker', 'recover'))
@@ -531,10 +546,16 @@ def main():
     if args.action == 'worker':
         return worker(output)
     if args.action == 'recover':
-        result = ci.recover(output, project_prefix=PROJECT_PREFIX, services=SERVICES)
-        if result.get('down') == 'passed' and result.get('residue') == 'passed':
-            cleanup_private(output, acquired=True)
-        return result
+        stage = managed_preparation(args.images)
+        with stage.in_use() if stage else nullcontext():
+            if stage and not (output / 'owner.json').exists() and not (output / 'owner.json').is_symlink():
+                return release_preparation(output, args.images, unacquired=True, stage=stage)
+            result = ci.recover(output, project_prefix=PROJECT_PREFIX, services=SERVICES)
+            if result.get('down') == 'passed' and result.get('residue') == 'passed':
+                cleanup_private(output, acquired=True)
+            if stage:
+                release_preparation(output, args.images, stage=stage)
+            return result
     if not args.images:
         raise ValueError('private_cache_manifest_required')
     descriptor=os.open(args.images,os.O_RDONLY|os.O_NOFOLLOW)
@@ -546,6 +567,22 @@ def main():
         raise ValueError('private_cache_manifest_size')
     cache = json.loads(encoded)
     resource_profile.load()
+    stage = managed_preparation(args.images)
+    with stage.in_use() if stage else nullcontext():
+        if stage:
+            if stage.receipt['source'] != cache.get('source'):
+                raise ValueError('preparation_source_changed')
+            stage.require_consumer(str(output))
+        return run_prepared(output, args.images, cache, stage)
+
+
+def managed_preparation(images):
+    if images and (preparation.directory(images).exists() or preparation.directory(images).is_symlink()):
+        return preparation.recover_stage(images)
+    return None
+
+
+def run_prepared(output, images, cache, stage):
     acquired = False
     def prepare_owned(path):
         nonlocal acquired
@@ -553,9 +590,20 @@ def main():
         acquired = True
     try:
         return pilot.run(output, prepare_inputs=prepare_owned, worker_script=Path(__file__).resolve(),
-                         project_prefix=PROJECT_PREFIX, services=SERVICES, scope='short proposed real API SDK-only resource experiment', missing=MISSING.copy())
+                         project_prefix=PROJECT_PREFIX, services=SERVICES, scope='short proposed real API SDK-only resource experiment', missing=MISSING.copy(),
+                         worker_pass_fds=stage.pass_fds() if stage else ())
     finally:
-        cleanup_private(output, acquired=acquired)
+        primary = sys.exc_info()[1]
+        try:
+            cleanup_private(output, acquired=acquired)
+            # Only this acquisition may supply the cleanup evidence for automatic release.
+            # A preflight refusal retains the declared next runtime for an explicit retry/recovery.
+            if acquired:
+                release_preparation(output, images, stage=stage)
+        except BaseException as error:
+            if primary is None:
+                raise
+            primary.add_note('Preparation release incomplete: ' + type(error).__name__)
 
 
 if __name__ == '__main__':
