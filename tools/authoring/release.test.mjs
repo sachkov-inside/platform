@@ -380,3 +380,28 @@ test("the trusted production target matches the production API configuration", a
   assert.equal(production.reader, env["PUBLIC_SITE_ORIGIN"]);
   assert.equal(production.id, "https://inside.sachkov.dev/authoring-api");
 });
+
+test("full package restore discloses current and desired content revisions alongside publication", async (t) => {
+  const setup = await fixture(t);
+  const server = api();
+  const original = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin: "editor",
+    request: server.request,
+  });
+  await applyRelease(original.path, setup.state, { request: server.request });
+  itemAt(setup.manifest.materials, 0).markdown =
+    "A separately assigned rollback replaces the current body";
+  await setup.write();
+  const restore = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
+    origin: "editor",
+    request: server.request,
+  });
+  const row = restore.preview.materials[0];
+  assert.ok(row?.contentReplacement);
+  assert.notEqual(
+    row.contentReplacement.current,
+    row.contentReplacement.desired,
+  );
+});

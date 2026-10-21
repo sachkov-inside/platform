@@ -11,6 +11,7 @@ import {
 } from "../../features/import-source-product/import-source-product.js";
 import { assembleValidateSourceContent } from "../../features/import-source-material/import-source-material.js";
 import {
+  assembleTransitionSourcePublication,
   assembleReserveSourceMaterial,
   assembleApplySourceMaterial,
 } from "../../features/import-source-material/import-source-material.js";
@@ -48,6 +49,8 @@ export function assembleMaterialAuthoring(
     reorderSourceProduct: assembleReorderSourceProduct(dependencies),
     validateSourceContent: assembleValidateSourceContent(dependencies),
     reserveSourceMaterial: assembleReserveSourceMaterial(dependencies),
+    transitionSourcePublication:
+      assembleTransitionSourcePublication(dependencies),
     applySourceMaterial: assembleApplySourceMaterial(dependencies),
     loadHomePin: assembleLoadHomePin(dependencies),
     setHomePin: assembleSetHomePin(dependencies),
