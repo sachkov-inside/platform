@@ -121,10 +121,14 @@ async function open(
 ) {
   // Intercept the OS boundary: synthetic tests must never open the owner's Telegram app.
   await page.addInitScript(() => {
-    const launches: { url: string; target: string | undefined }[] = [];
+    const launches: {
+      url: string;
+      target: string | undefined;
+      features: string | undefined;
+    }[] = [];
     Object.assign(window, { telegramLaunches: launches });
-    window.open = (url, target) => {
-      launches.push({ url: String(url), target });
+    window.open = (url, target, features) => {
+      launches.push({ url: String(url), target, features });
       return null;
     };
   });
@@ -160,6 +164,7 @@ it("opens Telegram once, keeps a usable fallback when blocked, and completes in 
       {
         url: "tg://resolve?domain=inside_fixture_bot&start=test-only",
         target: "_blank",
+        features: "noopener,noreferrer",
       },
     ]);
     expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
@@ -719,17 +724,17 @@ it("preserves the waiting document when the app handler navigates the selected b
     const pendingResponse = page.waitForResponse((response) =>
       response.url().endsWith("/api/inside-telegram/status"),
     );
-    await page.goto(`${origin}/api/inside-telegram`);
+    await page.goto(`${fixtureOrigin}/api/inside-telegram`);
     await pendingResponse;
     // Rendering the fallback establishes that the handoff attempt has executed.
     await page.locator("#bot").waitFor({ timeout: 3000 });
-    expect(page.url()).toBe(`${origin}/api/inside-telegram`);
+    expect(page.url()).toBe(`${fixtureOrigin}/api/inside-telegram`);
     state = {
       status: "approved",
-      callback: `${origin}/callback?fixture=preserved`,
+      callback: `${fixtureOrigin}/callback?fixture=preserved`,
     };
     await poll(page);
-    await page.waitForURL(`${origin}/callback?fixture=preserved`);
+    await page.waitForURL(`${fixtureOrigin}/callback?fixture=preserved`);
   } finally {
     await page.close();
   }
