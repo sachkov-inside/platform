@@ -10,6 +10,8 @@ import source_status_scenario
 
 SERVICES = (*pilot.SERVICES, 'postgres')
 PG_IMAGE = 'ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
+# The init-only Unix server is not the final TCP endpoint used by our clients.
+PG_READY_COMMAND=('pg_isready','-h','127.0.0.1','-p','5432','-t','1','-U','tracking','-d','tracking')
 
 
 def plan(output):

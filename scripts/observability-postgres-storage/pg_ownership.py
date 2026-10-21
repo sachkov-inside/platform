@@ -20,6 +20,7 @@ import source_status
 import source_status_scenario
 
 SERVICES=tracking.SERVICES
+PG_READY_COMMAND=tracking.PG_READY_COMMAND
 verify_pg_absence=tracking.verify_pg_absence
 AUTH='postgres-completion-auth.json'
 CONFIG='postgres-completion.alloy'
