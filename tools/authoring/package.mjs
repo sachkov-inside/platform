@@ -209,6 +209,14 @@ export const manifestSchema = z
         chapterIds: z.array(identifier),
         materialIds: z.array(identifier),
         taskIds: z.array(identifier).optional(),
+        contentOnly: z
+          .object({
+            materialIds: z.array(identifier),
+            taskIds: z.array(identifier),
+            artifactIds: z.array(identifier).max(0),
+          })
+          .strict()
+          .optional(),
         complete: z.literal(true),
         // An explicit Product shell release (#803): only the product page and programme, no Materials.
         scope: productShellScope.optional(),
@@ -547,6 +555,7 @@ export function checkCapabilities(value) {
         "github-anchors-v1",
         "image-variants-v1",
         "collapsible-callouts-v1",
+        "bounded-content-v1",
       ].includes(feature)
     )
       throw new Error(`Unsupported requiredFeature: ${feature}`);
@@ -586,6 +595,32 @@ export async function loadPackage(path) {
     "asset identity",
   );
   checkSelectionScope(manifest);
+  const bounded = manifest.selection.contentOnly;
+  if (
+    Boolean(bounded) !==
+    Boolean(manifest.requiredFeatures?.includes("bounded-content-v1"))
+  )
+    throw new Error(
+      "contentOnly requires bounded-content-v1 and its explicit selection",
+    );
+  if (bounded !== undefined) {
+    if (
+      isProductShell(manifest) ||
+      (manifest.practiceDefinitions ?? []).length ||
+      bounded.materialIds.length + bounded.taskIds.length === 0
+    )
+      throw new Error(
+        "Bounded content requires a nonempty Material/Task selection without legacy Practice or Product shell",
+      );
+    for (const [selected, available] of /** @type {[string[], string[]][]} */ ([
+      [bounded.materialIds, manifest.materials.map((row) => row.sourceId)],
+      [bounded.taskIds, (manifest.tasks ?? []).map((row) => row.sourceId)],
+    ])) {
+      unique(selected, "bounded content identity");
+      if (selected.some((id) => !available.includes(id)))
+        throw new Error("Bounded selection is outside package context");
+    }
+  }
   unique(manifest.selection.materialIds, "selection identity");
   const ids = new Set(manifest.materials.map((item) => item.sourceId));
   if (
@@ -777,3 +812,19 @@ export async function loadPackage(path) {
   }
   return { id: checksum(bytes), manifest, directory };
 }
+
+/** Selected writes retain the original manifest for links, placement and Task positions.
+ * @param {Manifest} manifest */
+export const contentMaterials = (manifest) =>
+  manifest.materials.filter(
+    (row) =>
+      manifest.selection.contentOnly === undefined ||
+      manifest.selection.contentOnly.materialIds.includes(row.sourceId),
+  );
+/** @param {Manifest} manifest */
+export const contentTasks = (manifest) =>
+  (manifest.tasks ?? []).filter(
+    (row) =>
+      manifest.selection.contentOnly === undefined ||
+      manifest.selection.contentOnly.taskIds.includes(row.sourceId),
+  );

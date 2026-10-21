@@ -20,7 +20,17 @@ It does not approve a new access policy, public release, content acceptance, or 
    pnpm authoring:preserve preview --package PACKAGE_JSON --state STATE_DIRECTORY --commit SOURCE_SHA
    ```
 
-The package itself defines the selected Material and Task source IDs. Unselected originals are not imported.
+A v2 package can require `bounded-content-v1` and declare
+`selection.contentOnly: { materialIds: [...], taskIds: [...], artifactIds: [] }`.
+The explicit IDs select only existing rows for preview, policy reads and writes. Full Material,
+Task and Product declarations remain validated context for source links, embedded Task bindings
+and Task positions. Duplicate, missing, empty or unknown selections fail before transport;
+nonempty `artifactIds` are unsupported. The required feature and selection must appear together.
+Bounded apply requires the reviewed local stand route and refuses pending operations and archive
+or Product removal choices. It reads Product identities without updating Product details, covers,
+chapters, composition or artifacts. Its preview carries `contentOnly` and no Product changes.
+
+Without that envelope, the package itself defines the selected Material and Task source IDs. Unselected originals are not imported.
 The profile queries only those identities in `materials.materials` and `product_tasks.tasks`.
 Task code lookup also detects a conflicting source identity.
 The database adapter uses a bounded, repeatable-read, read-only transaction.

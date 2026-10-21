@@ -439,3 +439,190 @@ test("legacy Practice publication cannot pass through the preservation profile",
   );
   assert.deepEqual(f.writes, []);
 });
+
+test("bounded preservation retains embedded Task context and writes only the selected lesson", async (t) => {
+  const f = await fixture(t);
+  const lesson = f.manifest.materials[0];
+  assert.ok(lesson);
+  f.manifest.requiredFeatures = ["bounded-content-v1", "material-task-v1"];
+  f.manifest.selection.contentOnly = {
+    materialIds: ["one"],
+    taskIds: [],
+    artifactIds: [],
+  };
+  f.manifest.selection.materialIds.push("untouched");
+  f.manifest.selection.taskIds = ["embedded"];
+  f.manifest.materials.push({
+    ...structuredClone(lesson),
+    sourceId: "untouched",
+    sourcePath: "untouched.md",
+    markdown: "Never import this changed context",
+  });
+  lesson.practiceTaskId = "embedded";
+  lesson.markdown = "Changed [task](embedded.md) and [context](untouched.md).";
+  lesson.links = { "embedded.md": "embedded", "untouched.md": "untouched" };
+  f.manifest.tasks = [
+    {
+      sourceId: "embedded",
+      productId: "course",
+      chapterId: "chapter",
+      title: "Context task",
+      access: null,
+      page: {
+        ...structuredClone(lesson),
+        sourceId: "embedded",
+        sourcePath: "embedded.md",
+        markdown: "Task page",
+        links: {},
+      },
+      definition: { intro: "Unchanged criteria" },
+      relatedMaterialIds: ["one"],
+      programmeVisibility: "embedded",
+      publicationState: "unpublished",
+      provenance: {
+        repository: "synthetic/content",
+        commit: "a".repeat(40),
+        path: "embedded.md",
+      },
+    },
+  ];
+  delete f.manifest.tasks[0]?.page?.practiceTaskId;
+  f.manifest.products = [
+    {
+      sourceId: "course",
+      slug: "course",
+      title: "Changed product name must not transfer",
+      summary: "Changed page",
+      complete: true,
+      materialIds: ["one", "untouched"],
+      supplementaryMaterialIds: [],
+      chapters: [
+        {
+          sourceId: "chapter",
+          title: "Changed chapter",
+          summary: "Changed",
+          materialIds: ["one", "untouched"],
+        },
+      ],
+    },
+  ];
+  const journalPath = join(f.state, "journal.json");
+  const journal = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  journal.materials["synthetic:untouched"] = {
+    materialId: taskId,
+    contentVersion: 7,
+    digest: "c".repeat(64),
+    url: "/materials/untouched",
+  };
+  await writeFile(journalPath, canonical(journal));
+  await writeFile(f.packagePath, canonical(f.manifest));
+  /** @type {{path: string; body: unknown}[]} */
+  const requests = [];
+  const request = /** @type {import('./target.mjs').LocalTransport} */ (
+    async (path, body) => {
+      requests.push({ path, body });
+      if (path === "/authoring/collections?kind=product")
+        return [
+          {
+            id: productId,
+            sourceId: "synthetic:course",
+            slug: "real-course",
+            name: "Original product",
+            summary: "Original",
+            version: 5,
+          },
+        ];
+      return f.request(path, body);
+    }
+  );
+  const readState =
+    /** @type {import('./preservation-state.mjs').ReadTargetState} */ (
+      async (materials, tasks) => {
+        assert.deepEqual(materials, ["synthetic:one"]);
+        assert.deepEqual(tasks, []);
+        return f.readState(materials, tasks);
+      }
+    );
+  const preview = await previewPreservation(f.packagePath, f.state, {
+    sourceCommit: "a".repeat(40),
+    readState,
+    request,
+  });
+  assert.deepEqual(
+    preview.preview.preview.contentOnly,
+    f.manifest.selection.contentOnly,
+  );
+  assert.deepEqual(preview.preview.preview.products, []);
+  assert.deepEqual(preview.preview.preview.tasks ?? [], []);
+  assert.deepEqual(preview.preview.preview.archiveProposals, []);
+  const context = (await loadPackage(preview.receipt.packagePath)).manifest;
+  assert.equal(context.tasks?.[0]?.access, null);
+  assert.equal(context.materials.length, 2);
+  assert.equal(
+    requests.some((row) => row.path.includes("tasks/validate")),
+    false,
+  );
+  await applyPreservation(preview.path, f.state, { readState, request });
+  assert.equal(f.model.metadata.access, "free");
+  assert.equal(f.model.publicationState, "published");
+  assert.deepEqual(f.writes, ["/authoring/import/materials/apply"]);
+  const applied = requests.filter(
+    (row) => row.path === "/authoring/import/materials/apply",
+  );
+  assert.equal(applied.length, 1);
+  assert.match(
+    JSON.stringify(applied[0]?.body),
+    /\/products\/real-course\/tasks\/embedded/u,
+  );
+  assert.match(JSON.stringify(applied[0]?.body), /\/materials\/untouched/u);
+  assert.equal(
+    requests.some((row) =>
+      /products\/(reserve|update|composition)|artifacts|progress|tasks\/(apply|validate)/u.test(
+        row.path,
+      ),
+    ),
+    false,
+  );
+  const after = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  assert.deepEqual(
+    after.materials["synthetic:untouched"],
+    journal.materials["synthetic:untouched"],
+  );
+});
+
+for (const invalid of [
+  "unknown",
+  "duplicate",
+  "artifacts",
+  "empty",
+  "missing-feature",
+]) {
+  test(`bounded selection rejects ${invalid} before transport`, async (t) => {
+    const f = await fixture(t);
+    f.manifest.requiredFeatures =
+      invalid === "missing-feature" ? [] : ["bounded-content-v1"];
+    f.manifest.selection.contentOnly = {
+      materialIds: ["one"],
+      taskIds: [],
+      artifactIds: [],
+    };
+    if (invalid === "unknown")
+      f.manifest.selection.contentOnly.materialIds = ["missing"];
+    if (invalid === "duplicate")
+      f.manifest.selection.contentOnly.materialIds = ["one", "one"];
+    if (invalid === "artifacts")
+      f.manifest.selection.contentOnly.artifactIds = ["file"];
+    if (invalid === "empty") f.manifest.selection.contentOnly.materialIds = [];
+    await writeFile(f.packagePath, canonical(f.manifest));
+    await assert.rejects(
+      previewPreservation(f.packagePath, f.state, {
+        sourceCommit: "a".repeat(40),
+        readState: f.readState,
+        request: async () => {
+          assert.fail("No transport before selection validation");
+        },
+      }),
+    );
+    assert.deepEqual(f.writes, []);
+  });
+}

@@ -2,7 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
-import { canonical, checksum } from "./package.mjs";
+import { canonical, checksum, contentTasks } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { imageUpload } from "./image-upload.mjs";
 import { applyJournaled } from "./journal.mjs";
@@ -86,7 +86,7 @@ export function preflightTaskPages(pkg) {
       sourceUuid(asset.sourceId),
     ]),
   );
-  for (const task of pkg.manifest.tasks ?? [])
+  for (const task of contentTasks(pkg.manifest))
     if (task.page !== undefined) taskPageBody(task, links, images);
 }
 

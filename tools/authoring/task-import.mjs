@@ -1,4 +1,5 @@
 // @ts-check
+import { contentTasks } from "./package.mjs";
 import { z } from "zod";
 import { canonical, checksum, taskPositions } from "./package.mjs";
 import { applyJournaled } from "./journal.mjs";
@@ -108,7 +109,7 @@ export function taskPublication(task, selected, current) {
  * @param {ManifestTask} task
  * @param {TaskPublication} publicationState
  */
-function authoredBody(manifest, task, publicationState) {
+export function authoredTaskBody(manifest, task, publicationState) {
   return {
     sourceId: sourceKey(manifest, task.sourceId),
     code: task.sourceId,
@@ -150,7 +151,7 @@ function authoredBody(manifest, task, publicationState) {
  * @param {TaskPublication} publicationState
  */
 export function taskDigest(manifest, task, publicationState) {
-  const { provenance: _provenance, ...state } = authoredBody(
+  const { provenance: _provenance, ...state } = authoredTaskBody(
     manifest,
     task,
     publicationState,
@@ -190,10 +191,10 @@ export function taskChapterId(manifest, task) {
  * @param {Manifest} manifest
  * @param {import('./local-boundaries.mjs').LocalRequest} request */
 export async function validateSourceTasks(manifest, request) {
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     const result = await request(
       "/authoring/import/tasks/validate",
-      authoredBody(manifest, task, task.publicationState),
+      authoredTaskBody(manifest, task, task.publicationState),
     );
     if (result.migration != null)
       throw new Error(
@@ -280,10 +281,10 @@ export async function syncSourceTasks(
   const positions = taskPositions(manifest);
   /** @type {TaskChange[]} */
   const changes = [];
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     const { current, migration } = await request(
       "/authoring/import/tasks/validate",
-      authoredBody(manifest, task, task.publicationState),
+      authoredTaskBody(manifest, task, task.publicationState),
     );
     if (migration != null)
       throw new Error(
@@ -322,7 +323,7 @@ export async function syncSourceTasks(
       continue;
     }
     const body = {
-      ...authoredBody(manifest, task, publicationState),
+      ...authoredTaskBody(manifest, task, publicationState),
       ...(task.page === undefined || pageOf === undefined
         ? {}
         : await pageOf(task)),
@@ -370,7 +371,7 @@ export async function previewTasks(manifest, journal, request, selected) {
   const tasks = [];
   /** @type {Record<string, number>} */
   const expected = {};
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     if (task.access === null) {
       tasks.push({
         sourceId: task.sourceId,
@@ -383,7 +384,7 @@ export async function previewTasks(manifest, journal, request, selected) {
     }
     const { current, migration } = await request(
       "/authoring/import/tasks/validate",
-      authoredBody(manifest, task, task.publicationState),
+      authoredTaskBody(manifest, task, task.publicationState),
     );
     expected[resourceKey(task.sourceId)] = current?.revision ?? 0;
     const stored = resources[resourceKey(task.sourceId)];
