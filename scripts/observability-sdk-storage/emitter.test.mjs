@@ -228,6 +228,73 @@ test("SDK genuine phase anchoring follows the host capability without a path fal
   }
 });
 
+/** @typedef {{fd:number,dev:bigint,ino:bigint,active:boolean}} PinFixtureDescriptor */
+/**
+ * Post-assertion rescue only; never supplies a pin while checking product behavior.
+ * @param {typeof import("node:fs")} original
+ * @param {{mock:{restore():void}}[]} patches
+ * @param {()=>void} sync
+ * @param {string} directory
+ * @param {PinFixtureDescriptor[]} handles
+ * @param {PinFixtureDescriptor[]} foreign
+ * @param {boolean} primaryActive
+ * @param {()=>void} [observe]
+ */
+function finishPinFixture(
+  original,
+  patches,
+  sync,
+  directory,
+  handles,
+  foreign,
+  primaryActive,
+  observe = () => {},
+) {
+  let failed = false;
+  /** @type {unknown} */ let first;
+  /** @param {()=>void} operation */
+  const attempt = (operation) => {
+    try {
+      operation();
+    } catch (error) {
+      if (!failed) {
+        failed = true;
+        first = error;
+      }
+    }
+  };
+  for (const patch of patches.reverse()) attempt(() => patch.mock.restore());
+  attempt(sync);
+  /** @param {PinFixtureDescriptor[]} entries */
+  const rescue = (entries) => {
+    for (const entry of entries) {
+      if (!entry.active) continue;
+      entry.active = false;
+      attempt(() => {
+        let info;
+        try {
+          info = original.fstatSync(entry.fd, { bigint: true });
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            "code" in error &&
+            error.code === "EBADF"
+          )
+            return;
+          throw error;
+        }
+        if (info.dev === entry.dev && info.ino === entry.ino)
+          original.closeSync(entry.fd);
+      });
+    }
+  };
+  rescue(handles);
+  attempt(observe);
+  rescue(foreign);
+  attempt(() => original.rmSync(directory, { recursive: true }));
+  if (failed && !primaryActive) throw first;
+}
+
 // deterministic-test-allow unit-io: actual product-owned file descriptors and controlled owned-directory rename refusal; FD-path shim on Mac is not Linux anchoring evidence.
 test("SDK writer pins its original temporary inode through rename failure cleanup", async () => {
   const fs = await import("node:fs");
@@ -239,7 +306,9 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
   const directory = original.realpathSync(
     original.mkdtempSync(join(tmpdir(), "inside-sdk-pin-")),
   );
-  /** @type {number[]} */ const acquired = [];
+  /** @type {PinFixtureDescriptor[]} */ const acquired = [];
+  /** @type {Map<number,PinFixtureDescriptor>} */ const active = new Map();
+  let primaryActive = false;
   const patches = [];
   let live = false;
   /** @param {import("node:fs").PathLike} path */
@@ -279,11 +348,27 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
           /** @type {number|string} */ flags,
           /** @type {import("node:fs").Mode|undefined} */ mode,
         ) => {
-          const fd = original.openSync(translated(path), flags, mode);
-          acquired.push(fd);
+          const named = translated(path),
+            fd = original.openSync(named, flags, mode);
+          if (named === directory || named === directory + "/phase.json.new") {
+            const info = original.fstatSync(fd, { bigint: true });
+            const entry = { fd, dev: info.dev, ino: info.ino, active: true };
+            acquired.push(entry);
+            active.set(fd, entry);
+          }
           return fd;
         },
       ),
+    );
+    patches.push(
+      mock.method(fs.default, "closeSync", (/** @type {number} */ fd) => {
+        const entry = active.get(fd);
+        if (entry !== undefined) {
+          entry.active = false;
+          active.delete(fd);
+        }
+        original.closeSync(fd);
+      }),
     );
     patches.push(
       mock.method(
@@ -295,9 +380,10 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
         ) => {
           const path = translated(from),
             info = original.lstatSync(path, { bigint: true });
-          live = acquired.some((fd) => {
+          live = acquired.some((entry) => {
+            if (!entry.active) return false;
             try {
-              const held = original.fstatSync(fd, { bigint: true });
+              const held = original.fstatSync(entry.fd, { bigint: true });
               return held.dev === info.dev && held.ino === info.ino;
             } catch {
               return false;
@@ -323,178 +409,305 @@ test("SDK writer pins its original temporary inode through rename failure cleanu
       true,
       "writer released original temp before named cleanup",
     );
-    for (const fd of acquired) assert.throws(() => original.fstatSync(fd));
+    assert.ok(
+      acquired.every((entry) => !entry.active),
+      "product descriptor close was skipped",
+    );
     assert.equal(
       original.readFileSync(directory + "/phase.json.new", "utf8"),
       "foreign-recreated",
     );
     assert.equal(original.existsSync(directory + "/phase.json"), false);
+  } catch (error) {
+    primaryActive = true;
+    throw error;
   } finally {
-    for (const patch of patches.reverse()) patch.mock.restore();
-    syncBuiltinESMExports();
-    original.rmSync(directory, { recursive: true });
+    finishPinFixture(
+      original,
+      patches,
+      syncBuiltinESMExports,
+      directory,
+      acquired,
+      [],
+      primaryActive,
+    );
   }
 });
 
 // deterministic-test-allow unit-io: actual owned FD acquisition/close faults in a private directory, with no provider or business runtime.
-test("SDK pin faults attempt every close and cannot retire a foreign reused descriptor", async () => {
+/** @param {string} fault @param {boolean} [skipClose] @param {{leaked?:PinFixtureDescriptor,ownClosed?:boolean,foreignPreserved?:boolean,originalError?:unknown}} [audit] */
+async function runSdkPinFault(fault, skipClose = false, audit = {}) {
   const fs = await import("node:fs");
   const { syncBuiltinESMExports } = await import("node:module");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const { mock } = await import("node:test");
-  for (const fault of ["pin_open", "writer_close", "combined", "pin_close"]) {
-    const original = { ...fs.default };
-    const directory = original.realpathSync(
-      original.mkdtempSync(join(tmpdir(), "inside-sdk-pin-fault-")),
-    );
-    /** @type {Map<number,{attempts:number,kind:string}>} */ const active =
-      new Map();
-    /** @type {{attempts:number,kind:string}[]} */ const handles = [];
-    /** @type {number[]} */ const foreign = [];
-    const patches = [];
-    let unknownClose = false;
-    /** @type {Set<number>} */ const retired = new Set();
-    /** @param {import("node:fs").PathLike} path */
-    const translated = (path) =>
-      process.platform !== "linux" &&
-      typeof path === "string" &&
-      /^\/proc\/self\/fd\/[0-9]+(?:\/|$)/u.test(path)
-        ? directory + path.replace(/^\/proc\/self\/fd\/[0-9]+/u, "")
-        : path;
-    try {
-      for (const name of /** @type {const} */ ([
-        "realpathSync",
-        "statSync",
-        "lstatSync",
-      ]))
-        patches.push(
-          mock.method(fs.default, name, (/** @type {unknown[]} */ ...args) => {
-            /** @type {unknown} */ const result = Reflect.apply(
-              Reflect.get(original, name),
-              fs.default,
-              [
-                typeof args[0] === "string" ? translated(args[0]) : args[0],
-                ...args.slice(1),
-              ],
-            );
-            return result;
-          }),
-        );
+  const original = { ...fs.default };
+  const directory = original.realpathSync(
+    original.mkdtempSync(join(tmpdir(), "inside-sdk-pin-fault-")),
+  );
+  /** @type {Map<number,PinFixtureDescriptor&{attempts:number,kind:string}>} */ const active =
+    new Map();
+  /** @type {(PinFixtureDescriptor&{attempts:number,kind:string})[]} */ const handles =
+    [];
+  /** @type {PinFixtureDescriptor[]} */ const foreign = [];
+  let primaryActive = false;
+  const patches = [];
+  let unknownClose = false;
+  /** @type {Set<number>} */ const retired = new Set();
+  /** @param {import("node:fs").PathLike} path */
+  const translated = (path) =>
+    process.platform !== "linux" &&
+    typeof path === "string" &&
+    /^\/proc\/self\/fd\/[0-9]+(?:\/|$)/u.test(path)
+      ? directory + path.replace(/^\/proc\/self\/fd\/[0-9]+/u, "")
+      : path;
+  try {
+    for (const name of /** @type {const} */ ([
+      "realpathSync",
+      "statSync",
+      "lstatSync",
+    ]))
       patches.push(
-        mock.method(
-          fs.default,
-          "openSync",
-          (
-            /** @type {import("node:fs").PathLike} */ path,
-            /** @type {number|string} */ flags,
-            /** @type {import("node:fs").Mode|undefined} */ mode,
-          ) => {
-            const named = translated(path);
-            if (named !== directory && named !== directory + "/phase.json.new")
-              return original.openSync(named, flags, mode);
-            const kind =
-              named === directory
-                ? "parent"
-                : typeof flags === "number" &&
-                    (flags & original.constants.O_WRONLY) !== 0
-                  ? "writer"
-                  : "pin";
-            if (kind === "pin" && fault === "pin_open")
-              throw new Error("controlled pin open refusal");
-            const fd = original.openSync(named, flags, mode),
-              entry = { attempts: 0, kind };
-            active.set(fd, entry);
-            handles.push(entry);
-            return fd;
-          },
-        ),
-      );
-      patches.push(
-        mock.method(fs.default, "closeSync", (/** @type {number} */ fd) => {
-          const entry = active.get(fd);
-          if (entry === undefined) {
-            if (retired.has(fd)) unknownClose = true;
-            original.closeSync(fd);
-            return;
-          }
-          active.delete(fd);
-          retired.add(fd);
-          entry.attempts++;
-          original.closeSync(fd);
-          if (fault === "writer_close" && entry.kind === "writer") {
-            foreign.push(
-              original.openSync(
-                directory + "/foreign-fd",
-                original.constants.O_CREAT | original.constants.O_RDWR,
-                0o600,
-              ),
-            );
-            throw new Error("controlled writer close refusal");
-          }
-          if (
-            (fault === "pin_close" && entry.kind === "pin") ||
-            (fault === "combined" && entry.kind !== "writer")
-          )
-            throw new Error("controlled close refusal");
+        mock.method(fs.default, name, (/** @type {unknown[]} */ ...args) => {
+          /** @type {unknown} */ const result = Reflect.apply(
+            Reflect.get(original, name),
+            fs.default,
+            [
+              typeof args[0] === "string" ? translated(args[0]) : args[0],
+              ...args.slice(1),
+            ],
+          );
+          return result;
         }),
       );
-      patches.push(
-        mock.method(
-          fs.default,
-          "renameSync",
-          (
-            /** @type {import("node:fs").PathLike} */ from,
-            /** @type {import("node:fs").PathLike} */ to,
-          ) => {
-            if (fault === "combined")
-              throw new Error("controlled rename refusal");
-            original.renameSync(translated(from), translated(to));
-          },
-        ),
-      );
-      patches.push(
-        mock.method(
-          fs.default,
-          "unlinkSync",
-          (/** @type {import("node:fs").PathLike} */ path) => {
-            if (fault === "combined")
-              throw new Error("controlled unlink refusal");
-            original.unlinkSync(translated(path));
-          },
-        ),
-      );
-      syncBuiltinESMExports();
-      const { createSdkEmitterPhase } = await import("./emitter-phase.mjs");
-      const phase = createSdkEmitterPhase({
-        INSIDE_SDK_EMITTER_PHASE_PATH: directory + "/phase.json",
-        INSIDE_SDK_EMITTER_PHASE_SOURCE: "a".repeat(40),
-      });
-      assert.ok(phase !== null);
-      phase.enter("input_validation");
-      const count = handles.length;
-      phase.failed();
-      assert.equal(
-        handles.length,
-        count,
-        "failed observer admitted later writes",
-      );
-      assert.equal(unknownClose, false, "retired descriptor was retried");
+    patches.push(
+      mock.method(
+        fs.default,
+        "openSync",
+        (
+          /** @type {import("node:fs").PathLike} */ path,
+          /** @type {number|string} */ flags,
+          /** @type {import("node:fs").Mode|undefined} */ mode,
+        ) => {
+          const named = translated(path);
+          if (named !== directory && named !== directory + "/phase.json.new")
+            return original.openSync(named, flags, mode);
+          const kind =
+            named === directory
+              ? "parent"
+              : typeof flags === "number" &&
+                  (flags & original.constants.O_WRONLY) !== 0
+                ? "writer"
+                : "pin";
+          if (kind === "pin" && fault === "pin_open")
+            throw new Error("controlled pin open refusal");
+          const fd = original.openSync(named, flags, mode),
+            info = original.fstatSync(fd, { bigint: true }),
+            entry = {
+              fd,
+              dev: info.dev,
+              ino: info.ino,
+              active: true,
+              attempts: 0,
+              kind,
+            };
+          active.set(fd, entry);
+          handles.push(entry);
+          return fd;
+        },
+      ),
+    );
+    patches.push(
+      mock.method(fs.default, "closeSync", (/** @type {number} */ fd) => {
+        const entry = active.get(fd);
+        if (entry === undefined) {
+          if (retired.has(fd)) unknownClose = true;
+          original.closeSync(fd);
+          return;
+        }
+        entry.attempts++;
+        if (skipClose && entry.kind === "pin") {
+          audit.leaked = entry;
+          return;
+        }
+        active.delete(fd);
+        entry.active = false;
+        retired.add(fd);
+        original.closeSync(fd);
+        if (fault === "writer_close" && entry.kind === "writer") {
+          const foreignFd = original.openSync(
+            directory + "/foreign-fd",
+            original.constants.O_CREAT | original.constants.O_RDWR,
+            0o600,
+          );
+          const info = original.fstatSync(foreignFd, { bigint: true });
+          foreign.push({
+            fd: foreignFd,
+            dev: info.dev,
+            ino: info.ino,
+            active: true,
+          });
+          throw new Error("controlled writer close refusal");
+        }
+        if (
+          (fault === "pin_close" && entry.kind === "pin") ||
+          (fault === "combined" && entry.kind !== "writer")
+        )
+          throw new Error("controlled close refusal");
+      }),
+    );
+    patches.push(
+      mock.method(
+        fs.default,
+        "renameSync",
+        (
+          /** @type {import("node:fs").PathLike} */ from,
+          /** @type {import("node:fs").PathLike} */ to,
+        ) => {
+          if (fault === "combined")
+            throw new Error("controlled rename refusal");
+          original.renameSync(translated(from), translated(to));
+        },
+      ),
+    );
+    patches.push(
+      mock.method(
+        fs.default,
+        "unlinkSync",
+        (/** @type {import("node:fs").PathLike} */ path) => {
+          if (fault === "combined")
+            throw new Error("controlled unlink refusal");
+          original.unlinkSync(translated(path));
+        },
+      ),
+    );
+    syncBuiltinESMExports();
+    const { createSdkEmitterPhase } = await import("./emitter-phase.mjs");
+    const phase = createSdkEmitterPhase({
+      INSIDE_SDK_EMITTER_PHASE_PATH: directory + "/phase.json",
+      INSIDE_SDK_EMITTER_PHASE_SOURCE: "a".repeat(40),
+    });
+    assert.ok(phase !== null);
+    phase.enter("input_validation");
+    const count = handles.length;
+    phase.failed();
+    assert.equal(
+      handles.length,
+      count,
+      "failed observer admitted later writes",
+    );
+    assert.equal(unknownClose, false, "retired descriptor was retried");
+    assert.ok(
+      handles.every((entry) => entry.attempts === 1),
+      "an acquired close was skipped",
+    );
+    assert.equal(active.size, 0);
+    for (const entry of foreign) {
+      original.fstatSync(entry.fd);
       assert.ok(
-        handles.every((entry) => entry.attempts === 1),
-        "an acquired close was skipped",
+        retired.has(entry.fd),
+        "controlled retired-number reuse missing",
       );
-      assert.equal(active.size, 0);
-      for (const fd of foreign) original.fstatSync(fd);
-      assert.equal(
-        original.existsSync(directory + "/phase.json"),
-        fault === "pin_close",
-      );
-    } finally {
-      for (const patch of patches.reverse()) patch.mock.restore();
-      syncBuiltinESMExports();
-      for (const fd of foreign) original.closeSync(fd);
-      original.rmSync(directory, { recursive: true });
+    }
+    assert.equal(
+      original.existsSync(directory + "/phase.json"),
+      fault === "pin_close",
+    );
+  } catch (error) {
+    primaryActive = true;
+    audit.originalError = error;
+    throw error;
+  } finally {
+    finishPinFixture(
+      original,
+      patches,
+      syncBuiltinESMExports,
+      directory,
+      handles,
+      foreign,
+      primaryActive,
+      () => {
+        if (audit.leaked !== undefined) {
+          try {
+            original.fstatSync(audit.leaked.fd);
+            audit.ownClosed = false;
+          } catch (error) {
+            audit.ownClosed =
+              error instanceof Error &&
+              "code" in error &&
+              error.code === "EBADF";
+          }
+          audit.foreignPreserved = foreign.every((entry) => {
+            try {
+              const info = original.fstatSync(entry.fd, { bigint: true });
+              return info.dev === entry.dev && info.ino === entry.ino;
+            } catch {
+              return false;
+            }
+          });
+        }
+      },
+    );
+  }
+}
+
+// deterministic-test-allow unit-io: actual owned FD acquisition/close faults in a private directory, with no provider or business runtime.
+test("SDK pin faults attempt every close and cannot retire a foreign reused descriptor", async () => {
+  for (const fault of ["pin_open", "writer_close", "combined", "pin_close"])
+    await runSdkPinFault(fault);
+});
+
+// deterministic-test-allow unit-io: intentionally omitted product close must fail its assertion before fixture rescue; real descriptors only.
+test("SDK failed pin fixture rescues its skipped close and preserves the retired-number foreign handle", async () => {
+  const original = await import("node:fs");
+  /** @type {{leaked?:PinFixtureDescriptor,ownClosed?:boolean,foreignPreserved?:boolean,originalError?:unknown}} */ const audit =
+    {};
+  let primaryActive = false;
+  try {
+    await assert.rejects(
+      runSdkPinFault("writer_close", true, audit),
+      (error) =>
+        error === audit.originalError && error instanceof assert.AssertionError,
+    );
+    assert.equal(
+      audit.ownClosed,
+      true,
+      "failed fixture left its product descriptor open",
+    );
+    assert.equal(
+      audit.foreignPreserved,
+      true,
+      "fixture rescue touched a retired-number foreign descriptor",
+    );
+  } catch (error) {
+    primaryActive = true;
+    throw error;
+  } finally {
+    if (audit.leaked !== undefined && audit.leaked.active) {
+      audit.leaked.active = false;
+      try {
+        let info;
+        try {
+          info = original.fstatSync(audit.leaked.fd, { bigint: true });
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            "code" in error &&
+            error.code === "EBADF"
+          )
+            info = undefined;
+          else throw error;
+        }
+        if (
+          info !== undefined &&
+          info.dev === audit.leaked.dev &&
+          info.ino === audit.leaked.ino
+        )
+          original.closeSync(audit.leaked.fd);
+      } catch (error) {
+        if (!primaryActive) throw error;
+      }
     }
   }
 });
