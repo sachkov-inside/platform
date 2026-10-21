@@ -17,6 +17,7 @@ def generated_metric_drops(service, name):
     expression = re.sub(r'IsMatch\(name, ("(?:\\.|[^"\\])*")\)',
                         lambda match: str(re.search(json.loads(match[1]), name) is not None), expression)
     expression = expression.replace(SERVICE, str(service == 'inside-telegram'))
+    expression = expression.replace('resource.attributes["service.name"] == "inside-postgresql-source"', str(service == 'inside-postgresql-source'))
     def value(node):
         if isinstance(node, ast.Constant) and type(node.value) is bool: return node.value
         if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not): return not value(node.operand)

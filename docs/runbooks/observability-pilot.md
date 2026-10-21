@@ -1835,3 +1835,76 @@ Both original exit-reason and exit-code assertions remain required. Completed me
 that a test stopped, not that it passed. The first HTTP/identity group and third
 real backend corpus group remain unchanged. These source diagnostics do not explain
 earlier hosted timeouts, increase a budget, or establish native capacity acceptance.
+
+### Prepared ordinary-role PostgreSQL server source
+
+The independent `postgres-source` job in `observability-tracking-storage.yml` prepares an opt-in,
+disposable source under `scripts/observability-postgres-storage/`. Existing Core and application
+startup do not launch it. It reuses the tracking owner's pinned PG18.4 container and strict
+ownership without the tracking API, migrations or timer. The fixture administrator creates its
+synthetic role/table and actors only in that disposable database. The sampler uses a separate
+ordinary read-only login with one connection, no monitoring memberships and only CONNECT.
+
+One fixed thirteen-column query supplies seven server gauges: connected backends, waiting locks,
+deadlocks since reset, postmaster start time, statistics reset time, sample time and availability.
+These are separate from the existing application pool gauges and SQL dependency spans. The whole
+private row and both complete stored service vectors are validated before projection. Reset,
+restart, stale data and failed acquisitions do not create complete healthy counting intervals.
+The collector admits these seven names only for `inside-postgresql-source`; its traces/logs are
+dropped, and point attributes/exemplars are cleared. Existing backend/Telegram programs retain
+their catalogs. Exact pinned Linux adaptation and actual database visibility remain NOTRUN.
+
+The fixture uses150 seconds of work plus30 seconds for actor/client settlement after acquisition.
+That180-second envelope excludes Compose startup and existing container cleanup. The existing
+outer600-second worker, up240-second limit, process shutdown and down90-second command remain
+unchanged. Each sampler has at most4 seconds of work plus2 seconds TERM and2 seconds final
+settlement. A successful child exit alone is insufficient: client end, reaping, current ownership
+and backend absence must also be observed within the work boundary. The private failure exit2
+means only that public client end fulfilled; the parent still requires reaping, current ownership
+and backend absence under the same work deadline. There are exactly two admitted zero origins:
+a verified failed acquisition, or the controlled graceful stop proof described below. Both publish
+only current availability0, without refreshing the six facts or advancing the continuity ledger.
+Unproved settlement/ownership exports nothing. The first failure survives verification or emission
+failures. Exhaustion fails without expanding grants or deadlines. Native role visibility, eight-second feasibility, lock/deadlock,
+reset/restart, stale recovery and typed cleanup remain NOTRUN.
+
+The controlled stop closes/reaps fixture clients first, checks the current frozen PostgreSQL
+owner, stops that exact CID with the existing two-second grace, checks daemon identity and fully
+re-inspects the same frozen target. It then performs only this fixed daemon-side projection:
+
+```text
+docker inspect --format '{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}' <frozen PostgreSQL CID>
+```
+
+The stop response must be the exact frozen CID (logical cap65UTF8 bytes). The state response must
+be exactly `stopped` with an optional newline (logical cap16UTF8 bytes). These are checks of fixed
+CLI projections, not subprocess allocation bounds. Deadline checks and zero emission use the same
+decreasing remaining phase allowance inside150 seconds. The stop passes its frozen absolute
+deadline into `upload`; only `upload` owns the HTTP alarm. Its pre/post ownership checks and HTTP
+transport consume that same remaining time, without a new ten-second allowance or nested alarm.
+Ordinary uploads retain their existing maximum ten seconds. The shared alarm guard still refuses
+an already active timer. Unknown state, nonzero exit, malformed
+response, identity drift, active/unsettled client or exhausted time refuses before emission. A
+failed sampler call is never a substitute for this stopped-owned proof. The ordinary successful
+acquisition path, read-only query and its eight-second accounting remain unchanged.
+
+All present retained identity values and their raw timestamp cohort are validated before zero,
+missing or ownership projection. Current singleton0 is admitted; a newer availability0 may coexist
+with six valid older facts. Their sample timestamp is not refreshed. Future/mixed/inconsistent
+retained identities are refused, and an old availability0 observation is stale rather than current.
+
+Privacy challenges additionally read the exact anchored union of the seven server families across
+all services. Every returned row passes the same full raw gate; foreign or extra rows are refused,
+never filtered before validation. The normal two service reads remain unchanged. The combined
+protocol-only three reads share one ten-second deadline and evaluation time. Fresh source values,
+HTTP200 and a single metric edge do not prove that every surviving series from the same request
+has completed processing and insertion. That pinned end-to-end proof is an explicit prerequisite.
+Until independently established and accepted in a subsequent source change, the prepared driver
+fails the privacy phase even when its queries are clean. No successful native privacy verdict is
+available from this preparation.
+
+Public curation validates the owned source receipt and closed `postgres-source.json` before
+creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
+Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
+proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
+production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
