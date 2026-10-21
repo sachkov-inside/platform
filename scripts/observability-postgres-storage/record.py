@@ -11,7 +11,11 @@ import sys
 NAME='postgres-source.json'
 TEMPORARY='.postgres-source.json.new'
 SCOPE='Isolated ordinary-role PostgreSQL server source only; no production/resource acceptance'
-PHASES=('acquisition','baseline','connections','locks','deadlocks','reset','restart','stale','privacy','cleanup','complete')
+CASE_PHASES=('acquisition','baseline','connections','locks','deadlocks','reset','restart','stale','privacy','cleanup','complete')
+PHASES=CASE_PHASES+('baseline_actor_start','baseline_setup',
+    'baseline_first_acquire','baseline_first_upload','baseline_first_stored_read','baseline_first_stored_oracle','baseline_first_stored_pending','baseline_first_ledger',
+    'baseline_second_acquire','baseline_second_upload','baseline_second_stored_read','baseline_second_stored_oracle','baseline_second_stored_pending','baseline_second_ledger',
+    'baseline_waiting_locks')
 REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup')
 FRESHNESS=('fresh','stale','missing','unavailable','malformed')
 CONTINUITY=('initial','same_epoch','statistics_reset','server_restart','ownership_changed','unknown')
@@ -102,7 +106,7 @@ def validate(value,source):
     cases=[]
     for case in value['cases']:
         if (type(case) is not dict or set(case)!={'phase','freshness','continuity','count_complete','points','age_seconds'}
-                or case['phase'] not in PHASES or case['freshness'] not in FRESHNESS or case['continuity'] not in CONTINUITY
+                or case['phase'] not in CASE_PHASES or case['freshness'] not in FRESHNESS or case['continuity'] not in CONTINUITY
                 or type(case['count_complete']) is not bool or type(case['points']) is not int or not 0<=case['points']<=7
                 or case['age_seconds'] is not None and (type(case['age_seconds']) not in (int,float)
                     or not math.isfinite(case['age_seconds']) or not 0<=case['age_seconds']<=600)):refuse()

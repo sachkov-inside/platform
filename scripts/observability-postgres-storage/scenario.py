@@ -17,6 +17,12 @@ import queries
 STOPPED='{{if and (eq .State.Status "exited") (not .State.Running) (not .State.Restarting) (not .State.Dead) (not .State.Paused) (not .State.OOMKilled) (eq .State.Pid 0) (eq .State.ExitCode 0) (eq .State.Error "")}}stopped{{end}}'
 
 
+# Two fixed source calls only; these literals report entry, never successful completion.
+BASELINE_PHASES={
+    'first':{'acquire':'baseline_first_acquire', 'upload':'baseline_first_upload', 'stored_read':'baseline_first_stored_read', 'stored_oracle':'baseline_first_stored_oracle', 'stored_pending':'baseline_first_stored_pending', 'ledger':'baseline_first_ledger'},
+    'second':{'acquire':'baseline_second_acquire', 'upload':'baseline_second_upload', 'stored_read':'baseline_second_stored_read', 'stored_oracle':'baseline_second_stored_oracle', 'stored_pending':'baseline_second_stored_pending', 'ledger':'baseline_second_ledger'},
+}
+
 class Scenario:
     def __init__(self,targets,compose,token,oracle):
         self.targets,self.compose,self.token,self.oracle=targets,compose,token,oracle
@@ -108,25 +114,37 @@ class Scenario:
         self.verify_storage(deadline)
         if time.monotonic()>=deadline:raise TimeoutError()
 
-    def stored(self,value):
+    def stored(self,value,*,_baseline=None):
+        if _baseline is not None and (type(_baseline) is not str or _baseline not in BASELINE_PHASES):raise ValueError('query_refused')
+        phases=None if _baseline is None else BASELINE_PHASES[_baseline]
         deadline=time.monotonic()+min(30,self.remaining(30))
         while time.monotonic()<deadline:
+            if phases is not None:self.phase=phases['stored_read']
             raw,stamps,evaluated,completed=queries.read(self.token,self.verify_storage,budget=min(10,deadline-time.monotonic()))
+            if phases is not None:self.phase=phases['stored_oracle']
             observed=self.oracle.evaluate(raw,stamps,evaluated_at=evaluated,completed_us=completed,expected=value)
             if observed['freshness']=='fresh':return observed
             if observed['freshness'] not in ('missing',):raise ValueError('storage')
+            if phases is not None:self.phase=phases['stored_pending']
             left=min(pilot.POLL_INTERVAL_SECONDS,deadline-time.monotonic())
             if left>0:time.sleep(left)
         raise TimeoutError()
 
-    def observe(self,predicate=lambda _:True,settle_before_publish=None):
+    def observe(self,predicate=lambda _:True,settle_before_publish=None,*,_baseline=None):
+        if _baseline is not None and (type(_baseline) is not str or _baseline not in BASELINE_PHASES):raise ValueError('query_refused')
+        phases=None if _baseline is None else BASELINE_PHASES[_baseline]
         deadline=time.monotonic()+self.remaining()
         while True:
             if time.monotonic()>=deadline:raise TimeoutError()
+            if phases is not None:self.phase=phases['acquire']
             value=self.acquire()
             if predicate(value):break
         if settle_before_publish is not None:settle_before_publish()
-        self.upload(frame.payload(value));observed=self.stored(value);continuity=self.ledger.accept(value)
+        if phases is not None:self.phase=phases['upload']
+        self.upload(frame.payload(value))
+        observed=self.stored(value) if phases is None else self.stored(value,_baseline=_baseline)
+        if phases is not None:self.phase=phases['ledger']
+        continuity=self.ledger.accept(value)
         return value,{**observed,'continuity':continuity['continuity'],'count_complete':continuity['count_complete']}
 
     def case(self,phase,observation):
@@ -157,10 +175,14 @@ class Scenario:
         started=time.monotonic();self.end=started+150;self.cleanup_end=started+180
         primary=None;primary_tb=None
         try:
-            self.phase='baseline'
-            self.actors.start();self.command('setup')
-            baseline,_=self.observe();baseline,verdict=self.observe()
+            self.phase='baseline_actor_start'
+            self.actors.start()
+            self.phase='baseline_setup'
+            self.command('setup')
+            baseline,_=self.observe(_baseline='first');baseline,verdict=self.observe(_baseline='second')
+            self.phase='baseline_waiting_locks'
             if baseline['waiting_locks']!=0:raise ValueError('query_refused')
+            self.phase='baseline'
             self.case('baseline',verdict)
             self.phase='connections'
             self.command('connections');connected,_=self.observe(lambda value:value['connected_backends']>=baseline['connected_backends']+2)
@@ -208,8 +230,7 @@ class Scenario:
             if stale is None or stale['freshness'] not in ('stale','missing'):raise ValueError('stale')
             _,verdict=self.observe();self.case('stale',verdict)
             self.phase='privacy'
-            privacy(self)
-            self.case('privacy',self.stored(self.ledger.last))
+            self.case('privacy',privacy(self))
         except BaseException as error:
             primary,primary_tb=error,sys.exc_info()[2]
             raise

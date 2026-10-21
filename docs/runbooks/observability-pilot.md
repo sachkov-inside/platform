@@ -1955,12 +1955,81 @@ never filtered before validation. The normal two service reads remain unchanged.
 protocol-only three reads share one ten-second deadline and evaluation time. Fresh source values,
 HTTP200 and a single metric edge do not prove that every surviving series from the same request
 has completed processing and insertion. That pinned end-to-end proof is an explicit prerequisite.
-Until independently established and accepted in a subsequent source change, the prepared driver
-fails the privacy phase even when its queries are clean. No successful native privacy verdict is
-available from this preparation.
+The source now implements the current-request export/flush barrier described in
+[PostgreSQL completion](#postgresql-завершение-текущей-проверки-приватности). Native verification
+remains pending. The latest pre-barrier native run stopped in baseline/query_refused with no
+completed cases; its exact failing step and cause are unknown. A successful native privacy verdict
+is not established by the source controls or this documentation.
+
+Baseline failures retain the existing reason projection and eight-field, schema1,4096-byte
+`postgres-source.json`. Its top-level phase now identifies the last entered fixed boundary:
+`baseline_actor_start`, `baseline_setup`, `baseline_waiting_locks`, or one of
+`baseline_first_acquire`, `baseline_first_upload`, `baseline_first_stored_read`,
+`baseline_first_stored_oracle`, `baseline_first_stored_pending`, `baseline_first_ledger`,
+`baseline_second_acquire`, `baseline_second_upload`, `baseline_second_stored_read`,
+`baseline_second_stored_oracle`, `baseline_second_stored_pending`, `baseline_second_ledger`.
+First and second are the two existing baseline observations. Entry does not prove completion
+or identify the underlying cause. Successful cases keep phase `baseline`; these technical phases
+are refused in case entries. The markers add no query, clock, IO, retry or time allowance. The
+latest retained native failure remains baseline/query_refused with empty cases and an unknown
+failing boundary; privacy was not reached. A future source-bound run can distinguish that boundary,
+while diagnosis of its internal cause and native completion acceptance remain separate.
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
+
+### PostgreSQL: завершение текущей проверки приватности
+
+Изолированный PostgreSQL-прогон создаёт собственную копию конфигурации Alloy.
+Только в этой копии у экспортёра метрик выключены очередь и повторные отправки,
+а HTTP timeout равен двум секундам. Общая конфигурация Core и обычный tracking-прогон
+используют прежние настройки. Состав контейнеров, образы, порты, маршруты vmauth/MCP,
+ресурсные ограничения и проверки очистки не меняются.
+
+Каждая из шести фиксированных проверок приватности отправляет текущий SQL-снимок
+и свой контрольный пакет одним JSON-запросом размером не более 4096 байт.
+До чтения хранилища нужны два последовательных подтверждения: полный успешный ответ
+на этот запрос от синхронного конвейера Alloy, затем пустой успешный ответ на
+аутентифицированный `/internal/force_flush` того же принадлежащего стенду VictoriaMetrics.
+После этого полностью проверяются три исходных вектора S, T и G. G охватывает семь
+фиксированных семейств метрик без ограничения по service. Свежие положительные строки
+сами по себе не подтверждают отсутствие запрещённых строк.
+
+Вся последовательность, включая проверки принадлежности ресурсов, укладывается в один
+убывающий срок 10 секунд и оставшееся время работы сценария 150 секунд. Отправка получает
+не более четырёх секунд, flush не более двух. Дополнительные попытки и увеличение сроков
+не предусмотрены. Ответ с partial success, перенаправление, неизвестное содержимое,
+несовпадение ресурсов, неуспешное закрытие транспорта или превышение срока останавливают
+проверку. Таймаут не означает отмену операции внутри VictoriaMetrics. Перед продолжением
+нужна существующая полная очистка принадлежащего прогону стенда.
+
+Если однократное отключение собственного таймера завершилось ошибкой, его уже
+установленный обработчик становится инертным до освобождения ресурсов. Предыдущий
+обработчик сигнала восстанавливается только после подтверждённого отключения таймера.
+При неизвестном результате отключения новые проверки в этом процессе запрещены;
+существующий внешний владелец завершает процесс. Это отказ проверки и неподтверждённое
+освобождение таймера, а не успешная очистка или разрешение продолжить работу.
+
+Flush доступен только из этого Linux-прогона по точному частному IPv4 принадлежащего
+стенду metrics-контейнера. Проверяются исходный локальный Docker daemon, контейнер,
+сеть и локальный bridge. Другой daemon, Docker Desktop, неоднозначный адрес или
+недоступный bridge означают отказ без перехода на другой маршрут. Новый порт хоста,
+утилита внутри образа или маршрут доступа через MCP не добавляются. Случайный ключ
+передаётся контейнеру только через фиксированную переменную окружения; у metrics
+выключен Docker logging. Для Alloy явно задан UID:GID владельца существующего частного
+файла учётных данных; такой же владелец требуется у копии конфигурации с правами 0600.
+Проверяются фактический пользователь контейнера, прежняя команда, read-only root filesystem
+и cap_drop ALL. Образы, остальные параметры Core и tracking не меняются. Совместимость
+точного образа и локального Linux user namespace с этим пользователем требует native-проверки.
+Ключ, конфигурация Compose, адреса и необработанные ответы
+остаются в частном каталоге и не входят в публичные артефакты.
+
+Проверки исходного кода подтверждают порядок запросов, строгую обработку ответов,
+полную проверку векторов и освобождение принадлежащих тестам ресурсов. Они не заменяют
+Linux-прогон на закреплённых образах. Доступность bridge, фактическая настройка ключа,
+порядок обработки настоящего экспортёра, видимость после flush, отказ при пропущенных
+чужих строках и соблюдение временных границ требуют отдельного подтверждения в CI.
+Эта подготовка не подтверждает готовность production или размер необходимого сервера.

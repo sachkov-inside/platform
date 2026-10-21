@@ -1,9 +1,63 @@
 """Owning phase/decreasing-deadline controls; no PG/container/storage execution."""
 import subprocess
+from contextlib import ExitStack, contextmanager
 import time
 import unittest
 from unittest.mock import patch
 import scenario
+
+
+@contextmanager
+def baseline_ports(test, fault=None, primary=None, secondary=None, waiting=False):
+    """Fixed external boundaries, independent of the phase being tested."""
+    from types import SimpleNamespace
+    from test_oracle import EXPECTED
+    driver=scenario.Scenario(None,['compose'],'fixed',None)
+    events=[];counts={};clock=[0];raised_tb=[None,None]
+    stop=RuntimeError('stop after original baseline')
+    def hit(port):
+        counts[port]=counts.get(port,0)+1;events.append((port,counts[port]))
+        if fault==(port,counts[port]):
+            try:raise primary
+            except BaseException as error:raised_tb[0]=error.__traceback__;raise
+    def start():hit('start')
+    def act(name,deadline):
+        test.assertEqual(deadline,110)
+        if name=='connections':hit('connections');raise stop
+        test.assertEqual(name,'setup');hit('setup')
+    def close(deadline):
+        import sys
+        raised_tb[1]=sys.exc_info()[2]
+        test.assertEqual(deadline,280);hit('close')
+        if secondary is not None:raise secondary
+    driver.actors=SimpleNamespace(start=start,act=act,close=close)
+    def acquire():
+        hit('acquire');value=EXPECTED.copy();value['sample_us']+=counts['acquire']*1000
+        if waiting and counts['acquire']==2:value['waiting_locks']=1
+        return value
+    def upload(value):
+        hit('upload');test.assertEqual(value,scenario.frame.payload(sample(counts['acquire'])))
+    def sample(index):
+        value=EXPECTED.copy();value['sample_us']+=index*1000
+        if waiting and index==2:value['waiting_locks']=1
+        return value
+    def read(token,verify,*,budget):
+        test.assertEqual(token,'fixed');test.assertEqual(verify,driver.verify_storage);test.assertEqual(budget,10)
+        hit('read');return ('raw','stamps','evaluated',0)
+    def evaluate(*args,**kwargs):
+        hit('oracle');test.assertEqual(kwargs['expected'],sample(counts['acquire']))
+        return {'freshness':'missing' if counts['oracle']%2 else 'fresh','points':7,'age_seconds':0}
+    ledger=driver.ledger.accept
+    def accept(value):hit('ledger');return ledger(value)
+    def monotonic():clock[0]+=1;return 100.0
+    def sleep(delay):test.assertEqual(delay,scenario.pilot.POLL_INTERVAL_SECONDS);hit('pending')
+    driver.oracle=SimpleNamespace(evaluate=evaluate)
+    with ExitStack() as stack:
+        for target,name,replacement in ((driver,'acquire',acquire),(driver,'upload',upload),
+                (scenario.queries,'read',read),(driver.ledger,'accept',accept),
+                (scenario.time,'monotonic',monotonic),(scenario.time,'sleep',sleep)):
+            stack.enter_context(patch.object(target,name,side_effect=replacement))
+        yield driver,events,clock,raised_tb,stop
 
 
 class Driver(unittest.TestCase):
@@ -105,7 +159,7 @@ class Driver(unittest.TestCase):
             driver.end=250;driver.clock_deadline=110
             roles=('postgres','alloy','metrics','gateway');ids={role:f'{index+1:064x}' for index,role in enumerate(roles)}
             plan={'services':{role:{'image':'fixture/'+role+'@sha256:'+'a'*64,'networks':['pilot','ingress']} for role in roles},'volumes':{}}
-            targets=postgres_source.ownership.TrackingTargets.__new__(postgres_source.ownership.TrackingTargets)
+            targets=postgres_source.ownership.Targets.__new__(postgres_source.ownership.Targets)
             targets.output=Path('/task');targets.compose=driver.compose;targets.project=driver.compose[3];targets.plan=plan;targets.read=driver.read
             targets._ownership_observer=None;targets._ownership_callback_error=None;targets.targets={};driver.targets=targets
             def daemon(args,**kwargs):
@@ -154,3 +208,98 @@ class Driver(unittest.TestCase):
             self.assertEqual(requests!=[],fault in (None,'http_failure','expired_response'))
             self.assertTrue(all(deadline==110 for deadline in identity_deadlines))
             self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
+
+    def test_privacy_case_records_actual_completion_verdict_without_a_new_stored_query(self):
+        from types import SimpleNamespace
+        from test_oracle import EXPECTED
+        driver=scenario.Scenario(None,['compose'],'fixed',None);observations={};counter=[0]
+        verdict={'freshness':'fresh','continuity':'same_epoch','count_complete':True,'points':7,'age_seconds':0}
+        def observe(*args,**kwargs):
+            if counter[0]<2:
+                self.assertEqual(kwargs,{'_baseline':('first','second')[counter[0]]});phase='baseline'
+            else:
+                self.assertEqual(kwargs,{});phase=driver.phase
+            observations[phase]=observations.get(phase,0)+1;counter[0]+=1
+            value=EXPECTED.copy();value['sample_us']+=counter[0]*1000
+            if phase=='deadlocks':value['deadlocks']=EXPECTED['deadlocks']+1
+            if phase in ('reset','restart','stale'):value['stats_reset_us']+=1000;value['deadlocks']=0
+            if phase in ('restart','stale'):value['postmaster_us']+=1000
+            state=driver.ledger.accept(value)
+            return value,{**verdict,'continuity':state['continuity'],'count_complete':state['count_complete']}
+        final={**verdict,'age_seconds':.125}
+        driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
+        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart' else 'stale'})
+        with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
+                patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
+                patch.object(scenario.queries,'read',return_value=('','','',0)),patch.object(driver,'stored',side_effect=AssertionError('new stored query forbidden')), \
+                patch.object(scenario.time,'sleep'):
+            cases=driver.run(lambda source:final)
+        self.assertEqual(cases[-1],{**final,'phase':'privacy'})
+
+
+    def test_baseline_entered_stage_preserves_first_failure_for_every_fixed_boundary(self):
+        golden=(
+            (('start',1),'baseline_actor_start'),(('setup',1),'baseline_setup'),
+            (('acquire',1),'baseline_first_acquire'),(('upload',1),'baseline_first_upload'),
+            (('read',1),'baseline_first_stored_read'),(('oracle',1),'baseline_first_stored_oracle'),
+            (('pending',1),'baseline_first_stored_pending'),(('ledger',1),'baseline_first_ledger'),
+            (('acquire',2),'baseline_second_acquire'),(('upload',2),'baseline_second_upload'),
+            (('read',3),'baseline_second_stored_read'),(('oracle',3),'baseline_second_stored_oracle'),
+            (('pending',2),'baseline_second_stored_pending'),(('ledger',2),'baseline_second_ledger'),
+            (None,'baseline_waiting_locks'))
+        order=[('start',1),('setup',1),('acquire',1),('upload',1),('read',1),('oracle',1),('pending',1),
+            ('read',2),('oracle',2),('ledger',1),('acquire',2),('upload',2),('read',3),('oracle',3),
+            ('pending',2),('read',4),('oracle',4),('ledger',2)]
+        for fault,phase in golden:
+            for kind in (RuntimeError,KeyboardInterrupt,SystemExit):
+                for same in (False,True):
+                    primary=kind('controlled first');secondary=primary if same else SystemExit('controlled cleanup')
+                    with self.subTest(phase=phase,kind=kind,same=same), \
+                            baseline_ports(self,fault,primary,secondary,waiting=fault is None) as (driver,events,clock,tb,stop):
+                        try:driver.run(lambda _:self.fail('privacy reached'))
+                        except BaseException as caught:
+                            if fault is None:self.assertIs(type(caught),ValueError);self.assertEqual(caught.args,('query_refused',))
+                            else:
+                                self.assertIs(caught,primary)
+                                self.assertIs(caught.__traceback__.tb_next,tb[1])
+                                tail=tb[1]
+                                while tail.tb_next is not None:tail=tail.tb_next
+                                self.assertIs(tail,tb[0])
+                        else:self.fail('controlled baseline failure returned')
+                        self.assertEqual(driver.phase,phase);self.assertEqual(driver.cases,[])
+                        expected=order if fault is None else order[:order.index(fault)+1]
+                        self.assertEqual(events,expected+[('close',1)])
+
+    def test_successful_baseline_keeps_original_order_counts_and_case_phase(self):
+        with baseline_ports(self) as (driver,events,clock,tb,stop):
+            with self.assertRaises(RuntimeError) as caught:driver.run(lambda _:self.fail('privacy reached'))
+            self.assertIs(caught.exception,stop)
+            self.assertEqual(events,[('start',1),('setup',1),('acquire',1),('upload',1),('read',1),('oracle',1),
+                ('pending',1),('read',2),('oracle',2),('ledger',1),('acquire',2),('upload',2),('read',3),
+                ('oracle',3),('pending',2),('read',4),('oracle',4),('ledger',2),('connections',1),('close',1)])
+            self.assertEqual(clock[0],25)
+            self.assertEqual(driver.phase,'connections')
+            self.assertEqual(driver.cases,[{'freshness':'fresh','continuity':'same_epoch','count_complete':True,
+                'points':7,'age_seconds':0,'phase':'baseline'}])
+
+    def test_default_observe_and_stored_emit_no_baseline_checkpoint(self):
+        for method in ('observe','stored'):
+            with self.subTest(method=method),baseline_ports(self) as (driver,events,clock,tb,stop):
+                driver.end=250;driver.phase='original'
+                if method=='observe':driver.observe()
+                else:
+                    from test_oracle import EXPECTED
+                    # The fixed external acquisition count supplies the original sample to the oracle.
+                    value=driver.acquire();driver.stored(value)
+                self.assertEqual(driver.phase,'original');self.assertEqual(driver.cases,[])
+                self.assertEqual(events[-1],('ledger',1) if method=='observe' else ('oracle',2))
+
+    def test_invalid_baseline_enum_refuses_before_work(self):
+        for value in ('','third','baseline_first_acquire',[],{},True,1,object()):
+            for method in ('observe','stored'):
+                with self.subTest(value=type(value),method=method),baseline_ports(self) as (driver,events,clock,tb,stop):
+                    driver.end=250;driver.phase='original'
+                    with self.assertRaises(ValueError):
+                        if method=='observe':driver.observe(_baseline=value)
+                        else:driver.stored({},_baseline=value)
+                    self.assertEqual(events,[]);self.assertEqual(clock,[0]);self.assertEqual(driver.phase,'original')
