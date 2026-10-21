@@ -1991,6 +1991,23 @@ latest retained native failure remains baseline/query_refused with empty cases a
 failing boundary; privacy was not reached. A future source-bound run can distinguish that boundary,
 while diagnosis of its internal cause and native completion acceptance remain separate.
 
+Внутри `baseline_setup` последний вход в операцию можно уточнить до
+`baseline_setup_connect`, `baseline_setup_identity`, `baseline_setup_reader`,
+`baseline_setup_grant_connect`, `baseline_setup_read_only`, `baseline_setup_schema`,
+`baseline_setup_table`, `baseline_setup_rows` или `baseline_setup_reset`.
+Только отказ уже проверенной команды setup получает код завершения 101..109.
+Node сохраняет фиксированный этап до прежней очистки и повторно выбрасывает исходную ошибку.
+Текст и свойства ошибки не читаются; успешный stdout, SQL, права и порядок запросов прежние.
+Python принимает этап только после отправки setup, полного отсутствия stdout до EOF
+и завершения того же дочернего процесса в пределах исходного общего срока команды.
+Уже завершившийся до команды процесс, посторонний или неполный вывод, сигнал,
+неизвестный код, ошибка чтения или истечение срока оставляют прежний общий отказ.
+Код никогда не превращает отказ в успех и не добавляет времени ожидания.
+В `postgres-source.json` остаются восемь полей и лимит 4096 байт; технический этап
+не допускается в успешных case-записях. Это измерение места отказа, а не исправление SQL.
+Последний native-прогон остановился в `baseline_setup/query_refused` за 39,710 с
+с учётом подготовки. Причина пока неизвестна; приватность не проверена.
+
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence

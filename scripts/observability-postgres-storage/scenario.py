@@ -67,7 +67,13 @@ class Scenario:
                 time.sleep(left)
             else:return
 
-    def command(self,name):self.actors.act(name,time.monotonic()+self.remaining())
+    def command(self,name):
+        try:self.actors.act(name,time.monotonic()+self.remaining())
+        except BaseException:
+            if name=='setup':
+                phase=getattr(self.actors,'setup_phase',None)
+                if type(phase) is str and phase in fixture.SETUP_PHASES.values():self.phase=phase
+            raise
 
     def acquire(self):
         if self.last_attempt is not None:

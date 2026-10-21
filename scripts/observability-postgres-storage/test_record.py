@@ -146,3 +146,23 @@ class Records(unittest.TestCase):
                     else:
                         with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
                         self.assertFalse(public.exists())
+
+    def test_setup_operation_phases_roundtrip_without_new_fields_or_case_authority(self):
+        import copy
+        phases=('baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
+            'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
+            'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
+        for phase in phases:
+            with self.subTest(phase=phase),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();value=self.value()
+                value.update(state='failed',phase=phase,reason='query_refused')
+                self.assertEqual(len(value),8);record.write(root,value)
+                self.assertLessEqual((root/record.NAME).stat().st_size,4096)
+                self.assertEqual(record.read(root,'a'*40),value)
+                for replacement in ('baseline_setup_password','baseline_setup_reader private-canary',True,{},None):
+                    bad=copy.deepcopy(value);bad['phase']=replacement
+                    with self.assertRaises(ValueError):record.validate(bad,'a'*40)
+                bad=copy.deepcopy(value)
+                bad['cases']=[{'phase':phase,'freshness':'fresh','continuity':'same_epoch',
+                    'count_complete':True,'points':7,'age_seconds':0}]
+                with self.assertRaises(ValueError):record.validate(bad,'a'*40)
