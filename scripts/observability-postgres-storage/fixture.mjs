@@ -16,6 +16,18 @@ const commands = new Set([
   "sampler_absent",
   "close",
 ]);
+const setupPhases = Object.freeze([
+  "baseline_setup_connect",
+  "baseline_setup_identity",
+  "baseline_setup_reader",
+  "baseline_setup_grant_connect",
+  "baseline_setup_read_only",
+  "baseline_setup_schema",
+  "baseline_setup_table",
+  "baseline_setup_rows",
+  "baseline_setup_reset",
+]);
+let failedSetupExitCode = 1;
 /** @param {(config: ReturnType<typeof configuration>) => Client} create */
 export function fixture(create) {
   /** @type {Client|null} */ let admin = null;
@@ -23,6 +35,7 @@ export function fixture(create) {
   /** @type {Client|null} */ let b = null;
   /** @type {Promise<unknown>|null} */ let pending = null;
   let deadline = 0;
+  /** @type {string|null} */ let setupStage = null;
   function remaining() {
     const left = deadline - performance.now();
     if (left <= 0) throw new Error("query_timeout");
@@ -65,6 +78,7 @@ export function fixture(create) {
   }
   /** @param {string} command @param {number} budgetMs */
   async function act(command, budgetMs) {
+    setupStage = null;
     if (
       !commands.has(command) ||
       !Number.isInteger(budgetMs) ||
@@ -86,14 +100,17 @@ export function fixture(create) {
         throw new Error("cleanup");
       return;
     }
+    if (command === "setup") setupStage = "baseline_setup_connect";
     if (admin === null) admin = await connect();
     if (command === "setup") {
+      setupStage = "baseline_setup_identity";
       const result = await q(
         admin,
         "SELECT current_setting('server_version_num'), current_database(), current_user",
       );
       if (JSON.stringify(result.rows) !== '[["180004","tracking","tracking"]]')
         throw new Error("ownership");
+      let statement = 2;
       for (const text of [
         "CREATE ROLE postgres_source_reader LOGIN PASSWORD 'postgres_source_fixture_reader' NOSUPERUSER NOINHERIT NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 1",
         "GRANT CONNECT ON DATABASE tracking TO postgres_source_reader",
@@ -102,8 +119,10 @@ export function fixture(create) {
         "CREATE TABLE postgres_source_fixture.lock_rows (id integer PRIMARY KEY, value integer NOT NULL)",
         "INSERT INTO postgres_source_fixture.lock_rows VALUES (1,0),(2,0)",
         "SELECT pg_catalog.pg_stat_reset()",
-      ])
+      ]) {
+        setupStage = setupPhases[statement++] ?? null;
         await q(admin, text);
+      }
     } else if (command === "connections") await actors();
     else if (command === "disconnect_one") {
       if (b === null) throw new Error("query_refused");
@@ -180,10 +199,12 @@ export function fixture(create) {
       if (JSON.stringify(result.rows) !== '[["0"]]') throw new Error("cleanup");
     }
     remaining();
+    setupStage = null;
   }
-  return { act };
+  return { act, setupPhase: () => setupStage };
 }
 export async function main() {
+  failedSetupExitCode = 1;
   if (
     process.version !== "v26.10.0" ||
     process.argv.length !== 2 ||
@@ -202,6 +223,7 @@ export async function main() {
   const owner = fixture((config) => new pg.Client(config));
   let buffer = Buffer.alloc(0);
   let failed = false;
+  let setupActive = false;
   /** @type {unknown} */ let primary;
   try {
     for await (const part of process.stdin) {
@@ -229,7 +251,9 @@ export async function main() {
         typeof settings.budget_ms !== "number"
       )
         throw new Error("malformed");
+      setupActive = settings.command === "setup";
       await owner.act(settings.command, settings.budget_ms);
+      setupActive = false;
       process.stdout.write(
         JSON.stringify({
           schema: 1,
@@ -243,6 +267,11 @@ export async function main() {
   } catch (error) {
     failed = true;
     primary = error;
+    if (setupActive) {
+      const phase = owner.setupPhase();
+      const index = phase === null ? -1 : setupPhases.indexOf(phase);
+      if (index >= 0) failedSetupExitCode = 101 + index;
+    }
   } finally {
     try {
       await owner.act("close", 10000);
@@ -257,5 +286,5 @@ export async function main() {
 }
 if (process.argv[1] === fileURLToPath(import.meta.url))
   main().catch(() => {
-    process.exitCode = 1;
+    process.exitCode = failedSetupExitCode;
   });

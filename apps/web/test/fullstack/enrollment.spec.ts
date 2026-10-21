@@ -14,6 +14,10 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     throw new Error("Missing enrollment owner fixture");
   async function selectRecipient(surface: typeof page) {
     await surface
+      .getByRole("tab", { name: "Назначения и перенос", exact: true })
+      .click();
+    await surface.getByRole("tab", { name: "Назначения", exact: true }).click();
+    await surface
       .getByLabel("Подтверждённая Telegram identity получателя")
       .fill("synthetic-owner-624");
     await surface
@@ -31,15 +35,31 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   }
   await page.goto("/authoring/billing");
   await expect(
-    page.getByRole("heading", { name: "Оплата и права" }),
+    page.getByRole("heading", { name: "Продажи и платежи" }),
   ).toBeVisible();
-  const courseCapability = "product:62000000-0000-4000-8000-000000000701";
   const tierName = `Практика ${info.project.name}`;
+  await page.getByRole("tab", { name: "Предложения", exact: true }).click();
+  await page.getByRole("tab", { name: "Состав тарифа", exact: true }).click();
   await page.getByRole("button", { name: "Новый тариф", exact: true }).click();
   await page.getByLabel("Название", { exact: true }).first().fill(tierName);
   await page
-    .getByLabel("Состав", { exact: true })
-    .fill(`${courseCapability}\ncommunity\nsupport=6`);
+    .getByRole("checkbox", { name: "Инженерная практика", exact: true })
+    .check();
+  await page
+    .getByRole("checkbox", { name: "Сообщество продукта", exact: true })
+    .check();
+  await page
+    .getByRole("checkbox", { name: "Вопросы автору и эфиры", exact: true })
+    .check();
+  await page
+    .getByRole("combobox", {
+      name: "Срок: Вопросы автору и эфиры",
+      exact: true,
+    })
+    .selectOption("months");
+  await page
+    .getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true })
+    .fill("6");
   await page.getByLabel("Доступен для назначения").check();
   await page
     .getByLabel("Продукт: Инженерная практика", { exact: true })
@@ -50,6 +70,10 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   await expect(
     page.getByText("Предложение сохранено, редакция 1.", { exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("tab", { name: "Назначения и перенос", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Активация курса", exact: true }).click();
   const rules = page
     .getByRole("heading", {
       name: "Ссылки активации курса",
@@ -96,14 +120,15 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   ).toBeVisible();
   const cabinet = await context.newPage();
   await cabinet.goto("/account");
-  async function expectSubscription() {
+  async function expectProducts() {
     await expect(
-      cabinet.getByRole("heading", { name: "Подписка", exact: true }),
+      cabinet.getByRole("heading", { name: "Мои продукты", exact: true }),
     ).toBeVisible();
   }
   await expect(
     cabinet.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
+  await page.getByRole("tab", { name: "Назначения", exact: true }).click();
   await page
     .getByLabel("Подтверждённая Telegram identity получателя")
     .fill("absent-synthetic-624");
@@ -156,21 +181,18 @@ test("owner assigns course tariff and the open cabinet converges through real BF
       has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
     }),
   ).toBeVisible();
-  await expectSubscription();
+  await expectProducts();
   await expect(cabinet).toHaveURL(/\/account$/u);
-  const card = cabinet.getByRole("article").filter({
-    has: cabinet.getByRole("heading", { name: tierName, exact: true }),
-  });
-  // Право без даты окончания не называет срок: кабинет его не показывает (Workspace #183).
-  await expect(card.getByText("Срок", { exact: true })).toHaveCount(0);
+  const card = cabinet.locator(
+    '[data-account-product="62000000-0000-4000-8000-000000000701"]',
+  );
   await expect(
-    card.getByText("Следующего списания нет", { exact: true }),
+    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
   ).toBeVisible();
-  const composition = card.locator("..");
-  await composition.getByText("Посмотреть состав", { exact: true }).click();
+  await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
   await expect(
-    composition.getByRole("link", { name: "Инженерная практика" }),
-  ).toHaveAttribute("href", "/products/engineering-practice");
+    card.getByRole("link", { name: "Открыть продукт" }),
+  ).toHaveAttribute("href", "/products/engineering-practice/programme");
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(cabinet, {
       path: info.outputPath("cabinet-enrollment.png"),
@@ -186,14 +208,24 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .getByLabel("Причина", { exact: true })
     .fill("Синтетический отзыв");
   await changes.getByRole("button", { name: "Применить изменение" }).click();
-  await expect(card.getByText("Отозвано", { exact: true })).toBeVisible();
+  await card
+    .getByRole("button", { name: "Доступ и покупка", exact: true })
+    .click();
+  await expect(
+    card.getByText(`${tierName} · Отозвано`, { exact: false }),
+  ).toBeVisible();
   const otherCard = otherOwner.getByRole("article").filter({
     has: otherOwner.getByRole("heading", { name: tierName, exact: true }),
   });
   await expect(otherCard.getByText("Отозвано", { exact: true })).toBeVisible();
   await cabinet.goto("/account");
-  await expectSubscription();
-  await expect(card.getByText("Отозвано", { exact: true })).toBeVisible();
+  await expectProducts();
+  await card
+    .getByRole("button", { name: "Доступ и покупка", exact: true })
+    .click();
+  await expect(
+    card.getByText(`${tierName} · Отозвано`, { exact: false }),
+  ).toBeVisible();
   await changes
     .getByRole("combobox", { name: "Действие" })
     .selectOption("restore");
@@ -201,17 +233,31 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическое восстановление");
   await changes.getByRole("button", { name: "Применить изменение" }).click();
-  await expect(card.getByText("Действует", { exact: true })).toBeVisible();
+  await expect(
+    card.getByText(`${tierName} · Отозвано`, { exact: false }),
+  ).toHaveCount(0);
+  await expect(
+    card.getByText(`${tierName} · Действует`, { exact: false }),
+  ).toBeVisible();
+  await expect(card.getByText("Доступ открыт", { exact: true })).toBeVisible();
   // Unrelated catalog edits preserve finite benefit periods through real tiers.list and save.
+  await page.getByRole("tab", { name: "Предложения", exact: true }).click();
+  await page.getByRole("tab", { name: "Состав тарифа", exact: true }).click();
   const catalogRow = page
     .getByText(`${tierName} · назначается`, { exact: true })
     .locator("..");
   await catalogRow
     .getByRole("button", { name: "Редактировать состав" })
     .click();
-  await expect(page.getByLabel("Состав", { exact: true })).toHaveValue(
-    `community\n${courseCapability}\nsupport=6`,
-  );
+  await expect(
+    page.getByRole("checkbox", { name: "Сообщество продукта", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Инженерная практика", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true }),
+  ).toHaveValue("6");
   await page
     .getByLabel("Название", { exact: true })
     .first()
@@ -222,19 +268,32 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   await expect(
     page.getByText("Предложение сохранено, редакция 2.", { exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("Состав", { exact: true })).toHaveValue(
-    `community\n${courseCapability}\nsupport=6`,
-  );
+  await expect(
+    page.getByRole("checkbox", { name: "Сообщество продукта", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "Инженерная практика", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByLabel("Месяцев: Вопросы автору и эфиры", { exact: true }),
+  ).toHaveValue("6");
   // Add scoped materials explicitly; expansion preserves the original support deadline.
   await page
-    .getByLabel("Состав", { exact: true })
-    .fill(`${courseCapability}\nmaterials\ncommunity\nsupport=6`);
+    .getByRole("checkbox", {
+      name: "Все опубликованные материалы и продукты",
+      exact: true,
+    })
+    .check();
   await page
     .getByRole("button", { name: "Сохранить предложение", exact: true })
     .click();
   await expect(
     page.getByText("Предложение сохранено, редакция 3.", { exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole("tab", { name: "Назначения и перенос", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "Назначения", exact: true }).click();
   const expansion = page
     .getByRole("heading", { name: "Расширить состав выбранных назначений" })
     .locator("..");
@@ -265,13 +324,14 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     }),
   ).toBeVisible();
   await expect(
-    cabinet.getByRole("heading", { name: `${tierName} обновлён`, exact: true }),
+    card.getByRole("heading", { name: "Инженерная практика", exact: true }),
   ).toBeVisible();
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(cabinet, {
       path: info.outputPath("cabinet-enrollment.png"),
     });
   }
+  await page.getByRole("tab", { name: "Активация курса", exact: true }).click();
   const savedRule = rules
     .getByText(`Правило ${info.project.name} · Опубликовано`, { exact: true })
     .locator("..");
@@ -336,6 +396,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+  await page.getByRole("tab", { name: "Назначения", exact: true }).click();
   const ownerSection = page
     .getByRole("heading", { name: "Тарифы и назначения", exact: true })
     .locator("..");

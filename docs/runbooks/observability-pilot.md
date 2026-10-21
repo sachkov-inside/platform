@@ -1576,15 +1576,31 @@ Backend production now derives `production-build` directly from `dependency-inpu
 filtered source copied before installation. One `RUN` installs the backend transitive workspace
 selection and root tooling, removes its fresh private `/tmp/inside-backend-pnpm.XXXXXX` install
 store, compiles, deploys, then removes only the seven fixed root/selected-workspace `node_modules`
-roots. Frozen-lock, package-import `copy`, lifecycle and deploy options are preserved. An install
+roots. Frozen-lock, initial package-import `copy`, lifecycle and the existing deploy selectors/runtime
+flags are preserved. An install
 failure retains its original status even if its store cleanup fails; later failure stops the build.
 The complete `.production` parent must be absent before installation and is constructed by this
 RUN. Physical ownership and same-RUN device/inode captures protect its ancestry and deployed output;
 all seven dependency roots are checked before any removal. These checks assume a private, synchronous
 RUN; they do not provide atomic protection against a concurrent writer with the same user identity.
 The isolated production payload, dist,
-CA and source artifacts remain. The deploy command's separate default store is unchanged and
-unpruned. This does not remove source/toolchain layers or prove lower peak consumption.
+CA and source artifacts remain. Deploy now uses the fresh literal private store
+`/tmp/inside-backend-deploy-store`, constructed exclusively with mode 0700 after refusing any
+existing file, directory or link. It keeps the existing package import policy. Same-RUN physical
+parent/root ownership checks precede deploy and store removal; deploy settles before cleanup.
+A deploy failure remains primary if cleanup also fails. A successful deploy with failed or unsafe
+store cleanup fails the RUN before the seven dependency roots can be removed. Default stores,
+cache/state directories and unrelated paths are not pruned. Store unlinking preserves hardlinked
+payload files; hardlinks or clones can make the actual reclaimed bytes much smaller than apparent
+store size. This does not remove source/toolchain layers or prove lower peak consumption.
+
+Pinned pnpm records the resolved store path in deployed `node_modules/.modules.yaml`. Its new
+fixed storeDir (`/tmp/inside-backend-deploy-store/v11`) is an intentional payload metadata difference
+from the previous default-store location. The fixed path adds no random constructor suffix;
+existing pnpm `prunedAt` can still vary between fresh installs. Full old/new payload byte equality
+has not been established. The identity-only exclusion in the earlier native comparison plan does
+not silently exclude or normalize this metadata; comparison needs an explicit reviewed disposition.
+No pnpm-owned payload metadata is rewritten by this cleanup.
 
 The original `production-dependencies` and `production-source` targets retain their direct-use
 contents, but neither is a FROM/COPY ancestor of the selected production payload or late identity.
@@ -1991,6 +2007,23 @@ latest retained native failure remains baseline/query_refused with empty cases a
 failing boundary; privacy was not reached. A future source-bound run can distinguish that boundary,
 while diagnosis of its internal cause and native completion acceptance remain separate.
 
+Внутри `baseline_setup` последний вход в операцию можно уточнить до
+`baseline_setup_connect`, `baseline_setup_identity`, `baseline_setup_reader`,
+`baseline_setup_grant_connect`, `baseline_setup_read_only`, `baseline_setup_schema`,
+`baseline_setup_table`, `baseline_setup_rows` или `baseline_setup_reset`.
+Только отказ уже проверенной команды setup получает код завершения 101..109.
+Node сохраняет фиксированный этап до прежней очистки и повторно выбрасывает исходную ошибку.
+Текст и свойства ошибки не читаются; успешный stdout, SQL, права и порядок запросов прежние.
+Python принимает этап только после отправки setup, полного отсутствия stdout до EOF
+и завершения того же дочернего процесса в пределах исходного общего срока команды.
+Уже завершившийся до команды процесс, посторонний или неполный вывод, сигнал,
+неизвестный код, ошибка чтения или истечение срока оставляют прежний общий отказ.
+Код никогда не превращает отказ в успех и не добавляет времени ожидания.
+В `postgres-source.json` остаются восемь полей и лимит 4096 байт; технический этап
+не допускается в успешных case-записях. Это измерение места отказа, а не исправление SQL.
+Последний native-прогон остановился в `baseline_setup/query_refused` за 39,710 с
+с учётом подготовки. Причина пока неизвестна; приватность не проверена.
+
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
@@ -2082,3 +2115,31 @@ is still required. The stronger withdrawn owner/guardian proposals and their ope
 `CORE-PROG-SEC-01`, `CPROG-PRE-01` and `CPROG-PRE-02` findings are neither fixed nor waived here.
 Application CI activation is a separate reviewed change to the existing tooling step only; it
 must not opt in the direct functional workflow or widen any source or native gate.
+
+## Confirmed active Membership Accounts
+
+Platform MCP registers `active_participant_diagnostics` for a trusted delegated Account. Each call
+checks current `platform:admin` before reading private activity. Input is exactly `from` and `to`,
+ISO instants with UTC or an explicit offset, describing `[from,to)` with a maximum length of 31 days.
+The report returns normalized UTC instants and names `Europe/Moscow` as the calendar. To query a
+Moscow calendar day, supply its midnight boundaries with `+03:00`. No actor override or new permission
+is accepted.
+
+Membership is the distinct union of Account IDs from the existing ReadingActivity, Bookmarks and
+Product Tasks confirmed-activity capabilities. Learning starts, manual reading transitions, bookmark
+changes and submitted tasks count; repeated receipts do not create another Account. No browser
+observation, checkout, historical first/last open or background review is synthesized. Only aggregate
+counts and fixed source provenance are returned, never Account IDs or event rows.
+
+Each owner enforces its own read-only snapshot, 365-day event-time horizon and Account/kind group
+budget. The report sends the same normalized interval to all three owners but does not claim an atomic
+cross-owner snapshot. Each source exposes its own `asOf` and `retentionFrom`. Historical coverage stays
+`partial`, `collectionStartedAt` is unknown and continuity is `not_proven`. A successful empty query is
+observed zero under that incomplete coverage. Any failed or overflowing owner makes the Membership
+count `null`/`unknown`, even if another owner returned rows. The output does not publish a partial sum.
+
+Telegram, combined cross-surface Accounts and unlinked Telegram contacts are explicitly
+`not_collected` with `count:null`. They are not zero and the combined count is not copied from
+Membership. This report therefore does not complete the cross-surface active-participant criterion.
+It also does not implement physical deletion of activity history. Existing domain records remain
+owned by their capabilities; the read horizon is not evidence of physical retention cleanup.

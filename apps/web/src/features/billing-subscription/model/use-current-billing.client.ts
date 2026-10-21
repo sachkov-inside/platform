@@ -3,7 +3,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  currentBillingChanged,
+  subscribeToCurrentBillingChanges,
   currentBillingQueryOptions,
   resetCurrentBilling,
 } from "./current-billing";
@@ -33,7 +33,7 @@ export function useCurrentBilling({
 
   useEffect(
     () =>
-      currentBillingChanged.subscribe(() => {
+      subscribeToCurrentBillingChanges(() => {
         void resetCurrentBilling(queryClient);
       }),
     [queryClient],

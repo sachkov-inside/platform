@@ -241,6 +241,7 @@ describe("подписка: продление, отмена, смена вар�
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -248,12 +249,14 @@ describe("подписка: продление, отмена, смена вар�
       clock: () => now,
     });
     const notices = new BillingNotices({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       enrollments: grants,
       clock: () => now,
     });
     function assembleSubscriptions() {
       return new BillingSubscriptions({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank: client,
         contact,
@@ -264,6 +267,27 @@ describe("подписка: продление, отмена, смена вар�
       });
     }
     const subscriptions = assembleSubscriptions();
+    const currentNotices = new BillingNotices({
+      prisma: db.prisma,
+      enrollments: grants,
+      clock: () => now,
+    });
+    const currentPayments = new BillingPayments({
+      prisma: db.prisma,
+      bank: client,
+      contact,
+      grants,
+      clock: () => now,
+    });
+    const currentSubscriptions = new BillingSubscriptions({
+      prisma: db.prisma,
+      bank: client,
+      contact,
+      grants,
+      payments: currentPayments,
+      notices,
+      clock: () => now,
+    });
 
     async function consentFor(
       contextRef: string,
@@ -378,6 +402,9 @@ describe("подписка: продление, отмена, смена вар�
       value(await subscriptions.read(buyer)).subscription;
     return {
       buyer,
+      currentNotices,
+      currentPayments,
+      currentSubscriptions,
       offerId,
       optionId,
       bank,
@@ -445,6 +472,7 @@ describe("подписка: продление, отмена, смена вар�
   test("действующий владельческий MCP сохраняет dependency_unavailable при отказе Accounts", async () => {
     const s = await scenario();
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       bank: s.bank.client(),
       accounts,
@@ -494,6 +522,218 @@ describe("подписка: продление, отмена, смена вар�
       await client.close();
       await mcp.close();
     }
+  });
+
+  test("current Product commerce rejects a historical invited subscription quote without a bank call", async () => {
+    const s = await scenario();
+    const quote = value(
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: s.optionId,
+          optionRevision: 1,
+        }),
+      ),
+    );
+    expect(
+      await s.currentPayments.purchase(s.buyer, {
+        operationId: randomUUID(),
+        quoteRef: quote.quoteRef,
+        contactRevision: 1,
+        consentEvidenceRefs: await s.consentFor(quote.quoteRef, {
+          snapshot: quote.snapshot,
+        }),
+        acknowledgeExistingAccess: false,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    expect(s.bank.initCalls).toBe(0);
+    expect(
+      await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } }),
+    ).toBe(0);
+  });
+
+  test("current Product commerce retains historical rights and reconciliation without starting renewals or card binding", async () => {
+    const s = await scenario();
+    const purchaseRef = await s.buy();
+    const rights = await db.prisma.accessGrant.findMany({
+      where: { accountId: s.buyer },
+      orderBy: { id: "asc" },
+    });
+    expect(
+      await s.currentPayments.notification(
+        s.bank.notify(purchaseRef, "CONFIRMED"),
+      ),
+    ).toMatchObject({ ok: true });
+    const current = value(await s.currentSubscriptions.read(s.buyer));
+    expect(current.subscription?.periodIndex).toBe(1);
+    expect(
+      await s.currentSubscriptions.changeMethod(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: current.subscription?.revision,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(value(await s.currentPayments.renew())).toMatchObject({
+      status: "configuration_idle",
+      started: 0,
+      closed: 0,
+    });
+    expect(s.bank.initCalls).toBe(1);
+    expect(s.bank.chargeCalls).toBe(0);
+    expect(s.bank.addCardCalls).toBe(0);
+    expect(
+      await db.prisma.accessGrant.findMany({
+        where: { accountId: s.buyer },
+        orderBy: { id: "asc" },
+      }),
+    ).toEqual(rights);
+  });
+
+  test("current Product commerce suppresses both new and previously staged renewal reminders", async () => {
+    const s = await scenario();
+    await s.buy();
+    now = new Date("2030-02-25T10:00:00Z");
+    value(await s.notices.scheduleReminders());
+    const reminder = await db.prisma.billingNotice.findFirstOrThrow({
+      where: { accountId: s.buyer, kind: "renewal_reminder" },
+    });
+    const revision = await db.prisma.billingNoticeRevision.findFirstOrThrow({
+      where: { noticeRef: reminder.id },
+      orderBy: { revision: "desc" },
+    });
+    expect(await s.currentNotices.resolveNotice(revision.payload)).toEqual({
+      status: "superseded",
+    });
+    value(await s.currentNotices.scheduleReminders());
+    expect(
+      await db.prisma.billingNotice.findUnique({ where: { id: reminder.id } }),
+    ).toMatchObject({ state: "superseded" });
+  });
+
+  test.each(["initial", "upgrade", "renewal"] as const)(
+    "current Product commerce retires only a proven unsent %s attempt and releases its reservation",
+    async (kind) => {
+      const s = await scenario();
+      const paidRef = await s.buy();
+      const paid = await db.prisma.billingPurchase.findUniqueOrThrow({
+        where: { id: paidRef },
+      });
+      const id = randomUUID();
+      if (
+        paid.snapshot === null ||
+        paid.acceptance === null ||
+        paid.contact === null
+      )
+        throw new Error("Missing historical purchase terms");
+      const targetAccount = kind === "initial" ? randomUUID() : s.buyer;
+      let quoteRef: string | null = null;
+      if (kind === "initial") {
+        await db.prisma.account.create({
+          data: {
+            id: targetAccount,
+            logtoIssuer: "https://identity.example.test",
+            logtoSubject: targetAccount,
+          },
+        });
+        quoteRef = randomUUID();
+        await db.prisma.billingPriceQuote.create({
+          data: {
+            id: quoteRef,
+            accountId: targetAccount,
+            operationId: randomUUID(),
+            fingerprint: "historical-prepared",
+            snapshot: paid.snapshot,
+            createdAt: now,
+            expiresAt: new Date(now.getTime() + 60_000),
+          },
+        });
+        await db.prisma.billingPromoReservation.create({
+          data: {
+            purchaseRef: id,
+            accountId: targetAccount,
+            quoteRef,
+            snapshot: paid.snapshot,
+            state: "reserved",
+            createdAt: now,
+          },
+        });
+      }
+      // A durable fixture from before withdrawal: prepared means no provider request was sent.
+      await db.prisma.billingPurchase.create({
+        data: {
+          ...paid,
+          id,
+          accountId: targetAccount,
+          subscriptionRef: kind === "initial" ? null : paid.subscriptionRef,
+          snapshot: paid.snapshot,
+          acceptance: paid.acceptance,
+          contact: paid.contact,
+          quoteRef,
+          periodEndsAt: null,
+          state: "prepared",
+          kind,
+          periodIndex: kind === "renewal" ? 2 : paid.periodIndex,
+          paymentId: null,
+          paymentUrl: null,
+          confirmedAt: null,
+          chargeCalled: false,
+        },
+      });
+      const calls = s.bank.initCalls;
+      expect(await s.currentPayments.reconcile(id)).toMatchObject({ ok: true });
+      expect(await s.currentPayments.reconcile(id)).toMatchObject({ ok: true });
+      expect(
+        await db.prisma.billingPurchase.findUnique({ where: { id } }),
+      ).toMatchObject({
+        state: "failed",
+        lifecycleActive: false,
+        paymentId: null,
+      });
+      expect(s.bank.initCalls).toBe(calls);
+      expect(s.bank.chargeCalls).toBe(0);
+      if (kind === "initial") {
+        expect(
+          await db.prisma.billingPromoReservation.findUnique({
+            where: { purchaseRef: id },
+          }),
+        ).toMatchObject({ state: "failed" });
+        expect(
+          await db.prisma.billingPurchase.count({
+            where: {
+              accountId: targetAccount,
+              kind: { in: ["initial", "one_time"] },
+              state: {
+                in: ["prepared", "sent", "unknown", "pending", "authorized"],
+              },
+            },
+          }),
+        ).toBe(0);
+      }
+    },
+  );
+
+  test("current Product commerce reconciles sent NEW renewal without invoking Charge, including recovery", async () => {
+    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+    await s.buy();
+    now = new Date("2030-02-01T10:00:00Z");
+    s.bank.failInit = true;
+    value(await s.payments.renew());
+    const attempt = await db.prisma.billingPurchase.findFirstOrThrow({
+      where: { accountId: s.buyer, kind: "renewal" },
+    });
+    s.bank.failInit = false;
+    const calls = s.bank.initCalls;
+    expect(await s.currentPayments.reconcile(attempt.id)).toMatchObject({
+      ok: false,
+      error: { code: "method_unavailable" },
+    });
+    await s.currentPayments.recover();
+    expect(s.bank.initCalls).toBe(calls);
+    expect(s.bank.chargeCalls).toBe(0);
+    expect(
+      await db.prisma.billingPurchase.findUnique({ where: { id: attempt.id } }),
+    ).toMatchObject({ state: "pending" });
   });
 
   test("покупка отличает отказ чтения согласия от его отсутствия", async () => {
@@ -783,6 +1023,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -835,6 +1076,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -842,6 +1084,7 @@ describe("подписка: продление, отмена, смена вар�
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -869,6 +1112,7 @@ describe("подписка: продление, отмена, смена вар�
       bindings: { status: "configuration_idle", inspected: 0, applied: 0 },
     });
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       bank: undefined,
       accounts,
@@ -936,6 +1180,7 @@ describe("подписка: продление, отмена, смена вар�
       const payments = withBank
         ? s.payments
         : new BillingPayments({
+            sale: { payments: true, subscriptions: true },
             prisma: db.prisma,
             bank: undefined,
             contact,
@@ -957,6 +1202,7 @@ describe("подписка: продление, отмена, смена вар�
     await s.buy();
     const bank = new BankFixture({ ...config, recurringCardConfirmed: false });
     const payments = new BillingPayments({
+      sale: { payments: true, subscriptions: true },
       prisma: db.prisma,
       bank: bank.client(),
       contact,
@@ -1134,6 +1380,7 @@ describe("подписка: продление, отмена, смена вар�
     const active = await s.view();
     await withExhaustedPool(db, async (pool) => {
       const subscriptions = new BillingSubscriptions({
+        sale: { payments: true, subscriptions: true },
         prisma: pool,
         bank: s.bank.client(),
         contact,
@@ -1144,6 +1391,7 @@ describe("подписка: продление, отмена, смена вар�
         }),
         payments: s.payments,
         notices: new BillingNotices({
+          sale: { subscriptions: true },
           prisma: pool,
           enrollments: grants,
           clock: () => now,
@@ -1527,6 +1775,7 @@ describe("подписка: продление, отмена, смена вар�
     s.bank.failInit = false;
     s.bank.failState = true;
     const operations = new BillingOperations({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       bank: s.bank.client(),
       accounts,
@@ -1633,6 +1882,7 @@ describe("подписка: продление, отмена, смена вар�
         recurringCardConfirmed: false,
       });
       const payments = new BillingPayments({
+        sale: { payments: true, subscriptions: true },
         prisma: db.prisma,
         bank: unreadyBank,
         contact,

@@ -1,3 +1,4 @@
+import { subscribeEnrollmentChange } from "@/entities/subscription";
 import type { QueryClient } from "@tanstack/react-query";
 
 import { factAnnouncement } from "@/shared/api/fact-announcement";
@@ -23,7 +24,16 @@ export const currentBillingChanged = factAnnouncement(
  * Подписка для поверхностей вне billing: состояние покупателя решает, что человеку открыто, поэтому
  * оболочка по этому объявлению сбрасывает кеш маршрутов (ADR 0027).
  */
-export const subscribeToCurrentBillingChanges = currentBillingChanged.subscribe;
+export function subscribeToCurrentBillingChanges(
+  listener: (announcementId: string) => void,
+) {
+  const stopBilling = currentBillingChanged.subscribe(listener);
+  const stopEnrollments = subscribeEnrollmentChange(listener);
+  return () => {
+    stopBilling();
+    stopEnrollments();
+  };
+}
 
 /**
  * Объявление для команд вне billing: подтверждение покупки живёт в оформлении, которому этот срез

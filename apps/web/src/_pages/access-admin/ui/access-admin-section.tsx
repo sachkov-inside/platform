@@ -21,6 +21,11 @@ export function AccessAdminSection({
     <AccessSection
       tabs={[
         {
+          id: "people",
+          label: "Люди и доступ",
+          panel: <PeoplePanel offers={offers} />,
+        },
+        {
           id: "tariffs",
           label: "Тарифы",
           panel: <TariffsPanel offers={offers} />,
@@ -28,12 +33,7 @@ export function AccessAdminSection({
         {
           id: "invitations",
           label: "Приглашения",
-          panel: <InvitationsPanel offers={offers} />,
-        },
-        {
-          id: "people",
-          label: "Люди и доступ",
-          panel: <PeoplePanel offers={offers} />,
+          panel: <InvitationsPanel allowIssue={false} offers={offers} />,
         },
         {
           id: "summary",

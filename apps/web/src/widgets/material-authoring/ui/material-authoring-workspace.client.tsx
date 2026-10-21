@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useState } from "react";
+import { WorkspaceTabs } from "@/shared/ui/workspace-tabs.client";
 
 import { MaterialDocumentEditor } from "./material-document-editor.client";
 import {
@@ -8,7 +9,10 @@ import {
   MaterialAuthoringHeader,
   MaterialAuthoringNotice,
 } from "./material-authoring-chrome.client";
-import { MaterialMetadataPanel } from "./material-metadata-panel.client";
+import {
+  MaterialFormGuidance,
+  MaterialMetadataPanel,
+} from "./material-metadata-panel.client";
 import { MaterialLinkPreview } from "./material-link-preview.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
@@ -70,6 +74,9 @@ function MaterialAuthoringWorkspaceView({
         presentation={presentation}
       />
       <MaterialAuthoringNotice presentation={presentation} />
+      <div className="mx-auto w-full max-w-[60rem] px-4 sm:px-8">
+        <MaterialFormGuidance presentation={presentation} />
+      </div>
       {presentation.draft.sourcePath === undefined ? null : (
         <p className="mx-auto max-w-[60rem] px-4 pt-4 text-sm text-muted-foreground sm:px-8">
           Материал редактируется в Inside Content:{" "}
@@ -125,60 +132,101 @@ function MaterialAuthoringWorkspaceView({
           );
         }}
       >
-        <MemoizedMetadataPanel actions={actions} presentation={presentation} />
-        <MaterialLinkPreview
-          title={presentation.draft.title}
-          description={presentation.draft.summary}
-          cover={cover}
-          published={presentation.draft.status === "published"}
-          getPublicUrl={actions.onGetPublicUrl}
+        <WorkspaceTabs
+          label="Редактирование материала"
+          initialId={
+            presentation.draft.status === "new" ? "settings" : "document"
+          }
+          tabs={[
+            {
+              id: "document",
+              label: "Содержимое",
+              panel: (
+                <section aria-labelledby="document-heading" className="min-w-0">
+                  <h2
+                    className="mb-4 text-sm font-semibold"
+                    id="document-heading"
+                  >
+                    Содержимое материала
+                  </h2>
+                  <MaterialDocumentEditor
+                    saveState={presentation.save}
+                    disabled={
+                      presentation.blocking.kind === "not_found" ||
+                      presentation.draft.readOnly
+                    }
+                    contentVersion={presentation.draft.contentVersion}
+                    assetPreviewBlocks={presentation.draft.assetPreviewBlocks}
+                    document={presentation.draft.document}
+                    materialId={presentation.draft.materialId}
+                    onChange={actions.onDocumentChange}
+                  />
+                </section>
+              ),
+            },
+            {
+              id: "settings",
+              label: "Параметры",
+              panel: (
+                <MemoizedMetadataPanel
+                  actions={actions}
+                  presentation={presentation}
+                />
+              ),
+            },
+            {
+              id: "media",
+              label: "Обложка и видео",
+              panel: (
+                <>
+                  <h2 className="text-sm font-semibold">Медиа материала</h2>
+                  {presentation.draft.materialId === null ? null : (
+                    <div className="mt-4">
+                      <MemoizedCoverEditor
+                        disabled={
+                          presentation.blocking.kind === "not_found" ||
+                          presentation.draft.readOnly
+                        }
+                        initialCover={cover}
+                        onChange={setCover}
+                        ownerId={presentation.draft.materialId}
+                        ownerLabel={presentation.draft.title}
+                        ownerKind="material"
+                      />
+                    </div>
+                  )}
+                  <MemoizedVideoAuthoring
+                    access={presentation.draft.access}
+                    disabled={
+                      presentation.blocking.kind === "not_found" ||
+                      presentation.draft.readOnly
+                    }
+                    materialId={presentation.draft.materialId}
+                    onChange={actions.onPrimaryVideoChange}
+                    deleteVideoId={presentation.draft.deleteVideoId}
+                    latestVideoDeletion={presentation.draft.latestVideoDeletion}
+                    key={`${presentation.draft.materialId ?? "new"}:${presentation.draft.access}`}
+                    primaryVideo={presentation.draft.primaryVideo}
+                    unselectedUpload={presentation.draft.unselectedVideoUpload}
+                  />
+                </>
+              ),
+            },
+            {
+              id: "link",
+              label: "Карточка ссылки",
+              panel: (
+                <MaterialLinkPreview
+                  title={presentation.draft.title}
+                  description={presentation.draft.summary}
+                  cover={cover}
+                  published={presentation.draft.status === "published"}
+                  getPublicUrl={actions.onGetPublicUrl}
+                />
+              ),
+            },
+          ]}
         />
-        <section aria-labelledby="document-heading" className="min-w-0 py-8">
-          <h2 className="text-sm font-semibold" id="document-heading">
-            Содержимое материала
-          </h2>
-          {presentation.draft.materialId === null ? null : (
-            <div className="mt-4">
-              <MemoizedCoverEditor
-                disabled={
-                  presentation.blocking.kind === "not_found" ||
-                  presentation.draft.readOnly
-                }
-                initialCover={cover}
-                onChange={setCover}
-                ownerId={presentation.draft.materialId}
-                ownerLabel={presentation.draft.title}
-                ownerKind="material"
-              />
-            </div>
-          )}
-          <MemoizedVideoAuthoring
-            access={presentation.draft.access}
-            disabled={
-              presentation.blocking.kind === "not_found" ||
-              presentation.draft.readOnly
-            }
-            materialId={presentation.draft.materialId}
-            onChange={actions.onPrimaryVideoChange}
-            deleteVideoId={presentation.draft.deleteVideoId}
-            latestVideoDeletion={presentation.draft.latestVideoDeletion}
-            key={`${presentation.draft.materialId ?? "new"}:${presentation.draft.access}`}
-            primaryVideo={presentation.draft.primaryVideo}
-            unselectedUpload={presentation.draft.unselectedVideoUpload}
-          />
-          <MaterialDocumentEditor
-            saveState={presentation.save}
-            disabled={
-              presentation.blocking.kind === "not_found" ||
-              presentation.draft.readOnly
-            }
-            contentVersion={presentation.draft.contentVersion}
-            assetPreviewBlocks={presentation.draft.assetPreviewBlocks}
-            document={presentation.draft.document}
-            materialId={presentation.draft.materialId}
-            onChange={actions.onDocumentChange}
-          />
-        </section>
       </form>
     </main>
   );

@@ -20,7 +20,9 @@ are returned by the account presentation endpoint. A username is presentation, n
 
 The profile email is Logto's current primary email, read with a user-scoped opaque OIDC token.
 A new address is limited to 128 characters, matching the pinned provider field.
-A missing `email` scope returns an authentication failure rather than an apparently missing address.
+The first-party Account Center routes use the existing authenticated user session, including grants
+created before the `email` scope was added. They do not require renewed sign-in or email-scope consent.
+The provider reads the current address directly for that authenticated subject.
 It is separate from Billing Contact and Order Email. A confirmed Billing Contact alone never
 becomes a sign-in method. Existing email identities are read-only in this scope.
 
@@ -45,11 +47,13 @@ existing password/phone/email credential. Expired records and another user's rec
 
 ## Runtime preparation and verification
 
-Ship the `inside.8` Logto fork alongside Web. In Logto Account Center, enable the API and set the
+Ship the `inside.11` Logto fork alongside Web. In Logto Account Center, enable the API and set the
 email field to `Edit`; keep other field permissions as configured. The local bootstrap configures
 this and the SMTP `BindNewIdentifier` template. Production must configure that template and field
-permission before exposing the new flow. Existing browser sessions need a new sign-in to consent
-to the added `email` scope if their grant lacks it.
+permission before exposing the new flow. Existing browser sessions can read and attach their first email without another sign-in.
+The owner explicitly removed the additional sign-in requirement on 20 October 2026.
+Authentication, first-party client checks, Account Center field permissions and email-code proof
+still apply. Unauthenticated requests remain rejected.
 
 Primary email changes become available to Platform receipt metadata on the next resource-token
 refresh. They do not overwrite a separately verified Billing Contact or opt the user into messages.

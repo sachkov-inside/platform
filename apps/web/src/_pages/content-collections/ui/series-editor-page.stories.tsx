@@ -92,6 +92,13 @@ function Fixture({
       artifacts: [],
       kind: "ready",
     });
+    queryClient.setQueryData(
+      ["authoring", "product-community", collection.id],
+      {
+        ok: true,
+        value: { productId: collection.id, groupRef: null },
+      },
+    );
     queryClient.setQueryData(["authoring-home-pin"], {
       kind: "ready",
       pin: { seriesId: collection.id, version: 1 },
@@ -129,10 +136,14 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Desktop: Story = {
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+    );
     const canvas = within(canvasElement);
     await expect(
       canvas.getByRole("textbox", { name: "Название продукта" }),
     ).toHaveValue(collection.name);
+    await userEvent.click(canvas.getByRole("tab", { name: "Программа" }));
     await expect(
       canvas.getByRole("list", { name: "Материалы продукта" }),
     ).toBeVisible();
@@ -174,11 +185,17 @@ export const Imported: Story = {
   args: { initialCollection: importedCollection },
   decorators: importedDecorators,
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+    );
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("note")).toHaveTextContent(
       "Продукт перенесён из источника.",
     );
-    await expect(canvas.getByText(importedCollection.name)).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: importedCollection.name, level: 1 }),
+    ).toBeVisible();
+    await userEvent.click(canvas.getByRole("tab", { name: "Программа" }));
     await expect(
       canvas.getByRole("list", { name: "Материалы главы «Сборка»" }),
     ).toHaveTextContent("Подготовка приложения");
@@ -264,7 +281,11 @@ export const ImportedBare: Story = {
     ),
   ],
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+    );
     const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole("tab", { name: "Программа" }));
     await expect(
       canvas.getByText("В продукте пока нет материалов."),
     ).toBeVisible();
@@ -296,6 +317,9 @@ export const SavedAfterActivity: Story = {
     </AutosaveActivity>
   ),
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+    );
     const canvas = within(canvasElement);
 
     await autosaveWhileHidden(
@@ -320,6 +344,9 @@ export const SavedAfterActivity: Story = {
 export const FailedAfterActivity: Story = {
   ...SavedAfterActivity,
   play: async ({ canvasElement }) => {
+    await userEvent.click(
+      within(canvasElement).getByRole("tab", { name: "Описание и обложка" }),
+    );
     const canvas = within(canvasElement);
 
     await autosaveWhileHidden(

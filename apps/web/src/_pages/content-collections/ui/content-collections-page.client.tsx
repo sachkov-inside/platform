@@ -98,13 +98,9 @@ export function ContentCollectionsPageClient({
   const plural = kind === "topic" ? "Темы" : "Продукты";
 
   return (
-    <main
-      className="h-full min-h-svh overflow-y-auto bg-background px-4 pb-20 pt-5 text-foreground sm:px-6 md:min-h-0"
-      id="authoring-content"
-      tabIndex={-1}
-    >
-      <div className="mx-auto w-full max-w-5xl">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border py-4">
+    <main className="authoring-page" id="authoring-content" tabIndex={-1}>
+      <div className="authoring-page-body">
+        <header className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold tracking-tight">
             {plural}{" "}
             <span className="text-base font-normal text-muted-foreground">
@@ -294,7 +290,7 @@ function CollectionEditor({
   return (
     <article
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-card",
+        "overflow-hidden border-b border-border bg-card",
         collection.archived && "bg-muted/20",
       )}
     >
@@ -310,12 +306,14 @@ function CollectionEditor({
         }}
         type="button"
       >
-        <ContentCoverImage
-          alt=""
-          cover={cover}
-          className="aspect-video w-20 shrink-0 rounded-lg"
-          sizes="5rem"
-        />
+        {cover !== null ? (
+          <ContentCoverImage
+            alt=""
+            cover={cover}
+            className="aspect-video w-20 shrink-0 rounded-lg"
+            sizes="5rem"
+          />
+        ) : null}
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">{name}</span>
           <span className="mt-1 block text-xs text-muted-foreground">
@@ -481,12 +479,14 @@ function SeriesList({
                 className="group flex min-w-0 flex-1 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5"
                 href={authoringProductEditorHref(collection.id)}
               >
-                <ContentCoverImage
-                  alt=""
-                  cover={collection.cover ?? null}
-                  className="aspect-video w-20 shrink-0 rounded-lg sm:w-28"
-                  sizes="7rem"
-                />
+                {collection.cover != null ? (
+                  <ContentCoverImage
+                    alt=""
+                    cover={collection.cover ?? null}
+                    className="aspect-video w-20 shrink-0 rounded-lg sm:w-28"
+                    sizes="7rem"
+                  />
+                ) : null}
                 <span className="min-w-0">
                   <span className="block text-base font-semibold leading-snug group-hover:underline sm:text-lg">
                     {collection.name}

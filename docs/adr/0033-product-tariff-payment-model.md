@@ -4,6 +4,10 @@ status: accepted
 
 # Модель продукта: продукты, тарифы и способы оплаты; мастерской нет
 
+Current subscription commerce and course terms follow [ADR 0037](0037-products-without-subscriptions.md)
+(owner decision 2026-10-20). Its explicit supersessions take precedence over the historical decisions below.
+
+
 Владелец 07.10.2026 назвал модель продукта путаной и принял решение в grilling-сессии
 [#1056](https://github.com/sachkov-inside/platform/issues/1056). До решения Platform одновременно
 описывала подписку на всю библиотеку, подписку на явный список продуктов, разовую покупку продукта

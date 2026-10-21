@@ -1,5 +1,18 @@
 # Модель доступа к контенту Inside
 
+## Current product commerce (owner decision 2026-10-20)
+
+[ADR 0037](../adr/0037-products-without-subscriptions.md) supersedes the subscription sales and
+Product payment-option rules below: current Products have one-time purchases or access granted
+without payment. Subscription sale, invitation checkout and recurring charges are disabled.
+Future subscriptions are separate from Products. Historical snapshots, payments and rights are
+retained for reconciliation and audit, not advertised as current functionality.
+A Product uses its explicitly associated Telegram group; multiple Products may share that group.
+The current provider serves `primary` only. Different real groups require provider-contract work.
+The first Inside AI Engineering cohort includes perpetual Materials and community access and
+six calendar months of Support. The account presents access by Product, not as a Subscription.
+
+
 Статус: **каноническая модель доступа**, 15.09.2026, [Workspace #192](https://github.com/sachkov-inside/workspace/issues/192);
 приведена к решениям владельца в [Workspace #200](https://github.com/sachkov-inside/workspace/issues/200)
 и [#204](https://github.com/sachkov-inside/workspace/issues/204).
@@ -329,7 +342,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 | Тариф | Продаётся | Новые назначения | Действует |
 |---|---|---|---|
 | Тариф курса Inside AI Engineering: продукт и участие в сообществе без срока, `support` на 6 месяцев, вариант `one_time` | Да, когда владелец опубликовал | Да, бессрочно: прежние участники курса через бота, решение владельца | Да, по покупкам и назначениям |
-| «Подписка Inside»: охват «вся платформа», вариант `subscription` | Только по приглашению, когда банк подтвердит регулярные списания и выйдет новая редакция оферты подписки | — | Да, по оплатам |
+| «Подписка Inside»: охват «вся платформа», вариант `subscription` | Не продаётся ([ADR 0037](../adr/0037-products-without-subscriptions.md)) | — | Да, по оплатам |
 
 По ADR 0033 активация назначает тариф курса. До задачи переключения код ещё назначает прежний
 стартовый тариф (в оферте подписки, раздел 9, «Материалы + сообщество») с охватом «вся платформа». Назначения, выданные раньше, сохраняют свой снимок. Отдельные тарифы «Материалы» и

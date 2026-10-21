@@ -98,6 +98,7 @@ export const EmptyNewDraft: Story = {
     await expect(
       canvas.getByRole("button", { name: "Опубликовать" }),
     ).toBeDisabled();
+    await userEvent.click(canvas.getByRole("tab", { name: "Содержимое" }));
     await expect(
       canvas.getByText(
         "Сначала создайте черновик, затем добавляйте файлы и изображения.",

@@ -227,20 +227,69 @@ RUN set -eu; \
     check_ancestry; \
     test ! -e /workspace/.production/backend; \
     test ! -L /workspace/.production/backend; \
-    pnpm --config.inject-workspace-packages=true --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend; \
+    deploy_store=/tmp/inside-backend-deploy-store; \
+    readonly deploy_store; \
+    deploy_store_parent="$(dirname "$deploy_store")"; \
+    readonly deploy_store_parent; \
+    test -d "$deploy_store_parent"; \
+    test ! -L "$deploy_store_parent"; \
+    deploy_parent_identity="$(stat -c '%d:%i' -- "$deploy_store_parent")"; \
+    valid_pair "$deploy_parent_identity"; \
+    readonly deploy_parent_identity; \
+    test ! -e "$deploy_store"; \
+    test ! -L "$deploy_store"; \
+    mkdir -m 0700 -- "$deploy_store"; \
+    test -d "$deploy_store"; \
+    test ! -L "$deploy_store"; \
+    deploy_store_identity="$(stat -c '%d:%i:%u' -- "$deploy_store")"; \
+    valid_triple "$deploy_store_identity"; \
+    test "${deploy_store_identity##*:}" = "$build_uid"; \
+    readonly deploy_store_identity; \
+    check_deploy_store() { \
+      test -d "$deploy_store_parent" || return 1; \
+      test ! -L "$deploy_store_parent" || return 1; \
+      current_identity="$(stat -c '%d:%i' -- "$deploy_store_parent")" || return 1; \
+      valid_pair "$current_identity" || return 1; \
+      test "$current_identity" = "$deploy_parent_identity" || return 1; \
+      test -d "$deploy_store" || return 1; \
+      test ! -L "$deploy_store" || return 1; \
+      current_identity="$(stat -c '%d:%i:%u' -- "$deploy_store")" || return 1; \
+      valid_triple "$current_identity" || return 1; \
+      test "$current_identity" = "$deploy_store_identity" || return 1; \
+      test "${current_identity##*:}" = "$build_uid" || return 1; \
+      deploy_store_mode="$(stat -c '%a' -- "$deploy_store")" || return 1; \
+      test "$deploy_store_mode" = 700 || return 1; \
+    }; \
+    check_deploy_store; \
     check_ancestry; \
-    test -d /workspace/.production/backend; \
-    test ! -L /workspace/.production/backend; \
-    payload_identity="$(stat -c '%d:%i:%u' -- /workspace/.production/backend)"; \
-    valid_triple "$payload_identity"; \
-    test "${payload_identity##*:}" = "$build_uid"; \
-    readonly payload_identity; \
-    test -d /workspace/.production/backend/node_modules; \
-    test ! -L /workspace/.production/backend/node_modules; \
-    payload_modules_identity="$(stat -c '%d:%i:%u' -- /workspace/.production/backend/node_modules)"; \
-    valid_triple "$payload_modules_identity"; \
-    test "${payload_modules_identity##*:}" = "$build_uid"; \
-    readonly payload_modules_identity; \
+    deploy_status=0; \
+    pnpm --store-dir="$deploy_store" --config.inject-workspace-packages=true --filter @inside/backend deploy --prod --ignore-scripts /workspace/.production/backend || deploy_status=$?; \
+    if [ "$deploy_status" -eq 0 ]; then \
+      check_ancestry; \
+      test -d /workspace/.production/backend; \
+      test ! -L /workspace/.production/backend; \
+      payload_identity="$(stat -c '%d:%i:%u' -- /workspace/.production/backend)"; \
+      valid_triple "$payload_identity"; \
+      test "${payload_identity##*:}" = "$build_uid"; \
+      readonly payload_identity; \
+      test -d /workspace/.production/backend/node_modules; \
+      test ! -L /workspace/.production/backend/node_modules; \
+      payload_modules_identity="$(stat -c '%d:%i:%u' -- /workspace/.production/backend/node_modules)"; \
+      valid_triple "$payload_modules_identity"; \
+      test "${payload_modules_identity##*:}" = "$build_uid"; \
+      readonly payload_modules_identity; \
+      check_output; \
+    fi; \
+    deploy_cleanup_status=0; \
+    if check_deploy_store; then \
+      rm -rf -- "$deploy_store" || deploy_cleanup_status=$?; \
+      if [ "$deploy_cleanup_status" -eq 0 ]; then \
+        test ! -e "$deploy_store" || deploy_cleanup_status=1; \
+        test ! -L "$deploy_store" || deploy_cleanup_status=1; \
+      fi; \
+    else deploy_cleanup_status=1; fi; \
+    if [ "$deploy_status" -ne 0 ]; then exit "$deploy_status"; fi; \
+    if [ "$deploy_cleanup_status" -ne 0 ]; then exit "$deploy_cleanup_status"; fi; \
     check_output; \
     check_parents; \
     test -d /workspace/node_modules; \

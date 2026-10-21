@@ -10,14 +10,8 @@ export function SeriesEditorPageFrame({
   readonly children: ReactNode;
 }) {
   return (
-    <main
-      className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0"
-      id="authoring-content"
-      tabIndex={-1}
-    >
-      <div className="mx-auto w-full max-w-5xl px-4 pb-24 sm:px-8">
-        {children}
-      </div>
+    <main className="authoring-page" id="authoring-content" tabIndex={-1}>
+      <div className="authoring-page-body">{children}</div>
     </main>
   );
 }

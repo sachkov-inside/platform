@@ -15,7 +15,10 @@ CASE_PHASES=('acquisition','baseline','connections','locks','deadlocks','reset',
 PHASES=CASE_PHASES+('baseline_actor_start','baseline_setup',
     'baseline_first_acquire','baseline_first_upload','baseline_first_stored_read','baseline_first_stored_oracle','baseline_first_stored_pending','baseline_first_ledger',
     'baseline_second_acquire','baseline_second_upload','baseline_second_stored_read','baseline_second_stored_oracle','baseline_second_stored_pending','baseline_second_ledger',
-    'baseline_waiting_locks')
+    'baseline_waiting_locks',
+    'baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
+    'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
+    'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
 REASONS=('none','ownership','credentials','connection','query_timeout','query_refused','malformed','identity_unavailable','stale','reset','collector','storage','cleanup')
 FRESHNESS=('fresh','stale','missing','unavailable','malformed')
 CONTINUITY=('initial','same_epoch','statistics_reset','server_restart','ownership_changed','unknown')

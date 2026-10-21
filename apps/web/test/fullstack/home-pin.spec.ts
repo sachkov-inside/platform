@@ -76,9 +76,13 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await page.goto(
       editorHref.replace("/authoring/products/", "/authoring/playlists/"),
     );
+    await page
+      .getByRole("tab", { name: "Описание и обложка", exact: true })
+      .click();
     await expect(
       page.getByRole("textbox", { name: "Название продукта" }),
     ).toHaveValue(releaseName);
+    await page.getByRole("tab", { name: "Настройки", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Снять закреп с главной", exact: true }),
     ).toBeEnabled();

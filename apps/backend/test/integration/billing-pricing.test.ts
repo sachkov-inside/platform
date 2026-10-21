@@ -584,7 +584,24 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
         },
       }),
     );
-    value(await save(subscription, "subscription"));
+    expect(await save(subscription, "subscription")).toMatchObject({
+      ok: false,
+      error: { code: "method_unavailable" },
+    });
+    // Исторический вариант уже мог существовать до отключения подписок.
+    value(
+      await billing.manage(owner, {
+        operation: "paymentOptions.save",
+        operationId: randomUUID(),
+        value: {
+          id: randomUUID(),
+          offerId: subscription,
+          mode: "subscription",
+          months: 1,
+          priceKopecks: 100_000,
+        },
+      }),
+    );
     expect(
       await allMethods.manage(owner, {
         operation: "offers.publish",
@@ -637,7 +654,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     ).toBeNull();
     value(await save(product, "one_time"));
 
-    // Тот же каталог на подтверждённом терминале включает подписку обычной командой.
+    // Историческая policy явно разрешает создание и публикацию подписочного варианта.
     const confirmed = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts,

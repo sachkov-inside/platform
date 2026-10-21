@@ -12,7 +12,7 @@ sys.argv=[os.path.basename(sys.executable)+' -m unittest','discover','-s','scrip
 class PassiveRunner:
     def __init__(self,*args,**kwargs):
         # TestProgram constructs its runner after ordinary discovery, never before it.
-        from source_progress import PassiveRunner as OwnerRunner
+        from core_source_progress import PassiveRunner as OwnerRunner
         self._owner=OwnerRunner(*args,**kwargs)
 
     def run(self,test):return self._owner.run(test)

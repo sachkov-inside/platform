@@ -8,11 +8,14 @@ import sys
 import time
 
 HERE=Path(__file__).resolve().parent
+SETUP_PHASES=dict(zip(range(101,110),('baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
+    'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
+    'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')))
 COMMANDS=('setup','connections','disconnect_one','lock','release','deadlock','reset','sampler_absent','close')
 
 
 class Fixture:
-    def __init__(self):self.process=None
+    def __init__(self):self.process=None;self.setup_phase=None
 
     def start(self):
         if self.process is not None and self.process.poll() is None:raise ValueError('ownership')
@@ -23,6 +26,7 @@ class Fixture:
              env={'PATH':str(node.parent)+':/usr/bin:/bin'},stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL)
 
     def act(self,command,deadline):
+        self.setup_phase=None
         if command not in COMMANDS or self.process is None:raise ValueError('query_refused')
         remaining=deadline-time.monotonic()
         if remaining<=0:raise TimeoutError()
@@ -36,7 +40,16 @@ class Fixture:
                 left=deadline-time.monotonic()
                 if left<=0 or not selector.select(left):raise TimeoutError()
                 part=self.process.stdout.read1(min(513-len(raw),512))
-                if not part:raise ValueError('query_refused')
+                if not part:
+                    # Only this command's wholly empty EOF proves the exit carrier has no competing stdout.
+                    if command=='setup' and not raw:
+                        left=deadline-time.monotonic()
+                        if left>0:
+                            try:status=self.process.wait(timeout=left)
+                            except (subprocess.TimeoutExpired,OSError):pass
+                            else:
+                                if time.monotonic()<deadline:self.setup_phase=SETUP_PHASES.get(status)
+                    raise ValueError('query_refused')
                 raw.extend(part)
                 if len(raw)>512:raise ValueError('malformed')
                 if b'\n' in raw:break

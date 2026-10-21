@@ -5,6 +5,8 @@ declare global {
     __fragmentProbe: {
       arm(): void;
       waitForWrite(): Promise<undefined>;
+      waitForPlayer(): Promise<undefined>;
+      releasePlayer(): void;
       snapshot(): readonly Record<string, unknown>[];
     };
   }
@@ -58,14 +60,22 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
   await page.addInitScript(() => {
     const ledger: Record<string, unknown>[] = [];
     const captured = Promise.withResolvers<undefined>();
+    const playerHeld = Promise.withResolvers<undefined>();
+    const releasePlayer = Promise.withResolvers<undefined>();
     let armed = false;
+    let holdNextPlayer = false;
     let refreshReceived = false;
     let write: (() => void) | undefined;
     window.__fragmentProbe = {
       arm: () => {
         armed = true;
+        holdNextPlayer = true;
       },
       waitForWrite: () => captured.promise,
+      waitForPlayer: () => playerHeld.promise,
+      releasePlayer: () => {
+        releasePlayer.resolve(undefined);
+      },
       snapshot: () => ledger,
     };
     const nativeFetch = window.fetch;
@@ -148,7 +158,7 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
             const iframe = document.createElement("iframe");
             iframe.src = options.url;
             mount.append(iframe);
-            return Promise.resolve({
+            const player = {
               Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
               destroy: () => {
                 iframe.remove();
@@ -161,7 +171,13 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
                 iframe.dataset["seekSeconds"] = String(seconds);
                 return Promise.resolve();
               },
-            });
+            };
+            if (holdNextPlayer) {
+              holdNextPlayer = false;
+              playerHeld.resolve(undefined);
+              return releasePlayer.promise.then(() => player);
+            }
+            return Promise.resolve(player);
           },
         },
       },
@@ -177,7 +193,11 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
     });
     releaseOpen.resolve(undefined);
     await page.evaluate(() => window.__fragmentProbe.waitForWrite());
+    await page.evaluate(() => window.__fragmentProbe.waitForPlayer());
     await page.goto("/materials/navigation-video-fragment#t=3");
+    await page.evaluate(() => {
+      window.__fragmentProbe.releasePlayer();
+    });
     await expect(frame).toHaveAttribute("data-seek-seconds", "3");
     await expect(page).toHaveURL(/#t=3$/u);
     // Selecting the current chapter emits the production synthetic event (no newURL).
@@ -213,6 +233,9 @@ test("a pending Reader refresh cannot erase a native video fragment before its l
       .toEqual([3, 3, 0, 261]);
   } finally {
     releaseOpen.resolve(undefined);
+    await page.evaluate(() => {
+      window.__fragmentProbe.releasePlayer();
+    });
     await testInfo.attach("fragment-ledger", {
       body: JSON.stringify(
         await page.evaluate(() => window.__fragmentProbe.snapshot()),

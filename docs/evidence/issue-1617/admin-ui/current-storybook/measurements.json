@@ -1,0 +1,57 @@
+{
+  "sourceCommit": "6f0397c1a282dac71f21a96159333801cf0cffd4",
+  "captures": [
+    {
+      "name": "products",
+      "width": 1440,
+      "metrics": {
+        "width": 1440,
+        "scroll": 1440,
+        "heading": "Продукты 4",
+        "phases": [
+          "finished"
+        ]
+      },
+      "violations": []
+    },
+    {
+      "name": "products",
+      "width": 390,
+      "metrics": {
+        "width": 390,
+        "scroll": 390,
+        "heading": "Продукты 4",
+        "phases": [
+          "finished"
+        ]
+      },
+      "violations": []
+    },
+    {
+      "name": "payments",
+      "width": 1440,
+      "metrics": {
+        "width": 1440,
+        "scroll": 1440,
+        "heading": "Продажи и платежи",
+        "phases": [
+          "finished"
+        ]
+      },
+      "violations": []
+    },
+    {
+      "name": "payments",
+      "width": 390,
+      "metrics": {
+        "width": 390,
+        "scroll": 390,
+        "heading": "Продажи и платежи",
+        "phases": [
+          "finished"
+        ]
+      },
+      "violations": []
+    }
+  ]
+}

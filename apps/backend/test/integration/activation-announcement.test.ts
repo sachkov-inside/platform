@@ -44,6 +44,7 @@ describe("trusted private announcement metadata", () => {
       clock: () => now,
     });
     activation = new SubscriptionActivation({
+      sale: { subscriptions: true },
       prisma: db.prisma,
       grants,
       bindings,

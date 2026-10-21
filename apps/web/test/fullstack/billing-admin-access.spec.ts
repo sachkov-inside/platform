@@ -6,7 +6,6 @@ import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
 
 import { catalogOutcomeSchema } from "@/features/billing-admin/model/admin-operations";
-import type { OfferEligibility } from "@/entities/subscription";
 
 import {
   fullStackBrowserRequest,
@@ -14,11 +13,7 @@ import {
 } from "../support/full-stack-session";
 
 /** Only synthetic catalogue records in the disposable full-stack database; sale commands are intercepted. */
-async function createTariff(
-  page: Page,
-  mode: "subscription" | "one_time",
-  eligibility?: OfferEligibility,
-) {
+async function createTariff(page: Page) {
   const id = randomUUID();
   const name = `Допуск synthetic ${id}`;
   const saved = await fullStackBrowserRequest(
@@ -31,8 +26,7 @@ async function createTariff(
         value: {
           id,
           name,
-          benefits: ["materials"],
-          ...(eligibility === undefined ? {} : { eligibility }),
+          benefits: [`product:${randomUUID()}`],
         },
       }),
     },
@@ -48,7 +42,7 @@ async function createTariff(
         value: {
           id: randomUUID(),
           offerId: id,
-          mode,
+          mode: "one_time",
           months: 1,
           priceKopecks: 10_000,
         },
@@ -57,6 +51,7 @@ async function createTariff(
   );
   expect(await priced.json()).toMatchObject({ ok: true });
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   return { id, name, row: page.getByRole("listitem", { name, exact: true }) };
 }
 const saleCommandSchema = z.object({
@@ -112,98 +107,17 @@ async function interceptSale(page: Page) {
   return commands;
 }
 
-test("saved eligibility controls confirmation, cancellation, revision and reload", async ({
-  browser,
+test("one-time product sale keeps saved eligibility and revision across reload", async ({
   context,
   page,
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/access");
   const commands = await interceptSale(page);
-  const tariff = await createTariff(page, "subscription");
+  const tariff = await createTariff(page);
   const select = tariff.row.getByLabel("Кому продаётся");
-  const enable = tariff.row.getByRole("button", {
-    name: "Включить продажу",
-    exact: true,
-  });
-  const dialog = page.getByRole("dialog", {
-    name: "Включить продажу подписки всем?",
-  });
   await expect(select).toHaveValue("everyone");
   await select.selectOption("invitation_only");
-  await enable.click();
-  await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
-  const initialViewport = page.viewportSize();
-  expect(initialViewport).not.toBeNull();
-  const viewports =
-    initialViewport?.width === 390
-      ? [initialViewport, { width: 320, height: 568 }]
-      : [initialViewport];
-  for (const viewport of viewports) {
-    if (viewport === null) throw new Error("Expected a configured viewport");
-    await page.setViewportSize(viewport);
-    await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(
-      dialog.getByRole("button", { name: "Включить продажу всем" }),
-    ).toBeFocused();
-    await page.keyboard.press("Shift+Tab");
-    await expect(dialog.getByRole("button", { name: "Отмена" })).toBeFocused();
-    await page.evaluate(() => document.fonts.ready);
-    const accessibility = await new AxeBuilder({ page })
-      .include("dialog")
-      .analyze();
-    expect(accessibility.violations).toEqual([]);
-    const geometry = await dialog.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-        width: window.innerWidth,
-        height: window.innerHeight,
-        clientWidth: element.clientWidth,
-        scrollWidth: element.scrollWidth,
-      };
-    });
-    expect(geometry.left).toBeGreaterThanOrEqual(0);
-    expect(geometry.right).toBeLessThanOrEqual(geometry.width);
-    expect(geometry.top).toBeGreaterThanOrEqual(0);
-    expect(geometry.bottom).toBeLessThanOrEqual(geometry.height);
-    expect(geometry.scrollWidth).toBe(geometry.clientWidth);
-    await testInfo.attach(
-      `subscription-sale-confirmation-${String(viewport.width)}`,
-      {
-        body: await page.screenshot(),
-        contentType: "image/png",
-      },
-    );
-    await testInfo.attach(
-      `subscription-sale-confirmation-facts-${String(viewport.width)}`,
-      {
-        body: Buffer.from(
-          JSON.stringify({
-            geometry,
-            axeViolations: accessibility.violations.length,
-            keyboard: "initial Cancel; Tab Confirm; Shift+Tab Cancel",
-          }),
-        ),
-        contentType: "application/json",
-      },
-    );
-  }
-  if (initialViewport !== null) await page.setViewportSize(initialViewport);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-  await expect(enable).toBeFocused();
-  expect(commands).toEqual([]);
-  await enable.click();
-  await dialog.getByRole("button", { name: "Отмена" }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(enable).toBeFocused();
-  expect(commands).toEqual([]);
-
   const saveResponse = page.waitForResponse((response) =>
     response.url().endsWith("/api/authoring/billing/offers/save"),
   );
@@ -211,106 +125,76 @@ test("saved eligibility controls confirmation, cancellation, revision and reload
   const saved = z
     .object({ ok: z.literal(true), value: catalogOutcomeSchema })
     .parse(await (await saveResponse).json());
-  const invitationRevision = saved.value.result.value.revision;
-  await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: "продаётся только по приглашению" }),
-  ).toBeVisible();
-
-  const reopened = await browser.newContext();
-  try {
-    await signInFullStack(reopened, "OWNER");
-    const reopenedPage = await reopened.newPage();
-    await reopenedPage.goto("/authoring/access");
-    await expect(
-      reopenedPage
-        .getByRole("listitem", { name: tariff.name, exact: true })
-        .getByLabel("Кому продаётся"),
-    ).toHaveValue("invitation_only");
-  } finally {
-    await reopened.close();
-  }
-
-  // Unsaved everyone cannot override the persisted invitation or the returned revision.
-  await select.selectOption("everyone");
-  await enable.click();
-  await expect(
-    tariff.row.getByText("Продаётся", { exact: true }),
-  ).toBeVisible();
-  await expect(dialog).toHaveCount(0);
-  expect(commands).toEqual([
-    { id: tariff.id, expectedRevision: invitationRevision, published: true },
-  ]);
-  // Publication was synthetic; the database still holds the saved invitation and an unpublished tariff.
+  const revision = saved.value.result.value.revision;
   await page.reload();
+  await page.getByRole("tab", { name: "Тарифы", exact: true }).click();
   await expect(select).toHaveValue("invitation_only");
-  await expect(
-    tariff.row.getByText("Не продаётся", { exact: true }),
-  ).toBeVisible();
+  // Unsaved eligibility does not replace the persisted setting or revision.
   await select.selectOption("everyone");
-  const everyoneResponse = page.waitForResponse((response) =>
-    response.url().endsWith("/api/authoring/billing/offers/save"),
-  );
-  await tariff.row.getByRole("button", { name: "Сохранить допуск" }).click();
-  const everyoneSaved = z
-    .object({ ok: z.literal(true), value: catalogOutcomeSchema })
-    .parse(await (await everyoneResponse).json());
-  const everyoneRevision = everyoneSaved.value.result.value.revision;
-  await expect(
-    page.getByRole("status").filter({ hasText: "допуск сохранён" }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(select).toHaveValue("everyone");
-  await enable.click();
-  await expect(dialog).toBeVisible();
-  expect(commands).toHaveLength(1);
-  await dialog
-    .getByRole("button", { name: "Включить продажу всем" })
-    .dblclick();
+  await tariff.row
+    .getByRole("button", { name: "Включить продажу", exact: true })
+    .click();
   await expect(
     tariff.row.getByText("Продаётся", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(commands).toEqual([
-    { id: tariff.id, expectedRevision: invitationRevision, published: true },
-    { id: tariff.id, expectedRevision: everyoneRevision, published: true },
+    { id: tariff.id, expectedRevision: revision, published: true },
   ]);
   await tariff.row.getByRole("button", { name: "Снять с продажи" }).click();
   await expect(
     tariff.row.getByText("Не продаётся", { exact: true }),
   ).toBeVisible();
-  await expect(dialog).toHaveCount(0);
   expect(commands.at(-1)).toEqual({
     id: tariff.id,
-    expectedRevision: everyoneRevision + 1,
+    expectedRevision: revision + 1,
     published: false,
+  });
+  const scan = await new AxeBuilder({ page }).include("main").analyze();
+  expect(
+    scan.violations.filter(
+      ({ impact }) => impact === "serious" || impact === "critical",
+    ),
+  ).toEqual([]);
+  await testInfo.attach("one-time-product-sale", {
+    body: await page.screenshot(),
+    contentType: "image/png",
   });
 });
 
-for (const [mode, eligibility] of [
-  ["subscription", "invitation_only"],
-  ["subscription", "former_tribute_subscribers"],
-  ["one_time", "everyone"],
-] as const) {
-  test(`sale ${mode}/${eligibility} has no extra subscription warning`, async ({
-    context,
+test("current runtime refuses a subscription option through the real API", async ({
+  context,
+  page,
+}) => {
+  await signInFullStack(context, "OWNER");
+  await page.goto("/authoring/access");
+  const tariff = await createTariff(page);
+  const response = await fullStackBrowserRequest(
     page,
-  }) => {
-    await signInFullStack(context, "OWNER");
-    await page.goto("/authoring/access");
-    const commands = await interceptSale(page);
-    const tariff = await createTariff(page, mode, eligibility);
-    await tariff.row
-      .getByRole("button", { name: "Включить продажу", exact: true })
-      .click();
-    await expect(
-      tariff.row.getByText("Продаётся", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("dialog", { name: "Включить продажу подписки всем?" }),
-    ).toHaveCount(0);
-    expect(commands).toEqual([
-      { id: tariff.id, expectedRevision: 1, published: true },
-    ]);
+    "/api/authoring/billing/payment-options/save",
+    "POST",
+    {
+      input: JSON.stringify({
+        operationId: randomUUID(),
+        value: {
+          id: randomUUID(),
+          offerId: tariff.id,
+          mode: "subscription",
+          months: 1,
+          priceKopecks: 10_000,
+        },
+      }),
+    },
+  );
+  expect(await response.json()).toMatchObject({
+    ok: false,
+    code: "method_unavailable",
   });
-}
+  await page.getByRole("tab", { name: "Приглашения", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Выданные приглашения", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Новое приглашение", exact: true }),
+  ).toHaveCount(0);
+});

@@ -7,6 +7,7 @@ import {
 import { hasText } from "../../../infrastructure/contracts/text.js";
 import {
   subscriptionSaleConfirmed,
+  type SaleCapability,
   type SubscriptionTerminal,
 } from "../domain/sale-capability.js";
 import {
@@ -49,9 +50,14 @@ export function renewalScheduled(
 export type RenewalTerminal = "no_terminal" | "no_recurring" | "ready";
 export function renewalTerminal(
   terminal: SubscriptionTerminal | undefined,
+  sale: SaleCapability,
 ): RenewalTerminal {
   if (terminal === undefined) return "no_terminal";
-  return subscriptionSaleConfirmed(terminal) ? "ready" : "no_recurring";
+  // Recurring commerce is suspended independently of terminal configuration.
+  // Retain historical agreements for reconciliation, without starting new charges.
+  return sale.subscriptions && subscriptionSaleConfirmed(terminal)
+    ? "ready"
+    : "no_recurring";
 }
 
 /** Выборка того же расписания для списания, календаря и владельческого обзора. */

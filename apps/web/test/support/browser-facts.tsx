@@ -1,3 +1,4 @@
+import { AccountProductCommunity } from "@/_pages/account-access/ui/account-product-community.client";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -106,10 +107,40 @@ function ReadingFacts() {
     </>
   );
 }
+function CommunityFacts() {
+  const [accountId, setAccountId] = useState(
+    "00000000-0000-4000-8000-000000000001",
+  );
+  return (
+    <QueryClientProvider client={client}>
+      <button
+        onClick={() => {
+          setAccountId("00000000-0000-4000-8000-000000000002");
+        }}
+      >
+        Switch Account
+      </button>
+      <MaterialReadingScope
+        value={{
+          accountId,
+          resolved: true,
+          states: new Map(),
+          failed: false,
+          register: () => () => undefined,
+          refresh: () => Promise.resolve(),
+        }}
+      >
+        <AccountProductCommunity productId="10000000-0000-4000-8000-000000000001" />
+      </MaterialReadingScope>
+    </QueryClientProvider>
+  );
+}
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing browser facts root");
 createRoot(root).render(
-  new URLSearchParams(window.location.search).has("reading") ? (
+  new URLSearchParams(window.location.search).has("community") ? (
+    <CommunityFacts />
+  ) : new URLSearchParams(window.location.search).has("reading") ? (
     <ReadingFacts />
   ) : (
     <BrowserFacts />

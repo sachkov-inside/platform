@@ -35,6 +35,7 @@ import {
   handleSaveOffer,
   handleUnpublishOffer,
   loadBillingOffersForOwner,
+  handleOwnerCatalogRead,
 } from "@/features/billing-admin.server";
 
 const origin = "https://inside.example.test";
@@ -684,4 +685,38 @@ it("payment links map each owner endpoint to its fixed operation and reject extr
     "owner-token",
     {},
   );
+});
+
+it("refreshes the private owner catalog through route credentials without losing backend denial", async () => {
+  fakes.manage.mockResolvedValue(
+    ok({
+      operationRef: operationId,
+      result: { outcome: "catalogOffers", items: [], nextCursor: null },
+    }),
+  );
+  const response = await handleOwnerCatalogRead();
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("no-store, private");
+  expect(response.headers.get("vary")).toBe("cookie");
+  expect(await response.json()).toEqual({ ok: true, value: [] });
+  expect(fakes.renderToken).not.toHaveBeenCalled();
+  expect(fakes.manage).toHaveBeenCalledWith(
+    expect.objectContaining({ operation: "offers.list", limit: 100 }),
+    "owner-token",
+  );
+  fakes.manage.mockResolvedValue({
+    ok: false,
+    problem: { code: "forbidden" },
+    response: new Response(null, { status: 403 }),
+  });
+  const denied = await handleOwnerCatalogRead();
+  expect(denied.status).toBe(403);
+  expect(await denied.json()).toEqual({ ok: false, code: "forbidden" });
+});
+
+it("does not read the owner catalog without an authenticated route session", async () => {
+  fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+  const response = await handleOwnerCatalogRead();
+  expect(response.status).toBe(401);
+  expect(fakes.manage).not.toHaveBeenCalled();
 });

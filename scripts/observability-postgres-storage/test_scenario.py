@@ -303,3 +303,37 @@ class Driver(unittest.TestCase):
                         if method=='observe':driver.observe(_baseline=value)
                         else:driver.stored({},_baseline=value)
                     self.assertEqual(events,[]);self.assertEqual(clock,[0]);self.assertEqual(driver.phase,'original')
+
+    def test_only_failed_setup_adopts_a_closed_owned_stage_and_preserves_primary(self):
+        from types import SimpleNamespace
+        phases=('baseline_setup_connect','baseline_setup_identity','baseline_setup_reader',
+            'baseline_setup_grant_connect','baseline_setup_read_only','baseline_setup_schema',
+            'baseline_setup_table','baseline_setup_rows','baseline_setup_reset')
+        for phase in phases:
+            for primary in (ValueError('query_refused'),KeyboardInterrupt(),SystemExit()):
+                with self.subTest(phase=phase,kind=type(primary).__name__):
+                    driver=scenario.Scenario(None,[],'fixed',None);driver.end=time.monotonic()+150
+                    driver.phase='baseline_setup';seen=[];deadlines=[]
+                    def act(name,deadline):
+                        self.assertEqual(name,'setup');deadlines.append(deadline)
+                        try:raise primary
+                        except BaseException:seen.append(primary.__traceback__);raise
+                    driver.actors=SimpleNamespace(act=act,setup_phase=phase)
+                    try:driver.command('setup')
+                    except BaseException as error:
+                        self.assertIs(error,primary);trace=error.__traceback__
+                        while trace is not None and trace is not seen[0]:trace=trace.tb_next
+                        self.assertIs(trace,seen[0])
+                    else:self.fail('setup failure suppressed')
+                    self.assertEqual(driver.phase,phase);self.assertEqual(len(deadlines),1)
+        for name,phase,failed in [('setup','baseline_setup_unknown',True),('setup',None,True),
+                ('setup',[],True),('setup',True,True),('connections',phases[0],True),('setup',phases[0],False)]:
+            driver=scenario.Scenario(None,[],'fixed',None);driver.end=time.monotonic()+150;driver.phase='baseline_setup'
+            primary=ValueError('query_refused')
+            def act(_name,_deadline):
+                if failed:raise primary
+            driver.actors=SimpleNamespace(act=act,setup_phase=phase)
+            if failed:
+                with self.assertRaises(ValueError):driver.command(name)
+            else:driver.command(name)
+            self.assertEqual(driver.phase,'baseline_setup')

@@ -376,10 +376,10 @@ _Avoid_: AccessGrant, ReadingState, collection, favorite
 ## Tariffs, payment and access
 
 **Subscription**:
-A way of paying for a Tariff: an Account's agreement to pay on a schedule with renewal terms. A
-subscription Payment Option is sold only to an Account with a redeemed Invitation. It is distinct
-from a bank payment and from a Tariff Assignment without payment.
-_Avoid_: Payment, Tariff, Tariff Assignment, «подписка» for a free assignment
+A separate offering with scheduled payments. Subscriptions are not currently sold and do not
+provide Product access in the current model. A Product purchase or free Product assignment is
+not a Subscription.
+_Avoid_: Product access, Payment, Tariff Assignment, «подписка» for a course assignment
 
 **Tariff** (code name: `Offer`):
 A versioned description of what an Account receives: a Coverage and rights, each with its own term
@@ -394,8 +394,7 @@ In Russian product language: «тариф».
 _Avoid_: Order, AccessGrant, Payment Option, a «subscription tariff» as a separate kind
 
 **Payment Option**:
-The price and the way of paying for one Tariff: a one-time payment, or a Subscription with a billing
-period in calendar months. One Tariff may offer both ways. A price change with the same rights
+The price of a one-time purchase of one Tariff. A price change with the same rights
 changes the Payment Option's price. In Russian product language: «вариант оплаты».
 _Avoid_: Tariff, monthly instalment, payment attempt
 
@@ -410,8 +409,7 @@ _Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel per
 **Tariff Assignment**:
 An Account's holding of a promised version of a Tariff, with its own origin and term. A free
 assignment is always for life; its origins are the bot's verification of a prior course participant
-and the owner's decision. A paid Subscription also holds its Tariff through an assignment for the
-paid period. An assignment without payment is not a Subscription or consent to renewal. In Russian
+and the owner's decision. An assignment without payment is not a Subscription or consent to renewal. In Russian
 product language: «назначение тарифа».
 _Avoid_: Subscription, gift subscription, temporary free access, Payment
 

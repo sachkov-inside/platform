@@ -1,3 +1,4 @@
+import { TaskSubmissionFacts } from "./features/read-confirmed-activity/read-confirmed-activity.js";
 import { MemberNames, MemberProfilesModule } from "../member-profiles/index.js";
 import {
   AssetsModule,
@@ -77,6 +78,12 @@ import {
     MemberProfilesModule,
   ],
   providers: [
+    {
+      provide: TaskSubmissionFacts,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new TaskSubmissionFacts(prisma),
+    },
     {
       provide: TASK_ASSET_DELIVERY,
       inject: [
@@ -197,6 +204,7 @@ import {
     },
   ],
   exports: [
+    TaskSubmissionFacts,
     TASK_ASSET_DELIVERY,
     LEARNING_TASKS,
     PRODUCT_TASK_IMPORT,
