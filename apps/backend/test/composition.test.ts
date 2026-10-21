@@ -209,14 +209,11 @@ describe("backend process composition", () => {
     expect(application.get(BookmarkActivityRetention)).toBeInstanceOf(
       BookmarkActivityRetention,
     );
-    expect(
-      application.get<ProductTaskResourceFactsAdapter>(
-        PRODUCT_TASK_RESOURCE_FACTS,
-      ),
-    ).toMatchObject({
-      findOne: expect.any(Function),
-      findMany: expect.any(Function),
-    });
+    const facts = application.get<ProductTaskResourceFactsAdapter>(
+      PRODUCT_TASK_RESOURCE_FACTS,
+    );
+    expect(typeof facts.findOne).toBe("function");
+    expect(typeof facts.findMany).toBe("function");
   });
 
   it("binds the Notifications worker, which loads Membership Entitlements through its consumers", async () => {

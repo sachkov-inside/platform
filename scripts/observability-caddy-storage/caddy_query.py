@@ -30,7 +30,7 @@ def _failure(reason):
     return result,None
 
 
-def read_snapshot(token,*,evaluated_at=None,previous=None,wall_clock=time.time,deadline_seconds=QUERY_SECONDS):
+def read_snapshot(token,*,evaluated_at=None,previous=None,wall_clock=time.time,deadline_seconds=QUERY_SECONDS,diagnose=False):
     """Return a validated public report plus a private in-memory acquisition for comparison.
 
     The acquisition is never an artifact. Public collection accepts only the exact report schema.
@@ -61,7 +61,10 @@ def read_snapshot(token,*,evaluated_at=None,previous=None,wall_clock=time.time,d
             acquired={'values':bodies[0],'timestamps':bodies[1],'evaluated_at':evaluated,'completed_at':wall_started}
             def completed_clock():
                 final=wall_clock();acquired['completed_at']=final;return final
-            report=caddy_status.evaluate(*bodies,evaluated_at=evaluated,completed_at=wall_started,previous=previous,completion_clock=completed_clock)
+            if diagnose is True:
+                report=caddy_status.evaluate(*bodies,evaluated_at=evaluated,completed_at=wall_started,previous=previous,completion_clock=completed_clock,diagnose=True)
+            else:
+                report=caddy_status.evaluate(*bodies,evaluated_at=evaluated,completed_at=wall_started,previous=previous,completion_clock=completed_clock)
             duration=time.monotonic()-started
             if not 0<=duration<deadline_seconds:raise TimeoutError()
             report['transport']['canonical']='failed' if report['state']=='malformed' else 'passed'

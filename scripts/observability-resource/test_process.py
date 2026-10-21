@@ -11,6 +11,7 @@ import time
 import unittest
 from unittest.mock import patch
 import runtime
+import source_progress
 
 PROCESS_FAILURE_SECONDS = .25
 SOCKET_PROBE_SECONDS = .1
@@ -25,6 +26,7 @@ class Processes(unittest.TestCase):
     def test_resource_project_uses_external_supervisor_cleanup_for_every_worker_outcome(self):
         fixture = runtime.ROOT / 'scripts/observability-pilot/fixtures/process.py'
         for mode, expected in (('success',0),('failure',7),('timeout',124),('sigterm',143),('sigkill',137),('descendant',0)):
+            source_progress.timing_event('begin',mode)
             with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
                 output=Path(directory)
                 (output/'foreign-resource').write_text('preserve')
@@ -41,6 +43,8 @@ class Processes(unittest.TestCase):
                         probe.settimeout(SOCKET_PROBE_SECONDS)
                         with self.assertRaises((FileNotFoundError,ConnectionRefusedError)):
                             probe.connect(str(output/'child.sock'))
+
+            source_progress.timing_event('end',mode)
 
     def test_stats_slow_drip_is_bounded_by_external_reader_process_deadline(self):
         class Handler(socketserver.StreamRequestHandler):

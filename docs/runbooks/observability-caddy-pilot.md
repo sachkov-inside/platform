@@ -238,3 +238,23 @@ exactly once, along with explicitly added progress controls.
 
 This diagnostic does not explain the earlier baseline source timeout or establish native Caddy
 acceptance. No suite splitting, deadline increase or production configuration change is included.
+
+### Native-only incomplete detail
+
+The existing native scenario opts into nine fixed reasons in the existing
+`caddy-observation.json` reason field: `partial_missing_total`, `partial_missing_errors`,
+`partial_missing_flight`, `partial_no_duration_groups`, `partial_missing_bucket`,
+`partial_missing_sum`, `partial_missing_count`, `partial_count_sum` and `partial_timestamps`.
+They refine only an already rejected fresh incomplete observation after the whole original
+vector and histogram checks. Missing simple counters take total/errors/in-flight order;
+incomplete histograms take bucket/sum/count order. A later malformed group still refuses
+the whole observation. Unequal stamps are identified only when the observation is otherwise
+complete. The reasons retain no raw labels, counters, timestamps or exception details.
+
+Ordinary query/MCP callers keep legacy `partial` and `unseeded` reasons. Only the internal
+native scenario supplies `diagnose=True`; other values keep default behavior. New reasons
+are accepted only for incomplete reports with null observation/comparison, a fresh sample
+age and canonical-passed/MCP-unrun transport. Legacy reports remain valid; an older reader
+may refuse the new vocabulary, so collection must use its source-bound current reader.
+No reason establishes a native cause, successful comparison or readiness. Queries, caps,
+process ownership, persistence points and public record fields are unchanged.
