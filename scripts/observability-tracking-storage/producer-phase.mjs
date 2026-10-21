@@ -155,6 +155,7 @@ export function createTrackingProducerPhase(environment) {
     function commit(state) {
       if (disabled || !open) return;
       /** @type {number|undefined} */ let fd;
+      /** @type {number|undefined} */ let pin;
       /** @type {import("node:fs").BigIntStats|undefined} */ let created;
       try {
         const parent = lstatSync(directory, { bigint: true });
@@ -184,8 +185,9 @@ export function createTrackingProducerPhase(environment) {
             !same(existing, lstatSync(marker, { bigint: true }))
           )
             throw new Error();
-          closeSync(fd);
+          const reader = fd;
           fd = undefined;
+          closeSync(reader);
         }
         const raw =
           JSON.stringify({
@@ -214,8 +216,15 @@ export function createTrackingProducerPhase(environment) {
           !same(info, lstatSync(base + "/phase.json.new", { bigint: true }))
         )
           throw new Error();
-        closeSync(fd);
+        // The writer closes before commit; a distinct live pin prevents inode reuse.
+        pin = openSync(
+          base + "/phase.json.new",
+          constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+        );
+        if (!same(info, fstatSync(pin, { bigint: true }))) throw new Error();
+        const writer = fd;
         fd = undefined;
+        closeSync(writer);
         const parentAfter = lstatSync(directory, { bigint: true });
         const heldAfter = fstatSync(descriptor, { bigint: true });
         if (
@@ -234,20 +243,21 @@ export function createTrackingProducerPhase(environment) {
       } catch {
         disabled = true;
       } finally {
-        if (fd !== undefined) {
-          try {
-            closeSync(fd);
-          } catch {
-            /* Attempt every owned close. */
-          }
-        }
         if (created !== undefined) {
           try {
             const named = lstatSync(base + "/phase.json.new", {
               bigint: true,
               throwIfNoEntry: false,
             });
+            const live = pin ?? fd;
+            const held =
+              live === undefined
+                ? undefined
+                : fstatSync(live, { bigint: true });
             if (
+              held !== undefined &&
+              held.dev === created.dev &&
+              held.ino === created.ino &&
               named !== undefined &&
               regular(named, uid) &&
               named.gid === created.gid &&
@@ -256,7 +266,17 @@ export function createTrackingProducerPhase(environment) {
             )
               unlinkSync(base + "/phase.json.new");
           } catch {
-            /* Preserve collision/recreated foreign inode. */
+            disabled = true;
+          }
+        }
+        // Named cleanup must finish while the original inode is still pinned.
+        for (const owned of [fd, pin]) {
+          if (owned !== undefined) {
+            try {
+              closeSync(owned);
+            } catch {
+              disabled = true;
+            }
           }
         }
         if (disabled) close();

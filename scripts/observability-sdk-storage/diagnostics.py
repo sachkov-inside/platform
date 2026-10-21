@@ -203,22 +203,40 @@ def write(path, value, *, scope):
     if len(encoded) > MAX_BYTES or path.is_symlink() or path.exists() and not path.is_file(): _refuse()
     temporary = path.with_name('.storage-diagnostic.new')
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    created=None;committed=False
+    created=pin=stream=None;committed=False;failure=traceback=None
     try:
-        with os.fdopen(descriptor, 'wb') as stream:
-            info=os.fstat(stream.fileno());created=(info.st_dev,info.st_ino)
-            stream.write(encoded)
+        info=os.fstat(descriptor);created=(info.st_dev,info.st_ino)
+        pin=os.dup(descriptor)
+        held=os.fstat(pin)
+        if (held.st_dev,held.st_ino)!=created:_refuse()
+        stream=os.fdopen(descriptor,'wb');descriptor=None
+        stream.write(encoded);stream.flush()
+        writer=stream;stream=None
+        writer.close()
         os.replace(temporary, path);committed=True
+    except BaseException as error:
+        failure=error;traceback=sys.exc_info()[2]
     finally:
-        primary,tb=sys.exc_info()[1:]
         try:
-            if not committed and created is not None:
+            live=pin if pin is not None else descriptor
+            if not committed and created is not None and live is not None:
+                held=os.fstat(live)
                 try:info=temporary.lstat()
                 except FileNotFoundError:info=None
-                if info is not None and stat.S_ISREG(info.st_mode) and (info.st_dev,info.st_ino)==created:temporary.unlink()
-        except BaseException:
-            if primary is None:raise
-            BaseException.with_traceback(primary,tb)
+                if (info is not None and stat.S_ISREG(info.st_mode)
+                        and (held.st_dev,held.st_ino)==created==(info.st_dev,info.st_ino)):temporary.unlink()
+        except BaseException as error:
+            if failure is None:failure=error;traceback=sys.exc_info()[2]
+        if stream is not None:
+            try:stream.close()
+            except BaseException as error:
+                if failure is None:failure=error;traceback=sys.exc_info()[2]
+        for owned in (descriptor,pin):
+            if owned is not None:
+                try:os.close(owned)
+                except BaseException as error:
+                    if failure is None:failure=error;traceback=sys.exc_info()[2]
+    if failure is not None:raise BaseException.with_traceback(failure,traceback)
 
 
 class Diagnostic:

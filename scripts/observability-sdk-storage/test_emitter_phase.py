@@ -97,7 +97,235 @@ class SdkPhaseTest(unittest.TestCase):
 
 
 
+
+def rescue_fixture_descriptors(entries,*,fstat,close):
+    """Post-assertion safety only. Never pin before testing the product invariant."""
+    import sys
+    primary,primary_tb=sys.exc_info()[1:];failure=traceback=None
+    for entry in entries:
+        if not entry['active']:continue
+        entry['active']=False
+        try:
+            try:info=fstat(entry['fd'])
+            except OSError as error:
+                import errno
+                if error.errno==errno.EBADF:continue
+                raise
+            if (info.st_dev,info.st_ino)!=(entry['dev'],entry['ino']):continue
+            close(entry['fd'])
+        except BaseException as error:
+            if failure is None:failure=error;traceback=sys.exc_info()[2]
+    if primary is not None:BaseException.with_traceback(primary,primary_tb)
+    elif failure is not None:raise BaseException.with_traceback(failure,traceback)
+
+
+def assert_live_temporary_pin(test,write,temporary_name,error_type):
+    """Real product descriptors, no external pin and no simulated inode identities."""
+    with tempfile.TemporaryDirectory() as directory:
+        root=Path(directory).resolve();path=root/'phase.json';temporary=root/temporary_name
+        acquired=[];active={};observed=[]
+        originals={name:getattr(os,name) for name in ('open','dup','close','fstat','fdopen')}
+        def remember(fd):
+            info=originals['fstat'](fd);entry=dict(fd=fd,dev=info.st_dev,ino=info.st_ino,active=True)
+            acquired.append(entry);active[fd]=entry;return fd
+        def opened(*args,**kwargs):return remember(originals['open'](*args,**kwargs))
+        def duplicated(fd):return remember(originals['dup'](fd))
+        def close(fd):
+            if fd in active:active[fd]['active']=False
+            originals['close'](fd)
+        class Stream:
+            def __init__(self,stream,entry):self.stream=stream;self.entry=entry
+            def write(self,data):return self.stream.write(data)
+            def flush(self):return self.stream.flush()
+            def close(self):self.entry['active']=False;self.stream.close()
+        def fdopen(fd,*args,**kwargs):return Stream(originals['fdopen'](fd,*args,**kwargs),active[fd])
+        def replace(*_args,**_kwargs):
+            info=temporary.stat();live=[]
+            for entry in acquired:
+                if not entry['active']:continue
+                try:held=originals['fstat'](entry['fd'])
+                except OSError:continue
+                if (held.st_dev,held.st_ino)==(info.st_dev,info.st_ino):live.append(entry['fd'])
+            observed.append(bool(live))
+            temporary.unlink();temporary.write_bytes(b'foreign-recreated');temporary.chmod(0o600)
+            raise OSError('controlled replace refusal')
+        try:
+            with patch.object(os,'open',side_effect=opened),patch.object(os,'dup',side_effect=duplicated),patch.object(os,'close',side_effect=close),patch.object(os,'fdopen',side_effect=fdopen),patch.object(os,'replace',side_effect=replace):
+                with test.assertRaises(error_type):write(path)
+            test.assertEqual(observed,[True],'writer released original temp before named cleanup')
+            test.assertFalse(any(entry['active'] for entry in acquired),'product descriptor close was skipped')
+            test.assertEqual(temporary.read_bytes(),b'foreign-recreated')
+            test.assertFalse(path.exists())
+        finally:
+            rescue_fixture_descriptors(acquired,fstat=originals['fstat'],close=originals['close'])
+
+def assert_pin_cleanup_failures(test,write,temporary_name,*,buffered=False):
+    """Exercise actual file handles; a close-then-error must never close a reused foreign FD."""
+    import stat
+    for stage in ('dup','pin_stat','write','fdopen','flush','writer_close','replace','cleanup_unlink','combined','interrupt','system_exit','pin_close','directory_close'):
+        if buffered and stage=='directory_close' or not buffered and stage in ('fdopen','flush'):continue
+        with test.subTest(stage=stage),tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();path=root/'phase.json';temporary=root/temporary_name
+            primary=KeyboardInterrupt() if stage=='interrupt' else SystemExit(2) if stage=='system_exit' else OSError('controlled first failure');secondary=OSError('controlled later failure')
+            originals={name:getattr(os,name) for name in ('open','dup','close','fstat','write','replace','unlink','fdopen')}
+            acquired={};records=[];attempts=[];pins=[];foreign=[];operation_failed=False;primary_trace=[]
+            def opened(*args,**kwargs):
+                fd=originals['open'](*args,**kwargs);info=originals['fstat'](fd);acquired[fd]=dict(fd=fd,dev=info.st_dev,ino=info.st_ino,directory=stat.S_ISDIR(info.st_mode),active=True);records.append(acquired[fd]);return fd
+            def duplicated(fd):
+                if stage=='dup':raise primary
+                pin=originals['dup'](fd);info=originals['fstat'](pin);acquired[pin]=dict(fd=pin,dev=info.st_dev,ino=info.st_ino,directory=False,active=True);records.append(acquired[pin]);pins.append(pin);return pin
+            def fstat(fd):
+                if stage=='pin_stat' and fd in pins:raise primary
+                return originals['fstat'](fd)
+            def fail_after_close(fd,close):
+                attempts.append(fd);acquired[fd]['active']=False;close()
+                is_pin=fd in pins;is_directory=acquired[fd]['directory']
+                should_fail=(stage=='pin_close' and is_pin or stage=='directory_close' and is_directory
+                             or stage=='writer_close' and not is_pin and not is_directory)
+                if operation_failed and stage in ('combined','interrupt','system_exit'):raise secondary
+                if should_fail:
+                    # Real allocation may reuse the retired number. It belongs to the fixture only.
+                    foreign_fd=originals['open'](root/'foreign-fd',os.O_CREAT|os.O_RDWR,0o600)
+                    info=originals['fstat'](foreign_fd);foreign.append(dict(fd=foreign_fd,dev=info.st_dev,ino=info.st_ino,active=True))
+                    raise primary
+            def close(fd):fail_after_close(fd,lambda:originals['close'](fd))
+            def written(fd,data):
+                if stage=='write':raise primary
+                return originals['write'](fd,data)
+            def replaced(*args,**kwargs):
+                nonlocal operation_failed
+                if stage in ('replace','cleanup_unlink','combined','interrupt','system_exit'):
+                    operation_failed=True
+                    try:raise primary
+                    except BaseException:
+                        import sys
+                        primary_trace.append(sys.exc_info()[2]);raise
+                return originals['replace'](*args,**kwargs)
+            def unlink(*args,**kwargs):
+                if stage=='cleanup_unlink':raise secondary
+                return originals['unlink'](*args,**kwargs)
+            class Stream:
+                def __init__(self,stream):self.stream=stream
+                def write(self,data):
+                    if stage=='write':raise primary
+                    return self.stream.write(data)
+                def flush(self):
+                    if stage=='flush':raise primary
+                    return self.stream.flush()
+                def close(self):
+                    fd=self.stream.fileno();fail_after_close(fd,self.stream.close)
+            def fdopen(*args,**kwargs):
+                if stage=='fdopen':raise primary
+                return Stream(originals['fdopen'](*args,**kwargs))
+            try:
+                with patch.object(os,'open',side_effect=opened),patch.object(os,'dup',side_effect=duplicated),patch.object(os,'fstat',side_effect=fstat),patch.object(os,'close',side_effect=close),patch.object(os,'write',side_effect=written),patch.object(os,'replace',side_effect=replaced),patch.object(os,'unlink',side_effect=unlink),patch.object(os,'fdopen',side_effect=fdopen):
+                    try:write(path)
+                    except BaseException as error:
+                        observed=error;observed_trace=BaseException.__traceback__.__get__(error)
+                    else:test.fail('writer fault was silently accepted')
+                if buffered or stage in ('interrupt','system_exit'):
+                    test.assertTrue(observed is primary,'later cleanup replaced original failure')
+                    if primary_trace:
+                        while observed_trace is not None and observed_trace is not primary_trace[0]:
+                            test.assertNotEqual(observed_trace.tb_frame.f_code.co_name,'close','secondary close traceback leaked')
+                            observed_trace=observed_trace.tb_next
+                        test.assertTrue(observed_trace is primary_trace[0],'original traceback changed')
+                else:test.assertIsInstance(observed,(OSError,ValueError))
+                if stage=='combined' and not buffered:test.assertIsInstance(observed,ValueError)
+                test.assertLessEqual(len(pins),1)
+                for fd in acquired:
+                    test.assertEqual(attempts.count(fd),1,'acquired descriptor close was skipped or retried')
+                    if fd not in {entry['fd'] for entry in foreign}:
+                        with test.assertRaises(OSError):originals['fstat'](fd)
+                for entry in foreign:originals['fstat'](entry['fd'])
+                if stage in ('pin_close','directory_close'):test.assertTrue(path.is_file())
+                else:test.assertFalse(path.exists())
+            finally:
+                rescue_fixture_descriptors([*records,*foreign],fstat=originals['fstat'],close=originals['close'])
+
+
 class SdkOwnershipFailureTest(unittest.TestCase):
+    def test_fixture_rescue_skips_an_unretired_number_reused_for_a_different_object(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();fd=os.open(root/'first',os.O_CREAT|os.O_RDWR,0o600)
+            info=os.fstat(fd);stale=dict(fd=fd,dev=info.st_dev,ino=info.st_ino,active=True)
+            os.close(fd)
+            foreign_fd=os.open(root/'foreign',os.O_CREAT|os.O_RDWR,0o600)
+            info=os.fstat(foreign_fd);foreign=dict(fd=foreign_fd,dev=info.st_dev,ino=info.st_ino,active=True)
+            try:
+                self.assertEqual(foreign_fd,fd,'controlled descriptor reuse missing')
+                rescue_fixture_descriptors([stale],fstat=os.fstat,close=os.close)
+                self.assertEqual((os.fstat(foreign_fd).st_dev,os.fstat(foreign_fd).st_ino),(foreign['dev'],foreign['ino']))
+            finally:
+                rescue_fixture_descriptors([foreign],fstat=os.fstat,close=os.close)
+
+    def test_failed_fixture_assertion_rescues_skipped_close_and_preserves_reused_foreign_fd(self):
+        import sys
+        original_open,original_close,original_fstat=os.open,os.close,os.fstat
+        for case in ('live','fault'):
+            with self.subTest(case=case):
+                leaked=[];foreign=[];saved_trace=[]
+                class Primary(AssertionError):
+                    def with_traceback(self,_value):raise AssertionError('virtual traceback called')
+                primary=Primary('controlled product close assertion')
+                class Probe(unittest.TestCase):
+                    def assertFalse(self,*args,**kwargs):
+                        try:super().assertFalse(*args,**kwargs)
+                        except AssertionError:self.fail()
+                    def assertEqual(self,*args,**kwargs):
+                        try:super().assertEqual(*args,**kwargs)
+                        except AssertionError:self.fail()
+                    def fail(self,_message=None):
+                        try:raise primary
+                        except Primary:saved_trace.append(sys.exc_info()[2]);raise
+                def writer(path):
+                    if case=='fault':
+                        leaked_fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+                        info=original_fstat(leaked_fd);leaked.append(dict(fd=leaked_fd,dev=info.st_dev,ino=info.st_ino,active=True))
+                    fd=os.open(path.parent/'phase.json.new',os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
+                    if case=='live':
+                        pin=os.dup(fd);info=original_fstat(pin);leaked.append(dict(fd=pin,dev=info.st_dev,ino=info.st_ino,active=True))
+                    os.close(fd)
+                    reused=original_open(path.parent/'phase.json.new',os.O_RDONLY)
+                    info=original_fstat(reused);foreign.append(dict(fd=reused,dev=info.st_dev,ino=info.st_ino,active=True))
+                    self.assertEqual(reused,fd,'controlled retired-number reuse missing')
+                    if case=='live':
+                        try:os.replace('phase.json.new',path.name)
+                        except OSError:raise ValueError('controlled write refusal') from None
+                    else:raise OSError('controlled write refusal')
+                injected=set()
+                def rescue_close(fd):
+                    info=original_fstat(fd);identity=(fd,info.st_dev,info.st_ino)
+                    owned=next((entry for entry in leaked if (entry['fd'],entry['dev'],entry['ino'])==identity and entry['active']),None)
+                    if owned is not None:owned['active']=False
+                    original_close(fd)
+                    if owned is not None and identity not in injected:
+                        injected.add(identity);raise OSError('controlled rescue close error')
+                try:
+                    with patch.object(os,'close',side_effect=rescue_close):
+                        try:
+                            if case=='live':assert_live_temporary_pin(Probe(),writer,'phase.json.new',ValueError)
+                            else:assert_pin_cleanup_failures(Probe(),writer,'phase.json.new')
+                        except AssertionError as observed:
+                            self.assertTrue(observed is primary,'fixture cleanup replaced original assertion')
+                            trace=BaseException.__traceback__.__get__(observed)
+                            while trace is not None and trace is not saved_trace[0]:trace=trace.tb_next
+                            self.assertTrue(trace is saved_trace[0],'fixture assertion traceback changed')
+                        else:self.fail('skipped product close did not fail original assertion')
+                    for entry in leaked:
+                        with self.assertRaises(OSError):original_fstat(entry['fd'])
+                    for entry in foreign:
+                        info=original_fstat(entry['fd']);self.assertEqual((info.st_dev,info.st_ino),(entry['dev'],entry['ino']))
+                finally:
+                    # Independent safety net also contains this negative test during RED.
+                    rescue_fixture_descriptors([*leaked,*foreign],fstat=original_fstat,close=original_close)
+
+    def test_pin_failures_attempt_all_owned_closes_without_foreign_fd_retry(self):
+        assert_pin_cleanup_failures(self,lambda path:phase.write(path,record(),source=SOURCE),'phase.json.new')
+
+    def test_product_pin_survives_writer_close_and_no_external_pin_recreation(self):
+        assert_live_temporary_pin(self,lambda path:phase.write(path,record(),source=SOURCE),'phase.json.new',ValueError)
+
     def test_temp_collision_and_recreated_foreign_inode_are_never_removed(self):
         with tempfile.TemporaryDirectory() as directory:
             output=Path(directory).resolve();path=output/phase.NAME;temporary=output/'phase.json.new'
