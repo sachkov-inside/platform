@@ -1931,9 +1931,11 @@ never filtered before validation. The normal two service reads remain unchanged.
 protocol-only three reads share one ten-second deadline and evaluation time. Fresh source values,
 HTTP200 and a single metric edge do not prove that every surviving series from the same request
 has completed processing and insertion. That pinned end-to-end proof is an explicit prerequisite.
-Until independently established and accepted in a subsequent source change, the prepared driver
-fails the privacy phase even when its queries are clean. No successful native privacy verdict is
-available from this preparation.
+The source now implements the current-request export/flush barrier described in
+[PostgreSQL completion](#postgresql-завершение-текущей-проверки-приватности). Native verification
+remains pending. The latest pre-barrier native run stopped in baseline/query_refused with no
+completed cases; its exact failing step and cause are unknown. A successful native privacy verdict
+is not established by the source controls or this documentation.
 
 Public curation validates the owned source receipt and closed `postgres-source.json` before
 creating the destination. Raw SQL rows, query responses, credentials and identities stay private.

@@ -30,6 +30,7 @@ import http.client
 import json
 from pathlib import Path
 import signal
+import sys
 import socket
 import tempfile
 import threading
@@ -42,11 +43,11 @@ from test_oracle import vectors,raw,NOW
 
 @contextmanager
 def endpoint(body,*,status=200,held=None,seen=None,inspect_request=None,headers=(),tolerate_disconnect=False):
-    errors=[];threads=[]
+    errors=[];workers=[];accepted=[];stop=threading.Event();server=None;thread=None
+    primary=None;primary_tb=None
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*_):pass
         def do_POST(self):
-            threads.append(threading.current_thread())
             try:
                 length=int(self.headers['Content-Length']);packet=self.rfile.read(length)
                 if inspect_request is not None:inspect_request(self,packet)
@@ -61,15 +62,53 @@ def endpoint(body,*,status=200,held=None,seen=None,inspect_request=None,headers=
                 if not tolerate_disconnect:errors.append(error)
                 self.close_connection=True
             except BaseException as error:errors.append(error);self.close_connection=True
-    server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
-    thread=threading.Thread(target=server.serve_forever,kwargs={'poll_interval':.01});thread.start()
-    try:yield server.server_address[1]
+    class Server(ThreadingHTTPServer):
+        def get_request(self):
+            connection,address=super().get_request();accepted.append(connection)
+            connection.settimeout(1)
+            return connection,address
+        def process_request(self,request,address):
+            worker=threading.Thread(target=self.process_request_thread,args=(request,address),daemon=True)
+            workers.append(worker)  # Register the real object before any native thread can start.
+            worker.start()
+    def serve():
+        try:
+            while not stop.is_set():server.handle_request()
+        except BaseException as error:
+            if not stop.is_set():errors.append(error)
+    def cleanup(action):
+        nonlocal primary,primary_tb
+        try:action()
+        except BaseException as error:
+            if primary is None:primary,primary_tb=error,sys.exc_info()[2]
+            else:BaseException.__traceback__.__set__(primary,primary_tb)
+    try:
+        # Retain the object before __init__ can acquire a socket and then fail.
+        server=Server.__new__(Server)
+        Server.__init__(server,('127.0.0.1',0),Handler,bind_and_activate=False)
+        server.server_bind();server.server_activate();server.timeout=.01
+        thread=threading.Thread(target=serve)
+        thread.start()
+        yield server.server_address[1]
+    except BaseException as error:primary,primary_tb=error,sys.exc_info()[2]
     finally:
-        if held is not None:held.set()
-        server.shutdown();server.server_close();thread.join(2)
-        for worker in threads:worker.join(2)
-        if thread.is_alive() or any(worker.is_alive() for worker in threads):raise AssertionError('owned HTTP fixture not settled')
-        if errors:raise errors[0]
+        if held is not None:cleanup(held.set)
+        cleanup(stop.set)
+        listener=getattr(server,'socket',None)
+        if listener is not None and listener.fileno()>=0:cleanup(listener.close)
+        if thread is not None and thread.ident is not None:cleanup(lambda:thread.join(2))
+        for worker in list(workers):
+            if worker.ident is not None:cleanup(lambda worker=worker:worker.join(2))
+        for connection in accepted:
+            if connection.fileno()>=0:
+                cleanup(lambda connection=connection:connection.shutdown(socket.SHUT_RDWR))
+                cleanup(connection.close)
+        if thread is not None and thread.ident is not None and thread.is_alive() or any(worker.is_alive() for worker in workers):
+            cleanup(lambda:(_ for _ in ()).throw(AssertionError('owned HTTP fixture not settled')))
+        if errors and primary is None:primary=errors[0];primary_tb=primary.__traceback__
+        if primary is not None:
+            BaseException.__traceback__.__set__(primary,primary_tb)
+            raise primary from None
 
 
 class ActualTransport(unittest.TestCase):
@@ -86,7 +125,10 @@ class ActualTransport(unittest.TestCase):
         def watch():
             try:
                 event=ingest_seen if hold=='ingest' else flush_seen
-                if not event.wait(2):raise AssertionError('no current held request')
+                deadline=time.monotonic()+2
+                while not event.wait(.01):
+                    if release.is_set():return
+                    if time.monotonic()>=deadline:raise AssertionError('no current held request')
                 self.assertEqual(events,['ingest'] if hold=='ingest' else ['ingest','flush'])
                 self.assertEqual(reads,[])
             except BaseException as error:watch_errors.append(error)
@@ -129,8 +171,10 @@ class ActualTransport(unittest.TestCase):
                             return response()
                         client.getresponse=held_response
                     return client
-                if hold is not None and expire is None:watcher=threading.Thread(target=watch);watcher.start()
                 try:
+                    if hold is not None and expire is None:
+                        watcher=threading.Thread(target=watch)
+                        watcher.start()
                     with patch.object(completion.http.client,'HTTPConnection',side_effect=connection), \
                             patch.object(queries.urllib.request,'build_opener',return_value=Opener()), \
                             patch.object(queries.time,'time',return_value=1790000000),patch.object(queries.time,'time_ns',return_value=NOW*1000):
@@ -145,11 +189,22 @@ class ActualTransport(unittest.TestCase):
                         self.assertEqual(events,['ingest','flush']);self.assertEqual(reads,[])
                     raise
                 finally:
-                    release.set()
-                    if watcher is not None:
-                        watcher.join(2);self.assertFalse(watcher.is_alive())
-                    self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
-                    if watch_errors:raise watch_errors[0]
+                    primary,primary_tb=sys.exc_info()[1:]
+                    def finish(action):
+                        nonlocal primary,primary_tb
+                        try:action()
+                        except BaseException as error:
+                            if primary is None:primary,primary_tb=error,sys.exc_info()[2]
+                            else:BaseException.__traceback__.__set__(primary,primary_tb)
+                    finish(release.set)
+                    if watcher is not None and watcher.ident is not None:
+                        finish(lambda:watcher.join(2))
+                        finish(lambda:self.assertFalse(watcher.is_alive()))
+                    finish(lambda:self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0)))
+                    if watch_errors and primary is None:primary=watch_errors[0];primary_tb=primary.__traceback__
+                    if primary is not None:
+                        BaseException.__traceback__.__set__(primary,primary_tb)
+                        raise primary from None
         return events,owners,reads
 
     def test_real_held_current_ingest_and_flush_ack_block_later_steps(self):
@@ -301,3 +356,110 @@ class ActualPacket(unittest.TestCase):
                 with patch.object(completion.http.client,'HTTPConnection') as factory:
                     with self.assertRaises((ValueError,OSError)):completion._flush(source,time.monotonic()+1)
                     factory.assert_not_called()
+
+
+class FixtureLifetime(unittest.TestCase):
+    def test_acquisition_faults_settle_real_listener_and_started_thread_before_rescue(self):
+        for fault in ('constructor','bind','activate','start_before','start_after'):
+            with self.subTest(fault=fault):
+                servers=[];threads=[];primary=KeyboardInterrupt();caught=None
+                initialize=ThreadingHTTPServer.__init__;bind=ThreadingHTTPServer.server_bind
+                activate=ThreadingHTTPServer.server_activate;start=threading.Thread.start
+                def init(server,*args,**kwargs):
+                    initialize(server,*args,**kwargs);servers.append(server)
+                    if fault=='constructor':raise primary
+                def bound(server):
+                    bind(server)
+                    if fault=='bind':raise primary
+                def activated(server):
+                    activate(server)
+                    if fault=='activate':raise primary
+                def started(thread):
+                    threads.append(thread)
+                    if fault=='start_before':raise primary
+                    start(thread)
+                    if fault=='start_after':raise primary
+                try:
+                    with patch.object(ThreadingHTTPServer,'__init__',init),patch.object(ThreadingHTTPServer,'server_bind',bound), \
+                            patch.object(ThreadingHTTPServer,'server_activate',activated),patch.object(threading.Thread,'start',started):
+                        try:
+                            with endpoint(b'{}'):self.fail('failed fixture acquisition yielded')
+                        except BaseException as error:caught=error
+                    # Evaluate production fixture ownership BEFORE independent safety rescue.
+                    self.assertIs(caught,primary)
+                    self.assertTrue(all(server.socket.fileno()==-1 for server in servers))
+                    self.assertTrue(all(not thread.is_alive() for thread in threads))
+                finally:
+                    for server in servers:
+                        if server.socket.fileno()>=0:server.socket.close()
+                    for thread in threads:
+                        if thread.ident is not None and thread.is_alive():thread.join(3)
+
+    def test_cleanup_fault_attempts_all_eligible_joins_and_preserves_pending_primary(self):
+        for fault in ('listener_close','join'):
+            for kind in ('runtime','interrupt','exit','same'):
+                with self.subTest(fault=fault,kind=kind):
+                    servers=[];threads=[];joined=[];closed=[];saved=[]
+                    primary={'runtime':RuntimeError('first'),'interrupt':KeyboardInterrupt(),'exit':SystemExit(41),'same':RuntimeError('same')}[kind]
+                    secondary=primary if kind=='same' else OSError('cleanup')
+                    init=ThreadingHTTPServer.__init__;start=threading.Thread.start;join=threading.Thread.join;close=socket.socket.close
+                    def initialized(server,*args,**kwargs):init(server,*args,**kwargs);servers.append(server)
+                    def started(thread):threads.append(thread);return start(thread)
+                    def joining(thread,*args,**kwargs):
+                        joined.append(thread);result=join(thread,*args,**kwargs)
+                        if fault=='join' and len(joined)==1:raise secondary
+                        return result
+                    def closing(value):
+                        listener=any(server.socket is value for server in servers);result=close(value)
+                        if listener:
+                            closed.append(value)
+                            if fault=='listener_close':raise secondary
+                        return result
+                    caught=None
+                    try:
+                        with patch.object(ThreadingHTTPServer,'__init__',initialized),patch.object(threading.Thread,'start',started), \
+                                patch.object(threading.Thread,'join',joining),patch.object(socket.socket,'close',closing):
+                            try:
+                                with endpoint(b'{}') as port:
+                                    connection=http.client.HTTPConnection('127.0.0.1',port,timeout=1)
+                                    try:
+                                        connection.request('POST','/',body=b'{}');response=connection.getresponse()
+                                        try:self.assertEqual(response.read(),b'{}')
+                                        finally:response.close()
+                                    finally:connection.close()
+                                    try:raise primary
+                                    except BaseException:saved.append(primary.__traceback__);raise
+                            except BaseException as error:caught=error
+                        self.assertIs(caught,primary)
+                        self.assertEqual(len(closed),1);self.assertGreaterEqual(len(joined),2)
+                        self.assertEqual(len(joined),len(set(joined)))
+                        self.assertTrue(all(not thread.is_alive() for thread in threads))
+                        self.assertTrue(all(server.socket.fileno()==-1 for server in servers))
+                        names=[];frames=[];trace=caught.__traceback__
+                        while trace is not None:names.append(trace.tb_frame.f_code.co_name);frames.append(trace);trace=trace.tb_next
+                        self.assertTrue(any(item is saved[0] for item in frames));self.assertNotIn('joining',names);self.assertNotIn('closing',names)
+                    finally:
+                        for server in servers:
+                            if server.socket.fileno()>=0:close(server.socket)
+                        for thread in threads:
+                            if thread.ident is not None and thread.is_alive():join(thread,3)
+
+    def test_watcher_start_failure_after_native_start_settles_every_owned_resource(self):
+        servers=[];threads=[];primary=SystemExit(43);caught=None
+        init=ThreadingHTTPServer.__init__;start=threading.Thread.start
+        def initialized(server,*args,**kwargs):init(server,*args,**kwargs);servers.append(server)
+        def started(thread):
+            threads.append(thread);start(thread)
+            if getattr(thread,'_target',None).__name__=='watch':raise primary
+        try:
+            with patch.object(ThreadingHTTPServer,'__init__',initialized),patch.object(threading.Thread,'start',started):
+                try:ActualTransport().exercise(hold='ingest')
+                except BaseException as error:caught=error
+            self.assertIs(caught,primary)
+            self.assertTrue(all(server.socket.fileno()==-1 for server in servers))
+            self.assertTrue(all(not thread.is_alive() for thread in threads))
+        finally:
+            for server in servers:
+                if server.socket.fileno()>=0:server.socket.close()
+            for thread in threads:
+                if thread.ident is not None and thread.is_alive():thread.join(3)
