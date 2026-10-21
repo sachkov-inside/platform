@@ -106,8 +106,9 @@ flock --exclusive --nonblock 9
    `/etc/inside/foundation/backup-policy.env` mode 0600 задать `INSIDE_BACKUP_REPOSITORY=1`.
    Выполнить `systemctl daemon-reload`, проверить отсутствие CLI/env переопределений expire
    у всех entrypoints. Зафиксировать inventory **T0**, все его labels и зависимости сохранять.
-   Вернуть timers только после подтверждения effective policy. Изменение защиты от expire
-   не должно откатываться при дальнейшей ошибке.
+   Timers оставить остановленными до шага 8, чтобы backup не начался во время следующего
+   переключения config/recreate. Нужные промежуточные backups выполняются вручную под теми же
+   locks. Изменение защиты от expire не должно откатываться при дальнейшей ошибке.
 4. Через защищённую процедуру подготовить `pgbackrest-repo2.env.staged` mode 0600.
    Bucket/access key соответствуют repo1, cipher passphrase новая и независимая. Зашифровать
    для host и offline recipients до создания stanza. Не печатать значения, не копировать
@@ -153,13 +154,18 @@ flock --exclusive --nonblock 9
    immediate и named/time targets. Пример для encrypted staging нового repository:
 
    ```bash
+   PRODUCTION_IMAGE_ID="$(docker inspect --format '{{.Image}}' inside-production-database-postgres-1)"
+   docker image inspect --format '{{.Id}}' "$PRODUCTION_IMAGE_ID"
    python3 -B scripts/isolated-database-restore.py \
-     --image sha256:e8c0c4e0acd81074186c2bc85dec272d820dae2a7cb55827ebd0d3f404e764a5 \
+     --image "$PRODUCTION_IMAGE_ID" \
      --repository /var/lib/inside/backup-assurance/new-repository \
      --cipher-env /var/lib/inside/backup-assurance/repo2-cipher.env \
      --repo 2 --backup-label "$NEW_FULL_LABEL"
    ```
 
+   Local `.Image`/`.Id` проверить до создания recovery ресурсов, связать с принятой image
+   identity. Не подставлять произвольный OCI manifest вместо local image ID. Наблюдение
+   host receipt получено именно из container `.Image`, а не из RepoDigests.
    Cipher file mode 0600 содержит только `PGBACKREST_REPO2_CIPHER_PASS`; его значение не
    печатать. Для PITR добавить `--target-time "$TARGET_UTC"`, формат
    `YYYY-MM-DDTHH:MM:SS+00:00`, либо `--target-name "$RESTORE_POINT"`.
@@ -180,6 +186,8 @@ flock --exclusive --nonblock 9
 вернуть backup policy 1. Проверить WAL catch-up, свежую old копию и isolated restore.
 Не восстанавливать старый backup поверх рабочей БД. При gap WAL или неуспешном restore
 возврат не считать завершённым, новые изменения остановить. Защиту истории не отменять.
+На отмене операции после проверки рабочего WAL маршрута вернуть правильную backup policy
+и её timers. Не оставлять расписание выключенным после завершения или передачи операции.
 
 ## Закрытие результата
 

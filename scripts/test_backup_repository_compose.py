@@ -31,7 +31,8 @@ class TransitionCompose(unittest.TestCase):
                 return json.loads(base.invoke([
                     *docker, "compose", "--env-file", str(compose_env), "--file",
                     str(base.ROOT / "infra/production/database/compose.yaml"),
-                    "--profile", "repository-transition", "config", "--format=json"]).stdout)
+                    "--profile", "repository-transition", "--profile", "operations",
+                    "config", "--format=json"]).stdout)
             config = resolve()
             initializer = config["services"]["initialize-repo2"]
             keys = set(initializer["environment"])
