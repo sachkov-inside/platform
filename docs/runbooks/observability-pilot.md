@@ -2129,7 +2129,12 @@ native outcome. Raw captured unittest text is not the opt-in Linux assertion mes
 
 Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
 replace any of the original 274 methods. Synthetic dispatch/parity checks do not establish an
-actual admitted Linux run or explain an earlier source timeout. Hosted exact-source verification
+actual admitted Linux run or explain an earlier source timeout. Their separate assertion can
+identify a failed protocol method and the fixed category `failure` or `error` from one optional
+failure-only footer. It reads no traceback text. The three fixed positions do not report start,
+completion or success. Missing, foreign, truncated or oversized metadata stays `unknown`; native
+status, spawn error and signal remain authoritative. This feedback does not fix or explain a
+Python-version-specific failure. Hosted exact-source verification
 is still required. The stronger withdrawn owner/guardian proposals and their open
 `CORE-PROG-SEC-01`, `CPROG-PRE-01` and `CPROG-PRE-02` findings are neither fixed nor waived here.
 Application CI activation is a separate reviewed change to the existing tooling step only; it
