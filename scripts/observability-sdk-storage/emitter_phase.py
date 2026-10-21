@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import stat
+import sys
 import tempfile
 
 NAME = 'sdk-emitter-phase.json'
@@ -148,46 +149,59 @@ def write(path,value,*,source):
     if path.name not in (NAME,'phase.json'): _refuse()
     raw=(json.dumps(validate(value,source=source),sort_keys=True,separators=(',',':'))+'\n').encode()
     if len(raw)>MAX_BYTES:_refuse()
-    directory=descriptor=None;created=None
+    directory=descriptor=pin=None;created=None;failure=traceback=None
     try:
-        directory=_directory(path)
-        directory_info=os.fstat(directory)
-        descriptor=os.open('phase.json.new',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
-        created=os.fstat(descriptor)
-        offset=0
-        while offset<len(raw):
-            count=os.write(descriptor,raw[offset:])
-            if count<=0:_refuse()
-            offset+=count
-        final=os.fstat(descriptor)
-        if (not stat.S_ISREG(final.st_mode) or final.st_mode & 0o777 != 0o600
-                or final.st_uid != os.getuid() or final.st_nlink != 1 or final.st_size != len(raw)
-                or _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False))):_refuse()
-        os.close(descriptor);descriptor=None
         try:
-            existing=os.stat(path.name,dir_fd=directory,follow_symlinks=False)
-        except FileNotFoundError:existing=None
-        if existing is not None and (not stat.S_ISREG(existing.st_mode) or existing.st_uid!=os.getuid()
-                or existing.st_mode & 0o777 != 0o600 or existing.st_nlink!=1):_refuse()
-        if _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)):_refuse()
-        _same_directory(directory,path,directory_info)
-        os.replace('phase.json.new',path.name,src_dir_fd=directory,dst_dir_fd=directory)
-        created=None
-    except (OSError,ValueError,TypeError):_refuse()
+            directory=_directory(path)
+            directory_info=os.fstat(directory)
+            descriptor=os.open('phase.json.new',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
+            created=os.fstat(descriptor)
+            offset=0
+            while offset<len(raw):
+                count=os.write(descriptor,raw[offset:])
+                if count<=0:_refuse()
+                offset+=count
+            final=os.fstat(descriptor)
+            if (not stat.S_ISREG(final.st_mode) or final.st_mode & 0o777 != 0o600
+                    or final.st_uid != os.getuid() or final.st_nlink != 1 or final.st_size != len(raw)
+                    or _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False))):_refuse()
+            # Keep this inode alive after writer close and through named cleanup.
+            pin=os.dup(descriptor)
+            if _identity(os.fstat(pin))!=_identity(final):_refuse()
+            writer=descriptor;descriptor=None
+            os.close(writer)
+            try:existing=os.stat(path.name,dir_fd=directory,follow_symlinks=False)
+            except FileNotFoundError:existing=None
+            if existing is not None and (not stat.S_ISREG(existing.st_mode) or existing.st_uid!=os.getuid()
+                    or existing.st_mode & 0o777 != 0o600 or existing.st_nlink!=1):_refuse()
+            if _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)):_refuse()
+            _same_directory(directory,path,directory_info)
+            os.replace('phase.json.new',path.name,src_dir_fd=directory,dst_dir_fd=directory)
+            created=None
+        except (OSError,ValueError,TypeError):_refuse()
+    except BaseException as error:
+        failure=error;traceback=sys.exc_info()[2]
     finally:
         try:
-            if descriptor is not None:os.close(descriptor)
-        finally:
-            try:
-                if created is not None and directory is not None:
-                    try:current=os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)
-                    except FileNotFoundError:current=None
-                    if (current is not None and stat.S_ISREG(current.st_mode) and current.st_nlink==1
-                            and current.st_uid==created.st_uid and current.st_gid==created.st_gid
-                            and current.st_mode & 0o777==0o600 and (current.st_dev,current.st_ino)==(created.st_dev,created.st_ino)):
-                        os.unlink('phase.json.new',dir_fd=directory)
-            finally:
-                if directory is not None:os.close(directory)
+            live=pin if pin is not None else descriptor
+            if created is not None and directory is not None and live is not None:
+                held=os.fstat(live)
+                try:current=os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)
+                except FileNotFoundError:current=None
+                if (current is not None and stat.S_ISREG(current.st_mode) and current.st_nlink==1
+                        and current.st_uid==created.st_uid and current.st_gid==created.st_gid
+                        and current.st_mode & 0o777==0o600
+                        and (held.st_dev,held.st_ino)==(created.st_dev,created.st_ino)==(current.st_dev,current.st_ino)):
+                    os.unlink('phase.json.new',dir_fd=directory)
+        except BaseException as error:
+            if failure is None:failure=error;traceback=sys.exc_info()[2]
+        # Each acquired handle gets one close attempt; never retry a retired number.
+        for owned in (descriptor,pin,directory):
+            if owned is not None:
+                try:os.close(owned)
+                except BaseException as error:
+                    if failure is None:failure=error;traceback=sys.exc_info()[2]
+    if failure is not None:raise BaseException.with_traceback(failure,traceback)
 
 
 def source_from_metadata(metadata):
