@@ -590,7 +590,8 @@ def run_prepared(output, images, cache, stage):
         acquired = True
     try:
         return pilot.run(output, prepare_inputs=prepare_owned, worker_script=Path(__file__).resolve(),
-                         project_prefix=PROJECT_PREFIX, services=SERVICES, scope='short proposed real API SDK-only resource experiment', missing=MISSING.copy())
+                         project_prefix=PROJECT_PREFIX, services=SERVICES, scope='short proposed real API SDK-only resource experiment', missing=MISSING.copy(),
+                         worker_pass_fds=stage.pass_fds() if stage else ())
     finally:
         primary = sys.exc_info()[1]
         try:

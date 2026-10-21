@@ -139,7 +139,7 @@ def record_failure(recorder, error):
         recorder.fail('unknown_failure')
 
 
-def command(args, timeout, *, recorder=None, stage=None, kind=None):
+def command(args, timeout, *, recorder=None, stage=None, kind=None, pass_fds=()):
     # Own the complete Docker CLI/plugin group, including timeout and interruption.
     process = None
     try:
@@ -150,7 +150,7 @@ def command(args, timeout, *, recorder=None, stage=None, kind=None):
         if recorder:
             recorder.start(stage, 'child_spawn', kind=kind)
         process = subprocess.Popen(runtime.pilot.docker_args(args), cwd=binding.ROOT,
-            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            start_new_session=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, pass_fds=pass_fds)
         if recorder:
             recorder.start(stage, 'child_wait')
         status = process.wait(timeout=timeout)
@@ -239,18 +239,18 @@ def prepare_acquired(source, images, recorder, numeric, identity, owner, pins, s
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],
                  '--label', preparation.LABEL + '=' + stage.receipt['token'],
                  '--iidfile', str(stage.iidfile('backend')),
-                 '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds')
+                 '--tag', owner + '-backend:v1', '.'], 600, recorder=recorder, stage='backend_build', kind='builds', pass_fds=stage.pass_fds())
         stage.capture()
         numeric.after_backend_build()
         command(['docker', 'build', '--file', 'infra/production/database/Dockerfile',
                  '--label', preparation.LABEL + '=' + stage.receipt['token'],
                  '--iidfile', str(stage.iidfile('foundation')),
                  '--tag', owner + '-foundation:local', 'infra/production/database'], 180,
-                 recorder=recorder, stage='foundation_build', kind='builds')
+                 recorder=recorder, stage='foundation_build', kind='builds', pass_fds=stage.pass_fds())
         stage.capture()
         for service, image in pins.items():
             numeric.first_pull()
-            command(['docker', 'pull', image], 90, recorder=recorder, stage='preload_'+service, kind='pulls')
+            command(['docker', 'pull', image], 90, recorder=recorder, stage='preload_'+service, kind='pulls', pass_fds=stage.pass_fds())
         value = {'schema': 1, 'source': source['checkout_sha'], 'owner': owner}
         for key, suffix in (('backend', '-backend:v1'), ('foundation', '-foundation:local')):
             recorder.start(key+'_inspect', 'identity_probe')

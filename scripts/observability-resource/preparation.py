@@ -122,6 +122,11 @@ class Stage:
             raise ValueError('preparation_build_role')
         return self.path / (role + '.iid')
 
+    def pass_fds(self):
+        if self._use_descriptor is None:
+            raise ValueError('preparation_active_use_required')
+        return (self._use_descriptor,)
+
     @contextmanager
     def locked(self):
         info = self.path.lstat()

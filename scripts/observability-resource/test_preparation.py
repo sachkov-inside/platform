@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import selectors
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -54,6 +55,74 @@ class Docker:
 
 
 class Lifetime(unittest.TestCase):
+    def test_killed_producer_cannot_release_inputs_before_its_live_build_child_exports(self):
+        for mode in ('preparation', 'runtime-worker'):
+            with self.subTest(mode=mode):
+                self.late_export(mode)
+
+    def late_export(self, mode):
+        import runtime
+        child_script = '''import os,socket,sys
+from pathlib import Path
+root=Path(sys.argv[1])
+with socket.socket(socket.AF_UNIX) as peer:
+    peer.connect(str(root/'build.sock'));peer.sendall(str(os.getpid()).encode())
+    assert peer.recv(2)==b'go'
+    Path(sys.argv[2]).write_text('sha256:'+'b'*64)
+    peer.sendall(b'exported');assert peer.recv(2)==b'ok'
+'''
+        producer_script = '''import sys
+from pathlib import Path
+import hosted,preparation
+from test_preparation import Docker,SOURCE,OWNER,DAEMON
+root=Path(sys.argv[1]);docker=Docker()
+with preparation.acquire(root/'images.json',SOURCE,OWNER,DAEMON,'runtime',docker=docker,identify=lambda:DAEMON) as stage:
+    execute=[sys.executable,'-B','-c',sys.argv[2],str(root),str(stage.iidfile('backend'))]
+    if sys.argv[3]=='preparation':
+        hosted.command(execute,30,pass_fds=stage.pass_fds())
+    else:
+        fixture=hosted.runtime.ROOT/'scripts/observability-pilot/fixtures/process.py'
+        compose=[sys.executable,str(fixture),'compose',str(root),'normal']
+        docker=[sys.executable,str(fixture),'docker',str(root),'normal']
+        hosted.runtime.pilot.supervise_worker(execute,compose,root,'inside-observability-resource-012345abcdef',
+            docker=docker,deadline_seconds=30,pass_fds=stage.pass_fds())
+'''
+        with tempfile.TemporaryDirectory() as directory, socket.socket(socket.AF_UNIX) as server:
+            root = Path(directory)
+            server.bind(str(root / 'build.sock'))
+            server.listen(1)
+            server.settimeout(10)
+            producer = subprocess.Popen([sys.executable, '-B', '-c', producer_script, directory, child_script, mode],
+                cwd=Path(__file__).parent, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, start_new_session=True)
+            child_pid = None
+            try:
+                peer, _ = server.accept()
+                with peer:
+                    peer.settimeout(10)
+                    child_pid = int(peer.recv(64))
+                    producer.kill()
+                    producer.wait(timeout=5)
+                    docker = Docker()
+                    stage = preparation.open_stage(root / 'images.json', docker=docker, identify=lambda: DAEMON)
+                    with (stage.path / 'use.lock').open('rb') as lock:
+                        with self.assertRaises(BlockingIOError):
+                            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    peer.sendall(b'go')
+                    self.assertEqual(peer.recv(16), b'exported')
+                    docker.build(stage)
+                    peer.sendall(b'ok')
+                self.assertEqual(stage.release('runtime', cleanup_ok=True)['retired'], [IMAGE])
+            finally:
+                if producer.poll() is None:
+                    producer.kill()
+                    producer.wait(timeout=5)
+                if child_pid is not None:
+                    try:
+                        os.killpg(child_pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                producer.stderr.close()
+
     def test_partial_retirement_records_each_removed_id_and_retry_preserves_original_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             docker = Docker()

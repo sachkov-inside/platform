@@ -1139,7 +1139,7 @@ def cleanup_project(compose, output, project, *, docker=("docker",), services=SE
 
 
 def supervise_worker(execute, compose, output, project, *, docker=("docker",),
-                     deadline_seconds=PILOT_DEADLINE_SECONDS, cleanup_services=None):
+                     deadline_seconds=PILOT_DEADLINE_SECONDS, cleanup_services=None, pass_fds=()):
     """Supervisor stays outside the worker group that owns all acquisition processes."""
     started = time.monotonic()
     process = None
@@ -1152,7 +1152,7 @@ def supervise_worker(execute, compose, output, project, *, docker=("docker",),
     signal.signal(signal.SIGUSR1, latch_monitor_failure)
     try:
         try:
-            process = subprocess.Popen(execute, start_new_session=True)
+            process = subprocess.Popen(execute, start_new_session=True, pass_fds=pass_fds)
             write_json(output / 'worker.json', {'pid':process.pid, 'group':process.pid,
                        'supervisor_pid':os.getpid(), 'deadline_seconds':deadline_seconds})
             deadline = time.monotonic() + deadline_seconds
@@ -1261,7 +1261,7 @@ def worker_storage_guard(owner, compose, output):
 
 
 def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318, 13000),
-        project_prefix='inside-observability-pilot-', services=None, scope=None, missing=None):
+        project_prefix='inside-observability-pilot-', services=None, scope=None, missing=None, worker_pass_fds=()):
     if command(["git", "-C", str(ROOT), "status", "--porcelain"]).strip():
         raise RuntimeError("commit pilot inputs before running; evidence must identify immutable source")
     context = command(["docker", "context", "show"]).strip()
@@ -1315,7 +1315,8 @@ def run(output, *, prepare_inputs=None, worker_script=None, ports=(18427, 14318,
         guard = orbstack.host_budget(mac, output, command) if mac else nullcontext()
         with guard:
             status = supervise_worker([sys.executable, str(worker_script or Path(__file__).resolve()), "worker", "--output", str(output)],
-                                      compose, output, project, **({'cleanup_services':services} if services is not None else {}))
+                                      compose, output, project, pass_fds=worker_pass_fds,
+                                      **({'cleanup_services':services} if services is not None else {}))
         evidence = json.loads((output / "evidence.json").read_text())
         evidence["worker_exit_code"] = status
         if status:
