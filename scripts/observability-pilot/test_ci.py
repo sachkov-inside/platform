@@ -122,18 +122,18 @@ class HostedEvidenceTest(unittest.TestCase):
             expected = {
                 'infra/observability/pilot/' + name for name in (
                     'inputs.lock.json', 'config.alloy', 'privacy-policy.json',
-                    'Caddyfile', 'vmauth.routes.json', 'probe.lock.json')
+                    'Caddyfile', 'vmauth.routes.json', 'probe.lock.json', 'owner-overview.json')
             } | {
                 'scripts/observability-pilot/' + name for name in (
                     'ci.py', 'core_timing.py', 'source_status.py', 'source_status_query.py',
-                    'source_status_scenario.py', 'pilot.py', 'native_cpu.py',
+                    'source_status_scenario.py', 'pilot.py', 'owner_overview.py', 'native_cpu.py',
                     'privacy_config.py', 'collector_privacy.py', 'link_privacy.py',
                     'notification_privacy.py', 'dependency_privacy.py', 'email_privacy.py',
                     'telegram_http_storage.py', 'daemon.py', 'orbstack.py', 'storage_policy.py',
                     'telegram_runtime_privacy.py', 'telegram_runtime_oracle.py')
             } | {'.github/workflows/observability-pilot.yml', 'apps/backend/openapi/platform-api.json'}
             self.assertEqual(set(proof['inputs']), expected)
-            self.assertEqual(len(proof['inputs']), 27)
+            self.assertEqual(len(proof['inputs']), 29)
             relative = 'apps/backend/openapi/platform-api.json'
             self.assertEqual(proof['inputs'][relative], hashlib.sha256((ci.ROOT/relative).read_bytes()).hexdigest())
             workflow = (ci.ROOT/'.github/workflows/observability-pilot.yml').read_text()
@@ -147,11 +147,11 @@ class HostedEvidenceTest(unittest.TestCase):
         import hashlib
         import io
         original_read = Path.read_bytes
-        for name in ('telegram_runtime_privacy.py', 'telegram_runtime_oracle.py'):
+        for name in ('telegram_runtime_privacy.py', 'telegram_runtime_oracle.py', 'owner_overview.py', 'owner-overview.json'):
             with self.subTest(module=name), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
                 metadata = root / 'metadata'
-                relative = 'scripts/observability-pilot/' + name
+                relative = ('infra/observability/pilot/' if name == 'owner-overview.json' else 'scripts/observability-pilot/') + name
                 changed = ci.ROOT / relative
                 def command(args):
                     if args[-1] == 'HEAD':

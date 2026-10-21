@@ -142,6 +142,8 @@ class OverviewContract(unittest.TestCase):
         result = overview.reduce(prepared, partial)
         self.assertEqual(result['cohorts']['B']['values']['requests_estimate'], 200.5)
         self.assertEqual(result['sources']['collector']['state'], 'unknown')
+        self.assertEqual(result['query_evidence'][-1]['state'], 'interrupted')
+        self.assertIsNone(result['query_evidence'][-1]['completed_at'])
 
     def test_invalid_requests_are_refused_before_query_rendering(self):
         for key, value in [('after_sha', 'a'*40), ('before_sha', 'private-canary'),
@@ -164,6 +166,7 @@ class OverviewContract(unittest.TestCase):
             self.assertIn('and on()', expression)
             self.assertIn('>= 100', expression)
             self.assertIn('>= 718', expression)
+            self.assertIn('label_match(label_set(vector(1)', expression)
             self.assertIn('<= 10', expression)
             self.assertNotIn('bool', expression)
             self.assertNotIn('vector(0)', expression)

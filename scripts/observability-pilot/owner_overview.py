@@ -114,8 +114,9 @@ def _render(service, environment, release, duration, evaluated_at, other_release
                   f"({q['counter_resets']}) == {p['maximum_resets']}",
                   f"({q['metric_export_failures_estimate']}) == {p['maximum_metric_export_failure_estimate']}",
                   f"({q['collection_failure_estimate']}) == 0", f"({q['current_sources_usable']})"]
-    predicates.append('count(label_set(vector(1),"release",' + _literal(release) +
-                      ') or label_set(vector(1),"release",' + _literal(other_release) + ')) == 2')
+    def admitted_release(value):
+        return 'label_match(label_set(vector(1),"release",' + _literal(value) + '),"release","^[0-9a-f]{40}$")'
+    predicates.append('count(' + admitted_release(release) + ' or ' + admitted_release(other_release) + ') == 2')
     mask = ' and on() '.join('(' + predicate + ')' for predicate in predicates)
     result = {}
     for kind, fields in rendered.items():
@@ -313,6 +314,9 @@ def reduce(prepared, results):
                 _refuse()
             state = entry['state']
             try:
+                if state != 'received' and entry['completed_at'] is None:
+                    report['query_evidence'].append({'id': entry['id'], 'state': state, 'completed_at': None})
+                    break
                 completed = _utc(entry['completed_at'], completion=True)
                 if completed < previous:
                     _refuse()
@@ -359,6 +363,7 @@ def reduce(prepared, results):
                 item['values'][field] = None
         item['reason'] = reason or 'historical_completeness_unknown'
         item['state'] = 'partial' if any(value is not None for value in item['values'].values()) else 'unknown'
+    report['state'] = 'partial' if any(item['state'] == 'partial' for item in report['cohorts'].values()) else 'unknown'
     if len(json.dumps(report, allow_nan=False).encode()) > MAX_REPORT_BYTES:
         _refuse()
     return report
@@ -411,7 +416,7 @@ def dashboard():
         panels.append({'id': index, 'type': 'table', 'title': 'Collection ' + name + ' as of E',
             'gridPos': {'x': 0, 'y': 33 + (index-10)*7, 'w': 24, 'h': 7},
             'datasource': {'type': 'prometheus', 'uid': 'pilot-metrics'},
-            'transformations': [{'id': 'filterFieldsByName', 'options': {'include': {'names': ['Time', 'Value', 'job']}}}],
+            'transformations': [{'id': 'filterFieldsByName', 'options': {'include': {'names': ['Time', 'Value', 'job', '__name__', 'source_metric']}}}],
             'targets': [{'refId': 'A', 'expr': target_expression(expression), 'instant': True,
                          'range': False, 'format': 'table'}],
             'fieldConfig': {'defaults': {'noValue': 'NoData (unknown)'}, 'overrides': []}})
