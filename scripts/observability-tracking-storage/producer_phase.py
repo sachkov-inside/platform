@@ -94,7 +94,7 @@ def _same_directory(descriptor,path,initial):
     except OSError:_refuse()
 
 
-def _read_bytes(path,cap,*,mode=0o600):
+def _read_bytes(path,cap,*,mode=0o600,preserve_primary=False):
     descriptor=directory=None;present=False
     try:
         directory=_directory(path)
@@ -122,10 +122,21 @@ def _read_bytes(path,cap,*,mode=0o600):
         if present:_refuse()
         raise
     finally:
-        try:
-            if descriptor is not None:os.close(descriptor)
-        finally:
-            if directory is not None:os.close(directory)
+        if preserve_primary:
+            primary=sys.exc_info()[1];initial=sys.exc_info()[2]
+            failure=traceback=None
+            for owned in (descriptor,directory):
+                if owned is not None:
+                    try:os.close(owned)
+                    except BaseException as error:
+                        if failure is None:failure=error;traceback=sys.exc_info()[2]
+            if primary is not None:BaseException.__traceback__.__set__(primary,initial)
+            elif failure is not None:raise BaseException.with_traceback(failure,traceback)
+        else:
+            try:
+                if descriptor is not None:os.close(descriptor)
+            finally:
+                if directory is not None:os.close(directory)
 
 
 def read(path, *, source):
@@ -150,12 +161,20 @@ def write(path,value,*,source):
     if path.name not in (NAME,'phase.json'): _refuse()
     raw=(json.dumps(validate(value,source=source),sort_keys=True,separators=(',',':'))+'\n').encode()
     if len(raw)>MAX_BYTES:_refuse()
+    _commit_record(path,raw,'phase')
+
+
+def _commit_record(path,raw,kind):
+    if type(kind) is not str or kind not in ('phase','unexpected_keys'):_refuse()
+    allowed=(NAME,'phase.json') if kind=='phase' else ('tracking-unexpected-keys.json',)
+    temporary='phase.json.new' if kind=='phase' else '.tracking-unexpected-keys.json.new'
+    if type(raw) is not bytes or len(raw)>MAX_BYTES or path.name not in allowed:_refuse()
     directory=descriptor=pin=None;created=None;failure=traceback=None
     try:
         try:
             directory=_directory(path)
             directory_info=os.fstat(directory)
-            descriptor=os.open('phase.json.new',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
+            descriptor=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=directory)
             created=os.fstat(descriptor)
             offset=0
             while offset<len(raw):
@@ -165,7 +184,7 @@ def write(path,value,*,source):
             final=os.fstat(descriptor)
             if (not stat.S_ISREG(final.st_mode) or final.st_mode & 0o777 != 0o600
                     or final.st_uid != os.getuid() or final.st_nlink != 1 or final.st_size != len(raw)
-                    or _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False))):_refuse()
+                    or _identity(final)!=_identity(os.stat(temporary,dir_fd=directory,follow_symlinks=False))):_refuse()
             # Keep this inode alive after writer close and through named cleanup.
             pin=os.dup(descriptor)
             if _identity(os.fstat(pin))!=_identity(final):_refuse()
@@ -175,9 +194,9 @@ def write(path,value,*,source):
             except FileNotFoundError:existing=None
             if existing is not None and (not stat.S_ISREG(existing.st_mode) or existing.st_uid!=os.getuid()
                     or existing.st_mode & 0o777 != 0o600 or existing.st_nlink!=1):_refuse()
-            if _identity(final)!=_identity(os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)):_refuse()
+            if _identity(final)!=_identity(os.stat(temporary,dir_fd=directory,follow_symlinks=False)):_refuse()
             _same_directory(directory,path,directory_info)
-            os.replace('phase.json.new',path.name,src_dir_fd=directory,dst_dir_fd=directory)
+            os.replace(temporary,path.name,src_dir_fd=directory,dst_dir_fd=directory)
             created=None
         except (OSError,ValueError,TypeError):_refuse()
     except BaseException as error:
@@ -187,13 +206,13 @@ def write(path,value,*,source):
             live=pin if pin is not None else descriptor
             if created is not None and directory is not None and live is not None:
                 held=os.fstat(live)
-                try:current=os.stat('phase.json.new',dir_fd=directory,follow_symlinks=False)
+                try:current=os.stat(temporary,dir_fd=directory,follow_symlinks=False)
                 except FileNotFoundError:current=None
                 if (current is not None and stat.S_ISREG(current.st_mode) and current.st_nlink==1
                         and current.st_uid==created.st_uid and current.st_gid==created.st_gid
                         and current.st_mode & 0o777==0o600
                         and (held.st_dev,held.st_ino)==(created.st_dev,created.st_ino)==(current.st_dev,current.st_ino)):
-                    os.unlink('phase.json.new',dir_fd=directory)
+                    os.unlink(temporary,dir_fd=directory)
         except BaseException as error:
             if failure is None:failure=error;traceback=sys.exc_info()[2]
         # Each acquired handle gets one close attempt; never retry a retired number.
@@ -203,6 +222,28 @@ def write(path,value,*,source):
                 except BaseException as error:
                     if failure is None:failure=error;traceback=sys.exc_info()[2]
     if failure is not None:raise BaseException.with_traceback(failure,traceback)
+
+
+def read_unexpected_keys(path,*,source):
+    import unexpected_keys
+    if Path(path).name!=unexpected_keys.NAME:raise ValueError(unexpected_keys.MESSAGE) from None
+    try:return unexpected_keys.validate(_decode(_read_bytes(Path(path),MAX_BYTES,preserve_primary=True)),source=source)
+    except FileNotFoundError:
+        return unexpected_keys.validate(dict(schema=1,scope='tracking',source=source,state='unknown',
+            gate='unknown',role='unknown',known_keys=[],other=False),source=source)
+    except (OSError,ValueError,TypeError,UnicodeError,RecursionError,OverflowError):
+        raise ValueError(unexpected_keys.MESSAGE) from None
+
+
+def write_unexpected_keys(path,value,*,source):
+    import unexpected_keys
+    path=Path(path)
+    if path.name!=unexpected_keys.NAME:raise ValueError(unexpected_keys.MESSAGE) from None
+    value=unexpected_keys.validate(value,source=source)
+    raw=(json.dumps(value,sort_keys=True,separators=(',',':'))+'\n').encode()
+    try:_commit_record(path,raw,'unexpected_keys')
+    except (OSError,ValueError,TypeError,UnicodeError,RecursionError,OverflowError):
+        raise ValueError(unexpected_keys.MESSAGE) from None
 
 
 def source_from_metadata(metadata):
