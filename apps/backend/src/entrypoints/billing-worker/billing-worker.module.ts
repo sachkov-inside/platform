@@ -1,5 +1,3 @@
-import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
-import { BookmarksModule } from "../../modules/bookmarks/index.js";
 import { WebTelemetryModule } from "../../modules/web-telemetry/index.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
@@ -25,8 +23,6 @@ export class BillingWorkerModule {
         PrismaModule,
         BillingModule,
         WebTelemetryModule,
-        ReadingActivityModule,
-        BookmarksModule,
         CommunityEntitlementsModule,
         CoverageCatalogModule,
         RecipientLinksModule,

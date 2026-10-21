@@ -1,8 +1,4 @@
 import {
-  registerActivityRetentionDiagnosticsTool,
-  type ActivityRetentionDiagnostics,
-} from "./activity-retention-diagnostics.js";
-import {
   registerParticipantDiagnosticsTool,
   type ParticipantDiagnostics,
 } from "./participant-diagnostics.js";
@@ -41,7 +37,6 @@ import {
 
 export interface InsideMcpToolDependencies {
   readonly accountId: string;
-  readonly retention: Pick<ActivityRetentionDiagnostics, "read">;
   readonly participants: Pick<ParticipantDiagnostics, "read">;
   readonly queues: Pick<QueueDiagnostics, "read">;
   readonly funnel: Pick<SalesFunnel, "readDiagnostics">;
@@ -69,10 +64,6 @@ export function assembleInsideMcpServer(
   registerCommunicationsTools(server, {
     accountId,
     communications: dependencies.communications,
-  });
-  registerActivityRetentionDiagnosticsTool(server, {
-    accountId,
-    retention: dependencies.retention,
   });
   registerParticipantDiagnosticsTool(server, {
     accountId,

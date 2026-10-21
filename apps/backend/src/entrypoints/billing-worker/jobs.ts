@@ -1,6 +1,3 @@
-import { activityRetentionPass } from "../../infrastructure/activity-retention.js";
-import type { ReadingActivityRetention } from "../../modules/reading-activity/index.js";
-import type { BookmarkActivityRetention } from "../../modules/bookmarks/index.js";
 import type {
   BillingPayments,
   BillingSubscriptions,
@@ -44,35 +41,4 @@ export async function runNoticeJob(
   const result = await notices.scheduleReminders(limit);
   if (!result.ok) throw new Error(result.error.code);
   return result.value;
-}
-
-class ActivityRetentionFailure extends Error {
-  constructor(
-    readonly activityRetention: ReturnType<typeof activityRetentionPass>,
-  ) {
-    super("activity_retention_failed");
-  }
-}
-/** Each owner commits independently; the failed receipt retains validated partial outcomes. */
-export async function runActivityRetentionJob(
-  reading: Pick<ReadingActivityRetention, "clean">,
-  bookmarks: Pick<BookmarkActivityRetention, "clean">,
-) {
-  const settle = async (owner: Pick<ReadingActivityRetention, "clean">) => {
-    try {
-      return await owner.clean();
-    } catch {
-      return {
-        ok: false as const,
-        status: "unknown" as const,
-        error: { code: "source_unavailable" as const },
-      };
-    }
-  };
-  const report = activityRetentionPass(
-    await settle(reading),
-    await settle(bookmarks),
-  );
-  if (report.outcome === "failed") throw new ActivityRetentionFailure(report);
-  return { activityRetention: report };
 }

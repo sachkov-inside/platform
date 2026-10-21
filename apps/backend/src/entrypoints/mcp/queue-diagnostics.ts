@@ -63,7 +63,7 @@ export function registerQueueDiagnosticsTool(
     {
       title: "Read Platform pg-boss queue diagnostics",
       description:
-        "Requires platform:admin. Read-only aggregate snapshot of ten fixed Platform pg-boss queues: retained job states, backlog (created/retry including scheduled/blocked), ready, scheduled, blocked, retrying unfinished jobs, retained retry attempts, oldest backlog age. No payloads, job IDs, providers or queue mutations. 2s statement/5s transaction/1s connection budgets; schema/source/budget failure is unknown, never zero. asOf is a UTC database snapshot, not proof of worker freshness. Last successful work is unknown; failed/completed jobs do not establish external delivery or monetary effect outcomes. Retention may remove job history. RabbitMQ/outbox/email diagnostics are not covered.",
+        "Requires platform:admin. Read-only aggregate snapshot of nine fixed Platform pg-boss queues: retained job states, backlog (created/retry including scheduled/blocked), ready, scheduled, blocked, retrying unfinished jobs, retained retry attempts, oldest backlog age. No payloads, job IDs, providers or queue mutations. 2s statement/5s transaction/1s connection budgets; schema/source/budget failure is unknown, never zero. asOf is a UTC database snapshot, not proof of worker freshness. Last successful work is unknown; failed/completed jobs do not establish external delivery or monetary effect outcomes. Retention may remove job history. RabbitMQ/outbox/email diagnostics are not covered.",
       inputSchema: querySchema,
       annotations: {
         readOnlyHint: true,

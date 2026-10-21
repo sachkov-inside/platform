@@ -1,6 +1,3 @@
-import { ActivityRetentionDiagnostics } from "../src/entrypoints/mcp/activity-retention-diagnostics.js";
-import { ReadingActivityRetention } from "../src/modules/reading-activity/index.js";
-import { BookmarkActivityRetention } from "../src/modules/bookmarks/index.js";
 import { TaskSubmissionFacts } from "../src/modules/product-tasks/index.js";
 import { BookmarkActivityFacts } from "../src/modules/bookmarks/index.js";
 import { ReadingActivityFacts } from "../src/modules/reading-activity/index.js";
@@ -172,12 +169,6 @@ const mcp = createMcpHttpServer({
     new ReadingActivityFacts(prisma),
     new BookmarkActivityFacts(prisma),
     new TaskSubmissionFacts(prisma),
-  ),
-  retention: new ActivityRetentionDiagnostics(
-    app.get<Accounts>(ACCOUNTS),
-    new ReadingActivityRetention(prisma),
-    new BookmarkActivityRetention(prisma),
-    new PgBossQueueDiagnostics(prisma),
   ),
   telemetry: app.get(WebTelemetry),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),

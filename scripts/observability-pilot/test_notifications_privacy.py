@@ -55,7 +55,7 @@ class NotificationCatalog(unittest.TestCase):
             'metrics':['inside.notification.operations','inside.notification.duration'],
             'error':'notification_operation_failed'})
         self.assertEqual(policy['queues'], ['material-assets.cleanup','profile-avatars.cleanup',
-            'videos.deletions','web-telemetry.retention','membership-activity.retention','billing.payment-recovery',
+            'videos.deletions','web-telemetry.retention','billing.payment-recovery',
             'billing.subscription-renewal','billing.subscription-notices','tribute.source-reconciliation',
             'community.entitlement-delivery','_OTHER'])
         self.assertEqual(len(policy['routes']),223)

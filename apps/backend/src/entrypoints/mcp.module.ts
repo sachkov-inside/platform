@@ -1,6 +1,3 @@
-import { ActivityRetentionDiagnostics } from "./mcp/activity-retention-diagnostics.js";
-import { ReadingActivityRetention } from "../modules/reading-activity/index.js";
-import { BookmarkActivityRetention } from "../modules/bookmarks/index.js";
 import { ParticipantDiagnostics } from "./mcp/participant-diagnostics.js";
 import {
   ReadingActivityFacts,
@@ -38,27 +35,6 @@ import {
 
 @Module({
   providers: [
-    {
-      provide: ActivityRetentionDiagnostics,
-      inject: [
-        ACCOUNTS,
-        ReadingActivityRetention,
-        BookmarkActivityRetention,
-        PgBossQueueDiagnostics,
-      ],
-      useFactory: (
-        accounts: Accounts,
-        reading: ReadingActivityRetention,
-        bookmarks: BookmarkActivityRetention,
-        receipts: PgBossQueueDiagnostics,
-      ) =>
-        new ActivityRetentionDiagnostics(
-          accounts,
-          reading,
-          bookmarks,
-          receipts,
-        ),
-    },
     OperationalReadiness,
     PgBossQueueDiagnostics,
     QueueDiagnostics,
