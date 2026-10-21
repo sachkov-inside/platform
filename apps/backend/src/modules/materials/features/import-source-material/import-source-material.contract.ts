@@ -1,6 +1,9 @@
 import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { z } from "zod";
-import { authoringSourceSchema } from "../../domain/authoring-source.js";
+import {
+  authoringSourceIdSchema,
+  authoringSourceSchema,
+} from "../../domain/authoring-source.js";
 import {
   materialBodySnapshotWireSchema,
   materialMetadataSelectionWireSchema,
@@ -52,3 +55,19 @@ export type ValidateSourceOperation = (
     readonly actor: string;
   },
 ) => Promise<Result<{ readonly valid: true }, SaveMaterialError>>;
+
+export const sourcePublicationBodySchema = z
+  .object({
+    sourceId: authoringSourceIdSchema,
+    materialId: z.uuid(),
+    expectedContentVersion: z.number().int().positive(),
+    publicationState: z.enum(["published", "unpublished"]),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
+  })
+  .strict();
+export type SourcePublicationOperation = (
+  command: z.infer<typeof sourcePublicationBodySchema> & {
+    readonly actor: string;
+    readonly idempotencyKey: string;
+  },
+) => Promise<SaveMaterialResult>;
