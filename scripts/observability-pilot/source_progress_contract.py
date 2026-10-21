@@ -199,21 +199,109 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         observed.failures=[failure_record];observed.errors=[(cases[0],'opaque')]
         self.assertIsNone(_protocol_failure_summary(observed))
 
+        # Actual third-method assertions, not a duplicate method or a fake stage setter.
+        for target in ('source_shape','import_order','count'):
+            parity=CoreSourceProgress(PROTOCOL_METHODS[2]);calls=[];helper_returns=[];origins=[]
+            primary=AssertionError('controlled private-stage-canary')
+            actual_equal=parity.assertEqual;actual_records=parity._assert_parity_records
+            def records(*args):
+                answer=actual_records(*args);helper_returns.append(True);return answer
+            def equal(left,right,*args,**kwargs):
+                calls.append(True)
+                selected=(target=='source_shape' and len(calls)==1
+                    or target=='import_order' and type(left) is int and type(right) is int and left==right==1 and not helper_returns
+                    or target=='count' and bool(helper_returns))
+                if selected:
+                    try:raise primary
+                    except AssertionError:origins.append(sys.exc_info()[2]);raise
+                return actual_equal(left,right,*args,**kwargs)
+            failed=unittest.TextTestResult(io.StringIO(),True,1)
+            cases=[CoreSourceProgress(PROTOCOL_METHODS[0]),CoreSourceProgress(PROTOCOL_METHODS[1]),parity]
+            for case in cases:failed.startTest(case);failed.stopTest(case)
+            with patch.object(parity,'assertEqual',side_effect=equal),patch.object(parity,'_assert_parity_records',side_effect=records):
+                try:parity.test_runner_uses_original_discovery_and_refuses_inventory_drift()
+                except AssertionError as caught:
+                    self.assertIs(caught,primary)
+                    trace=BaseException.__traceback__.__get__(caught);chain=[]
+                    while trace:chain.append(trace);trace=trace.tb_next
+                    self.assertIn(origins[0],chain)
+                    failed.addFailure(parity,sys.exc_info())
+                else:self.fail('actual original assertion did not fail')
+            self.assertEqual(_protocol_failure_summary(failed),'CORE_PROTOCOL_V1 failures --F stage '+target+'\n')
+
+            # The same real case is re-entered after a failure; successful completion clears it.
+            parity.test_runner_uses_original_discovery_and_refuses_inventory_drift()
+            self.assertIsNone(parity._parity_stage);self.assertIsNone(parity._parity_field)
+        stages=('owner_import','source_shape','inventory_guard','stdlib_imports','fixture_setup',
+            'import_order','execution','record','import_list','comparison_tail','count','exit',
+            'refusal','import_guard','import_tail')
+        self.assertEqual(PROTOCOL_STAGES,stages)
+        self.assertEqual(max(len(('CORE_PROTOCOL_V1 failures --F stage '+stage+'\n').encode('ascii')) for stage in stages),52)
+        parity=CoreSourceProgress(PROTOCOL_METHODS[2]);cases=[CoreSourceProgress(method) for method in PROTOCOL_METHODS[:2]]+[parity]
+        def failed_stage(category='F',case=None):
+            failed=unittest.TextTestResult(io.StringIO(),True,1)
+            for current in cases:failed.startTest(current);failed.stopTest(current)
+            (failed.failures if category=='F' else failed.errors).append((parity if case is None else case,object()))
+            return failed
+        for stage in stages:
+            parity._parity_stage=stage
+            for category in ('F','E'):
+                self.assertEqual(_protocol_failure_summary(failed_stage(category)),
+                    'CORE_PROTOCOL_V1 failures --'+category+' stage '+stage+'\n')
+        class ForeignStage:
+            def __getattribute__(self,_):raise AssertionError('foreign stage getter')
+            def __eq__(self,_):raise AssertionError('foreign stage comparison')
+            def __str__(self):raise AssertionError('foreign stage string')
+        class ForeignStageString(str):pass
+        for invalid in (None,'private-stage-canary',ForeignStageString('exit'),ForeignStage()):
+            parity.__dict__['_parity_stage']=invalid
+            self.assertEqual(_protocol_failure_summary(failed_stage()),'CORE_PROTOCOL_V1 failures --F\n')
+            parity._parity_field='output'
+            self.assertEqual(_protocol_failure_summary(failed_stage()),'CORE_PROTOCOL_V1 failures --F field output\n')
+            parity._parity_field=None
+        def forbidden_stage(_):raise AssertionError('foreign stage property')
+        parity.__dict__.pop('_parity_stage',None)
+        with patch.object(CoreSourceProgress,'_parity_stage',property(forbidden_stage),create=True):
+            self.assertEqual(_protocol_failure_summary(failed_stage()),'CORE_PROTOCOL_V1 failures --F\n')
+        parity._parity_stage='exit'
+        self.assertEqual(_protocol_failure_summary(failed_stage(case=cases[0])),'CORE_PROTOCOL_V1 failures F--\n')
+        foreign=type('ForeignCase',(CoreSourceProgress,),{})(PROTOCOL_METHODS[2]);foreign._parity_stage='exit'
+        self.assertIsNone(_protocol_failure_summary(failed_stage(case=foreign)))
+        self.assertIsNone(_protocol_failure_summary(failed_stage(case=unittest.case._SubTest(parity,None,{}))))
+        # Only the unchanged aggregate assertion rejects a tenth tuple component.
+        original=('fixed',)*9
+        failed=failed_stage();failed.failures=[]
+        try:parity._assert_parity_records(original+('left',),original+('right',))
+        except AssertionError:failed.addFailure(parity,sys.exc_info())
+        else:self.fail('original aggregate assertion lost')
+        self.assertEqual(_protocol_failure_summary(failed),'CORE_PROTOCOL_V1 failures --F stage comparison_tail\n')
+        parity._assert_parity_records(original,original)
+        self.assertIsNone(parity._parity_stage)
+        try:parity.fail('controlled later private-stage-canary')
+        except AssertionError:
+            later=failed_stage();later.failures=[];later.addFailure(parity,sys.exc_info())
+        self.assertEqual(_protocol_failure_summary(later),'CORE_PROTOCOL_V1 failures --F\n')
+
     def test_runner_uses_original_discovery_and_refuses_inventory_drift(self):
         self._parity_field=None
+        self._parity_stage=None
+        self._parity_stage='owner_import'
         import core_source_progress as owner
+        self._parity_stage='source_shape'
         source=Path(__file__).with_name('source_runner.py').read_text()
         tree=ast.parse(source)
         self.assertEqual(ast.dump(tree.body[0]),ast.dump(ast.Import(names=[ast.alias(name='sys')])))
         self.assertIsInstance(tree.body[1],ast.If)
         self.assertIn("sys.platform!='linux'",source)
         self.assertIn('unittest.main(module=None,testRunner=PassiveRunner)',source)
+        self._parity_stage='inventory_guard'
         with patch.object(owner,'SOURCE_IDS',('test_fixed.Fixed.test_only',)):
             with self.assertRaisesRegex(ValueError,'^closed Core source inventory refused$'):
                 owner.PassiveRunner(stream=io.StringIO()).run(unittest.TestSuite())
 
         # Compare actual stdlib entry and fixed script entry with a tiny discovery seam only.
         # No original fixture body is run, including when this protocol is checked on Darwin.
+        self._parity_stage='stdlib_imports'
         import builtins
         import importlib
         import os
@@ -227,6 +315,7 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
         for empty in (False,True):
             records=[]
             for legacy in (True,False):
+                self._parity_stage='fixture_setup'
                 discovered=[];imported=[];programs=[];stream=io.StringIO()
                 identifiers=() if empty else owner.SOURCE_IDS[:3]
                 cases=[]
@@ -247,9 +336,12 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                         finally:programs.append(self)
                 def importing(name,*args,**kwargs):
                     if name=='core_source_progress':
+                        self._parity_stage='import_order'
                         self.assertEqual(len(discovered),1)
                         self.assertEqual(sys.path[0],str(root));imported.append(name)
+                        self._parity_stage='execution'
                     return actual_import(name,*args,**kwargs)
+                self._parity_stage='execution'
                 try:
                     sys.path[:]=[os.getcwd() if legacy else str(root)]+saved_path[1:]
                     sys.argv[:]=[str(Path(unittest.__file__).with_name('__main__.py')),'discover','-s',
@@ -265,41 +357,58 @@ print(json.dumps([len(caddy_owner.SOURCE_IDS),len(core_owner.SOURCE_IDS)]))
                             {'__name__':'__main__','__package__':'unittest' if legacy else None})
                         except SystemExit as error:code=error.code
                         else:self.fail('original TestProgram exit behavior lost')
+                    self._parity_stage='record'
                     program=programs[0];result=program.result
                     output=stream.getvalue()
                     if not legacy:
                         output=re.sub(r'\nCORE_SOURCE_V1 (?:start|completed) [A-Za-z0-9_.]+\n','',output)
                     records.append((code,program.progName,program.warnings,result.testsRun,len(result.failures),
                                     len(result.errors),len(result.skipped),discovered,output))
+                    self._parity_stage='import_list'
                     self.assertEqual(imported,[] if legacy else ['core_source_progress'])
                 finally:sys.path[:]=saved_path;sys.argv[:]=saved_argv
             self._assert_parity_records(records[0],records[1])
+            self._parity_stage='count'
             self.assertEqual(records[0][3],0 if empty else 3)
             outputs.append(records[0][0])
+        self._parity_stage='exit'
         self.assertEqual(outputs[0],1)
         # Unsupported script/argv paths refuse before even importing os/unittest/progress.
         for platform,argv in (('darwin',['fixed']),('linux',['fixed','extra'])):
+            self._parity_stage='refusal'
             imports=[]
             def only_sys(name,*args,**kwargs):
                 imports.append(name)
+                self._parity_stage='import_guard'
                 self.assertEqual(name,'sys')
+                self._parity_stage='refusal'
                 return actual_import(name,*args,**kwargs)
             with patch.object(sys,'platform',platform),patch.object(sys,'argv',argv), \
                  patch.object(builtins,'__import__',side_effect=only_sys):
                 with self.assertRaisesRegex(SystemExit,'^closed Core source runner refused$'):
                     exec(compile(source,str(root/'source_runner.py'),'exec'),{'__name__':'__main__'})
+            self._parity_stage='import_tail'
             self.assertEqual(imports,['sys'])
+        self._parity_stage=None
 
     def _assert_parity_records(self,left,right):
         self._parity_field=None
+        self._parity_stage=None
         for index,field in enumerate(PARITY_FIELDS):
             self._parity_field=field
             self.assertEqual(left[index],right[index])
             self._parity_field=None
+        self._parity_stage='comparison_tail'
         self.assertEqual(left,right)
+        self._parity_stage=None
 
 
 PARITY_FIELDS=('exit','program','warnings','tests','failures','errors','skips','discovery','output')
+
+
+PROTOCOL_STAGES=('owner_import','source_shape','inventory_guard','stdlib_imports','fixture_setup',
+    'import_order','execution','record','import_list','comparison_tail','count','exit',
+    'refusal','import_guard','import_tail')
 
 
 PROTOCOL_METHODS=(
@@ -314,7 +423,7 @@ def _protocol_failure_summary(result):
     if type(result) is not unittest.TextTestResult or result.testsRun!=3:return None
     if any(type(values) is not list or values for values in
            (result.skipped,result.expectedFailures,result.unexpectedSuccesses)):return None
-    vector=['-']*3;field=None
+    vector=['-']*3;field=stage=None
     for values,category in ((result.failures,'F'),(result.errors,'E')):
         if type(values) is not list or len(values)>3:return None
         for entry in values:
@@ -329,10 +438,13 @@ def _protocol_failure_summary(result):
             if index==2:
                 value=own.get('_parity_field')
                 if type(value) is str and value in PARITY_FIELDS:field=value
+                else:
+                    value=own.get('_parity_stage')
+                    if type(value) is str and value in PROTOCOL_STAGES:stage=value
             if vector[index]!='-':return None
             vector[index]=category
     if vector==['-']*3:return None
-    return 'CORE_PROTOCOL_V1 failures '+''.join(vector)+(' field '+field if field is not None else '')+'\n'
+    return 'CORE_PROTOCOL_V1 failures '+''.join(vector)+(' field '+field if field is not None else ' stage '+stage if stage is not None else '')+'\n'
 
 
 class ProtocolRunner(unittest.TextTestRunner):

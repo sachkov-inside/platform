@@ -2173,6 +2173,14 @@ identify a failed protocol method and the fixed category `failure` or `error` fr
 failure-only footer. An already failed third method may also identify one fixed parity field: `exit`,
 `program`, `warnings`, `tests`, `failures`, `errors`, `skips`, `discovery` or `output`. The original
 nine exact comparisons and aggregate assertion remain; the field does not explain why values differ.
+When no valid field is retained, the already failed third case may instead identify one of fifteen
+fixed source blocks with `stage`. These cover its owner import, source checks, inventory check,
+stdlib imports, tiny fixture setup/execution, import checks, result extraction, aggregate comparison
+tail, count/exit checks and unsupported-entry checks. The existing field takes precedence; a footer
+contains at most one suffix. Stage values are source literals, never traceback/error text or values.
+They identify a coarse block, not the failing line or cause. Success clears the stage, and later
+failures cannot inherit a successful comparison's stage. The original assertions and their order,
+three controls, 274-method inventory, 64-byte footer and process/capture budgets remain unchanged.
 It reads no traceback text. The three fixed positions do not report start,
 completion or success. Missing, foreign, truncated or oversized metadata stays `unknown`; native
 status, spawn error and signal remain authoritative. This feedback does not fix or explain a
