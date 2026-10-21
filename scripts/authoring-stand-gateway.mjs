@@ -103,7 +103,7 @@ async function writePrivate(path, value) {
  * @param {string} email
  * @param {{ renew: boolean }} options
  */
-async function ownerPersonalAccessToken(settings, email, { renew }) {
+export async function ownerPersonalAccessToken(settings, email, { renew }) {
   const stored = await readFile(patPath, "utf8")
     .then((text) => storedPatSchema.parse(JSON.parse(text)))
     .catch(() => null);
