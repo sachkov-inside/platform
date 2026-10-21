@@ -46,6 +46,11 @@ bash scripts/heavy-check.sh node --test scripts/observability-pilot.test.mjs
 pnpm docs:check
 ```
 
+`test:tooling` допускает Node test files последовательно (`--test-concurrency=1`).
+Состав проверок, предварительная сборка backend, ограничения дочерних процессов и CI job
+сохранены. Production concurrency не меняется. Общее время набора может вырасти;
+причина прежних тайм-аутов и улучшение времени в hosted CI пока не подтверждены.
+
 `preflight` сообщает место **на файловой системе checkout**, не измеряет Docker VM и не
 подтверждает готовность Docker. При недостатке места возвращает 2. `prepare` создаёт
 случайный каталог `.reports/observability-pilot-*`, Compose JSON, временный query key и
@@ -1567,21 +1572,32 @@ the original full-workspace frozen install and shared BuildKit cache mount. The 
 image also runs Web, so it still includes Web dependencies and root tooling. The former global
 backend-only install filter broke that image and remains removed from the shared branch.
 
-Only backend production uses the separate `production-dependencies` branch. It selects the backend
-transitive workspace dependencies and root tooling, retaining development dependencies and lifecycle
-scripts needed to compile the payload. Its store is a fresh private `/tmp/inside-backend-pnpm.XXXXXX`
-directory created inside that `RUN`, without a cache/bind mount or configurable store path.
-Package import stays `copy`. Only that exact temporary store is removed in the same `RUN` before
-success. An install failure keeps its original exit status even if cleanup also fails; a cleanup
-failure after a successful install fails the build. No host, shared or global store is pruned.
+Backend production now derives `production-build` directly from `dependency-inputs`, with the
+filtered source copied before installation. One `RUN` installs the backend transitive workspace
+selection and root tooling, removes its fresh private `/tmp/inside-backend-pnpm.XXXXXX` install
+store, compiles, deploys, then removes only the seven fixed root/selected-workspace `node_modules`
+roots. Frozen-lock, package-import `copy`, lifecycle and deploy options are preserved. An install
+failure retains its original status even if its store cleanup fails; later failure stops the build.
+The complete `.production` parent must be absent before installation and is constructed by this
+RUN. Physical ownership and same-RUN device/inode captures protect its ancestry and deployed output;
+all seven dependency roots are checked before any removal. These checks assume a private, synchronous
+RUN; they do not provide atomic protection against a concurrent writer with the same user identity.
+The isolated production payload, dist,
+CA and source artifacts remain. The deploy command's separate default store is unchanged and
+unpruned. This does not remove source/toolchain layers or prove lower peak consumption.
 
-`production-source` copies the same filtered checkout and restores patch metadata from the isolated
-install. Backend release identity also derives from that branch, so its late final `COPY` cannot
-pull the full development install back into the production graph. Identity arguments remain outside
-payload compilation. Web development, production and release identity retain their full dependencies.
-Source graph and shell contracts do not prove image compatibility, storage savings or guard fit.
-Exact-source hosted cold/cache image, shared development and resource acquisition/cleanup checks
-remain required under the unchanged filesystem policy. No production capacity or deployment is accepted.
+The original `production-dependencies` and `production-source` targets retain their direct-use
+contents, but neither is a FROM/COPY ancestor of the selected production payload or late identity.
+`release-identity` derives from the completed `production-build`; its arguments remain late. It
+re-admits physical output ownership with fresh stage-local device/inode captures, without claiming
+inode equality across Docker layers. Only that stage creates the fixed root `node_modules` link
+to the deployed dependency closure for the unchanged identity writer and its existing zod import.
+Final runtime COPY/commands and Web/development ancestry remain unchanged. These filesystem/source
+contracts do not establish actual deployed ESM/native closure, cold/cache image equivalence,
+cache reuse, savings, resource fit or production capacity. Exact-source hosted reference/candidate,
+shared-development and complete resource checks remain required under the unchanged cumulative 4 GiB
+policy and original baseline/floor. Peak allocation may still trigger the guard before cleanup;
+no pruning, larger allowance, new baseline or deployment follows from this preparation.
 
 For acquisition failures, `resource-acquisition.json` records a closed stage and boundary
 (identity probe, child wait, inspection or publication), bounded outcome/counters/elapsed
@@ -2033,3 +2049,36 @@ Linux-прогон на закреплённых образах. Доступн�
 порядок обработки настоящего экспортёра, видимость после flush, отказ при пропущенных
 чужих строках и соблюдение временных границ требуют отдельного подтверждения в CI.
 Эта подготовка не подтверждает готовность production или размер необходимого сервера.
+
+### Passive Core source-test feedback
+
+The fixed source runner is selected only on Linux with `INSIDE_CORE_SOURCE_PROGRESS=1`.
+Default callers and every non-Linux caller, including a Mac with that flag, retain the original
+registration, synchronous `python3 -m unittest discover` call, arguments, options and assertions.
+The opt-in uses `source_runner.py` with the same original synchronous `spawnSync` lifetime and
+30-second timeout. `maxBuffer` remains omitted, preserving the inherited Node default. No new
+combined or per-pipe capture allowance, process owner, signal handling, rescue or process-tree
+cleanup guarantee is introduced.
+
+Normal unittest discovery still owns the original 274 methods, order, warnings, result and exit
+semantics. The progress owner validates the entire fixed inventory before running the original
+suite. Fixed start/completed lines share captured stderr with normal unittest output. `completed`
+means the original `stopTest` callback was reached; it does not establish success. Marker write
+`OSError` can lose optional metadata. An active original exception and its built-in traceback
+remain primary; an otherwise unhandled interrupt or exit is not swallowed.
+
+The Linux assertion validates the whole ordered marker prefix before showing only fixed source
+IDs and a completed count. Missing, malformed, oversized or foreign metadata yields `unknown`.
+`ENOBUFS` selects `unknown` before inspecting stderr. The independent parser bounds are 1 MiB of
+UTF-8 stderr and 131072 marker bytes; they do not change the omitted `spawnSync.maxBuffer` default.
+Native exit status, spawn error and signal remain authoritative. Even a complete marker stream
+cannot turn a failed native outcome into a pass, while missing markers do not reject a successful
+native outcome. Raw captured unittest text is not the opt-in Linux assertion message.
+
+Three separate synthetic Python protocol controls live outside `test_*.py`; they do not add or
+replace any of the original 274 methods. Synthetic dispatch/parity checks do not establish an
+actual admitted Linux run or explain an earlier source timeout. Hosted exact-source verification
+is still required. The stronger withdrawn owner/guardian proposals and their open
+`CORE-PROG-SEC-01`, `CPROG-PRE-01` and `CPROG-PRE-02` findings are neither fixed nor waived here.
+Application CI activation is a separate reviewed change to the existing tooling step only; it
+must not opt in the direct functional workflow or widen any source or native gate.

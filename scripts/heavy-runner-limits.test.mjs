@@ -129,6 +129,6 @@ test("supported pnpm entrypoints claim slots, including filtered app commands", 
   }
   assert.match(
     readPackageManifest("package.json").scripts["test:tooling"] ?? "",
-    /--test-concurrency=2\b/u,
+    /--test-concurrency=1\b/u,
   );
 });

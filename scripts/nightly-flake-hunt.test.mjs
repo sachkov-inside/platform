@@ -263,7 +263,7 @@ test("unit samples use workspace package test scripts and the root native launch
         command.args.includes("test:contracts"),
     ),
   );
-  assert.ok(tooling?.args.includes("--test-concurrency=2"));
+  assert.ok(tooling?.args.includes("--test-concurrency=1"));
   assert.ok(
     tooling?.args.some((arg) => arg.endsWith("heavy-check-lock.test.mjs")),
   );
