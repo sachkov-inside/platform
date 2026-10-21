@@ -409,6 +409,10 @@ PostgreSQL service использует `init: true`: Docker init собирае
 
 2. Доставьте файлы foundation из проверенного commit `main`: каталоги `infra/identity/logto`,
    `infra/production/logto` и `infra/production/database` в `/opt/inside/foundation/infra/`.
+   При доставке database исключите действующий `pgbackrest.conf`: после #1627 он содержит
+   принятую multi-repository конфигурацию, а tracked файл является исходным repo1 template.
+   Не перезаписывайте live-файл этим шаблоном. Его изменения доставляются отдельным проверенным
+   diff по [порядку перехода repository](pgbackrest-repository-transition.md).
 3. Сделайте свежий backup: `systemctl start inside-pgbackrest-backup@incr.service`. Alteration
    меняет схему базы `logto`, и путь назад без backup требует `npm run alteration rollback`.
 4. Примените стек без сборки на сервере:
