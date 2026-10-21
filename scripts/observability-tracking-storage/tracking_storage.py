@@ -21,11 +21,12 @@ import ownership
 import producer_protocol
 import api_progress
 import producer_phase
+import unexpected_keys
 import tracking_oracle
 import diagnostics
 
 SCOPE='One genuine production API/PG carrier/real timer/API-owned SDK tracking success through pinned storage; no retry/crash or capacity acceptance'
-ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','tracking-storage.json','runtime-modules.json','recovery.json','tracking-cleanup.json',diagnostics.NAME,api_progress.NAME,producer_phase.NAME)
+ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','tracking-storage.json','runtime-modules.json','recovery.json','tracking-cleanup.json',diagnostics.NAME,api_progress.NAME,producer_phase.NAME,unexpected_keys.NAME)
 STORAGE_SECONDS=60
 
 
@@ -55,8 +56,9 @@ def trace_response(compose,targets,trace_id,*,budget):
         return raw
 
 
-def producer_observation(output, *, environment, diagnostic):
+def producer_observation(output, *, environment, diagnostic, observation=None):
     source=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
+    unexpected_keys.bind_source(observation,source)
     with api_progress.OwnedProgress(output,scope='tracking',source=source) as progress:
         with producer_phase.OwnedTrackingPhase(output,source=source) as phase:
             wire=producer_protocol.capture(environment=phase.environment(progress.environment(environment)),diagnostic=diagnostic)
@@ -80,7 +82,7 @@ def producer_observation(output, *, environment, diagnostic):
     return observed
 
 
-def stored_metrics_and_traces(*, token, compose, targets, observed, result, diagnostic):
+def stored_metrics_and_traces(*, token, compose, targets, observed, result, diagnostic, observation=None):
     """The tracking owner's unchanged full raw gates, reconciliation and visibility budget."""
     deadline=time.monotonic()+STORAGE_SECONDS
     attempts=0; metrics=traces=None
@@ -108,7 +110,7 @@ def stored_metrics_and_traces(*, token, compose, targets, observed, result, diag
             diagnostic.fail(diagnostics.query_reason(error)); raise
         diagnostic.start('trace_validation')
         try:
-            traces=tracking_oracle.traces(raw_traces,trace_id=observed['trace_id'],root_id=observed['root_id'])
+            traces=tracking_oracle.traces(raw_traces,trace_id=observed['trace_id'],root_id=observed['root_id'],observation=observation)
         except Exception as error:
             diagnostic.fail(diagnostics.oracle_reason(error,scope='tracking')); raise
         diagnostic.observed(traces)
@@ -129,59 +131,60 @@ def stored_metrics_and_traces(*, token, compose, targets, observed, result, diag
 
 
 def worker(output):
-    owner=json.loads((output/'owner.json').read_text())
-    if owner['supervisor_pid'] != os.getppid(): raise RuntimeError()
-    compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
-    result={'state':'incomplete','scope':SCOPE,'stage':'acquisition'}
-    started=time.monotonic()
-    diagnostic=diagnostics.Diagnostic('tracking')
-    diagnostic.start('acquisition')
-    try:
-        with pilot.worker_storage_guard(owner,compose,output):
-            pilot.install_plugin(output)
-            pilot.command(compose+['config','--quiet'])
-            pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
-            expected=ownership.plan(output)
-            if json.loads((output/'compose.json').read_text()) != expected: raise RuntimeError()
-            result['stage']='ownership'
-            diagnostic.start('ownership')
-            targets=ownership.TrackingTargets(output,compose,expected,pilot.command)
-            pilot.verify_trace_store_logging(output,compose)
-            for role in ('alloy','postgres'):
-                if pilot.command(['docker','inspect','--format','{{.HostConfig.LogConfig.Type}}',targets.targets[role]['id']]).strip() != 'none': raise RuntimeError()
-            pilot.await_otlp_ready(output=output)
-            token=source_status_query._read_private_token(output)
-            pilot.await_fact(lambda:pilot.request('/metrics/api/v1/query?query=1',token=token),lambda row:row[0]==200,output=output,probe='tracking_storage_query_ready')
-            def pg_ready():
-                pilot.assert_docker_identity()
-                try:
-                    pilot.command(['docker','exec',targets.postgres(),'pg_isready','-U','tracking','-d','tracking'],timeout=3)
-                    return True
-                except Exception:
-                    return False
-            pilot.await_fact(pg_ready,lambda ready:ready,output=output,probe='tracking_postgresql_ready')
-            result['stage']='producer'
-            # No ambient exporter/header/client-certificate credentials or process bootstrap options.
-            environment={key:os.environ[key] for key in ('PATH','HOME') if key in os.environ}
-            environment.update({'INSIDE_OTEL_ENABLED':'true','INSIDE_OTEL_ENDPOINT':'http://127.0.0.1:14318','INSIDE_OTEL_SAMPLE_RATIO':'1'})
-            observed=producer_observation(output,environment=environment,diagnostic=diagnostic)
-            metrics,traces,attempts=stored_metrics_and_traces(token=token,compose=compose,targets=targets,
-                observed=observed,result=result,diagnostic=diagnostic)
-            result.update({'state':'passed','stage':'complete','native_api_request':True,'provider_requests':2,
-                'persisted_carrier':'passed','native_timer':'passed','api_owned_sdk_shutdown':'passed',
-                'metrics':metrics,'traces':traces,'attempts':attempts,'containers':8,'volumes':5,'networks':2})
-            evidence=json.loads((output/'evidence.json').read_text());evidence['status']='passed: one genuine API tracking success composition only'
-            pilot.write_json(output/'evidence.json',evidence)
-            diagnostic.start('complete')
-    except BaseException as error:
-        diagnostic.fail('interrupted' if isinstance(error,KeyboardInterrupt) else 'unknown')
-        raise
-    finally:
-        result['duration_seconds']=time.monotonic()-started
+    with unexpected_keys.create(output) as observation:
+        owner=json.loads((output/'owner.json').read_text())
+        if owner['supervisor_pid'] != os.getppid(): raise RuntimeError()
+        compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
+        result={'state':'incomplete','scope':SCOPE,'stage':'acquisition'}
+        started=time.monotonic()
+        diagnostic=diagnostics.Diagnostic('tracking')
+        diagnostic.start('acquisition')
         try:
-            pilot.write_json(output/'tracking-storage.json',result)
+            with pilot.worker_storage_guard(owner,compose,output):
+                pilot.install_plugin(output)
+                pilot.command(compose+['config','--quiet'])
+                pilot.command(compose+['up','-d'],timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
+                expected=ownership.plan(output)
+                if json.loads((output/'compose.json').read_text()) != expected: raise RuntimeError()
+                result['stage']='ownership'
+                diagnostic.start('ownership')
+                targets=ownership.TrackingTargets(output,compose,expected,pilot.command)
+                pilot.verify_trace_store_logging(output,compose)
+                for role in ('alloy','postgres'):
+                    if pilot.command(['docker','inspect','--format','{{.HostConfig.LogConfig.Type}}',targets.targets[role]['id']]).strip() != 'none': raise RuntimeError()
+                pilot.await_otlp_ready(output=output)
+                token=source_status_query._read_private_token(output)
+                pilot.await_fact(lambda:pilot.request('/metrics/api/v1/query?query=1',token=token),lambda row:row[0]==200,output=output,probe='tracking_storage_query_ready')
+                def pg_ready():
+                    pilot.assert_docker_identity()
+                    try:
+                        pilot.command(['docker','exec',targets.postgres(),'pg_isready','-U','tracking','-d','tracking'],timeout=3)
+                        return True
+                    except Exception:
+                        return False
+                pilot.await_fact(pg_ready,lambda ready:ready,output=output,probe='tracking_postgresql_ready')
+                result['stage']='producer'
+                # No ambient exporter/header/client-certificate credentials or process bootstrap options.
+                environment={key:os.environ[key] for key in ('PATH','HOME') if key in os.environ}
+                environment.update({'INSIDE_OTEL_ENABLED':'true','INSIDE_OTEL_ENDPOINT':'http://127.0.0.1:14318','INSIDE_OTEL_SAMPLE_RATIO':'1'})
+                observed=producer_observation(output,environment=environment,diagnostic=diagnostic,observation=observation)
+                metrics,traces,attempts=stored_metrics_and_traces(token=token,compose=compose,targets=targets,
+                    observed=observed,result=result,diagnostic=diagnostic,observation=observation)
+                result.update({'state':'passed','stage':'complete','native_api_request':True,'provider_requests':2,
+                    'persisted_carrier':'passed','native_timer':'passed','api_owned_sdk_shutdown':'passed',
+                    'metrics':metrics,'traces':traces,'attempts':attempts,'containers':8,'volumes':5,'networks':2})
+                evidence=json.loads((output/'evidence.json').read_text());evidence['status']='passed: one genuine API tracking success composition only'
+                pilot.write_json(output/'evidence.json',evidence)
+                diagnostic.start('complete')
+        except BaseException as error:
+            diagnostic.fail('interrupted' if isinstance(error,KeyboardInterrupt) else 'unknown')
+            raise
         finally:
-            diagnostic.persist(output/diagnostics.NAME)
+            result['duration_seconds']=time.monotonic()-started
+            try:
+                pilot.write_json(output/'tracking-storage.json',result)
+            finally:
+                diagnostic.persist(output/diagnostics.NAME)
 
 
 def cleanup_proof(output):
@@ -200,10 +203,14 @@ def collect(output, metadata, destination):
         raise ValueError('closed tracking phase refused')
     phase=api_progress.read(output/api_progress.NAME,scope='tracking',source=source)
     producer_observation=producer_phase.load_for_collection(output,source=source)
-    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME,producer_phase.NAME)))
+    unexpected=producer_phase.read_unexpected_keys(output/unexpected_keys.NAME,source=source)
+    if unexpected['state']=='observed' and (projected['phase'],projected['outcome'],projected['reason'])!=('trace_validation','failed','trace_gate_06_unexpected_key'):
+        raise ValueError(unexpected_keys.MESSAGE) from None
+    ci.collect(output, metadata, destination, artifacts=tuple(name for name in ARTIFACTS if name not in (diagnostics.NAME,api_progress.NAME,producer_phase.NAME,unexpected_keys.NAME)))
     diagnostics.write(destination/diagnostics.NAME, projected, scope='tracking')
     api_progress.write(destination/api_progress.NAME,phase,scope='tracking',source=source)
     producer_phase.write(destination/producer_phase.NAME,producer_observation,source=source)
+    producer_phase.write_unexpected_keys(destination/unexpected_keys.NAME,unexpected,source=source)
 
 
 def main():
