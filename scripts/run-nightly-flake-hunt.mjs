@@ -76,6 +76,12 @@ export function rootNodeCommands(script, source) {
       "bash -c 'pnpm --filter @inside/backend build && node --test --test-concurrency=2 scripts/*.test.mjs'"
   )
     launcher = "node --test --test-concurrency=2 scripts/*.test.mjs";
+  else if (
+    script === "test:tooling" &&
+    launcher ===
+      "bash -c 'pnpm --filter @inside/backend build && node --test --test-concurrency=1 scripts/*.test.mjs'"
+  )
+    launcher = "node --test --test-concurrency=1 scripts/*.test.mjs";
   return launcher.split(" && ").map((command, index) => {
     const [executable, ...tokens] = command.split(/\s+/u);
     if (
