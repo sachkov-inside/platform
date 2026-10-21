@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: inside/logto-proof:1.44.0-inside.11
+    image: inside/logto-proof:1.44.0-inside.12
     depends_on:
       logto-postgres:
         condition: service_healthy

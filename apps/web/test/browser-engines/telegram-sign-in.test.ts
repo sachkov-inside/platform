@@ -121,10 +121,14 @@ async function open(
 ) {
   // Intercept the OS boundary: synthetic tests must never open the owner's Telegram app.
   await page.addInitScript(() => {
-    const launches: { url: string; target: string | undefined }[] = [];
+    const launches: {
+      url: string;
+      target: string | undefined;
+      features: string | undefined;
+    }[] = [];
     Object.assign(window, { telegramLaunches: launches });
-    window.open = (url, target) => {
-      launches.push({ url: String(url), target });
+    window.open = (url, target, features) => {
+      launches.push({ url: String(url), target, features });
       return null;
     };
   });
@@ -159,7 +163,8 @@ it("opens Telegram once, keeps a usable fallback when blocked, and completes in 
     expect(await launches()).toEqual([
       {
         url: "tg://resolve?domain=inside_fixture_bot&start=test-only",
-        target: "_self",
+        target: "_blank",
+        features: "noopener,noreferrer",
       },
     ]);
     expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
@@ -701,3 +706,36 @@ it.each(["headers", "body"] as const)(
   },
   20000,
 );
+
+it("preserves the waiting document when the app handler navigates the selected browsing context", async () => {
+  const page = await browser.newPage();
+  try {
+    await page.clock.install();
+    // Model a browser whose external-protocol handler replaces the selected context.
+    // The OS/app boundary is synthetic; no real Telegram app or account is touched.
+    await page.addInitScript(() => {
+      window.open = (_url, target) => {
+        if (target === "_self") location.replace("/external-app-handoff");
+        return null;
+      };
+    });
+    offline = false;
+    state = { status: "pending", deepLink: botLink };
+    const pendingResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/api/inside-telegram/status"),
+    );
+    await page.goto(`${fixtureOrigin}/api/inside-telegram`);
+    await pendingResponse;
+    // Rendering the fallback establishes that the handoff attempt has executed.
+    await page.locator("#bot").waitFor({ timeout: 3000 });
+    expect(page.url()).toBe(`${fixtureOrigin}/api/inside-telegram`);
+    state = {
+      status: "approved",
+      callback: `${fixtureOrigin}/callback?fixture=preserved`,
+    };
+    await poll(page);
+    await page.waitForURL(`${fixtureOrigin}/callback?fixture=preserved`);
+  } finally {
+    await page.close();
+  }
+});
