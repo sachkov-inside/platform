@@ -1,3 +1,14 @@
+import { ParticipantDiagnostics } from "./mcp/participant-diagnostics.js";
+import {
+  ReadingActivityFacts,
+  ReadingActivityModule,
+} from "../modules/reading-activity/index.js";
+import {
+  BookmarkActivityFacts,
+  BookmarksModule,
+} from "../modules/bookmarks/index.js";
+import { TaskSubmissionFacts } from "../modules/product-tasks/index.js";
+import { ACCOUNTS, type Accounts } from "../modules/accounts/index.js";
 import { PgBossQueueDiagnostics } from "../infrastructure/pg-boss-queue-diagnostics.js";
 import { QueueDiagnostics } from "./mcp/queue-diagnostics.js";
 import { SalesFunnelModule } from "../modules/sales-funnel/index.js";
@@ -23,7 +34,27 @@ import {
 } from "../modules/product-tasks/index.js";
 
 @Module({
-  providers: [OperationalReadiness, PgBossQueueDiagnostics, QueueDiagnostics],
+  providers: [
+    OperationalReadiness,
+    PgBossQueueDiagnostics,
+    QueueDiagnostics,
+    {
+      provide: ParticipantDiagnostics,
+      inject: [
+        ACCOUNTS,
+        ReadingActivityFacts,
+        BookmarkActivityFacts,
+        TaskSubmissionFacts,
+      ],
+      useFactory: (
+        accounts: Accounts,
+        reading: ReadingActivityFacts,
+        bookmarks: BookmarkActivityFacts,
+        submissions: TaskSubmissionFacts,
+      ) =>
+        new ParticipantDiagnostics(accounts, reading, bookmarks, submissions),
+    },
+  ],
 })
 export class McpModule {
   static forRoot(config?: PlatformConfig): DynamicModule {
@@ -40,6 +71,8 @@ export class McpModule {
         BillingModule,
         SalesFunnelModule,
         ProductTasksModule,
+        ReadingActivityModule,
+        BookmarksModule,
         CoverageCatalogModule,
         RecipientLinksModule,
         ProductTaskResourceFactsModule,

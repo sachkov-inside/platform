@@ -2082,3 +2082,31 @@ is still required. The stronger withdrawn owner/guardian proposals and their ope
 `CORE-PROG-SEC-01`, `CPROG-PRE-01` and `CPROG-PRE-02` findings are neither fixed nor waived here.
 Application CI activation is a separate reviewed change to the existing tooling step only; it
 must not opt in the direct functional workflow or widen any source or native gate.
+
+## Confirmed active Membership Accounts
+
+Platform MCP registers `active_participant_diagnostics` for a trusted delegated Account. Each call
+checks current `platform:admin` before reading private activity. Input is exactly `from` and `to`,
+ISO instants with UTC or an explicit offset, describing `[from,to)` with a maximum length of 31 days.
+The report returns normalized UTC instants and names `Europe/Moscow` as the calendar. To query a
+Moscow calendar day, supply its midnight boundaries with `+03:00`. No actor override or new permission
+is accepted.
+
+Membership is the distinct union of Account IDs from the existing ReadingActivity, Bookmarks and
+Product Tasks confirmed-activity capabilities. Learning starts, manual reading transitions, bookmark
+changes and submitted tasks count; repeated receipts do not create another Account. No browser
+observation, checkout, historical first/last open or background review is synthesized. Only aggregate
+counts and fixed source provenance are returned, never Account IDs or event rows.
+
+Each owner enforces its own read-only snapshot, 365-day event-time horizon and Account/kind group
+budget. The report sends the same normalized interval to all three owners but does not claim an atomic
+cross-owner snapshot. Each source exposes its own `asOf` and `retentionFrom`. Historical coverage stays
+`partial`, `collectionStartedAt` is unknown and continuity is `not_proven`. A successful empty query is
+observed zero under that incomplete coverage. Any failed or overflowing owner makes the Membership
+count `null`/`unknown`, even if another owner returned rows. The output does not publish a partial sum.
+
+Telegram, combined cross-surface Accounts and unlinked Telegram contacts are explicitly
+`not_collected` with `count:null`. They are not zero and the combined count is not copied from
+Membership. This report therefore does not complete the cross-surface active-participant criterion.
+It also does not implement physical deletion of activity history. Existing domain records remain
+owned by their capabilities; the read horizon is not evidence of physical retention cleanup.
