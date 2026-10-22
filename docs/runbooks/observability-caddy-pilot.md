@@ -283,9 +283,9 @@ Original acquisition, query, scenario and output limits and failure priority rem
 The native freshness decision still uses the original strict Decimal age above
 10 seconds. Its unchanged float projection can round an age such as
 `10.0000000000000001` to the persisted value `10.0`; both window tokens can occur
-at that serialized boundary. The reader checks the already validated original
-numeric age against 10 before another float projection, so a persisted Decimal
-strictly below 10 is refused. A saved age of 10 alone cannot establish the original
+at that serialized boundary. The reader compares the already validated original
+numeric age against 10 rather than using its rounded float projection, so a persisted
+Decimal strictly below 10 is refused. A saved age of 10 alone cannot establish the original
 stale decision or token arithmetic. Legacy stale reports without the token retain
 their existing behavior. This serialization compatibility rule changes no native
 freshness tolerance, success predicate, query, clock, process owner or limit.
