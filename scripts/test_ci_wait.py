@@ -178,6 +178,21 @@ class FailureReportContracts(unittest.TestCase):
         self.assertEqual(lines[3 + ci_wait.LOG_TAIL_LINES - 1], '  line 99')
         self.assertEqual(lines[-2:], ['Failed job: Integration (cancelled)', '  log unavailable'])
 
+    def test_log_tail_strips_terminal_escape_sequences(self):
+        result = {'jobs': [{'name': 'Static', 'conclusion': 'failure', 'id': 1}]}
+        log = 'ok\r\n\x1b[31merror\x1b[0m\x1b]8;;http://x\x07link\x1b]8;;\x07\tdone\x00\n'
+        lines = ci_wait.failure_report('owner/repo', result,
+                                       read_text=lambda repo, job_id, budget: log)
+        self.assertEqual(lines, ['Failed job: Static (failure)', '  ok', '  errorlink\tdone'])
+
+    def test_real_log_request_allows_and_bounds_escape_sequences(self):
+        with patch.object(ci_wait.subprocess, 'run', return_value=type('Result', (), {
+                'returncode': 0, 'stderr': '', 'stdout': 'log'})()) as run:
+            self.assertEqual(ci_wait.read_log('owner/repo', 7, 4), 'log')
+            self.assertEqual(run.call_args.args[0], ['gh', 'api', '--allow-escape-sequences',
+                                                     'repos/owner/repo/actions/jobs/7/logs'])
+            self.assertEqual(run.call_args.kwargs['timeout'], 4)
+
     def test_completed_failure_keeps_job_ids_for_logs(self):
         run = {'id': 42, 'head_sha': 'a'*40, 'event': 'pull_request', 'run_attempt': 1,
                'path': '.github/workflows/ci.yml', 'status': 'completed', 'conclusion': 'failure'}

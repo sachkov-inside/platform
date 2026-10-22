@@ -45,7 +45,9 @@ def read_api(path, budget):
 def read_log(repo, job_id, budget):
     """Plain-text job log, or None when GitHub does not return it within the budget."""
     try:
-        result = subprocess.run(['gh', 'api', f'repos/{repo}/actions/jobs/{job_id}/logs'],
+        # gh refuses raw escape sequences; failure_report strips them before printing.
+        result = subprocess.run(['gh', 'api', '--allow-escape-sequences',
+                                 f'repos/{repo}/actions/jobs/{job_id}/logs'],
                                 capture_output=True, text=True,
                                 timeout=min(API_TIMEOUT_SECONDS, budget), check=False)
     except (subprocess.TimeoutExpired, OSError):
@@ -200,6 +202,12 @@ def discover_pr_run(repo, pr, sha, timeout, *, read=read_api, clock=time.monoton
             **({'error': last_error} if last_error is not None else {})}, 0
 
 
+def strip_control(text):
+    """Remove terminal escape sequences and control characters other than tab and newline."""
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)', '', text)
+    return re.sub(r'[\x00-\x08\x0b-\x1f\x7f]', '', text.replace('\r\n', '\n'))
+
+
 def failure_report(repo, result, *, read_text=read_log, budget=API_TIMEOUT_SECONDS):
     """Failed job names and the tail of each failed job's log, for a human reader."""
     lines = []
@@ -211,7 +219,7 @@ def failure_report(repo, result, *, read_text=read_log, budget=API_TIMEOUT_SECON
         if log is None:
             lines.append('  log unavailable')
             continue
-        tail = log.rstrip('\n').split('\n')[-LOG_TAIL_LINES:]
+        tail = strip_control(log).rstrip('\n').split('\n')[-LOG_TAIL_LINES:]
         lines.extend(f'  {line}' for line in tail)
     return lines
 
