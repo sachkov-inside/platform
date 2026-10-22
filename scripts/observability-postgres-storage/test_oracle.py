@@ -34,6 +34,19 @@ class WholeVectors(unittest.TestCase):
         self.assertEqual(oracle.diagnostic_reason(observed),'oracle_values_labels')
         self.assertIsNone(oracle.diagnostic_reason(dict(observed)))
 
+        # Diagnostic feature only: the original stale verdict and primary reason stay exact.
+        rows,stamps=vectors()
+        ordinary=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+            completed_us=NOW+10_000_001,expected=EXPECTED)
+        observed=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+            completed_us=NOW+10_000_001,expected=EXPECTED,diagnose=True)
+        self.assertEqual((ordinary['freshness'],ordinary['reason']),('stale','stale'))
+        self.assertEqual(observed['reason'],'oracle_stale')
+        self.assertEqual(len(ordinary),6);self.assertEqual(len(observed),6)
+        self.assertEqual(set(observed),{'freshness','reason','points','age_seconds','continuity','count_complete'})
+        self.assertEqual({**observed,'reason':'stale'},ordinary)
+        self.assertEqual(oracle.diagnostic_reason(observed),'oracle_stale_healthy_sample_match')
+
     def test_fixed_rejections_follow_the_first_actual_predicate_without_hiding_poison(self):
         cases=[]
         for channel in ('values','timestamps'):
