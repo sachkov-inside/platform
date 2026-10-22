@@ -1,4 +1,5 @@
 // @ts-check
+import { contentMaterials, manifestSchema } from "./package.mjs";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -62,7 +63,7 @@ import { previewRetirement, applyRetirement } from "./retirement.mjs";
  * @property {string} sourceId
  * @property {string} title
  * @property {string} access
- * @property {boolean} notifyTelegram
+ * @property {boolean} [notifyTelegram]
  * @property {boolean} showInFeed
  * @property {string | null} video
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
@@ -182,7 +183,8 @@ export async function previewRelease(
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
-  await validateProductPages(manifest, send);
+  if (!manifest.selection.contentOnly)
+    await validateProductPages(manifest, send);
   const journal = await readJournal(stateDirectory, target.id);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
@@ -231,7 +233,7 @@ export async function previewRelease(
   const materials = [];
   /** @type {Record<string, number | string>} */
   const expected = {};
-  for (const row of manifest.materials) {
+  for (const row of contentMaterials(manifest)) {
     const key = sourceKey(manifest, row.sourceId);
     const entry = journal.materials[key];
     const item = {
@@ -239,7 +241,9 @@ export async function previewRelease(
       title: row.title,
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
-      notifyTelegram: row.notifyTelegram ?? false,
+      ...(row.notifyTelegram === undefined
+        ? {}
+        : { notifyTelegram: row.notifyTelegram }),
       video: row.video?.kinescopeId ?? null,
       publication: publicationOfKey(key),
     };
@@ -275,6 +279,7 @@ export async function previewRelease(
       defaultAccess,
       primaryVideoId: attached,
       publicationState: item.publication,
+      currentMembership: current.metadata["seriesMemberships"],
     });
     const currentPublication = targetPublication(
       current.publicationState,
@@ -345,7 +350,9 @@ export async function previewRelease(
   /** @type {ProductChange[]} */
   const products = [];
   const currentProducts = storedProducts;
-  for (const product of manifest.products) {
+  for (const product of manifest.selection.contentOnly
+    ? []
+    : manifest.products) {
     const programme = [
       ...product.materialIds,
       ...product.supplementaryMaterialIds,
@@ -552,6 +559,15 @@ export async function previewRelease(
   );
   Object.assign(expected, taskPreview.expected);
   const archiveProposals = archiveProposalKeys(journal, manifest);
+  if (
+    manifest.selection.contentOnly &&
+    [...materials, ...taskPreview.tasks].some(
+      (row) => !["changed", "unchanged"].includes(row.change),
+    )
+  )
+    throw new Error(
+      "Bounded content updates require existing conflict-free rows",
+    );
   // The owner's publication approval is part of what apply must match.
   /** @type {{ publish?: import("./local-boundaries.mjs").PublishSelection }} */
   const approval =
@@ -567,6 +583,9 @@ export async function previewRelease(
     packageId: pkg.id,
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
+    ...(manifest.selection.contentOnly
+      ? { contentOnly: manifest.selection.contentOnly }
+      : {}),
     ...approval,
     ...(confirmed.length === 0 ? {} : { confirmedProductRemovals: confirmed }),
     ...(access.choices.length === 0 ? {} : { taskAccess: access.choices }),
@@ -603,6 +622,7 @@ const previewSchema = z
     packageId: z.hash("sha256"),
     packagePath: z.string(),
     namespace: z.string(),
+    contentOnly: manifestSchema.shape.selection.shape.contentOnly,
     scope: productShellScope.optional(),
     publish: publishSelectionSchema.optional(),
     taskAccess: z.array(z.string()).optional(),

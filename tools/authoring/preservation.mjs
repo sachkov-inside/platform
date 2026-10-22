@@ -1,16 +1,18 @@
 // @ts-check
+import { contentMaterials, contentTasks } from "./package.mjs";
 import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { canonical, checksum, loadPackage } from "./package.mjs";
+import { canonical, checksum, loadPackage, taskPositions } from "./package.mjs";
 import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
 import {
   authoringTarget,
   transportFor,
   assertTargetEnvironment,
 } from "./target.mjs";
+import { authoredTaskBody, taskChapterId } from "./task-import.mjs";
 import { previewRelease, applyRelease } from "./release.mjs";
 import {
   targetStateSchema,
@@ -92,8 +94,10 @@ export async function preservationState(
     );
   const key = /** @param {string} id */ (id) =>
     `${manifest.sourceNamespace}:${id}`;
-  const materialIds = manifest.materials.map((row) => key(row.sourceId));
-  const taskIds = (manifest.tasks ?? []).map((row) => key(row.sourceId));
+  const materialIds = contentMaterials(manifest).map((row) =>
+    key(row.sourceId),
+  );
+  const taskIds = contentTasks(manifest).map((row) => key(row.sourceId));
   const state = targetStateSchema.parse(await readState(materialIds, taskIds));
   state.materials.sort((a, b) => a.sourceId.localeCompare(b.sourceId));
   state.tasks.sort((a, b) => a.sourceId.localeCompare(b.sourceId));
@@ -107,7 +111,7 @@ export async function preservationState(
     throw new Error(
       "Every selected existing row needs a unique fresh identity; new rows require a separate explicit release policy",
     );
-  for (const row of manifest.materials) {
+  for (const row of contentMaterials(manifest)) {
     const current = state.materials.find(
       (item) => item.sourceId === key(row.sourceId),
     );
@@ -135,13 +139,13 @@ export async function preservationState(
       );
   }
   const products =
-    (manifest.tasks ?? []).length === 0
+    contentTasks(manifest).length === 0
       ? []
       : parseLocalResponse(
           "/authoring/collections?kind=product",
           await send("/authoring/collections?kind=product"),
         );
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     const current = state.tasks.find(
       (item) => item.sourceId === key(task.sourceId),
     );
@@ -163,22 +167,40 @@ export async function preservationState(
       product.archived === true
     )
       throw new Error(`Unknown Task source/product identity: ${task.sourceId}`);
+    if (manifest.selection.contentOnly) {
+      const bound = manifest.materials.find(
+        (row) => row.practiceTaskId === task.sourceId,
+      );
+      const embeddedMaterialId =
+        bound === undefined
+          ? null
+          : journal.materials[key(bound.sourceId)]?.materialId;
+      if (
+        current.chapterId !== taskChapterId(manifest, task) ||
+        current.position !== taskPositions(manifest).get(task.sourceId) ||
+        current.afterMaterialSourceId !==
+          (task.afterMaterialId === undefined
+            ? null
+            : key(task.afterMaterialId)) ||
+        current.programmeVisibility !==
+          (task.programmeVisibility ?? "standalone") ||
+        embeddedMaterialId === undefined ||
+        current.embeddedMaterialId !== embeddedMaterialId
+      )
+        throw new Error(
+          `${task.sourceId}: bounded content refuses Task placement changes`,
+        );
+    }
     const api = parseLocalResponse(
       "/authoring/import/tasks/validate",
-      await send("/authoring/import/tasks/validate", {
-        sourceId: key(task.sourceId),
-        code: task.sourceId,
-        title: task.title,
-        access: current.access,
-        definition: task.definition,
-        ...(task.page === undefined ? {} : { page: task.page }),
-        relatedMaterialSourceIds: task.relatedMaterialIds.map(key),
-        ...(task.afterMaterialId === undefined
-          ? {}
-          : { afterMaterialSourceId: key(task.afterMaterialId) }),
-        publicationState: current.publicationState,
-        provenance: task.provenance,
-      }),
+      await send(
+        "/authoring/import/tasks/validate",
+        authoredTaskBody(
+          manifest,
+          { ...task, access: current.access },
+          current.publicationState,
+        ),
+      ),
     );
     if (
       api.migration != null ||
@@ -197,7 +219,7 @@ export function preservedManifest(original, state) {
   const manifest = structuredClone(original);
   const key = /** @param {string} id */ (id) =>
     `${manifest.sourceNamespace}:${id}`;
-  for (const row of manifest.materials) {
+  for (const row of contentMaterials(manifest)) {
     const current = state.materials.find(
       (item) => item.sourceId === key(row.sourceId),
     );
@@ -205,7 +227,7 @@ export function preservedManifest(original, state) {
       throw new Error(`Missing Material: ${row.sourceId}`);
     row.access = current.access;
   }
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     const current = state.tasks.find(
       (item) => item.sourceId === key(task.sourceId),
     );

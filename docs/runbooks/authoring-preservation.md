@@ -20,7 +20,20 @@ It does not approve a new access policy, public release, content acceptance, or 
    pnpm authoring:preserve preview --package PACKAGE_JSON --state STATE_DIRECTORY --commit SOURCE_SHA
    ```
 
-The package itself defines the selected Material and Task source IDs. Unselected originals are not imported.
+A v2 package can require `bounded-content-v1` and declare
+`selection.contentOnly: { materialIds: [...], taskIds: [...], artifactIds: [] }`.
+The explicit IDs select only existing rows for preview, policy reads and writes. Full Material,
+Task and Product declarations remain validated context for source links, embedded Task bindings
+and Task positions. Duplicate, missing, empty or unknown selections fail before transport;
+nonempty `artifactIds` are unsupported. The required feature and selection must appear together.
+Bounded apply requires the reviewed local stand route and refuses pending operations and archive
+or Product removal choices. It reads Product identities without updating Product details, covers,
+chapters, composition or artifacts. Selected Material memberships must match fresh API metadata;
+Task chapter, position, visibility, anchor and embedded binding must match fresh database state.
+A mismatch stops before content writes and requires the separately reviewed composition route.
+Its preview carries `contentOnly` and no Product changes.
+
+Without that envelope, the package itself defines the selected Material and Task source IDs. Unselected originals are not imported.
 The profile queries only those identities in `materials.materials` and `product_tasks.tasks`.
 Task code lookup also detects a conflicting source identity.
 The database adapter uses a bounded, repeatable-read, read-only transaction.
@@ -32,7 +45,11 @@ Existing journal Material identities and versions must agree; stale journals req
 The profile copies fresh access choices and Task publication into a separately hashed package.
 It selects only already published Materials for the existing release publication mechanism.
 This selection preserves their publication state; it can replace their published body with the assigned content.
-The original package remains unchanged. The profile does not use earlier task-local package or policy snapshots.
+The original package remains unchanged. When an original omits `notifyTelegram`, the Material
+command omits it too. This preserves notification intent on current receivers and remains compatible
+with pre-notification receivers. Explicit `true` or `false` stays explicit; unsupported requested
+notification behavior is not silently downgraded. A definitively rejected earlier command remains
+in the journal, while corrected request bytes receive their own ordinary operation fingerprint. The profile does not use earlier task-local package or policy snapshots.
 
 The returned immutable receipt binds source SHA, original/derived package IDs and paths, reviewed preview,
 and fresh selected target state. Review the ordinary preview changes before applying this receipt.

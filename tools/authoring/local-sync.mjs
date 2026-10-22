@@ -1,4 +1,5 @@
 // @ts-check
+import { contentMaterials, contentTasks } from "./package.mjs";
 import { z } from "zod";
 import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
@@ -274,12 +275,20 @@ export function publicationConflict(row, current, desired) {
  *   defaultAccess: DefaultAccess;
  *   primaryVideoId: string | null;
  *   publicationState: DesiredPublication;
+ *   currentMembership?: unknown;
  * }} targets
  */
 export function desiredMaterial(
   manifest,
   row,
-  { topicIds, productIds, defaultAccess, primaryVideoId, publicationState },
+  {
+    topicIds,
+    productIds,
+    defaultAccess,
+    primaryVideoId,
+    publicationState,
+    currentMembership,
+  },
 ) {
   const metadata = {
     title: row.title,
@@ -294,6 +303,24 @@ export function desiredMaterial(
       productIds.get(product.sourceId),
     ),
   };
+  if (manifest.selection.contentOnly) {
+    const existing = z
+      .array(
+        z
+          .object({ seriesId: z.uuid(), ordinal: z.number().int().positive() })
+          .strict(),
+      )
+      .max(100)
+      .parse(currentMembership)
+      .map((item) => item.seriesId);
+    if (
+      canonical([...existing].sort()) !==
+      canonical([...metadata.seriesIds].sort())
+    )
+      throw new Error(
+        `${row.sourceId}: bounded content refuses Product membership changes`,
+      );
+  }
   const videoChapters = primaryVideoId === null ? [] : row.videoChapters;
   return {
     metadata,
@@ -561,7 +588,7 @@ export function normalizeSourceIds(manifest, ids) {
  */
 export function archiveProposalKeys(journal, manifest) {
   // A Product shell names no Material, so its absent Materials say nothing about removal.
-  if (isProductShell(manifest)) return [];
+  if (isProductShell(manifest) || manifest.selection.contentOnly) return [];
   const present = new Set(
     [...manifest.materials, ...(manifest.tasks ?? [])].map((row) =>
       sourceKey(manifest, row.sourceId),
@@ -643,7 +670,7 @@ export async function syncLocal(
     ...original,
     manifest: resolveTaskAccess(original.manifest, reviewedTaskAccess).manifest,
   };
-  for (const task of pkg.manifest.tasks ?? [])
+  for (const task of contentTasks(pkg.manifest))
     if (task.access === null)
       throw new Error(
         `${task.sourceId}: Task access requires a preview decision`,
@@ -660,16 +687,28 @@ export async function syncLocal(
     publicationOfKey(sourceKey(pkg.manifest, row.sourceId));
   const manifest = practicesFollowLessons(pkg.manifest, publicationOfKey);
   if (!reconcileOnly) {
-    await validateProductPages(pkg.manifest, send);
+    if (!pkg.manifest.selection.contentOnly)
+      await validateProductPages(pkg.manifest, send);
     await validateSourcePractices(manifest, request);
   }
   if (!reconcileOnly || pkg.manifest.schemaVersion === 2)
     await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
+    if (
+      pkg.manifest.selection.contentOnly &&
+      (!reviewed ||
+        target.id !== authoringTarget("stand").id ||
+        archive.length ||
+        confirmedProductRemovals.length ||
+        pendingOperations(journal))
+    )
+      throw new Error(
+        "Bounded content requires a reviewed local stand update without pending operations, archive or Product changes",
+      );
     if (pkg.manifest.schemaVersion === 2)
       assertTaskReplayAccess(pkg.manifest, journal);
-    for (const task of pkg.manifest.tasks ?? [])
+    for (const task of contentTasks(pkg.manifest))
       if (
         journal.materials[sourceKey(pkg.manifest, task.sourceId)] !== undefined
       )
@@ -721,7 +760,7 @@ export async function syncLocal(
       ...(shell ? { scope: productShellScope.value } : {}),
     };
     const rows = new Map(
-      pkg.manifest.materials.map((row) => [row.sourceId, row]),
+      contentMaterials(pkg.manifest).map((row) => [row.sourceId, row]),
     );
     const assets = new Map(
       pkg.manifest.assets.map((asset) => [asset.sourceId, asset]),
@@ -860,7 +899,7 @@ export async function syncLocal(
      *     contentVersion: number;
      *     primaryVideoId: string | null;
      *     cover?: { coverId: string } | null | undefined;
-     *     metadata: { slug?: string | undefined };
+     *     metadata: { slug?: string | undefined; seriesMemberships?: unknown };
      *     publicationState?: PublicationState | undefined;
      *   }
      * >}
@@ -868,6 +907,12 @@ export async function syncLocal(
     const currentMaterials = new Map();
     /** @type {Map<string, string>} */
     const links = taskLinks(pkg.manifest);
+    if (pkg.manifest.selection.contentOnly)
+      for (const row of pkg.manifest.materials) {
+        const saved = journal.materials[sourceId(row.sourceId)];
+        if (saved?.url)
+          links.set(row.sourceId, new URL(saved.url, reader).pathname);
+      }
     for (const row of rows.values()) {
       const previous = journal.materials[sourceId(row.sourceId)];
       const reserved =
@@ -876,6 +921,7 @@ export async function syncLocal(
           source: source(row),
         }));
       const current =
+        !pkg.manifest.selection.contentOnly &&
         previous?.revision === source(row).revision &&
         previous.url !== undefined &&
         previous.url !== "" &&
@@ -913,10 +959,9 @@ export async function syncLocal(
     }
 
     const teasers = new Map(
-      pkg.manifest.products.map((product) => [
-        product.sourceId,
-        productTeaser(product),
-      ]),
+      (pkg.manifest.selection.contentOnly ? [] : pkg.manifest.products).map(
+        (product) => [product.sourceId, productTeaser(product)],
+      ),
     );
     if ([...teasers.values()].some(({ partial }) => partial)) {
       report.notices.push({
@@ -928,7 +973,7 @@ export async function syncLocal(
     const topics = await request("/authoring/collections?kind=topic");
     const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
     for (const id of new Set(
-      pkg.manifest.materials
+      contentMaterials(pkg.manifest)
         .map((row) => row.topicId)
         .filter((topicId) => topicId !== null),
     )) {
@@ -936,6 +981,8 @@ export async function syncLocal(
       if (name === undefined)
         throw new Error(`Topic is outside the approved dictionary: ${id}`);
       if (!topicIds.has(id)) {
+        if (pkg.manifest.selection.contentOnly)
+          throw new Error(`Unknown context topic: ${id}`);
         const created = await request("/authoring/collections", {
           kind: "topic",
           slug: id,
@@ -1003,7 +1050,10 @@ export async function syncLocal(
       });
     /** @type {Map<string,string>} */
     const placeholderLinks = new Map(
-      [...rows.keys()].map((id) => [id, `/materials/${id}`]),
+      pkg.manifest.materials.map((row) => [
+        row.sourceId,
+        `/materials/${row.sourceId}`,
+      ]),
     );
     for (const [id, url] of taskLinks(pkg.manifest))
       placeholderLinks.set(id, url);
@@ -1115,6 +1165,17 @@ export async function syncLocal(
         productShellComposition(pkg.manifest, product, order);
       }
     for (const product of pkg.manifest.products) {
+      if (pkg.manifest.selection.contentOnly) {
+        const stored = storedProducts.find(
+          (item) =>
+            item.sourceId === sourceId(product.sourceId) &&
+            item.archived !== true,
+        );
+        if (stored === undefined)
+          throw new Error(`Unknown context Product: ${product.sourceId}`);
+        products.set(product.sourceId, stored);
+        continue;
+      }
       if (!product.complete)
         throw new Error(
           "This first local programme adapter requires a complete Product selection",
@@ -1239,6 +1300,8 @@ export async function syncLocal(
         defaultAccess,
         primaryVideoId,
         publicationState: publicationOf(row),
+        currentMembership: currentMaterials.get(row.sourceId)?.metadata
+          .seriesMemberships,
       });
     // Validate every document before changing any previously correct Material; only empty Product shells
     // and private reservations exist so far.
@@ -1387,7 +1450,9 @@ export async function syncLocal(
         }
         const command = {
           source: source(row),
-          notifyTelegram: row.notifyTelegram ?? false,
+          ...(row.notifyTelegram === undefined
+            ? {}
+            : { notifyTelegram: row.notifyTelegram }),
           materialId: current.materialId,
           expectedContentVersion: current.contentVersion,
           publicationState: publicationOf(row),
@@ -1479,7 +1544,9 @@ export async function syncLocal(
       return { coverId, coverSha256: asset.sha256 };
     }
 
-    for (const product of pkg.manifest.products) {
+    for (const product of pkg.manifest.selection.contentOnly
+      ? []
+      : pkg.manifest.products) {
       try {
         const current = valueAt(products, product.sourceId);
         const order = await request(`/authoring/products/${current.id}/order`);

@@ -23,6 +23,13 @@ export const targetStateSchema = z
           taskId: z.uuid(),
           code: z.string().min(1),
           productId: z.uuid(),
+          chapterId: z.uuid().optional(),
+          position: z.number().int().positive().optional(),
+          afterMaterialSourceId: z.string().nullable().optional(),
+          programmeVisibility: z
+            .enum(["standalone", "embedded", "legacy"])
+            .optional(),
+          embeddedMaterialId: z.uuid().nullable().optional(),
           revision: z.number().int().positive(),
           access,
           publicationState: z.enum(["published", "unpublished"]),
@@ -91,7 +98,9 @@ export function postgresPreservationState(databaseUrl, createClient) {
       );
       const tasks = await client.query(
         `SELECT source_id AS "sourceId", id AS "taskId", code,
-        product_id AS "productId", revision, access, publication_state AS "publicationState"
+        product_id AS "productId", chapter_id AS "chapterId", position,
+        after_material_source_id AS "afterMaterialSourceId", programme_visibility AS "programmeVisibility",
+        embedded_material_id AS "embeddedMaterialId", revision, access, publication_state AS "publicationState"
         FROM product_tasks.tasks WHERE source_id = ANY($1::text[]) OR code = ANY($2::text[]) ORDER BY source_id`,
         [taskIds, taskIds.map((id) => id.slice(id.indexOf(":") + 1))],
       );
