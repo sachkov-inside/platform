@@ -102,8 +102,7 @@ export async function runPreCommit(repositoryRoot = defaultRepositoryRoot) {
     const unformatted = await unformattedFiles(repositoryRoot, files, prettier);
     if (unformatted.length > 0) {
       failures.push(
-        `Prettier would reformat ${unformatted.length} staged file(s); run: pnpm exec prettier --write ${unformatted.join(" ")}`,
-        ...unformatted.map((file) => `  ${file}`),
+        `Prettier would reformat staged files; run: pnpm exec prettier --write ${unformatted.join(" ")}`,
       );
     }
   }
