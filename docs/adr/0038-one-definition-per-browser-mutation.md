@@ -40,7 +40,9 @@ Binary uploads keep their streaming handler with a named limit, delivery reports
 operation body.
 
 `scripts/check-web-architecture.mjs` holds the rule. An operation lives in a `*.operation.ts`
-module with a literal `/api/` path and method, and its route file exports that method. FormData
-mutation helpers are allowed only in the modules listed as awaiting migration, and a browser
-`fetch` with a write method is allowed only in the upload and report modules. The awaiting list
-only shrinks: a module that no longer uses the helpers must leave it.
+module with a literal `/api/` path and method, and its route file exports that method. Modules
+awaiting migration are listed with their number of FormData helper calls; a count may only fall,
+so a new FormData mutation fails even inside a listed module. A browser `fetch` whose literal init
+names a write method is allowed only in the upload and report modules. The check reads syntax: a
+write through an `init` held in a variable, `globalThis.fetch`, or a handler that reads
+`request.formData()` itself remains a review question.

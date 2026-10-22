@@ -73,85 +73,113 @@ const runtimeConfigurationNames = new Set([
   "WEB_BASE_URL",
 ]);
 /**
- * Mutations that still encode FormData by hand (#1679). The list only shrinks: a new mutation
- * declares its operation with `defineMutationOperation` and serves it with
- * `handleMutationOperation` (ADR 0038).
+ * Modules that still encode FormData mutations by hand (#1679), with their number of helper
+ * calls. The counts only shrink: a new mutation, also inside a listed module, declares its
+ * operation with `defineMutationOperation` and serves it with `handleMutationOperation`
+ * (ADR 0038).
  */
-const formMutationModulesAwaitingOperations = new Set([
-  "src/_pages/account/api/account-profile-route.server.ts",
-  "src/_pages/account/api/account-telegram-link-route.server.ts",
-  "src/_pages/communications/api/broadcasts.browser.ts",
-  "src/_pages/communications/api/communications-route.server.ts",
-  "src/_pages/communications/api/communications.browser.ts",
-  "src/_pages/communications/api/communications.server.ts",
-  "src/_pages/content-collections/api/content-collections-route.server.ts",
-  "src/_pages/content-collections/api/content-collections.browser.ts",
-  "src/_pages/library-discovery/api/product-waitlist-route.server.ts",
-  "src/_pages/task-submissions/api/save-author-feedback-route.server.ts",
-  "src/_pages/task-submissions/api/save-author-feedback.browser.ts",
-  "src/entities/subscription/api/billing-consents.browser.ts",
-  "src/entities/subscription/api/billing-consents.server.ts",
-  "src/features/account-access/api/begin-telegram-link.browser.ts",
-  "src/features/account-access/api/confirm-telegram-link.browser.ts",
-  "src/features/account-email/api/account-email.browser.ts",
-  "src/features/account-email/api/account-email.server.ts",
-  "src/features/billing-admin/api/access.browser.ts",
-  "src/features/billing-admin/api/billing-admin.browser.ts",
-  "src/features/billing-admin/api/billing-admin.server.ts",
-  "src/features/billing-admin/api/enrollments.browser.ts",
-  "src/features/billing-admin/api/enrollments.server.ts",
-  "src/features/billing-admin/api/invitations.browser.ts",
-  "src/features/billing-admin/api/payment-links.browser.ts",
-  "src/features/billing-admin/api/product-revocation.browser.ts",
-  "src/features/billing-admin/api/product-revocation.server.ts",
-  "src/features/billing-admin/api/respondents.browser.ts",
-  "src/features/billing-admin/api/tribute.browser.ts",
-  "src/features/billing-admin/api/tribute.server.ts",
-  "src/features/billing-checkout/api/billing-checkout.browser.ts",
-  "src/features/billing-checkout/api/billing-checkout.server.ts",
-  "src/features/billing-contact/api/billing-contact.browser.ts",
-  "src/features/billing-contact/api/billing-contact.server.ts",
-  "src/features/billing-subscription/api/billing-subscription.browser.ts",
-  "src/features/billing-subscription/api/billing-subscription.server.ts",
-  "src/features/bookmarks/api/bookmarks-route.server.ts",
-  "src/features/bookmarks/api/bookmarks.browser.ts",
-  "src/features/material-lifecycle/api/delete-material-draft-route.server.ts",
-  "src/features/material-lifecycle/api/delete-material-draft.browser.ts",
-  "src/features/material-lifecycle/api/transition-material-publication-route.server.ts",
-  "src/features/material-lifecycle/api/transition-material-publication.browser.ts",
-  "src/features/material-video/api/video-authoring-route.server.ts",
-  "src/features/material-video/api/video-authoring.browser.ts",
-  "src/features/material-video/api/video-playback-route.server.ts",
-  "src/features/material-video/api/video-playback.browser.ts",
-  "src/features/member-profile-editor/api/create-member-profile.browser.ts",
-  "src/features/member-profile-editor/api/update-member-profile.browser.ts",
-  "src/features/notification-preferences/api/notification-preferences.browser.ts",
-  "src/features/notification-preferences/api/notification-preferences.server.ts",
-  "src/features/product-artifacts/api/product-artifacts-bff.server.ts",
-  "src/features/product-artifacts/api/product-artifacts.browser.ts",
-  "src/features/product-community-settings/api/configuration.browser.ts",
-  "src/features/product-community-settings/api/configuration.server.ts",
-  "src/features/product-modes/api/product-mode-route.server.ts",
-  "src/features/product-modes/api/product-mode.browser.ts",
-  "src/features/product-task-submission/api/submit-product-task-route.server.ts",
-  "src/features/product-task-submission/api/submit-product-task.browser.ts",
-  "src/features/product-waitlist/api/product-waitlist.browser.ts",
-  "src/features/reading-progress/api/material-open-route.server.ts",
-  "src/features/reading-progress/api/material-open.browser.ts",
-  "src/features/reading-progress/api/personal-home-route.server.ts",
-  "src/features/reading-progress/api/personal-home.browser.ts",
-  "src/features/reading-progress/api/reading-route.server.ts",
-  "src/features/reading-progress/api/reading.browser.ts",
-  "src/features/reading-progress/api/series-continuation.browser.ts",
-  "src/features/reading-progress/api/series-continuation.server.ts",
-  "src/features/series-order/api/chapter-attachments.browser.ts",
-  "src/features/series-order/api/chapter-attachments.server.ts",
-  "src/features/series-order/api/home-pin-route.server.ts",
-  "src/features/series-order/api/home-pin.browser.ts",
-  "src/features/series-order/api/series-order-route.server.ts",
-  "src/features/series-order/api/series-order.browser.ts",
-  "src/features/terms-acceptance/api/accept-terms-route.server.ts",
-  "src/features/terms-acceptance/api/accept-terms.browser.ts",
+const formMutationModulesAwaitingOperations = new Map([
+  ["src/_pages/account/api/account-profile-route.server.ts", 2],
+  ["src/_pages/account/api/account-telegram-link-route.server.ts", 2],
+  ["src/_pages/communications/api/broadcasts.browser.ts", 8],
+  ["src/_pages/communications/api/communications-route.server.ts", 12],
+  ["src/_pages/communications/api/communications.browser.ts", 12],
+  ["src/_pages/communications/api/communications.server.ts", 8],
+  ["src/_pages/content-collections/api/content-collections-route.server.ts", 3],
+  ["src/_pages/content-collections/api/content-collections.browser.ts", 3],
+  ["src/_pages/library-discovery/api/product-waitlist-route.server.ts", 3],
+  ["src/_pages/task-submissions/api/save-author-feedback-route.server.ts", 1],
+  ["src/_pages/task-submissions/api/save-author-feedback.browser.ts", 1],
+  ["src/entities/subscription/api/billing-consents.browser.ts", 1],
+  ["src/entities/subscription/api/billing-consents.server.ts", 1],
+  ["src/features/account-access/api/begin-telegram-link.browser.ts", 1],
+  ["src/features/account-access/api/confirm-telegram-link.browser.ts", 1],
+  ["src/features/account-email/api/account-email.browser.ts", 2],
+  ["src/features/account-email/api/account-email.server.ts", 2],
+  ["src/features/billing-admin/api/access.browser.ts", 2],
+  ["src/features/billing-admin/api/billing-admin.browser.ts", 21],
+  ["src/features/billing-admin/api/billing-admin.server.ts", 2],
+  ["src/features/billing-admin/api/enrollments.browser.ts", 11],
+  ["src/features/billing-admin/api/enrollments.server.ts", 11],
+  ["src/features/billing-admin/api/invitations.browser.ts", 3],
+  ["src/features/billing-admin/api/payment-links.browser.ts", 3],
+  ["src/features/billing-admin/api/product-revocation.browser.ts", 2],
+  ["src/features/billing-admin/api/product-revocation.server.ts", 2],
+  ["src/features/billing-admin/api/respondents.browser.ts", 3],
+  ["src/features/billing-admin/api/tribute.browser.ts", 7],
+  ["src/features/billing-admin/api/tribute.server.ts", 7],
+  ["src/features/billing-checkout/api/billing-checkout.browser.ts", 2],
+  ["src/features/billing-checkout/api/billing-checkout.server.ts", 2],
+  ["src/features/billing-contact/api/billing-contact.browser.ts", 2],
+  ["src/features/billing-contact/api/billing-contact.server.ts", 2],
+  ["src/features/billing-subscription/api/billing-subscription.browser.ts", 7],
+  ["src/features/billing-subscription/api/billing-subscription.server.ts", 7],
+  ["src/features/bookmarks/api/bookmarks-route.server.ts", 2],
+  ["src/features/bookmarks/api/bookmarks.browser.ts", 2],
+  [
+    "src/features/material-lifecycle/api/delete-material-draft-route.server.ts",
+    1,
+  ],
+  ["src/features/material-lifecycle/api/delete-material-draft.browser.ts", 1],
+  [
+    "src/features/material-lifecycle/api/transition-material-publication-route.server.ts",
+    1,
+  ],
+  [
+    "src/features/material-lifecycle/api/transition-material-publication.browser.ts",
+    1,
+  ],
+  ["src/features/material-video/api/video-authoring-route.server.ts", 4],
+  ["src/features/material-video/api/video-authoring.browser.ts", 4],
+  ["src/features/material-video/api/video-playback-route.server.ts", 2],
+  ["src/features/material-video/api/video-playback.browser.ts", 2],
+  [
+    "src/features/member-profile-editor/api/create-member-profile.browser.ts",
+    1,
+  ],
+  [
+    "src/features/member-profile-editor/api/update-member-profile.browser.ts",
+    1,
+  ],
+  [
+    "src/features/notification-preferences/api/notification-preferences.browser.ts",
+    1,
+  ],
+  [
+    "src/features/notification-preferences/api/notification-preferences.server.ts",
+    1,
+  ],
+  ["src/features/product-artifacts/api/product-artifacts-bff.server.ts", 6],
+  ["src/features/product-artifacts/api/product-artifacts.browser.ts", 8],
+  ["src/features/product-community-settings/api/configuration.browser.ts", 1],
+  ["src/features/product-community-settings/api/configuration.server.ts", 1],
+  ["src/features/product-modes/api/product-mode-route.server.ts", 1],
+  ["src/features/product-modes/api/product-mode.browser.ts", 1],
+  [
+    "src/features/product-task-submission/api/submit-product-task-route.server.ts",
+    1,
+  ],
+  [
+    "src/features/product-task-submission/api/submit-product-task.browser.ts",
+    1,
+  ],
+  ["src/features/product-waitlist/api/product-waitlist.browser.ts", 3],
+  ["src/features/reading-progress/api/material-open-route.server.ts", 1],
+  ["src/features/reading-progress/api/material-open.browser.ts", 1],
+  ["src/features/reading-progress/api/personal-home-route.server.ts", 1],
+  ["src/features/reading-progress/api/personal-home.browser.ts", 1],
+  ["src/features/reading-progress/api/reading-route.server.ts", 2],
+  ["src/features/reading-progress/api/reading.browser.ts", 2],
+  ["src/features/reading-progress/api/series-continuation.browser.ts", 1],
+  ["src/features/reading-progress/api/series-continuation.server.ts", 1],
+  ["src/features/series-order/api/chapter-attachments.browser.ts", 1],
+  ["src/features/series-order/api/chapter-attachments.server.ts", 1],
+  ["src/features/series-order/api/home-pin-route.server.ts", 1],
+  ["src/features/series-order/api/home-pin.browser.ts", 1],
+  ["src/features/series-order/api/series-order-route.server.ts", 1],
+  ["src/features/series-order/api/series-order.browser.ts", 1],
+  ["src/features/terms-acceptance/api/accept-terms-route.server.ts", 1],
+  ["src/features/terms-acceptance/api/accept-terms.browser.ts", 1],
 ]);
 /**
  * Browser writes that cannot travel as one JSON operation body: binary uploads with their paired
@@ -1128,12 +1156,13 @@ function exportsRouteMethod(program, method) {
 }
 
 /**
- * Calls of the form-encoded mutation helpers that ADR 0038 replaces with an operation. A streaming
- * upload passes its options as the third argument and stays outside this rule.
+ * How many calls of the form-encoded mutation helpers that ADR 0038 replaces with an operation a
+ * module makes. A streaming upload passes its options as the third argument and stays outside
+ * this rule.
  *
  * @param {Program} program
  */
-function usesFormMutationHelper(program) {
+function formMutationHelperCalls(program) {
   const browserBindings = importedBindings(
     program,
     (source) => source === "@/shared/api/same-origin-mutation",
@@ -1157,7 +1186,7 @@ function usesFormMutationHelper(program) {
     (source) => source.startsWith("@/shared/auth"),
     new Set(["handleOptionalAuthenticatedMutation"]),
   );
-  let found = namespaceImport;
+  let calls = namespaceImport ? 1 : 0;
   new Visitor({
     CallExpression(node) {
       if (node.callee.type !== "Identifier") return;
@@ -1167,11 +1196,11 @@ function usesFormMutationHelper(program) {
         optionalBindings.has(name) ||
         (serverBindings.has(name) && node.arguments.length < 3)
       ) {
-        found = true;
+        calls += 1;
       }
     },
   }).visit(program);
-  return found;
+  return calls;
 }
 
 /**
@@ -1520,8 +1549,8 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     }
   }
   if (
-    usesFormMutationHelper(program) &&
-    !formMutationModulesAwaitingOperations.has(sourcePath)
+    formMutationHelperCalls(program) >
+    (formMutationModulesAwaitingOperations.get(sourcePath) ?? 0)
   ) {
     findingsForFile.push(
       `${sourcePath}: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation; FormData helpers remain only for mutations awaiting #1679`,
@@ -1662,10 +1691,11 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
 // Список ожидающих перевода только сокращается: переведённый или удалённый модуль уходит из него.
 if (requestedRoots.length === 0) {
   for (const awaiting of formMutationModulesAwaitingOperations) {
-    const program = parsedFiles.get(path.resolve(webRoot, awaiting));
-    if (program === undefined || !usesFormMutationHelper(program)) {
+    const program = parsedFiles.get(path.resolve(webRoot, awaiting[0]));
+    const calls = program === undefined ? 0 : formMutationHelperCalls(program);
+    if (calls < awaiting[1]) {
       findings.push(
-        `${awaiting}: no longer encodes a FormData mutation; remove it from formMutationModulesAwaitingOperations`,
+        `${awaiting[0]}: makes ${String(calls)} FormData mutation calls; lower its count in formMutationModulesAwaitingOperations to ${String(calls)}, or remove it at 0`,
       );
     }
   }
