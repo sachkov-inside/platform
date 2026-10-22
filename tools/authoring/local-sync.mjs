@@ -468,8 +468,9 @@ export function productChapters(manifest, product) {
     id: sourceUuid(
       `${sourceKey(manifest, product.sourceId)}:chapter:${chapter.sourceId}`,
     ),
-    name: chapter.title,
-    summary: chapter.summary,
+    // The receiver stores chapter text trimmed; comparing it untrimmed would report a change forever.
+    name: chapter.title.trim(),
+    summary: chapter.summary.trim(),
   }));
 }
 
