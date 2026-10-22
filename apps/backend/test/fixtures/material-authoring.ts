@@ -20,6 +20,7 @@ export function stubMaterialAuthoring(
     transitionSourcePublication: () =>
       Promise.resolve(forbiddenAuthoringResult),
     applySourceMaterial: () => Promise.resolve(forbiddenAuthoringResult),
+    readSourceMaterialState: () => Promise.resolve(forbiddenAuthoringResult),
     loadHomePin: () => Promise.resolve(forbiddenAuthoringResult),
     setHomePin: () => Promise.resolve(forbiddenAuthoringResult),
     createContentCollection: () => Promise.resolve(forbiddenAuthoringResult),

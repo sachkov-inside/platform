@@ -15,6 +15,7 @@ import {
   assembleReserveSourceMaterial,
   assembleApplySourceMaterial,
 } from "../../features/import-source-material/import-source-material.js";
+import { assembleReadSourceMaterialState } from "../../features/read-source-material-state/read-source-material-state.js";
 import { assembleLoadHomePin } from "../../features/load-home-pin/load-home-pin.js";
 import { assembleSetHomePin } from "../../features/set-home-pin/set-home-pin.js";
 import { assembleCreateDraft } from "../../features/create-draft/create-draft.js";
@@ -52,6 +53,7 @@ export function assembleMaterialAuthoring(
     transitionSourcePublication:
       assembleTransitionSourcePublication(dependencies),
     applySourceMaterial: assembleApplySourceMaterial(dependencies),
+    readSourceMaterialState: assembleReadSourceMaterialState(dependencies),
     loadHomePin: assembleLoadHomePin(dependencies),
     setHomePin: assembleSetHomePin(dependencies),
     createContentCollection: assembleCreateContentCollection(dependencies),

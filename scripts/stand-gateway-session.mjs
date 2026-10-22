@@ -7,21 +7,35 @@ import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+import { refusal } from "../tools/authoring/refusal.mjs";
 import { resolveLocalTarget } from "../tools/authoring/target.mjs";
+import { probeGateway } from "./stand-gateway-identity.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
+
+const execute = promisify(execFile);
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gatewayStartTimeoutMs = 60_000;
 
-/** @param {string} origin */
-async function isGatewayRunning(origin) {
+/** @param {string} port */
+async function portOwner(port) {
   try {
-    await fetch(`${origin}/__local-api/authoring/home-pin`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    return true;
+    const { stdout } = await execute("lsof", [
+      "-nP",
+      `-iTCP:${port}`,
+      "-sTCP:LISTEN",
+      "-Fpc",
+    ]);
+    const pid = /^p(\d+)$/mu.exec(stdout)?.[1];
+    const command = /^c(.+)$/mu.exec(stdout)?.[1];
+    return pid === undefined
+      ? ""
+      : ` (PID ${pid}${command ? `, ${command}` : ""})`;
   } catch {
-    return false;
+    return "";
   }
 }
 
@@ -106,17 +120,34 @@ export async function standIdentity(ownerEmail) {
 }
 
 /**
+ * Runs the work through a verified stand gateway: reuses a running one for the same owner or
+ * starts one for the duration of the work and stops it afterwards. Another process on the port
+ * is refused by name instead of being treated as the gateway.
+ *
  * @template T
  * @param {string} email
- * @param {(origin: string) => Promise<T>} work
+ * @param {(origin: string, gateway: { identity: import("./stand-gateway-identity.mjs").GatewayIdentity; started: boolean }) => Promise<T>} work
  * @returns {Promise<T>}
  */
 export async function withStandGateway(email, work) {
   const origin = resolveLocalTarget("stand");
-  const gateway = (await isGatewayRunning(origin))
-    ? undefined
-    : startGateway(email);
-  if (gateway === undefined) return work(origin);
+  const port = new URL(origin).port;
+  const found = await probeGateway(origin);
+  if (found.kind === "foreign")
+    throw refusal(
+      "gateway_port_busy",
+      `${origin} is held by a process that is not the stand authoring gateway${await portOwner(port)}: ${found.detail}. ` +
+        "Stop it (an older gateway or a pre-#1672 pnpm editor:local used this port) and repeat",
+    );
+  if (found.kind === "gateway") {
+    if (found.identity.owner.toLowerCase() !== email.toLowerCase())
+      throw refusal(
+        "gateway_owner_mismatch",
+        `The running stand gateway (PID ${String(found.identity.pid)}) acts as ${found.identity.owner}, not ${email}; stop it or deliver as its owner`,
+      );
+    return work(origin, { identity: found.identity, started: false });
+  }
+  const gateway = startGateway(email);
   const child = gateway.child;
   /** @param {NodeJS.Signals} signal */
   async function interrupted(signal) {
@@ -133,7 +164,13 @@ export async function withStandGateway(email, work) {
   process.once("SIGTERM", terminate);
   try {
     await gateway.ready;
-    return await work(origin);
+    const started = await probeGateway(origin);
+    if (started.kind !== "gateway")
+      throw refusal(
+        "gateway_unverified",
+        "The started stand gateway does not report its identity",
+      );
+    return await work(origin, { identity: started.identity, started: true });
   } finally {
     process.removeListener("SIGINT", interrupt);
     process.removeListener("SIGTERM", terminate);

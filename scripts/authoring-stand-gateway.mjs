@@ -12,6 +12,10 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 
 import { localTargets } from "../tools/authoring/target.mjs";
+import {
+  gatewayIdentity,
+  gatewayIdentityPath,
+} from "./stand-gateway-identity.mjs";
 import { readIdentityProofPort } from "./identity-proof-environment.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
@@ -259,7 +263,22 @@ async function main() {
   )
     throw new Error("The authoring gateway serves only a development stand");
 
+  const identity = JSON.stringify(
+    gatewayIdentity({ owner: email, api: apiOrigin, root }),
+  );
   const server = createServer(async (request, response) => {
+    if (
+      request.method === "GET" &&
+      request.url === gatewayIdentityPath &&
+      request.headers.host === gateway.host &&
+      request.headers.origin === undefined &&
+      request.headers["sec-fetch-site"] === undefined
+    ) {
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(identity);
+      return;
+    }
     const path = forwardedPath(
       request.headers.host,
       request.url ?? "",

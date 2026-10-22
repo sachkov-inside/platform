@@ -127,6 +127,11 @@ async function fixture(
     join(directory, "tools/authoring/target.mjs"),
     'export function resolveLocalTarget() { return "http://127.0.0.1:1"; }',
   );
+  // Refusals carry only a code; the real module has no dependencies.
+  await symlink(
+    join(root, "tools/authoring/refusal.mjs"),
+    join(directory, "tools/authoring/refusal.mjs"),
+  );
   const record = join(directory, "tree.json");
   const descendant = `
     const server = require('node:net').createServer();
@@ -176,6 +181,9 @@ async function fixture(
       : {}),
     // Port availability has its own loopback adapter contract. Cleanup tests must not probe shared listeners.
     "editor-local-config.mjs": `export { editorLocalPorts, editorLocalEndpoints } from ${JSON.stringify(new URL("../editor-local-config.mjs?real-config", import.meta.url).href)}; export async function assertEditorPortsAvailable() {}`,
+    // The gateway port belongs to the shared stand; the fixture's gateway reports itself once started.
+    "stand-gateway-identity.mjs":
+      "let probes = 0; export async function probeGateway() { probes += 1; return probes === 1 ? { kind: 'free' } : { kind: 'gateway', identity: { service: 'inside-authoring-stand-gateway', protocol: 1, owner: 'author@example.test', api: 'http://127.0.0.1:9', pid: process.pid, root: 'unused' } }; }",
     "local-setup-lock.mjs":
       "export async function acquireLocalSetupLock() { return async () => {}; }",
     "shared-identity-directory.mjs":

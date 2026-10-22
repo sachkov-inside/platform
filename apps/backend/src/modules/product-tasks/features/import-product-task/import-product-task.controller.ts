@@ -1,82 +1,43 @@
 import {
-  applyDecorators,
   Body,
   Controller,
   Headers,
   HttpCode,
   Inject,
   Post,
-  UseFilters,
-  UseGuards,
 } from "@nestjs/common";
 import {
-  ApiBearerAuth,
   ApiBody,
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
-  ApiResponse,
-  ApiTags,
 } from "@nestjs/swagger";
 import { z } from "zod";
 
-import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemException } from "../../../../infrastructure/http/problem-details.js";
+import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
-  problemDetailsContent,
-  toOpenApiSchema,
-} from "../../../../infrastructure/http/zod-openapi.js";
-import {
-  AccountGuard,
-  AccountProblemDetailsFilter,
   CurrentAccount,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
+import {
+  ApiTaskImportErrors,
+  TaskImportEndpoint,
+  throwTaskImportError,
+} from "../../adapters/nest/task-import-http.js";
+import {
+  PRODUCT_TASK_IMPORT,
+  type ProductTaskImport,
+} from "../../facets/product-task-import/product-task-import.js";
 import {
   applySourceTaskBodySchema,
   sourceTaskSchema,
   taskImportReceiptSchema,
   validateSourceTaskResultSchema,
-  type ApplySourceTaskOperation,
-  type TaskImportError,
-  type ValidateSourceTaskOperation,
 } from "./import-product-task.contract.js";
 
-export const PRODUCT_TASK_IMPORT = Symbol("PRODUCT_TASK_IMPORT");
-
-export interface ProductTaskImport {
-  readonly validate: ValidateSourceTaskOperation;
-  readonly apply: ApplySourceTaskOperation;
-}
-
 const idempotencyKeyHeaderSchema = z.string().trim().min(1).max(200);
-const taskImportProblemSchema = z.looseObject({
-  type: z.string(),
-  title: z.string(),
-  status: z.number().int(),
-  code: z.string(),
-  correlationId: z.string().optional(),
-  retryable: z.boolean().optional(),
-  sourceIds: z.array(z.string()).optional(),
-  sourceId: z.string().optional(),
-});
 
-function ApiTaskImportErrors(...statuses: readonly number[]) {
-  return applyDecorators(
-    ...statuses.map((status) =>
-      ApiResponse({
-        status,
-        content: problemDetailsContent(taskImportProblemSchema),
-      }),
-    ),
-  );
-}
-
-@ApiTags("Product task authoring")
-@ApiBearerAuth("logto")
-@PrivateNoStore()
-@UseGuards(AccountGuard)
-@UseFilters(AccountProblemDetailsFilter)
+@TaskImportEndpoint()
 @Controller("authoring/import/tasks")
 export class ImportProductTaskController {
   constructor(
@@ -100,7 +61,7 @@ export class ImportProductTaskController {
     const result = await this.tasks.validate(input, {
       actor: account.accountId,
     });
-    if (!result.ok) throwImportError(result.error);
+    if (!result.ok) throwTaskImportError(result.error);
     return result.value;
   }
 
@@ -128,64 +89,7 @@ export class ImportProductTaskController {
       actor: account.accountId,
       idempotencyKey: key ?? "",
     });
-    if (!result.ok) throwImportError(result.error);
+    if (!result.ok) throwTaskImportError(result.error);
     return result.value;
-  }
-}
-
-function throwImportError(error: TaskImportError): never {
-  switch (error.code) {
-    case "invalid_request_shape":
-      throw problemException(
-        400,
-        error.code,
-        "Product Task import is malformed",
-      );
-    case "forbidden":
-      throw problemException(
-        403,
-        error.code,
-        "Product Task import is forbidden",
-      );
-    case "product_not_found":
-    case "chapter_not_found":
-      throw problemException(
-        404,
-        error.code,
-        "The Product or chapter of the task does not exist",
-      );
-    case "related_material_not_found":
-      throw problemException(
-        404,
-        error.code,
-        "A related Material does not exist",
-        { sourceIds: [...error.sourceIds] },
-      );
-    case "after_material_not_in_chapter":
-      throw problemException(
-        404,
-        error.code,
-        "The Material the task follows is not in the task's chapter",
-        { sourceId: error.sourceId },
-      );
-    case "source_mismatch":
-    case "task_revision_conflict":
-    case "idempotency_conflict":
-      throw problemException(
-        409,
-        error.code,
-        "Product Task import conflicts with the current task",
-      );
-    case "dependency_unavailable":
-      throw problemException(
-        503,
-        error.code,
-        "Product Task dependency is unavailable",
-        { retryable: true },
-      );
-    case "internal_error":
-      throw problemException(500, error.code, "Product Task import failed", {
-        correlationId: error.correlationId,
-      });
   }
 }

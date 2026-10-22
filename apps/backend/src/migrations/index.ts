@@ -1,4 +1,8 @@
 import {
+  name as materialSourceCommitName,
+  statement as materialSourceCommitStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0103-material-source-commit.js";
+import {
   name as materialTelegramAnnouncementsName,
   statement as materialTelegramAnnouncementsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0102-material-telegram-announcements.js";
@@ -663,6 +667,10 @@ export const platformMigrations = [
   {
     name: materialTelegramAnnouncementsName,
     statement: materialTelegramAnnouncementsStatement,
+  },
+  {
+    name: materialSourceCommitName,
+    statement: materialSourceCommitStatement,
   },
 ] as const;
 

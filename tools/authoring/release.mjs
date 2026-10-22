@@ -1,4 +1,5 @@
 // @ts-check
+import { contentMaterials, manifestSchema } from "./package.mjs";
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -53,6 +54,7 @@ import { preflightTaskPages } from "./task-page.mjs";
 import { previewTasks, resolveTaskAccess } from "./task-import.mjs";
 import { previewPublication, applyPublication } from "./publication.mjs";
 import { previewRetirement, applyRetirement } from "./retirement.mjs";
+import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -62,7 +64,7 @@ import { previewRetirement, applyRetirement } from "./retirement.mjs";
  * @property {string} sourceId
  * @property {string} title
  * @property {string} access
- * @property {boolean} notifyTelegram
+ * @property {boolean} [notifyTelegram]
  * @property {boolean} showInFeed
  * @property {string | null} video
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
@@ -71,6 +73,7 @@ import { previewRetirement, applyRetirement } from "./retirement.mjs";
  * @property {import("./local-sync.mjs").DesiredPublication} publication
  * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
  * @property {{ current: string | null; desired: string }} [contentReplacement]
+ * @property {{ current: string | null; desired: string | null }} [sourceCommit] Content commits of the target row and the package
  * @property {string} [conflictReason]
  * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
@@ -154,6 +157,8 @@ async function readJournal(stateDirectory, target) {
  *   confirmedProductRemovals?: string[];
  *   publish?: import("./local-boundaries.mjs").PublishSelection;
  *   accessToken?: import("./target.mjs").AccessToken | undefined;
+ *   sourceCommit?: string | undefined;
+ *   contentRepository?: string | undefined;
  * }} options
  */
 export async function previewRelease(
@@ -167,9 +172,36 @@ export async function previewRelease(
     taskAccess = [],
     confirmedProductRemovals = [],
     accessToken,
+    sourceCommit,
+    contentRepository,
   },
 ) {
   const target = releaseTarget(origin);
+  const isAncestor =
+    contentRepository === undefined
+      ? undefined
+      : gitAncestry(resolve(contentRepository));
+  /**
+   * Why a package may not replace content the target received from a recorded Content commit.
+   *
+   * @param {unknown} recorded
+   */
+  const commitConflict = async (recorded) => {
+    if (typeof recorded !== "string" || recorded === sourceCommit)
+      return undefined;
+    if (sourceCommit === undefined || isAncestor === undefined)
+      return "source_commit_unknown";
+    const relation = await sourceCommitRelation(
+      recorded,
+      sourceCommit,
+      isAncestor,
+    );
+    return relation === "older"
+      ? "source_commit_older"
+      : relation === "diverged"
+        ? "source_commit_diverged"
+        : undefined;
+  };
   const send = transport ?? transportFor(target, accessToken);
   /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
@@ -182,7 +214,8 @@ export async function previewRelease(
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
-  await validateProductPages(manifest, send);
+  if (!manifest.selection.contentOnly)
+    await validateProductPages(manifest, send);
   const journal = await readJournal(stateDirectory, target.id);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
@@ -231,7 +264,7 @@ export async function previewRelease(
   const materials = [];
   /** @type {Record<string, number | string>} */
   const expected = {};
-  for (const row of manifest.materials) {
+  for (const row of contentMaterials(manifest)) {
     const key = sourceKey(manifest, row.sourceId);
     const entry = journal.materials[key];
     const item = {
@@ -239,7 +272,9 @@ export async function previewRelease(
       title: row.title,
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
-      notifyTelegram: row.notifyTelegram ?? false,
+      ...(row.notifyTelegram === undefined
+        ? {}
+        : { notifyTelegram: row.notifyTelegram }),
       video: row.video?.kinescopeId ?? null,
       publication: publicationOfKey(key),
     };
@@ -275,6 +310,7 @@ export async function previewRelease(
       defaultAccess,
       primaryVideoId: attached,
       publicationState: item.publication,
+      currentMembership: current.metadata["seriesMemberships"],
     });
     const currentPublication = targetPublication(
       current.publicationState,
@@ -294,10 +330,14 @@ export async function previewRelease(
       existingVideo &&
       currentAccess !== undefined &&
       currentAccess !== item.access;
+    // On 2026-10-19 an older prepared package replaced newer content; history decides instead.
+    const recordedCommit = current.source?.["commit"];
+    const commitConflictFound = await commitConflict(recordedCommit);
     const change =
       current.contentVersion !== entry.contentVersion ||
       videoAccessConflict ||
-      alreadyPublic
+      alreadyPublic ||
+      commitConflictFound !== undefined
         ? "conflict"
         : entry.archived
           ? "restore"
@@ -316,6 +356,16 @@ export async function previewRelease(
         desired: materialRevision(manifest, row),
       },
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
+      ...(typeof recordedCommit === "string" || sourceCommit !== undefined
+        ? {
+            sourceCommit: {
+              current:
+                typeof recordedCommit === "string" ? recordedCommit : null,
+              desired: sourceCommit ?? null,
+            },
+          }
+        : {}),
+      ...(commitConflictFound ? { conflictReason: commitConflictFound } : {}),
       ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
       ...(publicationConflictFound
         ? { conflictReason: publicationConflictFound.code }
@@ -345,7 +395,9 @@ export async function previewRelease(
   /** @type {ProductChange[]} */
   const products = [];
   const currentProducts = storedProducts;
-  for (const product of manifest.products) {
+  for (const product of manifest.selection.contentOnly
+    ? []
+    : manifest.products) {
     const programme = [
       ...product.materialIds,
       ...product.supplementaryMaterialIds,
@@ -552,6 +604,15 @@ export async function previewRelease(
   );
   Object.assign(expected, taskPreview.expected);
   const archiveProposals = archiveProposalKeys(journal, manifest);
+  if (
+    manifest.selection.contentOnly &&
+    [...materials, ...taskPreview.tasks].some(
+      (row) => !["changed", "unchanged"].includes(row.change),
+    )
+  )
+    throw new Error(
+      "Bounded content updates require existing conflict-free rows",
+    );
   // The owner's publication approval is part of what apply must match.
   /** @type {{ publish?: import("./local-boundaries.mjs").PublishSelection }} */
   const approval =
@@ -567,6 +628,17 @@ export async function previewRelease(
     packageId: pkg.id,
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
+    // The Content commit the package was exported from; apply records it on each written Material.
+    ...(sourceCommit === undefined
+      ? {}
+      : { sourceCommit: z.hash("sha1").parse(sourceCommit) }),
+    // Apply compares history again in the same repository.
+    ...(contentRepository === undefined
+      ? {}
+      : { contentRepository: resolve(contentRepository) }),
+    ...(manifest.selection.contentOnly
+      ? { contentOnly: manifest.selection.contentOnly }
+      : {}),
     ...approval,
     ...(confirmed.length === 0 ? {} : { confirmedProductRemovals: confirmed }),
     ...(access.choices.length === 0 ? {} : { taskAccess: access.choices }),
@@ -603,6 +675,9 @@ const previewSchema = z
     packageId: z.hash("sha256"),
     packagePath: z.string(),
     namespace: z.string(),
+    sourceCommit: z.hash("sha1").optional(),
+    contentRepository: z.string().optional(),
+    contentOnly: manifestSchema.shape.selection.shape.contentOnly,
     scope: productShellScope.optional(),
     publish: publishSelectionSchema.optional(),
     taskAccess: z.array(z.string()).optional(),
@@ -627,12 +702,13 @@ const previewSchema = z
  *   archive?: string[];
  *   request?: LocalTransport | undefined;
  *   accessToken?: import("./target.mjs").AccessToken | undefined;
+ *   contextLinks?: Record<string, string> | undefined;
  * }} [options]
  */
 export async function applyRelease(
   previewPath,
   stateDirectory,
-  { archive = [], request: transport, accessToken } = {},
+  { archive = [], request: transport, accessToken, contextLinks } = {},
 ) {
   const envelope = z
     .object({ scope: z.string().optional() })
@@ -706,6 +782,8 @@ export async function applyRelease(
     taskAccess,
     confirmedProductRemovals,
     accessToken,
+    sourceCommit: preview.sourceCommit,
+    contentRepository: preview.contentRepository,
   });
   if (current.preview.fingerprint !== fingerprint)
     throw new Error(
@@ -720,6 +798,8 @@ export async function applyRelease(
     reviewed: true,
     reviewedTaskAccess: taskAccess,
     reviewedProductRemovals: confirmedProductRemovals,
+    sourceCommit: preview.sourceCommit,
+    contextLinks,
   });
 }
 
@@ -744,6 +824,8 @@ if (
       publish: { type: "string", multiple: true, default: [] },
       "publish-all": { type: "boolean", default: false },
       "task-access": { type: "string", multiple: true, default: [] },
+      commit: { type: "string" },
+      "content-repository": { type: "string" },
       "confirm-product-removal": {
         type: "string",
         multiple: true,
@@ -848,6 +930,8 @@ if (
         : undefined;
     const packagePath = exported?.packagePath ?? values.package;
     if (packagePath === undefined) throw new Error("Name a package or Content");
+    if (exported !== undefined && values.commit !== undefined)
+      throw new Error("--commit names a ready package's Content commit");
     const { path, summary, preview } = await previewRelease(
       packagePath,
       values.state,
@@ -857,6 +941,8 @@ if (
         taskAccess: values["task-access"],
         confirmedProductRemovals: values["confirm-product-removal"],
         accessToken: sessionFor(values.target),
+        sourceCommit: exported?.commit ?? values.commit,
+        contentRepository: values.content ?? values["content-repository"],
       },
     );
     process.stdout.write(
@@ -876,7 +962,7 @@ if (
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release publication-preview --material UUID --source-id SOURCE_ID --status published|unpublished --target editor|stand|production --state STATE_DIRECTORY [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release publication-preview --material UUID --source-id SOURCE_ID --status published|unpublished --target editor|stand|production --state STATE_DIRECTORY [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release preview (--package PACKAGE_JSON [--commit CONTENT_SHA --content-repository CONTENT_REPOSITORY] | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...\n       pnpm authoring:release retirement-preview --package CANONICAL_PACKAGE_JSON --target editor|stand|production --state STATE_DIRECTORY --material UUID...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

@@ -7,10 +7,7 @@ import {
   commandDigest,
   replayFingerprint,
 } from "../../../../infrastructure/contracts/canonical-digest.js";
-import {
-  dependencyFailure,
-  reportDependencyFailure,
-} from "../../../../infrastructure/observability/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockProductTaskImport,
   type ProductTasksPrisma,
@@ -22,6 +19,7 @@ import {
   taskPublicationSchema,
 } from "../../domain/task-definition.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeAuthor } from "../../shared/authorize-author.js";
 import { scope, systemFailure, type Result } from "../../shared/result.js";
 import {
   applySourceTaskBodySchema,
@@ -31,7 +29,6 @@ import {
   type SourceTask,
   type TaskImportError,
   type TaskImportReceipt,
-  type TaskValidationError,
   type ValidateSourceTaskOperation,
 } from "./import-product-task.contract.js";
 
@@ -60,7 +57,7 @@ export function assembleValidateSourceTask(
     const parsed = sourceTaskSchema.safeParse(input);
     if (!parsed.success)
       return { ok: false, error: { code: "invalid_request_shape" } };
-    const authorized = await authorize(
+    const authorized = await authorizeAuthor(
       dependencies.authorPolicy,
       actor,
       "validateSourceTask",
@@ -116,7 +113,7 @@ export function assembleApplySourceTask(
     if (!parsed.success || !key.success)
       return { ok: false, error: { code: "invalid_request_shape" } };
     const command = parsed.data;
-    const authorized = await authorize(
+    const authorized = await authorizeAuthor(
       dependencies.authorPolicy,
       context.actor,
       "applySourceTask",
@@ -440,24 +437,6 @@ async function checkPlacement(
       error,
       systemFailure(error),
     );
-  }
-}
-
-async function authorize(
-  policy: AuthorPolicy,
-  actor: string,
-  operationName: "validateSourceTask" | "applySourceTask",
-): Promise<Result<undefined, TaskValidationError>> {
-  try {
-    return (await policy.canManage(actor))
-      ? { ok: true, value: undefined }
-      : { ok: false, error: { code: "forbidden" } };
-  } catch (error) {
-    reportDependencyFailure(scope(operationName), error);
-    return {
-      ok: false,
-      error: { code: "dependency_unavailable", retryable: true },
-    };
   }
 }
 
