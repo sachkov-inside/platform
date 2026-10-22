@@ -42,7 +42,8 @@ operation body.
 `scripts/check-web-architecture.mjs` holds the rule. An operation lives in a `*.operation.ts`
 module with a literal `/api/` path and method, and its route file exports that method. Modules
 awaiting migration are listed with their number of FormData helper calls; a count may only fall,
-so a new FormData mutation fails even inside a listed module. A browser `fetch` whose literal init
-names a write method is allowed only in the upload and report modules. The check reads syntax: a
+so a new FormData mutation fails even inside a listed module. In browser code a `fetch` whose
+literal init names a write method is allowed only in the upload and report modules and in the two
+shared adapters that send operations and the remaining form mutations. The check reads syntax: a
 write through an `init` held in a variable, `globalThis.fetch`, or a handler that reads
 `request.formData()` itself remains a review question.
