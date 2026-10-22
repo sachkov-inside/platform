@@ -43,14 +43,14 @@ Pass the purchase in this order:
    stays, and the next renewal is simply never sent.
 
 Pass the product and both subscription tariffs the same way: the double receives the same request for
-each published offer, and only what the purchase asks the bank for differs — a one-time product never
+each published offer, and only what the purchase asks the bank for differs: a one-time product never
 saves a card, the first subscription payment does, and renewals charge the saved one. The tariffs
 themselves differ in price, term or the rights they open, none of which the bank sees. Seeded local offers come from the
 development seed.
 
 The double keeps a ledger in its own volume, so restarting it keeps the orders the application may
 still have to reconcile; a bank that forgot a payment would strand an unfinished attempt forever.
-If the application misses a notification — for example while it is restarting — `billing-worker`
+If the application misses a notification (for example while it is restarting), `billing-worker`
 reconciles the same attempt through `CheckOrder`/`GetState` within a minute and settles it without
 a second charge. Host processes use the same contour on loopback: `pnpm dev:bank-double` beside
 `pnpm dev:api` and `pnpm dev:billing-worker`.
@@ -119,10 +119,10 @@ never on sale by default; the seed turns sale on with its own explicit `offers.p
 
 Each run brings those three offers back to the definition in that file and sends no command at all
 when they already match, so repeating the seed never writes a second set. Edit a price there and
-the next run applies it — no volume wipe. That cuts both ways: the file owns the name, benefits and
+the next run applies it, with no volume wipe. That cuts both ways: the file owns the name, benefits and
 price of its three offers, so renaming or repricing one of them in the admin surface is restored on
 the next run. Two things the seed does not touch: an offer the owner created themselves, and the
-sale switch of an offer that already exists — turning a seeded variant off to test keeps it off
+sale switch of an offer that already exists: turning a seeded variant off to test keeps it off
 across runs. When a catalog row cannot be reconciled at all, the seed names it on the console and
 moves on rather than failing, because a failed seed stops `api` and `web` from starting.
 

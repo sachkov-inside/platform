@@ -31,7 +31,7 @@ no manual setup is needed before buying. See [Seeded offer catalog](local-accept
    decision the subscription refuses, and the refusal looks like a broken payment although it is
    a sales rule.
 8. Select the buyer again and subscribe on the storefront. When the product is already bought, the larger plan asks to confirm
-   the overlap with a checkbox — that is intended.
+   the overlap with a checkbox, which is intended.
 
 ## Local account boundary and recovery (#1641)
 

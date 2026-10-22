@@ -8,7 +8,9 @@ Use this context when changing or reviewing root scripts. Root `WORKFLOW.md` own
   lint rules. Compiler presets and strictness are owned by the root `tsconfig*.json` files;
   [toolchain contracts](toolchain-contract.test.mjs) verify their configuration.
 - Parse external JSON and rows with a schema or retain `unknown` until an explicit check.
-  [package-manifest.mjs](package-manifest.mjs) owns the `package.json` parser.
+  [package-manifest.mjs](package-manifest.mjs) owns the `package.json` parser. Checks that run
+  before `pnpm install` (documentation contracts, the pre-commit hook) read names and scripts
+  through the dependency-free [package-scripts.mjs](package-scripts.mjs).
 - When `createRequire` loads an application's dependency, take its type from that application's
   `test/support/proof-dependencies`. Relative type imports into `node_modules` cannot resolve
   the package's own imports. Keep the `any` assertion inside an

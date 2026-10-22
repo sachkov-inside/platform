@@ -133,7 +133,7 @@ The reader link points at the stand itself on <http://127.0.0.1:3000>.
 
 The stand must not run on previously built images. When migrations or MCP fail with
 `Migration ledger is not an exact registry prefix`, the image holds one migration fewer than the
-database already applied. Rebuild the stand and **do not wipe the data volume** — it looks like a
+database already applied. Rebuild the stand and **do not wipe the data volume**: it looks like a
 corrupted database and is cured by a rebuild.
 
 Wiping `logto-postgres-data` resets the sign-in tenant, and the application keeps the application

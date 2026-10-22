@@ -38,7 +38,7 @@ The stand runs web in development mode with the Next.js development indicator hi
 variable for its own server. The indicator would otherwise take taps meant for the mobile dock on a
 narrow screen, and no corner it can move to is free; `apps/web/next.config.ts` owns that reasoning.
 The host `pnpm dev` fallback sets no such variable, so it keeps both the indicator and that
-overlap — on a narrow screen prefer the stand when checking the dock or the authoring navigation.
+overlap; on a narrow screen prefer the stand when checking the dock or the authoring navigation.
 
 The optional Logto email-code proof is a separate, disposable Compose project with isolated ports
 and volumes. Its pinned build, automated Management API bootstrap and Mailpit capture are
