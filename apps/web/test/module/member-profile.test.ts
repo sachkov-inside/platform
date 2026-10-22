@@ -4,12 +4,16 @@ import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member
 import { getAccountTelegramMembership } from "@/_pages/account/api/get-account-telegram-membership";
 import { beginTelegramLink } from "@/features/account-access/api/begin-telegram-link.browser";
 import { confirmTelegramLink } from "@/features/account-access/api/confirm-telegram-link.browser";
+import { confirmTelegramLinkOperation } from "@/features/account-access.operations";
+import { createMemberProfileInputSchema } from "@/features/member-profile-editor.operations";
 import { requestAccountPresentation } from "@/features/account-access/api/request-account-presentation";
 import { accountPresentationQueryKey } from "@/features/account-access";
 import {
   executeBeginTelegramLink,
   executeConfirmTelegramLink,
   executeCreateMemberProfile,
+  invalidCreateProfileFields,
+  invalidTelegramLinkInput,
   executeUpdateMemberProfile,
 } from "@/_pages/account.operations.server";
 import {
@@ -44,9 +48,7 @@ describe("Member Profile web workflow", () => {
   });
   it("creates an accepted Profile and keeps an empty bio nullable", async () => {
     const dependencies = successfulDependencies();
-    const formData = new FormData();
-    formData.set("displayName", "Кирилл");
-    formData.set("bio", "  ");
+    const formData = { displayName: "Кирилл", bio: "  " };
 
     await expect(
       executeCreateMemberProfile(formData, "access-token", dependencies.create),
@@ -189,7 +191,7 @@ describe("Member Profile web workflow", () => {
       response: Response.json({}),
     });
     await expect(
-      executeBeginTelegramLink(new FormData(), "access-token", beginRequest),
+      executeBeginTelegramLink("access-token", beginRequest),
     ).resolves.toMatchObject({
       kind: "received",
       state: { status: "pending" },
@@ -205,8 +207,7 @@ describe("Member Profile web workflow", () => {
       ok: true,
       response: Response.json({}),
     });
-    const confirmation = new FormData();
-    confirmation.set("linkRef", "62000000-0000-4000-8000-000000000001");
+    const confirmation = { linkRef: "62000000-0000-4000-8000-000000000001" };
     await expect(
       executeConfirmTelegramLink(confirmation, "access-token", confirmRequest),
     ).resolves.toMatchObject({
@@ -218,11 +219,12 @@ describe("Member Profile web workflow", () => {
       "access-token",
     );
 
-    const invalid = new FormData();
-    invalid.set("linkRef", "raw-telegram-id");
-    await expect(
-      executeConfirmTelegramLink(invalid, "access-token", confirmRequest),
-    ).resolves.toEqual({
+    expect(
+      confirmTelegramLinkOperation.input.safeParse({
+        linkRef: "raw-telegram-id",
+      }).success,
+    ).toBe(false);
+    expect(invalidTelegramLinkInput()).toEqual({
       kind: "unavailable",
       reference: "telegram-link-input",
     });
@@ -263,15 +265,13 @@ describe("Member Profile web workflow", () => {
 
   it("rejects malformed fields before calling the backend", async () => {
     const dependencies = successfulDependencies();
-    const formData = new FormData();
-    formData.set("displayName", "К");
-    formData.set("bio", "");
+    const parsed = createMemberProfileInputSchema.safeParse({
+      displayName: "К",
+      bio: "",
+    });
+    if (parsed.success) throw new Error("A one-letter name must be rejected");
 
-    const result = await executeCreateMemberProfile(
-      formData,
-      "access-token",
-      dependencies.create,
-    );
+    const result = invalidCreateProfileFields(parsed.error);
     expect(result.kind).toBe("invalid_input");
     expect(
       result.kind === "invalid_input"
@@ -283,9 +283,10 @@ describe("Member Profile web workflow", () => {
 
   it("counts authored fields by Unicode code point", async () => {
     const dependencies = successfulDependencies();
-    const formData = new FormData();
-    formData.set("displayName", "🙂".repeat(80));
-    formData.set("bio", "🙂".repeat(500));
+    const formData = createMemberProfileInputSchema.parse({
+      displayName: "🙂".repeat(80),
+      bio: "🙂".repeat(500),
+    });
 
     await expect(
       executeCreateMemberProfile(formData, "access-token", dependencies.create),
@@ -366,10 +367,6 @@ function successfulDependencies() {
   };
 }
 
-function updateForm(): FormData {
-  const formData = new FormData();
-  formData.set("displayName", "Кирилл");
-  formData.set("bio", "Строю платформу.");
-  formData.set("expectedVersion", "2");
-  return formData;
+function updateForm() {
+  return { displayName: "Кирилл", bio: "Строю платформу.", expectedVersion: 2 };
 }

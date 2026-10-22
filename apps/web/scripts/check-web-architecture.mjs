@@ -79,8 +79,6 @@ const runtimeConfigurationNames = new Set([
  * (ADR 0038).
  */
 const formMutationModulesAwaitingOperations = new Map([
-  ["src/_pages/account/api/account-profile-route.server.ts", 2],
-  ["src/_pages/account/api/account-telegram-link-route.server.ts", 2],
   ["src/_pages/communications/api/broadcasts.browser.ts", 8],
   ["src/_pages/communications/api/communications-route.server.ts", 12],
   ["src/_pages/communications/api/communications.browser.ts", 12],
@@ -90,10 +88,6 @@ const formMutationModulesAwaitingOperations = new Map([
   ["src/_pages/library-discovery/api/product-waitlist-route.server.ts", 3],
   ["src/_pages/task-submissions/api/save-author-feedback-route.server.ts", 1],
   ["src/_pages/task-submissions/api/save-author-feedback.browser.ts", 1],
-  ["src/features/account-access/api/begin-telegram-link.browser.ts", 1],
-  ["src/features/account-access/api/confirm-telegram-link.browser.ts", 1],
-  ["src/features/account-email/api/account-email.browser.ts", 2],
-  ["src/features/account-email/api/account-email.server.ts", 2],
   ["src/features/bookmarks/api/bookmarks-route.server.ts", 2],
   ["src/features/bookmarks/api/bookmarks.browser.ts", 2],
   [
@@ -113,22 +107,6 @@ const formMutationModulesAwaitingOperations = new Map([
   ["src/features/material-video/api/video-authoring.browser.ts", 4],
   ["src/features/material-video/api/video-playback-route.server.ts", 2],
   ["src/features/material-video/api/video-playback.browser.ts", 2],
-  [
-    "src/features/member-profile-editor/api/create-member-profile.browser.ts",
-    1,
-  ],
-  [
-    "src/features/member-profile-editor/api/update-member-profile.browser.ts",
-    1,
-  ],
-  [
-    "src/features/notification-preferences/api/notification-preferences.browser.ts",
-    1,
-  ],
-  [
-    "src/features/notification-preferences/api/notification-preferences.server.ts",
-    1,
-  ],
   ["src/features/product-artifacts/api/product-artifacts-bff.server.ts", 6],
   ["src/features/product-artifacts/api/product-artifacts.browser.ts", 8],
   ["src/features/product-modes/api/product-mode-route.server.ts", 1],
@@ -156,8 +134,6 @@ const formMutationModulesAwaitingOperations = new Map([
   ["src/features/series-order/api/home-pin.browser.ts", 1],
   ["src/features/series-order/api/series-order-route.server.ts", 1],
   ["src/features/series-order/api/series-order.browser.ts", 1],
-  ["src/features/terms-acceptance/api/accept-terms-route.server.ts", 1],
-  ["src/features/terms-acceptance/api/accept-terms.browser.ts", 1],
 ]);
 /**
  * Browser writes that cannot travel as one JSON operation body: binary uploads with their paired

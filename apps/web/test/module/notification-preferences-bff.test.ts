@@ -24,14 +24,16 @@ import {
 const operationId = "20000000-0000-4000-8000-000000000001";
 
 function changeRequest(
-  input: Record<string, string>,
+  input: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(input)) body.set(key, value);
   return new Request(
     "https://inside.example.test/api/account/notifications/preferences/change",
-    { body, headers: { origin }, method: "POST" },
+    {
+      body: JSON.stringify(input),
+      headers: { "content-type": "application/json", origin },
+      method: "POST",
+    },
   );
 }
 
@@ -70,9 +72,9 @@ it("сохраняет ожидаемую revision и ссылку на опер
   const response = await handleChangeNotificationPreferences(
     changeRequest({
       operationId,
-      expectedRevision: "3",
-      email: "true",
-      telegram: "true",
+      expectedRevision: 3,
+      email: true,
+      telegram: true,
     }),
   );
 
@@ -96,9 +98,9 @@ it("возвращает конфликт ревизии как закрытый
   const response = await handleChangeNotificationPreferences(
     changeRequest({
       operationId,
-      expectedRevision: "1",
-      email: "false",
-      telegram: "true",
+      expectedRevision: 1,
+      email: false,
+      telegram: true,
     }),
   );
 
@@ -110,7 +112,7 @@ it("возвращает конфликт ревизии как закрытый
 
 it("отклоняет неполную команду до похода в backend", async () => {
   const response = await handleChangeNotificationPreferences(
-    changeRequest({ operationId, expectedRevision: "1", email: "true" }),
+    changeRequest({ operationId, expectedRevision: 1, email: true }),
   );
 
   expect(await response.json()).toEqual({ ok: false, code: "invalid_input" });
@@ -122,9 +124,9 @@ it("не выполняет команду с чужого origin", async () => 
     changeRequest(
       {
         operationId,
-        expectedRevision: "1",
-        email: "true",
-        telegram: "true",
+        expectedRevision: 1,
+        email: true,
+        telegram: true,
       },
       "https://attacker.example.test",
     ),
