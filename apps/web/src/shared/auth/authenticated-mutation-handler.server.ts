@@ -183,8 +183,10 @@ export async function handleMutationOperation<
   let input: ReturnType<typeof operation.input.safeParse>;
   try {
     input = operation.input.safeParse(body.value);
-  } catch {
+  } catch (error) {
     // Глубоко вложенное тело исчерпывает стек схемы; это неверный запрос, а не сбой сервера.
+    // Другая ошибка схемы остаётся ошибкой программы.
+    if (!(error instanceof RangeError)) throw error;
     return mutationResponse(null, 400);
   }
   if (!input.success) {
