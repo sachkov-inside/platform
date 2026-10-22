@@ -7,10 +7,12 @@ const labels = [
   "main101",
   "main102",
   "main103",
+  "main104",
   "root109",
   "legacy113",
   "legacy114",
   "legacy115",
+  "legacy116",
 ] as const;
 export type FrozenRegistryName = (typeof labels)[number];
 const fixture = z

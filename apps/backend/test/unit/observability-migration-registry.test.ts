@@ -66,3 +66,14 @@ it("keeps independently frozen old histories and rejects each divergent ledger w
     expect(() => assertAppliedMigrations(applied, old)).not.toThrow();
   }
 });
+
+it("rejects independently frozen legacy116 ledger at position 104 without mutation", () => {
+  const old = frozenRegistry("legacy116");
+  const applied = ledger(old);
+  const before = structuredClone(applied);
+  expect(() => assertAppliedMigrations(applied, platformMigrations)).toThrow(
+    "not an exact registry prefix at position 104",
+  );
+  expect(applied).toEqual(before);
+  expect(() => assertAppliedMigrations(applied, old)).not.toThrow();
+});
