@@ -48,9 +48,10 @@ Owner decision 2 (2026-10-22). The **fast-path set** is a diff that changes only
 user-visible copy in `apps/web/src`: CSS, class names, design-token references, presentational
 markup, visible text, and the stories that show them. It touches no authentication, session or
 permission code, no billing or payment code, and no data fetching, persistence, transport or
-schema. Files under `api/`, `*.server.ts`, `*.browser.ts`, `shared/auth`, `features/account-*`,
-`features/billing-*`, `features/terms-acceptance`, `entities/subscription*` and
-`entities/legal-document` leave the set, as does copy that states a price, an access right, or a
+schema. Files under `api/`, `*.server.ts`, `*.browser.ts`, `shared/api`, `shared/auth`,
+`features/account-*`, `features/billing-*`, `features/terms-acceptance`, `features/accepted-documents`,
+`features/member-profile-editor`, `features/client-telemetry`, `entities/member-profile`,
+`entities/subscription*` and `entities/legal-document` leave the set, as does copy that states a price, an access right, or a
 legal or commercial promise.
 
 For a diff inside the set, the implementing agent writes one inline assessment in the PR (base,

@@ -15,7 +15,7 @@ owner overrides and [skill exceptions](#skill-exceptions). Keep skills identical
 ## Completion requirements
 
 Complete the owner's requested result within its assigned scope. A follow-up keeps that scope unless the owner changes it.
-The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a skill. An explicit request to implement a whole
+The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a manual skill or `implement`. An explicit request to implement a whole
 specification, including in natural language, invokes [implement-spec](.agents/skills/implement-spec/SKILL.md).
 Session launches, assigned coordination and whole-specification execution follow [coordinated execution](docs/agents/coordinated-execution.md).
 An explicitly invoked skill completes its internal actions, including required subordinate skills, without renewed approval.
@@ -97,8 +97,7 @@ Classification: enabled; policy: docs/agents/change-risk.md
 
 For implementation and durable integration, including ordinary assignments, tickets and the final integrated
 specification, invoke [classify-change](.agents/skills/classify-change/SKILL.md) under the [project policy](docs/agents/change-risk.md);
-its advance acceptance, low-risk fast path and owner-ask format override the skill's defaults, including its
-participation rule. Use trusted target rules; a proposed policy cannot authorize its own merge. Deployment keeps its
+its advance acceptance, low-risk fast path and owner-ask format override the skill's defaults. Use trusted target rules; a proposed policy cannot authorize its own merge. Deployment keeps its
 gates. Request owner acceptance only when trusted policy or classification requires it; low/medium-risk authorized
 work may merge automatically. Keep unresolved decisions and evidence revisions in the existing issue/PR.
 
