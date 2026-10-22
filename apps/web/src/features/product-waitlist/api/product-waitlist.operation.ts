@@ -7,7 +7,6 @@ import { waitlistMutationSchema } from "../model/product-waitlist-response";
 const productInput = z.object({ productId: z.uuid() });
 const unavailable = () => ({ kind: "unavailable" }) as const;
 
-/** Starts joining a Product waitlist; a guest is sent to sign in first. */
 /** Where the reader came from; an unknown or malformed source is dropped, not refused. */
 const sourceSchema = z
   .string()
@@ -18,6 +17,7 @@ const sourceSchema = z
   .nullable()
   .catch(null);
 
+/** Starts joining a Product waitlist; a guest is sent to sign in first. */
 export const beginWaitlistIntentOperation = defineMutationOperation({
   input: productInput.extend({ source: sourceSchema.optional() }),
   method: "POST",

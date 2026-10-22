@@ -4,7 +4,6 @@ import { acceptBillingConsentsOperation } from "./billing-consents.operation";
 import { requestBillingConsents } from "@/shared/api/backend/index.server";
 import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import {} from "../model/legal-documents";
 import {
   billingInvalidInput,
   executeBillingOperation,
