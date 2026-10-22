@@ -4,10 +4,10 @@ import {
   keepShellScrollAcrossBreakpoint,
   readShellScroll,
   resetShellScroll,
+  readShellScrollRoots,
   restoreShellScroll,
-  scrollShellTo,
+  scrollShellRootsTo,
   subscribeShellBreakpoint,
-  subscribeShellScroll,
 } from "@/shared/lib/shell-scroll";
 
 type Listener = (event: { readonly target: unknown }) => void;
@@ -188,6 +188,13 @@ function publicShell({
     querySelector: (selector: string) =>
       withContent && selector === "[data-application-content]" ? content : null,
   });
+  // Fake scroll roots are not DOM elements; only a real Element scope searches its ancestors.
+  vi.stubGlobal(
+    "Element",
+    class FakeElement {
+      readonly real = false;
+    },
+  );
   vi.stubGlobal("window", fakeWindow);
   vi.stubGlobal("document", fakeDocument);
   vi.stubGlobal(
@@ -287,26 +294,23 @@ afterEach(() => {
 });
 
 describe("shell scroll position", () => {
-  it("reads and writes the document below 64rem", () => {
+  it("reads the document below 64rem", () => {
     const shell = publicShell({ width: 1_023 });
-    scrollShellTo(640);
-    expect(shell.documentTop).toBe(640);
-    expect(shell.contentTop).toBe(0);
+    shell.scrollDocument(640);
     expect(readShellScroll()).toBe(640);
   });
 
-  it("reads and writes the shell content from 64rem", () => {
+  it("reads the shell content from 64rem", () => {
     const shell = publicShell({ width: 1_024 });
-    scrollShellTo(640);
-    expect(shell.contentTop).toBe(640);
-    expect(shell.documentTop).toBe(0);
+    shell.scrollContent(640);
     expect(readShellScroll()).toBe(640);
   });
 
   it("leaves a page without shell content alone", () => {
     const shell = publicShell({ width: 1_440, withContent: false });
     expect(readShellScroll()).toBe(0);
-    scrollShellTo(300);
+    expect(readShellScrollRoots()).toEqual({ windowY: 0, contentY: 0 });
+    scrollShellRootsTo({ windowY: 300, contentY: 300 });
     resetShellScroll();
     keepShellScrollAcrossBreakpoint()();
     restoreShellScroll(300, 3_000)();
@@ -326,23 +330,40 @@ describe("shell scroll position", () => {
   });
 });
 
-describe("shell scroll subscription", () => {
-  it("reports only the current root and follows the breakpoint", () => {
-    const shell = publicShell({ width: 390 });
-    const positions: number[] = [];
-    const unsubscribe = subscribeShellScroll(() => {
-      positions.push(readShellScroll());
-    });
-    shell.scrollDocument(120);
-    shell.resize(1_440);
-    shell.scrollContent(300);
-    expect(positions).toEqual([120, 300]);
-    unsubscribe();
-    shell.scrollContent(500);
-    expect(positions).toEqual([120, 300]);
-    expect(shell.listenerCount()).toBe(0);
+describe("shell scroll roots saved together", () => {
+  it("restores each root as it was saved at the same width", () => {
+    const desktop = publicShell({ width: 1_440 });
+    desktop.scrollContent(600);
+    const saved = readShellScrollRoots();
+    expect(saved).toEqual({ windowY: 0, contentY: 600 });
+    desktop.scrollContent(0);
+    scrollShellRootsTo(saved);
+    expect(desktop.contentTop).toBe(600);
+    expect(desktop.documentTop).toBe(0);
+
+    const phone = publicShell({ width: 390 });
+    phone.scrollDocument(450);
+    const savedOnPhone = readShellScrollRoots();
+    expect(savedOnPhone).toEqual({ windowY: 450, contentY: 0 });
+    phone.scrollDocument(0);
+    scrollShellRootsTo(savedOnPhone);
+    expect(phone.documentTop).toBe(450);
   });
 
+  it("writes each root separately after a width change, as the browser clamps it", () => {
+    const shell = publicShell({ width: 1_440 });
+    shell.scrollContent(600);
+    const saved = readShellScrollRoots();
+    shell.resize(390);
+    shell.scrollDocument(0);
+    scrollShellRootsTo(saved);
+    // The phone layout does not scroll the content, so the saved content position is dropped.
+    expect(shell.documentTop).toBe(0);
+    expect(shell.contentTop).toBe(0);
+  });
+});
+
+describe("shell breakpoint subscription", () => {
   it("reports the desktop breakpoint changes until unsubscribed", () => {
     const shell = publicShell({ width: 1_023 });
     const changes: boolean[] = [];

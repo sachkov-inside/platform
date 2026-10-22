@@ -14,48 +14,51 @@ function desktopMedia(): MediaQueryList {
   return window.matchMedia(desktopQuery);
 }
 
-function shellContent(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(contentSelector);
-}
-
-/** The shell content on desktop; otherwise, or outside the shell, the document. */
-function currentContent(): HTMLElement | null {
-  return desktopMedia().matches ? shellContent() : null;
+/**
+ * The shell content element. A `scope` inside or around one shell picks that shell, so a page
+ * that renders several shells (a Storybook docs page) reaches the right one.
+ */
+function shellContent(scope: ParentNode = document): HTMLElement | null {
+  return (
+    (scope instanceof Element
+      ? scope.closest<HTMLElement>(contentSelector)
+      : null) ?? scope.querySelector<HTMLElement>(contentSelector)
+  );
 }
 
 /** The current vertical scroll position of the shell. */
 export function readShellScroll(): number {
-  const content = currentContent();
+  const content = desktopMedia().matches ? shellContent() : null;
   return content === null ? window.scrollY : content.scrollTop;
 }
 
-/** Moves the current scroll root to `top` without smooth scrolling. */
-export function scrollShellTo(top: number): void {
-  const content = currentContent();
-  if (content === null) window.scrollTo({ top, behavior: "instant" });
-  else content.scrollTo({ top, behavior: "instant" });
+/** Both possible scroll roots, saved together so a later width can restore either one. */
+export interface ShellScrollRoots {
+  readonly windowY: number;
+  readonly contentY: number;
+}
+
+/** Reads the document and the shell content positions, whatever the current width. */
+export function readShellScrollRoots(scope?: ParentNode): ShellScrollRoots {
+  return {
+    windowY: window.scrollY,
+    contentY: shellContent(scope)?.scrollTop ?? 0,
+  };
+}
+
+/** Writes both roots back; the browser clamps the one that does not scroll at this width. */
+export function scrollShellRootsTo(
+  roots: ShellScrollRoots,
+  scope?: ParentNode,
+): void {
+  window.scrollTo({ top: roots.windowY, behavior: "instant" });
+  shellContent(scope)?.scrollTo({ top: roots.contentY, behavior: "instant" });
 }
 
 /** Returns both possible scroll roots to the top, whatever the current width. */
-export function resetShellScroll(): void {
+export function resetShellScroll(scope?: ParentNode): void {
   window.scrollTo({ top: 0, behavior: "instant" });
-  shellContent()?.scrollTo({ top: 0, behavior: "instant" });
-}
-
-/** Calls `listener` whenever the current scroll root scrolls, across breakpoint changes. */
-export function subscribeShellScroll(listener: () => void): () => void {
-  const onScroll = (event: Event) => {
-    const content = currentContent();
-    if (event.target === (content ?? document)) listener();
-  };
-  // Element scroll events do not bubble; capture sees the document and the content alike.
-  document.addEventListener("scroll", onScroll, {
-    capture: true,
-    passive: true,
-  });
-  return () => {
-    document.removeEventListener("scroll", onScroll, true);
-  };
+  shellContent(scope)?.scrollTo({ top: 0, behavior: "instant" });
 }
 
 /** Calls `listener` with `true` when the shell becomes desktop and `false` when it leaves it. */
@@ -94,7 +97,8 @@ export function restoreShellScroll(top: number, timeoutMs: number): () => void {
     const root = desktopMedia().matches ? content : document.documentElement;
     const available = root.scrollHeight - root.clientHeight;
     if (available + 1 < top) return;
-    scrollShellTo(top);
+    if (root === content) content.scrollTo({ top, behavior: "instant" });
+    else window.scrollTo({ top, behavior: "instant" });
     stop();
   };
   const observer = new ResizeObserver(() => {

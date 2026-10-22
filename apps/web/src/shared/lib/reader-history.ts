@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { readShellScroll, scrollShellTo } from "./shell-scroll";
+import { readShellScrollRoots, scrollShellRootsTo } from "./shell-scroll";
 
 const originSchema = z.object({ id: z.uuid(), href: z.url() });
 const entrySchema = z.object({
@@ -10,10 +10,8 @@ const entrySchema = z.object({
 });
 const viewSchema = z.object({
   href: z.url(),
-  shellY: z.number().optional(),
-  // Views saved before #1677 kept both shell scroll roots; only the active one was non-zero.
-  windowY: z.number().optional(),
-  contentY: z.number().optional(),
+  windowY: z.number(),
+  contentY: z.number(),
   railY: z.number(),
   chapter: z.string().optional(),
   expanded: z.array(z.string()),
@@ -99,7 +97,7 @@ export function saveReaderHistoryView(root: ParentNode = document) {
   const rail = root.querySelector<HTMLElement>("[data-course-rail-scroll]");
   const view = {
     href: window.location.href,
-    shellY: readShellScroll(),
+    ...readShellScrollRoots(root),
     railY: rail?.scrollTop ?? 0,
     chapter: root.querySelector<HTMLElement>("[data-course-chapter]")?.dataset[
       "courseChapter"
@@ -176,9 +174,7 @@ export function enterReaderHistory(
       requestAnimationFrame(() => {
         if (entry()?.id !== current.id || window.location.href !== current.href)
           return;
-        scrollShellTo(
-          view.shellY ?? Math.max(view.windowY ?? 0, view.contentY ?? 0),
-        );
+        scrollShellRootsTo(view, root);
         root
           .querySelector("[data-course-rail-scroll]")
           ?.scrollTo({ top: view.railY, behavior: "instant" });
