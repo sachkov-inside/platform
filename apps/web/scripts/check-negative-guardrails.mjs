@@ -53,7 +53,7 @@ const fixtures = [
       "rename-note.operation.ts: mutation operation PUT /api/notes needs app/api/notes/route.ts exporting PUT",
       "computed-note.operation.ts: a mutation operation declares a literal /api/ path and HTTP method",
       "inline-note.browser.ts: declare a mutation operation in its own *.operation.ts module",
-      "notes-route.server.ts: handleAuthenticatedMutation serves only streaming uploads",
+      "notes-route.server.ts: handleAuthenticatedMutation serves only streamed bodies with their options",
       "direct-note.browser.ts: a browser write goes through its mutation operation's send",
     ],
     accepted: [

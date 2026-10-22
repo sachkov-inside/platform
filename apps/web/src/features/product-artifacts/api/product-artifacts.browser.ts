@@ -127,14 +127,13 @@ async function readArtifactList(
   return productArtifactListStateSchema.parse(await response.json());
 }
 
-/** Maps one streamed upload outcome to the single artifact mutation result the panel reads. */
 type UploadResult =
   | { readonly body: unknown; readonly ok: true }
   | { readonly ok: false; readonly status: number };
 
 /**
  * A file travels as multipart to its streaming Route Handler, not as a JSON operation body
- * (ADR 0038): the same request a form mutation sent.
+ * (ADR 0038): the same multipart request the form adapter sent before #1679.
  */
 async function uploadArtifactFile(
   path:
@@ -163,6 +162,7 @@ async function uploadArtifactFile(
   }
 }
 
+/** Maps one streamed upload outcome to the single artifact mutation result the panel reads. */
 function interpret(result: UploadResult): ProductArtifactMutationResult {
   if (!result.ok) {
     return productArtifactTransportFailure({

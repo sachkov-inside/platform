@@ -16,7 +16,7 @@ import {
 /** The Products one artifact is placed in. */
 export const productArtifactProductIdsSchema = z.array(z.uuid()).max(50);
 
-// Обработчик читает только свои поля, как прежняя форма: лишние поля тела не мешают.
+// Обработчик читает только свои поля, как форма до #1679: лишние поля тела не мешают.
 const metadataFields = {
   access: productArtifactAccessSchema,
   purpose: z.string().max(1000).default(""),

@@ -46,12 +46,14 @@ operation body.
 
 `scripts/check-web-architecture.mjs` holds the rule. An operation lives in a `*.operation.ts`
 module with a literal `/api/` path and method, and its route file exports that method.
-`handleAuthenticatedMutation` serves only streaming uploads and requires their options. In
+`handleAuthenticatedMutation` serves only streamed bodies (binary uploads and the cover removal
+paired with its upload) and requires their options. In
 browser code a `fetch` whose literal init names a write method is allowed only in the upload and
 report modules and in the shared operation adapter. The check reads syntax: a write through an
 `init` held in a variable, `globalThis.fetch`, or a handler that reads `request.formData()` itself
 remains a review question. `test/module/mutation-operation-routes.test.ts` sends every declared
 operation through its route.
 
-Every same-origin mutation moved to an operation in #1679; the FormData adapter
-`requestSameOriginMutation` and the form path of `handleAuthenticatedMutation` were removed.
+In #1679 every same-origin mutation except those streamed bodies, delivery reports and native
+authentication forms moved to an operation; the FormData adapter `requestSameOriginMutation` and
+the form path of `handleAuthenticatedMutation` were removed.
