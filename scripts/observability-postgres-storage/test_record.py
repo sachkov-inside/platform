@@ -15,9 +15,10 @@ class Records(unittest.TestCase):
         import oracle
         import postgres_source
         self.assertIs(record.ORACLE_REASONS,oracle.ORACLE_REASONS)
-        self.assertEqual(len(record.ORACLE_REASONS),27)
+        self.assertEqual(len(record.ORACLE_REASONS),31)
         self.assertEqual(record.ORACLE_REASONS[:23],oracle.ORACLE_BASE_REASONS)
-        self.assertEqual(len(set(record.ORACLE_REASONS)),27)
+        self.assertEqual(len(set(record.ORACLE_REASONS)),31)
+        self.assertEqual(record.ORACLE_REASONS[:27],('oracle_input', 'oracle_values_decode', 'oracle_values_envelope', 'oracle_values_row', 'oracle_values_labels', 'oracle_values_number', 'oracle_timestamps_decode', 'oracle_timestamps_envelope', 'oracle_timestamps_row', 'oracle_timestamps_labels', 'oracle_timestamps_number', 'oracle_join', 'oracle_identity', 'oracle_cohort', 'oracle_availability_order', 'oracle_complete_time', 'oracle_complete_identity', 'oracle_age', 'oracle_expected', 'oracle_value_mismatch', 'oracle_stale', 'oracle_unavailable', 'oracle_malformed_unknown', 'oracle_join_family_presence', 'oracle_join_scope_version', 'oracle_join_stamp_zero', 'oracle_join_stamp_future'))
         from test_public import AdmissionComposition
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve()
@@ -57,6 +58,39 @@ class Records(unittest.TestCase):
                         self.assertEqual(observed,value)
                         self.assertIs(type(observed['reason']),str);self.assertIs(type(observed['phase']),str)
                     else:
+                        with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
+                        self.assertFalse(public.exists())
+
+        refined=('oracle_stale_availability','oracle_stale_healthy_sample_match',
+                 'oracle_stale_healthy_sample_different','oracle_stale_healthy_sample_unknown')
+        self.assertEqual(record.ORACLE_REASONS[27:],refined)
+        for reason in refined:
+            for phase in ('baseline_first_stored_oracle','baseline_second_stored_oracle'):
+                with tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700)
+                    metadata=root/'metadata';public=root/'public'
+                    value=self.value();value.update(state='failed',phase=phase,reason=reason)
+                    with AdmissionComposition().external_reads(root):
+                        postgres_source.admission(metadata);record.write(output,value)
+                        postgres_source.collect(output,metadata,public)
+                        self.assertEqual(record.read(public,'a'*40),value)
+                        self.assertEqual(len(record.read(public,'a'*40)),8)
+                        self.assertNotIn('sample_us',(public/record.NAME).read_text())
+            for poison in ('phase','state','private','source','duplicate','escaped_duplicate','cap'):
+                with tempfile.TemporaryDirectory() as directory:
+                    root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700)
+                    metadata=root/'metadata';public=root/'public'
+                    value=self.value();value.update(state='failed',phase='baseline_first_stored_oracle',reason=reason)
+                    if poison=='phase':value['phase']='baseline_first_stored_read'
+                    elif poison=='state':value['state']='incomplete'
+                    elif poison=='private':value['sample_us']='private-canary'
+                    elif poison=='source':value['source']='b'*40
+                    body=json.dumps(value).encode()
+                    if poison=='duplicate':body=body[:-1]+b',"reason":"oracle_stale"}'
+                    elif poison=='escaped_duplicate':body=body[:-1]+b',"rea\\u0073on":"oracle_stale"}'
+                    elif poison=='cap':body=b' '*4097
+                    with AdmissionComposition().external_reads(root):
+                        postgres_source.admission(metadata);(output/record.NAME).write_bytes(body)
                         with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
                         self.assertFalse(public.exists())
 

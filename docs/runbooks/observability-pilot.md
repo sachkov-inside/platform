@@ -2095,6 +2095,21 @@ creating the destination. Raw SQL rows, query responses, credentials and identit
 все проверки допуска и порядок отказов сохраняются. Причина не переносится между попытками
 и не превращает failed или pending в passed. Последний ec47 отказ остаётся неизвестным
 до нового отдельно допущенного source-bound прогона; raw vectors для него не сохранены.
+Для уже отклонённого stale-наблюдения PostgreSQL поле `reason` может уточняться до
+`oracle_stale_availability`, `oracle_stale_healthy_sample_match`,
+`oracle_stale_healthy_sample_different` или `oracle_stale_healthy_sample_unknown`.
+Первый вариант означает stale-ветку доступности без сравнения sample. Остальные
+различают только равенство конечного числового sample и безопасно прочитанного
+`expected.sample_us`, различие этих операндов или невозможность такого сравнения.
+`match` не подтверждает остальные поля expected, происхождение произвольного
+входа, завершение pipeline или причину задержки. Первичный шестипольный отчёт
+сохраняет `stale` либо `oracle_stale`; необязательное уточнение не меняет freshness,
+порог или порядок проверок. При вторичной ошибке остаётся общий `oracle_stale`.
+Точные значения, возраст, timestamps, строки и объекты ошибок не публикуются.
+Старые причины читаются по-прежнему; новые требуют соответствующей версии исходников.
+Восемь полей публичного артефакта, schema 1, лимит 4096 байт, первая ошибка,
+число запросов, часы, профили и пределы процессов сохраняются.
+
 Final success additionally requires both the original Core7/4/2 and complete PG8/5/2 typed absence
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.

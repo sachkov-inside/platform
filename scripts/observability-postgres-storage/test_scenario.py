@@ -107,6 +107,25 @@ class Driver(unittest.TestCase):
                 self.assertEqual(driver.stored(EXPECTED,_baseline='second')['freshness'],'fresh')
             self.assertIsNone(driver.oracle_failure_reason)
 
+        for available,expected,reason in (
+                (1,EXPECTED,'oracle_stale_healthy_sample_match'),
+                (1,{**EXPECTED,'sample_us':NOW+1},'oracle_stale_healthy_sample_different'),
+                (1,{},'oracle_stale_healthy_sample_unknown'),
+                (0,EXPECTED,'oracle_stale_availability')):
+            for baseline in ('first','second'):
+                rows,stamps=vectors();rows[-1]['value'][1]=str(available)
+                with patch.object(scenario.time,'monotonic',return_value=100), \
+                     patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW+10_000_001)) as read:
+                    with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(expected,_baseline=baseline)
+                    read.assert_called_once()
+                self.assertEqual(driver.phase,'baseline_'+baseline+'_stored_oracle')
+                self.assertEqual(driver.oracle_failure_reason,reason)
+                rows,stamps=vectors()
+                with patch.object(scenario.time,'monotonic',return_value=100), \
+                     patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+                    self.assertEqual(driver.stored(EXPECTED,_baseline='second')['freshness'],'fresh')
+                self.assertIsNone(driver.oracle_failure_reason)
+
     def test_pending_and_foreign_oracle_results_cannot_borrow_a_diagnosed_failure(self):
         import oracle
         from test_oracle import vectors,raw,EXPECTED,NOW
