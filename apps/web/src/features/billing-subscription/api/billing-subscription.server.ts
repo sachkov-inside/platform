@@ -33,7 +33,6 @@ import {
 } from "@/entities/subscription.server";
 import { handleMutationOperation } from "@/shared/auth/index.server";
 
-
 export function handleCurrentBilling(): Promise<Response> {
   return readAuthenticatedBilling(
     (accessToken) => requestCurrentBilling(accessToken),
