@@ -15,6 +15,8 @@ MAX_OUTPUT_BYTES=131_072
 MAX_AGE_SECONDS=10
 MAX_GROUPS=64
 BUCKETS=('0.005','0.01','0.025','0.05','0.1','0.25','0.5','1','2.5','5','10','+Inf')
+BUCKET_ALIASES={'1.0':'1','5.0':'5','10.0':'10'}
+WIRE_BUCKETS=(*BUCKETS,*BUCKET_ALIASES)
 METHODS=('GET','HEAD','PUT','POST','DELETE','CONNECT','OPTIONS','TRACE','PATCH','OTHER')
 PREFIX='caddy_http_'
 DURATION=PREFIX+'request_duration_seconds_'
@@ -75,7 +77,7 @@ def _identity(metric,timestamps):
             if labels.get('method') not in METHODS or re.fullmatch('[1-5][0-9]{2}',labels.get('code','')) is None: refuse()
             if name==DURATION+'bucket':
                 keys.add('le')
-                if labels.get('le') not in BUCKETS: refuse()
+                if labels.get('le') not in WIRE_BUCKETS: refuse()
     if set(labels)!=keys: refuse()
     return tuple(sorted(labels.items()))
 
@@ -128,7 +130,10 @@ def _observation_result(rows,*,diagnose=False):
         elif name.startswith(DURATION):
             identity=(labels['method'],int(labels['code']))
             group=groups.setdefault(identity,{})
-            group[labels.get('le',name.removeprefix(DURATION))]=value
+            component=labels.get('le',name.removeprefix(DURATION))
+            if name==DURATION+'bucket':component=BUCKET_ALIASES.get(component,component)
+            if component in group:refuse()
+            group[component]=value
     if len(groups)>MAX_GROUPS: refuse()
     if ERRORS in simple and TOTAL in simple and simple[ERRORS]>simple[TOTAL]:refuse()
     if TOTAL in simple and sum(group.get('count',0) for group in groups.values())>simple[TOTAL]:refuse()

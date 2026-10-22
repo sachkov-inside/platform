@@ -86,6 +86,17 @@ Original sample timestamps determine age. Fresh validated `up=0` can mean `down`
 gateway means only `query_unavailable`. Stopping Alloy while queries remain reachable must
 produce stale/missing observations, followed by genuine fresh recovery.
 
+The pinned scrape parser canonicalizes the integer histogram bounds `1`, `5` and `10` to
+`1.0`, `5.0` and `10.0`. The Caddy keep rule and stored readers admit exactly these three
+additional spellings alongside the original twelve bounds. Value/timestamp rows must retain
+identical raw labels before pairing. Only the joined distribution groups aliases as the same
+logical bound; two spellings of one bound in the same method/status group refuse, even with
+equal values and timestamps. A spelling change across snapshots leaves comparison incomplete.
+Direct native text validation keeps the original producer spellings. Focused source contracts
+exercise the generated keep rule and complete stored-vector oracle using a public pinned-parser
+fixture. They establish this policy compatibility, not the cause of prior native failures or a
+successful Linux observation. Query, time, row, privacy, profile and cleanup limits are unchanged.
+
 MCP sends one four-response stdio sequence: initialize, discovery, values and original timestamps
 at the same fixed evaluation time. Strict Caddy decoding runs before shared id/filter/extraction;
 old callers retain their default decoder. Complete envelopes, discovery schemas, embedded VM

@@ -52,6 +52,17 @@ function memberWithoutTelegram(): Pick<
   };
 }
 
+/** Значки шапки одного размера, 20px на любой ширине (решение владельца 22.10.2026). */
+async function expectHeaderGlyphs(controls: HTMLElement) {
+  const glyphs = [...controls.querySelectorAll("svg")];
+  await expect(glyphs.length).toBeGreaterThan(0);
+  for (const glyph of glyphs) {
+    // Заданный размер, а не рамка: крутящийся значок загрузки шире своего квадрата.
+    const { width, height } = getComputedStyle(glyph);
+    await expect([width, height]).toEqual(["20px", "20px"]);
+  }
+}
+
 const meta = {
   title: "Patterns/Application shell",
   parameters: {
@@ -134,6 +145,7 @@ export const MemberWithoutTelegramDesktop: Story = {
       await header.findByRole("button", { name: "Подключить Telegram" }),
     ).toBeVisible();
     await expect(header.getByRole("button", { name: "Аккаунт" })).toBeVisible();
+    await expectHeaderGlyphs(canvas.getByRole("banner"));
     await expect(body.queryByRole("dialog")).not.toBeInTheDocument();
   },
 };
@@ -154,6 +166,7 @@ export const MemberWithoutTelegramMobile: Story = {
     await expect(
       controls.getByRole("button", { name: "Аккаунт" }),
     ).toBeVisible();
+    await expectHeaderGlyphs(navigation);
     await expect(
       within(canvasElement.ownerDocument.body).queryByRole("dialog"),
     ).not.toBeInTheDocument();

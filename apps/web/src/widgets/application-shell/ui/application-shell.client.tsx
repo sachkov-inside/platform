@@ -299,7 +299,7 @@ function MobileTopNavigation({
                       <Icon
                         aria-hidden="true"
                         className={cn(
-                          "size-4 shrink-0",
+                          "size-5 shrink-0",
                           current && "text-accent-bright",
                         )}
                       />
