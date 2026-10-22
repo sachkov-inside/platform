@@ -1,8 +1,8 @@
 import { z } from "zod";
 
+import { sourceNamespaceSchema } from "../../../../infrastructure/contracts/source-namespace.js";
 import {
   authoringSourceIdSchema,
-  authoringSourceNamespaceSchema,
   recordedAuthoringSourceSchema,
 } from "../../domain/authoring-source.js";
 import type {
@@ -13,7 +13,7 @@ import type {
 import type { Result } from "../../result.js";
 
 export const readSourceMaterialStateQuerySchema = z
-  .object({ namespace: authoringSourceNamespaceSchema })
+  .object({ namespace: sourceNamespaceSchema })
   .strict();
 
 /**
@@ -22,7 +22,7 @@ export const readSourceMaterialStateQuerySchema = z
  */
 export const sourceMaterialStateSchema = z
   .object({
-    namespace: authoringSourceNamespaceSchema,
+    namespace: sourceNamespaceSchema,
     materials: z.array(
       z
         .object({

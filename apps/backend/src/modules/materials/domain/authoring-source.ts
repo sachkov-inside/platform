@@ -2,12 +2,6 @@ import { z } from "zod";
 
 export const authoringSourceIdSchema = z.string().trim().min(1).max(200);
 
-/** The part of a source ID before its first `:`, naming the content repository that owns it. */
-export const authoringSourceNamespaceSchema = z
-  .string()
-  .max(120)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
-
 /**
  * The Git commit of the content repository the source was read from. PostgreSQL stores it in
  * lowercase, so a request spelled in uppercase is normalized rather than refused.
@@ -52,4 +46,17 @@ export const recordedAuthoringSourceSchema = authoringSourceSchema
 
 export type RecordedAuthoringSource = z.infer<
   typeof recordedAuthoringSourceSchema
+>;
+
+/**
+ * The source `GET /authoring/materials/{id}` reports. `commit` appears only when one is recorded:
+ * authoring clients that predate the commit read this object with a strict schema that refuses an
+ * unknown key, and only a newer client records a commit.
+ */
+export const reportedAuthoringSourceSchema = authoringSourceSchema
+  .extend({ commit: authoringSourceCommitSchema.optional() })
+  .strict();
+
+export type ReportedAuthoringSource = z.infer<
+  typeof reportedAuthoringSourceSchema
 >;

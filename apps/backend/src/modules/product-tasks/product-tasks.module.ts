@@ -57,14 +57,10 @@ import {
   type SubmissionReview,
 } from "./facets/submission-review/submission-review.js";
 import {
+  assembleProductTaskImport,
   PRODUCT_TASK_IMPORT,
   type ProductTaskImport,
-} from "./features/import-product-task/import-product-task.controller.js";
-import { assembleReadSourceTaskState } from "./features/read-source-task-state/read-source-task-state.js";
-import {
-  assembleApplySourceTask,
-  assembleValidateSourceTask,
-} from "./features/import-product-task/import-product-task.js";
+} from "./facets/product-task-import/product-task-import.js";
 
 @Module({
   imports: [
@@ -152,7 +148,7 @@ import {
         assets: MaterialAssets,
       ): ProductTaskImport => {
         const permissions = assembleCurrentAccountPermissions(accounts);
-        const dependencies = {
+        return assembleProductTaskImport({
           assets,
           prisma,
           directory,
@@ -160,12 +156,7 @@ import {
             canManage: (accountId: string) =>
               permissions.hasMaterialsManage(checkedAccountId(accountId)),
           },
-        };
-        return {
-          validate: assembleValidateSourceTask(dependencies),
-          apply: assembleApplySourceTask(dependencies),
-          readState: assembleReadSourceTaskState(dependencies),
-        };
+        });
       },
     },
     {

@@ -167,7 +167,11 @@ export function toMaterialDto(
             path: material.source.path,
             revision: material.source.revision,
             showInFeed: material.source.showInFeed,
-            commit: material.source.commit,
+            // Absent rather than null: clients that predate the commit read `source` strictly,
+            // and only a newer client records a commit.
+            ...(material.source.commit === null
+              ? {}
+              : { commit: material.source.commit }),
           },
         }),
     materialId: material.lifecycle.id,

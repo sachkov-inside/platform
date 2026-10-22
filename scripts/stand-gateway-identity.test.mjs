@@ -6,8 +6,8 @@ import { test } from "node:test";
 import {
   gatewayIdentity,
   gatewayIdentityPath,
-} from "./authoring-stand-gateway.mjs";
-import { probeGateway } from "./stand-gateway-session.mjs";
+  probeGateway,
+} from "./stand-gateway-identity.mjs";
 
 /** @param {import("node:http").RequestListener} handler */
 async function listen(handler) {
@@ -27,6 +27,7 @@ test("only a gateway that reports its identity counts as the stand gateway", asy
   const identity = gatewayIdentity({
     owner: "owner@example.invalid",
     api: "http://127.0.0.1:3001",
+    root: "/platform",
   });
   const gateway = await listen((request, response) => {
     if (request.url === gatewayIdentityPath)

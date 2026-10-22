@@ -75,7 +75,7 @@ async function fixture(t) {
     requiredFeatures: ["bounded-content-v1"],
     sourceNamespace: "synthetic",
     selection: {
-      productId: null,
+      productId: "course",
       chapterIds: [],
       materialIds: ["one", "two"],
       taskIds: [],
@@ -113,8 +113,11 @@ async function fixture(t) {
   };
   /** @type {{ path: string; body: unknown }[]} */
   const requests = [];
+  /** @type {Map<string, unknown>} */
+  const receipts = new Map();
+  const network = { loseNextApplyAnswer: false };
   /** @type {import('./target.mjs').LocalTransport} */
-  const request = async (path, body) => {
+  const request = async (path, body, key) => {
     requests.push({ path, body });
     if (path === "/authoring/import/materials/environment")
       return {
@@ -179,6 +182,8 @@ async function fixture(t) {
         source: structuredClone(model.source),
       };
     if (path === "/authoring/import/materials/apply") {
+      // The receiver answers a repeated key with its first receipt and writes nothing.
+      if (key !== undefined && receipts.has(key)) return receipts.get(key);
       const command = materialApplyRequest({ path, body })?.body;
       assert.ok(command);
       assert.equal(command.expectedContentVersion, model.contentVersion);
@@ -191,7 +196,13 @@ async function fixture(t) {
         showInFeed: command.source.showInFeed,
         commit: z(command.source["commit"]),
       };
-      return { materialId, contentVersion: model.contentVersion };
+      const receipt = { materialId, contentVersion: model.contentVersion };
+      if (key !== undefined) receipts.set(key, receipt);
+      if (network.loseNextApplyAnswer) {
+        network.loseNextApplyAnswer = false;
+        throw new TypeError("fetch failed");
+      }
+      return receipt;
     }
     throw new Error(`Unexpected ${path}`);
   };
@@ -204,8 +215,20 @@ async function fixture(t) {
       connection: { synthetic: true },
     });
   const state = join(directory, "state");
+  /** Exports by ref: each test decides what Content history holds. */
+  const exports = {
+    /** @type {Record<string, string>} */
+    packages: {},
+    head: commits.newer,
+  };
+  /** @type {import('./source-commit.mjs').ExportPackage} */
+  const exportPackage = async (_repository, guide, _state, ref) => {
+    assert.equal(guide, "course");
+    const commit = ref === "HEAD" ? exports.head : ref;
+    return { commit, packagePath: exports.packages[commit] ?? packagePath };
+  };
   const run = (/** @type {string[]} */ ...argv) =>
-    runDelivery(argv, { connect, nodeVersion: pinnedNode() });
+    runDelivery(argv, { connect, nodeVersion: pinnedNode(), exportPackage });
   return {
     directory,
     repository,
@@ -217,6 +240,8 @@ async function fixture(t) {
     request,
     requests,
     run,
+    exports,
+    network,
   };
 }
 
@@ -504,4 +529,108 @@ test("delivery refuses before any request: Node, usage, selection and unbounded 
     /"code":"package_not_bounded"/u,
   );
   assert.deepEqual(f.requests, []);
+});
+
+test("the package must be the export of its commit and the newest content of each selected row", async (t) => {
+  const f = await fixture(t);
+  const preview = (/** @type {string} */ commit) =>
+    f.run(
+      "preview",
+      "--target",
+      "production",
+      "--package",
+      f.packagePath,
+      "--commit",
+      commit,
+      "--content-repository",
+      f.repository,
+      "--state",
+      f.state,
+      "--material",
+      "one",
+    );
+  // An older prepared package named with the current commit: the export of that commit differs.
+  const current = structuredClone(f.manifest);
+  const [first] = current.materials;
+  assert.ok(first);
+  first.markdown = "Newer text in Content";
+  const currentPath = join(f.directory, "current.json");
+  await writeFile(currentPath, canonical(current));
+  f.exports.packages[f.commits.newer] = currentPath;
+  const mismatch = await preview(f.commits.newer);
+  assert.equal(
+    at(mismatch.document, "error", "code"),
+    "package_commit_mismatch",
+  );
+  assert.match(
+    String(at(mismatch.document, "error", "message")),
+    /material:one/u,
+  );
+  // The package is its commit, but HEAD already changed the same Material.
+  f.exports.packages[f.commits.older] = f.packagePath;
+  const newer = await preview(f.commits.older);
+  assert.equal(
+    at(newer.document, "error", "code"),
+    "source_newer_in_repository",
+  );
+  // Unrelated later commits do not block: the selected row is unchanged at HEAD.
+  f.exports.packages[f.commits.newer] = f.packagePath;
+  const unrelated = await preview(f.commits.older);
+  assert.equal(at(unrelated.document, "error", "code"), "journal_missing");
+  assert.deepEqual(
+    f.requests.filter((row) => row.path.includes("/apply")),
+    [],
+  );
+});
+
+test("a lost apply answer is completed once by repeating apply, then a new preview sees it", async (t) => {
+  const f = await fixture(t);
+  const args = [
+    "--target",
+    "production",
+    "--package",
+    f.packagePath,
+    "--commit",
+    f.commits.newer,
+    "--content-repository",
+    f.repository,
+    "--state",
+    f.state,
+    "--material",
+    "one",
+  ];
+  await f.run(
+    "reconcile",
+    "--target",
+    "production",
+    "--state",
+    f.state,
+    "--namespace",
+    "synthetic",
+    "--adopt",
+    "one",
+    "--adopt",
+    "two",
+  );
+  const reviewed = await f.run("preview", ...args);
+  assert.equal(reviewed.exitCode, 0, JSON.stringify(reviewed.document));
+  const receipt = String(at(reviewed.document, "receipt"));
+  f.network.loseNextApplyAnswer = true;
+  const lost = await f.run("apply", "--receipt", receipt, "--state", f.state);
+  assert.equal(lost.exitCode, 1);
+  assert.equal(f.model.contentVersion, 5, "the receiver applied the write");
+  const blocked = await f.run("preview", ...args);
+  assert.equal(at(blocked.document, "error", "code"), "journal_pending");
+  const completed = await f.run(
+    "apply",
+    "--receipt",
+    receipt,
+    "--state",
+    f.state,
+  );
+  assert.equal(at(completed.document, "error", "code"), "journal_completed");
+  assert.equal(f.model.contentVersion, 5, "the repeated key wrote nothing new");
+  const after = await f.run("preview", ...args);
+  assert.equal(after.exitCode, 0, JSON.stringify(after.document));
+  assert.equal(at(after.document, "hasChanges"), false);
 });

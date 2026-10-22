@@ -14,7 +14,7 @@ import {
 import {
   PRODUCT_TASK_IMPORT,
   type ProductTaskImport,
-} from "../import-product-task/import-product-task.controller.js";
+} from "../../facets/product-task-import/product-task-import.js";
 import {
   readSourceTaskStateQuerySchema,
   sourceTaskStateSchema,

@@ -1,16 +1,16 @@
 import { z } from "zod";
 
+import { sourceNamespaceSchema } from "../../../../infrastructure/contracts/source-namespace.js";
 import {
   taskAccessSchema,
   taskCodeSchema,
   taskPublicationSchema,
   taskSourceIdSchema,
-  taskSourceNamespaceSchema,
 } from "../../domain/task-definition.js";
 import type { Result, SystemError } from "../../shared/result.js";
 
 export const readSourceTaskStateQuerySchema = z
-  .object({ namespace: taskSourceNamespaceSchema })
+  .object({ namespace: sourceNamespaceSchema })
   .strict();
 
 const revisionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
@@ -22,7 +22,7 @@ const revisionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
  */
 export const sourceTaskStateSchema = z
   .object({
-    namespace: taskSourceNamespaceSchema,
+    namespace: sourceNamespaceSchema,
     tasks: z.array(
       z
         .object({

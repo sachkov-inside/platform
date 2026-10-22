@@ -1656,7 +1656,7 @@ when the version differs from its own or a package feature is missing on either 
 publication, source path/revision/commit and Product memberships, and every Task with identity, code,
 Product, chapter, position, placement, revision, access, publication and the provenance commit of its current
 version. An imported Material source may name `commit`, the Content commit it came from; the receiver stores it
-and an import without it clears it. `bounded-content-v1` (`selection.contentOnly`) writes only the selected
+and an import without it clears it. `GET /authoring/materials/{id}` reports `source.commit` only when one is recorded, so older clients that parse the source strictly keep working. `bounded-content-v1` (`selection.contentOnly`) writes only the selected
 existing Materials and Tasks and keeps target policy; [content-only delivery](../runbooks/authoring-preservation.md)
 owns the procedure.
 Quiz integration (#1283, #940) imports Content `readerBlocks`, including the full explanations,

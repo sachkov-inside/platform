@@ -12,6 +12,10 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 
 import { localTargets } from "../tools/authoring/target.mjs";
+import {
+  gatewayIdentity,
+  gatewayIdentityPath,
+} from "./stand-gateway-identity.mjs";
 import { readIdentityProofPort } from "./identity-proof-environment.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
@@ -38,26 +42,6 @@ const storedPatSchema = z.object({
   userId: z.string(),
   value: z.string().min(1),
 });
-
-/** The gateway answers here about itself, so a client can tell it from another process on the port. */
-export const gatewayIdentityPath = "/__local-api/gateway";
-export const gatewayService = "inside-authoring-stand-gateway";
-
-/**
- * The identity a running gateway reports; `protocol` changes when a client must not reuse it.
- *
- * @param {{ owner: string; api: string }} options
- */
-export function gatewayIdentity({ owner, api }) {
-  return {
-    service: gatewayService,
-    protocol: 1,
-    owner,
-    api,
-    pid: process.pid,
-    root,
-  };
-}
 
 /**
  * Only authoring API paths reach the stand, and only from non-browser clients on this machine.
@@ -280,7 +264,7 @@ async function main() {
     throw new Error("The authoring gateway serves only a development stand");
 
   const identity = JSON.stringify(
-    gatewayIdentity({ owner: email, api: apiOrigin }),
+    gatewayIdentity({ owner: email, api: apiOrigin, root }),
   );
   const server = createServer(async (request, response) => {
     if (

@@ -336,7 +336,7 @@ test("pending operations stop before release reconciliation", async (t) => {
       readState: f.readState,
       request: f.request,
     }),
-    /pending release operations/u,
+    /Unfinished writes of an earlier apply are pending/u,
   );
   assert.deepEqual(f.writes, []);
 });

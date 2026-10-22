@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { canonical, checksum } from "./package.mjs";
 import { withJournal } from "./journal.mjs";
+import { parseLocalResponse } from "./local-boundaries.mjs";
 import { readNamespaceState } from "./preservation-state.mjs";
 import { refusal } from "./refusal.mjs";
 
@@ -38,6 +39,18 @@ export async function reconcileJournal(
   { target, send, namespace, adopt = [], now = () => new Date() },
 ) {
   const state = await readNamespaceState(send, namespace);
+  const products = parseLocalResponse(
+    "/authoring/collections?kind=product",
+    await send("/authoring/collections?kind=product"),
+  );
+  // An adopted row names its Products, so a later release of one Product never proposes archiving it.
+  const productSource = new Map(
+    products.flatMap((product) =>
+      typeof product.sourceId === "string"
+        ? [[product.id, product.sourceId]]
+        : [],
+    ),
+  );
   const key = (/** @type {string} */ id) =>
     id.includes(":") ? id : `${namespace}:${id}`;
   const adopted = [...new Set(adopt.map(key))].sort();
@@ -89,11 +102,6 @@ export async function reconcileJournal(
             `${sourceId}: the target holds no Material with this source identity`,
           );
         if (row.status === "agree") continue;
-        if (row.status === "journal_only")
-          throw refusal(
-            "adopt_unknown",
-            `${sourceId}: the target holds no Material with this source identity`,
-          );
         const previous = journal.materials[sourceId];
         // The digest is never one a package produces, so the next preview shows the row as changed.
         journal.materials[sourceId] = {
@@ -110,6 +118,10 @@ export async function reconcileJournal(
           publicationState: current.publicationState,
           archived: current.publicationState === "unpublished",
           access: current.access,
+          productSourceIds: current.memberships.flatMap((membership) => {
+            const sourceId = productSource.get(membership.productId);
+            return sourceId === undefined ? [] : [sourceId];
+          }),
           ...(current.slug === null
             ? {}
             : { url: `/materials/${current.slug}` }),

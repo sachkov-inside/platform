@@ -9,74 +9,16 @@ import { fileURLToPath } from "node:url";
 
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { z } from "zod";
 
 import { refusal } from "../tools/authoring/refusal.mjs";
 import { resolveLocalTarget } from "../tools/authoring/target.mjs";
-import {
-  gatewayIdentityPath,
-  gatewayService,
-} from "./authoring-stand-gateway.mjs";
+import { probeGateway } from "./stand-gateway-identity.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const execute = promisify(execFile);
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gatewayStartTimeoutMs = 60_000;
-
-const gatewayIdentitySchema = z
-  .object({
-    service: z.literal(gatewayService),
-    protocol: z.literal(1),
-    owner: z.string().min(1),
-    api: z.string().min(1),
-    pid: z.number().int().positive(),
-    root: z.string().min(1),
-  })
-  .passthrough();
-
-/** @typedef {z.infer<typeof gatewayIdentitySchema>} GatewayIdentity */
-
-/**
- * What answers on the gateway port: nothing, this repository's gateway, or another process.
- * Any HTTP answer is not enough; the gateway must report its identity.
- *
- * @param {string} origin
- * @returns {Promise<
- *   | { kind: "free" }
- *   | { kind: "gateway"; identity: GatewayIdentity }
- *   | { kind: "foreign"; detail: string }
- * >}
- */
-export async function probeGateway(origin) {
-  /** @type {Response} */
-  let response;
-  try {
-    response = await fetch(`${origin}${gatewayIdentityPath}`, {
-      redirect: "error",
-      signal: AbortSignal.timeout(2_000),
-    });
-  } catch (error) {
-    const cause =
-      error instanceof Error && error.cause instanceof Error
-        ? error.cause
-        : undefined;
-    if (cause !== undefined && "code" in cause && cause.code === "ECONNREFUSED")
-      return { kind: "free" };
-    return { kind: "foreign", detail: `no HTTP answer (${String(error)})` };
-  }
-  const text = await response.text();
-  if (!response.ok)
-    return { kind: "foreign", detail: `HTTP ${String(response.status)}` };
-  try {
-    return {
-      kind: "gateway",
-      identity: gatewayIdentitySchema.parse(JSON.parse(text)),
-    };
-  } catch {
-    return { kind: "foreign", detail: "an answer without gateway identity" };
-  }
-}
 
 /** @param {string} port */
 async function portOwner(port) {
@@ -184,7 +126,7 @@ export async function standIdentity(ownerEmail) {
  *
  * @template T
  * @param {string} email
- * @param {(origin: string, gateway: { identity: GatewayIdentity; started: boolean }) => Promise<T>} work
+ * @param {(origin: string, gateway: { identity: import("./stand-gateway-identity.mjs").GatewayIdentity; started: boolean }) => Promise<T>} work
  * @returns {Promise<T>}
  */
 export async function withStandGateway(email, work) {

@@ -12,6 +12,7 @@ import {
 } from "./target.mjs";
 import { authoredTaskBody, taskChapterId } from "./task-import.mjs";
 import { previewRelease, applyRelease } from "./release.mjs";
+import { syncLocal } from "./local-sync.mjs";
 import { targetStateSchema } from "./preservation-state.mjs";
 import { refusal } from "./refusal.mjs";
 import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
@@ -116,7 +117,7 @@ export async function preservationState(
   )
     throw refusal(
       "journal_pending",
-      "Resolve pending release operations before preservation preview/apply",
+      "Unfinished writes of an earlier apply are pending: repeat pnpm authoring:deliver apply with its receipt to complete them with their original keys, then preview again",
     );
   const key = /** @param {string} id */ (id) =>
     `${manifest.sourceNamespace}:${id}`;
@@ -513,6 +514,30 @@ export async function applyPreservation(
     throw refusal("receipt_changed", "Preservation preview binding differs");
   const target = authoringTarget(receipt.target);
   const send = request ?? transportFor(target, accessToken);
+  const journal = parseJournal(
+    JSON.parse(await readFile(join(stateDirectory, "journal.json"), "utf8")),
+  );
+  if (
+    Object.values(journal.operations).some(
+      (entry) => entry.status === "pending",
+    )
+  ) {
+    // A lost answer leaves its write pending; it completes once, with its key, before anything new.
+    await syncLocal(receipt.packagePath, stateDirectory, {
+      origin: target.id,
+      request: send,
+      accessToken,
+      publish: receipt.state.materials
+        .filter((row) => row.publicationState === "published")
+        .map((row) => row.sourceId),
+      reconcileOnly: true,
+      reviewed: true,
+    });
+    throw refusal(
+      "journal_completed",
+      "Unfinished writes of an earlier apply were completed with their original keys; preview again before new writes",
+    );
+  }
   const current = await preservationState(
     pkg.manifest,
     stateDirectory,

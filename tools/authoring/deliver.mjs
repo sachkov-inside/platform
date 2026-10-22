@@ -3,7 +3,7 @@
 // production. It previews first, applies exactly the reviewed receipt, preserves the target's
 // access, publication, Product membership and Task placement, and prints JSON for the caller.
 import { execFile } from "node:child_process";
-import { mkdir, readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -25,7 +25,9 @@ import { parseLocalResponse } from "./local-boundaries.mjs";
 import { contentMaterials, contentTasks, loadPackage } from "./package.mjs";
 import { apiPreservationState } from "./preservation-state.mjs";
 import { applyPreservation, previewPreservation } from "./preservation.mjs";
+import { exportCommittedPackage } from "./git-local.mjs";
 import { reconcileJournal } from "./reconcile.mjs";
+import { verifyPackageSource } from "./source-commit.mjs";
 import { refusal, refusalCode } from "./refusal.mjs";
 import {
   assertTargetEnvironment,
@@ -36,6 +38,9 @@ import {
 const execute = promisify(execFile);
 const platformRoot = resolve(import.meta.dirname, "../..");
 const outputVersion = 1;
+// A lock untouched this long belongs to a crashed process; a live one refreshes it more often.
+const sessionLockStaleMs = 120_000;
+const sessionLockRefreshMs = 10_000;
 
 /**
  * @typedef {{
@@ -62,8 +67,46 @@ function deliveryTarget(value) {
 }
 
 /**
+ * Holds `~/.inside-authoring/<name>-session.lock` for one command. On production Logto rotates the
+ * refresh token on each renewal, so two processes would revoke each other's session; on the stand a
+ * finished delivery would stop the gateway another delivery still uses.
+ *
+ * @template T
+ * @param {string} name
+ * @param {() => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function oneDeliveryAtATime(name, work) {
+  const directory = join(homedir(), ".inside-authoring");
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  // An existing directory keeps its mode; production state and locks stay private to the owner.
+  await chmod(directory, 0o700);
+  /** @type {() => Promise<void>} */
+  let unlock;
+  try {
+    unlock = await lockfile.lock(directory, {
+      lockfilePath: join(directory, `${name}-session.lock`),
+      retries: 0,
+      stale: sessionLockStaleMs,
+      update: sessionLockRefreshMs,
+    });
+  } catch (error) {
+    throw refusal(
+      "target_busy",
+      `Another ${name} delivery is running on this machine; wait for it and repeat`,
+      error,
+    );
+  }
+  try {
+    return await work();
+  } finally {
+    await unlock();
+  }
+}
+
+/**
  * The real connection: the stand through a verified gateway it starts or reuses, production
- * through the owner's Keychain session on a checked network, one production command at a time.
+ * through the owner's Keychain session on a checked network; one command per target at a time.
  *
  * @param {{ ownerEmail?: string | undefined }} options
  * @returns {Connect}
@@ -73,45 +116,28 @@ export function connectTarget({ ownerEmail }) {
     const target = deliveryTarget(targetName);
     if (target.kind === "local") {
       const { email } = await standIdentity(ownerEmail);
-      return withStandGateway(email, (_origin, gateway) =>
-        work({
-          target,
-          send: transportFor(target, undefined),
-          accessToken: undefined,
-          connection: {
-            gateway: {
-              pid: gateway.identity.pid,
-              owner: gateway.identity.owner,
-              started: gateway.started,
+      return oneDeliveryAtATime("stand", () =>
+        withStandGateway(email, (_origin, gateway) =>
+          work({
+            target,
+            send: transportFor(target, undefined),
+            accessToken: undefined,
+            connection: {
+              gateway: {
+                pid: gateway.identity.pid,
+                owner: gateway.identity.owner,
+                started: gateway.started,
+              },
             },
-          },
-        }),
+          }),
+        ),
       );
     }
     const resolved = await prepareTrustedNetwork([
       new URL(target.id).hostname,
       new URL(target.issuer).hostname,
     ]);
-    // Logto rotates the refresh token on each renewal; two processes would revoke each other's session.
-    const directory = join(homedir(), ".inside-authoring");
-    await mkdir(directory, { recursive: true, mode: 0o700 });
-    /** @type {() => Promise<void>} */
-    let unlock;
-    try {
-      unlock = await lockfile.lock(directory, {
-        lockfilePath: join(directory, `${target.name}-session.lock`),
-        retries: 0,
-        stale: 120_000,
-        update: 10_000,
-      });
-    } catch (error) {
-      throw refusal(
-        "target_busy",
-        `Another ${target.name} delivery is running on this machine; wait for it and repeat`,
-        error,
-      );
-    }
-    try {
+    return oneDeliveryAtATime(target.name, async () => {
       const accessToken = ownerSession(target, { store: keychainStore() });
       try {
         await accessToken();
@@ -122,15 +148,13 @@ export function connectTarget({ ownerEmail }) {
           error,
         );
       }
-      return await work({
+      return work({
         target,
         send: transportFor(target, accessToken),
         accessToken,
         connection: { network: resolved },
       });
-    } finally {
-      await unlock();
-    }
+    });
   };
 }
 
@@ -166,6 +190,34 @@ async function platformRevision() {
   }
 }
 
+/**
+ * Selected Materials and Tasks of a target state in one shape, keyed by their source key.
+ *
+ * @param {import("./preservation-state.mjs").TargetState} state
+ */
+const stateRows = (state) => [
+  ...state.materials.map((row) => ({
+    kind: "material",
+    sourceId: row.sourceId,
+    id: row.materialId,
+    versionField: "contentVersion",
+    version: row.contentVersion,
+    access: row.access,
+    publicationState: row.publicationState,
+    sourceCommit: row.sourceCommit ?? null,
+  })),
+  ...state.tasks.map((row) => ({
+    kind: "task",
+    sourceId: row.sourceId,
+    id: row.taskId,
+    versionField: "revision",
+    version: row.revision,
+    access: row.access,
+    publicationState: row.publicationState,
+    sourceCommit: row.sourceCommit ?? null,
+  })),
+];
+
 /** @param {string[]} values */
 const sorted = (values) => [...new Set(values)].sort();
 
@@ -179,6 +231,7 @@ const sorted = (values) => [...new Set(values)].sort();
  *   materialIds: string[];
  *   taskIds: string[];
  *   connect: Connect;
+ *   exportPackage?: import("./source-commit.mjs").ExportPackage;
  * }} options
  */
 export async function deliveryPreview({
@@ -190,6 +243,7 @@ export async function deliveryPreview({
   materialIds,
   taskIds,
   connect,
+  exportPackage = exportCommittedPackage,
 }) {
   deliveryTarget(target);
   const pkg = await loadPackage(packagePath);
@@ -207,6 +261,18 @@ export async function deliveryPreview({
       "selection_mismatch",
       `The package selects Materials [${bounded.materialIds.join(", ")}] and Tasks [${bounded.taskIds.join(", ")}]; the command named [${materialIds.join(", ")}] and [${taskIds.join(", ")}]`,
     );
+  if (contentRepository === undefined)
+    throw refusal(
+      "usage",
+      "Name the Content repository with --content-repository",
+    );
+  // Before any target request: the package must be the commit it names and the newest content.
+  const history = await verifyPackageSource(pkg, {
+    repository: resolve(contentRepository),
+    commit: z.hash("sha1").parse(sourceCommit),
+    stateDirectory: join(resolve(stateDirectory), "source-verification"),
+    exportPackage,
+  });
   return connect(target, async (connection) => {
     const receiver = await checkReceiver(connection, pkg.manifest);
     const readState = apiPreservationState(
@@ -222,53 +288,36 @@ export async function deliveryPreview({
       contentRepository,
     });
     const { receipt, preview } = result;
-    const key = (/** @type {string} */ id) =>
-      `${pkg.manifest.sourceNamespace}:${id}`;
+    const held = new Map(
+      stateRows(receipt.state).map((row) => [row.sourceId, row]),
+    );
     const rows = [
-      ...preview.preview.materials.map((row) => {
-        const sourceId = String(row["sourceId"]);
-        const state = receipt.state.materials.find(
-          (item) => item.sourceId === key(sourceId),
-        );
-        return {
-          kind: "material",
-          sourceId,
-          id: state?.materialId ?? null,
-          change: row.change,
-          contentVersion: state?.contentVersion ?? null,
-          access: state?.access ?? null,
-          publicationState: state?.publicationState ?? null,
-          sourceCommit: {
-            target: state?.sourceCommit ?? null,
-            relation: receipt.relations[key(sourceId)] ?? null,
-          },
-        };
-      }),
-      ...(preview.preview.tasks ?? []).map((row) => {
-        const sourceId = String(row["sourceId"]);
-        const state = receipt.state.tasks.find(
-          (item) => item.sourceId === key(sourceId),
-        );
-        return {
-          kind: "task",
-          sourceId,
-          id: state?.taskId ?? null,
-          change: row.change,
-          revision: state?.revision ?? null,
-          access: state?.access ?? null,
-          publicationState: state?.publicationState ?? null,
-          sourceCommit: {
-            target: state?.sourceCommit ?? null,
-            relation: receipt.relations[key(sourceId)] ?? null,
-          },
-        };
-      }),
-    ];
+      ...preview.preview.materials,
+      ...(preview.preview.tasks ?? []),
+    ].map((row) => {
+      const sourceId = String(row["sourceId"]);
+      const key = `${pkg.manifest.sourceNamespace}:${sourceId}`;
+      const state = held.get(key);
+      return {
+        kind: state?.kind ?? null,
+        sourceId,
+        id: state?.id ?? null,
+        change: row.change,
+        ...(state === undefined ? {} : { [state.versionField]: state.version }),
+        access: state?.access ?? null,
+        publicationState: state?.publicationState ?? null,
+        sourceCommit: {
+          target: state?.sourceCommit ?? null,
+          relation: receipt.relations[key] ?? null,
+        },
+      };
+    });
     return {
       command: "preview",
       receiver,
       connection: connection.connection,
       sourceCommit,
+      contentHead: history.head,
       package: {
         path: receipt.originalPackagePath,
         id: receipt.originalPackageId,
@@ -317,41 +366,25 @@ export async function deliveryApply({ receiptPath, stateDirectory, connect }) {
         accessToken: connection.accessToken,
       },
     );
-    const rows = [
-      ...proof.before.materials.map((before) => {
-        const after = proof.after.materials.find(
-          (row) => row.sourceId === before.sourceId,
-        );
-        return {
-          kind: "material",
-          sourceId: before.sourceId,
-          id: before.materialId,
-          contentVersion: {
-            before: before.contentVersion,
-            after: after?.contentVersion ?? null,
-          },
-          sourceCommit: {
-            before: before.sourceCommit ?? null,
-            after: after?.sourceCommit ?? null,
-          },
-        };
-      }),
-      ...proof.before.tasks.map((before) => {
-        const after = proof.after.tasks.find(
-          (row) => row.sourceId === before.sourceId,
-        );
-        return {
-          kind: "task",
-          sourceId: before.sourceId,
-          id: before.taskId,
-          revision: { before: before.revision, after: after?.revision ?? null },
-          sourceCommit: {
-            before: before.sourceCommit ?? null,
-            after: after?.sourceCommit ?? null,
-          },
-        };
-      }),
-    ];
+    const after = new Map(
+      stateRows(proof.after).map((row) => [row.sourceId, row]),
+    );
+    const rows = stateRows(proof.before).map((before) => {
+      const current = after.get(before.sourceId);
+      return {
+        kind: before.kind,
+        sourceId: before.sourceId,
+        id: before.id,
+        [before.versionField]: {
+          before: before.version,
+          after: current?.version ?? null,
+        },
+        sourceCommit: {
+          before: before.sourceCommit,
+          after: current?.sourceCommit ?? null,
+        },
+      };
+    });
     return {
       command: "apply",
       receiver,
@@ -399,7 +432,7 @@ const usage = `Usage:
  * Runs one command and returns its JSON document and exit code; never throws.
  *
  * @param {string[]} argv
- * @param {{ connect?: Connect; nodeVersion?: string }} [dependencies]
+ * @param {{ connect?: Connect; nodeVersion?: string; exportPackage?: import("./source-commit.mjs").ExportPackage }} [dependencies]
  */
 export async function runDelivery(argv, dependencies = {}) {
   /** @type {string | undefined} */
@@ -447,6 +480,9 @@ export async function runDelivery(argv, dependencies = {}) {
         materialIds: values.material,
         taskIds: values.task,
         connect,
+        ...(dependencies.exportPackage === undefined
+          ? {}
+          : { exportPackage: dependencies.exportPackage }),
       });
     else if (
       command === "apply" &&

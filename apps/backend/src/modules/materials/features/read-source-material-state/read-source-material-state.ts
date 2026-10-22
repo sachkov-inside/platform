@@ -1,5 +1,4 @@
-import { z } from "zod";
-
+import { compareCodePoints } from "../../../../infrastructure/contracts/code-point-order.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -16,17 +15,20 @@ import {
 const querySchema = readSourceMaterialStateQuerySchema.extend({
   actor: accountId,
 });
-const membershipRowSchema = z.object({
-  material_id: z.uuid(),
-  series_id: z.uuid(),
-  ordinal: z.number().int().positive(),
-  chapter_id: z.uuid().nullable(),
-});
+// Bounds the Material ID list of one membership statement well below the bind-parameter limit.
+const MEMBERSHIP_BATCH_SIZE = 1_000;
+
+interface MembershipRow {
+  readonly materialId: string;
+  readonly seriesId: string;
+  readonly ordinal: number;
+  readonly chapterId: string | null;
+}
 
 /**
  * Reads what Platform holds for one source namespace, so the authoring tool can compare it with
  * the repository before deciding what to write. Materials and their Product memberships come from
- * one repeatable-read snapshot.
+ * one repeatable-read snapshot, so the batched membership statements see the same rows.
  */
 export function assembleReadSourceMaterialState(
   dependencies: MaterialAuthoringDependencies,
@@ -60,26 +62,39 @@ export function assembleReadSourceMaterialState(
               publicationState: true,
             },
           });
-          const membershipRows = z.array(membershipRowSchema).parse(
-            await transaction.$queryRaw(Prisma.sql`
-              select m.material_id, m.series_id, m.ordinal, m.chapter_id
-              from materials.series_memberships m
-              join materials.materials x on x.id = m.material_id
-              where starts_with(x.source_id, ${prefix})
-              order by m.material_id, m.series_id
-            `),
-          );
+          // Memberships have no Prisma relation to Materials, so they are read by Material ID in
+          // the same snapshot.
+          const membershipRows: MembershipRow[] = [];
+          const ids = materialRows.map((row) => row.id);
+          for (
+            let start = 0;
+            start < ids.length;
+            start += MEMBERSHIP_BATCH_SIZE
+          )
+            membershipRows.push(
+              ...(await transaction.productMembership.findMany({
+                where: {
+                  materialId: {
+                    in: ids.slice(start, start + MEMBERSHIP_BATCH_SIZE),
+                  },
+                },
+                select: {
+                  materialId: true,
+                  seriesId: true,
+                  ordinal: true,
+                  chapterId: true,
+                },
+                orderBy: [{ materialId: "asc" }, { seriesId: "asc" }],
+              })),
+            );
           return { materials: materialRows, memberships: membershipRows };
         },
       );
-      const membershipsByMaterial = new Map<
-        string,
-        z.infer<typeof membershipRowSchema>[]
-      >();
+      const membershipsByMaterial = new Map<string, MembershipRow[]>();
       for (const row of memberships) {
-        const list = membershipsByMaterial.get(row.material_id) ?? [];
+        const list = membershipsByMaterial.get(row.materialId) ?? [];
         list.push(row);
-        membershipsByMaterial.set(row.material_id, list);
+        membershipsByMaterial.set(row.materialId, list);
       }
       return {
         ok: true,
@@ -101,9 +116,9 @@ export function assembleReadSourceMaterialState(
               },
               memberships: (membershipsByMaterial.get(row.id) ?? []).map(
                 (membership) => ({
-                  productId: membership.series_id,
+                  productId: membership.seriesId,
                   ordinal: membership.ordinal,
-                  chapterId: membership.chapter_id,
+                  chapterId: membership.chapterId,
                 }),
               ),
             }))
@@ -123,9 +138,4 @@ export function assembleReadSourceMaterialState(
       );
     }
   };
-}
-
-function compareCodePoints(left: string, right: string): number {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
 }

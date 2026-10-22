@@ -711,7 +711,8 @@ export async function syncLocal(
         archive.length ||
         confirmedProductRemovals.length ||
         pinHome ||
-        pendingOperations(journal))
+        // Completing unfinished writes with their keys is how a bounded delivery recovers.
+        (!reconcileOnly && pendingOperations(journal)))
     )
       throw new Error(
         "Bounded content requires a reviewed stand or production update without pending operations, archive, Home or Product changes",

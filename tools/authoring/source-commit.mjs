@@ -4,6 +4,16 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import {
+  canonical,
+  checksum,
+  contentMaterials,
+  contentTasks,
+  loadPackage,
+  materialRevision,
+} from "./package.mjs";
+import { refusal } from "./refusal.mjs";
+
 const execute = promisify(execFile);
 
 /** @typedef {(ancestor: string, descendant: string) => Promise<boolean>} IsAncestor */
@@ -65,4 +75,97 @@ export async function sourceCommitRelation(
   if (targetCommit === packageCommit) return "same";
   if (await isAncestor(targetCommit, packageCommit)) return "forward";
   return (await isAncestor(packageCommit, targetCommit)) ? "older" : "diverged";
+}
+
+/**
+ * @typedef {(repository: string, guide: string, stateDirectory: string, ref: string) => Promise<{ commit: string; packagePath: string }>} ExportPackage
+ */
+
+/**
+ * The selected rows as the exporter produced them; equal rows mean equal delivered content.
+ *
+ * @param {import("./package.mjs").Manifest} manifest
+ */
+function selectedContent(manifest) {
+  return new Map([
+    ...contentMaterials(manifest).map(
+      (row) =>
+        /** @type {const} */ ([
+          `material:${row.sourceId}`,
+          materialRevision(manifest, row),
+        ]),
+    ),
+    ...contentTasks(manifest).map(
+      (task) =>
+        /** @type {const} */ ([
+          `task:${task.sourceId}`,
+          checksum(
+            canonical({
+              task,
+              page:
+                task.page === undefined
+                  ? null
+                  : materialRevision(manifest, task.page),
+            }),
+          ),
+        ]),
+    ),
+  ]);
+}
+
+/**
+ * Binds the package to Content history (#1672). The official export of the named commit must
+ * produce the same selected rows, and the export of the repository's HEAD must too: otherwise the
+ * package is not the commit it claims, or a newer commit already changed what it would deliver.
+ *
+ * @param {import("./package.mjs").AuthoringPackage} pkg
+ * @param {{ repository: string; commit: string; stateDirectory: string; exportPackage: ExportPackage }} options
+ */
+export async function verifyPackageSource(
+  pkg,
+  { repository, commit, stateDirectory, exportPackage },
+) {
+  const guide = pkg.manifest.selection.productId;
+  if (guide === null)
+    throw refusal(
+      "package_guide_missing",
+      "A content-only package names its Guide in selection.productId",
+    );
+  const wanted = selectedContent(pkg.manifest);
+  /** @param {string} ref */
+  const differing = async (ref) => {
+    const exported = await exportPackage(
+      repository,
+      guide,
+      stateDirectory,
+      ref,
+    );
+    const rows = selectedContent(
+      (await loadPackage(exported.packagePath)).manifest,
+    );
+    return {
+      commit: exported.commit,
+      rows: [...wanted]
+        .filter(([key, value]) => rows.get(key) !== value)
+        .map(([key]) => key),
+    };
+  };
+  const named = await differing(commit);
+  if (named.commit !== commit)
+    throw refusal(
+      "package_commit_mismatch",
+      `${commit} resolves to ${named.commit} in ${repository}`,
+    );
+  if (named.rows.length > 0)
+    throw refusal(
+      "package_commit_mismatch",
+      `The package does not match the export of Content ${commit}: ${named.rows.join(", ")}`,
+    );
+  const head = await differing("HEAD");
+  if (head.commit !== commit && head.rows.length > 0)
+    throw refusal(
+      "source_newer_in_repository",
+      `Content ${head.commit} (HEAD) already changed ${head.rows.join(", ")} after ${commit}; export the current commit instead`,
+    );
+  return { head: head.commit };
 }

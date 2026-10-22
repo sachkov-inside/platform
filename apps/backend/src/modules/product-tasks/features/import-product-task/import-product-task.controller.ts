@@ -24,23 +24,16 @@ import {
   TaskImportEndpoint,
   throwTaskImportError,
 } from "../../adapters/nest/task-import-http.js";
-import type { ReadSourceTaskStateOperation } from "../read-source-task-state/read-source-task-state.contract.js";
+import {
+  PRODUCT_TASK_IMPORT,
+  type ProductTaskImport,
+} from "../../facets/product-task-import/product-task-import.js";
 import {
   applySourceTaskBodySchema,
   sourceTaskSchema,
   taskImportReceiptSchema,
   validateSourceTaskResultSchema,
-  type ApplySourceTaskOperation,
-  type ValidateSourceTaskOperation,
 } from "./import-product-task.contract.js";
-
-export const PRODUCT_TASK_IMPORT = Symbol("PRODUCT_TASK_IMPORT");
-
-export interface ProductTaskImport {
-  readonly validate: ValidateSourceTaskOperation;
-  readonly apply: ApplySourceTaskOperation;
-  readonly readState: ReadSourceTaskStateOperation;
-}
 
 const idempotencyKeyHeaderSchema = z.string().trim().min(1).max(200);
 

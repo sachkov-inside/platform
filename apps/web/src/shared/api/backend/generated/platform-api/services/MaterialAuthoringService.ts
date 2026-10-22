@@ -1562,7 +1562,7 @@ export class MaterialAuthoringService {
     publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
     source?: {
-      commit: string | null;
+      commit?: string;
       id: string;
       path: string;
       revision: string;

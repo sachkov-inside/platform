@@ -177,9 +177,17 @@ describe("source state reads for authoring delivery (#1672)", () => {
         ],
       },
     });
-    expect(await authoring.loadMaterial({ actor, materialId })).toMatchObject({
-      ok: true,
-      value: { source: { id: source.id, commit: secondCommit } },
+    const loadedWithCommit = await authoring.loadMaterial({
+      actor,
+      materialId,
+    });
+    if (!loadedWithCommit.ok) throw new Error(loadedWithCommit.error.code);
+    expect(loadedWithCommit.value.source).toEqual({
+      id: source.id,
+      path: source.path,
+      revision: source.revision,
+      showInFeed: source.showInFeed,
+      commit: secondCommit,
     });
 
     const unpublished = await authoring.transitionSourcePublication({
@@ -222,9 +230,18 @@ describe("source state reads for authoring delivery (#1672)", () => {
       ok: true,
       value: { materials: [{ source: { commit: null } }] },
     });
-    expect(await authoring.loadMaterial({ actor, materialId })).toMatchObject({
-      ok: true,
-      value: { source: { commit: null } },
+    // The Material read omits an unrecorded commit: clients that predate it read `source` strictly.
+    const loadedWithoutCommit = await authoring.loadMaterial({
+      actor,
+      materialId,
+    });
+    if (!loadedWithoutCommit.ok)
+      throw new Error(loadedWithoutCommit.error.code);
+    expect(loadedWithoutCommit.value.source).toEqual({
+      id: source.id,
+      path: source.path,
+      revision: source.revision,
+      showInFeed: source.showInFeed,
     });
 
     expect(

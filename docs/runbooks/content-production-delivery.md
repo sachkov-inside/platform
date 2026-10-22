@@ -123,6 +123,9 @@ pnpm --silent authoring:deliver reconcile --target production --state ~/.inside-
 
 ### Защита от старого пакета
 
+Доставка сама экспортирует Guide из названного коммита и из `HEAD` репозитория Content и сравнивает
+выбранные строки с пакетом: старый пакет с текущим коммитом даёт `package_commit_mismatch`, а пакет
+из коммита, после которого `HEAD` уже изменил тот же урок, даёт `source_newer_in_repository`.
 Каждый импорт записывает у Material коммит Content (`source.commit`). Доставка и полный `preview`
 отказывают, если пакет старше записанного коммита (`source_commit_older`) или ушёл в другую ветку
 истории (`source_commit_diverged`). Полный `preview --package` без `--commit CONTENT_SHA

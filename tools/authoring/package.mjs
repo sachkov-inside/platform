@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { authoringImportContract } from "../../apps/backend/src/modules/materials/domain/authoring-import-contract.ts";
 import { z } from "zod";
 import { readerBlocksSchema } from "@inside/material-blocks";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
@@ -529,21 +530,13 @@ export function taskPositions(manifest) {
  */
 
 /**
- * Package v2 features this client translates into import requests. The receiver reports the same
- * list in its import contract; `contract.test.mjs` pins both to one revision.
+ * Package v2 features this client translates into import requests. The receiver's import contract
+ * owns the list; a client and receiver of one revision therefore agree, and the handshake compares
+ * revisions that differ.
  *
  * @type {readonly string[]}
  */
-export const supportedPackageFeatures = Object.freeze([
-  "material-task-v1",
-  "task-c-v2",
-  "quiz-v1",
-  "quiz-multiple-v1",
-  "github-anchors-v1",
-  "image-variants-v1",
-  "collapsible-callouts-v1",
-  "bounded-content-v1",
-]);
+export const supportedPackageFeatures = authoringImportContract.packageFeatures;
 
 /** Refuse unsupported envelope features before any asset or network operation.
  * @param {unknown} value */

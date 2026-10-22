@@ -20,7 +20,7 @@ import { MATERIAL_AUTHORING } from "../../src/modules/materials/index.js";
 import {
   PRODUCT_TASK_IMPORT,
   type ProductTaskImport,
-} from "../../src/modules/product-tasks/features/import-product-task/import-product-task.controller.js";
+} from "../../src/modules/product-tasks/facets/product-task-import/product-task-import.js";
 import type { SourceTaskState } from "../../src/modules/product-tasks/features/read-source-task-state/read-source-task-state.contract.js";
 import { ReadSourceTaskStateController } from "../../src/modules/product-tasks/features/read-source-task-state/read-source-task-state.controller.js";
 import {

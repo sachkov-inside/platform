@@ -2,17 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { authoringImportContract } from "../../apps/backend/src/modules/materials/domain/authoring-import-contract.ts";
-import { assertReceiverContract, clientContractVersion } from "./contract.mjs";
-import { supportedPackageFeatures } from "./package.mjs";
-
-test("client and receiver of one revision speak the same contract and package features", () => {
-  assert.equal(authoringImportContract.version, clientContractVersion);
-  assert.deepEqual(
-    [...authoringImportContract.packageFeatures],
-    [...supportedPackageFeatures],
-  );
-});
+import { assertReceiverContract } from "./contract.mjs";
 
 test("the handshake refuses a missing, different or incomplete receiver contract", () => {
   const contract = {
@@ -26,7 +16,7 @@ test("the handshake refuses a missing, different or incomplete receiver contract
     ),
     contract,
   );
-  /** @type {[Record<string, unknown>, string[], RegExp][]} */
+  /** @type {[Parameters<typeof assertReceiverContract>[0], string[], RegExp][]} */
   const refused = [
     [{ mode: "production" }, [], /predates the import contract/u],
     [

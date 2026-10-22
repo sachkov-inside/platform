@@ -59970,7 +59970,6 @@
                       "properties": {
                         "commit": {
                           "format": "sha1_hex",
-                          "nullable": true,
                           "pattern": "^[0-9a-fA-F]{40}$",
                           "type": "string"
                         },
@@ -59997,8 +59996,7 @@
                         "id",
                         "path",
                         "revision",
-                        "showInFeed",
-                        "commit"
+                        "showInFeed"
                       ],
                       "type": "object"
                     },

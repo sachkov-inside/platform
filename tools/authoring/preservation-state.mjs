@@ -3,6 +3,8 @@
 // authenticated state reads, so the stand and production use the same source of truth.
 import { z } from "zod";
 
+import { parseLocalResponse } from "./local-boundaries.mjs";
+
 const access = z.enum(["free", "closed"]);
 const commit = z.hash("sha1").nullable();
 export const targetStateSchema = z
@@ -38,8 +40,8 @@ export const targetStateSchema = z
           taskId: z.uuid(),
           code: z.string().min(1),
           productId: z.uuid(),
-          chapterId: z.uuid().nullable().optional(),
-          position: z.number().int().positive().nullable().optional(),
+          chapterId: z.uuid().optional(),
+          position: z.number().int().positive().optional(),
           afterMaterialSourceId: z.string().nullable().optional(),
           programmeVisibility: z
             .enum(["standalone", "embedded", "legacy"])
@@ -68,66 +70,6 @@ export const targetStateSchema = z
  * ) => Promise<TargetState>} ReadTargetState
  */
 
-const identifier = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
-const materialStateSchema = z
-  .object({
-    namespace: identifier,
-    materials: z.array(
-      z
-        .object({
-          sourceId: z.string().min(1),
-          materialId: z.uuid(),
-          slug: z.string().min(1).nullable(),
-          contentVersion: z.number().int().positive(),
-          access,
-          publicationState: z.enum(["draft", "published", "unpublished"]),
-          source: z
-            .object({
-              path: z.string().min(1),
-              revision: z.hash("sha256"),
-              commit,
-              showInFeed: z.boolean(),
-            })
-            .passthrough(),
-          memberships: z.array(
-            z
-              .object({
-                productId: z.uuid(),
-                ordinal: z.number().int().positive(),
-                chapterId: z.uuid().nullable(),
-              })
-              .passthrough(),
-          ),
-        })
-        .passthrough(),
-    ),
-  })
-  .passthrough();
-const taskStateSchema = z
-  .object({
-    namespace: identifier,
-    tasks: z.array(
-      z
-        .object({
-          sourceId: z.string().min(1),
-          taskId: z.uuid(),
-          code: z.string().min(1),
-          productId: z.uuid(),
-          chapterId: z.uuid().nullable(),
-          position: z.number().int().positive().nullable(),
-          afterMaterialSourceId: z.string().nullable(),
-          programmeVisibility: z.enum(["standalone", "embedded", "legacy"]),
-          embeddedMaterialId: z.uuid().nullable(),
-          revision: z.number().int().positive(),
-          access,
-          publicationState: z.enum(["published", "unpublished"]),
-          sourceCommit: commit,
-        })
-        .passthrough(),
-    ),
-  })
-  .passthrough();
-
 /**
  * Every source-owned Material and Task of one namespace, as the receiver reports them.
  *
@@ -135,13 +77,16 @@ const taskStateSchema = z
  * @param {string} namespace
  */
 export async function readNamespaceState(send, namespace) {
-  const query = `?namespace=${encodeURIComponent(identifier.parse(namespace))}`;
-  const materials = materialStateSchema.parse(
-    await send(`/authoring/import/materials/state${query}`),
+  const query = encodeURIComponent(namespace);
+  /** @type {`/authoring/import/materials/state?namespace=${string}`} */
+  const materialsPath = `/authoring/import/materials/state?namespace=${query}`;
+  /** @type {`/authoring/import/tasks/state?namespace=${string}`} */
+  const tasksPath = `/authoring/import/tasks/state?namespace=${query}`;
+  const materials = parseLocalResponse(
+    materialsPath,
+    await send(materialsPath),
   );
-  const tasks = taskStateSchema.parse(
-    await send(`/authoring/import/tasks/state${query}`),
-  );
+  const tasks = parseLocalResponse(tasksPath, await send(tasksPath));
   if (materials.namespace !== namespace || tasks.namespace !== namespace)
     throw new Error("The receiver answered for another source namespace");
   return { materials: materials.materials, tasks: tasks.tasks };

@@ -1,14 +1,13 @@
 import { z } from "zod";
 
-import {
-  dependencyFailure,
-  reportDependencyFailure,
-} from "../../../../infrastructure/observability/index.js";
+import { compareCodePoints } from "../../../../infrastructure/contracts/code-point-order.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   Prisma,
   type ProductTasksPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
+import { authorizeAuthor } from "../../shared/authorize-author.js";
 import { scope, systemFailure } from "../../shared/result.js";
 import {
   readSourceTaskStateQuerySchema,
@@ -49,18 +48,15 @@ export function assembleReadSourceTaskState(
     const parsed = readSourceTaskStateQuerySchema.safeParse(input);
     if (!parsed.success)
       return { ok: false, error: { code: "invalid_request_shape" } };
-    try {
-      if (!(await dependencies.authorPolicy.canManage(actor)))
-        return { ok: false, error: { code: "forbidden" } };
-    } catch (error) {
-      reportDependencyFailure(scope("readSourceTaskState"), error);
-      return {
-        ok: false,
-        error: { code: "dependency_unavailable", retryable: true },
-      };
-    }
+    const authorized = await authorizeAuthor(
+      dependencies.authorPolicy,
+      actor,
+      "readSourceTaskState",
+    );
+    if (!authorized.ok) return authorized;
     const { namespace } = parsed.data;
     try {
+      // Raw: a model query cannot join each task to the version its own `current_version` names.
       const rows = z.array(taskRowSchema).parse(
         await dependencies.prisma.$queryRaw(Prisma.sql`
           select t.source_id, t.id, t.code, t.product_id, t.chapter_id, t.position,
@@ -94,11 +90,7 @@ export function assembleReadSourceTaskState(
             }))
             // Code-point order keeps the answer independent of the database collation.
             .sort((left, right) =>
-              left.sourceId === right.sourceId
-                ? 0
-                : left.sourceId < right.sourceId
-                  ? -1
-                  : 1,
+              compareCodePoints(left.sourceId, right.sourceId),
             ),
         }),
       };

@@ -40,29 +40,31 @@ pnpm --silent authoring:deliver reconcile --target stand|production --state STAT
 ```
 
 `--material` and `--task` must name exactly the package's `selection.contentOnly`; the repetition is the
-caller's explicit statement of what it delivers. `CONTENT_SHA` is the caller's assertion that the package
-was exported from that commit; Task provenance in the package must name the same commit.
+caller's explicit statement of what it delivers. `CONTENT_SHA` names the commit the package was exported from;
+preview checks that claim (see [History guard](#history-guard)). The package names its Guide in `selection.productId`.
 
 ### Preview
 
 Preview writes nothing to the target. In order it:
 
 1. checks the Node version, the selection and the package;
-2. connects to the target (see [Connection](#connection));
-3. reads `GET /authoring/import/materials/environment`, requires the expected runtime mode and import
+2. exports the Guide from `CONTENT_SHA` and from the repository's `HEAD` with the official exporter and compares
+   the selected rows (see [History guard](#history-guard));
+3. connects to the target (see [Connection](#connection));
+4. reads `GET /authoring/import/materials/environment`, requires the expected runtime mode and import
    contract `1`, and requires every package feature to be listed by both the receiver and this client
    (`receiver_contract_missing`, `receiver_contract_mismatch`, `package_feature_unsupported`);
-4. reads the target state of the package namespace through `GET /authoring/import/materials/state` and
+5. reads the target state of the package namespace through `GET /authoring/import/materials/state` and
    `GET /authoring/import/tasks/state` (permission `materials:manage`), and cross-checks each selected
    Material with `GET /authoring/materials/{id}` and each Task with `POST /authoring/import/tasks/validate`;
-5. requires the journal to know each selected Material with the target's identity and version
+6. requires the journal to know each selected Material with the target's identity and version
    (`journal_missing`, `journal_identity_missing`, `journal_stale`: see [Reconciliation](#reconciliation));
-6. refuses an older or diverged Content commit (see [History guard](#history-guard));
-7. derives a package whose access and Task publication come from the target, previews it with the ordinary
+7. refuses an older or diverged Content commit (see [History guard](#history-guard));
+8. derives a package whose access and Task publication come from the target, previews it with the ordinary
    release, and refuses new rows, conflicts, Product or artifact changes, membership changes, Task placement
    changes and any access or publication change.
 
-The success document contains `receiver` (target, mode, contract), `connection`, `sourceCommit`, the original
+The success document contains `receiver` (target, mode, contract), `connection`, `sourceCommit`, `contentHead`, the original
 and derived `package`, `selection`, the immutable `receipt` path, the release `preview` path and fingerprint,
 `rows` and `hasChanges`. Each row names `kind` (`material` or `task`), `sourceId`, target `id`,
 `change` (`changed` or `unchanged`), the preserved `access` and `publicationState`, the target version or
@@ -73,8 +75,13 @@ Review the rows; when `hasChanges` is `false` there is nothing to apply.
 
 Apply takes only the receipt. It rechecks the contract, the receipt, package and preview bindings and the
 fresh target state; a change since preview stops before any write (`target_changed`). It then applies exactly
-the reviewed release preview, whose fingerprint and optimistic version checks stay active. Unfinished writes of
-an earlier run complete first with their original idempotency keys. Each written Material records `source.commit`.
+the reviewed release preview, whose fingerprint and optimistic version checks stay active. Each written Material
+records `source.commit`.
+
+A write whose answer was lost stays pending in the journal, and preview refuses with `journal_pending`.
+Repeat `apply` with the same receipt: it completes the pending writes once with their original idempotency keys,
+writes nothing new and refuses with `journal_completed`. Then preview again; the completed rows show as
+`unchanged`. Never reset the journal or retry with a new key.
 
 After the writes it reads the state again and requires identical access, publication, membership and placement
 (`preservation_failed`), then previews the same package once more and requires every row to be `unchanged`
@@ -89,13 +96,16 @@ For `stand` the command owns the authoring gateway on `127.0.0.1:4398`. It asks 
 identity (`GET /__local-api/gateway`): a gateway of the same owner is reused and left running; a free port gets a
 gateway for the duration of the command, stopped afterwards. Any other process on the port is refused
 (`gateway_port_busy`, with its PID when `lsof` finds it), as is a gateway acting for another owner.
-The stand owner's email comes from the gateway's stored token file or `--owner-email`. The stand itself must
+The stand owner's email comes from the gateway's stored token file or `--owner-email`. Each target admits one
+delivery at a time on this machine through `~/.inside-authoring/<target>-session.lock` (`target_busy`), so one
+delivery never stops a gateway another delivery uses. `pnpm local:product` does not take this lock; do not run it
+during a delivery. The stand itself must
 already run under its [singleton owner](local-development.md#parallel-worktrees-and-singleton-ownership);
 the command never starts, rebuilds or stops Compose services.
 
 For `production` the command uses the owner's Keychain session from `pnpm authoring:login --target production`
-(`owner_session` when it is missing or revoked) and holds `~/.inside-authoring/production-session.lock`, so two
-deliveries cannot rotate one refresh token against each other (`target_busy`). It resolves the API and sign-in
+(`owner_session` when it is missing or revoked); the session lock keeps two deliveries from rotating one refresh
+token against each other. It resolves the API and sign-in
 hosts first and prefers IPv4 answers, which is all the production edge publishes. A VPN fake DNS answer
 (`198.18.0.0/15`) is refused with `network_fake_dns`: exclude `sachkov.dev` from fake DNS in the VPN
 (real-IP or direct rule) and repeat. Reads without any HTTP answer are retried twice; writes are completed by
@@ -103,11 +113,21 @@ the journal with their idempotency keys. No relay, resolved-IP adapter or certif
 
 ## History guard
 
-A Material records the Content commit of its last import (`source.commit`); a Task version records its provenance
-commit. For each selected row the package commit must equal the recorded commit or descend from it in the
-Content repository. An older package is refused with `source_commit_older` and a diverged one with
-`source_commit_diverged`; a commit the repository does not contain is an error. A row whose content came from an
-import that named no commit reports `relation: "unrecorded"` and is accepted; its first delivery records the commit.
+On 2026-10-19 an older prepared package replaced a newer production article. Three checks stop that before any write:
+
+1. The official export (`exportCommittedPackage`) of `CONTENT_SHA` must produce the same selected Materials
+   (text, metadata and their images, compared by source revision) and Tasks as the package
+   (`package_commit_mismatch`). A stale package named with a current commit fails here.
+2. The export of the Content repository's `HEAD` must produce the same selected rows unless `HEAD` is
+   `CONTENT_SHA` (`source_newer_in_repository`). Later commits that change other files do not block.
+3. A Material records the Content commit of its last import (`source.commit`); a Task version records its
+   provenance commit. The package commit must equal the recorded commit or descend from it
+   (`source_commit_older`, `source_commit_diverged`); a commit the repository does not contain is an error.
+   A row whose content came from an import that named no commit reports `relation: "unrecorded"`; checks 1 and 2
+   still apply to it, and its first delivery records the commit.
+
+These checks guard against mistakes by an operator who already holds `materials:manage`; they are not a security
+boundary. The receiver authorizes each write by that permission alone.
 
 The full `authoring:release preview` applies the same rule to Materials. With `--content` it uses the exported
 commit; a ready `--package` names it with `--commit CONTENT_SHA --content-repository CONTENT_REPOSITORY`.
