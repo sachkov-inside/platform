@@ -224,6 +224,34 @@ class ObservationOutcomes(unittest.TestCase):
                         if case=='deadline': self.assertEqual(result['traces_state'],'pending')
                     self.assertNotIn('private-',json.dumps(diagnostic.snapshot()))
 
+        # Worked diagnostic feature: an already-refused provider edge, not native cause.
+        rows=trace_rows()
+        rows[3]['end_time_unix_nano']='1800000000001999999'
+        rows[3]['duration']='1999999'
+        diagnostic=diagnostics.Diagnostic('tracking');result={}
+        with patch.object(tracking_storage.sdk_storage,'metric_response',return_value=json.dumps(tracking_vector())) as metric_read, \
+                patch.object(tracking_storage,'trace_response',return_value='\n'.join(json.dumps(row) for row in rows)) as trace_read:
+            try:
+                tracking_storage.stored_metrics_and_traces(token='synthetic',compose=[],targets=None,
+                    observed={'trace_id':TRACE,'root_id':ROOT},result=result,diagnostic=diagnostic)
+            except RuntimeError as caught:
+                self.assertIs(type(caught),diagnostics.TraceOracleRefusal)
+                self.assertEqual(str(caught),'Tracking storage trace contract failed')
+                self.assertEqual((caught.scope,caught.reason),('tracking','trace_gate_17'))
+                self.assertIs(type(caught.__context__),diagnostics.TraceGateRefusal)
+                self.assertEqual((caught.__context__.scope,caught.__context__.reason),('tracking','trace_gate_17'))
+                names=[];tb=caught.__traceback__
+                while tb:names.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
+                self.assertIn('stored_metrics_and_traces',names);self.assertIn('traces',names)
+            else:self.fail('original gate17 refusal swallowed')
+            metric_read.assert_called_once();trace_read.assert_called_once()
+        snapshot=diagnostic.snapshot()
+        self.assertEqual((snapshot['phase'],snapshot['outcome'],snapshot['reason'],snapshot['attempts']),
+            ('trace_validation','failed','trace_gate_17',1))
+        self.assertEqual(result['metrics_state'],'passed')
+        self.assertEqual(snapshot.get('temporal'),
+            {'row_role':'provider','parent_role':'delivery','comparison':'end','gap_band':'lt_1ms'})
+
 
 class PublicCollection(unittest.TestCase):
     def test_invalid_present_metadata_refuses_before_destination_and_legacy_absence_is_explicit_unknown(self):

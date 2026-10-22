@@ -49,6 +49,38 @@ class StorageFeedback(unittest.TestCase):
                 self.assertNotIn('private-canary',json.dumps(value))
                 diagnostic.start('complete');diagnostic.fail('unknown');self.assertEqual(diagnostic.snapshot(),value)
 
+        # The same closed witness must cross the real Waitlist stored-response loop.
+        from test_waitlist_oracle import vector,trace_rows,TRACE,ROOT
+        rows=trace_rows()
+        rows[3]['end_time_unix_nano']='1800000000001999999'
+        rows[3]['duration']='1999999'
+        diagnostic=diagnostics.Diagnostic('waitlist');result={}
+        with tempfile.TemporaryDirectory() as directory:
+            output=Path(directory)
+            with patch.object(storage.sdk_storage,'metric_response',return_value=json.dumps(vector())) as metric_read, \
+                    patch.object(storage,'trace_response',return_value='\n'.join(json.dumps(row) for row in rows)) as trace_read:
+                try:
+                    storage.stored_metrics_and_traces(output,token='synthetic',compose=[],targets=None,
+                        observed={'trace_id':TRACE,'root_id':ROOT},result=result,diagnostic=diagnostic)
+                except RuntimeError as caught:
+                    self.assertIs(type(caught),diagnostics.TraceOracleRefusal)
+                    self.assertEqual(str(caught),'Waitlist storage trace contract failed')
+                    self.assertEqual((caught.scope,caught.reason),('waitlist','trace_gate_17'))
+                    self.assertIs(type(caught.__context__),diagnostics.TraceGateRefusal)
+                    self.assertEqual((caught.__context__.scope,caught.__context__.reason),('waitlist','trace_gate_17'))
+                    names=[];tb=caught.__traceback__
+                    while tb:names.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
+                    self.assertIn('stored_metrics_and_traces',names);self.assertIn('traces',names)
+                else:self.fail('original gate17 refusal swallowed')
+                metric_read.assert_called_once();trace_read.assert_called_once()
+            snapshot=diagnostic.snapshot()
+            self.assertEqual(diagnostics.read(output/diagnostics.NAME,scope='waitlist'),snapshot)
+        self.assertEqual((snapshot['phase'],snapshot['outcome'],snapshot['reason'],snapshot['attempts']),
+            ('trace_validation','failed','trace_gate_17',1))
+        self.assertEqual(result['metrics_state'],'passed')
+        self.assertEqual(snapshot.get('temporal'),
+            {'row_role':'provider','parent_role':'delivery','comparison':'end','gap_band':'lt_1ms'})
+
     def test_observer_write_failure_preserves_primary_but_refuses_success(self):
         for observer in (OSError,ValueError):
             for kind in ('runtime','timeout','interrupt','success'):
