@@ -59,3 +59,41 @@ class CuratedCollection(unittest.TestCase):
                 (output/artifact.NAME).write_text(json.dumps(poison))
                 with self.assertRaises(ValueError):collection.collect(output,metadata,root/name)
                 self.assertFalse((root/name).exists())
+
+            # Closed native detail survives the same source-bound reader and collector.
+            stale=caddy_status.record('stale',age=11.5)
+            stale['transport']['canonical']='passed'
+            for token in ('over_at_evaluation','crossed_by_completion'):
+                detailed={**stale,'up_age_window':token}
+                artifact.write(output,detailed)
+                artifact.write_run(output,failed.snapshot())
+                target=root/token
+                collection.collect(output,metadata,target)
+                self.assertEqual(artifact.read(target),detailed)
+                self.assertEqual(artifact.read_run(target),failed.snapshot())
+            artifact.write(output,stale)
+            self.assertEqual(artifact.read(output),stale)
+            class ForeignText(str):pass
+            class Hostile:
+                def __getattribute__(self,_):raise AssertionError('private-getter')
+                def __str__(self):raise AssertionError('private-detail-coercion')
+                def __eq__(self,_):raise AssertionError('private-detail-comparison')
+            for token in ('private-caddy-sentinel',True,None,{},[],ForeignText('over_at_evaluation'),Hostile()):
+                with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
+                    artifact.validate({**stale,'up_age_window':token})
+            detailed={**stale,'up_age_window':'over_at_evaluation'}
+            poisons=[{**detailed,'state':'down'},{**detailed,'reason':'partial'},
+                {**detailed,'sample_age_seconds':10},{**detailed,'sample_age_seconds':None},
+                {**detailed,'transport':{'canonical':'failed','mcp':'unrun'}},
+                {**detailed,'transport':{'canonical':'passed','mcp':'passed'}},
+                {**detailed,'observation':{}},{**detailed,'private':'private-caddy-sentinel'},
+                {**detailed,'up_age_window':'private-caddy-sentinel'}]
+            raw_poisons=[json.dumps(value) for value in poisons]
+            raw_poisons.extend((json.dumps(detailed)[:-1]+',"up_age_window":"crossed_by_completion"}',
+                                json.dumps(detailed).replace('11.5','NaN')))
+            for index,poison in enumerate(raw_poisons):
+                (output/artifact.NAME).write_text(poison)
+                target=root/('age-window-refused-'+str(index))
+                with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
+                    collection.collect(output,metadata,target)
+                self.assertFalse(target.exists())

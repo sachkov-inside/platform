@@ -257,4 +257,24 @@ are accepted only for incomplete reports with null observation/comparison, a fre
 age and canonical-passed/MCP-unrun transport. Legacy reports remain valid; an older reader
 may refuse the new vocabulary, so collection must use its source-bound current reader.
 No reason establishes a native cause, successful comparison or readiness. Queries, caps,
-process ownership, persistence points and public record fields are unchanged.
+process ownership and persistence points are unchanged.
+
+### Native-only stale up-age window
+
+For the first stale up-sample branch only, the native `diagnose=True` path may add
+`up_age_window` to the existing observation. `over_at_evaluation` means the admitted
+sample was already older than the unchanged 10-second limit at the fixed query
+evaluation instant. `crossed_by_completion` means its age was at most 10 seconds
+then and exceeded that limit by final completion. Integer evaluation rounding,
+request, decoding and scheduling time are not distinguished. Neither value identifies
+a native cause or turns a stale observation into success.
+
+The field uses only already validated operands and adds no query, clock read,
+poll, numeric timestamp, counter, raw label or exception detail. It is absent from
+default and MCP results and from every other observation branch. The current reader
+accepts exactly these two tokens only with stale/none, age above 10 seconds, null
+observation/comparison and canonical-passed/MCP-unrun transport. Legacy reports without
+the field remain valid; an older reader may reject it, so use the source-bound reader.
+The saved final age alone cannot reconstruct this witness or its historical arithmetic.
+Controlled source tests qualify the discriminator, not a causal native reproduction.
+Original acquisition, query, scenario and output limits and failure priority remain.
