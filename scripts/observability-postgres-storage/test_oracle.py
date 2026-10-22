@@ -48,7 +48,7 @@ class WholeVectors(unittest.TestCase):
                     if channel=='values':values=body
                     else:times=body
                 cases.append((values,times,{},'oracle_'+channel+'_'+group,'malformed'))
-        for change,reason in (('input','input'),('join','join'),('identity','identity'),('cohort','cohort'),
+        for change,reason in (('input','input'),('join','join_scope_version'),('identity','identity'),('cohort','cohort'),
                               ('availability','availability_order'),('complete','complete_time'),
                               ('expected','expected'),('disagree','value_mismatch'),('range','values_number')):
             rows,stamps=vectors();kwargs={}
@@ -64,6 +64,40 @@ class WholeVectors(unittest.TestCase):
             cases.append((raw(rows),raw(stamps),kwargs,'oracle_'+reason,'malformed'))
         rows,stamps=vectors();cases.append((raw(rows),raw(stamps),{'completed_us':NOW+10_000_001},'oracle_stale','stale'))
         rows[-1]['value'][1]='0';cases.append((raw(rows),raw(stamps),{},'oracle_unavailable','unavailable'))
+        rows,stamps=vectors();stamps.pop()
+        cases.append((raw(rows),raw(stamps),{},'oracle_join_family_presence','malformed'))
+        rows,stamps=vectors();rows.pop()
+        cases.append((raw(rows),raw(stamps),{},'oracle_join_family_presence','malformed'))
+        for left in (None,'','unknown'):
+            for right in (None,'','unknown'):
+                rows,stamps=vectors()
+                if left is not None:rows[0]['metric']['scope.version']=left
+                if right is not None:stamps[0]['metric']['scope.version']=right
+                if left==right:self.assertEqual(self.check(rows,stamps)['freshness'],'fresh')
+                else:cases.append((raw(rows),raw(stamps),{},'oracle_join_scope_version','malformed'))
+        for first,second,reason in (('0','1790000001','oracle_join_stamp_zero'),
+                                    ('1790000001','0','oracle_join_stamp_future')):
+            rows,stamps=vectors();stamps[0]['value'][1]=first;stamps[1]['value'][1]=second
+            cases.append((raw(rows),raw(stamps),{},reason,'malformed'))
+            stamps[-1]['metric']['scope.version']='unknown'
+            cases.append((raw(rows),raw(stamps),{},'oracle_join_scope_version','malformed'))
+        for channel in ('values','timestamps'):
+            for poison in ('label','duplicate','escaped_duplicate','truncated','bom','nonfinite','cap'):
+                rows,stamps=vectors();stamps[0]['metric']['scope.version']='unknown'
+                target=rows if channel=='values' else stamps
+                if poison=='label':target[-1]['metric']['private-canary']='not-exported'
+                if poison=='duplicate':target.append(copy.deepcopy(target[-1]))
+                values,times=raw(rows),raw(stamps)
+                body=values if channel=='values' else times
+                group='labels' if poison in ('label','duplicate') else 'decode'
+                if poison=='escaped_duplicate':body=body[:-1]+',"sta\\u0074us":"success"}'
+                elif poison=='truncated':body=body[:-1]
+                elif poison=='bom':body='\ufeff'+body
+                elif poison=='nonfinite':body=body.replace('"1790000000"','NaN',1) if channel=='timestamps' else body.replace('"3"','NaN',1)
+                elif poison=='cap':body=' '*65537
+                if channel=='values':values=body
+                else:times=body
+                cases.append((values,times,{},'oracle_'+channel+'_'+group,'malformed'))
         for values,times,options,reason,freshness in cases:
             with self.subTest(reason=reason):
                 kwargs=dict(evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED);kwargs.update(options)
@@ -112,6 +146,45 @@ class WholeVectors(unittest.TestCase):
                 except BaseException as error:self.assertIs(error,primary)
                 else:self.fail('interruption suppressed')
 
+        class ForeignString(str):
+            __hash__=str.__hash__
+            def __eq__(self,_):raise AssertionError('foreign comparison')
+        class ForeignDict(dict):
+            def __iter__(self):raise AssertionError('foreign traversal')
+        for reason in oracle.ORACLE_JOIN_REASONS:
+            with self.assertRaises(ValueError):oracle._Malformed(reason)
+            forged=oracle._Malformed('oracle_join');object.__setattr__(forged,'_group',reason)
+            with patch.object(oracle.json,'loads',side_effect=forged),patch.object(oracle,'_refine_join_reason') as helper:
+                self.assertEqual(oracle.diagnostic_reason(self.check(*vectors(),diagnose=True)),'oracle_malformed_unknown')
+                helper.assert_not_called()
+        rows,stamps=vectors();stamps.pop()
+        for returned in (Hostile(),ForeignString(oracle.ORACLE_JOIN_REASONS[0]),'unknown'):
+            with patch.object(oracle,'_refine_join_reason',return_value=returned):
+                self.assertEqual(oracle.diagnostic_reason(self.check(rows,stamps,diagnose=True)),'oracle_join')
+        for mode in ('same','different','interrupt','exit'):
+            seen=[]
+            original=oracle._reject
+            def reject(group):
+                try:original(group)
+                except oracle._Malformed as error:seen.append((error,error.__traceback__));raise
+            def refine(*_):
+                error=seen[0][0];seen.append(error.__traceback__)
+                if mode=='same':raise error
+                if mode=='interrupt':raise KeyboardInterrupt()
+                if mode=='exit':raise SystemExit()
+                raise ValueError('not-exported')
+            with patch.object(oracle,'_reject',side_effect=reject),patch.object(oracle,'_refine_join_reason',side_effect=refine):
+                self.assertEqual(oracle.diagnostic_reason(self.check(rows,stamps,diagnose=True)),'oracle_join')
+            self.assertIs(seen[0][0].__traceback__,seen[1])
+            trace=seen[0][0].__traceback__;names=[]
+            while trace is not None:names.append(trace.tb_frame.f_code.co_name);trace=trace.tb_next
+            self.assertNotIn('refine',names)
+        for value in (Hostile(),ForeignDict(),{ForeignString('private'):{}},{'private':{}}):
+            self.assertEqual(oracle._refine_join_reason(value,{}, {},NOW),'oracle_join')
+        name=next(iter(oracle._NAMES));labels={name:oracle._FIXED.copy()}
+        for stamp in (Hostile(),ForeignString('0')):
+            self.assertEqual(oracle._refine_join_reason(labels,labels,{name:stamp},NOW),'oracle_join')
+
     def test_success_pending_and_protocol_keep_the_original_plain_results(self):
         rows,stamps=vectors()
         for selected in (rows,rows[:-1]):
@@ -125,6 +198,16 @@ class WholeVectors(unittest.TestCase):
                                    'continuity':'unknown','count_complete':False})
         self.assertEqual(oracle.evaluate_protocol(raw(rows),raw(stamps),raw(rows),evaluated_at=1790000000,
                          completed_us=NOW,expected=EXPECTED),ordinary)
+
+        from unittest.mock import patch
+        with patch.object(oracle,'_refine_join_reason',side_effect=AssertionError('unexpected refinement')) as helper:
+            rows,stamps=vectors();stamps.pop();self.check(rows,stamps)
+            self.check(*vectors(),diagnose=True)
+            rows,stamps=vectors();self.check(rows[:-1],stamps[:-1],diagnose=True)
+            rows[-1]['metric']['private']='not-exported';self.check(rows,stamps,diagnose=True)
+            rows,stamps=vectors()
+            oracle.evaluate_protocol(raw(rows),raw(stamps),raw(rows),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED)
+            helper.assert_not_called()
 
     def check(self,rows,stamps,**kwargs):
         return oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,completed_us=NOW,expected=EXPECTED,**kwargs)

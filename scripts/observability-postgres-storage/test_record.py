@@ -15,7 +15,9 @@ class Records(unittest.TestCase):
         import oracle
         import postgres_source
         self.assertIs(record.ORACLE_REASONS,oracle.ORACLE_REASONS)
-        self.assertEqual(len(record.ORACLE_REASONS),23)
+        self.assertEqual(len(record.ORACLE_REASONS),27)
+        self.assertEqual(record.ORACLE_REASONS[:23],oracle.ORACLE_BASE_REASONS)
+        self.assertEqual(len(set(record.ORACLE_REASONS)),27)
         from test_public import AdmissionComposition
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory).resolve()
@@ -28,11 +30,12 @@ class Records(unittest.TestCase):
                         with self.assertRaises(ValueError):record.validate(bad,'a'*40)
             legacy=self.value();legacy.update(state='failed',phase='baseline_first_stored_oracle',reason='query_refused')
             record.write(root,legacy);self.assertEqual(record.read(root,'a'*40),legacy)
-        for control in ('valid','unknown','wrong_phase','wrong_state','duplicate','truncated','cap','extra'):
+        for control in ('valid',*oracle.ORACLE_JOIN_REASONS,'unknown','wrong_phase','wrong_state','duplicate','escaped_duplicate','truncated','cap','extra','source','reason_type','phase_type'):
             with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
                 root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700)
                 metadata=root/'metadata';public=root/'public'
                 value=self.value();value.update(state='failed',phase='baseline_first_stored_oracle',reason='oracle_values_labels')
+                if control in oracle.ORACLE_JOIN_REASONS:value['reason']=control
                 with AdmissionComposition().external_reads(root):
                     postgres_source.admission(metadata)
                     record.write(output,value);raw=json.dumps(value).encode()
@@ -40,13 +43,19 @@ class Records(unittest.TestCase):
                     elif control=='wrong_phase':raw=json.dumps({**value,'phase':'baseline_first_upload'}).encode()
                     elif control=='wrong_state':raw=json.dumps({**value,'state':'incomplete'}).encode()
                     elif control=='duplicate':raw=raw[:-1]+b',"reason":"oracle_values_labels"}'
+                    elif control=='escaped_duplicate':raw=raw[:-1]+b',"rea\\u0073on":"oracle_join"}'
+                    elif control=='source':raw=json.dumps({**value,'source':'b'*40}).encode()
+                    elif control=='reason_type':raw=json.dumps({**value,'reason':[]}).encode()
+                    elif control=='phase_type':raw=json.dumps({**value,'phase':[]}).encode()
                     elif control=='truncated':raw=raw[:-1]
                     elif control=='cap':raw=b' '*4097
                     elif control=='extra':raw=json.dumps({**value,'raw_value':'private-canary'}).encode()
                     (output/record.NAME).write_bytes(raw)
-                    if control=='valid':
+                    if control=='valid' or control in oracle.ORACLE_JOIN_REASONS:
                         postgres_source.collect(output,metadata,public)
-                        self.assertEqual(record.read(public,'a'*40),value)
+                        observed=record.read(public,'a'*40)
+                        self.assertEqual(observed,value)
+                        self.assertIs(type(observed['reason']),str);self.assertIs(type(observed['phase']),str)
                     else:
                         with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
                         self.assertFalse(public.exists())
