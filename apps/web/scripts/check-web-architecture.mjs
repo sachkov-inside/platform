@@ -994,8 +994,8 @@ function exportsRouteMethod(program, method) {
 
 /**
  * Whether a module calls `handleAuthenticatedMutation` without the streaming options: that helper
- * serves streamed bodies (binary uploads and the cover removal paired with its upload); other
- * mutations are operations (ADR 0038).
+ * serves streamed bodies (binary uploads and a removal paired with its upload, as for covers and
+ * avatars); other mutations are operations (ADR 0038).
  *
  * @param {Program} program
  */

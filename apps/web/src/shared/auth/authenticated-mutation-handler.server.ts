@@ -39,8 +39,8 @@ export interface StreamingMutationOptions {
 
 /**
  * Authenticates one same-origin request whose body is streamed under a named limit: a binary
- * upload or the cover removal paired with it (ADR 0038). Other browser mutations are operations
- * served by `handleMutationOperation` or `handleOptionalMutationOperation`.
+ * upload or a cover or avatar removal paired with it (ADR 0038). Other browser mutations are
+ * operations served by `handleMutationOperation` or `handleOptionalMutationOperation`.
  */
 export async function handleAuthenticatedMutation(
   request: Request,
