@@ -80,7 +80,9 @@ def _schema(value):
     if 'enum' in value and (type(value['enum']) is not list or any(type(v) not in (str,int,float,bool,type(None)) for v in value['enum'])):refuse()
     properties=value.get('properties',{})
     if type(properties) is not dict or len(properties)>64:refuse()
-    for key,item in properties.items():_identifier(key,64);_schema(item)
+    for key,item in properties.items():
+        if key not in ('topN','maxLifetime','focusLabel','extraLabel'):_identifier(key,64)
+        _schema(item)
     required=value.get('required',[])
     if type(required) is not list or len(required)>64 or any(type(v) is not str for v in required) or len(set(required))!=len(required) or set(required)-set(properties):refuse()
     if 'items' in value:_schema(value['items'])

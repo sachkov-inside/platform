@@ -112,6 +112,14 @@ duplicate keys and invalid protocol, capability or server metadata remain refusa
 protocol fixture verifies this public producer contract; it does not establish the cause of the
 historical native initialize failure, whose actual response was not retained.
 
+The same pinned producer's default single-instance discovery catalog contains 16 tools. Schema
+property names accept the four source-fixed spellings `topN`, `maxLifetime`, `focusLabel` and
+`extraLabel` alongside the existing lowercase names. Their spelling and required entries stay
+intact. Tool names retain the lowercase rule, and the complete catalog still passes schema,
+privacy and size checks before selecting the fixed six-property `query` contract. The owned
+fixture includes the complete public source-derived catalog; it is neither an SDK-generated nor
+a captured native response and does not establish the historical discovery failure's cause.
+
 The pinned MCP vendor uses `io.ReadAll` upstream, which is **not an allocation cap**. This scope
 accepts that limit only for the fresh owned digest-pinned VM, fixed instant selectors/time and
 controlled finite corpus, without foreign ingestion. It must not be extended to arbitrary queries,
