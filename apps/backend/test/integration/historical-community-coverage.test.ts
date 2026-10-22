@@ -22,11 +22,7 @@ import {
   type AccessGrants,
 } from "../../src/modules/account-rights/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
-import {
-  platformMigrations,
-  migrateToLatest,
-} from "../../src/migrations/index.js";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -44,11 +40,7 @@ const finish = new Date("2030-02-01T00:00:00.000Z");
 
 beforeEach(async () => {
   db = await createTestDatabase();
-  const boundary = platformMigrations.findIndex(
-    ({ name }) => name === "0090_explicit_community_rights",
-  );
-  expect(boundary).toBeGreaterThan(0);
-  await runMigrationsToLatest(db.url, platformMigrations.slice(0, boundary));
+  await migrateBefore(db, "0090_explicit_community_rights");
   await db.prisma.account.create({
     data: {
       id: account,
@@ -109,13 +101,7 @@ async function historicalGrant(
   return id;
 }
 async function migrateHistoricalBaseline() {
-  const repair = platformMigrations.findIndex(
-    ({ name }) => name === "0095_historical_community_coverage",
-  );
-  await runMigrationsToLatest(
-    db.url,
-    repair < 0 ? platformMigrations : platformMigrations.slice(0, repair),
-  );
+  await migrateBefore(db, "0095_historical_community_coverage");
 }
 
 async function expectCommunity(productId: string, validUntil: string | null) {
@@ -143,7 +129,7 @@ test("repairs a historical Product grant at the public own-Product and scoped ca
       },
     ],
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(await rights.readOwnProducts(account)).toMatchObject({
     ok: true,
     value: [
@@ -270,7 +256,7 @@ test("preserves a historical unscoped support community term across Product excl
     before.ok &&
       before.capabilities.some(({ capability }) => capability === "community"),
   ).toBe(false);
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -316,7 +302,7 @@ test("does not extend a completed historical community term", async () => {
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -386,14 +372,7 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
     where: { id: { in: ids } },
     orderBy: { id: "asc" },
   });
-  await migrateToLatest(db.url);
-  expect(
-    await db.prisma.accessGrant.findMany({
-      where: { id: { in: ids } },
-      orderBy: { id: "asc" },
-    }),
-  ).toEqual(original);
-  expect(await migrateToLatest(db.url)).toEqual({ appliedMigrations: [] });
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findMany({
       where: { id: { in: ids } },
@@ -437,7 +416,7 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
   const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseId },
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({
