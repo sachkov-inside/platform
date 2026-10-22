@@ -177,6 +177,14 @@ describe("harness routing contract", () => {
       mkdirSync(join(root, "apps/web"), { recursive: true });
       writeFileSync(join(root, "apps/web/AGENTS.md"), "# Web\n");
       assert.deepEqual(checkStandardsReviewRouting(root), []);
+      writeFileSync(
+        join(root, "apps/web/AGENTS.md"),
+        "Before changing or reviewing code, apply CODING_STANDARDS.md.\n",
+      );
+      assert.deepEqual(checkStandardsReviewRouting(root), [
+        "apps/web/AGENTS.md: replace implementation-wide standards loading with review routing",
+      ]);
+      writeFileSync(join(root, "apps/web/AGENTS.md"), "# Web\n");
       rmSync(join(root, "AGENTS.md"));
       failures = checkStandardsReviewRouting(root);
       assert.deepEqual(failures, [

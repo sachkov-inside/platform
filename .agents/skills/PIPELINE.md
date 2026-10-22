@@ -2,7 +2,8 @@
 
 Owner-selected copies from the [workspace pipeline](https://github.com/KirillSachkov/workspace/tree/main/pipeline).
 Keep installed copies identical to their recorded workspace source, including approved shared adaptations.
-Project overrides belong in `WORKFLOW.md` (Skill exceptions) and `docs/agents/change-risk.md`.
+Project overrides belong in `WORKFLOW.md` (Skill exceptions), `docs/agents/coordinated-execution.md` and
+`docs/agents/change-risk.md`.
 For assigned updates, copy only the selected skill directories and metadata from the pinned
 workspace source and record their exact commit here. `sync-pipeline` is not installed in Platform.
 
@@ -16,7 +17,7 @@ workspace source and record their exact commit here. `sync-pipeline` is not inst
 - `implement` and `implement-spec`, whole directories with metadata: workspace
   `a0d172d1cd9efd9f4b7f382501d04b5961ac416d` (workspace #68), read from workspace `origin/main`
   `983e8aa8050bf97bf9b6c7c6652a1382b3cc0665` where both directories are unchanged (#1675).
-  Both skills are model-invoked; WORKFLOW.md routes implementation assignments to them.
+  Both skills are model-invoked; WORKFLOW.md keeps direct ordinary tasks actionable without `implement`.
   SHA-256:
   - `implement/SKILL.md`: `2f48373f1ac0ba6bfdb268e2782cc996e4c17f6e9719bda322cd6567a6f7c322`
   - `implement/agents/openai.yaml`: `71b47a5cf2f39997f25a945bca880f4f2394ceb63a65bb4f3b1373d4287253bd`

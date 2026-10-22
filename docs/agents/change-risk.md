@@ -25,7 +25,7 @@ and continue independent preparation. Stop before automatic merge if the uncerta
 
 ## Advance acceptance
 
-Owner decision 1 (22.10.2026): an explicit owner assignment to finish the work through merge, such
+Owner decision 1 (2026-10-22): an explicit owner assignment to finish the work through merge, such
 as «сделай всё до конца», counts as acceptance of its high-risk prepared result in advance. Standing
 merge authorization alone is not such an assignment. The agent still completes classification,
 required checks and independent review, records them in the PR, and merges under existing merge
@@ -43,7 +43,7 @@ changed controls (see [Maintenance](#maintenance)), and a proposed policy cannot
 
 ## Low-risk fast path
 
-Owner decision 2 (22.10.2026). The **fast-path set** is a diff that changes only styling and
+Owner decision 2 (2026-10-22). The **fast-path set** is a diff that changes only styling and
 user-visible copy in `apps/web/src`: CSS, class names, design-token references, presentational
 markup, visible text, and the stories that show them. It touches no authentication, session or
 permission code, no billing or payment code, and no data fetching, persistence, transport or

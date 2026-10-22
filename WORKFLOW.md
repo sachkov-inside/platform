@@ -15,10 +15,10 @@ owner overrides and [skill exceptions](#skill-exceptions). Keep skills identical
 ## Completion requirements
 
 Complete the owner's requested result within its assigned scope. A follow-up keeps that scope unless the owner changes it.
-The owner selects pipeline stages and manual skills. An assignment to implement software or tooling work invokes
-[implement](.agents/skills/implement/SKILL.md). An explicit request to implement a whole specification, including in
-natural language, invokes [implement-spec](.agents/skills/implement-spec/SKILL.md) under
-[coordinated execution](docs/agents/coordinated-execution.md).
+The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a skill;
+[implement](.agents/skills/implement/SKILL.md) is available for it. An explicit request to implement a whole
+specification, including in natural language, invokes [implement-spec](.agents/skills/implement-spec/SKILL.md).
+Session launches, assigned coordination and whole-specification execution follow [coordinated execution](docs/agents/coordinated-execution.md).
 An explicitly invoked skill completes its internal actions, including required subordinate skills, without renewed approval.
 Preparation completes its own result and recommends the next stage; the owner assigns that stage separately.
 Readiness labels, status requests, resumed chats, and repository membership supply context, not new execution assignments.
@@ -86,7 +86,7 @@ PR bodies use the owner's language, include unchecked limits, and use these sect
 ## Review before integration
 
 Record the base before changes. Commit, then run [code-review](.agents/skills/code-review/SKILL.md) on the immutable task commit.
-The coordinator supplies root and applicable surface standards to Standards, and the assignment and acceptance criteria to Spec.
+Standards receives the standards that `AGENTS.md` names; Spec receives the assignment and acceptance criteria.
 Keep reports separate. Reviewers inspect the diff through native read-only subagents; they do not delegate further reviews.
 When native review is unavailable, keep it pending. The shared skill owns evidence, behavioral coverage, specialist triggers and convergence.
 Record finding outcomes and review affected findings after fixes. Implementation loads a standard only for a concrete question.
@@ -147,4 +147,5 @@ This project extension preserves upstream `retro` as an owner-invoked retrospect
 
 Owner authorization is required for releases/deployments, publishing, paid actions, credentials,
 external messages, and merges. Existing standing or task-specific authorization covers its stated scope
-across follow-ups and resumption until withdrawn; follow it without asking again. Waiting for an answer is never consent.
+until withdrawn; follow it without asking again. Resumption preserves existing authorization for the assigned work;
+waiting for an answer is never consent.

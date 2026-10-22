@@ -30,9 +30,8 @@ never a dependency.
   [verification evidence policy](docs/agents/release-evidence.md).
 - Docker with Compose runs the primary development stack; host Node.js and pnpm are an optional
   fallback pinned in `.node-version` and `packageManager`.
-- Before any repository Compose command, read the [local stand runbook](docs/runbooks/local-stand.md):
-  a running stand belongs to the owner or another session, and the Compose smoke runs only through
-  its guarded recipe.
+- Before any repository Compose command, including the Compose smoke, read the
+  [local stand runbook](docs/runbooks/local-stand.md) for stand ownership and the guarded recipe.
 
 ## Human-facing text
 
