@@ -57,8 +57,9 @@ async function expectHeaderGlyphs(controls: HTMLElement) {
   const glyphs = [...controls.querySelectorAll("svg")];
   await expect(glyphs.length).toBeGreaterThan(0);
   for (const glyph of glyphs) {
-    const { width, height } = glyph.getBoundingClientRect();
-    await expect([width, height]).toEqual([20, 20]);
+    // Заданный размер, а не рамка: крутящийся значок загрузки шире своего квадрата.
+    const { width, height } = getComputedStyle(glyph);
+    await expect([width, height]).toEqual(["20px", "20px"]);
   }
 }
 
