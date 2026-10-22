@@ -1,9 +1,6 @@
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import {
-  migrateToLatest,
-  platformMigrations,
-} from "../../src/migrations/index.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { assembleMaterials } from "../../src/modules/materials/index.js";
@@ -131,21 +128,14 @@ test.each(["video", "guide", "note", "text"])(
   async (legacySlug) => {
     const legacy = await createTestDatabase();
     try {
-      const migrationIndex = platformMigrations.findIndex(
-        ({ name }) => name === "0035_domain_material_formats",
-      );
-      expect(migrationIndex).toBeGreaterThan(0);
-      await runMigrationsToLatest(
-        legacy.url,
-        platformMigrations.slice(0, migrationIndex),
-      );
+      await migrateBefore(legacy, "0035_domain_material_formats");
       const formatId = "38900000-0000-4000-8000-000000000001";
       const materialId = "38900000-0000-4000-8000-000000000002";
       await legacy.prisma.$executeRaw(
         Prisma.sql`insert into materials.formats (id, slug, name) values (${formatId}::uuid, ${legacySlug}, 'Legacy format')`,
       );
       await insertLegacyMaterial(legacy, materialId, formatId);
-      await migrateToLatest(legacy.url);
+      await upgradeToLatest(legacy);
       expect(
         await legacy.prisma.material.findUnique({ where: { id: materialId } }),
       ).toMatchObject({
@@ -167,14 +157,7 @@ test.each(["video", "guide", "note", "text"])(
 test("refuses unknown referenced legacy formats and preserves the database for explicit conversion", async () => {
   const legacy = await createTestDatabase();
   try {
-    const migrationIndex = platformMigrations.findIndex(
-      ({ name }) => name === "0035_domain_material_formats",
-    );
-    expect(migrationIndex).toBeGreaterThan(0);
-    await runMigrationsToLatest(
-      legacy.url,
-      platformMigrations.slice(0, migrationIndex),
-    );
+    await migrateBefore(legacy, "0035_domain_material_formats");
     const formatId = "38900000-0000-4000-8000-000000000003";
     const materialId = "38900000-0000-4000-8000-000000000004";
     await legacy.prisma.$executeRaw(

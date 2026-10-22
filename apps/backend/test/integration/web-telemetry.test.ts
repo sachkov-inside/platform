@@ -13,11 +13,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { registerWebTelemetryTool } from "../../src/modules/web-telemetry/index.js";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { WebTelemetry } from "../../src/modules/web-telemetry/index.js";
-import {
-  migrateToLatest,
-  platformMigrations,
-} from "../../src/migrations/index.js";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import {
   createMigratedTestDatabase,
   createTestDatabase,
@@ -49,16 +45,7 @@ const vital = (value: number) => ({
 it("preserves telemetry and exact p75 when upgrading the 0087 index", async () => {
   const previous = await createTestDatabase();
   try {
-    await runMigrationsToLatest(
-      previous.url,
-      platformMigrations.slice(
-        0,
-        platformMigrations.findIndex(
-          (migration) =>
-            migration.name === "0088_web_telemetry_percentile_index",
-        ),
-      ),
-    );
+    await migrateBefore(previous, "0088_web_telemetry_percentile_index");
     const existing = new WebTelemetry({
       prisma: previous.prisma,
       clock: () => new Date("2026-10-08T12:00:00Z"),
@@ -73,32 +60,10 @@ it("preserves telemetry and exact p75 when upgrading the 0087 index", async () =
        count(*)::float8 AS saved FROM web_telemetry.vital_samples
     `;
     expect(before).toEqual([{ p75: 325, saved: 4 }]);
-    expect(await migrateToLatest(previous.url)).toEqual({
-      appliedMigrations: [
-        "0088_web_telemetry_percentile_index",
-        "0089_bank_refund_history",
-        "0090_explicit_community_rights",
-        "0091_product_communities",
-        "0092_product_access_exclusions",
-        "0093_product_learning_started",
-        "0094_individual_payment_links",
-        "0095_historical_community_coverage",
-        "0096_task_review_progress",
-        "0097_task_submission_review_run",
-        "0098_material_task",
-        "0099_chapter_supplementary_materials",
-        "0100_product_waitlists",
-        "0101_waitlist_confirmations",
-        "0102_material_telegram_announcements",
-        "0103_material_source_commit",
-      ],
-    });
+    await upgradeToLatest(previous);
     expect(await existing.summary("owner", 30)).toMatchObject({
       ok: true,
       value: { vitals: [{ p75: 325, saved: 4 }] },
-    });
-    expect(await migrateToLatest(previous.url)).toEqual({
-      appliedMigrations: [],
     });
   } finally {
     await previous.dispose();

@@ -19,11 +19,8 @@ import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { expect, test } from "vitest";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import {
-  migrateToLatest,
-  platformMigrations,
-} from "../../src/migrations/index.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { createTestDatabase } from "./setup/test-database.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 
@@ -32,13 +29,7 @@ test("upgrades persisted product rights, tariff snapshots and closed access with
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      index < 0 ? platformMigrations : platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const productId = randomUUID();
     const grantId = randomUUID();
     const assignmentId = randomUUID();
@@ -91,7 +82,7 @@ test("upgrades persisted product rights, tariff snapshots and closed access with
       values ($1, 'Existing closed lesson', 'guide', 1, $3, $2, 'membership', 'draft', 1)`,
       [materialId, accountId, authoredBody],
     );
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     expect(
       await database.prisma.accessGrant.findUnique({ where: { id: grantId } }),
     ).toMatchObject({
@@ -174,13 +165,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const accountId = randomUUID(),
       productId = randomUUID(),
       grantId = randomUUID();
@@ -247,7 +232,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       values ($1,$2,$3,'2030-01-01')`,
       [eventRef, purchaseRef, command],
     );
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     const accounts = assembleAccounts({
       prisma: database.prisma,
       emailFingerprintKey: "synthetic-migration-fingerprint-00000",
@@ -323,13 +308,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const accountId = randomUUID(),
       productId = randomUUID(),
       offerId = randomUUID();
@@ -452,7 +431,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
         expiresAt: new Date("2030-02-01T00:15:00Z"),
       },
     });
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     await seedPurchaseInvitation(database.prisma, accountId, offerId);
     const accounts = assembleAccounts({
       prisma: database.prisma,
@@ -550,13 +529,7 @@ test("replays an imported pre-upgrade task under its renamed operation and field
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const actor = randomUUID(),
       productId = randomUUID(),
       chapterId = randomUUID(),
@@ -653,7 +626,7 @@ test("replays an imported pre-upgrade task under its renamed operation and field
     } finally {
       connection.release();
     }
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     const { guideId, ...unchanged } = command;
     const current = { ...unchanged, productId: guideId, access: "closed" };
     const apply = assembleApplySourceTask({
