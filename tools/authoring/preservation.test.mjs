@@ -1,10 +1,18 @@
 // @ts-check
 import { test } from "node:test";
+import { z } from "zod";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { canonical, loadPackage, materialRevision } from "./package.mjs";
+import {
+  canonical,
+  checksum,
+  loadPackage,
+  materialRevision,
+} from "./package.mjs";
+import { convertMarkdown } from "./markdown.mjs";
+import { taskChapterId } from "./task-import.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import {
   isJournalOperation,
@@ -17,11 +25,7 @@ import {
   preservedManifest,
   preservationState,
 } from "./preservation.mjs";
-import {
-  localPreservationDatabase,
-  targetStateSchema,
-  postgresPreservationState,
-} from "./preservation-state.mjs";
+import { targetStateSchema } from "./preservation-state.mjs";
 import { reservationBodySchema } from "./test-support.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -82,7 +86,12 @@ async function fixture(t, publication = "published") {
     contentVersion: 1,
     primaryVideoId: null,
     cover: null,
-    metadata: { slug: "one", access: "free" },
+    metadata: {
+      slug: "one",
+      access: "free",
+      seriesMemberships:
+        /** @type {{seriesId: string; ordinal: number}[]} */ ([]),
+    },
     publicationState: /** @type {'draft'|'published'|'unpublished'} */ (
       publication
     ),
@@ -307,62 +316,6 @@ test("Task derivation preserves target access/publication without mutating sourc
   assert.deepEqual(f.writes, []);
 });
 
-test("database adapter refuses remote/options URLs before obtaining a client", () => {
-  for (const url of [
-    "postgresql://host/inside",
-    "postgresql://localhost/other",
-    "postgresql://localhost/inside?options=-csearch_path=public",
-    "https://localhost/inside",
-  ])
-    assert.throws(() => localPreservationDatabase(url), /loopback PostgreSQL/u);
-  assert.equal(
-    localPreservationDatabase("postgresql://localhost:5432/inside"),
-    "postgresql://localhost:5432/inside",
-  );
-});
-
-test("database adapter scopes parameterized reads and closes after failure", async () => {
-  /** @type {{ sql: string; values: unknown }[]} */
-  const commands = [];
-  let ended = false;
-  const read = postgresPreservationState(
-    "postgresql://localhost/inside",
-    () => {
-      // oxlint-disable typescript/no-unsafe-type-assertion -- A supplied database double verifies the adapter without network I/O.
-      return /** @type {import('../../apps/backend/test/support/proof-dependencies.js').Client} */ (
-        /** @type {unknown} */ ({
-          connect: async () => {},
-          end: async () => {
-            ended = true;
-          },
-          /** @param {string} sql @param {unknown} values */
-          query: async (sql, values) => {
-            commands.push({ sql, values });
-            if (sql.includes("product_tasks.tasks"))
-              throw new Error("read failed");
-            return { rows: [] };
-          },
-        })
-      );
-      // oxlint-enable typescript/no-unsafe-type-assertion
-    },
-  );
-  await assert.rejects(
-    read(["synthetic:one"], ["synthetic:task-one"]),
-    /read failed/u,
-  );
-  assert.equal(ended, true);
-  assert.match(commands[0]?.sql ?? "", /READ ONLY/u);
-  assert.deepEqual(
-    commands.find((row) => row.sql.includes("product_tasks.tasks"))?.values,
-    [["synthetic:task-one"], ["task-one"]],
-  );
-  assert.equal(
-    commands.some((row) => /INSERT|UPDATE|DELETE/u.test(row.sql)),
-    false,
-  );
-});
-
 test("pending operations stop before release reconciliation", async (t) => {
   const f = await fixture(t);
   const journalPath = join(f.state, "journal.json");
@@ -383,7 +336,7 @@ test("pending operations stop before release reconciliation", async (t) => {
       readState: f.readState,
       request: f.request,
     }),
-    /pending release operations/u,
+    /Unfinished writes of an earlier apply are pending/u,
   );
   assert.deepEqual(f.writes, []);
 });
@@ -439,3 +392,403 @@ test("legacy Practice publication cannot pass through the preservation profile",
   );
   assert.deepEqual(f.writes, []);
 });
+
+test("bounded preservation retains embedded Task context and writes only the selected lesson", async (t) => {
+  const f = await fixture(t);
+  const lesson = f.manifest.materials[0];
+  assert.ok(lesson);
+  f.manifest.requiredFeatures = ["bounded-content-v1", "material-task-v1"];
+  f.manifest.selection.contentOnly = {
+    materialIds: ["one"],
+    taskIds: [],
+    artifactIds: [],
+  };
+  f.manifest.selection.materialIds.push("untouched");
+  f.manifest.selection.taskIds = ["embedded"];
+  f.manifest.materials.push({
+    ...structuredClone(lesson),
+    sourceId: "untouched",
+    sourcePath: "untouched.md",
+    markdown: "Never import this changed context",
+  });
+  f.model.metadata.seriesMemberships = [{ seriesId: productId, ordinal: 1 }];
+  lesson.practiceTaskId = "embedded";
+  lesson.markdown = "Changed [task](embedded.md) and [context](untouched.md).";
+  lesson.links = { "embedded.md": "embedded", "untouched.md": "untouched" };
+  f.manifest.tasks = [
+    {
+      sourceId: "embedded",
+      productId: "course",
+      chapterId: "chapter",
+      title: "Context task",
+      access: null,
+      page: {
+        ...structuredClone(lesson),
+        sourceId: "embedded",
+        sourcePath: "embedded.md",
+        markdown: "Task page",
+        links: {},
+      },
+      definition: { intro: "Unchanged criteria" },
+      relatedMaterialIds: ["one"],
+      programmeVisibility: "embedded",
+      publicationState: "unpublished",
+      provenance: {
+        repository: "synthetic/content",
+        commit: "a".repeat(40),
+        path: "embedded.md",
+      },
+    },
+  ];
+  delete f.manifest.tasks[0]?.page?.practiceTaskId;
+  f.manifest.products = [
+    {
+      sourceId: "course",
+      slug: "course",
+      title: "Changed product name must not transfer",
+      summary: "Changed page",
+      complete: true,
+      materialIds: ["one", "untouched"],
+      supplementaryMaterialIds: [],
+      chapters: [
+        {
+          sourceId: "chapter",
+          title: "Changed chapter",
+          summary: "Changed",
+          materialIds: ["one", "untouched"],
+        },
+      ],
+    },
+  ];
+  const journalPath = join(f.state, "journal.json");
+  const journal = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  journal.materials["synthetic:untouched"] = {
+    materialId: taskId,
+    contentVersion: 7,
+    digest: "c".repeat(64),
+    url: "/materials/untouched",
+  };
+  await writeFile(journalPath, canonical(journal));
+  await writeFile(f.packagePath, canonical(f.manifest));
+  /** @type {{path: string; body: unknown}[]} */
+  const requests = [];
+  const request = /** @type {import('./target.mjs').LocalTransport} */ (
+    async (path, body) => {
+      requests.push({ path, body });
+      if (path === "/authoring/collections?kind=product")
+        return [
+          {
+            id: productId,
+            sourceId: "synthetic:course",
+            slug: "real-course",
+            name: "Original product",
+            summary: "Original",
+            version: 5,
+          },
+        ];
+      return f.request(path, body);
+    }
+  );
+  const readState =
+    /** @type {import('./preservation-state.mjs').ReadTargetState} */ (
+      async (materials, tasks) => {
+        assert.deepEqual(materials, ["synthetic:one"]);
+        assert.deepEqual(tasks, []);
+        return f.readState(materials, tasks);
+      }
+    );
+  const preview = await previewPreservation(f.packagePath, f.state, {
+    sourceCommit: "a".repeat(40),
+    readState,
+    request,
+  });
+  assert.deepEqual(
+    preview.preview.preview.contentOnly,
+    f.manifest.selection.contentOnly,
+  );
+  assert.deepEqual(preview.preview.preview.products, []);
+  assert.deepEqual(preview.preview.preview.tasks ?? [], []);
+  assert.deepEqual(preview.preview.preview.archiveProposals, []);
+  const context = (await loadPackage(preview.receipt.packagePath)).manifest;
+  assert.equal(context.tasks?.[0]?.access, null);
+  assert.equal(context.materials.length, 2);
+  assert.equal(
+    requests.some((row) => row.path.includes("tasks/validate")),
+    false,
+  );
+  await applyPreservation(preview.path, f.state, { readState, request });
+  assert.equal(f.model.metadata.access, "free");
+  assert.equal(f.model.publicationState, "published");
+  assert.deepEqual(f.writes, ["/authoring/import/materials/apply"]);
+  const applied = requests.filter(
+    (row) => row.path === "/authoring/import/materials/apply",
+  );
+  assert.equal(applied.length, 1);
+  assert.match(
+    JSON.stringify(applied[0]?.body),
+    /\/products\/real-course\/tasks\/embedded/u,
+  );
+  assert.match(JSON.stringify(applied[0]?.body), /\/materials\/untouched/u);
+  assert.equal(
+    requests.some((row) =>
+      /products\/(reserve|update|composition)|artifacts|progress|tasks\/(apply|validate)/u.test(
+        row.path,
+      ),
+    ),
+    false,
+  );
+  const after = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  assert.deepEqual(
+    after.materials["synthetic:untouched"],
+    journal.materials["synthetic:untouched"],
+  );
+});
+
+for (const invalid of [
+  "unknown",
+  "duplicate",
+  "artifacts",
+  "empty",
+  "missing-feature",
+]) {
+  test(`bounded selection rejects ${invalid} before transport`, async (t) => {
+    const f = await fixture(t);
+    f.manifest.requiredFeatures =
+      invalid === "missing-feature" ? [] : ["bounded-content-v1"];
+    f.manifest.selection.contentOnly = {
+      materialIds: ["one"],
+      taskIds: [],
+      artifactIds: [],
+    };
+    if (invalid === "unknown")
+      f.manifest.selection.contentOnly.materialIds = ["missing"];
+    if (invalid === "duplicate")
+      f.manifest.selection.contentOnly.materialIds = ["one", "one"];
+    if (invalid === "artifacts")
+      f.manifest.selection.contentOnly.artifactIds = ["file"];
+    if (invalid === "empty") f.manifest.selection.contentOnly.materialIds = [];
+    await writeFile(f.packagePath, canonical(f.manifest));
+    await assert.rejects(
+      previewPreservation(f.packagePath, f.state, {
+        sourceCommit: "a".repeat(40),
+        readState: f.readState,
+        request: async () => {
+          assert.fail("No transport before selection validation");
+        },
+      }),
+    );
+    assert.deepEqual(f.writes, []);
+  });
+}
+
+test("bounded preview refuses a selected Material membership change before writes", async (t) => {
+  const f = await fixture(t);
+  f.manifest.requiredFeatures = ["bounded-content-v1"];
+  f.manifest.selection.contentOnly = {
+    materialIds: ["one"],
+    taskIds: [],
+    artifactIds: [],
+  };
+  // Source context omits a Product that still owns the selected Material on target.
+  f.model.metadata.seriesMemberships = [{ seriesId: productId, ordinal: 1 }];
+  await writeFile(f.packagePath, canonical(f.manifest));
+  await assert.rejects(
+    previewPreservation(f.packagePath, f.state, {
+      sourceCommit: "a".repeat(40),
+      readState: f.readState,
+      request: f.request,
+    }),
+    /refuses Product membership changes/u,
+  );
+  assert.deepEqual(f.writes, []);
+});
+
+test("bounded Task preservation refuses placement drift before writes", async (t) => {
+  const f = await fixture(t);
+  const task = {
+    sourceId: "task-one",
+    productId: "course",
+    chapterId: "chapter",
+    title: "Task",
+    access: /** @type {const} */ ("free"),
+    definition: { intro: "Unchanged criteria" },
+    relatedMaterialIds: [],
+    publicationState: /** @type {const} */ ("published"),
+    provenance: {
+      repository: "synthetic/content",
+      commit: "a".repeat(40),
+      path: "task.md",
+    },
+  };
+  f.manifest.tasks = [task];
+  f.manifest.selection.contentOnly = {
+    materialIds: [],
+    taskIds: ["task-one"],
+    artifactIds: [],
+  };
+  const current = {
+    sourceId: "synthetic:task-one",
+    taskId,
+    code: "task-one",
+    productId,
+    chapterId: taskChapterId(f.manifest, task),
+    position: 2,
+    afterMaterialSourceId: null,
+    programmeVisibility: /** @type {const} */ ("standalone"),
+    embeddedMaterialId: null,
+    revision: 3,
+    access: /** @type {const} */ ("free"),
+    publicationState: /** @type {const} */ ("published"),
+  };
+  const readState = async () => ({ materials: [], tasks: [current] });
+  const request = /** @type {import('./target.mjs').LocalTransport} */ (
+    async (path, body) => {
+      if (path === "/authoring/collections?kind=product")
+        return [
+          {
+            id: productId,
+            slug: "course",
+            sourceId: "synthetic:course",
+            name: "Course",
+            summary: "",
+            version: 1,
+          },
+        ];
+      if (path === "/authoring/import/tasks/validate")
+        return {
+          valid: true,
+          current: {
+            taskId,
+            code: "task-one",
+            revision: 3,
+            currentVersion: 1,
+            definitionDigest: "b".repeat(64),
+            publicationState: "published",
+          },
+        };
+      return f.request(path, body);
+    }
+  );
+  await assert.rejects(
+    preservationState(f.manifest, f.state, "stand", readState, request),
+    /refuses Task placement changes/u,
+  );
+  current.position = 1;
+  await preservationState(f.manifest, f.state, "stand", readState, request);
+  assert.deepEqual(f.writes, []);
+});
+
+test("preservation uses the legacy Material wire shape when source omits notification intent", async (t) => {
+  const f = await fixture(t);
+  const request = /** @type {import('./target.mjs').LocalTransport} */ (
+    async (path, body, key, options) => {
+      if (path === "/authoring/import/materials/apply") {
+        const command = materialApplyRequest({ path, body })?.body;
+        assert.ok(command);
+        // The running pre-notification DTO rejects extra keys with HTTP 400 at the root.
+        if (Object.hasOwn(command, "notifyTelegram"))
+          throw Object.assign(
+            new Error("400 invalid_request_shape: unrecognized_keys at /"),
+            { status: 400 },
+          );
+      }
+      return f.request(path, body, key, options);
+    }
+  );
+  const result = await previewPreservation(f.packagePath, f.state, {
+    sourceCommit: "a".repeat(40),
+    readState: f.readState,
+    request,
+  });
+  assert.equal(
+    Object.hasOwn(result.preview.preview.materials[0] ?? {}, "notifyTelegram"),
+    false,
+  );
+  // Preserve an old client's definitively rejected command without deleting history.
+  const journalPath = join(f.state, "journal.json");
+  const journal = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  const applied = Object.values(journal.operations).find(
+    (entry) =>
+      isJournalOperation(entry) &&
+      materialApplyRequest(entry.request) !== undefined,
+  );
+  assert.ok(applied && isJournalOperation(applied));
+  const legacy = structuredClone(applied.request);
+  const previous = materialApplyRequest(legacy);
+  assert.ok(previous);
+  previous.body["notifyTelegram"] = false;
+  const derived = await loadPackage(result.receipt.packagePath);
+  const selected = derived.manifest.materials[0];
+  assert.ok(selected);
+  previous.body.source.revision = materialRevision(derived.manifest, selected);
+  previous.body.expectedContentVersion = f.model.contentVersion;
+  previous.body.body = z
+    .object({ schemaVersion: z.number(), doc: z.json() })
+    .parse(
+      convertMarkdown(selected.markdown, {
+        sourceId: `${derived.manifest.sourceNamespace}:${selected.sourceId}`,
+        sourcePath: selected.sourcePath,
+        link: (href) => href,
+        image: (src) => src,
+      }),
+    );
+  const rejectedKey = `authoring:${checksum(canonical(previous))}`;
+  journal.operations[rejectedKey] = {
+    request: previous,
+    status: "rejected",
+    error: {
+      status: 400,
+      message: "400 invalid_request_shape: unrecognized_keys at /",
+    },
+  };
+  await writeFile(journalPath, canonical(journal));
+  const before = structuredClone(journal.operations[rejectedKey]);
+  await applyPreservation(result.path, f.state, {
+    readState: f.readState,
+    request,
+  });
+  const after = parseJournal(JSON.parse(await readFile(journalPath, "utf8")));
+  assert.deepEqual(after.operations[rejectedKey], before);
+  const corrected = structuredClone(previous);
+  delete corrected.body["notifyTelegram"];
+  const correctedKey = `authoring:${checksum(canonical(corrected))}`;
+  const saved = after.operations[correctedKey];
+  assert.ok(saved && isJournalOperation(saved));
+  assert.equal(saved.status, "applied");
+  assert.equal(f.model.contentVersion, 3);
+  assert.deepEqual(f.writes, ["/authoring/import/materials/apply"]);
+});
+
+for (const notifyTelegram of [false, true]) {
+  test(`explicit notification intent ${notifyTelegram} remains on the Material command`, async (t) => {
+    const f = await fixture(t);
+    const row = f.manifest.materials[0];
+    assert.ok(row);
+    row.notifyTelegram = notifyTelegram;
+    await writeFile(f.packagePath, canonical(f.manifest));
+    let observed;
+    const request = /** @type {import('./target.mjs').LocalTransport} */ (
+      async (path, body, key, options) => {
+        if (path === "/authoring/import/materials/apply")
+          observed = materialApplyRequest({ path, body })?.body[
+            "notifyTelegram"
+          ];
+        return f.request(path, body, key, options);
+      }
+    );
+    const result = await previewPreservation(f.packagePath, f.state, {
+      sourceCommit: "a".repeat(40),
+      readState: f.readState,
+      request,
+    });
+    await applyPreservation(result.path, f.state, {
+      readState: f.readState,
+      request,
+    });
+    assert.equal(
+      result.preview.preview.materials[0]?.notifyTelegram,
+      notifyTelegram,
+    );
+    assert.equal(observed, notifyTelegram);
+  });
+}

@@ -15,6 +15,7 @@ import type {
   ReserveSourceOperation,
   ApplySourceOperation,
 } from "../../features/import-source-material/import-source-material.contract.js";
+import type { ReadSourceMaterialStateOperation } from "../../features/read-source-material-state/read-source-material-state.contract.js";
 import type { LoadHomePinOperation } from "../../features/load-home-pin/load-home-pin.contract.js";
 import type { SetHomePinOperation } from "../../features/set-home-pin/set-home-pin.contract.js";
 import type { CreateDraftOperation } from "../../features/create-draft/create-draft.contract.js";
@@ -45,6 +46,7 @@ export interface MaterialAuthoring {
   readonly reserveSourceMaterial: ReserveSourceOperation;
   readonly transitionSourcePublication: SourcePublicationOperation;
   readonly applySourceMaterial: ApplySourceOperation;
+  readonly readSourceMaterialState: ReadSourceMaterialStateOperation;
   readonly loadHomePin: LoadHomePinOperation;
   readonly setHomePin: SetHomePinOperation;
   readonly createContentCollection: CreateContentCollectionOperation;

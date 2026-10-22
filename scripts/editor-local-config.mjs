@@ -1,12 +1,14 @@
 // @ts-check
 import { createServer } from "node:net";
 import { z } from "zod";
+import { localTargets } from "../tools/authoring/target.mjs";
 
 const port = z.coerce.number().int().min(1).max(65535);
 const portsSchema = z.object({
   EDITOR_LOCAL_GATEWAY_PORT: port.default(4396),
   EDITOR_LOCAL_API_PORT: port.default(4397),
-  EDITOR_LOCAL_WEB_PORT: port.default(4398),
+  // 4398 belongs to the stand authoring gateway (#1672); the internal web server stays off it.
+  EDITOR_LOCAL_WEB_PORT: port.default(4399),
 });
 
 /** @param {NodeJS.ProcessEnv} [environment] */
@@ -20,6 +22,11 @@ export function editorLocalPorts(environment = process.env) {
   if (new Set(Object.values(ports)).size !== 3)
     throw new Error(
       "EDITOR_LOCAL_GATEWAY_PORT, EDITOR_LOCAL_API_PORT and EDITOR_LOCAL_WEB_PORT must be distinct",
+    );
+  const standGatewayPort = Number(new URL(localTargets.stand).port);
+  if (Object.values(ports).includes(standGatewayPort))
+    throw new Error(
+      `Port ${String(standGatewayPort)} is reserved for the stand authoring gateway; choose another editor port`,
     );
   return ports;
 }

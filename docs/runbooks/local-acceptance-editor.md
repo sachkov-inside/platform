@@ -15,7 +15,9 @@ the defaults:
 |---|---|---|
 | `EDITOR_LOCAL_GATEWAY_PORT` | `4396` | Browser gateway |
 | `EDITOR_LOCAL_API_PORT` | `4397` | API |
-| `EDITOR_LOCAL_WEB_PORT` | `4398` | Internal Next.js |
+| `EDITOR_LOCAL_WEB_PORT` | `4399` | Internal Next.js |
+
+Port `4398` is reserved for the [stand authoring gateway](local-acceptance-authoring.md#local-obsidian-authoring-preview-468); the launcher refuses it.
 
 ```bash
 EDITOR_LOCAL_GATEWAY_PORT=4496 EDITOR_LOCAL_API_PORT=4497 EDITOR_LOCAL_WEB_PORT=4498 pnpm editor:local

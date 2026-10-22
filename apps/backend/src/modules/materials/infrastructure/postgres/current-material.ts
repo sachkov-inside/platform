@@ -1,6 +1,6 @@
 import {
-  authoringSourceSchema,
-  type AuthoringSource,
+  recordedAuthoringSourceSchema,
+  type RecordedAuthoringSource,
 } from "../../domain/authoring-source.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -28,7 +28,7 @@ const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
 export interface CurrentMaterial {
   readonly notifyTelegram: boolean | null;
-  readonly source: AuthoringSource | null;
+  readonly source: RecordedAuthoringSource | null;
   readonly lifecycle: Material;
   readonly metadata: MaterialMetadata;
   readonly body: MaterialBody;
@@ -102,11 +102,12 @@ export async function loadCurrentMaterial(
       source:
         row.sourceId === null
           ? null
-          : authoringSourceSchema.parse({
+          : recordedAuthoringSourceSchema.parse({
               id: row.sourceId,
               path: row.sourcePath,
               revision: row.sourceRevision,
               showInFeed: row.showInFeed,
+              commit: row.sourceCommit,
             }),
       lifecycle: Material.restore({
         id: materialId,
@@ -166,6 +167,11 @@ export function toMaterialDto(
             path: material.source.path,
             revision: material.source.revision,
             showInFeed: material.source.showInFeed,
+            // Absent rather than null: clients that predate the commit read `source` strictly,
+            // and only a newer client records a commit.
+            ...(material.source.commit === null
+              ? {}
+              : { commit: material.source.commit }),
           },
         }),
     materialId: material.lifecycle.id,

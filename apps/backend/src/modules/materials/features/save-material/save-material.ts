@@ -473,6 +473,8 @@ export function assembleSaveMaterial(
                         : {
                             sourcePath: source.path,
                             sourceRevision: source.revision,
+                            // A source write without a commit no longer comes from a known commit.
+                            sourceCommit: source.commit ?? null,
                             showInFeed: source.showInFeed,
                           }),
                       notifyTelegram:

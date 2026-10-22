@@ -131,6 +131,7 @@ export function assembleCreateDraft(
                 sourceId: source?.id ?? null,
                 sourcePath: source?.path ?? null,
                 sourceRevision: source?.revision ?? null,
+                sourceCommit: source?.commit ?? null,
                 showInFeed: source?.showInFeed ?? true,
                 notifyTelegram: false,
                 slug: sourceSlug,

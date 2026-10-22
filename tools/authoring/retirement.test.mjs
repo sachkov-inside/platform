@@ -92,6 +92,8 @@ async function fixture(t) {
     path: "old.md",
     revision: "a".repeat(64),
     showInFeed: true,
+    // A receiver with the import contract reports the recorded Content commit (#1672).
+    commit: "c".repeat(40),
   };
   const old = {
     materialId: oldId,
