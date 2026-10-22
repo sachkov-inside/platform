@@ -39,7 +39,7 @@ def alloy_config():
     families='|'.join(caddy_status.NAMES)
     native='|'.join(caddy_status.NAMES[1:])
     methods='|'.join(caddy_status.METHODS)
-    bounds='|'.join(__import__('re').escape(v) for v in caddy_status.BUCKETS)
+    bounds='|'.join(__import__('re').escape(v) for v in caddy_status.WIRE_BUCKETS)
     rules=[{'source_labels':['__name__'],'regex':families,'action':'keep'},
            {'source_labels':['__name__','server','handler'],'regex':'up;;|('+native+');srv0;subroute','action':'keep'},
            {'source_labels':['method'],'regex':'(|'+methods+')','action':'keep'},

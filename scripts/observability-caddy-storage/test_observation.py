@@ -55,6 +55,59 @@ class WholeObservation(unittest.TestCase):
                     self.assertEqual(result['state'],'malformed');self.assertIsNone(result['observation'])
                     self.assertNotIn('private',json.dumps(result))
 
+        # Public pinned PromParser canonical labels retain their raw paired identities.
+        aliases={'1':'1.0','5':'5.0','10':'10.0'}
+        values,stamps=acquisition()
+        legacy=caddy_status.evaluate(json.dumps(values).encode(),json.dumps(stamps).encode(),evaluated_at=100,completed_at=101)
+        self.assertEqual(legacy['state'],'observed')
+        for vector in (values,stamps):
+            for row in vector['data']['result']:
+                metric=row['metric']
+                if metric.get('le') in aliases:metric['le']=aliases[metric['le']]
+        canonical=caddy_status.evaluate(json.dumps(values).encode(),json.dumps(stamps).encode(),evaluated_at=100,completed_at=101)
+        self.assertEqual(canonical,legacy)
+        for bound,alias in aliases.items():
+            for side in (0,1):
+                pair=acquisition()
+                for row in pair[side]['data']['result']:
+                    if row['metric'].get('le')==bound:row['metric']['le']=alias
+                result=caddy_status.evaluate(*(json.dumps(body).encode() for body in pair),evaluated_at=100,completed_at=101,diagnose=True)
+                self.assertEqual((result['state'],result['reason']),('malformed','raw_contract'))
+            for missing_up in (False,True):
+                pair=acquisition()
+                for vector in pair:
+                    duplicate=copy.deepcopy(next(row for row in vector['data']['result'] if row['metric'].get('le')==bound))
+                    duplicate['metric']['le']=alias
+                    vector['data']['result'].append(duplicate)
+                    if missing_up:vector['data']['result']=[row for row in vector['data']['result'] if row['metric']['__name__']!='up']
+                raw=tuple(json.dumps(body).encode() for body in pair)
+                # Distinct raw identities join; the duplicate is a logical bucket.
+                caddy_status.acquire(*raw,evaluated_at=100,completed_at=101)
+                result=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=True)
+                self.assertEqual((result['state'],result['reason']),('malformed','raw_contract'))
+        for partial in (False,True):
+            for lexical in ('2.0','1.00','5.00','10.00','1e0','5e0','Inf','NaN','11','private-canary','1.0\n'):
+                pair=acquisition()
+                for vector in pair:
+                    final=copy.deepcopy(next(row for row in vector['data']['result'] if row['metric'].get('le')=='1'))
+                    final['metric']['le']=lexical
+                    if partial:vector['data']['result']=vector['data']['result'][:1]
+                    vector['data']['result'].append(final)
+                result=caddy_status.evaluate(*(json.dumps(body).encode() for body in pair),evaluated_at=100,completed_at=101,diagnose=True)
+                self.assertEqual((result['state'],result['reason']),('malformed','raw_contract'))
+                self.assertNotIn('private',json.dumps(result))
+        for prior_canonical in (False,True):
+            old,old_stamps=acquisition(point=95,stamp=94)
+            if prior_canonical:
+                for vector in (old,old_stamps):
+                    for row in vector['data']['result']:
+                        metric=row['metric']
+                        if metric.get('le') in aliases:metric['le']=aliases[metric['le']]
+            previous={'values':json.dumps(old).encode(),'timestamps':json.dumps(old_stamps).encode(),'evaluated_at':95,'completed_at':95}
+            result=caddy_status.evaluate(json.dumps(values).encode(),json.dumps(stamps).encode(),evaluated_at=100,completed_at=101,previous=previous)
+            self.assertEqual(result['state'],'observed')
+            self.assertEqual(result['comparison']['state'],'observed' if prior_canonical else 'incomplete')
+
     def test_known_partial_duration_count_cannot_exceed_known_total_before_missing_up(self):
         values,stamps=acquisition()
         values['data']['result']=[values['data']['result'][1],values['data']['result'][-1]]
