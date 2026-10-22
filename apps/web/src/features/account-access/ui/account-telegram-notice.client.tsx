@@ -10,11 +10,10 @@ export function AccountTelegramNotice({
 }) {
   return (
     <section aria-label="Подключение Telegram" className="shrink-0">
-      {/* Значок равен соседним в шапке (20px). `!` перебивает телефонное 16px из `button.module.css`. */}
       <TelegramLinkAction
         compact
         label="Подключить Telegram"
-        className="min-h-11 min-w-11 rounded-full bg-muted px-3 text-sm text-action hover:bg-action/8 hover:text-action [&_svg]:size-5!"
+        className="min-h-11 min-w-11 rounded-full bg-muted px-3 text-sm text-action hover:bg-action/8 hover:text-action"
         onRefresh={onRefresh}
       />
     </section>

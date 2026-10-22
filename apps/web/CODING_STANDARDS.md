@@ -311,6 +311,8 @@ Owner correction 2026-10-12 (#1362): use a 36 px visible footprint for ordinary 
 16 px action glyphs and choice indicators, and at least 44 px touch extent. Shared Button owns
 the compact phone override for ordinary actions; small editor tool variants keep their size.
 Multiline actions grow instead of clipping. Desktop sizing remains owned by each component.
+Owner decision 2026-10-22: icon-only controls in the top header use 20 px glyphs at every width,
+so header icons match; a header Button opts out of the phone override with `data-glyph="header"`.
 Keep input text at 16 px on phones; ordinary fields stay at least 44 px. Decorative artwork,
 avatars and illustrations do not follow action-icon dimensions.
 
