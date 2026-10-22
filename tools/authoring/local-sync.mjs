@@ -486,7 +486,7 @@ export function productChapters(manifest, product) {
  * @param {ManifestProduct} product
  * @param {{
  *   items: { materialId: string; chapterId: string | null }[];
- *   programmePlacements?: { materialId: string }[];
+ *   programmePlacements?: { materialId: string }[] | undefined;
  * }} order
  */
 export function productShellComposition(manifest, product, order) {
