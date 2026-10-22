@@ -219,13 +219,13 @@ async function unpublishMaterial(
   page: Page,
   material: { readonly materialId: string; readonly contentVersion: number },
 ) {
-  const response = await fullStackBrowserRequest(
+  const response = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/materials",
     "PATCH",
     {
       materialId: material.materialId,
-      expectedContentVersion: String(material.contentVersion),
+      expectedContentVersion: material.contentVersion,
       publicationState: "unpublished",
       submissionId: crypto.randomUUID(),
     },

@@ -1,11 +1,19 @@
 import "server-only";
 
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import { executeDeleteMaterialDraft } from "./delete-material-draft";
+import {
+  deleteMaterialDraftInvalidInput,
+  executeDeleteMaterialDraft,
+} from "./delete-material-draft";
+import { deleteMaterialDraftOperation } from "./material-lifecycle.operation";
 
 export function handleDeleteMaterialDraftRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeDeleteMaterialDraft);
+  return handleMutationOperation(request, deleteMaterialDraftOperation, {
+    execute: (input, accessToken) =>
+      executeDeleteMaterialDraft(input, accessToken),
+    invalidInput: deleteMaterialDraftInvalidInput,
+  });
 }

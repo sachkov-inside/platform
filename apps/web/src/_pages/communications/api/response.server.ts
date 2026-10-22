@@ -4,23 +4,14 @@ import type { BackendTransportResult } from "@/shared/api/backend/index.server";
 import type { Result, Failure } from "../model/communications";
 import { hasText } from "@/shared/lib/text";
 
-export async function executeForm<I extends z.ZodType, O extends z.ZodType>(
-  form: FormData,
-  inputSchema: I,
+/** Calls the communications backend and maps its answer to the operation result. */
+export async function executeCommunications<O extends z.ZodType>(
   outputSchema: O,
   key: string | undefined,
-  execute: (input: z.infer<I>) => Promise<BackendTransportResult>,
+  execute: () => Promise<BackendTransportResult>,
 ): Promise<Result<z.infer<O>>> {
-  let raw: unknown;
   try {
-    raw = JSON.parse(z.string().parse(form.get("input")));
-  } catch {
-    return { kind: "error", code: "invalid" };
-  }
-  const input = inputSchema.safeParse(raw);
-  if (!input.success) return { kind: "error", code: "invalid" };
-  try {
-    const result = await execute(input.data);
+    const result = await execute();
     if (!result.ok) {
       const problem = z.object({ code: z.string() }).safeParse(result.problem);
       const codes: Record<string, Failure["code"]> = {

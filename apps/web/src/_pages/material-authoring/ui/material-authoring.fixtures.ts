@@ -543,11 +543,10 @@ export const materialRequests = fn(
   ): void => undefined,
 );
 
-/** Поля запроса: JSON-тело операции или форма команды, ещё не переведённой на операцию. */
+/** Поля запроса: JSON-тело операции. */
 function sentFields(
   body: BodyInit | null | undefined,
 ): Readonly<Record<string, unknown>> | undefined {
-  if (body instanceof FormData) return Object.fromEntries(body.entries());
   if (typeof body !== "string") return undefined;
   const parsed: unknown = JSON.parse(body);
   return typeof parsed === "object" && parsed !== null

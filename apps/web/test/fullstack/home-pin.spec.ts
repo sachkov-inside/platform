@@ -159,11 +159,12 @@ test("author Home pin persists for guests and members, replaces and removes thro
       path: testInfo.outputPath("home-pin-text-200.png"),
     });
     const forbidden = await memberPage.evaluate(async (): Promise<unknown> => {
-      const body = new FormData();
-      body.set("seriesId", "");
-      body.set("expectedVersion", "1");
       const result: unknown = await (
-        await fetch("/api/authoring/home-pin", { method: "PUT", body })
+        await fetch("/api/authoring/home-pin", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ seriesId: null, expectedVersion: 1 }),
+        })
       ).json();
       return result;
     });
@@ -221,10 +222,11 @@ test("author Home pin persists for guests and members, replaces and removes thro
         typeof pin.version !== "number"
       )
         return;
-      const body = new FormData();
-      body.set("seriesId", "");
-      body.set("expectedVersion", String(pin.version));
-      await fetch("/api/authoring/home-pin", { method: "PUT", body });
+      await fetch("/api/authoring/home-pin", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ seriesId: null, expectedVersion: pin.version }),
+      });
     });
     await guest.close();
     await member.close();

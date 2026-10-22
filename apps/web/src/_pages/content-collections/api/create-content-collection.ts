@@ -1,34 +1,21 @@
 import "server-only";
 
-import { z } from "zod";
+import type { z } from "zod";
 
 import { requestContentCollectionCreation } from "@/shared/api/backend/index.server";
-import type { CreateContentCollectionResult } from "../model/content-collections";
+import type {
+  createContentCollectionInputSchema,
+  CreateContentCollectionResult,
+} from "../model/content-collections";
 import { mapCreateContentCollectionResult } from "./content-collection-mutation-result";
 
-const formSchema = z.object({
-  kind: z.enum(["series", "topic"]),
-  name: z.string(),
-  slug: z.string(),
-  summary: z.string(),
-});
-
 export async function executeCreateContentCollection(
-  formData: FormData,
+  input: z.output<typeof createContentCollectionInputSchema>,
   accessToken: string,
   request: typeof requestContentCollectionCreation = requestContentCollectionCreation,
 ): Promise<CreateContentCollectionResult> {
-  const input = formSchema.safeParse({
-    kind: formData.get("kind"),
-    name: formData.get("name"),
-    slug: formData.get("slug"),
-    summary: formData.get("summary"),
-  });
-  if (!input.success) return { kind: "invalid" };
   try {
-    return mapCreateContentCollectionResult(
-      await request(input.data, accessToken),
-    );
+    return mapCreateContentCollectionResult(await request(input, accessToken));
   } catch {
     return { kind: "error", reference: "collections-backend" };
   }

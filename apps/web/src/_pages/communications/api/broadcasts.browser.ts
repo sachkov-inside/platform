@@ -1,27 +1,25 @@
 import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import type { z } from "zod";
-import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
   errorSchema,
   savedPostListSchema,
-  savedPostSampleSchema,
-  type savedPostActionSchema,
-  type savedPostSaveSchema,
   broadcastResultSchema,
   broadcastListSchema,
   funnelListSchema,
   statisticsResultSchema,
   deliveryListSchema,
   entryListSchema,
-  templateResultSchema,
-  type BroadcastActionInput,
-  type SaveBroadcastInput,
 } from "../model/broadcasts";
-function form(input: object) {
-  const value = new FormData();
-  value.set("input", JSON.stringify(input));
-  return value;
-}
+import {
+  cancelBroadcastOperation,
+  launchBroadcastOperation,
+  pauseBroadcastOperation,
+  resolveBroadcastTemplateOperation,
+  resumeBroadcastOperation,
+  samplePostOperation,
+  saveBroadcastOperation,
+  savePostOperation,
+} from "./broadcasts.operation";
 async function read<T>(
   url: string,
   schema: z.ZodType<T>,
@@ -91,109 +89,17 @@ export const readEntries = (contactId: string, cursor?: string) =>
     `/api/communications/entries?${query({ contactId, cursor })}`,
     entryListSchema,
   );
-function result<T>(
-  response: Awaited<ReturnType<typeof requestSameOriginMutation>>,
-  schema: z.ZodType<T>,
-): T | { kind: "error"; code: string } {
-  if (!response.ok)
-    return {
-      kind: "error",
-      code:
-        response.status === 401 || response.status === 403
-          ? "authentication_required"
-          : "provider_unavailable",
-    };
-  const parsed = schema.safeParse(response.body);
-  return parsed.success
-    ? parsed.data
-    : { kind: "error", code: "invalid_response" };
-}
-export async function saveBroadcast(input: SaveBroadcastInput) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/broadcasts/save",
-      "POST",
-      form(input),
-    ),
-    broadcastResultSchema,
-  );
-}
-export async function launchBroadcast(input: BroadcastActionInput) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/broadcasts/launch",
-      "POST",
-      form(input),
-    ),
-    broadcastResultSchema,
-  );
-}
-export async function pauseBroadcast(input: BroadcastActionInput) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/broadcasts/pause",
-      "POST",
-      form(input),
-    ),
-    broadcastResultSchema,
-  );
-}
-export async function resumeBroadcast(input: BroadcastActionInput) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/broadcasts/resume",
-      "POST",
-      form(input),
-    ),
-    broadcastResultSchema,
-  );
-}
-export async function cancelBroadcast(input: BroadcastActionInput) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/broadcasts/cancel",
-      "POST",
-      form(input),
-    ),
-    broadcastResultSchema,
-  );
-}
-export async function resolveTemplate(input: {
-  reference: string;
-  operationId: string;
-}) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/broadcasts/templates/resolve",
-      "POST",
-      form(input),
-    ),
-    templateResultSchema,
-  );
-}
+export const saveBroadcast = saveBroadcastOperation.send;
+export const launchBroadcast = launchBroadcastOperation.send;
+export const pauseBroadcast = pauseBroadcastOperation.send;
+export const resumeBroadcast = resumeBroadcastOperation.send;
+export const cancelBroadcast = cancelBroadcastOperation.send;
+export const resolveTemplate = resolveBroadcastTemplateOperation.send;
 
 export const readSavedPosts = (cursor?: string) =>
   read(
     `/api/communications/templates?${query({ cursor })}`,
     savedPostListSchema,
   );
-export async function savePost(input: z.infer<typeof savedPostSaveSchema>) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/templates/save",
-      "POST",
-      form(input),
-    ),
-    templateResultSchema,
-  );
-}
-export async function samplePost(input: z.infer<typeof savedPostActionSchema>) {
-  return result(
-    await requestSameOriginMutation(
-      "/api/communications/templates/sample",
-      "POST",
-      form(input),
-    ),
-    savedPostSampleSchema,
-  );
-}
+export const savePost = savePostOperation.send;
+export const samplePost = samplePostOperation.send;

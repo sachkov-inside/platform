@@ -707,7 +707,7 @@ try {
       `${web}/api/authoring/collections`,
       {
         headers: { origin: web },
-        multipart: {
+        data: {
           kind: "series",
           name: `New Product ${String(user)}`,
           slug: `new-product-${String(user)}`,

@@ -179,11 +179,11 @@ describe("Material Video named authoring BFF mutations", () => {
         response: Response.json({}, { status: 503 }),
       });
       const response = await handleVideoUploadRequest(
-        mutationRequest(
+        operationRequest(
           "/api/authoring/material-video-uploads",
           {
             access: "free",
-            byteSize: "42",
+            byteSize: 42,
             filename: "video.mp4",
             materialId,
             submissionId: videoId,
@@ -206,11 +206,11 @@ describe("Material Video named authoring BFF mutations", () => {
       response: Response.json({}),
     });
     const response = await handleVideoUploadRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-uploads",
         {
           access: "free",
-          byteSize: "1024",
+          byteSize: 1024,
           filename: "lesson.mp4",
           materialId,
           submissionId: "30000000-0000-4000-8000-000000000001",
@@ -248,14 +248,14 @@ describe("Material Video named authoring BFF mutations", () => {
     });
 
     const attached = await handleVideoAttachmentRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-attachments",
         { access: "closed", materialId, providerVideoId: "provider-video" },
         "POST",
       ),
     );
     const reconciled = await handleVideoReconciliationRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-reconciliations",
         { videoId },
         "POST",
@@ -286,7 +286,7 @@ describe("Material Video named authoring BFF mutations", () => {
     });
 
     const response = await handleVideoDeletionRetryRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-deletion-retries",
         { videoId },
         "POST",
@@ -298,6 +298,28 @@ describe("Material Video named authoring BFF mutations", () => {
       videoId,
       "access-token",
     );
+  });
+
+  it("refuses an upload body with an unknown field before any backend call", async () => {
+    const response = await handleVideoUploadRequest(
+      operationRequest(
+        "/api/authoring/material-video-uploads",
+        {
+          access: "free",
+          byteSize: 42,
+          filename: "video.mp4",
+          materialId,
+          submissionId: videoId,
+          title: "Video",
+          unexpected: true,
+        },
+        "POST",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ kind: "invalid_input" });
+    expect(fakes.requestUpload).not.toHaveBeenCalled();
   });
 
   it("saves progress through the authenticated PUT capability", async () => {
@@ -349,20 +371,6 @@ function operationRequest(
       "content-type": "application/json",
       origin: "https://inside.example.test",
     },
-    method,
-  });
-}
-
-function mutationRequest(
-  path: string,
-  fields: Readonly<Record<string, string>>,
-  method: "POST" | "PUT",
-): Request {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(fields)) formData.set(name, value);
-  return new Request(`https://inside.example.test${path}`, {
-    body: formData,
-    headers: { origin: "https://inside.example.test" },
     method,
   });
 }

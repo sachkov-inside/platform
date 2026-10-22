@@ -10,6 +10,14 @@ export type DeleteMaterialDraftResult = z.infer<
 >;
 import { z } from "zod";
 
+/** The JSON body of the draft deletion; another field is ignored, as the former form did. */
+export const deleteMaterialDraftInputSchema = z.object({
+  deleteVideoId: z.uuid().nullable().default(null),
+  expectedContentVersion: z.number().int().positive(),
+  materialId: z.uuid(),
+  submissionId: z.uuid(),
+});
+
 const issueSchema = z.object({ code: z.string(), path: z.string() }).strict();
 
 export const deleteMaterialDraftResultSchema = z.discriminatedUnion("kind", [

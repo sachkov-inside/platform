@@ -7,16 +7,11 @@ import {
   requestMaterialDeletion,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
-import type { DeleteMaterialDraftResult } from "../model/delete-material-draft";
+import type {
+  deleteMaterialDraftInputSchema,
+  DeleteMaterialDraftResult,
+} from "../model/delete-material-draft";
 
-const formSchema = z
-  .object({
-    deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
-    expectedContentVersion: z.coerce.number().int().positive(),
-    materialId: z.uuid(),
-    submissionId: z.uuid(),
-  })
-  .strict();
 const deletedSchema = z.object({ materialId: z.uuid() }).strict();
 const problemSchema = z
   .object({
@@ -30,38 +25,32 @@ const problemSchema = z
   })
   .loose();
 
+/** Maps a body outside the input schema to the issues the former form answered with. */
+export function deleteMaterialDraftInvalidInput(
+  error: z.ZodError,
+): DeleteMaterialDraftResult {
+  return {
+    issues: error.issues.map((issue) => ({
+      code: issue.code,
+      path: `/${issue.path.map(String).join("/")}`,
+    })),
+    kind: "invalid_input",
+  };
+}
+
 export async function executeDeleteMaterialDraft(
-  formData: FormData,
+  input: z.output<typeof deleteMaterialDraftInputSchema>,
   accessToken: string,
   request: typeof requestMaterialDeletion = requestMaterialDeletion,
 ): Promise<DeleteMaterialDraftResult> {
-  const parsed = formSchema.safeParse({
-    deleteVideoId: formData.get("deleteVideoId") ?? undefined,
-    expectedContentVersion: formData.get("expectedContentVersion"),
-    materialId: formData.get("materialId"),
-    submissionId: formData.get("submissionId"),
-  });
-  if (!parsed.success) {
-    return {
-      issues: parsed.error.issues.map((issue) => ({
-        code: issue.code,
-        path: `/${issue.path.map(String).join("/")}`,
-      })),
-      kind: "invalid_input",
-    };
-  }
-
   let result: BackendTransportResult;
   try {
     result = await request(
       {
-        deleteVideoId:
-          parsed.data.deleteVideoId === "none"
-            ? null
-            : parsed.data.deleteVideoId,
-        expectedContentVersion: parsed.data.expectedContentVersion,
-        idempotencyKey: `web-delete-material-draft-${parsed.data.submissionId}`,
-        materialId: parsed.data.materialId,
+        deleteVideoId: input.deleteVideoId,
+        expectedContentVersion: input.expectedContentVersion,
+        idempotencyKey: `web-delete-material-draft-${input.submissionId}`,
+        materialId: input.materialId,
       },
       accessToken,
     );
@@ -76,7 +65,7 @@ export async function executeDeleteMaterialDraft(
   if (!result.ok) return mapDeletionProblem(result);
 
   const receipt = deletedSchema.safeParse(result.body);
-  return receipt.success && receipt.data.materialId === parsed.data.materialId
+  return receipt.success && receipt.data.materialId === input.materialId
     ? { kind: "deleted", materialId: receipt.data.materialId }
     : unexpected("malformed-delete-response");
 }

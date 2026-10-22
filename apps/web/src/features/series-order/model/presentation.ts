@@ -15,7 +15,7 @@ export const PRODUCT_CHAPTER_NAME_MAX = 120;
 export const PRODUCT_CHAPTER_SUMMARY_MAX = 4000;
 export const productChapterDraftSchema = z
   .object({
-    supplementaryMaterialIds: z.array(z.uuid()).max(200).optional(),
+    supplementaryMaterialIds: z.array(z.uuid()).max(200).readonly().optional(),
     id: z.uuid(),
     name: z.string().trim().min(1).max(PRODUCT_CHAPTER_NAME_MAX),
     summary: z.string().trim().max(PRODUCT_CHAPTER_SUMMARY_MAX),
@@ -114,6 +114,43 @@ export interface ReorderSeriesInput {
   readonly stepGroups?: Readonly<Record<string, string>>;
   readonly seriesId: string;
 }
+
+const orderVersionSchema = z.string().regex(/^[a-f0-9]{64}$/u);
+
+/**
+ * The JSON body of a composition save. An absent optional field keeps its stored value; another
+ * top-level field is ignored, as the former form did.
+ */
+export const reorderSeriesInputSchema = z.object({
+  chapterAssignments: z.record(z.uuid(), z.uuid()).readonly().optional(),
+  chapters: z.array(productChapterDraftSchema).readonly().optional(),
+  confirmedProductRemovals: z
+    .array(z.uuid())
+    .min(1)
+    .max(100)
+    .readonly()
+    .optional(),
+  expectedOrderVersion: orderVersionSchema,
+  orderedMaterialIds: z.array(z.uuid()).readonly(),
+  programmePlacements: z
+    .array(programmePlacementSchema)
+    .max(20000)
+    .readonly()
+    .optional(),
+  seriesId: z.uuid(),
+  stepGroups: z
+    .record(z.uuid(), z.string().trim().min(1).max(120))
+    .readonly()
+    .optional(),
+});
+
+/** The JSON body of a chapter's supplementary Materials save. */
+export const chapterAttachmentsInputSchema = z.object({
+  chapterId: z.uuid(),
+  expectedOrderVersion: orderVersionSchema,
+  materialIds: z.array(z.uuid()).max(200).readonly(),
+  productId: z.uuid(),
+});
 
 export type ReorderSeriesResult = z.infer<typeof reorderSeriesResultSchema>;
 

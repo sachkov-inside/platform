@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import {
   addFullStackSessionCookie,
   fullStackSessionState,
-  fullStackBrowserRequest,
+  fullStackBrowserJsonRequest,
   fullStackBaseUrl,
   signInFullStack,
 } from "../support/full-stack-session";
@@ -45,7 +45,7 @@ test("browser owner mutation keeps the renewed Secure session on loopback", asyn
   await addFullStackSessionCookie(context, "PAST_EXPIRY");
   await expect(fullStackSessionState(context)).resolves.toBe("authenticated");
   await page.goto(`${fullStackBaseUrl()}/account`);
-  const created = await fullStackBrowserRequest(
+  const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/collections",
     "POST",
@@ -63,15 +63,15 @@ test("browser owner mutation keeps the renewed Secure session on loopback", asyn
       collection: z.object({ id: z.string(), version: z.number() }),
     })
     .parse(await created.json());
-  const archived = await fullStackBrowserRequest(
+  const archived = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/collections/archive",
     "PUT",
     {
       kind: "series",
       collectionId: value.collection.id,
-      expectedVersion: String(value.collection.version),
-      archived: "true",
+      expectedVersion: value.collection.version,
+      archived: true,
     },
   );
   expect(await archived.json()).toMatchObject({ kind: "saved" });

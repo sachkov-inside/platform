@@ -18,11 +18,11 @@ import {
 
 const lifecycleMutationSpy = fn(
   (_input: RequestInfo | URL, init?: RequestInit) => {
-    const formData = init?.body;
-    if (!(formData instanceof FormData)) {
+    const body = sentBody(init);
+    if (body === undefined) {
       return Promise.resolve(new Response(null, { status: 400 }));
     }
-    const publicationState = formData.get("publicationState");
+    const publicationState = body["publicationState"];
     return Promise.resolve(
       Response.json({
         contentVersion: publicationState === "published" ? 5 : 6,
@@ -37,6 +37,17 @@ const lifecycleMutationSpy = fn(
     );
   },
 );
+
+/** JSON-тело команды жизненного цикла или `undefined`, если тело не JSON-объект. */
+function sentBody(
+  init: RequestInit | undefined,
+): Readonly<Record<string, unknown>> | undefined {
+  if (typeof init?.body !== "string") return undefined;
+  const parsed: unknown = JSON.parse(init.body);
+  return typeof parsed === "object" && parsed !== null
+    ? Object.fromEntries(Object.entries(parsed))
+    : undefined;
+}
 
 const query = { page: 1 } satisfies AuthoringMaterialsQuery;
 const readyState = {
@@ -170,19 +181,17 @@ export const PublicationUsesLatestReceipt: Story = {
       await canvas.findByText("Материал снят с публикации."),
     ).toBeInTheDocument();
 
-    const firstBody = lifecycleMutationSpy.mock.calls[0]?.[1]?.body;
-    const secondBody = lifecycleMutationSpy.mock.calls[1]?.[1]?.body;
-    await expect(firstBody).toBeInstanceOf(FormData);
-    await expect(secondBody).toBeInstanceOf(FormData);
-    if (!(firstBody instanceof FormData) || !(secondBody instanceof FormData))
-      return;
-    await expect(firstBody.get("publicationState")).toBe("published");
-    await expect(firstBody.get("expectedContentVersion")).toBe("4");
-    await expect(secondBody.get("publicationState")).toBe("unpublished");
-    await expect(secondBody.get("expectedContentVersion")).toBe("5");
-    await expect(secondBody.get("submissionId")).toBe(
-      "96000000-0000-4000-8000-000000000021",
-    );
+    const firstBody = sentBody(lifecycleMutationSpy.mock.calls[0]?.[1]);
+    const secondBody = sentBody(lifecycleMutationSpy.mock.calls[1]?.[1]);
+    await expect(firstBody).toMatchObject({
+      expectedContentVersion: 4,
+      publicationState: "published",
+    });
+    await expect(secondBody).toMatchObject({
+      expectedContentVersion: 5,
+      publicationState: "unpublished",
+      submissionId: "96000000-0000-4000-8000-000000000021",
+    });
   },
 };
 

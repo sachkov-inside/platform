@@ -6,16 +6,11 @@ import {
   requestHomePinUpdate,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
-import { homePinSchema, type HomePinResult } from "../model/home-pin";
-
-const inputSchema = z
-  .object({
-    seriesId: z
-      .union([z.uuid(), z.literal("")])
-      .transform((id) => (id === "" ? null : id)),
-    expectedVersion: z.coerce.number().int().positive(),
-  })
-  .strict();
+import {
+  homePinSchema,
+  type HomePinResult,
+  type setHomePinInputSchema,
+} from "../model/home-pin";
 
 export async function getHomePin(accessToken: string): Promise<HomePinResult> {
   try {
@@ -27,21 +22,14 @@ export async function getHomePin(accessToken: string): Promise<HomePinResult> {
 }
 
 export async function executeSetHomePin(
-  form: FormData,
+  input: z.output<typeof setHomePinInputSchema>,
   accessToken: string,
 ): Promise<HomePinResult> {
-  const parsed = inputSchema.safeParse({
-    seriesId: form.get("seriesId"),
-    expectedVersion: form.get("expectedVersion"),
-  });
-  if (!parsed.success) return { kind: "invalid_input" };
   try {
-    const result = mapResult(
-      await requestHomePinUpdate(parsed.data, accessToken),
-    );
+    const result = mapResult(await requestHomePinUpdate(input, accessToken));
     return result.kind === "ready" &&
-      (result.pin.seriesId !== parsed.data.seriesId ||
-        result.pin.version !== parsed.data.expectedVersion + 1)
+      (result.pin.seriesId !== input.seriesId ||
+        result.pin.version !== input.expectedVersion + 1)
       ? { kind: "unavailable" }
       : result;
   } catch (error) {

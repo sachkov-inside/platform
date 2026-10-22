@@ -45,10 +45,15 @@ Binary uploads keep their streaming handler with a named limit, delivery reports
 operation body.
 
 `scripts/check-web-architecture.mjs` holds the rule. An operation lives in a `*.operation.ts`
-module with a literal `/api/` path and method, and its route file exports that method. Modules
-awaiting migration are listed with their number of FormData helper calls; a count may only fall,
-so a new FormData mutation fails even inside a listed module. In browser code a `fetch` whose
-literal init names a write method is allowed only in the upload and report modules and in the two
-shared adapters that send operations and the remaining form mutations. The check reads syntax: a
-write through an `init` held in a variable, `globalThis.fetch`, or a handler that reads
-`request.formData()` itself remains a review question.
+module with a literal `/api/` path and method, and its route file exports that method.
+`handleAuthenticatedMutation` serves only streamed bodies (binary uploads and a removal paired
+with its upload, as for covers and avatars) and requires their options. In browser code a
+`fetch` whose literal init names a write method is allowed only in the upload and report modules
+and in the shared operation adapter. The check reads syntax: a write through an
+`init` held in a variable, `globalThis.fetch`, or a handler that reads `request.formData()` itself
+remains a review question. `test/module/mutation-operation-routes.test.ts` sends every declared
+operation through its route.
+
+In #1679 every same-origin mutation except those streamed bodies, delivery reports and native
+authentication forms moved to an operation; the FormData adapter `requestSameOriginMutation` and
+the form path of `handleAuthenticatedMutation` were removed.

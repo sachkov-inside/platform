@@ -117,7 +117,7 @@ async function expireServerCatalogCache(baseURL: string) {
     },
   });
   const response = await author.put("/api/authoring/home-pin", {
-    multipart: { expectedVersion: "1", seriesId: "" },
+    data: { expectedVersion: 1, seriesId: null },
   });
   expect(response.status(), "авторская запись закрепа принята").toBe(200);
   expect(await response.json()).toEqual({

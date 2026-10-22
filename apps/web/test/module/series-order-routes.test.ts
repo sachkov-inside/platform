@@ -36,16 +36,20 @@ it.each([
 ] as const)(
   "saves composition through the %s route with the authenticated identity",
   async (segment, save) => {
-    const body = new FormData();
-    body.set("seriesId", seriesId);
-    body.set("expectedOrderVersion", orderVersion);
-    body.set("orderedMaterialIds", JSON.stringify([materialId]));
+    const body = JSON.stringify({
+      seriesId,
+      expectedOrderVersion: orderVersion,
+      orderedMaterialIds: [materialId],
+    });
     const response = await save(
       new Request(
         `https://inside.example.test/api/authoring/${segment}/order`,
         {
           method: "PUT",
-          headers: { origin: "https://inside.example.test" },
+          headers: {
+            "content-type": "application/json",
+            origin: "https://inside.example.test",
+          },
           body,
         },
       ),

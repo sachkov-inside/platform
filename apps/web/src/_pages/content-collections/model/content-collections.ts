@@ -67,6 +67,35 @@ export interface SetContentCollectionArchiveInput {
   readonly kind: ContentCollectionKind;
 }
 
+const contentCollectionKindSchema = z.enum(["series", "topic"]);
+
+/** The JSON body of a new Series or Topic; another field is ignored, as the former form did. */
+export const createContentCollectionInputSchema = z.object({
+  kind: contentCollectionKindSchema,
+  name: z.string(),
+  slug: z.string(),
+  summary: z.string(),
+});
+
+/** The JSON body of a metadata save; an absent introduction keeps the stored one. */
+export const updateContentCollectionInputSchema = z.object({
+  collectionId: z.uuid(),
+  expectedVersion: z.number().int().positive(),
+  // Прежняя форма читала только четыре поля введения, поэтому лишние поля отбрасываются.
+  introduction: z.object(productIntroductionSchema.shape).optional(),
+  kind: contentCollectionKindSchema,
+  name: z.string(),
+  summary: z.string(),
+});
+
+/** The JSON body of archiving or restoring a Series or Topic. */
+export const setContentCollectionArchiveInputSchema = z.object({
+  archived: z.boolean(),
+  collectionId: z.uuid(),
+  expectedVersion: z.number().int().positive(),
+  kind: contentCollectionKindSchema,
+});
+
 const savedContentCollectionResultSchema = z
   .object({ kind: z.literal("saved"), collection: contentCollectionSchema })
   .strict();

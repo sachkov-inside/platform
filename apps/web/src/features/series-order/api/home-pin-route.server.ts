@@ -1,9 +1,10 @@
 import "server-only";
 import {
   handleAuthenticatedRead,
-  handleAuthenticatedMutation,
+  handleMutationOperation,
 } from "@/shared/auth/index.server";
 import { executeSetHomePin, getHomePin } from "./home-pin.server";
+import { setHomePinOperation } from "./series-order.operation";
 
 export async function handleHomePinReadRequest(): Promise<Response> {
   return handleAuthenticatedRead(async (accessToken) => {
@@ -25,5 +26,8 @@ export async function handleHomePinReadRequest(): Promise<Response> {
   });
 }
 export function handleHomePinWriteRequest(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeSetHomePin);
+  return handleMutationOperation(request, setHomePinOperation, {
+    execute: executeSetHomePin,
+    invalidInput: () => ({ kind: "invalid_input" }),
+  });
 }

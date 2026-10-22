@@ -188,17 +188,22 @@ export const RefreshAfterExternalConflict: Story = {
     );
     await waitFor(() => expect(conflictSave).toHaveBeenCalledTimes(2));
     const secondBody = conflictSave.mock.calls[1]?.[1]?.body;
-    if (!(secondBody instanceof FormData))
+    if (typeof secondBody !== "string")
       throw new Error("Missing refreshed attachment command");
-    await expect(secondBody.get("expectedOrderVersion")).toBe("b".repeat(64));
+    await expect(sentOrderVersion(secondBody)).toBe("b".repeat(64));
     await waitFor(() => expect(canvas.queryByRole("alert")).toBeNull());
   },
 };
+/** The order version an attachment command carried in its JSON body. */
+function sentOrderVersion(body: string): unknown {
+  const parsed: unknown = JSON.parse(body);
+  return typeof parsed === "object" && parsed !== null
+    ? Object.fromEntries(Object.entries(parsed))["expectedOrderVersion"]
+    : undefined;
+}
 const conflictSave = fn((_input: RequestInfo | URL, init?: RequestInit) => {
   const version =
-    init?.body instanceof FormData
-      ? init.body.get("expectedOrderVersion")
-      : null;
+    typeof init?.body === "string" ? sentOrderVersion(init.body) : null;
   return Promise.resolve(
     Response.json(
       version === "b".repeat(64)

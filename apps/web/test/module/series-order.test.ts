@@ -7,7 +7,11 @@ vi.mock("@/shared/auth/index.server", () => ({
 }));
 
 import { getSeriesOrder } from "@/features/series-order.server";
-import { executeReorderSeries } from "@/features/series-order/api/reorder-series.server";
+import {
+  executeReorderSeries,
+  reorderSeriesInvalidInput,
+} from "@/features/series-order/api/reorder-series.server";
+import { reorderSeriesOperation } from "@/features/series-order/api/series-order.operation";
 
 const seriesId = "96000000-0000-4000-8000-000000000001";
 const firstId = "96000000-0000-4000-8000-000000000002";
@@ -86,18 +90,18 @@ describe("Series order web adapters", () => {
   });
 
   it("passes the complete chapter list and placement and rejects a malformed chapter", async () => {
-    const form = validFormData();
+    const form = validInput();
     const chapters = [{ id: chapterId, name: "  Проект и CI  ", summary: "" }];
-    form.set("chapters", JSON.stringify(chapters));
-    form.set("chapterAssignments", JSON.stringify({ [firstId]: chapterId }));
+    form["chapters"] = chapters;
+    form["chapterAssignments"] = { [firstId]: chapterId };
     const save = vi.fn().mockResolvedValue({
       body: { orderVersion, seriesId },
       ok: true,
       response: Response.json({}),
     });
-    await expect(
-      executeReorderSeries(form, "token", save),
-    ).resolves.toMatchObject({ kind: "saved" });
+    await expect(reorder(form, "token", save)).resolves.toMatchObject({
+      kind: "saved",
+    });
     expect(save).toHaveBeenLastCalledWith(
       expect.objectContaining({
         chapterAssignments: { [firstId]: chapterId },
@@ -106,11 +110,8 @@ describe("Series order web adapters", () => {
       "token",
     );
     save.mockClear();
-    form.set(
-      "chapters",
-      JSON.stringify([{ id: chapterId, name: " ", summary: "" }]),
-    );
-    await expect(executeReorderSeries(form, "token", save)).resolves.toEqual({
+    form["chapters"] = [{ id: chapterId, name: " ", summary: "" }];
+    await expect(reorder(form, "token", save)).resolves.toEqual({
       kind: "error",
       reference: "series-order-form",
     });
@@ -118,16 +119,16 @@ describe("Series order web adapters", () => {
   });
 
   it("passes explicit step assignments and rejects malformed maps while keeping legacy omission", async () => {
-    const form = validFormData();
-    form.set("stepGroups", JSON.stringify({ [firstId]: "  Release  " }));
+    const form = validInput();
+    form["stepGroups"] = { [firstId]: "  Release  " };
     const save = vi.fn().mockResolvedValue({
       body: { orderVersion, seriesId },
       ok: true,
       response: Response.json({}),
     });
-    await expect(
-      executeReorderSeries(form, "token", save),
-    ).resolves.toMatchObject({ kind: "saved" });
+    await expect(reorder(form, "token", save)).resolves.toMatchObject({
+      kind: "saved",
+    });
     expect(save).toHaveBeenLastCalledWith(
       {
         expectedOrderVersion: orderVersion,
@@ -137,15 +138,15 @@ describe("Series order web adapters", () => {
       },
       "token",
     );
-    form.set("stepGroups", "{}");
-    await executeReorderSeries(form, "token", save);
+    form["stepGroups"] = {};
+    await reorder(form, "token", save);
     expect(save).toHaveBeenLastCalledWith(
       expect.objectContaining({ stepGroups: {} }),
       "token",
     );
     save.mockClear();
-    form.set("stepGroups", JSON.stringify({ [firstId]: " " }));
-    await expect(executeReorderSeries(form, "token", save)).resolves.toEqual({
+    form["stepGroups"] = { [firstId]: " " };
+    await expect(reorder(form, "token", save)).resolves.toEqual({
       kind: "error",
       reference: "series-order-form",
     });
@@ -153,15 +154,13 @@ describe("Series order web adapters", () => {
   });
 
   it("submits one complete order and maps optimistic conflicts", async () => {
-    const formData = validFormData();
+    const input = validInput();
     const save = vi.fn().mockResolvedValue({
       body: { orderVersion: "b".repeat(64), seriesId },
       ok: true,
       response: Response.json({}),
     });
-    await expect(
-      executeReorderSeries(formData, "access-token", save),
-    ).resolves.toEqual({
+    await expect(reorder(input, "access-token", save)).resolves.toEqual({
       kind: "saved",
       orderVersion: "b".repeat(64),
     });
@@ -179,9 +178,9 @@ describe("Series order web adapters", () => {
       problem: { code: "stale_series_order" },
       response: Response.json({}, { status: 409 }),
     });
-    await expect(
-      executeReorderSeries(formData, "access-token", conflict),
-    ).resolves.toEqual({ kind: "conflict" });
+    await expect(reorder(input, "access-token", conflict)).resolves.toEqual({
+      kind: "conflict",
+    });
   });
 
   it("names the Materials refused for their source ownership and keeps other refusals apart", async () => {
@@ -197,7 +196,7 @@ describe("Series order web adapters", () => {
       response: Response.json({}, { status: 422 }),
     });
     await expect(
-      executeReorderSeries(validFormData(), "access-token", refused),
+      reorder(validInput(), "access-token", refused),
     ).resolves.toEqual({ kind: "source_mismatch", materialIds: [firstId] });
 
     const other = vi.fn().mockResolvedValue({
@@ -208,9 +207,9 @@ describe("Series order web adapters", () => {
       },
       response: Response.json({}, { status: 422 }),
     });
-    await expect(
-      executeReorderSeries(validFormData(), "access-token", other),
-    ).resolves.toEqual({ kind: "error", reference: "series-order-save" });
+    await expect(reorder(validInput(), "access-token", other)).resolves.toEqual(
+      { kind: "error", reference: "series-order-save" },
+    );
   });
 
   it("keeps a refusal under a live session apart from a finished session", async () => {
@@ -221,10 +220,10 @@ describe("Series order web adapters", () => {
         response: Response.json({}, { status }),
       });
     await expect(
-      executeReorderSeries(validFormData(), "access-token", refusal(401)),
+      reorder(validInput(), "access-token", refusal(401)),
     ).resolves.toEqual({ kind: "unauthorized" });
     await expect(
-      executeReorderSeries(validFormData(), "access-token", refusal(403)),
+      reorder(validInput(), "access-token", refusal(403)),
     ).resolves.toEqual({ kind: "forbidden" });
   });
 
@@ -238,7 +237,7 @@ describe("Series order web adapters", () => {
       response: Response.json({}, { status: 409 }),
     });
     await expect(
-      executeReorderSeries(validFormData(), "access-token", refused),
+      reorder(validInput(), "access-token", refused),
     ).resolves.toEqual({ products, kind: "removal_confirmation_required" });
 
     const save = vi.fn().mockResolvedValue({
@@ -246,26 +245,39 @@ describe("Series order web adapters", () => {
       ok: true,
       response: Response.json({}),
     });
-    const confirmed = validFormData();
-    confirmed.set("confirmedProductRemovals", JSON.stringify([seriesId]));
+    const confirmed = validInput();
+    confirmed["confirmedProductRemovals"] = [seriesId];
     await expect(
-      executeReorderSeries(confirmed, "access-token", save),
+      reorder(confirmed, "access-token", save),
     ).resolves.toMatchObject({ kind: "saved" });
     expect(save).toHaveBeenCalledWith(
       expect.objectContaining({ confirmedProductRemovals: [seriesId] }),
       "access-token",
     );
-    confirmed.set("confirmedProductRemovals", JSON.stringify(["not-a-uuid"]));
-    await expect(
-      executeReorderSeries(confirmed, "access-token", save),
-    ).resolves.toEqual({ kind: "error", reference: "series-order-form" });
+    confirmed["confirmedProductRemovals"] = ["not-a-uuid"];
+    await expect(reorder(confirmed, "access-token", save)).resolves.toEqual({
+      kind: "error",
+      reference: "series-order-form",
+    });
   });
 });
 
-function validFormData(): FormData {
-  const formData = new FormData();
-  formData.set("expectedOrderVersion", orderVersion);
-  formData.set("orderedMaterialIds", JSON.stringify([secondId, firstId]));
-  formData.set("seriesId", seriesId);
-  return formData;
+function validInput(): Record<string, unknown> {
+  return {
+    expectedOrderVersion: orderVersion,
+    orderedMaterialIds: [secondId, firstId],
+    seriesId,
+  };
+}
+
+/** Parses the JSON body as the Route Handler does, then saves the composition. */
+function reorder(
+  body: Record<string, unknown>,
+  accessToken: string,
+  save: Parameters<typeof executeReorderSeries>[2],
+) {
+  const input = reorderSeriesOperation.input.safeParse(body);
+  return input.success
+    ? executeReorderSeries(input.data, accessToken, save)
+    : Promise.resolve(reorderSeriesInvalidInput());
 }

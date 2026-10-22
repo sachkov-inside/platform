@@ -2010,17 +2010,15 @@ test("trusted author walks a product chapter through Previews that stay closed t
   const chapterName = "Глава 1. Проверка маршрута";
   const orderedMaterialIds = order.items.map(({ materialId }) => materialId);
   // Второй материал уходит в главу, первый остаётся вне глав: предпросмотр обязан начать с главы.
-  const placed = await fullStackBrowserRequest(
+  const placed = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/products/order",
     "PUT",
     {
-      chapterAssignments: JSON.stringify({ [inChapter.materialId]: chapterId }),
-      chapters: JSON.stringify([
-        { id: chapterId, name: chapterName, summary: "" },
-      ]),
+      chapterAssignments: { [inChapter.materialId]: chapterId },
+      chapters: [{ id: chapterId, name: chapterName, summary: "" }],
       expectedOrderVersion: order.orderVersion,
-      orderedMaterialIds: JSON.stringify(orderedMaterialIds),
+      orderedMaterialIds,
       seriesId: productId,
     },
   );
@@ -2151,15 +2149,15 @@ test("trusted author walks a product chapter through Previews that stay closed t
   } finally {
     // Руководство общее для прогона: глава снимается, чтобы остальные сценарии видели прежний состав.
     const current = await readProductOrder(page, productId);
-    const restored = await fullStackBrowserRequest(
+    const restored = await fullStackBrowserJsonRequest(
       page,
       "/api/authoring/products/order",
       "PUT",
       {
-        chapterAssignments: "{}",
-        chapters: "[]",
+        chapterAssignments: {},
+        chapters: [],
         expectedOrderVersion: current.orderVersion,
-        orderedMaterialIds: JSON.stringify(orderedMaterialIds),
+        orderedMaterialIds,
         seriesId: productId,
       },
     );
