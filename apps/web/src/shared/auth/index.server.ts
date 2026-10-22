@@ -13,8 +13,10 @@ export { safePostSignInReturnUri } from "./safe-post-sign-in-return.server";
 export { isSameOriginMutation } from "./same-origin-mutation.server";
 export {
   handleAuthenticatedMutation,
+  handleMutationOperation,
   handleOptionalAuthenticatedMutation,
   type AuthenticatedMutationFailure,
+  type MutationOperationImplementation,
   type StreamingMutationOptions,
 } from "./authenticated-mutation-handler.server";
 export {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
+  fullStackBrowserJsonRequest,
   fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
@@ -52,7 +53,7 @@ test("multiple-answer quiz survives real document admission, published Reader an
       },
     ]),
   });
-  const created = await fullStackBrowserRequest(
+  const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/materials",
     "POST",
@@ -65,8 +66,8 @@ test("multiple-answer quiz survives real document admission, published Reader an
       // The isolated full-stack seed owns this Platform topic.
       topicId: "72000000-0000-4000-8000-000000000002",
       submissionId: randomUUID(),
-      seriesIds: "[]",
-      document: JSON.stringify(body.doc),
+      seriesIds: [],
+      document: body.doc,
     },
   );
   const draft = z

@@ -144,9 +144,9 @@ export const DraftCreated: Story = {
           alerts: canvas
             .queryAllByRole("alert")
             .map((node) => node.textContent),
-          requests: materialRequests.mock.calls.map(([method, form]) => ({
+          requests: materialRequests.mock.calls.map(([method, fields]) => ({
             method,
-            title: form?.get("title"),
+            title: fields?.["title"],
           })),
           addressChanges: addressChanges.mock.calls,
         });
@@ -159,10 +159,12 @@ export const DraftCreated: Story = {
     await expect(
       canvas.getByRole("button", { name: "Предпросмотр" }),
     ).toBeEnabled();
-    await expect(materialRequests).toHaveBeenCalledWith(
-      "POST",
-      expect.any(FormData),
-    );
+    await expect(
+      materialRequests.mock.calls.some(
+        ([method, fields]) =>
+          method === "POST" && typeof fields?.["title"] === "string",
+      ),
+    ).toBe(true);
     await expect(addressChanges).toHaveBeenCalledWith(
       `/authoring/materials/${materialId}?from=%2Fauthoring%2Fmaterials`,
     );

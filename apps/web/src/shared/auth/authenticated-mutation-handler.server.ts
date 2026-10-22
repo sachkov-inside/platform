@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { z } from "zod";
+
 import { privateAuthenticatedResponse } from "./private-response.server";
 
 import {
@@ -8,6 +10,7 @@ import {
   isCatalogWrite,
 } from "@/shared/api/catalog-cache.server";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
+import type { MutationOperation } from "@/shared/api/mutation-operation";
 import {
   sessionAdapter,
   LogtoSessionUnavailableError,
@@ -126,9 +129,73 @@ export async function handleAuthenticatedMutation(
     return mutationResponse(null, 413);
   }
 
+  return executeMutation(request, () => execute(formData, accessToken));
+}
+
+export interface MutationOperationImplementation<
+  Input extends z.ZodType,
+  Result extends z.ZodType,
+> {
+  /** Calls Nest with the parsed input and maps its answer to the operation result. */
+  readonly execute: (
+    input: z.output<Input>,
+    accessToken: string,
+  ) => Promise<z.input<Result>>;
+  /** The feature outcome for a body that does not match the operation's input schema. */
+  readonly invalidInput: (error: z.ZodError) => z.input<Result>;
+}
+
+/**
+ * Serves one operation declared by `defineMutationOperation` (ADR 0038): the shared Origin,
+ * body-size and session boundary, then the operation's JSON input schema and its backend call.
+ */
+export async function handleMutationOperation<
+  Input extends z.ZodType,
+  Result extends z.ZodType,
+>(
+  request: Request,
+  operation: MutationOperation<Input, Result>,
+  implementation: MutationOperationImplementation<Input, Result>,
+): Promise<Response> {
+  if (!isSameOriginMutation(request, sessionAdapter.baseUrl())) {
+    return mutationResponse(null, 403);
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_BROWSER_MUTATION_BYTES
+  ) {
+    return mutationResponse(null, 413);
+  }
+
+  let accessToken: string;
+  try {
+    accessToken = await sessionAdapter.accessToken("route");
+  } catch (error) {
+    return mutationResponse(
+      null,
+      error instanceof LogtoSessionUnavailableError ? 401 : 503,
+    );
+  }
+
+  const body = await readJsonBody(request);
+  if (!body.ok) return mutationResponse(null, body.status);
+  const input = operation.input.safeParse(body.value);
+  if (!input.success) {
+    return mutationResponse(implementation.invalidInput(input.error), 200);
+  }
+  return executeMutation(request, () =>
+    implementation.execute(input.data, accessToken),
+  );
+}
+
+async function executeMutation(
+  request: Request,
+  execute: () => Promise<unknown>,
+): Promise<Response> {
   let result: unknown;
   try {
-    result = await execute(formData, accessToken);
+    result = await execute();
   } catch (error) {
     // Запись могла состояться до того, как потерялся ответ backend. Отложенный сброс кеша Next.js
     // выполняет только при обычном возврате обработчика, а с исключением отбрасывает, поэтому сбой
@@ -141,6 +208,33 @@ export async function handleAuthenticatedMutation(
   }
   expirePublicCatalogAfter(request);
   return mutationResponse(result, 200);
+}
+
+/** Reads a JSON body under the shared limit: 400 for another encoding or malformed JSON. */
+async function readJsonBody(
+  request: Request,
+): Promise<
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly status: 400 | 413 }
+> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.split(";")[0]?.trim().toLowerCase() !== "application/json") {
+    return { ok: false, status: 400 };
+  }
+  let text: string;
+  try {
+    text = await request.text();
+  } catch {
+    return { ok: false, status: 400 };
+  }
+  if (new TextEncoder().encode(text).byteLength > MAX_BROWSER_MUTATION_BYTES) {
+    return { ok: false, status: 413 };
+  }
+  try {
+    return { ok: true, value: JSON.parse(text) as unknown };
+  } catch {
+    return { ok: false, status: 400 };
+  }
 }
 
 /** Applies the shared browser-mutation boundary while allowing an anonymous caller. */

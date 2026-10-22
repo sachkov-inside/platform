@@ -72,6 +72,96 @@ const runtimeConfigurationNames = new Set([
   "NODE_ENV",
   "WEB_BASE_URL",
 ]);
+/**
+ * Mutations that still encode FormData by hand (#1679). The list only shrinks: a new mutation
+ * declares its operation with `defineMutationOperation` and serves it with
+ * `handleMutationOperation` (ADR 0038).
+ */
+const formMutationModulesAwaitingOperations = new Set([
+  "src/_pages/account/api/account-profile-route.server.ts",
+  "src/_pages/account/api/account-telegram-link-route.server.ts",
+  "src/_pages/communications/api/broadcasts.browser.ts",
+  "src/_pages/communications/api/communications-route.server.ts",
+  "src/_pages/communications/api/communications.browser.ts",
+  "src/_pages/communications/api/communications.server.ts",
+  "src/_pages/content-collections/api/content-collections-route.server.ts",
+  "src/_pages/content-collections/api/content-collections.browser.ts",
+  "src/_pages/library-discovery/api/product-waitlist-route.server.ts",
+  "src/_pages/task-submissions/api/save-author-feedback-route.server.ts",
+  "src/_pages/task-submissions/api/save-author-feedback.browser.ts",
+  "src/entities/subscription/api/billing-consents.browser.ts",
+  "src/entities/subscription/api/billing-consents.server.ts",
+  "src/features/account-access/api/begin-telegram-link.browser.ts",
+  "src/features/account-access/api/confirm-telegram-link.browser.ts",
+  "src/features/account-email/api/account-email.browser.ts",
+  "src/features/account-email/api/account-email.server.ts",
+  "src/features/billing-admin/api/access.browser.ts",
+  "src/features/billing-admin/api/billing-admin.browser.ts",
+  "src/features/billing-admin/api/billing-admin.server.ts",
+  "src/features/billing-admin/api/enrollments.browser.ts",
+  "src/features/billing-admin/api/enrollments.server.ts",
+  "src/features/billing-admin/api/invitations.browser.ts",
+  "src/features/billing-admin/api/payment-links.browser.ts",
+  "src/features/billing-admin/api/product-revocation.browser.ts",
+  "src/features/billing-admin/api/product-revocation.server.ts",
+  "src/features/billing-admin/api/respondents.browser.ts",
+  "src/features/billing-admin/api/tribute.browser.ts",
+  "src/features/billing-admin/api/tribute.server.ts",
+  "src/features/billing-checkout/api/billing-checkout.browser.ts",
+  "src/features/billing-checkout/api/billing-checkout.server.ts",
+  "src/features/billing-contact/api/billing-contact.browser.ts",
+  "src/features/billing-contact/api/billing-contact.server.ts",
+  "src/features/billing-subscription/api/billing-subscription.browser.ts",
+  "src/features/billing-subscription/api/billing-subscription.server.ts",
+  "src/features/bookmarks/api/bookmarks-route.server.ts",
+  "src/features/bookmarks/api/bookmarks.browser.ts",
+  "src/features/material-lifecycle/api/delete-material-draft-route.server.ts",
+  "src/features/material-lifecycle/api/delete-material-draft.browser.ts",
+  "src/features/material-lifecycle/api/transition-material-publication-route.server.ts",
+  "src/features/material-lifecycle/api/transition-material-publication.browser.ts",
+  "src/features/material-video/api/video-authoring-route.server.ts",
+  "src/features/material-video/api/video-authoring.browser.ts",
+  "src/features/material-video/api/video-playback-route.server.ts",
+  "src/features/material-video/api/video-playback.browser.ts",
+  "src/features/member-profile-editor/api/create-member-profile.browser.ts",
+  "src/features/member-profile-editor/api/update-member-profile.browser.ts",
+  "src/features/notification-preferences/api/notification-preferences.browser.ts",
+  "src/features/notification-preferences/api/notification-preferences.server.ts",
+  "src/features/product-artifacts/api/product-artifacts-bff.server.ts",
+  "src/features/product-artifacts/api/product-artifacts.browser.ts",
+  "src/features/product-community-settings/api/configuration.browser.ts",
+  "src/features/product-community-settings/api/configuration.server.ts",
+  "src/features/product-modes/api/product-mode-route.server.ts",
+  "src/features/product-modes/api/product-mode.browser.ts",
+  "src/features/product-task-submission/api/submit-product-task-route.server.ts",
+  "src/features/product-task-submission/api/submit-product-task.browser.ts",
+  "src/features/product-waitlist/api/product-waitlist.browser.ts",
+  "src/features/reading-progress/api/material-open-route.server.ts",
+  "src/features/reading-progress/api/material-open.browser.ts",
+  "src/features/reading-progress/api/personal-home-route.server.ts",
+  "src/features/reading-progress/api/personal-home.browser.ts",
+  "src/features/reading-progress/api/reading-route.server.ts",
+  "src/features/reading-progress/api/reading.browser.ts",
+  "src/features/reading-progress/api/series-continuation.browser.ts",
+  "src/features/reading-progress/api/series-continuation.server.ts",
+  "src/features/series-order/api/chapter-attachments.browser.ts",
+  "src/features/series-order/api/chapter-attachments.server.ts",
+  "src/features/series-order/api/home-pin-route.server.ts",
+  "src/features/series-order/api/home-pin.browser.ts",
+  "src/features/series-order/api/series-order-route.server.ts",
+  "src/features/series-order/api/series-order.browser.ts",
+  "src/features/terms-acceptance/api/accept-terms-route.server.ts",
+  "src/features/terms-acceptance/api/accept-terms.browser.ts",
+]);
+/**
+ * Browser writes that cannot travel as one JSON operation body: binary uploads with their paired
+ * removal and delivery reports sent by `sendBeacon` (ADR 0038).
+ */
+const directBrowserWriteModules = new Set([
+  "src/_pages/account/api/profile-avatar-mutation.browser.ts",
+  "src/features/client-telemetry/api/client-telemetry.browser.ts",
+  "src/features/content-covers/api/change-content-cover.browser.ts",
+]);
 /** Generated by `next typegen`; type-aware lint runs before it on a clean checkout. */
 const generatedRouteTypes = new Set(["PageProps", "LayoutProps"]);
 /** Site animation is a CSS component beside its page (owner decision of 2026-09-11). */
@@ -942,6 +1032,180 @@ function callsSameOriginMutationDynamically(program) {
 }
 
 /**
+ * Local names bound to `names` by import declarations whose source passes `fromSource`.
+ *
+ * @param {Program} program
+ * @param {(source: string) => boolean} fromSource
+ * @param {ReadonlySet<string>} names
+ */
+function importedBindings(program, fromSource, names) {
+  /** @type {Set<string>} */
+  const bindings = new Set();
+  for (const statement of program.body) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      typeof statement.source.value !== "string" ||
+      !fromSource(statement.source.value)
+    ) {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === "ImportSpecifier" &&
+        names.has(exportedName(specifier.imported))
+      ) {
+        bindings.add(specifier.local.name);
+      }
+    }
+  }
+  return bindings;
+}
+
+/**
+ * Operations declared through `defineMutationOperation`, with their literal route and method.
+ * A declaration whose path or method is not a literal returns `undefined` for that part.
+ *
+ * @param {Program} program
+ */
+function declaredMutationOperations(program) {
+  const bindings = importedBindings(
+    program,
+    (source) => source === "@/shared/api/mutation-operation",
+    new Set(["defineMutationOperation"]),
+  );
+  /** @type {{ path: string | undefined, method: string | undefined }[]} */
+  const operations = [];
+  new Visitor({
+    CallExpression(node) {
+      if (node.callee.type !== "Identifier" || !bindings.has(node.callee.name))
+        return;
+      const definition = node.arguments[0];
+      /** @param {string} name */
+      const literalProperty = (name) => {
+        if (definition?.type !== "ObjectExpression") return undefined;
+        const property = definition.properties.find(
+          (entry) =>
+            entry.type === "Property" &&
+            !entry.computed &&
+            entry.key.type === "Identifier" &&
+            entry.key.name === name,
+        );
+        return property?.type === "Property"
+          ? literalString(property.value)
+          : undefined;
+      };
+      operations.push({
+        method: literalProperty("method"),
+        path: literalProperty("path"),
+      });
+    },
+  }).visit(program);
+  return operations;
+}
+
+/**
+ * Whether a Route Handler module exports `method`, declared there or re-exported.
+ *
+ * @param {Program} program
+ * @param {string} method
+ */
+function exportsRouteMethod(program, method) {
+  return program.body.some((statement) => {
+    if (statement.type !== "ExportNamedDeclaration") return false;
+    const declaration = statement.declaration;
+    if (declaration?.type === "FunctionDeclaration") {
+      return declaration.id?.name === method;
+    }
+    if (declaration?.type === "VariableDeclaration") {
+      return declaration.declarations.some(
+        (entry) => entry.id.type === "Identifier" && entry.id.name === method,
+      );
+    }
+    return statement.specifiers.some(
+      (specifier) => exportedName(specifier.exported) === method,
+    );
+  });
+}
+
+/**
+ * Calls of the form-encoded mutation helpers that ADR 0038 replaces with an operation. A streaming
+ * upload passes its options as the third argument and stays outside this rule.
+ *
+ * @param {Program} program
+ */
+function usesFormMutationHelper(program) {
+  const browserBindings = importedBindings(
+    program,
+    (source) => source === "@/shared/api/same-origin-mutation",
+    new Set(["requestSameOriginMutation"]),
+  );
+  const namespaceImport = program.body.some(
+    (statement) =>
+      statement.type === "ImportDeclaration" &&
+      statement.source.value === "@/shared/api/same-origin-mutation" &&
+      statement.specifiers.some(
+        (specifier) => specifier.type === "ImportNamespaceSpecifier",
+      ),
+  );
+  const serverBindings = importedBindings(
+    program,
+    (source) => source.startsWith("@/shared/auth"),
+    new Set(["handleAuthenticatedMutation"]),
+  );
+  const optionalBindings = importedBindings(
+    program,
+    (source) => source.startsWith("@/shared/auth"),
+    new Set(["handleOptionalAuthenticatedMutation"]),
+  );
+  let found = namespaceImport;
+  new Visitor({
+    CallExpression(node) {
+      if (node.callee.type !== "Identifier") return;
+      const name = node.callee.name;
+      if (
+        browserBindings.has(name) ||
+        optionalBindings.has(name) ||
+        (serverBindings.has(name) && node.arguments.length < 3)
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
+/**
+ * A `fetch` whose init names a method other than GET or HEAD: a browser write outside the
+ * operation adapter.
+ *
+ * @param {Program} program
+ */
+function fetchesWithWriteMethod(program) {
+  let found = false;
+  new Visitor({
+    CallExpression(node) {
+      if (node.callee.type !== "Identifier" || node.callee.name !== "fetch")
+        return;
+      const init = node.arguments[1];
+      if (init?.type !== "ObjectExpression") return;
+      for (const property of init.properties) {
+        if (
+          property.type !== "Property" ||
+          property.computed ||
+          property.key.type !== "Identifier" ||
+          property.key.name !== "method"
+        ) {
+          continue;
+        }
+        const method = literalString(property.value)?.toUpperCase();
+        if (method !== "GET" && method !== "HEAD") found = true;
+      }
+    },
+  }).visit(program);
+  return found;
+}
+
+/**
  * @param {import("oxc-parser").Expression} argument
  * @param {Map<string, string>} absoluteStringBindings
  */
@@ -1225,6 +1489,55 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       `${sourcePath}: browser code cannot call a Nest operation by absolute URL; use a same-origin BFF route`,
     );
   }
+  const operations = declaredMutationOperations(program);
+  if (operations.length > 0 && !/\.operation\.ts$/u.test(sourcePath)) {
+    findingsForFile.push(
+      `${sourcePath}: declare a mutation operation in its own *.operation.ts module`,
+    );
+  }
+  for (const operation of operations) {
+    if (
+      operation.path === undefined ||
+      operation.method === undefined ||
+      !operation.path.startsWith("/api/")
+    ) {
+      findingsForFile.push(
+        `${sourcePath}: a mutation operation declares a literal /api/ path and HTTP method`,
+      );
+      continue;
+    }
+    const routeSuffix = `app${operation.path}/route.ts`;
+    const route = [...parsedFiles].find(([candidate]) =>
+      scannedPath(candidate).endsWith(routeSuffix),
+    );
+    if (
+      route === undefined ||
+      !exportsRouteMethod(route[1], operation.method)
+    ) {
+      findingsForFile.push(
+        `${sourcePath}: mutation operation ${operation.method} ${operation.path} needs ${routeSuffix} exporting ${operation.method}`,
+      );
+    }
+  }
+  if (
+    usesFormMutationHelper(program) &&
+    !formMutationModulesAwaitingOperations.has(sourcePath)
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation; FormData helpers remain only for mutations awaiting #1679`,
+    );
+  }
+  if (
+    (isBrowserCode || /\.browser\.tsx?$/u.test(sourcePath)) &&
+    sourcePath !== "src/shared/api/mutation-operation.ts" &&
+    sourcePath !== "src/shared/api/same-origin-mutation.ts" &&
+    !directBrowserWriteModules.has(sourcePath) &&
+    fetchesWithWriteMethod(program)
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: a browser write goes through its mutation operation's send; direct fetch writes are limited to binary uploads and delivery reports`,
+    );
+  }
   if (callsSameOriginMutationDynamically(program)) {
     findingsForFile.push(
       `${sourcePath}: each browser mutation must declare a literal same-origin route and HTTP method`,
@@ -1345,6 +1658,18 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   }
   return findingsForFile;
 });
+
+// Список ожидающих перевода только сокращается: переведённый или удалённый модуль уходит из него.
+if (requestedRoots.length === 0) {
+  for (const awaiting of formMutationModulesAwaitingOperations) {
+    const program = parsedFiles.get(path.resolve(webRoot, awaiting));
+    if (program === undefined || !usesFormMutationHelper(program)) {
+      findings.push(
+        `${awaiting}: no longer encodes a FormData mutation; remove it from formMutationModulesAwaitingOperations`,
+      );
+    }
+  }
+}
 
 for (const entry of [...parsedFiles.keys()].filter((file) =>
   editorFreeRouteEntries.some((suffix) => scannedPath(file).endsWith(suffix)),

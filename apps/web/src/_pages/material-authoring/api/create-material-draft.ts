@@ -1,14 +1,7 @@
 import "server-only";
 
-import {
-  MATERIAL_OUTCOMES,
-  materialDifficultySchema,
-  type MaterialDifficulty,
-} from "@/shared/api/material-lesson-facts";
-import {
-  materialFormatSchema,
-  type MaterialFormat,
-} from "@/shared/api/material-format";
+import type { MaterialDifficulty } from "@/shared/api/material-lesson-facts";
+import type { MaterialFormat } from "@/shared/api/material-format";
 
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
@@ -21,25 +14,14 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import type {
+  createMaterialDraftInputSchema,
   CreateMaterialDraftResult,
   CreatedMaterialDraft,
 } from "../model/create-material-draft";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
-const formSchema = z.object({
-  access: z.enum(["free", "closed"]),
-  difficulty: materialDifficultySchema.or(z.literal("unassigned")),
-  outcomes: z
-    .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
-    .max(MATERIAL_OUTCOMES.maxCount),
-  document: z.string().min(1).max(1_048_576),
-  formatId: materialFormatSchema.or(z.literal("unassigned")),
-  submissionId: z.uuid(),
-  seriesIds: z.string().max(100_000),
-  summary: z.string().trim().max(500),
-  tagIds: z.array(z.uuid()).max(100),
-  title: z.string().trim().min(1).max(160),
-  topicId: z.union([z.uuid(), z.literal("unassigned")]),
-});
+type ParsedCreateMaterialDraftInput = z.output<
+  typeof createMaterialDraftInputSchema
+>;
 
 const receiptSchema = z
   .object({
@@ -83,12 +65,25 @@ const productionDependencies: MaterialDraftWorkflowDependencies = {
   create: requestMaterialDraftCreation,
 };
 
+/** Maps a body that does not match the create schema to the editor's validation messages. */
+export function createMaterialDraftInvalidInput(
+  error: z.ZodError,
+): CreateMaterialDraftResult {
+  return {
+    issues: error.issues.map((issue) => ({
+      message: formIssueMessage(String(issue.path[0] ?? "form")),
+      path: `/${issue.path.map(String).join("/")}`,
+    })),
+    kind: "invalid_input",
+  };
+}
+
 export async function executeCreateMaterialDraft(
-  formData: FormData,
+  input: ParsedCreateMaterialDraftInput,
   accessToken: string,
   dependencies: MaterialDraftWorkflowDependencies = productionDependencies,
 ): Promise<CreateMaterialDraftResult> {
-  const parsed = parseForm(formData);
+  const parsed = backendDraftInput(input);
   if (!parsed.ok) {
     return { issues: parsed.issues, kind: "invalid_input" };
   }
@@ -114,53 +109,28 @@ export async function executeCreateMaterialDraft(
   return { draft, kind: "created" };
 }
 
-function parseForm(formData: FormData):
+function backendDraftInput(input: ParsedCreateMaterialDraftInput):
   | { readonly ok: true; readonly value: ParsedDraftForm }
   | {
       readonly ok: false;
       readonly issues: readonly MaterialValidationIssue[];
     } {
-  const parsed = formSchema.safeParse({
-    access: formData.get("access"),
-    difficulty: formData.get("difficulty"),
-    outcomes: formData.getAll("outcome"),
-    document: formData.get("document"),
-    formatId: formData.get("formatId"),
-    submissionId: formData.get("submissionId"),
-    seriesIds: formData.get("seriesIds"),
-    summary: formData.get("summary"),
-    tagIds: formData.getAll("tagIds"),
-    title: formData.get("title"),
-    topicId: formData.get("topicId"),
-  });
-  if (!parsed.success) {
-    return {
-      ok: false,
-      issues: parsed.error.issues.map((issue) => ({
-        message: formIssueMessage(String(issue.path[0] ?? "form")),
-        path: `/${issue.path.map(String).join("/")}`,
-      })),
-    };
-  }
-  const documentFields = parseMaterialDocumentFields(parsed.data);
+  const documentFields = parseMaterialDocumentFields(input);
   if (!documentFields.ok) return documentFields;
   return {
     ok: true,
     value: {
-      access: parsed.data.access,
-      difficulty:
-        parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
-      outcomes: parsed.data.outcomes.filter(Boolean),
+      access: input.access,
+      difficulty: input.difficulty === "unassigned" ? null : input.difficulty,
+      outcomes: input.outcomes.filter(Boolean),
       document: documentFields.document,
-      formatId:
-        parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
-      idempotencyKey: `web-create-${parsed.data.submissionId}`,
+      formatId: input.formatId === "unassigned" ? null : input.formatId,
+      idempotencyKey: `web-create-${input.submissionId}`,
       seriesIds: documentFields.seriesIds,
-      summary: parsed.data.summary,
-      tagIds: parsed.data.tagIds,
-      title: parsed.data.title,
-      topicId:
-        parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
+      summary: input.summary,
+      tagIds: input.tagIds,
+      title: input.title,
+      topicId: input.topicId === "unassigned" ? null : input.topicId,
     },
   };
 }

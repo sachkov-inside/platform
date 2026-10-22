@@ -21,30 +21,15 @@ type ParsedMaterialDocumentFields =
 
 const seriesIdsSchema = z.array(z.uuid()).max(100);
 
-/** Parses the two JSON-encoded editor fields shared by draft creation and saving. */
+/** Checks the structure of the two editor fields shared by draft creation and saving. */
 export function parseMaterialDocumentFields(input: {
-  readonly document: string;
-  readonly seriesIds: string;
+  readonly document: unknown;
+  readonly seriesIds: unknown;
 }): ParsedMaterialDocumentFields {
-  let document: unknown;
-  let seriesIds: unknown;
-  try {
-    document = JSON.parse(input.document) as unknown;
-    seriesIds = JSON.parse(input.seriesIds) as unknown;
-  } catch {
-    return {
-      issues: [
-        {
-          message: "Данные редактора повреждены. Обновите страницу.",
-          path: "/document",
-        },
-      ],
-      ok: false,
-    };
-  }
-
-  const parsedDocument = materialDocumentContentSchema.safeParse(document);
-  const parsedSeriesIds = seriesIdsSchema.safeParse(seriesIds);
+  const parsedDocument = materialDocumentContentSchema.safeParse(
+    input.document,
+  );
+  const parsedSeriesIds = seriesIdsSchema.safeParse(input.seriesIds);
   if (!parsedDocument.success || !parsedSeriesIds.success) {
     return {
       issues: [

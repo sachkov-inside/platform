@@ -54,6 +54,22 @@ const fixtures = [
     ],
   },
   {
+    root: "test/guardrails/fixtures/architecture/mutation-operation",
+    diagnostics: [
+      "rename-note.operation.ts: mutation operation PUT /api/notes needs app/api/notes/route.ts exporting PUT",
+      "computed-note.operation.ts: a mutation operation declares a literal /api/ path and HTTP method",
+      "inline-note.browser.ts: declare a mutation operation in its own *.operation.ts module",
+      "form-note.browser.ts: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation",
+      "notes-route.server.ts: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation",
+      "direct-note.browser.ts: a browser write goes through its mutation operation's send",
+    ],
+    accepted: [
+      "create-note.operation.ts",
+      "note-upload-route.server.ts",
+      "app/api/notes/route.ts",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/editor-bundle",
     diagnostics: [
       "app/authoring/materials/page.tsx: reading and lightweight authoring routes cannot reach the Tiptap editor bundle",

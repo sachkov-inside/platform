@@ -620,8 +620,8 @@ try {
       topicId: metadata.topic_id,
       title: `Tribute625 new included material ${String(user)}`,
       summary: "Synthetic new material in the already included Product",
-      seriesIds: JSON.stringify([includedProduct]),
-      document: JSON.stringify({
+      seriesIds: [includedProduct],
+      document: {
         type: "doc",
         content: [
           {
@@ -634,13 +634,13 @@ try {
             ],
           },
         ],
-      }),
+      },
     };
     const createdResponse = await owner.request.post(
       `${web}/api/authoring/materials`,
       {
         headers: { origin: web },
-        multipart: { ...materialFields, submissionId: randomUUID() },
+        data: { ...materialFields, submissionId: randomUUID() },
       },
     );
     expect(createdResponse.status()).toBe(200);
@@ -651,11 +651,11 @@ try {
       `${web}/api/authoring/materials`,
       {
         headers: { origin: web },
-        multipart: {
+        data: {
           ...materialFields,
           submissionId: randomUUID(),
           materialId: createdDraft.materialId,
-          expectedContentVersion: String(createdDraft.contentVersion),
+          expectedContentVersion: createdDraft.contentVersion,
           publicationState: "published",
         },
       },
@@ -722,13 +722,13 @@ try {
     const newFields = {
       ...materialFields,
       title: `New excluded Product material ${String(user)}`,
-      seriesIds: JSON.stringify([newProduct.id]),
+      seriesIds: [newProduct.id],
     };
     const newDraftResponse = await owner.request.post(
       `${web}/api/authoring/materials`,
       {
         headers: { origin: web },
-        multipart: { ...newFields, submissionId: randomUUID() },
+        data: { ...newFields, submissionId: randomUUID() },
       },
     );
     expect(newDraftResponse.status()).toBe(200);
@@ -739,11 +739,11 @@ try {
       `${web}/api/authoring/materials`,
       {
         headers: { origin: web },
-        multipart: {
+        data: {
           ...newFields,
           submissionId: randomUUID(),
           materialId: newDraft.materialId,
-          expectedContentVersion: String(newDraft.contentVersion),
+          expectedContentVersion: newDraft.contentVersion,
           publicationState: "published",
         },
       },

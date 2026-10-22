@@ -4,6 +4,10 @@ status: accepted
 
 # Keep interactive Web mutations browser-owned
 
+[ADR 0038](0038-one-definition-per-browser-mutation.md) amends this decision (owner decision
+2026-10-22): one operation definition now owns each mutation's route, method, JSON input and result,
+and replaces the form parsing each feature owned below.
+
 Account, Material authoring, publication, deletion and Series ordering use one
 browser-owned mutation path: a Client Component calls `useMutation`, its browser adapter sends a
 same-origin request, a capability Route Handler authenticates and validates the request boundary,
