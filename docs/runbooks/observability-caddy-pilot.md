@@ -105,6 +105,13 @@ original-timestamp maps must agree. A bounded typed tool-error frame remains a q
 malformed protocol metadata cannot substitute for the gateway-outage fact. The existing 1 MiB
 framing and 15-second RPC limits remain unchanged.
 
+The pinned MCP v1.20.2 producer supplies optional initialize `instructions` metadata. The Caddy
+reader accepts only a string at that field, within the existing 1024 UTF-8 byte metadata limit
+and privacy checks. It does not execute, display or publish the contents. Unknown fields,
+duplicate keys and invalid protocol, capability or server metadata remain refusals. The owned
+protocol fixture verifies this public producer contract; it does not establish the cause of the
+historical native initialize failure, whose actual response was not retained.
+
 The pinned MCP vendor uses `io.ReadAll` upstream, which is **not an allocation cap**. This scope
 accepts that limit only for the fresh owned digest-pinned VM, fixed instant selectors/time and
 controlled finite corpus, without foreign ingestion. It must not be extended to arbitrary queries,
