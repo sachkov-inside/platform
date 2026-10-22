@@ -2,7 +2,8 @@
 from decimal import Decimal
 import json
 import re
-from pg_oracle_reasons import ORACLE_BASE_REASONS,ORACLE_JOIN_REASONS,ORACLE_REASONS
+import sys
+from pg_oracle_reasons import ORACLE_BASE_REASONS,ORACLE_JOIN_REASONS,ORACLE_REASONS,ORACLE_STALE_PROJECTIONS
 
 _MAX=9007199254740991
 _FIXED={'service.name':'inside-postgresql-source','deployment.environment.name':'isolated-pilot',
@@ -35,7 +36,7 @@ def _report_snapshot(value):
     if {key for key,_ in pairs}!=set(_FIELDS):return None
     row=tuple(dict.__getitem__(value,key) for key in _FIELDS)
     if (type(row[0]) is not str or row[0] not in ('malformed','stale','unavailable')
-            or type(row[1]) is not str or row[1] not in ORACLE_REASONS or type(row[2]) is not int or not 0<=row[2]<=7
+            or type(row[1]) is not str or row[1] not in (*ORACLE_BASE_REASONS,*ORACLE_JOIN_REASONS) or type(row[2]) is not int or not 0<=row[2]<=7
             or not (row[3] is None or type(row[3]) in (int,float) and 0<=row[3]<=600)
             or type(row[4]) is not str or row[4] not in ('unknown','ownership_changed')
             or type(row[5]) is not bool or row[5]):return None
@@ -43,12 +44,13 @@ def _report_snapshot(value):
 
 
 class _DiagnosticReport(dict):
-    __slots__=('_snapshot',)
+    __slots__=('_snapshot','_stale')
     def __init__(self,value):
         snapshot=_report_snapshot(value)
         if snapshot is None:raise ValueError('malformed')
         super().__init__(value)
         object.__setattr__(self,'_snapshot',snapshot)
+        object.__setattr__(self,'_stale',None)
     def __setattr__(self,name,value):raise AttributeError('read-only oracle reason')
 
 
@@ -60,7 +62,56 @@ def diagnostic_reason(value):
     current=_report_snapshot(value)
     if (current is None or type(snapshot) is not tuple or len(snapshot)!=6
             or any(type(a) is not type(b) for a,b in zip(current,snapshot)) or current!=snapshot):return None
+    if current[0]=='stale' and current[1]=='oracle_stale':return _stale_reason(value,current[1])
     return current[1]
+
+
+
+def _stale_projection(witness):
+    if type(witness) is not tuple or len(witness)!=2 or any(type(item) is not str for item in witness):return None
+    for admitted,reason in ORACLE_STALE_PROJECTIONS:
+        if witness==admitted:return reason
+    return None
+
+
+def _sample_operand(expected):
+    # Bound enumeration before touching keys; only builtin keys are hashed/compared.
+    if type(expected) is not dict or dict.__len__(expected)!=6:return None
+    pairs=tuple(dict.items(expected))
+    if any(type(key) is not str for key,_ in pairs):return None
+    if {key for key,_ in pairs}!={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}:return None
+    value=next(value for key,value in pairs if key=='sample_us')
+    return value if type(value) is int and 0<value<=_MAX else None
+
+
+def _stale_observation(branch,sample,expected):
+    if branch=='availability':return 'availability','unknown'
+    if branch!='healthy' or type(sample) is not Decimal or not sample.is_finite():return None
+    operand=_sample_operand(expected)
+    return 'healthy','unknown' if operand is None else 'match' if sample==operand else 'different'
+
+
+def _observe_stale(report,branch,sample=None,expected=None):
+    # Only after the original stale report exists. Optional no-I/O work cannot replace it.
+    primary,traceback=sys.exc_info()[1:]
+    try:
+        witness=_stale_observation(branch,sample,expected)
+        if _stale_projection(witness) is not None:object.__setattr__(report,'_stale',witness)
+    except BaseException:object.__setattr__(report,'_stale',None)
+    finally:
+        if primary is not None:BaseException.__traceback__.__set__(primary,traceback)
+
+
+def _stale_reason(report,coarse):
+    # Original exact owner/snapshot admission has already succeeded in diagnostic_reason.
+    primary,traceback=sys.exc_info()[1:]
+    try:
+        reason=_stale_projection(object.__getattribute__(report,'_stale'))
+        if type(reason) is str and reason in ORACLE_REASONS[len(ORACLE_BASE_REASONS)+len(ORACLE_JOIN_REASONS):]:return reason
+    except BaseException:pass
+    finally:
+        if primary is not None:BaseException.__traceback__.__set__(primary,traceback)
+    return coarse
 
 
 def _diagnosed(report,enabled,reason):
@@ -185,7 +236,10 @@ def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owne
         if not owner_current:return _diagnosed(_report('unavailable','ownership',len(values),continuity='ownership_changed'),diagnose,'oracle_unavailable')
         if available==0:
             failure_age=Decimal(completed_us)/1_000_000-stamps['inside.postgresql.server.available']
-            if failure_age>10:return _diagnosed(_report('stale','stale',len(values),min(float(failure_age),600)),diagnose,'oracle_stale')
+            if failure_age>10:
+                report=_diagnosed(_report('stale','stale',len(values),min(float(failure_age),600)),diagnose,'oracle_stale')
+                if diagnose:_observe_stale(report,'availability')
+                return report
             return _diagnosed(_report('unavailable','connection',len(values)),diagnose,'oracle_unavailable')
         if set(values)!=_NAMES or set(stamps)!=_NAMES:return _report('missing','storage',len(values))
         sample=values['inside.postgresql.server.sample_time_microseconds']
@@ -196,7 +250,10 @@ def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owne
             if not 0<values['inside.postgresql.server.'+suffix]<=sample:_reject('oracle_complete_identity')
         age=Decimal(completed_us)/1_000_000-sample/1_000_000
         if age<0:_reject('oracle_age')
-        if age>10:return _diagnosed(_report('stale','stale',7,min(float(age),600)),diagnose,'oracle_stale')
+        if age>10:
+            report=_diagnosed(_report('stale','stale',7,min(float(age),600)),diagnose,'oracle_stale')
+            if diagnose:_observe_stale(report,'healthy',sample,expected)
+            return report
         if type(expected) is not dict or set(expected)!={'sample_us','postmaster_us','stats_reset_us','connected_backends','waiting_locks','deadlocks'}:_reject('oracle_expected')
         wanted={'inside.postgresql.server.backends':expected['connected_backends'],
                 'inside.postgresql.server.waiting_locks':expected['waiting_locks'],

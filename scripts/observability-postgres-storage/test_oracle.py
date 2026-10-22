@@ -34,6 +34,46 @@ class WholeVectors(unittest.TestCase):
         self.assertEqual(oracle.diagnostic_reason(observed),'oracle_values_labels')
         self.assertIsNone(oracle.diagnostic_reason(dict(observed)))
 
+        # Diagnostic feature only: the original stale verdict and primary reason stay exact.
+        rows,stamps=vectors()
+        ordinary=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+            completed_us=NOW+10_000_001,expected=EXPECTED)
+        observed=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+            completed_us=NOW+10_000_001,expected=EXPECTED,diagnose=True)
+        self.assertEqual((ordinary['freshness'],ordinary['reason']),('stale','stale'))
+        self.assertEqual(observed['reason'],'oracle_stale')
+        self.assertEqual(len(ordinary),6);self.assertEqual(len(observed),6)
+        self.assertEqual(set(observed),{'freshness','reason','points','age_seconds','continuity','count_complete'})
+        self.assertEqual({**observed,'reason':'stale'},ordinary)
+        self.assertEqual(oracle.diagnostic_reason(observed),'oracle_stale_healthy_sample_match')
+
+        for available,expected,projection in (
+                (1,EXPECTED,'oracle_stale_healthy_sample_match'),
+                (1,{**EXPECTED,'sample_us':NOW+1},'oracle_stale_healthy_sample_different'),
+                (1,{},'oracle_stale_healthy_sample_unknown'),
+                (0,EXPECTED,'oracle_stale_availability')):
+            rows,stamps=vectors();rows[-1]['value'][1]=str(available)
+            options=dict(evaluated_at=1790000000,completed_us=NOW+10_000_001,expected=expected)
+            ordinary=oracle.evaluate(raw(rows),raw(stamps),**options)
+            diagnosed=oracle.evaluate(raw(rows),raw(stamps),**options,diagnose=True)
+            self.assertEqual((ordinary['freshness'],ordinary['reason']),('stale','stale'))
+            self.assertEqual(diagnosed['reason'],'oracle_stale');self.assertEqual(len(diagnosed),6)
+            self.assertEqual({**diagnosed,'reason':'stale'},ordinary)
+            self.assertEqual(oracle.diagnostic_reason(diagnosed),projection)
+        for available,freshness in ((1,'fresh'),(0,'unavailable')):
+            rows,stamps=vectors();rows[-1]['value'][1]=str(available)
+            diagnosed=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+                completed_us=NOW+10_000_000,expected=EXPECTED,diagnose=True)
+            self.assertEqual(diagnosed['freshness'],freshness)
+            self.assertEqual(oracle.diagnostic_reason(diagnosed),None if available else 'oracle_unavailable')
+        for poison,reason in (('last_row','oracle_values_labels'),('cohort','oracle_cohort')):
+            rows,stamps=vectors()
+            if poison=='last_row':rows[-1]['metric']['private']='not-exported'
+            else:stamps[0]['value'][1]='1789999999.999'
+            diagnosed=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+                completed_us=NOW+10_000_001,expected=EXPECTED,diagnose=True)
+            self.assertEqual(diagnosed['freshness'],'malformed');self.assertEqual(oracle.diagnostic_reason(diagnosed),reason)
+
     def test_fixed_rejections_follow_the_first_actual_predicate_without_hiding_poison(self):
         cases=[]
         for channel in ('values','timestamps'):
@@ -104,7 +144,9 @@ class WholeVectors(unittest.TestCase):
                 ordinary=oracle.evaluate(values,times,**kwargs)
                 observed=oracle.evaluate(values,times,**kwargs,diagnose=True)
                 self.assertEqual(observed['freshness'],freshness)
-                self.assertEqual(oracle.diagnostic_reason(observed),reason)
+                if reason=='oracle_stale':self.assertEqual(observed['reason'],'oracle_stale')
+                self.assertEqual(oracle.diagnostic_reason(observed),
+                    'oracle_stale_healthy_sample_match' if reason=='oracle_stale' else reason)
                 self.assertEqual({**observed,'reason':ordinary['reason']},ordinary)
                 self.assertNotIn('not-exported',json.dumps(observed))
                 self.assertEqual(oracle.evaluate(values,times,**kwargs,diagnose=False),ordinary)
@@ -184,6 +226,79 @@ class WholeVectors(unittest.TestCase):
         name=next(iter(oracle._NAMES));labels={name:oracle._FIXED.copy()}
         for stamp in (Hostile(),ForeignString('0')):
             self.assertEqual(oracle._refine_join_reason(labels,labels,{name:stamp},NOW),'oracle_join')
+
+        # Only a bounded finite operand may be compared on an already-stale path.
+        class ForeignInt(int):pass
+        unsafe=(Hostile(),ForeignDict(EXPECTED),{},None,{**EXPECTED,'private':Hostile()},
+                {**{key:value for key,value in EXPECTED.items() if key!='sample_us'},ForeignString('sample_us'):NOW})
+        for expected in (*unsafe,*({**EXPECTED,'sample_us':value} for value in (Hostile(),True,ForeignInt(NOW),0,-1,oracle._MAX+1))):
+            diagnosed=oracle.evaluate(raw(vectors()[0]),raw(vectors()[1]),evaluated_at=1790000000,
+                completed_us=NOW+10_000_001,expected=expected,diagnose=True)
+            self.assertEqual(diagnosed['reason'],'oracle_stale')
+            self.assertEqual(oracle.diagnostic_reason(diagnosed),'oracle_stale_healthy_sample_unknown')
+        other_values={key:NOW if key=='sample_us' else Hostile() for key in EXPECTED}
+        diagnosed=oracle.evaluate(raw(vectors()[0]),raw(vectors()[1]),evaluated_at=1790000000,
+            completed_us=NOW+10_000_001,expected=other_values,diagnose=True)
+        self.assertEqual(oracle.diagnostic_reason(diagnosed),'oracle_stale_healthy_sample_match')
+        rows,stamps=vectors();rows[-1]['value'][1]='0'
+        with patch.object(oracle,'_sample_operand',side_effect=AssertionError('availability inspected expected')) as operand:
+            diagnosed=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+                completed_us=NOW+10_000_001,expected=Hostile(),diagnose=True)
+            self.assertEqual(oracle.diagnostic_reason(diagnosed),'oracle_stale_availability');operand.assert_not_called()
+        with patch.object(oracle,'_observe_stale',side_effect=AssertionError('off-path observer called')) as observer:
+            for available in (0,1):
+                rows,stamps=vectors();rows[-1]['value'][1]=str(available)
+                ordinary=oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+                    completed_us=NOW+10_000_001,expected=Hostile())
+                self.assertIs(type(ordinary),dict);self.assertEqual(ordinary['reason'],'stale')
+            self.check(*vectors(),diagnose=True)
+            rows,stamps=vectors();self.check(rows[:-1],stamps[:-1],diagnose=True)
+            rows[-1]['metric']['private']='not-exported';self.check(rows,stamps,diagnose=True)
+            observer.assert_not_called()
+        rows,stamps=vectors()
+        def stale():
+            return oracle.evaluate(raw(rows),raw(stamps),evaluated_at=1790000000,
+                completed_us=NOW+10_000_001,expected=EXPECTED,diagnose=True)
+        valid=stale();self.assertEqual(oracle.diagnostic_reason(valid),'oracle_stale_healthy_sample_match')
+        with self.assertRaises(AttributeError):valid._stale=('availability','unknown')
+        with self.assertRaises(AttributeError):valid._snapshot=()
+        missing=stale();object.__delattr__(missing,'_stale')
+        self.assertEqual(oracle.diagnostic_reason(missing),'oracle_stale')
+        for witness in (None,[],(),('healthy',),('healthy','match','private'),(Hostile(),'match'),
+                        ('healthy',ForeignString('match')),('private','match'),('healthy','private'),Hostile()):
+            mutated=stale();object.__setattr__(mutated,'_stale',witness)
+            self.assertEqual(oracle.diagnostic_reason(mutated),'oracle_stale')
+            self.assertEqual(mutated['reason'],'oracle_stale')
+        self.assertIsNone(oracle.diagnostic_reason(dict(valid)))
+        self.assertIsNone(oracle.diagnostic_reason(Foreign(dict(valid))))
+        for field,value in (('reason','oracle_stale_healthy_sample_match'),('points',0),('freshness','unavailable')):
+            mutated=stale();mutated[field]=value;self.assertIsNone(oracle.diagnostic_reason(mutated))
+        for refined in ('oracle_stale_availability','oracle_stale_healthy_sample_match',
+                        'oracle_stale_healthy_sample_different','oracle_stale_healthy_sample_unknown'):
+            with self.assertRaises(ValueError):oracle._DiagnosticReport({**valid,'reason':refined})
+        # Fault injection stays within optional observer/accessor leaves, after the primary report/admission.
+        for leaf in ('_stale_observation','_stale_projection'):
+            for mode in ('same','different','interrupt','exit'):
+                primary=RuntimeError('private-primary')
+                secondary=primary if mode=='same' else KeyboardInterrupt() if mode=='interrupt' else SystemExit() if mode=='exit' else ValueError('private-secondary')
+                value=stale()
+                try:
+                    try:raise primary
+                    except RuntimeError:
+                        traceback=primary.__traceback__
+                        with patch.object(oracle,leaf,side_effect=secondary):
+                            observer_value=stale();self.assertEqual(observer_value['reason'],'oracle_stale')
+                            if leaf=='_stale_observation':value=observer_value
+                            self.assertEqual(oracle.diagnostic_reason(value),'oracle_stale')
+                        self.assertIs(primary.__traceback__,traceback)
+                        raise
+                except RuntimeError as caught:
+                    self.assertIs(caught,primary);self.assertIs(caught.__traceback__,traceback)
+                self.assertEqual(value['reason'],'oracle_stale')
+                self.assertNotIn('private',json.dumps(value))
+        for witness in (Hostile(),('healthy',ForeignString('match')),['healthy','match']):
+            with patch.object(oracle,'_stale_observation',return_value=witness):
+                self.assertEqual(oracle.diagnostic_reason(stale()),'oracle_stale')
 
     def test_success_pending_and_protocol_keep_the_original_plain_results(self):
         rows,stamps=vectors()
