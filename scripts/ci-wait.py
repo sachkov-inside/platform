@@ -48,7 +48,7 @@ def read_log(repo, job_id, budget):
         # gh refuses raw escape sequences; failure_report strips them before printing.
         result = subprocess.run(['gh', 'api', '--allow-escape-sequences',
                                  f'repos/{repo}/actions/jobs/{job_id}/logs'],
-                                capture_output=True, text=True,
+                                capture_output=True, text=True, errors='replace',
                                 timeout=min(API_TIMEOUT_SECONDS, budget), check=False)
     except (subprocess.TimeoutExpired, OSError):
         return None
@@ -204,8 +204,9 @@ def discover_pr_run(repo, pr, sha, timeout, *, read=read_api, clock=time.monoton
 
 def strip_control(text):
     """Remove terminal escape sequences and control characters other than tab and newline."""
-    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)', '', text)
-    return re.sub(r'[\x00-\x08\x0b-\x1f\x7f]', '', text.replace('\r\n', '\n'))
+    text = re.sub(r'(?:\x1b\[|\x9b)[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)', '', text)
+    # C1 controls (\x80-\x9f) include 8-bit CSI and OSC.
+    return re.sub(r'[\x00-\x08\x0b-\x1f\x7f-\x9f]', '', text.replace('\r\n', '\n'))
 
 
 def failure_report(repo, result, *, read_text=read_log, budget=API_TIMEOUT_SECONDS):

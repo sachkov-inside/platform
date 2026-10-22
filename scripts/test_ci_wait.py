@@ -180,7 +180,7 @@ class FailureReportContracts(unittest.TestCase):
 
     def test_log_tail_strips_terminal_escape_sequences(self):
         result = {'jobs': [{'name': 'Static', 'conclusion': 'failure', 'id': 1}]}
-        log = 'ok\r\n\x1b[31merror\x1b[0m\x1b]8;;http://x\x07link\x1b]8;;\x07\tdone\x00\n'
+        log = 'ok\r\n\x1b[31merror\x1b[0m\x1b]8;;http://x\x07link\x1b]8;;\x07\tdone\x00\x9b31m\n'
         lines = ci_wait.failure_report('owner/repo', result,
                                        read_text=lambda repo, job_id, budget: log)
         self.assertEqual(lines, ['Failed job: Static (failure)', '  ok', '  errorlink\tdone'])

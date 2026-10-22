@@ -76,9 +76,10 @@ pnpm check:full
 this README, `REPOSITORIES.md` and runbooks, plus backticked paths with a directory in agent documents;
 it also checks current Materials documentation invariants and rejects an em dash in lines added
 under `apps/web` or `docs` since the merge base with `origin/main`. It needs no installed packages.
-`pnpm install` points `core.hooksPath` to `.githooks` unless a local or global value is already
-set. Its pre-commit hook checks staged files with Prettier, runs the documentation contracts when
-Markdown or `package.json` is staged and rejects new em dashes in staged copy. Skip it once with `git commit --no-verify`; CI runs the full checks.
+`pnpm install` points `core.hooksPath` to `.githooks` unless a value is already configured.
+Its pre-commit hook checks staged files with Prettier, runs the documentation contracts when
+Markdown or `package.json` is staged and rejects new em dashes in staged copy. Skip it once with
+`git commit --no-verify`; CI runs the full checks.
 `pnpm check` includes it as the first normal code/build/UI gate and does not require the shared
 Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
