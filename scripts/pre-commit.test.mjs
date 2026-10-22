@@ -19,11 +19,18 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
+ * Real git in a disposable repository: the diff and index format is the checked boundary.
+ * Each call is bounded by 10 s; the test removes the repository in `finally`.
+ *
  * @param {string} cwd
  * @param {string[]} args
  */
 function git(cwd, args) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    timeout: 10_000,
+  });
   assert.equal(result.status, 0, result.stderr);
 }
 
@@ -34,7 +41,7 @@ describe("pre-commit hook", () => {
     );
     assert.equal(
       scripts["prepare"],
-      "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
+      "git rev-parse --git-dir >/dev/null 2>&1 && { git config core.hooksPath >/dev/null || git config core.hooksPath .githooks; } || true",
     );
     const hook = readFileSync(
       join(repositoryRoot, ".githooks/pre-commit"),

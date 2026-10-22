@@ -11,6 +11,9 @@ import { checkNewEmDashes, findAddedEmDashes } from "./check-new-em-dashes.mjs";
 const dash = "—";
 
 /**
+ * Real git in a disposable repository: the diff and index format is the checked boundary.
+ * Each call is bounded by 10 s; the test removes the repository in `finally`.
+ *
  * @param {string} cwd
  * @param {string[]} args
  */
@@ -26,7 +29,7 @@ function git(cwd, args) {
       "commit.gpgsign=false",
       ...args,
     ],
-    { cwd, encoding: "utf8" },
+    { cwd, encoding: "utf8", timeout: 10_000 },
   );
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.trim();
@@ -38,10 +41,11 @@ describe("new em dash check", () => {
       "diff --git a/docs/guide.md b/docs/guide.md",
       "--- a/docs/guide.md",
       "+++ b/docs/guide.md",
-      "@@ -3,0 +4,2 @@",
+      "@@ -3,0 +4,3 @@",
       `+Plain line`,
       `+New ${dash} copy`,
-      "@@ -10 +12 @@",
+      `+> Quoted source ${dash} verbatim`,
+      "@@ -10 +13 @@",
       `-Old ${dash} line`,
       "+Rewritten line",
       "diff --git a/apps/web/src/page.tsx b/apps/web/src/page.tsx",

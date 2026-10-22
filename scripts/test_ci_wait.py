@@ -112,9 +112,11 @@ class PullRequestDiscoveryContracts(unittest.TestCase):
         older = {'id': 3, 'head_sha': self.head, 'event': 'pull_request', 'run_attempt': 1,
                  'path': '.github/workflows/ci.yml'}
         latest = {**older, 'id': 9, 'run_attempt': 3}
+        latest = {**latest, 'pull_requests': [{'number': 5}]}
         foreign = [{**latest, 'id': 20, 'head_sha': 'd'*40},
                    {**latest, 'id': 21, 'path': '.github/workflows/other.yml'},
-                   {**latest, 'id': 22, 'event': 'merge_group'}]
+                   {**latest, 'id': 22, 'event': 'merge_group'},
+                   {**latest, 'id': 23, 'pull_requests': [{'number': 6}]}]
         (identity, remaining), calls = self.discover(
             pages=[{'workflow_runs': [older, latest, *foreign]}])
         self.assertEqual(identity, {'pr': 5, 'event': 'pull_request', 'runId': 9,

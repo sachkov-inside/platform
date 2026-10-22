@@ -101,6 +101,7 @@ describe("document references", () => {
       "[local](../GLOSSARY.md#material)",
       "[same](#completion)",
       "[external](https://example.com/a#b)",
+      "[percent](b.md#50%)",
       "```md",
       "[fenced](missing.md#gone)",
       "```",
@@ -108,6 +109,7 @@ describe("document references", () => {
     assert.deepEqual(extractMarkdownLinks(markdown), [
       { file: "../GLOSSARY.md", fragment: "material" },
       { file: "", fragment: "completion" },
+      { file: "b.md", fragment: "50%" },
     ]);
   });
 
@@ -120,6 +122,11 @@ describe("document references", () => {
         "### `pnpm ci:wait` (PR)",
         "## Notes",
         "## Notes",
+        "## _Italic_ and **bold** keep snake_case",
+        "Setext title",
+        "============",
+        "- list item",
+        "---",
         '<a id="custom-anchor"></a>',
         "```",
         "# not a heading",
@@ -134,17 +141,21 @@ describe("document references", () => {
       "notes",
       "notes-1",
       "custom-anchor",
+      "italic-and-bold-keep-snake_case",
+      "setext-title",
     ]) {
       assert.ok(anchors.has(anchor), anchor);
     }
     assert.equal(anchors.has("not-a-heading"), false);
+    assert.equal(anchors.has("--list-item"), false);
+    assert.equal(anchors.has("list-item"), false);
   });
 
   it("extracts backticked repository paths and pnpm scripts", () => {
     const markdown = [
       "Read `scripts/ci-wait.py:12`, `apps/web/` and `ghcr.io/org/image`.",
       "Not paths: `pnpm docs:check`, `a b/c`, `<run-id>/x`, `*.md`.",
-      "Run `pnpm --filter @inside/web test:e2e` or `pnpm install`.",
+      "Run `pnpm --filter @inside/web test:e2e`, `pnpm install` or `pnpm deploy`.",
       "```bash",
       "pnpm run check:static && pnpm exec prettier --check .",
       "```",
@@ -195,6 +206,7 @@ describe("document references", () => {
           "[queue](target.md#merge) [self](#missing) [gone](gone.md)",
           "Use `scripts/missing.mjs`.",
           "Run `pnpm docs:missing` and `pnpm --filter @inside/web build`.",
+          "Also `pnpm --filter @inside/missing dev` and `pnpm --filter ./apps/* dev`.",
         ].join("\n"),
       );
       assert.deepEqual(checkDocumentReferences(root, documents), [
@@ -204,6 +216,7 @@ describe("document references", () => {
         "docs/agents/guide.md: backticked path does not exist: scripts/missing.mjs",
         "docs/agents/guide.md: pnpm script does not exist: docs:missing",
         "docs/agents/guide.md: pnpm script does not exist: --filter @inside/web build",
+        "docs/agents/guide.md: pnpm --filter names no workspace package: @inside/missing",
       ]);
       assert.ok(
         !checkDocumentReferences(root, documents, new Set()).some((failure) =>

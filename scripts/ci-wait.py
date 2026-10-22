@@ -126,6 +126,13 @@ def wait_run(repo, run_id, sha, event, attempt, timeout, *, read=read_api,
             **({'error': last_error} if last_error is not None else {})}
 
 
+def pull_request_matches(run, pr):
+    pulls = run.get('pull_requests')
+    if not isinstance(pulls, list) or not pulls:
+        return True
+    return any(isinstance(pull, dict) and pull.get('number') == pr for pull in pulls)
+
+
 def discover_pr_run(repo, pr, sha, timeout, *, read=read_api, clock=time.monotonic,
                     sleep=time.sleep):
     """Bind the pull request's current head and its latest Application CI run and attempt.
@@ -167,8 +174,11 @@ def discover_pr_run(repo, pr, sha, timeout, *, read=read_api, clock=time.monoton
                                          'run_attempt': int, 'path': str})
                     for row in data['workflow_runs']]
             # The latest run for the exact head; its run_attempt is the latest attempt.
+            # GitHub lists the pull requests of a same-repository run; another pull request
+            # with the same head commit tested a different base. Fork runs list none.
             runs = [run for run in runs if run['head_sha'] == head and
-                    run['event'] == 'pull_request' and run['path'] == WORKFLOW_PATH]
+                    run['event'] == 'pull_request' and run['path'] == WORKFLOW_PATH and
+                    pull_request_matches(run, pr)]
             if runs:
                 run = max(runs, key=lambda row: row['id'])
                 return {**base, 'runId': run['id'], 'sha': head,

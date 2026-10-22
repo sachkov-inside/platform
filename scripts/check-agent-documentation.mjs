@@ -304,28 +304,26 @@ export function checkStandardsReviewRouting(
   /** @type {string[]} */
   const failures = [];
   // The root routes every reviewer to the standards; nested files need not repeat it.
+  if (!existsSync(resolve(repositoryRoot, "AGENTS.md"))) {
+    failures.push("AGENTS.md: standards review routing is missing");
+  } else if (
+    !/Before review,[^\n]*(?:\n[^\n]+)?CODING_STANDARDS\.md/u.test(
+      read(repositoryRoot, "AGENTS.md"),
+    )
+  ) {
+    failures.push("AGENTS.md: route coding standards explicitly to review");
+  }
+  // No file may restore the former implementation-wide loading of the standards.
   for (const path of [
     "AGENTS.md",
     "apps/backend/AGENTS.md",
     "apps/web/AGENTS.md",
     "apps/telegram/AGENTS.md",
   ]) {
-    if (!existsSync(resolve(repositoryRoot, path))) {
-      if (path === "AGENTS.md") {
-        failures.push(`${path}: standards review routing is missing`);
-      }
-      continue;
-    }
-    const content = read(repositoryRoot, path);
     if (
-      path === "AGENTS.md" &&
-      !/Before review,[^\n]*(?:\n[^\n]+)?CODING_STANDARDS\.md/u.test(content)
-    ) {
-      failures.push(`${path}: route coding standards explicitly to review`);
-    }
-    if (
+      existsSync(resolve(repositoryRoot, path)) &&
       /Before (?:changing|writing|implementing)[^\n]*reviewing[^\n]*(?:\n[^\n]*)?CODING_STANDARDS\.md|For coding and review rules/u.test(
-        content,
+        read(repositoryRoot, path),
       )
     ) {
       failures.push(

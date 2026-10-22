@@ -50,6 +50,15 @@ function splitFences(markdown) {
   return { prose, code };
 }
 
+/** @param {string} value a link component; an invalid escape stays as written */
+function decode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Local Markdown link targets outside fenced code, with an optional fragment. A same-document
  * link has an empty file. External, absolute and protocol links are not repository targets.
@@ -76,10 +85,7 @@ export function extractMarkdownLinks(markdown) {
       hashIndex === -1 ? target : target.slice(0, hashIndex);
     const fragment = hashIndex === -1 ? "" : target.slice(hashIndex + 1);
     const [file = ""] = withoutFragment.split("?", 1);
-    targets.push({
-      file: decodeURIComponent(file),
-      fragment: decodeURIComponent(fragment),
-    });
+    targets.push({ file: decode(file), fragment: decode(fragment) });
   }
 
   return targets;
@@ -98,19 +104,32 @@ export function markdownAnchors(markdown) {
   /** @type {Map<string, number>} */
   const seen = new Map();
   const { prose } = splitFences(markdown);
-  for (const line of prose) {
+  for (const [index, line] of prose.entries()) {
     for (const [, id = ""] of line.matchAll(
       /<a\s+(?:[^>]*\s)?(?:id|name)="([^"]+)"/giu,
     )) {
       anchors.add(id);
     }
-    const heading = line.match(/^ {0,3}#{1,6}\s+(.*?)(?:\s+#+\s*)?$/u)?.[1];
+    const atx = line.match(/^ {0,3}#{1,6}\s+(.*?)(?:\s+#+\s*)?$/u)?.[1];
+    const next = prose[index + 1] ?? "";
+    const setext =
+      line.trim() !== "" &&
+      !/^ {0,3}(?:[-*+>]|\d+[.)])\s/u.test(line) &&
+      /^ {0,3}(?:=+|-+)\s*$/u.test(next)
+        ? line
+        : undefined;
+    const heading = atx ?? setext;
     if (heading === undefined) {
       continue;
     }
     const text = heading
       .replace(/!?\[([^\]]*)\]\([^)]*\)/gu, "$1")
       .replace(/<[^>]+>/gu, "")
+      .replace(/(\*{1,3})(?=\S)(.+?)(?<=\S)\1/gu, "$2")
+      .replace(
+        /(?<![\p{L}\p{N}])(_{1,3})(?=\S)(.+?)(?<=\S)\1(?![\p{L}\p{N}])/gu,
+        "$2",
+      )
       .trim()
       .toLowerCase()
       .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, "")
@@ -204,17 +223,30 @@ const pnpmCommands = new Set([
   "add",
   "approve-builds",
   "audit",
+  "config",
+  "create",
+  "deploy",
   "dlx",
+  "env",
   "exec",
+  "fetch",
   "i",
+  "init",
   "install",
+  "link",
   "list",
   "ls",
   "outdated",
+  "pack",
+  "patch",
+  "patch-commit",
   "peers",
+  "prune",
+  "publish",
   "rebuild",
   "remove",
   "store",
+  "unlink",
   "update",
   "why",
 ]);
@@ -247,10 +279,11 @@ export function extractPnpmScripts(markdown) {
 function packageScripts(repositoryRoot) {
   /** @type {Map<string, Set<string>>} */
   const packages = new Map();
-  for (const directory of ["", "apps", "packages"]) {
+  // The workspace members of pnpm-workspace.yaml: apps/*, packages/* and docs/contracts.
+  for (const directory of ["", "apps", "packages", "docs/contracts"]) {
     const base = resolve(repositoryRoot, directory);
     const candidates =
-      directory === ""
+      directory === "" || directory === "docs/contracts"
         ? [resolve(base, "package.json")]
         : existsSync(base)
           ? readDirectories(base).map((name) =>
@@ -339,10 +372,16 @@ export function checkDocumentReferences(
 
     for (const { filter, script } of extractPnpmScripts(content)) {
       const owner = scripts.get(filter);
-      if (filter !== "" && owner === undefined) {
+      if (owner === undefined) {
+        // Only exact workspace names are indexed; other selectors (globs, paths) are skipped.
+        if (filter.startsWith("@inside/") && !filter.includes("*")) {
+          failures.push(
+            `${document}: pnpm --filter names no workspace package: ${filter}`,
+          );
+        }
         continue;
       }
-      if (!owner?.has(script)) {
+      if (!owner.has(script)) {
         failures.push(
           `${document}: pnpm script does not exist: ${filter ? `--filter ${filter} ` : ""}${script}`,
         );

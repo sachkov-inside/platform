@@ -73,7 +73,7 @@ pnpm check:full
 ```
 
 `pnpm docs:check` validates links, anchors and `pnpm` scripts in agent documents, `WORKFLOW.md`,
-this README, `REPOSITORIES.md` and runbooks, plus backticked repository paths in agent documents;
+this README, `REPOSITORIES.md` and runbooks, plus backticked paths with a directory in agent documents;
 it also checks current Materials documentation invariants and rejects an em dash in lines added
 under `apps/web` or `docs` since the merge base with `origin/main`. It needs no installed packages.
 `pnpm install` points `core.hooksPath` to `.githooks`; its pre-commit hook checks staged files with

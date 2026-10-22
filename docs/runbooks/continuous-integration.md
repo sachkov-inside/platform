@@ -22,7 +22,8 @@ pnpm ci:wait --repo sachkov-inside/platform --pr <number> --timeout-seconds 1200
 ```
 
 The command reads the pull request's current head SHA, waits within the same budget for that
-head's Application CI `pull_request` run, and binds its run ID and latest attempt. It then observes
+head's Application CI `pull_request` run of this pull request, and binds its run ID and latest
+attempt. It then observes
 that exact run as described in [Observe one exact CI run](#observe-one-exact-ci-run). Pass
 `--sha <full-sha>` to require that head; a different current head returns `identity-mismatch`.
 A later push does not change the observed identity; the JSON result names the observed `sha`.
@@ -30,6 +31,7 @@ A head whose run does not appear before the deadline returns `missing-run`.
 On `failure` the command prints each failed job name and the last 60 lines of its log to stderr.
 For a merge-queue candidate or a release run, use the exact `--run-id` form.
 
+## Coverage selection
 
 `scripts/ci-coverage-plan.mjs` owns path categories, application coverage, command IDs and provider job names. CI, recovery contract checks and release evidence use that authority. The planner checks the complete
 Git diff with full history: PR merge-base to head, queue base to candidate. `--no-renames -z` includes

@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 /**
  * New human-facing copy uses periods, commas or parentheses instead of the em dash (owner rule in
  * root AGENTS.md). Only lines added since the comparison base are checked, so existing text stays
- * until someone edits it. Comment-only lines in code are developer notes, not copy.
+ * until someone edits it. Comment-only lines in code are developer notes, not copy, and Markdown
+ * blockquotes keep quoted sources verbatim.
  */
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -16,6 +17,8 @@ export const emDashScopes = ["apps/web", "docs"];
 const emDash = "—";
 const codeFile = /\.(?:[cm]?[jt]sx?|css)$/u;
 const commentLine = /^\s*(?:\/\/|\/\*|\*|\{\s*\/\*)/u;
+// A Markdown blockquote preserves a source quotation verbatim.
+const quotationLine = /^\s*>/u;
 
 /**
  * Added lines containing an em dash in a zero-context unified diff.
@@ -43,7 +46,8 @@ export function findAddedEmDashes(diff) {
       const text = row.slice(1);
       if (
         text.includes(emDash) &&
-        !(codeFile.test(file) && commentLine.test(text))
+        !(codeFile.test(file) && commentLine.test(text)) &&
+        !(file.endsWith(".md") && quotationLine.test(text))
       ) {
         findings.push({ file, line, text: text.trim() });
       }
