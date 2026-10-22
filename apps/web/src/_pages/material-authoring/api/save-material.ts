@@ -1,11 +1,7 @@
 import "server-only";
 import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 
-import {
-  MATERIAL_OUTCOMES,
-  materialDifficultySchema,
-} from "@/shared/api/material-lesson-facts";
-import { materialFormatSchema } from "@/shared/api/material-format";
+import { MATERIAL_OUTCOMES } from "@/shared/api/material-lesson-facts";
 import { productRemovalsFromProblem } from "@/shared/lib/product-removal";
 
 import { randomUUID } from "node:crypto";
@@ -19,31 +15,13 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-import type { SaveMaterialResult } from "../model/save-material";
+import type {
+  saveMaterialInputSchema,
+  SaveMaterialResult,
+} from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
-const formSchema = z.object({
-  access: z.enum(["free", "closed"]),
-  notifyTelegram: z.enum(["true", "false"]).optional(),
-  confirmedProductRemovals: z.array(z.uuid()).max(100),
-  deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
-  detachVideoIds: z.array(z.uuid()),
-  difficulty: materialDifficultySchema.or(z.literal("unassigned")),
-  outcomes: z
-    .array(z.string().trim().max(MATERIAL_OUTCOMES.maxLength))
-    .max(MATERIAL_OUTCOMES.maxCount),
-  document: z.string().min(1).max(1_048_576),
-  expectedContentVersion: z.coerce.number().int().positive(),
-  formatId: materialFormatSchema.or(z.literal("unassigned")),
-  materialId: z.uuid(),
-  publicationState: z.enum(["draft", "published", "unpublished"]),
-  primaryVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
-  seriesIds: z.string().max(100_000),
-  submissionId: z.uuid(),
-  summary: z.string().trim().max(500),
-  tagIds: z.array(z.uuid()).max(100),
-  title: z.string().trim().max(160),
-  topicId: z.union([z.uuid(), z.literal("unassigned")]),
-});
+
+type ParsedSaveMaterialInput = z.output<typeof saveMaterialInputSchema>;
 const receiptSchema = z
   .object({
     contentVersion: z.number().int().positive(),
@@ -72,12 +50,25 @@ const productionDependencies: SaveMaterialDependencies = {
   save: requestMaterialSave,
 };
 
+/** Maps a body that does not match the Save schema to the editor's validation messages. */
+export function saveMaterialInvalidInput(
+  error: z.ZodError,
+): SaveMaterialResult {
+  return {
+    issues: error.issues.map((issue) => ({
+      message: formIssueMessage(String(issue.path[0] ?? "form")),
+      path: `/${issue.path.map(String).join("/")}`,
+    })),
+    kind: "invalid_input",
+  };
+}
+
 export async function executeSaveMaterial(
-  formData: FormData,
+  input: ParsedSaveMaterialInput,
   accessToken: string,
   dependencies: SaveMaterialDependencies = productionDependencies,
 ): Promise<SaveMaterialResult> {
-  const parsed = parseForm(formData);
+  const parsed = backendSaveInput(input);
   if (!parsed.ok) {
     return { issues: parsed.issues, kind: "invalid_input" };
   }
@@ -110,7 +101,7 @@ export async function executeSaveMaterial(
   };
 }
 
-function parseForm(formData: FormData):
+function backendSaveInput(input: ParsedSaveMaterialInput):
   | {
       readonly ok: true;
       readonly value: Parameters<typeof requestMaterialSave>[0];
@@ -119,73 +110,35 @@ function parseForm(formData: FormData):
       readonly issues: readonly MaterialValidationIssue[];
       readonly ok: false;
     } {
-  const parsed = formSchema.safeParse({
-    access: formData.get("access"),
-    notifyTelegram: formData.get("notifyTelegram") ?? undefined,
-    confirmedProductRemovals: formData.getAll("confirmedProductRemovals"),
-    deleteVideoId: formData.get("deleteVideoId") ?? undefined,
-    detachVideoIds: formData.getAll("detachVideoIds"),
-    difficulty: formData.get("difficulty"),
-    outcomes: formData.getAll("outcome"),
-    document: formData.get("document"),
-    expectedContentVersion: formData.get("expectedContentVersion"),
-    formatId: formData.get("formatId"),
-    materialId: formData.get("materialId"),
-    publicationState: formData.get("publicationState"),
-    primaryVideoId: formData.get("primaryVideoId") ?? undefined,
-    seriesIds: formData.get("seriesIds"),
-    submissionId: formData.get("submissionId"),
-    summary: formData.get("summary"),
-    tagIds: formData.getAll("tagIds"),
-    title: formData.get("title"),
-    topicId: formData.get("topicId"),
-  });
-  if (!parsed.success) {
-    return {
-      issues: parsed.error.issues.map((issue) => ({
-        message: formIssueMessage(String(issue.path[0] ?? "form")),
-        path: `/${issue.path.map(String).join("/")}`,
-      })),
-      ok: false,
-    };
-  }
-
-  const documentFields = parseMaterialDocumentFields(parsed.data);
+  const documentFields = parseMaterialDocumentFields(input);
   if (!documentFields.ok) return documentFields;
 
   return {
     ok: true,
     value: {
-      access: parsed.data.access,
-      ...(parsed.data.confirmedProductRemovals.length === 0
+      access: input.access,
+      ...(input.confirmedProductRemovals.length === 0
         ? {}
-        : { confirmedProductRemovals: parsed.data.confirmedProductRemovals }),
-      deleteVideoId:
-        parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
-      detachVideoIds: parsed.data.detachVideoIds,
-      difficulty:
-        parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
-      outcomes: parsed.data.outcomes.filter(Boolean),
+        : { confirmedProductRemovals: input.confirmedProductRemovals }),
+      deleteVideoId: input.deleteVideoId,
+      detachVideoIds: input.detachVideoIds,
+      difficulty: input.difficulty === "unassigned" ? null : input.difficulty,
+      outcomes: input.outcomes.filter(Boolean),
       document: documentFields.document,
-      expectedContentVersion: parsed.data.expectedContentVersion,
-      formatId:
-        parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
-      idempotencyKey: `web-save-${parsed.data.submissionId}`,
-      materialId: parsed.data.materialId,
-      publicationState: parsed.data.publicationState,
-      ...(parsed.data.notifyTelegram === undefined
+      expectedContentVersion: input.expectedContentVersion,
+      formatId: input.formatId === "unassigned" ? null : input.formatId,
+      idempotencyKey: `web-save-${input.submissionId}`,
+      materialId: input.materialId,
+      publicationState: input.publicationState,
+      ...(input.notifyTelegram === undefined
         ? {}
-        : { notifyTelegram: parsed.data.notifyTelegram === "true" }),
-      primaryVideoId:
-        parsed.data.primaryVideoId === "none"
-          ? null
-          : parsed.data.primaryVideoId,
+        : { notifyTelegram: input.notifyTelegram }),
+      primaryVideoId: input.primaryVideoId,
       seriesIds: documentFields.seriesIds,
-      summary: emptyToNull(parsed.data.summary),
-      tagIds: parsed.data.tagIds,
-      title: emptyToNull(parsed.data.title),
-      topicId:
-        parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
+      summary: emptyToNull(input.summary),
+      tagIds: input.tagIds,
+      title: emptyToNull(input.title),
+      topicId: input.topicId === "unassigned" ? null : input.topicId,
     },
   };
 }

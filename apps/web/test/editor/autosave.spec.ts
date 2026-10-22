@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { z } from "zod";
+
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 const image = {
   name: "diagram.png",
@@ -111,9 +113,11 @@ test("autosave serializes edits made during a request and replays an uncertain r
   await body.fill("Новая правка после сетевой ошибки");
   await page.getByRole("button", { name: "Повторить", exact: true }).click();
   await saved(page);
-  // Same idempotency key and content replay; multipart boundaries may differ.
+  // Same idempotency key and content replay.
   const keys = attempts.map(
-    (attempt) => /name="submissionId"\r\n\r\n([^\r]+)/u.exec(attempt)?.[1],
+    (attempt) =>
+      z.object({ submissionId: z.string() }).parse(JSON.parse(attempt))
+        .submissionId,
   );
   expect(keys[0]).toBeTruthy();
   expect(keys[1]).toBe(keys[0]);

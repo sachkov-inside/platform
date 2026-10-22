@@ -13,7 +13,8 @@ Read the owning ADR before changing:
 - Library data ownership, generated transport, direct RSC calls, or same-origin BFF boundaries:
   [ADR 0011](../../docs/adr/0011-client-owned-library-catalog.md);
 - interactive writes or a proposed Server Action:
-  [ADR 0012](../../docs/adr/0012-browser-owned-interactive-mutations.md);
+  [ADR 0012](../../docs/adr/0012-browser-owned-interactive-mutations.md) and its operation
+  definition amendment, [ADR 0038](../../docs/adr/0038-one-definition-per-browser-mutation.md);
 - a public route, a loading state, a `"use cache"` read, link prefetch, a `GET` Route Handler, the
   unknown-address check in `proxy.ts` or TanStack freshness:
   [ADR 0027](../../docs/adr/0027-web-navigation-and-caching.md);

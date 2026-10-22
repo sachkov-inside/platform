@@ -1,16 +1,27 @@
 import "server-only";
 
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import { executeCreateMaterialDraft } from "./create-material-draft";
-import { executeSaveMaterial } from "./save-material";
+import {
+  createMaterialDraftInvalidInput,
+  executeCreateMaterialDraft,
+} from "./create-material-draft";
+import { createMaterialDraftOperation } from "./create-material-draft.operation";
+import { executeSaveMaterial, saveMaterialInvalidInput } from "./save-material";
+import { saveMaterialOperation } from "./save-material.operation";
 
 export function handleCreateMaterialRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeCreateMaterialDraft);
+  return handleMutationOperation(request, createMaterialDraftOperation, {
+    execute: executeCreateMaterialDraft,
+    invalidInput: createMaterialDraftInvalidInput,
+  });
 }
 
 export function handleSaveMaterialRequest(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeSaveMaterial);
+  return handleMutationOperation(request, saveMaterialOperation, {
+    execute: executeSaveMaterial,
+    invalidInput: saveMaterialInvalidInput,
+  });
 }
