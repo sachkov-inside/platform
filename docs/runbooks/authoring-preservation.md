@@ -140,10 +140,12 @@ clears the recorded commit, because the content then comes from no known revisio
 The journal of a state directory may not know every Material the target holds: on 2026-10-22 the production
 journal knew 33 of about 70. `reconcile` compares the journal with the target state of one namespace and writes
 nothing to the target. Each Material row has a status: `agree`, `target_only`, `journal_only`,
-`identity_differs` or `version_differs`; `counts` sums them and `tasks` lists the Tasks the target holds.
+`identity_differs` or `version_differs`; `counts` sums them. Each Task row compares the revision of the journal's
+`task:<code>` receipt with the target: `agree`, `target_only` (no receipt) or `version_differs` (another journal revised
+it; a release refuses it as a conflict) or `receipt_invalid`; `taskCounts` sums them.
 
 `--adopt SOURCE_ID` records the target's identity, version, access, publication and Reader path for that
-Material in the journal, with an `adopted:<source key>` receipt naming the previous entry. Adopt only rows the
+Material in the journal, or the target revision in a Task's receipt, with an `adopted:<source key>` receipt naming the previous entry. Adopt only rows the
 owner assigned for delivery after reviewing the report. An adopted row previews as `changed` once, because its
 digest is unknown. Never adopt by hand-editing the journal, and never adopt a `journal_only` row.
 

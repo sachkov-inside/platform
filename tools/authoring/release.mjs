@@ -472,7 +472,8 @@ export async function previewRelease(
       programme.map((id) => ids.get(id) ?? `new:${id}`);
     const chapterOf = new Map(
       product.chapters.flatMap((chapter) =>
-        chapter.materialIds.map((id) => [ids.get(id), chapter.title]),
+        // Stored chapter names are trimmed, as productChapters sends them.
+        chapter.materialIds.map((id) => [ids.get(id), chapter.title.trim()]),
       ),
     );
     const currentChapters = new Map(
