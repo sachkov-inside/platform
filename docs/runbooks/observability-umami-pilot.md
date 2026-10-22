@@ -152,7 +152,7 @@ runner: Standards, Spec, security и classification. До этого image pull/
 bash scripts/heavy-check.sh python3 scripts/observability-umami/runtime.py run --output /absolute/task-owned/new-private-directory
 ```
 
-Сначала соблюдается [singleton ownership](local-development.md#parallel-worktrees-and-singleton-ownership).
+Сначала соблюдается [singleton ownership](local-stand.md#parallel-worktrees-and-singleton-ownership).
 Runtime использует тот же внешний supervisor и policy, что technical pilot: 16 GiB admission,
 неизменённые floor/growth/headroom, host+VM checks на OrbStack и Linux storage monitor,
 отдельная worker process group, 600 секунд worker deadline, обязательные down/volumes/residue

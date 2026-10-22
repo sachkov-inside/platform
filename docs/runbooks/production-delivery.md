@@ -305,7 +305,7 @@ The same `materials:manage` permission authorizes the
 [Content production delivery](content-production-delivery.md) through `/authoring-api/authoring/*`.
 
 The production backend image includes `dist/release/bootstrap-owner-account.js` for the
-explicit [owner Account bootstrap](local-development.md#owner-account-release-bootstrap).
+explicit [owner Account bootstrap](local-owner-operations.md#owner-account-release-bootstrap).
 After verifying the owner's real Logto identity, run it in the current API container with
 `OWNER_LOGTO_ISSUER`, `OWNER_LOGTO_SUBJECT` and `OWNER_PERMISSION=materials:manage`:
 

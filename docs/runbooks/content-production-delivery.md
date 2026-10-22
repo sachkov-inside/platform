@@ -19,7 +19,7 @@
   Прямой `authoring:sync-local` и `authoring:sync-git-local` к ней не допускаются. Если цель отвечает
   не как `production`, перенос останавливается.
 - Материалы переносятся приватными черновиками, пока публикация явно не одобрена
-  ([политика публикации](local-development.md#local-obsidian-authoring-preview-468)). Оболочка курса
+  ([политика публикации](local-acceptance-authoring.md#local-obsidian-authoring-preview-468)). Оболочка курса
   выпускается отдельным пакетом `product-shell` и уроков не касается.
 
 ## Разовая подготовка
@@ -33,7 +33,7 @@
    - разрешить ресурс `https://api.inside.sachkov.dev`.
 
    Если Logto не обновляет токен без scope, как было с учебным клиентом стенда
-   ([learner client](local-development.md#ai-engineering-course-acceptance-stand)), добавить ресурсу scope, выдать его роли владельца и
+   ([learner client](local-acceptance-course.md#ai-engineering-course-acceptance-stand)), добавить ресурсу scope, выдать его роли владельца и
    передавать при входе через `--scope`. Идентификатор приложения не секретен.
 3. Убедиться, что у аккаунта владельца есть `materials:manage`
    ([owner bootstrap](production-delivery.md)).

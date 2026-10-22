@@ -736,7 +736,7 @@ Kinescope ID Video удалить через Platform нельзя. UI пока�
 
 Подготовка оригиналов и публикация следуют [границе контента](#контент). Текущий authoring
 Save переносит подготовленный материал в Platform; оригиналы Engineering Content переносятся импортом
-по [локальному runbook](../runbooks/local-development.md#local-obsidian-authoring-preview-468).
+по [локальному runbook](../runbooks/local-acceptance-authoring.md#local-obsidian-authoring-preview-468).
 Telegram может служить исходным материалом для редакционной подготовки, но отдельного Telegram
 migration pipeline в Platform нет.
 

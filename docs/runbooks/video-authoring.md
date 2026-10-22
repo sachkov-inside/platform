@@ -33,7 +33,7 @@ It returns the same limited Tus endpoint and Video identity as the editor. The M
 transfer bytes. A Tus client transfers the local file outside the model context, followed by
 `video_reconcile` and the same versioned Save. For an imported Material in a local environment,
 `pnpm authoring:video upload` runs this sequence from a file and journals the attempt; see the
-[local authoring runbook](./local-development.md#local-obsidian-authoring-preview-468). It accepts
+[local authoring runbook](./local-acceptance-authoring.md#local-obsidian-authoring-preview-468). It accepts
 only the test adapter; cancellation, batch reports and real provider transfer are not packaged. Stop on `upload_outcome_unknown` and inspect the attempt/provider
 state; do not manufacture a fresh idempotency key for a blind retry.
 

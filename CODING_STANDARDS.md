@@ -114,7 +114,7 @@ Local `deterministic-test-allow` reasons name the actual exception and its owner
 - `shared-mutation`: the cleanup registry or deferred scenario migration.
 
 Place the reason immediately before its owning call, import or declaration; exceptions never exempt a file.
-Deferred violations link their migration issue (#1154). A reason cannot excuse a calendar-dependent assertion,
+Deferred violations link an open migration issue. A reason cannot excuse a calendar-dependent assertion,
 incomplete reset or unowned process. Review those requirements even when syntax accepts the exception.
 
 ## Live HTTP checks

@@ -224,7 +224,7 @@ part, local evidence discovery, reports, discussion/recheck and unchanged projec
 
 ## Local course acceptance
 
-The [local course stand](local-development.md#ai-engineering-course-acceptance-stand) imports the
+The [local course stand](local-acceptance-course.md#ai-engineering-course-acceptance-stand) imports the
 first authored chapter. Its Logto bootstrap runs the same
 [learner access provisioning](#universal-learner-access-938) as production for the stand resource
 `http://127.0.0.1:3002/mcp/learning`. The learner endpoint accepts only a token whose single audience

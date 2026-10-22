@@ -12,7 +12,7 @@ Victoria MCP и Umami ещё не подтверждены этой постав
 
 Используйте существующий Platform MCP по Streamable HTTP. Настройка endpoint,
 protected-resource metadata и делегированного bearer token описана в
-[процедуре MCP](local-development.md#mcp-authoring). Секреты в эту инструкцию не записываются.
+[процедуре MCP](local-host-fallback.md#mcp-authoring). Секреты в эту инструкцию не записываются.
 Клиент вызывает `tools/list` и проверяет наличие `payment_access_diagnostics` и
 `sales_funnel_diagnostics`.
 Отсутствие инструмента означает, что доступный сервер не предоставляет подготовленный интерфейс;

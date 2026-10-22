@@ -360,7 +360,7 @@ query latency и состояния контейнеров перед остан
 
 No-build smoke допускается при 16GiB на идентифицированной файловой системе Docker:
 10GiB обязательного host floor из
-[локального runbook](local-development.md#start-from-a-fresh-clone),
+[локального runbook](local-stand.md#start-from-a-fresh-clone),
 4GiB ограниченного роста этого запуска и 2GiB на остановку/очистку.
 Выбранный защитный cap составляет 4GiB, это не замер потребления.
 20GiB из local stand относится к build; здесь build отсутствует.

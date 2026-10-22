@@ -23,7 +23,7 @@
 
 Живой маршрут `/authoring/guides/<id>` не снимался: singleton Compose-стек `inside-platform` на
 этой машине принадлежит другой сессии, и правило
-[`docs/runbooks/local-development.md`](../../runbooks/local-development.md#parallel-worktrees-and-singleton-ownership)
+[`docs/runbooks/local-development.md`](../../runbooks/local-stand.md#parallel-worktrees-and-singleton-ownership)
 запрещает его перезапускать. Проверки на реальном PostgreSQL выполнены интеграционными тестами
 через Testcontainers.
 
