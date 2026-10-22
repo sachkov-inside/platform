@@ -340,6 +340,41 @@ class WholeObservation(unittest.TestCase):
         self.assertNotIn('up_age_window',refused)
         self.assertNotIn('private',json.dumps(refused))
 
+        # Exact stale Decimal ages may project to the persisted binary64 value10.0.
+        for source_stamp,final,token in (
+                ('89.9999999999999999',100,'over_at_evaluation'),
+                ('90',Decimal('100.0000000000000001'),'crossed_by_completion')):
+            left,right=acquisition(stamp=source_stamp)
+            raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            reports=[];calls=[]
+            for flag in (False,True):
+                readings=[]
+                def wall():
+                    value=(100,final)[len(readings)];readings.append(value);return value
+                with patch('urllib.request.OpenerDirector.open',side_effect=[Response(body) for body in raw]) as opened, \
+                        patch.object(caddy_status,'clock',wraps=native_clock) as clocks:
+                    report,packet=caddy_query.read_snapshot('owned_token',evaluated_at=100,wall_clock=wall,diagnose=flag)
+                self.assertEqual(opened.call_count,2)
+                self.assertEqual(readings,[100,final])
+                self.assertEqual(packet,{'values':raw[0],'timestamps':raw[1],'evaluated_at':100,'completed_at':final})
+                self.assertEqual((report['state'],report['reason'],report['sample_age_seconds']),('stale','none',10.0))
+                self.assertIsNone(report['observation']);self.assertIsNone(report['comparison'])
+                calls.append(clocks.call_args_list);reports.append(report)
+            self.assertEqual(calls[0],calls[1])
+            diagnostic=reports[1].copy()
+            self.assertEqual(diagnostic.pop('up_age_window'),token)
+            self.assertEqual(diagnostic,reports[0])
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();private=root/'private';private.mkdir(mode=0o700)
+                metadata=root/'metadata';metadata.mkdir(mode=0o700)
+                artifact.write(private,reports[1])
+                self.assertEqual(artifact.read(private),reports[1])
+                failed=evidence.Run();failed.start('partition_initial_state');failed.fail('budget')
+                artifact.write_run(private,failed.snapshot())
+                target=root/'public';collection.collect(private,metadata,target)
+                self.assertEqual(artifact.read(target),reports[1])
+                self.assertEqual(artifact.read_run(target),failed.snapshot())
+
 
     def test_comparison_cannot_use_a_fresh_down_baseline_as_observed_traffic(self):
         values,stamps=acquisition()

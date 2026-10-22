@@ -272,9 +272,20 @@ a native cause or turns a stale observation into success.
 The field uses only already validated operands and adds no query, clock read,
 poll, numeric timestamp, counter, raw label or exception detail. It is absent from
 default and MCP results and from every other observation branch. The current reader
-accepts exactly these two tokens only with stale/none, age above 10 seconds, null
+accepts exactly these two tokens only with stale/none, a persisted numeric age of at least
+10 seconds, null
 observation/comparison and canonical-passed/MCP-unrun transport. Legacy reports without
 the field remain valid; an older reader may reject it, so use the source-bound reader.
 The saved final age alone cannot reconstruct this witness or its historical arithmetic.
 Controlled source tests qualify the discriminator, not a causal native reproduction.
 Original acquisition, query, scenario and output limits and failure priority remain.
+
+The native freshness decision still uses the original strict Decimal age above
+10 seconds. Its unchanged float projection can round an age such as
+`10.0000000000000001` to the persisted value `10.0`; both window tokens can occur
+at that serialized boundary. The reader checks the already validated original
+numeric age against 10 before another float projection, so a persisted Decimal
+strictly below 10 is refused. A saved age of 10 alone cannot establish the original
+stale decision or token arithmetic. Legacy stale reports without the token retain
+their existing behavior. This serialization compatibility rule changes no native
+freshness tolerance, success predicate, query, clock, process owner or limit.

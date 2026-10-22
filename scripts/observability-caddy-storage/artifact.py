@@ -65,7 +65,7 @@ def validate(value):
         if 'up_age_window' in value:
             window=value['up_age_window']
             if (type(window) is not str or window not in status.UP_AGE_WINDOWS
-                    or state!='stale' or value['reason']!='none' or age is None or age<=status.MAX_AGE_SECONDS
+                    or state!='stale' or value['reason']!='none' or age is None or value['sample_age_seconds']<status.MAX_AGE_SECONDS
                     or value['transport']!={'canonical':'passed','mcp':'unrun'}):refuse()
         observation=comparison=None
         if state=='observed':

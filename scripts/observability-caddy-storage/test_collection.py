@@ -83,7 +83,7 @@ class CuratedCollection(unittest.TestCase):
                     artifact.validate({**stale,'up_age_window':token})
             detailed={**stale,'up_age_window':'over_at_evaluation'}
             poisons=[{**detailed,'state':'down'},{**detailed,'reason':'partial'},
-                {**detailed,'sample_age_seconds':10},{**detailed,'sample_age_seconds':None},
+                {**detailed,'sample_age_seconds':9.999999999999998},{**detailed,'sample_age_seconds':None},
                 {**detailed,'transport':{'canonical':'failed','mcp':'unrun'}},
                 {**detailed,'transport':{'canonical':'passed','mcp':'passed'}},
                 {**detailed,'observation':{}},{**detailed,'private':'private-caddy-sentinel'},
@@ -97,3 +97,43 @@ class CuratedCollection(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
                     collection.collect(output,metadata,target)
                 self.assertFalse(target.exists())
+
+            # The persisted boundary is tested using actual source/query reports.
+            from decimal import Decimal
+            from unittest.mock import patch
+            import caddy_query
+            from test_query import Response
+            for source_stamp,final,token in (
+                    ('89.9999999999999999',100,'over_at_evaluation'),
+                    ('90',Decimal('100.0000000000000001'),'crossed_by_completion')):
+                values,stamps=acquisition(stamp=source_stamp)
+                bodies=[json.dumps(value).encode() for value in (values,stamps)]
+                readings=[]
+                def wall():
+                    value=(100,final)[len(readings)];readings.append(value);return value
+                with patch('urllib.request.OpenerDirector.open',side_effect=[Response(body) for body in bodies]) as opened:
+                    rounded,packet=caddy_query.read_snapshot('owned_token',evaluated_at=100,wall_clock=wall,diagnose=True)
+                self.assertEqual(opened.call_count,2)
+                self.assertEqual(readings,[100,final])
+                self.assertEqual(packet,{'values':bodies[0],'timestamps':bodies[1],'evaluated_at':100,'completed_at':final})
+                self.assertEqual((rounded['state'],rounded['reason'],rounded['sample_age_seconds']),('stale','none',10.0))
+                self.assertEqual(rounded['up_age_window'],token)
+                artifact.write(output,rounded)
+                self.assertEqual(artifact.read(output),rounded)
+                artifact.write_run(output,failed.snapshot())
+                target=root/('rounded-'+token)
+                collection.collect(output,metadata,target)
+                self.assertEqual(artifact.read(target),rounded)
+                self.assertEqual(artifact.read_run(target),failed.snapshot())
+                for age in (10,10.0,Decimal('10.0')):
+                    self.assertEqual(artifact.validate({**rounded,'sample_age_seconds':age}),rounded)
+                for age in (9.999999999999998,Decimal('9.9999999999999999')):
+                    with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
+                        artifact.validate({**rounded,'sample_age_seconds':age})
+                for index,literal in enumerate(('9.999999999999998','9.9999999999999999')):
+                    poisoned=json.dumps(rounded).replace('"sample_age_seconds": 10.0','"sample_age_seconds": '+literal)
+                    (output/artifact.NAME).write_text(poisoned)
+                    target=root/('rounded-refused-'+token+str(index))
+                    with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):
+                        collection.collect(output,metadata,target)
+                    self.assertFalse(target.exists())
