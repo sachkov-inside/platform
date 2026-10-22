@@ -23,7 +23,8 @@ import { fingerprintAccess } from "./compatibility.mjs";
  */
 
 const version = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const storedSchema = z
+/** The receipt a Task write leaves in `journal.resources` under its `taskResourceKey`. */
+export const taskJournalReceiptSchema = z
   .object({ revision: version, digest: z.hash("sha256") })
   .strict();
 const operationSchema = z
@@ -42,7 +43,7 @@ const operationSchema = z
 /** @param {Pick<Manifest, "sourceNamespace">} manifest @param {string} id */
 const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
 /** @param {string} code */
-const resourceKey = (code) => `task:${code}`;
+export const taskResourceKey = (code) => `task:${code}`;
 
 /** Resolve explicit preview choices without mutating the canonical package.
  * @param {Manifest} manifest
@@ -255,7 +256,7 @@ export async function replayTaskImports(context, request, selected) {
       ),
     );
     // The digest is unknown here; the next transfer compares and sends the package state again.
-    delete resources[resourceKey(receipt.code)];
+    delete resources[taskResourceKey(receipt.code)];
     await context.persist();
   }
 }
@@ -290,11 +291,11 @@ export async function syncSourceTasks(
       throw new Error(
         `${task.sourceId}: material_to_task_migration requires a release decision`,
       );
-    const key = resourceKey(task.sourceId);
+    const key = taskResourceKey(task.sourceId);
     const previous =
       resources[key] === undefined
         ? undefined
-        : storedSchema.parse(resources[key]);
+        : taskJournalReceiptSchema.parse(resources[key]);
     if (previous !== undefined && previous.revision !== current?.revision)
       throw new Error(
         `${task.sourceId}: the task changed on the target; reconcile before overwriting`,
@@ -386,10 +387,10 @@ export async function previewTasks(manifest, journal, request, selected) {
       "/authoring/import/tasks/validate",
       authoredTaskBody(manifest, task, task.publicationState),
     );
-    expected[resourceKey(task.sourceId)] = current?.revision ?? 0;
-    const stored = resources[resourceKey(task.sourceId)];
+    expected[taskResourceKey(task.sourceId)] = current?.revision ?? 0;
+    const stored = resources[taskResourceKey(task.sourceId)];
     const previous =
-      stored === undefined ? undefined : storedSchema.parse(stored);
+      stored === undefined ? undefined : taskJournalReceiptSchema.parse(stored);
     const publication = taskPublication(
       task,
       selected(sourceKey(manifest, task.sourceId)),

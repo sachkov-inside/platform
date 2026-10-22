@@ -9,11 +9,7 @@ import { withJournal } from "./journal.mjs";
 import { parseLocalResponse } from "./local-boundaries.mjs";
 import { readNamespaceState } from "./preservation-state.mjs";
 import { refusal } from "./refusal.mjs";
-
-// The receipt `task-import.mjs` keeps under `task:<code>` after each Task write.
-const taskReceiptSchema = z
-  .object({ revision: z.number().int().positive(), digest: z.hash("sha256") })
-  .strict();
+import { taskJournalReceiptSchema, taskResourceKey } from "./task-import.mjs";
 
 /**
  * @typedef {"agree" | "journal_only" | "target_only" | "identity_differs" | "version_differs"} ReconcileStatus
@@ -59,6 +55,19 @@ export async function reconcileJournal(
   const key = (/** @type {string} */ id) =>
     id.includes(":") ? id : `${namespace}:${id}`;
   const adopted = [...new Set(adopt.map(key))].sort();
+  /**
+   * The `adopted:<source key>` receipt: when, from which status and journal entry, to what.
+   *
+   * @param {string} status
+   * @param {unknown} previous
+   * @param {Record<string, string | number>} recorded
+   */
+  const adoption = (status, previous, recorded) => ({
+    at: now().toISOString(),
+    status,
+    previous: previous === undefined ? null : canonicalEntry(previous),
+    ...recorded,
+  });
   return withJournal(
     stateDirectory,
     target.id,
@@ -103,15 +112,19 @@ export async function reconcileJournal(
       // A Task's journal receipt records the revision this journal last wrote; another journal may
       // have revised it since, and apply refuses to overwrite that unseen revision.
       const taskRows = state.tasks.map((current) => {
-        const receipt = taskReceiptSchema.safeParse(
-          resources[`task:${current.code}`],
+        const receipt = taskJournalReceiptSchema.safeParse(
+          resources[taskResourceKey(current.code)],
         );
-        /** @type {"agree" | "target_only" | "version_differs"} */
-        const status = !receipt.success
-          ? "target_only"
-          : receipt.data.revision === current.revision
-            ? "agree"
-            : "version_differs";
+        const stored = resources[taskResourceKey(current.code)];
+        /** @type {"agree" | "target_only" | "version_differs" | "receipt_invalid"} */
+        const status =
+          stored === undefined
+            ? "target_only"
+            : !receipt.success
+              ? "receipt_invalid"
+              : receipt.data.revision === current.revision
+                ? "agree"
+                : "version_differs";
         return {
           sourceId: current.sourceId,
           status,
@@ -124,12 +137,17 @@ export async function reconcileJournal(
       });
       for (const sourceId of adopted) {
         const task = heldTasks.get(sourceId);
+        if (task !== undefined && held.has(sourceId))
+          throw refusal(
+            "adopt_ambiguous",
+            `${sourceId}: the target holds both a Material and a Task with this source identity; a release decides that migration`,
+          );
         if (task !== undefined) {
           const row = taskRows.find((item) => item.sourceId === sourceId);
           if (row === undefined || row.status === "agree") continue;
-          const previous = resources[`task:${task.code}`];
+          const previous = resources[taskResourceKey(task.code)];
           // As for Materials, the digest matches no package, so the next preview shows the Task as changed.
-          resources[`task:${task.code}`] = {
+          resources[taskResourceKey(task.code)] = {
             revision: task.revision,
             digest: checksum(
               canonical({
@@ -139,13 +157,10 @@ export async function reconcileJournal(
               }),
             ),
           };
-          resources[`adopted:${sourceId}`] = {
-            at: now().toISOString(),
-            status: row.status,
-            previous: previous === undefined ? null : canonicalEntry(previous),
+          resources[`adopted:${sourceId}`] = adoption(row.status, previous, {
             taskId: task.taskId,
             revision: task.revision,
-          };
+          });
           row.status = "agree";
           row.journalRevision = task.revision;
           continue;
@@ -182,27 +197,22 @@ export async function reconcileJournal(
             ? {}
             : { url: `/materials/${current.slug}` }),
         };
-        resources[`adopted:${sourceId}`] = {
-          at: now().toISOString(),
-          status: row.status,
-          previous: previous === undefined ? null : canonicalEntry(previous),
+        resources[`adopted:${sourceId}`] = adoption(row.status, previous, {
           materialId: current.materialId,
           contentVersion: current.contentVersion,
-        };
+        });
         row.status = "agree";
         row.journalMaterialId = current.materialId;
         row.journalContentVersion = current.contentVersion;
       }
       if (adopted.length > 0) await persist();
-      /** @type {Record<ReconcileStatus, number>} */
-      const counts = {
-        agree: 0,
-        journal_only: 0,
-        target_only: 0,
-        identity_differs: 0,
-        version_differs: 0,
-      };
-      for (const row of rows) counts[row.status] += 1;
+      const counts = tally(rows, [
+        "agree",
+        "journal_only",
+        "target_only",
+        "identity_differs",
+        "version_differs",
+      ]);
       return {
         target: target.id,
         namespace,
@@ -210,14 +220,11 @@ export async function reconcileJournal(
         adopted,
         materials: rows,
         tasks: taskRows,
-        taskCounts: {
-          agree: taskRows.filter((row) => row.status === "agree").length,
-          target_only: taskRows.filter((row) => row.status === "target_only")
-            .length,
-          version_differs: taskRows.filter(
-            (row) => row.status === "version_differs",
-          ).length,
-        },
+        taskCounts: tally(taskRows, [
+          "agree",
+          "target_only",
+          "version_differs",
+        ]),
       };
     },
   );
@@ -229,3 +236,18 @@ export async function reconcileJournal(
  * @param {unknown} entry
  */
 const canonicalEntry = (entry) => z.json().parse(JSON.parse(canonical(entry)));
+
+/**
+ * Rows per status, every listed status present.
+ *
+ * @param {{ status: string }[]} rows
+ * @param {string[]} statuses
+ */
+function tally(rows, statuses) {
+  return Object.fromEntries(
+    statuses.map((status) => [
+      status,
+      rows.filter((row) => row.status === status).length,
+    ]),
+  );
+}
