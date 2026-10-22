@@ -60,7 +60,7 @@ export function HeaderAuthControl({ state, avatar }: AuthControlStateProps) {
         {authenticated && avatar != null ? (
           avatar
         ) : (
-          <Icon aria-hidden="true" className="size-6" />
+          <Icon aria-hidden="true" className="size-5" />
         )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

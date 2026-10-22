@@ -68,7 +68,7 @@ export function ProfileAvatar({
       role="img"
     >
       {fallback === "icon" ? (
-        <UserRound aria-hidden="true" className="size-6" strokeWidth={1.75} />
+        <UserRound aria-hidden="true" className="size-5" />
       ) : (
         profileInitials(displayName)
       )}
