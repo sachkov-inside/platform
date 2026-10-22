@@ -1,42 +1,17 @@
 import {
-  billingCommandPayload,
-  billingCommandResult,
+  createBillingQuoteOperation,
+  startBillingPurchaseOperation,
+} from "./billing-checkout.operation";
+import {
   purchaseStatusSchema,
-  quoteSchema,
   type BillingCommandResult,
   type PurchaseStatus,
   readBillingEndpoint,
-  type BillingQuote,
 } from "@/entities/subscription";
-import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-import type { PurchaseInput, QuoteInput } from "../model/checkout";
+export const createBillingQuote = createBillingQuoteOperation.send;
 
-export async function createBillingQuote(
-  input: QuoteInput,
-): Promise<BillingCommandResult<BillingQuote>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/account/billing/quote",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    quoteSchema,
-  );
-}
-
-export async function startBillingPurchase(
-  input: PurchaseInput,
-): Promise<BillingCommandResult<PurchaseStatus>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/account/billing/purchase",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    purchaseStatusSchema,
-  );
-}
+export const startBillingPurchase = startBillingPurchaseOperation.send;
 
 export function readBillingPurchaseStatus(
   purchaseRef: string,

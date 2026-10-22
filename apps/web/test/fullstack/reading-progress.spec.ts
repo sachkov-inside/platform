@@ -1,8 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Response } from "@playwright/test";
 import { resolve } from "node:path";
+import { z } from "zod";
 import {
-  fullStackBrowserRequest,
+  fullStackBrowserJsonRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 import { homeFeedCard } from "../support/home-feed";
@@ -65,10 +66,10 @@ test("reading progress persists for a free non-member, reconciles lost responses
   // Finish the optional reset, including its refresh, before simulating a lost response.
   await expect(button).toHaveAttribute("aria-busy", "false");
   // The backend commits, but the browser loses the response. Retry must reuse the command.
-  const commands: string[] = [];
+  const commands: unknown[] = [];
   let loseResponse = true;
   await page.route("**/api/reading-progress/state", async (route) => {
-    commands.push(route.request().postData() ?? "");
+    commands.push(route.request().postDataJSON());
     if (loseResponse) {
       loseResponse = false;
       await route.fetch();
@@ -85,10 +86,10 @@ test("reading progress persists for a free non-member, reconciles lost responses
   await expect(button).toHaveAttribute("aria-pressed", "false");
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
-  const command = (body: string) =>
-    /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];
-  expect(command(commands[0] ?? "")).toBeTruthy();
-  expect(command(commands[0] ?? "")).toBe(command(commands[1] ?? ""));
+  const command = (body: unknown) =>
+    z.object({ commandId: z.string() }).safeParse(body).data?.commandId;
+  expect(command(commands[0])).toBeTruthy();
+  expect(command(commands[0])).toBe(command(commands[1]));
   await page.reload();
   await expect(button).toHaveAttribute("aria-pressed", "true");
   const directory = await prepareEvidenceDirectory("issue-329");
@@ -277,11 +278,11 @@ test("reading progress appears on Home and the topic filter for video and other 
       .locator("[data-material-id]")
       .getAttribute("data-material-id");
     expect(materialId).not.toBeNull();
-    const saved = await fullStackBrowserRequest(
+    const saved = await fullStackBrowserJsonRequest(
       page,
       "/api/reading-progress/states",
       "POST",
-      { materialId: materialId ?? "" },
+      { materialIds: [materialId ?? ""] },
     );
     expect(saved.ok()).toBe(true);
     expect(readingStatesResultSchema.parse(await saved.json())).toMatchObject({

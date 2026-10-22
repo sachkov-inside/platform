@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import {
   fullStackBaseUrl,
   fullStackPageRequest,
-  fullStackBrowserRequest,
+  fullStackBrowserJsonRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -73,15 +73,13 @@ test("owner creates a price and edits it twice without stale catalogue revisions
   await page.goto("/authoring/billing");
   const offerId = randomUUID();
   const name = `Цена synthetic ${offerId}`;
-  const saved = await fullStackBrowserRequest(
+  const saved = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/offers/save",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        value: { id: offerId, name, benefits: ["materials"] },
-      }),
+      operationId: randomUUID(),
+      value: { id: offerId, name, benefits: ["materials"] },
     },
   );
   expect(await saved.json()).toMatchObject({ ok: true });

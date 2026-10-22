@@ -172,8 +172,11 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - Declare each mutation once with `defineMutationOperation` in a `*.operation.ts` module
   ([ADR 0038](../../docs/adr/0038-one-definition-per-browser-mutation.md)). Its `send` is the
   browser adapter; the route serves it with `handleMutationOperation`, whose `execute` calls Nest
-  and whose `invalidInput` names the outcome for a body outside the schema. Test each operation
-  once through `send` and the route module with `test/support/mutation-operation-route.ts`.
+  and whose `invalidInput` names the outcome for a body outside the schema. A route a guest may
+  also call uses `handleOptionalMutationOperation`.
+  `test/module/mutation-operation-routes.test.ts` sends every declared operation once through its
+  route; feature outcomes are tested through `send` and the route module with
+  `test/support/mutation-operation-route.ts`.
 - Put `QueryProvider` in the lowest layout shared by its consumers.
 
 ## Effects and asynchronous synchronization

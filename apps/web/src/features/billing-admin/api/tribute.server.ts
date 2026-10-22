@@ -1,99 +1,77 @@
 import "server-only";
-import { executeBillingCommand } from "@/entities/subscription.server";
-import { requestManageBilling } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
 import {
-  tributeStatusInputSchema,
-  tributeStatusOutcomeSchema,
-} from "../model/tribute-operations";
+  tributeApplyOperation,
+  tributeDismissImportOperation,
+  tributePreviewOperation,
+  tributeReconcileOperation,
+  tributeRetryEventOperation,
+  tributeSavePolicyOperation,
+  tributeStatusOperation,
+} from "./tribute.operation";
+import {
+  billingInvalidInput,
+  executeBillingOperation,
+} from "@/entities/subscription.server";
+import { requestManageBilling } from "@/shared/api/backend/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 export function handleTributeStatus(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      tributeStatusInputSchema,
-      tributeStatusOutcomeSchema,
-      (input) => {
-        const { page, ...command } = input;
+  return handleMutationOperation(request, tributeStatusOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributeStatusOperation, command, (input) => {
+        const { page, ...status } = input;
         return requestManageBilling(
           {
-            ...command,
+            ...status,
             ...(page === undefined ? {} : { page }),
             operation: "tribute.status",
           },
           accessToken,
         );
-      },
-    ),
-  );
+      }),
+  });
 }
-import {
-  saveTributePolicySchema,
-  tributeSavePolicyOutcomeSchema,
-} from "../model/tribute-operations";
 export function handleTributeSavePolicy(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      saveTributePolicySchema,
-      tributeSavePolicyOutcomeSchema,
-      (input) => {
+  return handleMutationOperation(request, tributeSavePolicyOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributeSavePolicyOperation, command, (input) => {
         return requestManageBilling(
           { ...input, operation: "tribute.savePolicy" },
           accessToken,
         );
-      },
-    ),
-  );
+      }),
+  });
 }
-import {
-  previewTributeImportSchema,
-  tributePreviewOutcomeSchema,
-} from "../model/tribute-operations";
 export function handleTributePreview(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      previewTributeImportSchema,
-      tributePreviewOutcomeSchema,
-      (input) => {
+  return handleMutationOperation(request, tributePreviewOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributePreviewOperation, command, (input) => {
         return requestManageBilling(
           { ...input, operation: "tribute.preview" },
           accessToken,
         );
-      },
-    ),
-  );
+      }),
+  });
 }
-import {
-  applyTributeImportSchema,
-  tributeApplyOutcomeSchema,
-} from "../model/tribute-operations";
 export function handleTributeApply(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      applyTributeImportSchema,
-      tributeApplyOutcomeSchema,
-      (input) => {
+  return handleMutationOperation(request, tributeApplyOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributeApplyOperation, command, (input) => {
         return requestManageBilling(
           { ...input, operation: "tribute.apply" },
           accessToken,
         );
-      },
-    ),
-  );
+      }),
+  });
 }
-import {
-  reconcileTributeSchema,
-  tributeReconcileOutcomeSchema,
-} from "../model/tribute-operations";
 export function handleTributeReconcile(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      reconcileTributeSchema,
-      tributeReconcileOutcomeSchema,
-      (input) => {
+  return handleMutationOperation(request, tributeReconcileOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributeReconcileOperation, command, (input) => {
         const { confirmedTerms, ...command } = input;
         return requestManageBilling(
           {
@@ -103,21 +81,14 @@ export function handleTributeReconcile(request: Request): Promise<Response> {
           },
           accessToken,
         );
-      },
-    ),
-  );
+      }),
+  });
 }
-import {
-  retryTributeInboxSchema,
-  tributeRetryEventOutcomeSchema,
-} from "../model/tribute-operations";
 export function handleTributeRetryEvent(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      retryTributeInboxSchema,
-      tributeRetryEventOutcomeSchema,
-      (input) => {
+  return handleMutationOperation(request, tributeRetryEventOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributeRetryEventOperation, command, (input) => {
         const { action, ...command } = input;
         return requestManageBilling(
           {
@@ -127,28 +98,21 @@ export function handleTributeRetryEvent(request: Request): Promise<Response> {
           },
           accessToken,
         );
-      },
-    ),
-  );
+      }),
+  });
 }
 
-import {
-  dismissTributeImportSchema,
-  tributeDismissImportOutcomeSchema,
-} from "../model/tribute-operations";
 export function handleTributeDismissImport(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      dismissTributeImportSchema,
-      tributeDismissImportOutcomeSchema,
-      (input) =>
+  return handleMutationOperation(request, tributeDismissImportOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(tributeDismissImportOperation, command, (input) =>
         requestManageBilling(
           { ...input, operation: "tribute.dismissImport" },
           accessToken,
         ),
-    ),
-  );
+      ),
+  });
 }

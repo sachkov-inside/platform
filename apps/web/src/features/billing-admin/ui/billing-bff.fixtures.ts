@@ -25,7 +25,7 @@ export type BillingRoutes = Readonly<
   Record<string, BillingReply | ((input: unknown) => BillingReply)>
 >;
 
-/** Каждая команда и каждое чтение панели: маршрут без префикса и вход из поля `input`. */
+/** Каждая команда и каждое чтение панели: маршрут без префикса и вход из JSON-тела запроса. */
 export const billingRequests = fn(
   (_route: string, _input: unknown): void => undefined,
 );
@@ -64,9 +64,7 @@ function routeOf(input: RequestInfo | URL): string | null {
 
 function commandInput(init: RequestInit | undefined): unknown {
   const body = init?.body;
-  if (!(body instanceof FormData)) return undefined;
-  const raw = body.get("input");
-  return typeof raw === "string" ? (JSON.parse(raw) as unknown) : undefined;
+  return typeof body === "string" ? (JSON.parse(body) as unknown) : undefined;
 }
 
 function billingFetch(routes: BillingRoutes) {

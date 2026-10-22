@@ -1,19 +1,7 @@
-import { z } from "zod";
-import { requestCurrentCommunityAdmission } from "@/shared/api/backend/index.server";
 import "server-only";
-
+import { z } from "zod";
 import {
-  enrollmentsSchema,
-  changeQuoteSchema,
-  changeResultSchema,
-  currentBillingSchema,
-  subscriptionViewSchema,
-} from "@/entities/subscription";
-import {
-  executeBillingCommand,
-  readAuthenticatedBilling,
-} from "@/entities/subscription.server";
-import {
+  requestCurrentCommunityAdmission,
   requestCancelBillingChange,
   requestCancelBillingRenewal,
   requestBillingChange,
@@ -24,16 +12,26 @@ import {
   requestResumeBillingRenewal,
   requestRevokeBillingMethod,
 } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import {
+  cancelBillingChangeOperation,
+  cancelBillingRenewalOperation,
+  changeBillingOptionOperation,
+  changeBillingPaymentMethodOperation,
+  quoteBillingChangeOperation,
+  resumeBillingRenewalOperation,
+  revokeBillingPaymentMethodOperation,
+} from "./billing-subscription.operation";
 
 import {
-  changeInputSchema,
-  changeQuoteInputSchema,
-  methodChangeValueSchema,
-  resumeInputSchema,
-  revisionCommandSchema,
-  revokeMethodInputSchema,
-} from "../model/subscription-commands";
+  enrollmentsSchema,
+  currentBillingSchema,
+} from "@/entities/subscription";
+import {
+  readAuthenticatedBilling,
+  billingInvalidInput,
+  executeBillingOperation,
+} from "@/entities/subscription.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
 export function handleCurrentBilling(): Promise<Response> {
   return readAuthenticatedBilling(
@@ -43,80 +41,77 @@ export function handleCurrentBilling(): Promise<Response> {
 }
 
 export function handleCancelRenewal(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      revisionCommandSchema,
-      subscriptionViewSchema,
-      (input) => requestCancelBillingRenewal(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, cancelBillingRenewalOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(cancelBillingRenewalOperation, command, (input) =>
+        requestCancelBillingRenewal(input, accessToken),
+      ),
+  });
 }
 
 export function handleResumeRenewal(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      resumeInputSchema,
-      subscriptionViewSchema,
-      (input) => requestResumeBillingRenewal(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, resumeBillingRenewalOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(resumeBillingRenewalOperation, command, (input) =>
+        requestResumeBillingRenewal(input, accessToken),
+      ),
+  });
 }
 
 export function handleChangeQuote(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      changeQuoteInputSchema,
-      changeQuoteSchema,
-      (input) => requestBillingChangeQuote(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, quoteBillingChangeOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(quoteBillingChangeOperation, command, (input) =>
+        requestBillingChangeQuote(input, accessToken),
+      ),
+  });
 }
 
 export function handleChangeOption(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      changeInputSchema,
-      changeResultSchema,
-      (input) => requestBillingChange(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, changeBillingOptionOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(changeBillingOptionOperation, command, (input) =>
+        requestBillingChange(input, accessToken),
+      ),
+  });
 }
 
 export function handleCancelChange(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      revisionCommandSchema,
-      subscriptionViewSchema,
-      (input) => requestCancelBillingChange(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, cancelBillingChangeOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(cancelBillingChangeOperation, command, (input) =>
+        requestCancelBillingChange(input, accessToken),
+      ),
+  });
 }
 
 export function handleChangePaymentMethod(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      revisionCommandSchema,
-      methodChangeValueSchema,
-      (input) => requestChangeBillingMethod(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, changeBillingPaymentMethodOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(
+        changeBillingPaymentMethodOperation,
+        command,
+        (input) => requestChangeBillingMethod(input, accessToken),
+      ),
+  });
 }
 
 export function handleRevokePaymentMethod(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      revokeMethodInputSchema,
-      subscriptionViewSchema,
-      (input) => requestRevokeBillingMethod(input, accessToken),
-    ),
-  );
+  return handleMutationOperation(request, revokeBillingPaymentMethodOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(
+        revokeBillingPaymentMethodOperation,
+        command,
+        (input) => requestRevokeBillingMethod(input, accessToken),
+      ),
+  });
 }
 
 export function handleCurrentEnrollments(): Promise<Response> {

@@ -1,17 +1,8 @@
-import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
-
 import type { TelegramLinkMutationResult } from "../model/account-telegram-membership";
-import { parseTelegramLinkMutationResponse } from "./telegram-link-mutation-response.browser";
+import { confirmTelegramLinkOperation } from "./telegram-link.operation";
 
-export async function confirmTelegramLink(
+export function confirmTelegramLink(
   linkRef: string,
 ): Promise<TelegramLinkMutationResult> {
-  const formData = new FormData();
-  formData.set("linkRef", linkRef);
-  const response = await requestSameOriginMutation(
-    "/api/account/telegram-link/confirm",
-    "POST",
-    formData,
-  );
-  return parseTelegramLinkMutationResponse(response, "confirm");
+  return confirmTelegramLinkOperation.send({ linkRef });
 }

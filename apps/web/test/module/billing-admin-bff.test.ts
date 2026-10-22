@@ -47,12 +47,10 @@ const previewRef = "00000000-0000-4000-8000-0000000000d1";
 const accountId = "00000000-0000-4000-8000-0000000000c1";
 
 function command(url: string, input: unknown): Request {
-  const body = new FormData();
-  body.set("input", JSON.stringify(input));
   return new Request(`${origin}${url}`, {
     method: "POST",
-    headers: { origin },
-    body,
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify(input),
   });
 }
 const ok = (body: unknown) => ({ ok: true, body, response: new Response() });

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { z } from "zod";
 import {
   ReadingProgressProvider,
   SavedReadingAction,
@@ -59,11 +60,12 @@ const meta = {
       if (path === "/api/reading-progress/open")
         return Response.json({ kind: "saved", openedAt: at, replayed: false });
       if (path === "/api/reading-progress/state") {
-        const form =
-          input instanceof Request ? await input.formData() : init?.body;
-        if (!(form instanceof FormData))
+        const body = input instanceof Request ? await input.text() : init?.body;
+        if (typeof body !== "string")
           throw new Error("Reading command is missing");
-        isRead = form.get("isRead") === "true";
+        isRead = z
+          .object({ isRead: z.boolean() })
+          .parse(JSON.parse(body)).isRead;
         return Response.json({
           kind: "saved",
           state: { ...state, isRead, version: 1, readAt: at, updatedAt: at },

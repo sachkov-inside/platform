@@ -39,7 +39,11 @@ vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
 vi.mock("@/shared/auth/index.server", async () => {
   const handler =
     await import("@/shared/auth/authenticated-mutation-handler.server");
-  return { handleAuthenticatedMutation: handler.handleAuthenticatedMutation };
+  return {
+    handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
+    handleMutationOperation: handler.handleMutationOperation,
+    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
+  };
 });
 
 import {

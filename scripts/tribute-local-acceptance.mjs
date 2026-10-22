@@ -262,7 +262,7 @@ async function messages() {
 async function command(path, input) {
   const response = await owner.request.post(
     `${web}/api/authoring/billing/${path}`,
-    { headers: { origin: web }, multipart: { input: JSON.stringify(input) } },
+    { headers: { origin: web }, data: input },
   );
   expect(response.status()).toBe(200);
   const result = commandEnvelopeSchema.parse(await response.json());

@@ -1,37 +1,38 @@
 import "server-only";
+import { acceptBillingConsentsOperation } from "./billing-consents.operation";
 
 import { requestBillingConsents } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
 import {
-  consentsInputSchema,
-  consentsValueSchema,
-} from "../model/legal-documents";
-import { executeBillingCommand } from "./billing-command.server";
+  billingInvalidInput,
+  executeBillingOperation,
+} from "./billing-command.server";
 
 export function handleBillingConsents(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      consentsInputSchema,
-      consentsValueSchema,
-      (input) =>
-        requestBillingConsents(
-          {
-            operationId: input.operationId,
-            contextRef: input.contextRef,
-            screen: input.screen,
-            buttonLabel: input.buttonLabel,
-            ...(input.shownTerms === undefined
-              ? {}
-              : { shownTerms: input.shownTerms }),
-            documents: input.documents.map((document) => ({
-              ...document,
-              accepted: true,
-            })),
-          },
-          accessToken,
-        ),
-    ),
-  );
+  return handleMutationOperation(request, acceptBillingConsentsOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(
+        acceptBillingConsentsOperation,
+        command,
+        (input) =>
+          requestBillingConsents(
+            {
+              operationId: input.operationId,
+              contextRef: input.contextRef,
+              screen: input.screen,
+              buttonLabel: input.buttonLabel,
+              ...(input.shownTerms === undefined
+                ? {}
+                : { shownTerms: input.shownTerms }),
+              documents: input.documents.map((document) => ({
+                ...document,
+                accepted: true,
+              })),
+            },
+            accessToken,
+          ),
+      ),
+  });
 }

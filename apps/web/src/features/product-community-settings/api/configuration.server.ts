@@ -1,18 +1,17 @@
 import "server-only";
+import { configureProductCommunityOperation } from "./configuration.operation";
 import {
   billingFailureResponse,
-  executeBillingCommand,
   readAuthenticatedBilling,
+  billingInvalidInput,
+  executeBillingOperation,
 } from "@/entities/subscription.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 import {
   requestReadProductCommunityConfiguration,
   requestConfigureProductCommunity,
 } from "@/shared/api/backend/index.server";
-import {
-  productCommunityConfigurationSchema,
-  configuredProductCommunitySchema,
-} from "../model/configuration";
+import { productCommunityConfigurationSchema } from "../model/configuration";
 export function handleReadProductCommunityConfiguration(
   request: Request,
 ): Promise<Response> {
@@ -30,17 +29,18 @@ export function handleReadProductCommunityConfiguration(
 export function handleConfigureProductCommunity(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, token) =>
-    executeBillingCommand(
-      form,
-      productCommunityConfigurationSchema,
-      configuredProductCommunitySchema,
-      (input) =>
-        requestConfigureProductCommunity(
-          input.productId,
-          { groupRef: input.groupRef },
-          token,
-        ),
-    ),
-  );
+  return handleMutationOperation(request, configureProductCommunityOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, token) =>
+      executeBillingOperation(
+        configureProductCommunityOperation,
+        command,
+        (input) =>
+          requestConfigureProductCommunity(
+            input.productId,
+            { groupRef: input.groupRef },
+            token,
+          ),
+      ),
+  });
 }

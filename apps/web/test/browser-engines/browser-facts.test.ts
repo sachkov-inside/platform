@@ -7,6 +7,7 @@ import {
 } from "@playwright/test";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, test } from "vitest";
+import { z } from "zod";
 
 let server: ViteDevServer | undefined;
 let browser: Browser | undefined;
@@ -44,9 +45,9 @@ function readingFixture() {
         new URL(route.request().url()).pathname ===
         "/api/reading-progress/state";
       if (write) {
-        state.isRead =
-          route.request().postData()?.includes('name="isRead"\r\n\r\ntrue') ===
-          true;
+        state.isRead = z
+          .object({ isRead: z.boolean() })
+          .parse(route.request().postDataJSON()).isRead;
         state.version += 1;
       }
       const snapshot = {
@@ -179,11 +180,9 @@ function fixture(billing?: (page: Page) => Promise<void>) {
       async (route) => {
         const path = new URL(route.request().url()).pathname;
         if (path === "/api/bookmarks/state")
-          state.saved =
-            route
-              .request()
-              .postData()
-              ?.includes('name="bookmarked"\r\n\r\ntrue') === true;
+          state.saved = z
+            .object({ bookmarked: z.boolean() })
+            .parse(route.request().postDataJSON()).bookmarked;
         const saved = state.saved && state.account === accountA;
         await route.fulfill({
           json:

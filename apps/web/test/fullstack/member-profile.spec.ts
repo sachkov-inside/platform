@@ -27,7 +27,7 @@ test("cabinet presents private Telegram state and documents on one page", async 
     (
       await page.request.post("/api/account/email/start", {
         headers: { origin: "https://foreign.invalid" },
-        multipart: { email: "unused@example.test" },
+        data: { email: "unused@example.test" },
       })
     ).status(),
   ).toBe(403);

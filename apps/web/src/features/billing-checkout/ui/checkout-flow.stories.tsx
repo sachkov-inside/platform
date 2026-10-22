@@ -93,9 +93,8 @@ function personalLinkQuote(promotion: BillingQuote["snapshot"]["promotion"]) {
     const path = new URL(target, window.location.origin).pathname;
     requestPath(path);
     if (path === "/api/account/billing/quote") {
-      // Клиент шлёт команду полем `input` формы, как настоящий маршрут BFF.
-      const form = init?.body;
-      const command = form instanceof FormData ? form.get("input") : null;
+      // Клиент шлёт команду JSON-телом, как настоящий маршрут BFF.
+      const command = init?.body;
       if (typeof command === "string") quoteBody(JSON.parse(command));
       return Promise.resolve(
         Response.json({
@@ -174,8 +173,7 @@ const emailCheckout = fetchBeforeRender((input, init) => {
       }),
     );
   if (path === "/api/account/billing/purchase") {
-    const form = init?.body;
-    const command = form instanceof FormData ? form.get("input") : null;
+    const command = init?.body;
     if (typeof command === "string") purchaseCommand(JSON.parse(command));
     return Promise.resolve(Response.json({ ok: true, value: pendingPurchase }));
   }

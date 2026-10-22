@@ -2,6 +2,11 @@ import "server-only";
 import { z } from "zod";
 
 import type { BackendTransportResult } from "@/shared/api/backend/index.server";
+
+import {
+  billingOperationValue,
+  type BillingOperation,
+} from "./billing-operation";
 import { handleAuthenticatedRead } from "@/shared/auth/index.server";
 
 import {
@@ -79,38 +84,38 @@ export async function readBillingResource(
     : billingFailureResponse("unavailable", 502);
 }
 
+/** Input outside a billing operation's schema: the same closed code the browser already knows. */
+export function billingInvalidInput(): {
+  readonly ok: false;
+  readonly code: BillingFailureCode;
+} {
+  return { ok: false, code: "invalid_request" };
+}
+
 /**
- * Одна billing-команда: разбор собственного входа, вызов её use case и закрытый исход.
+ * Одна billing-команда: вызов её use case и закрытый исход. Вход уже разобран схемой операции.
  * Повтор с прежним `operationId` безопасен, потому что решение принимает сервер.
  */
-export async function executeBillingCommand<
+export async function executeBillingOperation<
   Input extends z.ZodType,
   Value extends z.ZodType,
 >(
-  form: FormData,
-  inputSchema: Input,
-  valueSchema: Value,
-  execute: (input: z.infer<Input>) => Promise<BackendTransportResult>,
+  operation: BillingOperation<Input, Value>,
+  input: z.output<Input>,
+  execute: (input: z.output<Input>) => Promise<BackendTransportResult>,
 ): Promise<
   | { readonly ok: true; readonly value: z.infer<Value> }
   | { readonly ok: false; readonly code: BillingFailureCode }
 > {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(z.string().parse(form.get("input")));
-  } catch {
-    return { ok: false, code: "invalid_request" };
-  }
-  const input = inputSchema.safeParse(raw);
-  if (!input.success) return { ok: false, code: "invalid_request" };
   let result: BackendTransportResult;
   try {
-    result = await execute(input.data);
+    result = await execute(input);
   } catch {
     return { ok: false, code: "unavailable" };
   }
   if (!result.ok) return { ok: false, code: billingFailureCode(result) };
-  const parsed = valueSchema.safeParse(result.body);
+  // Тело backend проверяет схема значения самой операции: та же, что у браузера.
+  const parsed = billingOperationValue(operation).safeParse(result.body);
   return parsed.success
     ? { ok: true, value: parsed.data }
     : { ok: false, code: "unavailable" };

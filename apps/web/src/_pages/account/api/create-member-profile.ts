@@ -1,6 +1,8 @@
 import "server-only";
 
-import { z } from "zod";
+import type { z } from "zod";
+
+import type { createMemberProfileInputSchema } from "@/features/member-profile-editor.operations";
 
 import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {
@@ -15,36 +17,17 @@ import {
   profileIssueMessage,
 } from "@/entities/member-profile";
 
-const textField = z
-  .string()
-  .refine((value) => !hasRejectedControlCharacters(value));
-const formSchema = z
-  .object({
-    bio: textField.refine((value) => codePointLength(value) <= 500),
-    displayName: textField.refine((value) => {
-      const length = codePointLength(value.trim());
-      return length >= 2 && length <= 80;
-    }),
-  })
-  .strict();
-
 export async function executeCreateMemberProfile(
-  formData: FormData,
+  input: z.output<typeof createMemberProfileInputSchema>,
   accessToken: string,
   request: typeof requestMemberProfileCreation = requestMemberProfileCreation,
 ): Promise<CreateMemberProfileResult> {
-  const parsed = formSchema.safeParse({
-    bio: formData.get("bio"),
-    displayName: formData.get("displayName"),
-  });
-  if (!parsed.success) return invalidProfileFields(parsed.error);
-
   let result: BackendTransportResult;
   try {
     result = await request(
       {
-        bio: emptyToNull(parsed.data.bio),
-        displayName: parsed.data.displayName.trim(),
+        bio: emptyToNull(input.bio),
+        displayName: input.displayName.trim(),
       },
       accessToken,
     );
@@ -92,7 +75,9 @@ function mapCreateProfileProblem(
   };
 }
 
-function invalidProfileFields(error: z.ZodError): CreateMemberProfileResult {
+export function invalidCreateProfileFields(
+  error: z.ZodError,
+): CreateMemberProfileResult {
   const fields = new Set(error.issues.map((issue) => issue.path[0]));
   return {
     fieldErrors: {
@@ -119,22 +104,4 @@ function unavailable(error: unknown): CreateMemberProfileResult {
 
 function emptyToNull(value: string): string | null {
   return value.trim().length === 0 ? null : value;
-}
-
-function codePointLength(value: string): number {
-  return Array.from(value).length;
-}
-
-function hasRejectedControlCharacters(value: string): boolean {
-  return Array.from(value).some((character) => {
-    const codePoint = character.codePointAt(0);
-    return (
-      codePoint !== undefined &&
-      ((codePoint >= 0 && codePoint <= 8) ||
-        codePoint === 11 ||
-        codePoint === 12 ||
-        (codePoint >= 14 && codePoint <= 31) ||
-        codePoint === 127)
-    );
-  });
 }

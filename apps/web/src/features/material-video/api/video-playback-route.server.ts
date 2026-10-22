@@ -1,67 +1,50 @@
 import "server-only";
 
-import { z } from "zod";
-
 import {
   requestVideoPlayback,
   requestVideoProgress,
 } from "@/shared/api/backend/index.server";
 import {
-  handleAuthenticatedMutation,
-  handleOptionalAuthenticatedMutation,
+  handleMutationOperation,
+  handleOptionalMutationOperation,
 } from "@/shared/auth/index.server";
 
-const idSchema = z.uuid();
-const sessionSchema = z
-  .object({
-    drmAuthToken: z.string().nullable(),
-    embedLocator: z.url(),
-    progressScope: z.enum(["account", "anonymous"]),
-    resumeSeconds: z.number().int().nonnegative().nullable(),
-    videoId: z.uuid(),
-  })
-  .strict();
-const progressSchema = z
-  .object({
-    durationSeconds: z.coerce.number().int().positive(),
-    materialId: z.uuid(),
-    positionSeconds: z.coerce.number().int().nonnegative(),
-    videoId: z.uuid(),
-  })
-  .strict();
+import {
+  createMaterialVideoPlaybackSessionOperation,
+  materialVideoPlaybackSessionSchema,
+  saveMaterialVideoProgressOperation,
+} from "./video-playback.operation";
 
 export function handleVideoPlaybackSessionRequest(
   request: Request,
 ): Promise<Response> {
-  return handleOptionalAuthenticatedMutation(
+  return handleOptionalMutationOperation(
     request,
-    async (formData, accessToken) => {
-      const materialId = formData.get("materialId");
-      const videoId = formData.get("videoId");
-      const preview = formData.get("preview");
-      if (
-        typeof materialId !== "string" ||
-        typeof videoId !== "string" ||
-        !idSchema.safeParse(materialId).success ||
-        !idSchema.safeParse(videoId).success ||
-        (preview !== null && preview !== "true")
-      ) {
-        return Response.json({ code: "not_found" }, { status: 404 });
-      }
-      const result = await requestVideoPlayback(
-        { materialId, preview: preview === "true", videoId },
-        accessToken,
-      );
-      if (!result.ok) {
-        return Response.json(
-          { code: "playback_unavailable" },
-          { status: result.response.status },
+    createMaterialVideoPlaybackSessionOperation,
+    {
+      invalidInput: () => Response.json({ code: "not_found" }, { status: 404 }),
+      execute: async (input, accessToken) => {
+        const result = await requestVideoPlayback(
+          {
+            materialId: input.materialId,
+            preview: input.preview === true,
+            videoId: input.videoId,
+          },
+          accessToken,
         );
-      }
-      const parsed = sessionSchema.safeParse(result.body);
-      return parsed.success
-        ? Response.json(parsed.data)
-        : Response.json({ code: "invalid_response" }, { status: 502 });
+        if (!result.ok) {
+          return Response.json(
+            { code: "playback_unavailable" },
+            { status: result.response.status },
+          );
+        }
+        const parsed = materialVideoPlaybackSessionSchema.safeParse(
+          result.body,
+        );
+        return parsed.success
+          ? Response.json(parsed.data)
+          : Response.json({ code: "invalid_response" }, { status: 502 });
+      },
     },
   );
 }
@@ -69,15 +52,11 @@ export function handleVideoPlaybackSessionRequest(
 export function handleVideoProgressSaveRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const parsed = progressSchema.safeParse({
-      durationSeconds: formData.get("durationSeconds"),
-      materialId: formData.get("materialId"),
-      positionSeconds: formData.get("positionSeconds"),
-      videoId: formData.get("videoId"),
-    });
-    if (!parsed.success) return { kind: "invalid_input" };
-    const result = await requestVideoProgress(parsed.data, accessToken);
-    return result.ok ? { kind: "saved" } : { kind: "unavailable" };
+  return handleMutationOperation(request, saveMaterialVideoProgressOperation, {
+    invalidInput: () => ({ kind: "invalid_input" }),
+    execute: async (input, accessToken) => {
+      const result = await requestVideoProgress(input, accessToken);
+      return result.ok ? { kind: "saved" } : { kind: "unavailable" };
+    },
   });
 }

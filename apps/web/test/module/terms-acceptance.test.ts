@@ -1,3 +1,4 @@
+import { acceptTermsInputSchema } from "@/features/terms-acceptance/model/terms-acceptance";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -13,10 +14,9 @@ const version = "1";
 const digest = "a".repeat(64);
 const operationId = "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11";
 
-function form(input: unknown): FormData {
-  const data = new FormData();
-  data.set("input", JSON.stringify(input));
-  return data;
+/** The body the Route Handler admits: the operation schema parses what the browser sent. */
+function form(input: unknown) {
+  return acceptTermsInputSchema.parse(input);
 }
 
 function token(claims: Record<string, unknown>): string {
@@ -53,18 +53,14 @@ describe("first sign-in screen", () => {
   it("records the button label chosen by the server, not by the browser", async () => {
     const accept = vi.fn(accepted);
     const resumeTelegramSignIn = vi.fn();
-    await expect(
-      executeAcceptTerms(
-        form({
-          operationId,
-          version,
-          digest,
-          buttonLabel: "Подменённая подпись",
-        }),
-        token({}),
-        { accept, resumeTelegramSignIn },
-      ),
-    ).resolves.toEqual({ kind: "unavailable" });
+    expect(
+      acceptTermsInputSchema.safeParse({
+        operationId,
+        version,
+        digest,
+        buttonLabel: "Подменённая подпись",
+      }).success,
+    ).toBe(false);
     await expect(
       executeAcceptTerms(form({ operationId, version, digest }), token({}), {
         accept,

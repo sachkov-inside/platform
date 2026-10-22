@@ -26,6 +26,11 @@ failed request or a malformed answer. Both sides derive from that definition:
   with the same input schema and then calls the feature's `execute`, which calls Nest and maps its
   answer to the result. The feature names the outcome for input outside the schema.
 
+An operation a guest may also send, such as a video playback session or a waitlist intent, is
+served by `handleOptionalMutationOperation`: the same Origin, body-size and input boundary, an
+optional session, and an answer whose status the feature chooses. Its result schema is therefore
+held by the feature's tests rather than by the compiler.
+
 Operations remain named and their routes literal. There is no generic dispatcher, universal proxy
 or `operation`/`mode` selector, and the backend keeps authorization, idempotency, concurrency and
 domain invariants.

@@ -1,20 +1,17 @@
-import type { SameOriginMutationResult } from "@/shared/api/same-origin-mutation";
 import { readPaymentInputSchema } from "@/features/billing-admin/model/admin-operations";
 import { beforeEach, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { materialsOffer } from "@/storybook/billing.fixtures";
-const boundary = vi.hoisted(() => ({
+type BoundaryAnswer =
+  | { readonly body: unknown; readonly ok: true }
+  | { readonly ok: false; readonly status: number };
+/** Ответ маршрута на каждую команду браузерного адаптера; вход приходит разобранным JSON. */
+const boundary = {
   request:
     vi.fn<
-      (
-        url: string,
-        method: "POST",
-        formData: FormData,
-      ) => Promise<SameOriginMutationResult>
+      (url: string, method: string, input: unknown) => Promise<BoundaryAnswer>
     >(),
-}));
-vi.mock("@/shared/api/same-origin-mutation", () => ({
-  requestSameOriginMutation: boundary.request,
-}));
+};
 import { readBillingPayment } from "@/features/billing-admin/api/billing-admin.browser";
 const purchaseRef = "00000603-0000-4000-8000-000000000101";
 const operationId = "00000600-0000-4000-8000-000000000001";
@@ -67,7 +64,22 @@ function page(audit: unknown[], nextAuditCursor: unknown) {
     },
   };
 }
-beforeEach(() => boundary.request.mockReset());
+beforeEach(() => {
+  boundary.request.mockReset();
+  vi.stubGlobal(
+    "fetch",
+    async (url: string, init: RequestInit): Promise<Response> => {
+      const answer = await boundary.request(
+        url,
+        init.method ?? "GET",
+        JSON.parse(z.string().parse(init.body)),
+      );
+      return answer.ok
+        ? Response.json(answer.body)
+        : new Response(null, { status: answer.status });
+    },
+  );
+});
 it("loads all 101 audit rows with fresh continuation operation identity", async () => {
   boundary.request
     .mockResolvedValueOnce(
@@ -85,12 +97,9 @@ it("loads all 101 audit rows with fresh continuation operation identity", async 
   );
   expect(result.value.result.nextAuditCursor).toBeNull();
   expect(boundary.request).toHaveBeenCalledTimes(2);
-  const form = boundary.request.mock.calls[1]?.[2];
-  expect(form).toBeInstanceOf(FormData);
-  if (!(form instanceof FormData)) throw new Error("Missing submitted form");
-  const raw = form.get("input");
-  if (typeof raw !== "string") throw new Error("Missing input payload");
-  const input = readPaymentInputSchema.parse(JSON.parse(raw));
+  const input = readPaymentInputSchema.parse(
+    boundary.request.mock.calls[1]?.[2],
+  );
   expect(input.auditCursor).toEqual(cursor);
   expect(input.operationId).not.toBe(operationId);
 });
