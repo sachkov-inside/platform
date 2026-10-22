@@ -527,7 +527,8 @@ export async function applyPreservation(
       origin: target.id,
       request: send,
       accessToken,
-      publish: receipt.state.materials
+      // A published Task keeps its state, so its pending write completes with the same approval.
+      publish: [...receipt.state.materials, ...receipt.state.tasks]
         .filter((row) => row.publicationState === "published")
         .map((row) => row.sourceId),
       reconcileOnly: true,

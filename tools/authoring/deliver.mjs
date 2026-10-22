@@ -218,6 +218,16 @@ const stateRows = (state) => [
   })),
 ];
 
+/** @param {string} value */
+function fullCommit(value) {
+  if (!/^[0-9a-f]{40}$/u.test(value))
+    throw refusal(
+      "usage",
+      `--commit must be a full 40-character Content commit, not ${value}`,
+    );
+  return value;
+}
+
 /** @param {string[]} values */
 const sorted = (values) => [...new Set(values)].sort();
 
@@ -269,7 +279,7 @@ export async function deliveryPreview({
   // Before any target request: the package must be the commit it names and the newest content.
   const history = await verifyPackageSource(pkg, {
     repository: resolve(contentRepository),
-    commit: z.hash("sha1").parse(sourceCommit),
+    commit: fullCommit(sourceCommit),
     stateDirectory: join(resolve(stateDirectory), "source-verification"),
     exportPackage,
   });

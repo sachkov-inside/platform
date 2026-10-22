@@ -78,6 +78,22 @@ export async function sourceCommitRelation(
 }
 
 /**
+ * The committed HEAD of the Content repository; the working tree never counts.
+ *
+ * @param {string} repository
+ */
+async function gitHead(repository) {
+  const { stdout } = await execute("git", [
+    "-C",
+    repository,
+    "rev-parse",
+    "--verify",
+    "HEAD^{commit}",
+  ]);
+  return stdout.trim();
+}
+
+/**
  * @typedef {(repository: string, guide: string, stateDirectory: string, ref: string) => Promise<{ commit: string; packagePath: string }>} ExportPackage
  */
 
@@ -101,7 +117,11 @@ function selectedContent(manifest) {
           `task:${task.sourceId}`,
           checksum(
             canonical({
-              task,
+              // Provenance names the export commit, so it differs between any two commits.
+              task: {
+                ...task,
+                provenance: { ...task.provenance, commit: null },
+              },
               page:
                 task.page === undefined
                   ? null
@@ -119,11 +139,17 @@ function selectedContent(manifest) {
  * package is not the commit it claims, or a newer commit already changed what it would deliver.
  *
  * @param {import("./package.mjs").AuthoringPackage} pkg
- * @param {{ repository: string; commit: string; stateDirectory: string; exportPackage: ExportPackage }} options
+ * @param {{
+ *   repository: string;
+ *   commit: string;
+ *   stateDirectory: string;
+ *   exportPackage: ExportPackage;
+ *   resolveHead?: (repository: string) => Promise<string>;
+ * }} options
  */
 export async function verifyPackageSource(
   pkg,
-  { repository, commit, stateDirectory, exportPackage },
+  { repository, commit, stateDirectory, exportPackage, resolveHead = gitHead },
 ) {
   const guide = pkg.manifest.selection.productId;
   if (guide === null)
@@ -161,8 +187,10 @@ export async function verifyPackageSource(
       "package_commit_mismatch",
       `The package does not match the export of Content ${commit}: ${named.rows.join(", ")}`,
     );
-  const head = await differing("HEAD");
-  if (head.commit !== commit && head.rows.length > 0)
+  const headCommit = await resolveHead(repository);
+  if (headCommit === commit) return { head: commit };
+  const head = await differing(headCommit);
+  if (head.rows.length > 0)
     throw refusal(
       "source_newer_in_repository",
       `Content ${head.commit} (HEAD) already changed ${head.rows.join(", ")} after ${commit}; export the current commit instead`,
