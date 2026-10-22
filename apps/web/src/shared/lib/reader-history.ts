@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { readShellScrollRoots, scrollShellRootsTo } from "./shell-scroll";
+
 const originSchema = z.object({ id: z.uuid(), href: z.url() });
 const entrySchema = z.object({
   id: z.uuid(),
@@ -87,13 +89,6 @@ export function readerHistoryRoot(element: Element): Element {
     element
   );
 }
-function contentScroller(root: ParentNode): Element | null {
-  return (
-    (root instanceof Element
-      ? root.closest("[data-application-content]")
-      : null) ?? root.querySelector("[data-application-content]")
-  );
-}
 
 /** Positions belong to an individual browser history entry, never a last-course preference. */
 export function saveReaderHistoryView(root: ParentNode = document) {
@@ -102,8 +97,7 @@ export function saveReaderHistoryView(root: ParentNode = document) {
   const rail = root.querySelector<HTMLElement>("[data-course-rail-scroll]");
   const view = {
     href: window.location.href,
-    windowY: window.scrollY,
-    contentY: contentScroller(root)?.scrollTop ?? 0,
+    ...readShellScrollRoots(root),
     railY: rail?.scrollTop ?? 0,
     chapter: root.querySelector<HTMLElement>("[data-course-chapter]")?.dataset[
       "courseChapter"
@@ -180,11 +174,7 @@ export function enterReaderHistory(
       requestAnimationFrame(() => {
         if (entry()?.id !== current.id || window.location.href !== current.href)
           return;
-        window.scrollTo({ top: view.windowY, behavior: "instant" });
-        contentScroller(root)?.scrollTo({
-          top: view.contentY,
-          behavior: "instant",
-        });
+        scrollShellRootsTo(view, root);
         root
           .querySelector("[data-course-rail-scroll]")
           ?.scrollTo({ top: view.railY, behavior: "instant" });
