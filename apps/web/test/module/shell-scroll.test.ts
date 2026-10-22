@@ -55,13 +55,25 @@ class FakeTarget {
   }
 }
 
-class FakeScroller extends FakeTarget {
+/** An element: a scroll root, a shell content element, or a node inside a page. */
+class FakeElement extends FakeTarget {
   scrollTop = 0;
   scrollHeight = 0;
   clientHeight = 0;
   readonly firstElementChild = {};
-  constructor(private readonly scrolled: (scroller: FakeScroller) => void) {
+  constructor(
+    private readonly scrolled: (element: FakeElement) => void,
+    readonly parent: FakeElement | null = null,
+    readonly shellContent = false,
+  ) {
     super();
+  }
+  closest(selector: string): FakeElement | null {
+    if (selector !== "[data-application-content]") return null;
+    return this.shellContent ? this : (this.parent?.closest(selector) ?? null);
+  }
+  querySelector(): null {
+    return null;
   }
   scrollTo({ top }: { readonly top: number }) {
     this.setTop(top);
@@ -75,6 +87,15 @@ class FakeScroller extends FakeTarget {
     this.scrollTop = next;
     this.scrolled(this);
   }
+}
+
+/** The fake element stands in for the DOM node the module receives as a scope. */
+function isScope(value: unknown): value is ParentNode {
+  return value instanceof FakeElement;
+}
+function asScope(value: FakeElement): ParentNode {
+  if (!isScope(value)) throw new Error("Not a fake element");
+  return value;
 }
 
 /**
@@ -96,7 +117,7 @@ function publicShell({
   const shell = { width, pageHeight };
   const fakeWindow = new FakeTarget();
   const fakeDocument = new FakeTarget();
-  const scrolled = (scroller: FakeScroller) => {
+  const scrolled = (scroller: FakeElement) => {
     if (scroller === root) {
       fakeDocument.emit("scroll", fakeDocument, "target");
       fakeWindow.emit("scroll", fakeDocument, "bubble");
@@ -105,8 +126,12 @@ function publicShell({
       scroller.emit("scroll", scroller, "target");
     }
   };
-  const root = new FakeScroller(scrolled);
-  const content = new FakeScroller(scrolled);
+  const root = new FakeElement(scrolled);
+  const content = new FakeElement(scrolled, null, true);
+  /** A second shell on the same page, as on a Storybook docs page. */
+  const otherContent = new FakeElement(scrolled, null, true);
+  const otherPage = new FakeElement(scrolled, otherContent);
+  const contents = [content, otherContent];
   const media: {
     query: string;
     minimum: number;
@@ -122,16 +147,20 @@ function publicShell({
     if (shell.width >= 1_024) {
       root.scrollHeight = viewportHeight;
       root.clientHeight = viewportHeight;
-      content.scrollHeight = shell.pageHeight;
-      content.clientHeight = viewportHeight - 80;
+      for (const element of contents) {
+        element.scrollHeight = shell.pageHeight;
+        element.clientHeight = viewportHeight - 80;
+      }
     } else {
       root.scrollHeight = shell.pageHeight + 56;
       root.clientHeight = viewportHeight;
-      content.scrollHeight = shell.pageHeight;
-      content.clientHeight = shell.pageHeight;
+      for (const element of contents) {
+        element.scrollHeight = shell.pageHeight;
+        element.clientHeight = shell.pageHeight;
+      }
     }
     root.setTop(root.scrollTop);
-    content.setTop(content.scrollTop);
+    for (const element of contents) element.setTop(element.scrollTop);
   };
   layout();
 
@@ -188,13 +217,7 @@ function publicShell({
     querySelector: (selector: string) =>
       withContent && selector === "[data-application-content]" ? content : null,
   });
-  // Fake scroll roots are not DOM elements; only a real Element scope searches its ancestors.
-  vi.stubGlobal(
-    "Element",
-    class FakeElement {
-      readonly real = false;
-    },
-  );
+  vi.stubGlobal("Element", FakeElement);
   vi.stubGlobal("window", fakeWindow);
   vi.stubGlobal("document", fakeDocument);
   vi.stubGlobal(
@@ -227,6 +250,16 @@ function publicShell({
     },
     scrollContent(top: number) {
       content.setTop(top);
+    },
+    /** A node inside the second shell, and that shell's content element. */
+    otherShell: {
+      page: asScope(otherPage),
+      get contentTop() {
+        return otherContent.scrollTop;
+      },
+      scroll(top: number) {
+        otherContent.setTop(top);
+      },
     },
     /** `beforeMediaEvent` runs after the new layout and before the media query reports it. */
     resize(next: number, beforeMediaEvent?: () => void) {
@@ -360,6 +393,31 @@ describe("shell scroll roots saved together", () => {
     // The phone layout does not scroll the content, so the saved content position is dropped.
     expect(shell.documentTop).toBe(0);
     expect(shell.contentTop).toBe(0);
+  });
+});
+
+describe("shell scroll scope", () => {
+  it("acts on the shell around the given node when a page renders several shells", () => {
+    const shell = publicShell({ width: 1_440 });
+    shell.scrollContent(200);
+    shell.otherShell.scroll(500);
+    expect(readShellScroll(shell.otherShell.page)).toBe(500);
+    expect(readShellScrollRoots(shell.otherShell.page)).toEqual({
+      windowY: 0,
+      contentY: 500,
+    });
+    resetShellScroll(shell.otherShell.page);
+    expect(shell.otherShell.contentTop).toBe(0);
+    expect(shell.contentTop).toBe(200);
+  });
+
+  it("moves the position of the shell it was installed for", () => {
+    const shell = publicShell({ width: 1_440 });
+    const stop = keepShellScrollAcrossBreakpoint(shell.otherShell.page);
+    shell.otherShell.scroll(500);
+    shell.resize(390);
+    expect(shell.documentTop).toBe(500);
+    stop();
   });
 });
 

@@ -163,7 +163,7 @@ export function useMobileNavigation(
     if (destination === null || destination.href.split("?")[0] !== pathname)
       return;
     pending.current = null;
-    // Restore after the route commit so browser scroll anchoring cannot offset this write.
+    // Waits for the destination to grow tall enough; reader input or a timeout cancels it.
     const stop = restoreShellScroll(destination.top, restorationTimeoutMs);
     stopRestoring.current = stop;
     return stop;

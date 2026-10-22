@@ -1,8 +1,13 @@
 /**
  * Who scrolls the public shell. Below 64rem the document scrolls; from 64rem the shell's
  * `[data-application-content]` element scrolls and the document stays one viewport tall
- * (`apps/web/CODING_STANDARDS.md`). The breakpoint and the selector live only here: callers ask
- * this module for the position instead of deciding the scroll root themselves.
+ * (`apps/web/CODING_STANDARDS.md`). Scripts ask this module for the scroll root instead of
+ * matching the breakpoint or the selector themselves. The shell markup still declares the
+ * attribute, and CSS (the shell's Tailwind `lg:` classes, `app/globals.css`) lays out the same
+ * 64rem breakpoint.
+ *
+ * Every function takes an optional `scope`: a node inside or around one shell picks that shell,
+ * so a page that renders several shells (a Storybook docs page) reaches the right one.
  *
  * Browser-only: call these functions from effects and event handlers.
  */
@@ -14,11 +19,11 @@ function desktopMedia(): MediaQueryList {
   return window.matchMedia(desktopQuery);
 }
 
-/**
- * The shell content element. A `scope` inside or around one shell picks that shell, so a page
- * that renders several shells (a Storybook docs page) reaches the right one.
- */
-function shellContent(scope: ParentNode = document): HTMLElement | null {
+/** A node inside or around one shell; without one, the first shell in the document. */
+type ShellScope = ParentNode | null | undefined;
+
+function shellContent(scope: ShellScope): HTMLElement | null {
+  scope ??= document;
   return (
     (scope instanceof Element
       ? scope.closest<HTMLElement>(contentSelector)
@@ -27,8 +32,8 @@ function shellContent(scope: ParentNode = document): HTMLElement | null {
 }
 
 /** The current vertical scroll position of the shell. */
-export function readShellScroll(): number {
-  const content = desktopMedia().matches ? shellContent() : null;
+export function readShellScroll(scope?: ShellScope): number {
+  const content = desktopMedia().matches ? shellContent(scope) : null;
   return content === null ? window.scrollY : content.scrollTop;
 }
 
@@ -39,7 +44,7 @@ export interface ShellScrollRoots {
 }
 
 /** Reads the document and the shell content positions, whatever the current width. */
-export function readShellScrollRoots(scope?: ParentNode): ShellScrollRoots {
+export function readShellScrollRoots(scope?: ShellScope): ShellScrollRoots {
   return {
     windowY: window.scrollY,
     contentY: shellContent(scope)?.scrollTop ?? 0,
@@ -49,16 +54,15 @@ export function readShellScrollRoots(scope?: ParentNode): ShellScrollRoots {
 /** Writes both roots back; the browser clamps the one that does not scroll at this width. */
 export function scrollShellRootsTo(
   roots: ShellScrollRoots,
-  scope?: ParentNode,
+  scope?: ShellScope,
 ): void {
   window.scrollTo({ top: roots.windowY, behavior: "instant" });
   shellContent(scope)?.scrollTo({ top: roots.contentY, behavior: "instant" });
 }
 
 /** Returns both possible scroll roots to the top, whatever the current width. */
-export function resetShellScroll(scope?: ParentNode): void {
-  window.scrollTo({ top: 0, behavior: "instant" });
-  shellContent(scope)?.scrollTo({ top: 0, behavior: "instant" });
+export function resetShellScroll(scope?: ShellScope): void {
+  scrollShellRootsTo({ windowY: 0, contentY: 0 }, scope);
 }
 
 /** Calls `listener` with `true` when the shell becomes desktop and `false` when it leaves it. */
@@ -80,8 +84,12 @@ export function subscribeShellBreakpoint(
  * Gives up after `timeoutMs` or on the reader's own touch, wheel, key or history navigation.
  * Returns a function that stops waiting; calling it after completion is harmless.
  */
-export function restoreShellScroll(top: number, timeoutMs: number): () => void {
-  const content = shellContent();
+export function restoreShellScroll(
+  top: number,
+  timeoutMs: number,
+  scope?: ShellScope,
+): () => void {
+  const content = shellContent(scope);
   if (content === null) return () => undefined;
   let frame = 0;
   const stop = () => {
@@ -120,10 +128,12 @@ export function restoreShellScroll(top: number, timeoutMs: number): () => void {
 
 /**
  * Keeps the reading position when the width crosses 64rem and the scroll root changes. The shell
- * installs this once, after its content element mounts.
+ * installs this once for its own content element, after it mounts.
  */
-export function keepShellScrollAcrossBreakpoint(): () => void {
-  const content = shellContent();
+export function keepShellScrollAcrossBreakpoint(
+  scope?: ShellScope,
+): () => void {
+  const content = shellContent(scope);
   if (content === null) return () => undefined;
   const desktop = desktopMedia();
   let contentTop = content.scrollTop;

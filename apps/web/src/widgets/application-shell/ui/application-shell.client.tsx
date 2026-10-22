@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { keepShellScrollAcrossBreakpoint } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
@@ -59,7 +59,8 @@ export function ApplicationShell({
   mobileNavigationItems,
   onMobileNavigate,
 }: ApplicationShellProps) {
-  useEffect(() => keepShellScrollAcrossBreakpoint(), []);
+  const content = useRef<HTMLElement>(null);
+  useEffect(() => keepShellScrollAcrossBreakpoint(content.current), []);
   return (
     <div
       className="flex min-h-svh flex-col bg-background text-foreground lg:h-svh lg:overflow-hidden"
@@ -110,6 +111,7 @@ export function ApplicationShell({
         onNavigate={onMobileNavigate}
       />
       <main
+        ref={content}
         id="app:content"
         data-application-content
         tabIndex={-1}

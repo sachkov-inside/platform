@@ -169,6 +169,7 @@ const fixtures = [
     accepted: [
       "src/shared/lib/shell-scroll.ts",
       "src/widgets/shell.stories.tsx",
+      "src/widgets/wide-layout.ts",
     ],
   },
   {

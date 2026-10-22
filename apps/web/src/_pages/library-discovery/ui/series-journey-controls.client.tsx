@@ -315,7 +315,7 @@ export function SeriesJourneyControls({
   function openPart(id: JourneyPart["id"]) {
     // Новый раздел открывается с самого верха страницы, вместе с шапкой продукта (решение
     // владельца 09.10.2026). Сбрасываем реальную оболочку до появления lastLesson нового раздела.
-    resetShellScroll(routeRef.current ?? undefined);
+    resetShellScroll(routeRef.current);
     selectPart(id);
   }
 

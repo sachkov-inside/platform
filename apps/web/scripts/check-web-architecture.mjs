@@ -1343,7 +1343,8 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     !isStorybookModule(sourcePath) &&
     stringLiterals(program).some(
       (value) =>
-        value.includes("data-application-content") || value.includes("64rem"),
+        value.includes("data-application-content") ||
+        /width\s*(?::|[<>]=?)\s*64rem/u.test(value),
     )
   ) {
     findingsForFile.push(
