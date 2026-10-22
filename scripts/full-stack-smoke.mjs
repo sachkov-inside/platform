@@ -77,6 +77,16 @@ const stackAuthorPermission = "materials:manage";
 // ничего. Доступ к одному Product ученик получает в самом сценарии, без bridge и `wholePlatform`.
 const separateAccessIdentities = [
   {
+    subject: "fullstack-local-learner",
+    permission: undefined,
+    sessionVariable: "FULLSTACK_LOGTO_LOCAL_LEARNER_SESSION",
+  },
+  {
+    subject: "fullstack-local-learner-with-access",
+    permission: undefined,
+    sessionVariable: "FULLSTACK_LOGTO_LOCAL_LEARNER_WITH_ACCESS_SESSION",
+  },
+  {
     subject: "fullstack-materials-only",
     permission: stackAuthorPermission,
     sessionVariable: "FULLSTACK_LOGTO_MATERIALS_ONLY_SESSION",
@@ -281,6 +291,24 @@ try {
       await fullStackIdentity.createSession(accessToken);
   }
   const browserAccessToken = await fullStackIdentity.createAccessToken();
+  await runPnpm(
+    [
+      "--filter",
+      "@inside/backend",
+      "exec",
+      "tsx",
+      "src/development/bootstrap-local-stand-accounts.ts",
+    ],
+    {
+      ...childEnvironment,
+      FULLSTACK_WEB_BASE_URL: webBaseUrl,
+      LOCAL_STAND_ACCOUNT_SUBJECTS: JSON.stringify({
+        owner: childEnvironment["OWNER_LOGTO_SUBJECT"],
+        learner: "fullstack-local-learner",
+        learnerWithAccess: "fullstack-local-learner-with-access",
+      }),
+    },
+  );
   const practiceFixture = await seedFullStackPractice(
     apiBaseUrl,
     browserAccessToken.token,
