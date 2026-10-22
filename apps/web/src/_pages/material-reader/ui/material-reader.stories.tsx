@@ -2083,7 +2083,7 @@ export const PracticalLesson: Story = {
     ).not.toBeNull();
     await expect(
       canvas.getByText(
-        "Открой новую сессию агента в папке проекта, где ты выполнил задание.",
+        /Скопируй запрос в новую сессию агента в папке проекта/u,
       ),
     ).toBeVisible();
   },

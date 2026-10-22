@@ -1,8 +1,5 @@
-import type { ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
 import { productTaskAgentPhrase } from "@/entities/product-task";
-import { Button } from "@/shared/ui/button";
-import { ProductTaskForm } from "./product-task-form.client";
+import { cn } from "@/shared/lib/utils";
 import { TaskMcpSetup } from "./task-mcp-setup.client";
 import { TaskSubmissionHistory } from "./task-submission-history.client";
 import { AgentPhrase } from "./agent-phrase.client";
@@ -55,8 +52,7 @@ export function TaskSubmissionWorkspace({
           Сдача задания
         </h2>
         <p className="text-sm leading-6 text-body-muted">
-          Агент проверяет проект. Здесь — подключение, начало проверки и её
-          результат.
+          Агент проверяет проект. Просто следуй шагам ниже.
         </p>
       </header>
       <ol className={styles["roadmap"]}>
@@ -75,20 +71,12 @@ export function TaskSubmissionWorkspace({
             2
           </span>
           <div className={styles["stepContent"]}>
-            <h3 className="text-lg font-semibold">Начало проверки</h3>
+            <h3 className="text-lg font-semibold">Проверка задания</h3>
             <p className={styles["stepDescription"]}>
-              Открой новую сессию агента в папке проекта, где ты выполнил
-              задание.
-            </p>
-            <p className="text-sm leading-6">
-              Передай запрос в новой сессии. Агент проверит работу, покажет
-              отчёт и попросит подтвердить отправку.
+              Скопируй запрос в новую сессию агента в папке проекта. Агент
+              проверит работу, покажет отчёт и попросит подтвердить отправку.
             </p>
             <AgentPhrase text={productTaskAgentPhrase(code)} />
-            <p className={styles["stepDescription"]}>
-              Работай и обсуждай замечания у агента. Здесь появятся статус
-              проверки и краткий отчёт.
-            </p>
             {accepting ? null : (
               <p role="status" className="text-sm leading-6">
                 Приём сдач скоро откроется. Проверить работу у агента уже можно.
@@ -97,25 +85,23 @@ export function TaskSubmissionWorkspace({
           </div>
         </li>
         <li className={styles["step"]}>
-          <span className={styles["stepNumber"]} aria-hidden="true">
+          <span
+            className={cn(styles["stepNumber"], styles["resultStep"])}
+            aria-hidden="true"
+          >
             3
           </span>
           <div className={styles["stepContent"]}>
-            <h3 className="text-lg font-semibold">
-              Результат и обратная связь
-            </h3>
+            <h3 className="text-lg font-semibold">Результат проверки</h3>
             <p className={styles["stepDescription"]}>
-              Статус проверки, твои сдачи и ответ автора — в одном месте.
+              Здесь появляются сообщения от агента и результаты проверки.
             </p>
             <section
               className={styles["history"]}
               id={anchor("task-mine")}
               aria-labelledby={anchor("task-mine-heading")}
             >
-              <h4
-                className="text-sm font-semibold"
-                id={anchor("task-mine-heading")}
-              >
+              <h4 className="sr-only" id={anchor("task-mine-heading")}>
                 Мои сдачи
               </h4>
               <TaskSubmissionHistory
@@ -137,71 +123,6 @@ export function TaskSubmissionWorkspace({
           </div>
         </li>
       </ol>
-      <Disclosure
-        title="Нет агента с MCP? Сдать через форму"
-        dataAttribute="fallback-form"
-      >
-        {history.kind === "guest" ? (
-          <SignIn
-            explanation="Войди, чтобы отправить сдачу."
-            returnTo={returnTo}
-          />
-        ) : (
-          <ProductTaskForm
-            accepting={accepting}
-            code={code}
-            taskVersion={version}
-          />
-        )}
-      </Disclosure>
     </section>
-  );
-}
-
-function Disclosure({
-  children,
-  className = "",
-  dataAttribute,
-  title,
-}: {
-  readonly children: ReactNode;
-  readonly className?: string;
-  readonly dataAttribute?: string;
-  readonly title: string;
-}) {
-  return (
-    <details
-      className={`group rounded-xl border border-border ${className}`}
-      data-task-disclosure={dataAttribute}
-    >
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
-        {title}
-        <ChevronDown
-          aria-hidden="true"
-          className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-        />
-      </summary>
-      <div className="px-4 pb-4 text-base">{children}</div>
-    </details>
-  );
-}
-
-function SignIn({
-  explanation,
-  returnTo,
-}: {
-  readonly explanation: string;
-  readonly returnTo: string;
-}) {
-  return (
-    <div className="grid justify-items-start gap-3">
-      <p className="text-sm leading-6 text-body-muted">{explanation}</p>
-      <form action="/auth/sign-in" method="post">
-        <input name="returnTo" type="hidden" value={returnTo} />
-        <Button className="min-h-11" type="submit" variant="outline">
-          Войти через Telegram
-        </Button>
-      </form>
-    </div>
   );
 }

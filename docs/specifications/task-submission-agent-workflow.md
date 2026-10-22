@@ -7,6 +7,7 @@ The owner accepted the monochrome roadmap prototype on 2026-10-15.
 The accepted proof and decision are preserved on `prototype/1504-submission-monochrome` at `70817c11`.
 Promote the three numbered sections: MCP connection, review start, and results with feedback.
 Use a white surface and an explicit labelled setup button. Keep the review request and results visible.
+Owner refinement on 2026-10-16: use compact numbered steps, a light copyable request and message-style results.
 The learner starts the review in a fresh agent session in the completed project's directory.
 Keep Storybook states alongside the production component. Prototype acceptance does not replace production visual acceptance.
 
@@ -14,6 +15,7 @@ Keep Storybook states alongside the production component. Prototype acceptance d
 
 The learner works in their own agent: discussion, project inspection, checks, report review and submission confirmation.
 The task page supplies a short instruction, connection help, current review progress and saved submissions.
+The participant submits through their agent; the task page has no manual submission form.
 Platform stores agent statements; neither their presence nor their outcome constitutes an author's assessment.
 
 ## Context ownership
@@ -61,7 +63,7 @@ Successful submission closes only its linked run within the same transaction.
 The immutable submission retains `reviewRunKey`, so a closed key cannot be reused after another run starts.
 Older clients can still submit without linking progress.
 
-The website refreshes personal progress while visible and supplies a manual refresh action.
+The website refreshes personal progress automatically while visible. The learner starts every check in their own agent.
 It preserves the last successful read when an update fails and states that freshness could not be verified.
 Background tabs stop polling. Guest pages do not request personal progress.
 
@@ -70,15 +72,19 @@ Background tabs stop polling. Guest pages do not request personal progress.
 Only `learning_task_submit`, after confirmation of the exact complete report, appends an agent submission.
 Progress and unconfirmed reports never count as saved attempts.
 The learner history displays newest submissions first, with date, note, agent summary and criterion status counts.
-The full criterion report is disclosed on demand and uses the criteria of that submission's version.
+The results surface presents actual agent summaries as messages with server timestamps and a distinct agent identity.
+Author comments and manual submissions retain their own identities. Platform does not fabricate intermediate messages or acceptance verdicts.
+The current progress remains the latest server snapshot, not a transcript of every progress revision.
+The full criterion report and status counts are disclosed on demand and use the criteria of that submission's version.
+The page offers connection and copy actions; a new check starts through the learner's agent rather than a website button.
 Required violations, confirmed requirements and insufficient evidence remain distinct; additional work does not redefine the required outcome.
-Manual submissions have an optional repository and report text, and a required note. They carry no invented agent statuses.
+Existing manual submissions retain their repository, report text and note in history. They carry no invented agent statuses.
 Author comments and viewed marks are independent. The page presents either, both, or neither without implying acceptance.
 
 ## Required evidence
 
 Verify Account isolation, access checks, version conflicts, identical retries, stale progress writes and linked submission closure against PostgreSQL.
 Verify that public task/history HTTP responses omit `reviewGuidance` and that complete MCP context includes it.
-Verify first use, returning learner, progress, report with gaps, submitted history, manual fallback, guest, closed submissions and read/write failures.
+Verify first use, returning learner, progress, report with gaps, submitted history, absence of the manual form, guest, closed submissions and read/write failures.
 Check the production component in Storybook and the live task route at desktop and narrow mobile sizes.
 Record owner feedback, independent review, focused checks, full required checks and local application separately in #1504.

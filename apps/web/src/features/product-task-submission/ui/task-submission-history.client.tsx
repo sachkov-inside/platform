@@ -1,4 +1,5 @@
 "use client";
+import { useSyncExternalStore } from "react";
 import { readTaskSubmissions } from "../api/read-task-submissions.browser";
 import {
   taskSubmissionsQueryKey,
@@ -7,7 +8,7 @@ import {
 import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Bot, Eye, FileText, MessageSquareText, RefreshCw } from "lucide-react";
+import { Bot, CircleCheck, Eye, Info } from "lucide-react";
 import Link from "next/link";
 import {
   formatSubmissionDay,
@@ -17,6 +18,8 @@ import { Button } from "@/shared/ui/button";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { type OwnSubmissionsView } from "../model/product-task-page";
 import { TaskReviewReportView } from "./task-review-report";
+import { TaskReviewMessage } from "./task-review-message";
+import styles from "./task-submission-workspace.module.css";
 
 const phases = {
   reviewing: "Агент проверяет работу",
@@ -24,6 +27,10 @@ const phases = {
   stopped: "Проверка остановлена",
   submitted: "Сдача отправлена",
 };
+
+const subscribeToHydration = () => () => undefined;
+const readClientHydration = () => true;
+const readServerHydration = () => false;
 
 export function TaskSubmissionHistory({
   initial,
@@ -45,6 +52,11 @@ export function TaskSubmissionHistory({
   readonly accountId?: string | null;
 }) {
   const router = useRouter();
+  const hydrated = useSyncExternalStore(
+    subscribeToHydration,
+    readClientHydration,
+    readServerHydration,
+  );
   const historyHref = (cursor?: string) => {
     const url = new URL(returnTo, "http://inside.invalid");
     if (cursor === undefined) url.searchParams.delete("attemptsAfter");
@@ -66,9 +78,12 @@ export function TaskSubmissionHistory({
     retry: false,
     queryFn: ({ signal }) => readTaskSubmissions(code, after, signal),
   });
+  // A streamed boundary hydrates from its server snapshot even if a sibling has updated the cache.
   // A refreshed RSC route (e.g. manual submission) must replace stale initial query data immediately.
   const submissions =
-    !live || initial.kind === "guest" ? initial : (query.data ?? initial);
+    !hydrated || !live || initial.kind === "guest"
+      ? initial
+      : (query.data ?? initial);
   const refresh = () => {
     if (live && accountId !== null) {
       void query.refetch();
@@ -101,24 +116,43 @@ export function TaskSubmissionHistory({
   const versions = new Map(
     submissions.versions.map((version) => [version.version, version.criteria]),
   );
+  const currentProgress = progress?.phase === "submitted" ? null : progress;
+  const updatedAt = currentProgress?.updatedAt ?? submissions.latestSubmittedAt;
   return (
-    <div className="grid gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {live && accountId !== null
-            ? "Обновляется по сообщениям агента"
-            : "Сохранённые результаты"}
-        </p>
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={refresh}
-          disabled={query.isFetching}
-          className="min-h-11"
+    <div
+      className="grid gap-4"
+      data-task-history
+      aria-busy={hydrated && query.isFetching}
+    >
+      <div className={styles["resultHeader"]}>
+        <span
+          className={styles["resultIcon"]}
+          data-phase={currentProgress?.phase}
+          aria-hidden="true"
         >
-          <RefreshCw aria-hidden="true" className="size-4" />
-          Обновить
-        </Button>
+          {currentProgress?.phase === "ready" ? (
+            <CircleCheck size={22} />
+          ) : (
+            <Bot size={22} />
+          )}
+        </span>
+        <div className="grid min-w-0 gap-1">
+          <p className="text-base font-semibold">
+            {currentProgress == null
+              ? submissions.submissions.length === 0
+                ? "Ожидаем сообщения агента"
+                : "Результаты получены"
+              : phases[currentProgress.phase]}
+          </p>
+          {updatedAt == null ? null : (
+            <p className="text-xs text-muted-foreground">
+              Обновлено{" "}
+              <time dateTime={updatedAt}>
+                {formatSubmissionMoment(updatedAt)}
+              </time>
+            </p>
+          )}
+        </div>
       </div>
       {submissions.currentVersion === currentVersion ? null : (
         <div
@@ -137,151 +171,141 @@ export function TaskSubmissionHistory({
           </Button>
         </div>
       )}
-      {query.isError ? (
+      {hydrated && query.isError ? (
         <p role="status" className="text-sm text-destructive">
           Не удалось получить обновления. Показаны последние загруженные данные.
         </p>
       ) : null}
-      {progress === null ||
-      progress === undefined ||
-      progress.phase === "submitted" ? null : (
-        <section
-          className="grid gap-3 rounded-xl bg-muted p-4"
-          aria-label="Текущая проверка"
-          data-task-review-progress
-        >
-          <p role="status" className="text-sm font-semibold">
-            {phases[progress.phase]}
-          </p>
-          <p className="whitespace-pre-line text-sm leading-6">
-            {progress.summary}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Обновлено{" "}
-            <time dateTime={progress.updatedAt}>
-              {formatSubmissionMoment(progress.updatedAt)}
-            </time>
-            . Ещё не отправлено.
-          </p>
-          {progress.taskVersion === submissions.currentVersion ? null : (
-            <p className="text-sm">
-              Требования изменились. Попроси агента проверить работу заново.
-            </p>
-          )}
-          {progress.reviewReport === null ? null : (
-            <TaskReviewReportView
-              report={progress.reviewReport}
-              criteria={versions.get(progress.taskVersion) ?? []}
-            />
-          )}
-        </section>
-      )}
-      {submissions.submissions.length === 0 ? (
-        <p className="py-4 text-sm leading-6 text-muted-foreground">
-          {submissions.continued === true
-            ? "Более ранних сдач нет."
-            : "Сдач пока нет. После отправки здесь появятся результат проверки и ответ автора."}
-        </p>
-      ) : (
-        <ol className="divide-y divide-border" data-own-submissions>
-          {submissions.submissions.map((submission) => {
-            const feedback = submission.authorFeedback;
-            return (
-              <li
-                key={submission.submissionId}
-                data-submission={submission.submissionId}
-                className="grid gap-3 py-5 first:pt-0 last:pb-0"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h5 className="text-base font-semibold">
-                    <time dateTime={submission.submittedAt}>
-                      {formatSubmissionMoment(submission.submittedAt)}
-                    </time>
-                  </h5>
-                  <span className="text-xs font-medium">Сдача отправлена</span>
-                </div>
-                <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    {submission.source === "mcp" ? (
-                      <Bot aria-hidden="true" className="size-4" />
-                    ) : (
-                      <FileText aria-hidden="true" className="size-4" />
+      <div
+        role="log"
+        aria-label="Сообщения проверки"
+        aria-live="polite"
+        aria-relevant="additions text"
+        className="grid gap-5"
+      >
+        {submissions.submissions.length === 0 ? null : (
+          <ol className="grid gap-5" data-own-submissions>
+            {submissions.submissions.map((submission) => {
+              const feedback = submission.authorFeedback;
+              return (
+                <li
+                  key={submission.submissionId}
+                  data-submission={submission.submissionId}
+                  className="grid gap-3"
+                >
+                  <TaskReviewMessage
+                    author={submission.source === "mcp" ? "Агент" : "Ты"}
+                    at={submission.submittedAt}
+                  >
+                    <p className="mb-2 font-medium">Сдача отправлена</p>
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      {submission.source === "mcp"
+                        ? "Через агента"
+                        : "Через форму"}
+                    </p>
+                    {submission.taskVersion ===
+                    submissions.currentVersion ? null : (
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Версия требований {submission.taskVersion} (сейчас{" "}
+                        {submissions.currentVersion})
+                      </p>
                     )}
-                    {submission.source === "mcp"
-                      ? "Через агента"
-                      : "Через форму"}
-                  </span>
-                  {submission.taskVersion ===
-                  submissions.currentVersion ? null : (
-                    <span>
-                      Версия требований {submission.taskVersion} (сейчас{" "}
-                      {submissions.currentVersion})
-                    </span>
+                    {submission.reviewReport == null ? null : (
+                      <TaskReviewReportView
+                        report={submission.reviewReport}
+                        criteria={versions.get(submission.taskVersion) ?? []}
+                      />
+                    )}
+                    {submission.note.length === 0 ? null : (
+                      <details>
+                        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+                          Моя заметка
+                        </summary>
+                        <p className="whitespace-pre-line">{submission.note}</p>
+                      </details>
+                    )}
+                    {submission.reportText === null ? null : (
+                      <details>
+                        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+                          Мой отчёт
+                        </summary>
+                        <p className="whitespace-pre-line">
+                          {submission.reportText}
+                        </p>
+                      </details>
+                    )}
+                    {submission.repositoryUrl === null ? null : (
+                      <details>
+                        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
+                          Проект
+                        </summary>
+                        <p className="break-all">
+                          {submission.repositoryUrl.replace(
+                            /^https?:\/\//u,
+                            "",
+                          )}
+                        </p>
+                      </details>
+                    )}
+                  </TaskReviewMessage>
+                  {feedback?.comment == null ? null : (
+                    <TaskReviewMessage author="Автор" at={feedback.reviewedAt}>
+                      <p className="mb-1 font-medium">Комментарий автора</p>
+                      <p className="whitespace-pre-line">{feedback.comment}</p>
+                    </TaskReviewMessage>
                   )}
-                  {submission.repositoryUrl === null ? null : (
-                    <span className="break-all">
-                      {submission.repositoryUrl.replace(/^https?:\/\//u, "")}
-                    </span>
-                  )}
-                </p>
-                {submission.reviewReport == null ? null : (
-                  <TaskReviewReportView
-                    report={submission.reviewReport}
-                    criteria={versions.get(submission.taskVersion) ?? []}
-                  />
-                )}
-                {submission.note.length === 0 ? null : (
-                  <details>
-                    <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
-                      Моя заметка
-                    </summary>
-                    <p className="whitespace-pre-line text-sm leading-6">
-                      {submission.note}
-                    </p>
-                  </details>
-                )}
-                {submission.reportText === null ? null : (
-                  <details>
-                    <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium">
-                      Мой отчёт
-                    </summary>
-                    <p className="whitespace-pre-line text-sm leading-6">
-                      {submission.reportText}
-                    </p>
-                  </details>
-                )}
-                <div className="grid gap-2 border-t border-border pt-3 text-sm leading-6">
                   {feedback?.reviewedAt == null ? null : (
-                    <p className="flex items-center gap-2">
+                    <p className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Eye aria-hidden="true" className="size-4" />
                       Посмотрел автор {formatSubmissionDay(feedback.reviewedAt)}
                     </p>
                   )}
-                  {feedback?.comment == null ? null : (
-                    <figure>
-                      <figcaption className="mb-1 flex items-center gap-2 font-medium">
-                        <MessageSquareText
-                          aria-hidden="true"
-                          className="size-4"
-                        />
-                        Комментарий автора
-                      </figcaption>
-                      <blockquote className="whitespace-pre-line">
-                        {feedback.comment}
-                      </blockquote>
-                    </figure>
-                  )}
-                  {feedback?.reviewedAt == null && feedback?.comment == null ? (
-                    <p className="text-muted-foreground">
-                      Автор ещё не смотрел.
-                    </p>
-                  ) : null}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-      )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        {progress === null ||
+        progress === undefined ||
+        progress.phase === "submitted" ? null : (
+          <section
+            className="grid gap-3"
+            aria-label="Текущая проверка"
+            data-task-review-progress
+          >
+            <TaskReviewMessage author="Агент" at={progress.updatedAt}>
+              <p className="whitespace-pre-line text-sm leading-6">
+                {progress.summary}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Ещё не отправлено.
+              </p>
+              {progress.taskVersion === submissions.currentVersion ? null : (
+                <p className="text-sm">
+                  Требования изменились. Попроси агента проверить работу заново.
+                </p>
+              )}
+              {progress.reviewReport === null ? null : (
+                <TaskReviewReportView
+                  report={progress.reviewReport}
+                  criteria={versions.get(progress.taskVersion) ?? []}
+                />
+              )}
+            </TaskReviewMessage>
+          </section>
+        )}
+        {submissions.submissions.length === 0 && currentProgress == null ? (
+          <p className="py-4 text-sm leading-6 text-muted-foreground">
+            {submissions.continued === true
+              ? "Более ранних сдач нет."
+              : "Передай запрос агенту. Его сообщение появится здесь, когда он отправит обновление через MCP."}
+          </p>
+        ) : null}
+      </div>
+      <p className={styles["discussionHint"]}>
+        <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+        Вопросы и новую проверку обсуждай со своим агентом в папке проекта.
+      </p>
       <nav
         aria-label="Страницы моих сдач"
         className="flex flex-wrap gap-4 text-sm"

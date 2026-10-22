@@ -1,4 +1,10 @@
-import { Check, CircleHelp, TriangleAlert } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  CircleHelp,
+  FileText,
+  TriangleAlert,
+} from "lucide-react";
 import type {
   TaskCriterion,
   TaskReviewReport,
@@ -29,23 +35,28 @@ export function TaskReviewReportView({
   const unverified = required.length - confirmed - violations;
   return (
     <div className="grid gap-3" data-task-review-report>
-      <p className="text-sm font-medium">Самопроверка агента</p>
+      <p className="sr-only">Самопроверка агента</p>
       {report.summary === undefined ? null : (
         <p className="whitespace-pre-line text-sm leading-6">
           {report.summary}
         </p>
       )}
-      <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-        <span>
-          Подтверждено: {confirmed} из {required.length}
-        </span>
-        {violations === 0 ? null : <span>С замечаниями: {violations}</span>}
-        {unverified === 0 ? null : <span>Не проверено: {unverified}</span>}
-      </p>
       <details className="group">
-        <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium underline underline-offset-4">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <FileText aria-hidden="true" className="size-4 shrink-0" />
           Отчёт по критериям
+          <ChevronDown
+            aria-hidden="true"
+            className="ml-auto size-4 shrink-0 group-open:rotate-180"
+          />
         </summary>
+        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          <span>
+            Подтверждено: {confirmed} из {required.length}
+          </span>
+          {violations === 0 ? null : <span>С замечаниями: {violations}</span>}
+          {unverified === 0 ? null : <span>Не проверено: {unverified}</span>}
+        </p>
         <ul className="divide-y divide-border">
           {criteria.map((criterion) => {
             const result = byId.get(criterion.id);

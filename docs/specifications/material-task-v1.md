@@ -83,7 +83,7 @@ requirements change. Its identity and previous submissions are not moved to anot
 ## Reader and programme
 
 A bound practical lesson uses the production-owned submission workspace, including MCP setup, the
-canonical agent phrase, live review, history, feedback and existing manual fallback. Sign-in, pagination
+canonical agent phrase, live review and message-style history with feedback. Existing manual submissions remain readable; the workspace has no manual submission form. Sign-in, pagination
 and refresh retain the Material URL and its validated course/anchor context.
 
 Task access is checked independently from Material access. Personal history remains in an uncached,

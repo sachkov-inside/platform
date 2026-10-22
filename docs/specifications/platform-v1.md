@@ -1707,7 +1707,7 @@ in author order (variant 2).
   a visited task for the same 60-second window as lessons; submission writes refresh that route.
   An open v1 task first shows related Materials with explicit studied progress, then «Ситуация»,
   «Результат», «Обязательно», «Дополнительно» and «Свобода», followed by the separate «Сдача задания» workspace.
-  It contains short instructions, inline MCP setup help, a folded manual form and «Мои сдачи»,
+  It contains compact numbered steps, inline MCP setup help, a copyable review request and message-style results with saved submissions,
   as defined by the [agent-led submission contract](task-submission-agent-workflow.md). A task the reader cannot open shows only its title and chapter and
   leads to the programme; an unknown code, a code of another Product and a withdrawn task answer 404.
 - `GET /library/products/{slug}/tasks/{code}` (`readProductTaskPage`, optional Account) answers

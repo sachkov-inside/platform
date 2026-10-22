@@ -1,4 +1,6 @@
 import { resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
@@ -25,7 +27,31 @@ async function dismissNotices(page: Page) {
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
 }
 
-test("a learner without Membership reads a free task from the programme, submits it through the form and finds it in «Мои сдачи» (#947)", async ({
+/** Seed a legacy form receipt to keep existing learner history covered after removing its UI. */
+async function seedLegacySubmission(page: Page, code: string, note: string) {
+  const historyResponse = await page.request.get(
+    `/api/product-tasks/submissions?code=${encodeURIComponent(code)}`,
+  );
+  expect(historyResponse.ok()).toBe(true);
+  const history = z
+    .object({ currentVersion: z.number().int().positive() })
+    .parse(await historyResponse.json());
+  const response = await page.request.post("/api/product-tasks/submissions", {
+    headers: { origin: new URL(page.url()).origin },
+    multipart: {
+      code,
+      taskVersion: String(history.currentVersion),
+      submissionKey: randomUUID(),
+      note,
+    },
+  });
+  expect(response.ok()).toBe(true);
+  const receipt: unknown = await response.json();
+  expect(receipt).toMatchObject({ kind: "submitted" });
+  await page.reload();
+}
+
+test("a learner without Membership opens the agent-led workflow and still sees a legacy saved submission (#947)", async ({
   context,
   page,
 }, testInfo) => {
@@ -56,13 +82,8 @@ test("a learner without Membership reads a free task from the programme, submits
     }),
   ).toBeVisible();
 
-  await page.getByText("Нет агента с MCP? Сдать через форму").click();
-  const form = page.locator("[data-product-task-form]");
-  await form.getByLabel(/Заметка для автора/u).fill(note);
-  await form.getByRole("button", { name: "Отправить сдачу" }).click();
-  await expect(
-    form.getByText("Сдача отправлена. Она появилась в «Моих сдачах»."),
-  ).toBeVisible();
+  await expect(page.locator("[data-product-task-form]")).toHaveCount(0);
+  await seedLegacySubmission(page, code, note);
   const mine = page
     .getByRole("region", { name: "Мои сдачи", exact: true })
     .locator("[data-own-submissions]");
@@ -135,11 +156,9 @@ test("a practical Material reuses the real submission workspace without adding a
     workspace.getByRole("heading", { name: "Сдача задания" }),
   ).toBeVisible();
   await expect(workspace.locator("[data-agent-phrase]")).toContainText(code);
-  await workspace.getByText("Нет агента с MCP? Сдать через форму").click();
+  await expect(workspace.locator("[data-product-task-form]")).toHaveCount(0);
   const note = `Embedded practice ${testInfo.project.name}`;
-  const form = workspace.locator("[data-product-task-form]");
-  await form.getByLabel(/Заметка для автора/u).fill(note);
-  await form.getByRole("button", { name: "Отправить сдачу" }).click();
+  await seedLegacySubmission(page, code, note);
   const attempt = workspace
     .locator("[data-submission]")
     .filter({ hasText: note });
