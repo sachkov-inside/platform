@@ -17,7 +17,8 @@ if os.environ.get('CADDY_TEST_CASE') in ('timeout','interruption','early_exit'):
 for line in sys.stdin:
     request=json.loads(line);identifier=request.get('id')
     if identifier is None: continue
-    if identifier==1: result={'protocolVersion':'2024-11-05','capabilities':{},'serverInfo':{'name':'fixture','version':'1'}}
+    # Public v1.20.2 producer/SDK contract shape, not captured native metadata.
+    if identifier==1: result={'protocolVersion':'2024-11-05','capabilities':{},'serverInfo':{'name':'fixture','version':'1'},'instructions':'Controlled public protocol fixture metadata.'}
     elif identifier==2: result={'tools':[{'name':'query','inputSchema':{'type':'object','properties':{name:{'type':kind} for name,kind in (('query','string'),('time','string'),('step','string'),('timeout','string'),('trace','boolean'),('nocache','boolean'))},'required':['query']},'annotations':{'title':'Instant Query','readOnlyHint':True,'destructiveHint':False,'openWorldHint':True}}]}
     else:
         body_key='CADDY_TEST_TIMESTAMP_FILE' if identifier==4 and 'CADDY_TEST_TIMESTAMP_FILE' in os.environ else 'CADDY_TEST_BODY_FILE'
