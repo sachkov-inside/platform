@@ -265,7 +265,6 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
   for (const skill of [
     "implement-spec",
-    "ask-matt",
     "tdd",
     "classify-change",
     "code-review",
@@ -327,14 +326,12 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         "| Requested result | Route |",
         "completion requirements must not select a pipeline stage",
       );
-    }
-    if (path === "AGENTS.md") {
       requireText(
         failures,
         path,
         content,
         entryPoint,
-        "point to the owner-invoked specification skill",
+        "route whole-specification work to its skill",
       );
     }
   }
@@ -366,12 +363,8 @@ export function checkStandardsReviewRouting(
 ) {
   /** @type {string[]} */
   const failures = [];
-  for (const path of [
-    "AGENTS.md",
-    "apps/backend/AGENTS.md",
-    "apps/web/AGENTS.md",
-    "apps/telegram/AGENTS.md",
-  ]) {
+  // The root file is the single standards pointer; nested AGENTS.md files keep application context.
+  for (const path of ["AGENTS.md"]) {
     if (!existsSync(resolve(repositoryRoot, path))) {
       failures.push(`${path}: standards review routing is missing`);
       continue;

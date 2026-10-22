@@ -1,7 +1,7 @@
 # Репозитории Inside
 
 Карта определяет текущих владельцев кода, документов, задач и выпуска Inside, а также исторические источники.
-Согласованный переезд ведётся в [platform#957](https://github.com/sachkov-inside/platform/issues/957)
+Согласованный переезд завершён в [platform#957](https://github.com/sachkov-inside/platform/issues/957)
 по [workspace#253](https://github.com/sachkov-inside/workspace/issues/253).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
@@ -9,7 +9,7 @@
 |---|---|---|
 | [platform](https://github.com/sachkov-inside/platform) | Код Platform, приложение Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс, CI и текущие задачи Inside | Независимые Telegram workflows обслуживают production; выпуск и откат подтверждены в #960 |
 | [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Исторический код, закрытые задачи и неизменяемые legacy Releases `v1`–`v5` | Архивирован; README направляет в platform, пять открытых задач перенесены; #961 завершён |
-| [workspace](https://github.com/sachkov-inside/workspace) | Исторический источник документов и решений для проверки происхождения и отката | Актуальная работа в platform; окончательная архивация ведётся в #962 |
+| [workspace](https://github.com/sachkov-inside/workspace) | Исторический источник документов и решений для проверки происхождения и отката | Архивирован; актуальная работа в platform; архивация завершена в #962 |
 | [engineering-content](https://github.com/sachkov-inside/engineering-content) | Закрытые оригиналы инженерных статей, обзоров, уроков, руководств, заданий и программ | Отдельный репозиторий; Platform остаётся одним из направлений доставки |
 | [workshop-cases](https://github.com/sachkov-inside/workshop-cases) | Исторические Tracks, Laboratories, CaseSpec и авторские решения | Мастерская отменена ADR 0033; репозиторий не входит в runtime Platform |
 | [ai-engineering](https://github.com/sachkov-inside/ai-engineering) | Архивированное направление курса | Не возобновляется этим переездом |

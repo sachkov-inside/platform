@@ -44,7 +44,7 @@ docker compose up --build
 This starts PostgreSQL, one-shot migration and development seed jobs, Nest API, MCP and Next web.
 The seed keeps its demonstration Materials unpublished; `pnpm local:stand` and `pnpm local:product`
 show the real product view described in the
-[local development runbook](docs/runbooks/local-development.md#local-product-view). Open web at
+[local product view](docs/runbooks/local-stand-accounts.md#local-product-view). Open web at
 <http://127.0.0.1:3000>, API health/OpenAPI at <http://127.0.0.1:3001/health> and
 <http://127.0.0.1:3001/openapi>, and MCP at <http://127.0.0.1:3002/mcp>. Rebuild the affected
 service after a source or dependency change, or use the host `pnpm dev*` commands for a faster
@@ -76,8 +76,8 @@ pnpm check:full
 `pnpm check` includes it as the first normal code/build/UI gate and does not require the shared
 Compose database.
 `pnpm check:full` additionally runs isolated real-PostgreSQL integration tests and the live local
-stack smoke. For that optional host gate, stop the full Compose stack and use postgres-only
-`pnpm infra:up`, because the smoke owns host ports 3000, 3001 and 3002. Run
+stack smoke, which owns host ports 3000, 3001 and 3002;
+[Repository verification](docs/runbooks/local-verification.md) describes its setup beside a running stand. Run
 `bash scripts/doctor.sh` for a read-only Docker-only prerequisite and Compose-contract diagnosis.
 It does not require host Node, pnpm or `.env`; `pnpm platform:doctor` is only a convenience alias for
 an installed host toolchain.
@@ -102,7 +102,7 @@ The stateless Streamable HTTP MCP resource server listens on `127.0.0.1:3002/mcp
 a short-lived Logto-compatible bearer token for an existing Account; every tool call independently
 requires the current database-backed `materials:manage` permission. It supports Material and
 Topic/Series authoring, including ordered composition and Preview through canonical ContentAccess.
-See the [MCP authoring contract](docs/runbooks/local-development.md#mcp-authoring) for current
+See the [MCP authoring contract](docs/runbooks/local-host-fallback.md#mcp-authoring) for current
 operations and the Series metadata boundary.
 The local adapter does not provision Logto clients, service identities or production routing.
 Content reaches production through the reviewed release with the owner's one-time sign-in; see
@@ -111,9 +111,10 @@ Content reaches production through the reviewed release with the owner's one-tim
 ## Compose smoke and shutdown
 
 The smoke needs the published demonstration catalogue, so it runs in a disposable project with its own
-volumes and the local ports; stop the shared stand first.
+volumes on the local ports. A running shared stand belongs to the owner or another session; ask the
+owner before it is stopped.
 
-Use the [guarded Compose smoke recipe](docs/runbooks/local-development.md#start-from-a-fresh-clone).
+Use the [guarded Compose smoke recipe](docs/runbooks/local-stand.md#guarded-compose-smoke).
 It needs host Python 3 and Bash, and keeps one shared slot until shutdown. It needs no host Node.js or pnpm.
 
 The smoke verifies web → API → PostgreSQL, OpenAPI, MCP protected-resource metadata, the
@@ -145,6 +146,6 @@ release/deploy commands, manifest contract, runtime configuration, failure recov
 boundary.
 
 For migrations, integration tests, manual database inspection and reset procedures, see the
-[local development runbook](docs/runbooks/local-development.md). Version policy and current
+[local development index](docs/runbooks/local-development.md). Version policy and current
 compatibility holds are recorded in the
 [dependency update policy](docs/runbooks/dependency-updates.md).

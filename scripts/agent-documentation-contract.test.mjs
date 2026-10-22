@@ -138,44 +138,29 @@ describe("harness routing contract", () => {
     }
   });
 
-  it("requires review-stage standards routing and rejects the former implementation gate", () => {
+  it("requires review-stage standards routing in the root and rejects the former implementation gate", () => {
     const root = mkdtempSync(join(tmpdir(), "standards-routing-"));
     try {
-      const paths = [
-        "AGENTS.md",
-        "apps/backend/AGENTS.md",
-        "apps/web/AGENTS.md",
-        "apps/telegram/AGENTS.md",
-      ];
-      for (const path of paths) {
-        mkdirSync(dirname(join(root, path)), { recursive: true });
-        writeFileSync(
-          join(root, path),
-          "Before review, read [standards](CODING_STANDARDS.md).\n",
-        );
-      }
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "Before review, read [standards](CODING_STANDARDS.md).\n",
+      );
       assert.deepEqual(checkStandardsReviewRouting(root), []);
-      for (const path of paths) {
-        writeFileSync(
-          join(root, path),
-          "Before changing or reviewing code, apply CODING_STANDARDS.md.\n",
-        );
-        const failures = checkStandardsReviewRouting(root);
-        assert.ok(
-          failures.some((failure) =>
-            failure.startsWith(`${path}: route coding standards`),
-          ),
-        );
-        assert.ok(
-          failures.some((failure) =>
-            failure.startsWith(`${path}: replace implementation-wide`),
-          ),
-        );
-        writeFileSync(
-          join(root, path),
-          "Before review, read CODING_STANDARDS.md.\n",
-        );
-      }
+      writeFileSync(
+        join(root, "AGENTS.md"),
+        "Before changing or reviewing code, apply CODING_STANDARDS.md.\n",
+      );
+      let failures = checkStandardsReviewRouting(root);
+      assert.ok(
+        failures.some((failure) =>
+          failure.startsWith("AGENTS.md: route coding standards"),
+        ),
+      );
+      assert.ok(
+        failures.some((failure) =>
+          failure.startsWith("AGENTS.md: replace implementation-wide"),
+        ),
+      );
       writeFileSync(
         join(root, "AGENTS.md"),
         "Before review, read CODING_STANDARDS.md.\nFor coding and review rules, read CODING_STANDARDS.md.\n",
@@ -189,10 +174,13 @@ describe("harness routing contract", () => {
         join(root, "AGENTS.md"),
         "Before review, read CODING_STANDARDS.md.\nConsult a specific standard when an implementation question needs it.\n",
       );
+      mkdirSync(join(root, "apps/web"), { recursive: true });
+      writeFileSync(join(root, "apps/web/AGENTS.md"), "# Web\n");
       assert.deepEqual(checkStandardsReviewRouting(root), []);
-      rmSync(join(root, "apps/web/AGENTS.md"));
-      assert.deepEqual(checkStandardsReviewRouting(root), [
-        "apps/web/AGENTS.md: standards review routing is missing",
+      rmSync(join(root, "AGENTS.md"));
+      failures = checkStandardsReviewRouting(root);
+      assert.deepEqual(failures, [
+        "AGENTS.md: standards review routing is missing",
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -263,7 +251,11 @@ describe("harness routing contract", () => {
           failure.startsWith("WORKFLOW.md: local pointer"),
         ),
       );
-      assert.ok(failures.some((failure) => failure.includes("owner-invoked")));
+      assert.ok(
+        failures.some((failure) =>
+          failure.includes("route whole-specification work"),
+        ),
+      );
       assert.ok(
         failures.some((failure) => failure.includes("integration contract")),
       );
@@ -284,7 +276,7 @@ describe("harness routing contract", () => {
       );
       writeFileSync(
         join(root, "WORKFLOW.md"),
-        "A specification uses one integration branch and final PR\n| Requested result | Route | Completion |\n",
+        "A specification uses one integration branch and final PR\n[run](.agents/skills/implement-spec/SKILL.md)\n| Requested result | Route | Completion |\n",
       );
       writeFileSync(join(root, ".agents/skills/PIPELINE.md"), "Pipeline\n");
       writeFileSync(
@@ -333,7 +325,7 @@ describe("harness routing contract", () => {
       );
       writeFileSync(
         join(root, "WORKFLOW.md"),
-        "A specification uses one integration branch and final PR\n",
+        "A specification uses one integration branch and final PR\n[run](.agents/skills/implement-spec/SKILL.md)\n",
       );
       mkdirSync(join(root, "docs/agents"), { recursive: true });
       writeFileSync(

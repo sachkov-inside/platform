@@ -47,7 +47,7 @@ TBANK_CONFIG_JSON={"environment":"demo","terminalKey":"<ключ тестово�
 
 ## Стенд
 
-Стенд `inside-platform` — общий singleton ([local development](../runbooks/local-development.md#parallel-worktrees-and-singleton-ownership)):
+Стенд `inside-platform` — общий singleton ([local development](../runbooks/local-stand.md#parallel-worktrees-and-singleton-ownership)):
 DEMO проводит сессия, которая им владеет. Двойника банка заменяет override Compose вне репозитория; он
 только добавляет файл выше к `api` и `billing-worker`. Переменные `TBANK_TEST_*` в режиме `real` не
 читаются.
@@ -63,7 +63,7 @@ services:
       - ${HOME}/.config/inside/platform-tbank-demo.env
 ```
 
-1. `pnpm local:stand` и вход владельца, как в [локальной покупке](../runbooks/local-development.md#one-stand-sign-in-and-purchase).
+1. `pnpm local:stand` и вход владельца, как в [локальной покупке](../runbooks/local-stand.md#one-stand-sign-in-and-purchase).
 2. Пересоздать только два процесса с override:
 
    ```bash

@@ -2,11 +2,13 @@
 
 `apps/web` is the single production frontend.
 
-## Required context
+## Layout
 
-Before review, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md) for Web changes. For
-production UI, Storybook, responsive behaviour, accessibility, or owner-review evidence, also read
-[`docs/agents/frontend-delivery.md`](../../docs/agents/frontend-delivery.md).
+- App Router routes live in `apps/web/app`; feature slices, shared modules and stories in `apps/web/src`.
+- `apps/web/DESIGN.md` holds the visual system and `apps/web/PRODUCT.md` the product voice for UI work.
+- CI jobs are defined in `.github/workflows/ci.yml`.
+
+## Owning decisions
 
 Read the owning ADR before changing:
 

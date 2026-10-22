@@ -2,41 +2,43 @@
 
 Owner-selected copies from the [workspace pipeline](https://github.com/KirillSachkov/workspace/tree/main/pipeline).
 Keep installed copies identical to their recorded workspace source, including approved shared adaptations.
-Project overrides belong in `WORKFLOW.md` and `AGENTS.md`.
+Project overrides belong in `WORKFLOW.md` (Skill exceptions) and `docs/agents/change-risk.md`.
 For assigned updates, copy only the selected skill directories and metadata from the pinned
 workspace source and record their exact commit here. `sync-pipeline` is not installed in Platform.
 
 ## Source versions
 
 - Complete-set baseline: workspace `a1233e8`, upstream `dd400c3ad65e57c06f05e832e0aac92c7992f34d`.
-- `ask-matt` and its Codex metadata: workspace `dcd7d919e7b1011ffaad8c9f2e897d7b8cdc5544`.
-  Its `SKILL.md` retains upstream bytes from `49dd158d1076134a641b33efb035946536778336`.
-- `classify-change`, `implement`, `implement-spec`, `code-review`, `tdd`, and
-  `setup-matt-pocock-skills`, including supporting files and metadata: workspace
-  `d459183f46290ef74ede4f3eca349ab0682cbd0c`.
+- `classify-change`, `code-review`, `tdd`, and `setup-matt-pocock-skills`, including supporting
+  files and metadata: workspace `d459183f46290ef74ede4f3eca349ab0682cbd0c`.
   This selective cleanup adopts workflow-only classification routing and canonical AGENTS setup.
   Risk/participation reasoning and review mechanics are unchanged from the accepted adaptation.
-- `implement-spec/SKILL.md` only: workspace `0017667f4e7beb5e3b6f8428ae21441496cdfec9` (#1534).
-  SHA-256: `f6219d1993fa443122fef8748a09e085038895233b7d5dfbe7bdad4b2509927d`.
-  This supersedes that file's earlier source above; all other installed skill bytes and native
-  manual metadata remain unchanged. The source [harness contract](https://github.com/KirillSachkov/workspace/blob/0017667f4e7beb5e3b6f8428ae21441496cdfec9/docs/harness-workflow.md)
-  and [pipeline record](https://github.com/KirillSachkov/workspace/blob/0017667f4e7beb5e3b6f8428ae21441496cdfec9/pipeline/README.md)
-  define the shared adaptation; reachable local routing and exceptions live in `WORKFLOW.md`.
+- `implement` and `implement-spec`, whole directories with metadata: workspace
+  `a0d172d1cd9efd9f4b7f382501d04b5961ac416d` (workspace #68), read from workspace `origin/main`
+  `983e8aa8050bf97bf9b6c7c6652a1382b3cc0665` where both directories are unchanged (#1675).
+  Both skills are model-invoked; WORKFLOW.md routes implementation assignments to them.
+  SHA-256:
+  - `implement/SKILL.md`: `2f48373f1ac0ba6bfdb268e2782cc996e4c17f6e9719bda322cd6567a6f7c322`
+  - `implement/agents/openai.yaml`: `71b47a5cf2f39997f25a945bca880f4f2394ceb63a65bb4f3b1373d4287253bd`
+  - `implement-spec/SKILL.md`: `8f08ba16c42f501dc6f025d32c6186bdc83406635bee3b2ed42d27bbfef02432`
+  - `implement-spec/agents/openai.yaml`: `fde8416260ed2fe29f9231bfa296756b1e60be4f05450dfd39a3deb2038ec60d`
+  These supersede the earlier sources of both skills (`d459183`, and `0017667` for
+  `implement-spec/SKILL.md` under #1534). The pre-update Platform commit is `06a227110ba54407260c98e8a4a48c4a23587ddc`.
+- `ask-matt`, `grill-me` and `teach` were removed from the set by owner decision 3 of #1674.
 - Manual skills retain `agents/openai.yaml` with `policy.allow_implicit_invocation: false`.
   `pnpm docs:check` checks that policy for skills marked `disable-model-invocation: true`.
 
 The custom coordination companion was removed under #1423. The installed `implement-spec` stands alone;
-project coordination, per-ticket review and final integrated review are defined in `WORKFLOW.md`.
+project coordination, per-ticket review and final integrated review are defined in
+`docs/agents/coordinated-execution.md`.
 
 ## Set
 
-- ask-matt
 - classify-change
 - code-review
 - codebase-design
 - diagnosing-bugs
 - domain-modeling
-- grill-me
 - grill-with-docs
 - grilling
 - handoff
@@ -49,7 +51,6 @@ project coordination, per-ticket review and final integrated review are defined 
 - retro
 - setup-matt-pocock-skills
 - tdd
-- teach
 - to-questionnaire
 - to-spec
 - to-tickets

@@ -10,7 +10,6 @@ Apply root [waiting rules](../../CODING_STANDARDS.md#waiting-in-tests). Telegram
 instant or virtual `CLOCK` between fixtures and consumers. Finite corpus grants retain their intended
 valid/expired state after their literal expiry passes. Observe committed inbox rows, delivery, queue
 drain or reported worker outcomes. Root contracts own common isolation, setup and cleanup requirements.
-Legacy scenario isolation and process-suite separation remain tracked in #1154.
 
 ## Table ownership
 

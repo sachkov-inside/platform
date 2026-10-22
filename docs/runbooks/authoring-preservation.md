@@ -10,7 +10,7 @@ It does not approve a new access policy, public release, content acceptance, or 
    [`tools/authoring/git-local.mjs`](../../tools/authoring/git-local.mjs).
    Retain its exact `commit` and original `packagePath`; the supplied source SHA is an operator assertion about this export.
 2. Use the stand's existing authoring gateway and state directory under
-   [local authoring](local-development.md#local-obsidian-authoring-preview-468).
+   [local authoring](local-acceptance-authoring.md#local-obsidian-authoring-preview-468).
    Keep the singleton stand and its data under its current owner's control.
 3. Set `AUTHORING_PRESERVATION_DATABASE_URL` privately to the stand's existing loopback PostgreSQL `inside` database.
    Do not put credentials in command arguments, receipts, Git, or logs.

@@ -8,7 +8,7 @@ contract remains [Notifications v1](../contracts/notifications-v1/protocol.md).
 
 ## Local operation
 
-Follow [singleton Compose ownership](local-development.md#parallel-worktrees-and-singleton-ownership)
+Follow [singleton Compose ownership](local-stand.md#parallel-worktrees-and-singleton-ownership)
 before running the repository stack. Normal `docker compose up --build` adds RabbitMQ and
 `notifications-worker`. The RabbitMQ image generates a development-only self-signed TLS certificate
 on first start, persists it with broker data and shares only its public certificate with the worker.

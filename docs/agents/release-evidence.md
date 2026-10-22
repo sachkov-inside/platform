@@ -63,8 +63,7 @@ access checks, an announced interruption, and post-deployment verification. Busi
 real payments, and opening sales keep their owner gates.
 
 Harness documentation alone does not require an application release. Keep the active application's
-selected SHA unless the approved application diff changes. Deliver documentation through its PR;
-apply the owner's explicit current-session override while that PR completes.
+selected SHA unless the approved application diff changes. Deliver documentation through its PR.
 
 The active course preflight v3 binds `selectedSourceSha` to the manifest, publication and all coverage.
 Its receipts name coverage instead of local aggregate commands. Each receipt

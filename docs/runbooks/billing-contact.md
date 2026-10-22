@@ -25,7 +25,7 @@ production: для loopback hostname либо для объявленного п
 (`BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true`), у которого нет ни домена, ни сертификата. В production
 это объявление отклоняется при старте. Локальный Compose так направляет код подтверждения в Mailpit
 на <http://127.0.0.1:8025>; наружу письмо не уходит, см.
-[runbook локальной разработки](local-development.md#local-sale-bank-double-and-mail-capture). Nodemailer не читает файлы/URL и не включает debug logs.
+[runbook локальной разработки](local-acceptance-sale.md#local-sale-bank-double-and-mail-capture). Nodemailer не читает файлы/URL и не включает debug logs.
 SMTP acceptance не доказывает получение письма. Timeout оставляет `unknown`; повтор прежней команды
 не отправляет снова. Пользователь может запросить новый код в рамках лимитов.
 

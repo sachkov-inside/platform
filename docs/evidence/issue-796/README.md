@@ -45,7 +45,7 @@ docker compose --profile identity down
 ```
 
 Не добавлять `-v`. Полный контракт запуска и синхронизации:
-[local-development.md](../../runbooks/local-development.md#ai-engineering-course-acceptance-stand).
+[local-development.md](../../runbooks/local-acceptance-course.md#ai-engineering-course-acceptance-stand).
 
 ## Что проверено
 

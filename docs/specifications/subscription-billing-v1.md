@@ -103,7 +103,7 @@ For existing clients, an omitted email can still resolve the verified contact th
 получает промежуточное состояние без ссылки на оплату — это честный предел, а не обещание; строку
 затем добирает восстановление.
 `billing-worker` восстанавливает банковское состояние и entitlement outbox; подробности запуска
-собраны в [local development](../runbooks/local-development.md#subscription-payment-recovery).
+собраны в [local development](../runbooks/local-acceptance-sale.md#subscription-payment-recovery).
 
 **Решение владельца 09.09.2026:** начало первого периода и покупки после перерыва — время,
 когда Inside впервые проверил и сохранил CONFIRMED через подписанный webhook либо серверную

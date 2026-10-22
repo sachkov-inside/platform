@@ -1,8 +1,8 @@
 // @ts-check
 /**
  * Свой каталог предсобранных зависимостей Vite для каждого процесса Vitest с Storybook (#1004).
- * Почему общий каталог `storybookTest` ломает параллельные прогоны, объясняет раздел
- * «Repository verification» в `docs/runbooks/local-development.md`.
+ * Почему общий каталог `storybookTest` ломает параллельные прогоны, объясняет
+ * `docs/runbooks/local-verification.md`.
  *
  * Plugin стоит после `storybookTest` (`enforce: "post"`), поэтому его `cacheDir` заменяет общий.
  * Каталог лежит в `$TMPDIR` и удаляется при выходе процесса; Vitest выходит так и по SIGINT и

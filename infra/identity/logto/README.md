@@ -43,7 +43,7 @@ Platform Compose project behind the `identity` profile. `pnpm local:stand` sets 
 which points the bootstrap at that project and makes it write the stand's generated values to
 `.identity-proof/stand.env`. Both stands build the same pinned image; this environment stays
 separate because it owns and destroys its own volumes, which a stand holding the owner's data must
-never do. See [one stand](../../../docs/runbooks/local-development.md#one-stand-sign-in-and-purchase).
+never do. See [one stand](../../../docs/runbooks/local-stand.md#one-stand-sign-in-and-purchase).
 
 Stop the complete `identity:proof:start` session with `Ctrl+C`; its ownership-aware launcher stops
 both Compose projects without deleting either database. If only `identity:proof:up` was run, stop

@@ -1,7 +1,7 @@
 > **Current workflow update (2026-09-15):** the owner replaced the filesystem watcher below
 > with a one-shot import of a selected Git commit. Historical watcher results remain evidence
 > only. Use `authoring:sync-git-local` as documented in the
-> [local runbook](../../runbooks/local-development.md#local-obsidian-authoring-preview-468).
+> [local runbook](../../runbooks/local-acceptance-authoring.md#local-obsidian-authoring-preview-468).
 > No watcher or Git hook is installed or started. Uncommitted changes are excluded.
 
 # Authoring workflow #468 — implemented, owner acceptance pending
@@ -118,7 +118,7 @@ after #468; no technical entity rename is approved by this decision.
 Imported the current complete Obsidian AI-first package into the isolated editor runtime:
 108 Materials, 22 chapters, 105 main placements and 3 supplementary reader URLs. Source files
 remain the editing authority. The source watcher and loopback sync commands are documented in
-[local development](../../runbooks/local-development.md#local-obsidian-authoring-preview-468).
+[local development](../../runbooks/local-acceptance-authoring.md#local-obsidian-authoring-preview-468).
 Repeated synchronization preserved all 108 Materials without Save; an unchanged filesystem event
 completed export and sync in 1.1 seconds. This is not a measured changed-document latency result.
 The browser rendered the programme and the project-choice lesson with its variant blocks.
