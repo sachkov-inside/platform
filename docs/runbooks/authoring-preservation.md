@@ -100,7 +100,7 @@ The stand owner's email comes from the gateway's stored token file or `--owner-e
 delivery at a time on this machine through `~/.inside-authoring/<target>-session.lock` (`target_busy`), so one
 delivery never stops a gateway another delivery uses. `pnpm local:product` does not take this lock; do not run it
 during a delivery. The stand itself must
-already run under its [singleton owner](local-development.md#parallel-worktrees-and-singleton-ownership);
+already run under its [singleton owner](local-stand.md#parallel-worktrees-and-singleton-ownership);
 the command never starts, rebuilds or stops Compose services.
 
 For `production` the command uses the owner's Keychain session from `pnpm authoring:login --target production`

@@ -132,7 +132,7 @@ try {
   }
   if (await isComposeRunning()) {
     throw new Error(
-      "The Platform Compose stack is already running and belongs to another session. Use that owner's handoff, or stop the stand with docker compose --profile identity down before pnpm local:stand.",
+      "The Platform Compose stack is already running and belongs to the owner or another session. Ask the owner, or wait for the owning session's handoff, before it is stopped (docs/runbooks/local-stand.md).",
     );
   }
   const storage =

@@ -1,11 +1,5 @@
 # Telegram application
 
-## Authority
-
-Before review, read [root coding standards](../../CODING_STANDARDS.md) and
-[`CODING_STANDARDS.md`](CODING_STANDARDS.md) for Telegram changes.
-During implementation, use the application context, verification and boundaries below.
-
 ## Application context
 
 - For product scope, read [Telegram brief](docs/product/telegram-application-brief.md).

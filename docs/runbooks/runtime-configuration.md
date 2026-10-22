@@ -137,7 +137,7 @@ their exact provider-side settings during the credentialed acceptance run.
 
 The bank contour follows the same shape. `TBANK_PROVIDER_MODE` is `real` by default everywhere and
 selects the terminal from `TBANK_CONFIG_JSON`; `test` replaces it with the local stand double
-described in the [local development runbook](local-development.md#local-sale-bank-double-and-mail-capture)
+described in the [local development runbook](local-acceptance-sale.md#local-sale-bank-double-and-mail-capture)
 and refuses to read a terminal beside it. Only the `local` contour accepts addresses without HTTPS,
 production mode rejects that contour outright, and
 `scripts/production-runtime-contract.test.mjs` keeps the stand services and their variables out of

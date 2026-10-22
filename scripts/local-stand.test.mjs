@@ -328,7 +328,7 @@ test("production source edits cannot reuse a committed release identity", async 
 test("another session's running stand is never built, restarted or stopped", async () => {
   const { result, calls } = await launch({ runningStand: true });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /belongs to another session/u);
+  assert.match(result.stderr, /belongs to the owner or another session/u);
   assert.ok(
     !calls.some(
       (call) =>

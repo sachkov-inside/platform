@@ -155,7 +155,7 @@ T-Bank описывает два разных тестовых режима. Н�
 [уведомления](https://developer.tbank.ru/eacq/intro/developer/notification/),
 [фискализация](https://developer.tbank.ru/eacq/scenarios/fiscalization),
 [исторический DEMO](../verification/issue-527-tbank-payment-methods-demo.md),
-[текущие операции возврата](../runbooks/local-development.md#owner-billing-operations).
+[текущие операции возврата](../runbooks/local-acceptance-sale.md#owner-billing-operations).
 Документированные [тесты СБП](https://developer.tbank.ru/eacq/intro/errors/test-sbp) не делают СБП доступным нашему магазину.
 Историческая проверка отмечает СБП выключенным; в первую версию его не включаем.
 

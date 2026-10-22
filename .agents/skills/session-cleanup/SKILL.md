@@ -15,7 +15,7 @@ Use a process's PID and working directory, or a container's Compose labels, to c
 When ownership is uncertain, preserve the resource and record that uncertainty in the handoff.
 If the session acquired no disposable resources, record that fact; no machine-wide inventory is needed.
 Before any repository Compose command, follow the singleton ownership rule in
-[local development](../../../docs/runbooks/local-development.md#parallel-worktrees-and-singleton-ownership).
+[local development](../../../docs/runbooks/local-stand.md#parallel-worktrees-and-singleton-ownership).
 
 ## 2. Release disposable resources
 

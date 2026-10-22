@@ -3,8 +3,7 @@
 - Platform product scope: [`docs/product/platform-mvp-brief.md`](../product/platform-mvp-brief.md).
 - Shared Inside product scope: [the Inside brief](../product/README.md). Legal editions and their
   status: [the legal index](../legal/README.md).
-- Terms: root `GLOSSARY.md` owns shared Inside terms and Platform refinements;
-  `apps/telegram/GLOSSARY.md` owns Telegram-local terms.
+- Terms: [the glossary map](../../GLOSSARY-MAP.md) names each glossary and what it owns.
 - Decisions: `docs/adr/`; Telegram-local ADRs live in `apps/telegram/docs/adr/`. A missing glossary
   or ADR is not a setup failure: `domain-modeling` creates it when a durable term or a
   hard-to-reverse trade-off is resolved.

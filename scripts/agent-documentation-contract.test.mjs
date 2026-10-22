@@ -396,7 +396,11 @@ describe("harness routing contract", () => {
           failure.startsWith("WORKFLOW.md: local pointer"),
         ),
       );
-      assert.ok(failures.some((failure) => failure.includes("owner-invoked")));
+      assert.ok(
+        failures.some((failure) =>
+          failure.includes("route whole-specification work"),
+        ),
+      );
       assert.ok(
         failures.some((failure) => failure.includes("integration contract")),
       );
@@ -417,7 +421,7 @@ describe("harness routing contract", () => {
       );
       writeFileSync(
         join(root, "WORKFLOW.md"),
-        "A specification uses one integration branch and final PR\n| Requested result | Route | Completion |\n",
+        "A specification uses one integration branch and final PR\n[run](.agents/skills/implement-spec/SKILL.md)\n| Requested result | Route | Completion |\n",
       );
       writeFileSync(join(root, ".agents/skills/PIPELINE.md"), "Pipeline\n");
       writeFileSync(
@@ -466,7 +470,7 @@ describe("harness routing contract", () => {
       );
       writeFileSync(
         join(root, "WORKFLOW.md"),
-        "A specification uses one integration branch and final PR\n",
+        "A specification uses one integration branch and final PR\n[run](.agents/skills/implement-spec/SKILL.md)\n",
       );
       mkdirSync(join(root, "docs/agents"), { recursive: true });
       writeFileSync(

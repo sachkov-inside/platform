@@ -6,9 +6,7 @@
 `src/entrypoints/`; add a capability-specific worker only with its first durable job. Put
 behaviour behind capability interfaces.
 
-## Required context
-
-Before review, read [`CODING_STANDARDS.md`](CODING_STANDARDS.md) for backend changes.
+## Guardrails
 
 Run `pnpm --filter @inside/backend guardrails` after changing imports, public interfaces, result
 unions, TypeScript projects, or lint configuration.
@@ -33,7 +31,7 @@ Read the owning document before changing:
   [`idp-application-flow-v1.md`](../../docs/specifications/idp-application-flow-v1.md) and
   [ADR 0006](../../docs/adr/0006-logto-session-and-local-account.md);
 - migrations, the Prisma schema/client, or local PostgreSQL workflows: follow
-  [`local-development.md`](../../docs/runbooks/local-development.md).
+  [`local-database.md`](../../docs/runbooks/local-database.md).
 
 ## Verification
 

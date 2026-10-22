@@ -16,7 +16,7 @@ saved edits are visible immediately, while the first publication requires an exp
 
 ## Reproduce
 
-Follow [Local editor acceptance](../runbooks/local-development.md#local-editor-acceptance), then
+Follow [Local editor acceptance](../runbooks/local-acceptance-editor.md#local-editor-acceptance), then
 open `http://127.0.0.1:4396/authoring/materials`. The first owner check is creating one Material,
 entering text, pasting an image, editing in fullscreen, then reopening it to confirm persistence.
 Proceed to the other acceptance scenarios only after that feedback.

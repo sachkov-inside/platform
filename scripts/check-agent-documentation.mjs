@@ -202,7 +202,6 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
   const files = ["AGENTS.md", "WORKFLOW.md", ".agents/skills/PIPELINE.md"];
   for (const skill of [
     "implement-spec",
-    "ask-matt",
     "tdd",
     "classify-change",
     "code-review",
@@ -264,14 +263,12 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
         "| Requested result | Route |",
         "completion requirements must not select a pipeline stage",
       );
-    }
-    if (path === "AGENTS.md") {
       requireText(
         failures,
         path,
         content,
         entryPoint,
-        "point to the owner-invoked specification skill",
+        "route whole-specification work to its skill",
       );
     }
   }
