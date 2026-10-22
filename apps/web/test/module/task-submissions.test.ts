@@ -22,7 +22,11 @@ vi.mock("@/shared/auth/logto-bff-config.server", () => ({
 vi.mock("@/shared/auth/index.server", async () => {
   const handlers =
     await import("@/shared/auth/authenticated-mutation-handler.server");
-  return { handleAuthenticatedMutation: handlers.handleAuthenticatedMutation };
+  return {
+    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
+    handleMutationOperation: handlers.handleMutationOperation,
+    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
+  };
 });
 import { handleSaveAuthorFeedback } from "@/_pages/task-submissions/api/save-author-feedback-route.server";
 import {

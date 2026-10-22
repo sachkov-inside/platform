@@ -147,7 +147,7 @@ async function accountIdOf(page: Page): Promise<string> {
   return z.object({ accountId: z.uuid() }).parse(await status.json()).accountId;
 }
 
-/** Billing BFF: каждая операция — POST с одним полем `input`; HTTP 200 и typed result в теле. */
+/** Billing BFF: каждая операция — POST с JSON-телом операции; HTTP 200 и typed result в теле. */
 async function billing(
   page: Page,
   operation: string,
@@ -496,8 +496,8 @@ test("two separate Accounts cannot read or change each other's progress and book
 
     /** Состояния одного материала: закладка и прогресс приходят одинаковым POST со списком ID. */
     const statesOf = async (page: Page, path: string): Promise<unknown> => {
-      const response = await fullStackBrowserRequest(page, path, "POST", {
-        materialId,
+      const response = await fullStackBrowserJsonRequest(page, path, "POST", {
+        materialIds: [materialId],
       });
       expect(response.status()).toBe(200);
       return response.json();
@@ -510,11 +510,11 @@ test("two separate Accounts cannot read or change each other's progress and book
         await statesOf(page, "/api/reading-progress/states"),
       ).states;
     const setBookmark = async (page: Page, bookmarked: boolean) => {
-      const response = await fullStackBrowserRequest(
+      const response = await fullStackBrowserJsonRequest(
         page,
         "/api/bookmarks/state",
         "PUT",
-        { materialId, bookmarked: String(bookmarked) },
+        { materialId, bookmarked },
       );
       expect(response.status()).toBe(200);
       expect(await response.json()).toMatchObject({
@@ -524,15 +524,15 @@ test("two separate Accounts cannot read or change each other's progress and book
     };
     const setRead = async (page: Page, isRead: boolean) => {
       const version = (await reading(page))[0]?.version ?? 0;
-      const response = await fullStackBrowserRequest(
+      const response = await fullStackBrowserJsonRequest(
         page,
         "/api/reading-progress/state",
         "PUT",
         {
           materialId,
           commandId: crypto.randomUUID(),
-          expectedVersion: String(version),
-          isRead: String(isRead),
+          expectedVersion: version,
+          isRead,
         },
       );
       expect(response.status()).toBe(200);

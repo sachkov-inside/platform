@@ -64,13 +64,10 @@ const response = (body: unknown) => ({
   response: new Response(),
 });
 function request(source?: string, origin = "http://127.0.0.1:3000") {
-  const body = new FormData();
-  body.set("productId", productId);
-  if (source !== undefined) body.set("source", source);
   return new Request("http://127.0.0.1:3000/api/product-waitlist/intent", {
     method: "POST",
-    headers: { origin },
-    body,
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify({ productId, source }),
   });
 }
 beforeEach(() => {

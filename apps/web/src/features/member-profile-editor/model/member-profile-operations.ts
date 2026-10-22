@@ -14,18 +14,17 @@ const displayNameField = textField.refine((value) => {
 });
 
 /** The fields a new member profile starts from. */
-export const createMemberProfileInputSchema = z
-  .object({ bio: bioField, displayName: displayNameField })
-  .strict();
+export const createMemberProfileInputSchema = z.object({
+  bio: bioField,
+  displayName: displayNameField,
+});
 
 /** The fields that replace a member profile at its expected version. */
-export const updateMemberProfileInputSchema = z
-  .object({
-    bio: bioField,
-    displayName: displayNameField,
-    expectedVersion: z.number().int().positive(),
-  })
-  .strict();
+export const updateMemberProfileInputSchema = z.object({
+  bio: bioField,
+  displayName: displayNameField,
+  expectedVersion: z.number().int().positive(),
+});
 
 /**
  * The Route Handler's answer to a profile write. A saved profile is parsed by its own entity

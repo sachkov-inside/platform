@@ -1,12 +1,12 @@
 import "server-only";
-import { z } from "zod";
 import { requestSeriesContinuation } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 import {
   continuationLabel,
   seriesContinuationProjectionSchema,
   type SeriesContinuationView,
 } from "../model/series-continuation-contract";
+import { loadSeriesContinuationOperation } from "./reading-progress.operation";
 export async function getSeriesContinuation(
   slug: string,
   token: string,
@@ -39,10 +39,9 @@ export async function getSeriesContinuation(
   }
 }
 export function handleSeriesContinuation(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const slug = z.string().min(1).max(120).safeParse(form.get("slug"));
-    return slug.success
-      ? getSeriesContinuation(slug.data, token)
-      : { kind: "invalid_input" };
+  return handleMutationOperation(request, loadSeriesContinuationOperation, {
+    // A slug outside the schema reads as unavailable, as the browser saw it before.
+    invalidInput: () => ({ kind: "unavailable" }) as const,
+    execute: (input, token) => getSeriesContinuation(input.slug, token),
   });
 }

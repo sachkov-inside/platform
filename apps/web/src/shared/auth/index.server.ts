@@ -15,8 +15,10 @@ export {
   handleAuthenticatedMutation,
   handleMutationOperation,
   handleOptionalAuthenticatedMutation,
+  handleOptionalMutationOperation,
   type AuthenticatedMutationFailure,
   type MutationOperationImplementation,
+  type OptionalMutationOperationImplementation,
   type StreamingMutationOptions,
 } from "./authenticated-mutation-handler.server";
 export {

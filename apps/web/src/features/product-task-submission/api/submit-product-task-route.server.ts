@@ -6,12 +6,11 @@ import {
   BackendConnectionError,
   requestSubmitProductTaskForm,
 } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import {
-  submitProductTaskInputSchema,
-  type SubmitProductTaskResult,
-} from "../model/product-task-submission";
+import type { SubmitProductTaskResult } from "../model/product-task-submission";
+
+import { submitProductTaskOperation } from "./submit-product-task.operation";
 
 const receiptSchema = z.object({ submittedAt: z.iso.datetime() }).loose();
 const problemSchema = z
@@ -23,19 +22,10 @@ const problemSchema = z
 
 /** `POST /api/product-tasks/submissions`: the task page form, one submission per call (#947). */
 export function handleSubmitProductTask(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(
-    request,
-    async (form, token): Promise<SubmitProductTaskResult> => {
-      const parsed = submitProductTaskInputSchema.safeParse({
-        code: form.get("code"),
-        taskVersion: form.get("taskVersion"),
-        submissionKey: form.get("submissionKey"),
-        note: form.get("note"),
-        repositoryUrl: form.get("repositoryUrl") ?? undefined,
-        reportText: form.get("reportText") ?? undefined,
-      });
-      if (!parsed.success) return { kind: "invalid_input" };
-      const { code, ...submission } = parsed.data;
+  return handleMutationOperation(request, submitProductTaskOperation, {
+    invalidInput: () => ({ kind: "invalid_input" }),
+    execute: async (input, token): Promise<SubmitProductTaskResult> => {
+      const { code, ...submission } = input;
       try {
         const result = await requestSubmitProductTaskForm(
           code,
@@ -88,5 +78,5 @@ export function handleSubmitProductTask(request: Request): Promise<Response> {
         throw error;
       }
     },
-  );
+  });
 }

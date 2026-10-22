@@ -41,6 +41,8 @@ vi.mock("@/shared/auth/index.server", async () => {
   return {
     getOptionalPlatformAccessToken: fakes.getOptionalAccessToken,
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
+    handleMutationOperation: handler.handleMutationOperation,
+    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
   };
 });
 

@@ -66,6 +66,15 @@ async function routeModule(operationPath: string) {
   );
 }
 
+/** What a call produced: its value, or the message it rejected with. */
+async function outcome(call: () => unknown): Promise<unknown> {
+  try {
+    return { value: await call() };
+  } catch (error) {
+    return { rejected: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   fakes.token.mockRejectedValue(new fakes.LogtoSessionUnavailableError());
@@ -88,14 +97,14 @@ describe("every mutation operation reaches its Route Handler", () => {
         [operation.path]: await routeModule(operation.path),
       });
 
-      const result: unknown = await operation.send(
-        // Сессия проверяется раньше тела, поэтому достаточно любого объекта.
-        {},
-      );
+      // Сессия проверяется раньше тела, поэтому достаточно любого объекта.
+      const result = await outcome(() => operation.send({}));
 
       expect(requests[0]?.method).toBe(operation.method);
       expect(result).toEqual(
-        operation.transportFailure({ kind: "status", status: 401 }),
+        await outcome(() =>
+          operation.transportFailure({ kind: "status", status: 401 }),
+        ),
       );
     },
   );
@@ -108,10 +117,12 @@ describe("every mutation operation reaches its Route Handler", () => {
         "https://outside.test",
       );
 
-      const result: unknown = await operation.send({});
+      const result = await outcome(() => operation.send({}));
 
       expect(result).toEqual(
-        operation.transportFailure({ kind: "status", status: 403 }),
+        await outcome(() =>
+          operation.transportFailure({ kind: "status", status: 403 }),
+        ),
       );
       expect(fakes.token).not.toHaveBeenCalled();
     },

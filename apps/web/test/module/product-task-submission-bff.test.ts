@@ -22,13 +22,17 @@ vi.mock("@/shared/auth/logto-bff-config.server", () => ({
 vi.mock("@/shared/auth/index.server", async () => {
   const handlers =
     await import("@/shared/auth/authenticated-mutation-handler.server");
-  return { handleAuthenticatedMutation: handlers.handleAuthenticatedMutation };
+  return {
+    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
+    handleMutationOperation: handlers.handleMutationOperation,
+    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
+  };
 });
 import { handleSubmitProductTask } from "@/features/product-task-submission.server";
 
 const fields = {
   code: "aie-ch1-onboarding",
-  taskVersion: "2",
+  taskVersion: 2,
   submissionKey: "key-1",
   note: "Сделал выдачу доступа.",
   repositoryUrl: "https://github.com/learner/devportal",
@@ -36,16 +40,15 @@ const fields = {
 };
 
 function submission(
-  values: Record<string, string>,
+  values: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(values)) body.set(key, value);
+  const body = JSON.stringify(values);
   return new Request(
     "https://inside.example.test/api/product-tasks/submissions",
     {
       method: "POST",
-      headers: { origin },
+      headers: { "content-type": "application/json", origin },
       body,
     },
   );

@@ -228,7 +228,7 @@ for (const access of ["public", "closed"] as const) {
       await fullStackPageRequest(page)
     ).post("/api/material-video-playback-sessions", {
       headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId: crypto.randomUUID(), videoId },
+      data: { materialId: crypto.randomUUID(), videoId },
     });
     expect(wrongMaterial.status()).toBe(403);
     // The reader body can finish before streamed metadata moves from BODY into HEAD.
@@ -267,7 +267,7 @@ for (const access of ["public", "closed"] as const) {
       "/api/material-video-playback-sessions",
       {
         headers: { origin: new URL(page.url()).origin },
-        multipart: { materialId, videoId },
+        data: { materialId, videoId },
       },
     );
     expect(anonymousPlayback.status()).toBe(access === "public" ? 200 : 403);
@@ -363,7 +363,7 @@ for (const access of ["public", "closed"] as const) {
           await fullStackPageRequest(page)
         ).post("/api/material-video-playback-sessions", {
           headers: { origin: new URL(page.url()).origin },
-          multipart: { materialId, videoId },
+          data: { materialId, videoId },
         });
         expect(deniedPlayback.status()).toBe(403);
         expect(await deniedPlayback.json()).not.toHaveProperty("drmAuthToken");
@@ -393,12 +393,12 @@ for (const access of ["public", "closed"] as const) {
       page.locator("[data-video-player-mount] iframe"),
     ).toBeVisible();
     await signInFullStack(context, "MEMBER");
-    for (const preview of [{}, { preview: "true" }]) {
+    for (const preview of [{}, { preview: true }]) {
       const deniedPreview = await (
         await fullStackPageRequest(page)
       ).post("/api/material-video-playback-sessions", {
         headers: { origin: new URL(page.url()).origin },
-        multipart: { materialId, videoId, ...preview },
+        data: { materialId, videoId, ...preview },
       });
       expect(deniedPreview.status()).toBe(403);
     }
@@ -515,7 +515,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       await fullStackPageRequest(page)
     ).post("/api/material-video-playback-sessions", {
       headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId, videoId },
+      data: { materialId, videoId },
     });
     expect(session.status()).toBe(200);
     await expect(session.json()).resolves.toMatchObject({
@@ -527,7 +527,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       "/api/material-video-playback-sessions",
       {
         headers: { origin: new URL(page.url()).origin },
-        multipart: { materialId, videoId },
+        data: { materialId, videoId },
       },
     );
     expect(anonymousSession.status()).toBe(200);
@@ -542,10 +542,10 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       await fullStackPageRequest(page)
     ).put("/api/material-video-progress", {
       headers: { origin: new URL(page.url()).origin },
-      multipart: {
-        durationSeconds: "120",
+      data: {
+        durationSeconds: 120,
         materialId,
-        positionSeconds: "37",
+        positionSeconds: 37,
         videoId,
       },
     });
@@ -555,7 +555,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       await fullStackPageRequest(page)
     ).post("/api/material-video-playback-sessions", {
       headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId, videoId },
+      data: { materialId, videoId },
     });
     expect(resumedSession.status()).toBe(200);
     await expect(resumedSession.json()).resolves.toMatchObject({
@@ -891,14 +891,14 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
       await fullStackPageRequest(page)
     ).post("/api/material-video-playback-sessions", {
       headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId, videoId },
+      data: { materialId, videoId },
     });
     expect(staleSession.status()).toBe(403);
     const replacementSession = await (
       await fullStackPageRequest(page)
     ).post("/api/material-video-playback-sessions", {
       headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId, videoId: replacementVideoId },
+      data: { materialId, videoId: replacementVideoId },
     });
     expect(replacementSession.status()).toBe(200);
     await expect(replacementSession.json()).resolves.toMatchObject({
@@ -1048,7 +1048,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
     "/api/material-video-playback-sessions",
     {
       headers: { origin: new URL(page.url()).origin },
-      multipart: { materialId, videoId },
+      data: { materialId, videoId },
     },
   );
   expect(anonymousSession.status()).toBe(403);
@@ -1057,7 +1057,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
     await fullStackPageRequest(page)
   ).post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin },
-    multipart: { materialId, videoId },
+    data: { materialId, videoId },
   });
   // An Account without a tier, a product or the bridge cannot open the product video.
   expect(nonMemberSession.status()).toBe(403);
@@ -1066,7 +1066,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
     await fullStackPageRequest(page)
   ).post("/api/material-video-playback-sessions", {
     headers: { origin: new URL(page.url()).origin },
-    multipart: { materialId, videoId },
+    data: { materialId, videoId },
   });
   expect(ownerSession.status()).toBe(200);
   const memberBody: unknown = await ownerSession.json();

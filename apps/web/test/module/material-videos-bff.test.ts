@@ -43,6 +43,8 @@ vi.mock("@/shared/auth/index.server", async () => {
     await import("@/shared/auth/authenticated-mutation-handler.server");
   return {
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
+    handleMutationOperation: handler.handleMutationOperation,
+    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
     handleOptionalAuthenticatedMutation:
       handler.handleOptionalAuthenticatedMutation,
   };
@@ -118,7 +120,7 @@ describe("Material Video playback BFF", () => {
     });
 
     await handleVideoPlaybackSessionRequest(
-      playbackRequest("https://inside.example.test", "true"),
+      playbackRequest("https://inside.example.test", true),
     );
     expect(fakes.requestPlayback).toHaveBeenLastCalledWith(
       { materialId, preview: true, videoId },
@@ -306,9 +308,9 @@ describe("Material Video named authoring BFF mutations", () => {
       response: new Response(null, { status: 204 }),
     });
     const response = await handleVideoProgressSaveRequest(
-      mutationRequest(
+      operationRequest(
         "/api/material-video-progress",
-        { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
+        { durationSeconds: 120, materialId, positionSeconds: 37, videoId },
         "PUT",
       ),
     );
@@ -327,15 +329,30 @@ describe("Material Video named authoring BFF mutations", () => {
   });
 });
 
-function playbackRequest(origin: string, preview?: string): Request {
-  const formData = new FormData();
-  formData.set("materialId", materialId);
-  formData.set("videoId", videoId);
-  if (preview !== undefined) formData.set("preview", preview);
+function playbackRequest(origin: string, preview?: unknown): Request {
   return new Request(
     "https://inside.example.test/api/material-video-playback-sessions",
-    { body: formData, headers: { origin }, method: "POST" },
+    {
+      body: JSON.stringify({ materialId, videoId, preview }),
+      headers: { "content-type": "application/json", origin },
+      method: "POST",
+    },
   );
+}
+
+function operationRequest(
+  path: string,
+  input: Readonly<Record<string, unknown>>,
+  method: "POST" | "PUT",
+): Request {
+  return new Request(`https://inside.example.test${path}`, {
+    body: JSON.stringify(input),
+    headers: {
+      "content-type": "application/json",
+      origin: "https://inside.example.test",
+    },
+    method,
+  });
 }
 
 function mutationRequest(

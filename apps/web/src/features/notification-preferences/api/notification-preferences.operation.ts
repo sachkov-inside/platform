@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { defineMutationOperation } from "@/shared/api/mutation-operation";
 
 import {
@@ -7,7 +9,7 @@ import {
 
 /** Changes which channels deliver the Account's notifications, at the revision it saw. */
 export const changeNotificationPreferencesOperation = defineMutationOperation({
-  input: changeNotificationPreferencesInputSchema,
+  input: z.object(changeNotificationPreferencesInputSchema.shape),
   method: "POST",
   path: "/api/account/notifications/preferences/change",
   result: notificationPreferencesResultSchema,

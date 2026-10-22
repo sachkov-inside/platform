@@ -41,7 +41,7 @@ export const beginTelegramLinkOperation = defineMutationOperation({
 
 /** Confirms the Telegram link the Account opened. */
 export const confirmTelegramLinkOperation = defineMutationOperation({
-  input: z.object({ linkRef: z.uuid() }).strict(),
+  input: z.object({ linkRef: z.uuid() }),
   method: "POST",
   path: "/api/account/telegram-link/confirm",
   result: resultSchema,

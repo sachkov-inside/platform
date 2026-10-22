@@ -2,7 +2,7 @@ import "server-only";
 
 import type { z } from "zod";
 
-import { createMemberProfileInputSchema } from "@/features/member-profile-editor.operations";
+import type { createMemberProfileInputSchema } from "@/features/member-profile-editor.operations";
 
 import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {

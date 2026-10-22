@@ -155,7 +155,7 @@ export async function handleMutationOperation<
 >(
   request: Request,
   operation: MutationOperation<Input, Result>,
-  implementation: MutationOperationImplementation<Input, Result>,
+  implementation: NoInfer<MutationOperationImplementation<Input, Result>>,
 ): Promise<Response> {
   if (!isSameOriginMutation(request, sessionAdapter.baseUrl())) {
     return mutationResponse(null, 403);
@@ -195,6 +195,67 @@ export async function handleMutationOperation<
   return executeMutation(request, () =>
     implementation.execute(input.data, accessToken),
   );
+}
+
+export interface OptionalMutationOperationImplementation<
+  Input extends z.ZodType,
+> {
+  /** Answers with its own status; a missing session reaches it as `undefined`. */
+  readonly execute: (
+    input: z.output<Input>,
+    accessToken: string | undefined,
+  ) => Promise<Response>;
+  /** The answer for a body outside the operation's input schema. */
+  readonly invalidInput: (error: z.ZodError) => Response;
+}
+
+/**
+ * Serves an operation a guest may also send: the shared Origin and body-size boundary, the
+ * operation's JSON input schema, and an optional session. The feature owns every answer status.
+ */
+export async function handleOptionalMutationOperation<
+  Input extends z.ZodType,
+  Result extends z.ZodType,
+>(
+  request: Request,
+  operation: MutationOperation<Input, Result>,
+  implementation: NoInfer<OptionalMutationOperationImplementation<Input>>,
+): Promise<Response> {
+  const config = readLogtoBffConfig();
+  if (!isSameOriginMutation(request, config.baseUrl)) {
+    return mutationResponse(null, 403);
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_BROWSER_MUTATION_BYTES
+  ) {
+    return mutationResponse(null, 413);
+  }
+  const body = await readJsonBody(request);
+  if (!body.ok) return mutationResponse(null, body.status);
+  let input: ReturnType<typeof operation.input.safeParse>;
+  try {
+    input = operation.input.safeParse(body.value);
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+    return mutationResponse(null, 400);
+  }
+  if (!input.success) {
+    return privateAuthenticatedResponse(
+      implementation.invalidInput(input.error),
+    );
+  }
+  try {
+    return privateAuthenticatedResponse(
+      await implementation.execute(
+        input.data,
+        await getOptionalPlatformAccessToken(request),
+      ),
+    );
+  } catch {
+    return mutationResponse(null, 503);
+  }
 }
 
 async function executeMutation(

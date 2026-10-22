@@ -263,7 +263,7 @@ describe("Member Profile web workflow", () => {
     }
   });
 
-  it("rejects malformed fields before calling the backend", async () => {
+  it("rejects malformed fields before calling the backend", () => {
     const dependencies = successfulDependencies();
     const parsed = createMemberProfileInputSchema.safeParse({
       displayName: "К",
