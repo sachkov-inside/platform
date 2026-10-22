@@ -152,6 +152,27 @@ describe("a mutation operation's Route Handler", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("answers a body that exhausts the schema's stack as a bad request", async () => {
+    // Глубина, при которой рекурсия схемы исчерпывает стек, зависит от потока; здесь схема
+    // бросает ту же ошибку сразу.
+    const exhausting = defineMutationOperation({
+      ...renameOperation,
+      input: z.custom<{ readonly name: string }>(() => {
+        throw new RangeError("Maximum call stack size exceeded");
+      }),
+    });
+
+    const response = await handleMutationOperation(
+      post(JSON.stringify({ name: "Новое" })),
+      exhausting,
+      { execute, invalidInput: (): Result => ({ kind: "invalid_input" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store, private");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("separates a missing session from an unavailable identity provider", async () => {
     fakes.token.mockRejectedValueOnce(new fakes.LogtoSessionUnavailableError());
     expect((await handle(post("{}"))).status).toBe(401);
