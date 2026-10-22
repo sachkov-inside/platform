@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { expect, test } from "vitest";
-import { migrateToLatest } from "../../src/migrations/index.js";
-import { migrateBefore } from "./setup/historical-upgrade.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { statement } from "../../src/modules/account-rights/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
@@ -70,7 +69,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
         )
       ).rows,
     ).toEqual(before);
-    await migrateToLatest(db.url);
+    await upgradeToLatest(db);
     expect(
       await db.prisma.accessGrant.findUnique({ where: { id: grant } }),
     ).toMatchObject({

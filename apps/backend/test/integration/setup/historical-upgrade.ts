@@ -9,7 +9,7 @@ import { Prisma } from "../../../src/infrastructure/prisma/index.js";
 import { platformMigrations } from "../../../src/migrations/index.js";
 import type { TestDatabase } from "./test-database.js";
 
-type UpgradedDatabase = Pick<TestDatabase, "prisma" | "url">;
+type LedgerDatabase = Pick<TestDatabase, "prisma" | "url">;
 
 const ledgerTableRowsSchema = z
   .array(z.strictObject({ present: z.boolean() }))
@@ -22,8 +22,8 @@ const ledgerRowsSchema = z.array(
  * Upgrades a database from a historical point of a migration registry. A test stops the ledger
  * before or at a named migration, seeds the rows that point allows, and upgrades to the latest
  * registry. The applied tail is derived from the registry, so a new migration at its end never
- * edits the test. Every upgrade asserts that the ledger is an exact prefix of the registry
- * (ADR 0005) and that a replay applies nothing.
+ * edits the test. Only `upgradeToLatest` asserts: the ledger equals the whole registry by name and
+ * position (the exact-prefix rule of ADR 0005 at its end point), and a replay applies nothing.
  */
 export function historicalUpgrade<const Registry extends readonly Migration[]>(
   registry: Registry,
@@ -39,7 +39,7 @@ export function historicalUpgrade<const Registry extends readonly Migration[]>(
   return {
     /** Applies the registry up to, but not including, `name`. */
     migrateBefore: async (
-      database: UpgradedDatabase,
+      database: LedgerDatabase,
       name: MigrationName,
     ): Promise<void> => {
       await runMigrationsToLatest(
@@ -50,7 +50,7 @@ export function historicalUpgrade<const Registry extends readonly Migration[]>(
 
     /** Applies the registry up to and including `name`; returns the migrations it applied. */
     migrateThrough: async (
-      database: UpgradedDatabase,
+      database: LedgerDatabase,
       name: MigrationName,
     ): Promise<readonly string[]> => {
       const outcome = await runMigrationsToLatest(
@@ -62,7 +62,7 @@ export function historicalUpgrade<const Registry extends readonly Migration[]>(
 
     /** Upgrades to the latest registry and returns the migrations the upgrade applied. */
     upgradeToLatest: async (
-      database: UpgradedDatabase,
+      database: LedgerDatabase,
     ): Promise<readonly string[]> => {
       const before = await readLedger(database);
       const outcome = await runMigrationsToLatest(database.url, registry);
@@ -79,7 +79,7 @@ export function historicalUpgrade<const Registry extends readonly Migration[]>(
   };
 }
 
-async function readLedger(database: UpgradedDatabase) {
+async function readLedger(database: LedgerDatabase) {
   const [table] = ledgerTableRowsSchema.parse(
     await database.prisma.$queryRaw(
       Prisma.sql`select to_regclass('public.platform_migrations') is not null as present`,

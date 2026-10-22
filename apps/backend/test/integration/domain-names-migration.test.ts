@@ -20,7 +20,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { expect, test } from "vitest";
 import { migrateToLatest } from "../../src/migrations/index.js";
-import { migrateBefore } from "./setup/historical-upgrade.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { createTestDatabase } from "./setup/test-database.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 
@@ -82,7 +82,7 @@ test("upgrades persisted product rights, tariff snapshots and closed access with
       values ($1, 'Existing closed lesson', 'guide', 1, $3, $2, 'membership', 'draft', 1)`,
       [materialId, accountId, authoredBody],
     );
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     expect(
       await database.prisma.accessGrant.findUnique({ where: { id: grantId } }),
     ).toMatchObject({
@@ -232,7 +232,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       values ($1,$2,$3,'2030-01-01')`,
       [eventRef, purchaseRef, command],
     );
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     const accounts = assembleAccounts({
       prisma: database.prisma,
       emailFingerprintKey: "synthetic-migration-fingerprint-00000",
@@ -431,7 +431,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
         expiresAt: new Date("2030-02-01T00:15:00Z"),
       },
     });
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     await seedPurchaseInvitation(database.prisma, accountId, offerId);
     const accounts = assembleAccounts({
       prisma: database.prisma,
@@ -626,7 +626,7 @@ test("replays an imported pre-upgrade task under its renamed operation and field
     } finally {
       connection.release();
     }
-    await migrateToLatest(database.url);
+    await upgradeToLatest(database);
     const { guideId, ...unchanged } = command;
     const current = { ...unchanged, productId: guideId, access: "closed" };
     const apply = assembleApplySourceTask({

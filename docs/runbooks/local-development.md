@@ -978,7 +978,9 @@ with the destructive reset below rather than supported by application compatibil
 An integration test that upgrades from a historical point uses
 `apps/backend/test/integration/setup/historical-upgrade.ts`: `migrateBefore` stops the ledger before
 a named migration, the test seeds its rows, and `upgradeToLatest` derives the applied tail from the
-registry and checks that the ledger is an exact registry prefix. A new migration at the end of the
+registry, checks that the ledger then equals the registry by name and position, and that a replay
+applies nothing. `historical-upgrade.test.ts` pins the identity of the registry as it stood on
+22.10.2026, so removing, reordering or editing a historical migration still fails a test. A new migration at the end of the
 registry therefore needs no edits in existing upgrade tests.
 
 ## Owner Account release bootstrap

@@ -23,7 +23,7 @@ import {
 } from "../../src/modules/account-rights/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
-import { migrateBefore } from "./setup/historical-upgrade.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -130,7 +130,7 @@ test("repairs a historical Product grant at the public own-Product and scoped ca
       },
     ],
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(await rights.readOwnProducts(account)).toMatchObject({
     ok: true,
     value: [
@@ -257,7 +257,7 @@ test("preserves a historical unscoped support community term across Product excl
     before.ok &&
       before.capabilities.some(({ capability }) => capability === "community"),
   ).toBe(false);
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -303,7 +303,7 @@ test("does not extend a completed historical community term", async () => {
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -373,7 +373,7 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
     where: { id: { in: ids } },
     orderBy: { id: "asc" },
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findMany({
       where: { id: { in: ids } },
@@ -424,7 +424,7 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
   const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseId },
   });
-  await migrateToLatest(db.url);
+  await upgradeToLatest(db);
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({

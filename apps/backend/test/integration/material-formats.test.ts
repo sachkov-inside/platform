@@ -1,6 +1,6 @@
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
-import { migrateBefore } from "./setup/historical-upgrade.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
 import { assembleMaterials } from "../../src/modules/materials/index.js";
@@ -135,7 +135,7 @@ test.each(["video", "guide", "note", "text"])(
         Prisma.sql`insert into materials.formats (id, slug, name) values (${formatId}::uuid, ${legacySlug}, 'Legacy format')`,
       );
       await insertLegacyMaterial(legacy, materialId, formatId);
-      await migrateToLatest(legacy.url);
+      await upgradeToLatest(legacy);
       expect(
         await legacy.prisma.material.findUnique({ where: { id: materialId } }),
       ).toMatchObject({
