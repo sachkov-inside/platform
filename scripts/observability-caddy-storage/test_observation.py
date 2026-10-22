@@ -221,7 +221,9 @@ class WholeObservation(unittest.TestCase):
             options={'evaluated_at':100,'completed_at':111 if state=='stale' else 101}
             normal=caddy_status.evaluate(*raw,**options)
             self.assertEqual(normal['state'],'incomplete' if state=='unseeded' else state)
-            self.assertEqual(caddy_status.evaluate(*raw,**options,diagnose=True),normal)
+            detailed=caddy_status.evaluate(*raw,**options,diagnose=True)
+            detailed.pop('up_age_window',None)
+            self.assertEqual(detailed,normal)
         for baseline in ('down','reset','invalid'):
             old,old_stamps=acquisition(point=80,stamp=79)
             if baseline=='down':old['data']['result'][0]['value'][1]='0'
@@ -249,6 +251,130 @@ class WholeObservation(unittest.TestCase):
                 while trace:chain.append(trace);trace=trace.tb_next
                 self.assertIn(traces[0],chain)
             else:self.fail('original interrupt hidden')
+
+        # The same final age does not identify the fixed-evaluation window.
+        from decimal import Decimal
+        for evaluated in (100,100.0,1e2,Decimal('100')):
+            for completed in (101,101.0,Decimal('101')):
+                for stamp,expected in ((89,'over_at_evaluation'),(90,'crossed_by_completion')):
+                    left,right=acquisition(stamp=stamp)
+                    raw=(json.dumps(left).encode(),json.dumps(right).encode())
+                    normal=caddy_status.evaluate(*raw,evaluated_at=evaluated,completed_at=completed)
+                    actual=caddy_status.evaluate(*raw,evaluated_at=evaluated,completed_at=completed,diagnose=True)
+                    self.assertEqual(actual.pop('up_age_window'),expected)
+                    self.assertEqual(actual,normal)
+        for stamp,completed,expected in ((89,100.5,'over_at_evaluation'),(90,101.5,'crossed_by_completion')):
+            left,right=acquisition(stamp=stamp);raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            actual=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=completed,diagnose=True)
+            self.assertEqual(actual['sample_age_seconds'],11.5)
+            self.assertEqual(actual['up_age_window'],expected)
+        for point,stamp,completed,expected in ((0,0,11,'crossed_by_completion'),
+                (100,90,100,None),(100,90,100.5,'crossed_by_completion'),
+                (1000000000000.0,999999999989,1000000000000.0,'over_at_evaluation')):
+            left,right=acquisition(point=point,stamp=stamp);raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            normal=caddy_status.evaluate(*raw,evaluated_at=point,completed_at=completed)
+            actual=caddy_status.evaluate(*raw,evaluated_at=point,completed_at=completed,diagnose=True)
+            self.assertEqual(actual.pop('up_age_window',None),expected)
+            self.assertEqual(actual,normal)
+        left,right=acquisition(stamp=89);raw=(json.dumps(left).encode(),json.dumps(right).encode())
+        for flag in (False,None,1,'true',Hostile()):
+            self.assertEqual(caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=flag),
+                             caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101))
+        class ForeignInt(int):pass
+        class ForeignFloat(float):pass
+        class ForeignDecimal(Decimal):pass
+        for invalid in (True,100.5,ForeignInt(100),ForeignFloat(100),ForeignDecimal('100'),
+                        float('nan'),float('inf'),-1,2**53,Hostile()):
+            actual=caddy_status.evaluate(*raw,evaluated_at=invalid,completed_at=101,diagnose=True)
+            self.assertEqual((actual['state'],actual['reason']),('malformed','raw_contract'))
+            self.assertNotIn('up_age_window',actual)
+        for state in ('up_zero','other_old','future','missing','poison'):
+            left,right=acquisition(stamp=99)
+            if state=='up_zero':
+                left['data']['result'][0]['value'][1]='0'
+                for row in right['data']['result']:row['value'][1]='89'
+            elif state=='other_old':right['data']['result'][-1]['value'][1]='89'
+            elif state=='future':right['data']['result'][0]['value'][1]='101'
+            elif state=='missing':
+                for vector in (left,right):vector['data']['result']=vector['data']['result'][1:]
+            else:left['data']['result'][-1]['metric']['private']='private-caddy-sentinel'
+            raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            normal=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101)
+            actual=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,diagnose=True)
+            self.assertEqual(actual.pop('up_age_window',None),'over_at_evaluation' if state=='up_zero' else None)
+            self.assertEqual(actual,normal)
+        # Later previous validation replaces the candidate, even after first-stale detail.
+        left,right=acquisition(stamp=89);raw=(json.dumps(left).encode(),json.dumps(right).encode())
+        previous={'values':raw[0],'timestamps':raw[1],'evaluated_at':100,'completed_at':100,'private':'private-caddy-sentinel'}
+        actual=caddy_status.evaluate(*raw,evaluated_at=100,completed_at=101,previous=previous,diagnose=True)
+        self.assertEqual((actual['state'],actual['reason']),('malformed','raw_contract'))
+        self.assertNotIn('up_age_window',actual)
+        native_clock=caddy_status.clock
+        for prior in (None,previous):
+            sequences=[]
+            for flag in (False,True):
+                with patch.object(caddy_status,'clock',wraps=native_clock) as clocks:
+                    caddy_status.evaluate(*raw,evaluated_at=100.0,completed_at=100,
+                        completion_clock=lambda:101,previous=prior,diagnose=flag)
+                sequences.append(clocks.call_args_list)
+            self.assertEqual(sequences[0],sequences[1])
+        # Actual query callsite uses its existing final completion read, not a new clock.
+        left,right=acquisition(stamp=90);raw=(json.dumps(left).encode(),json.dumps(right).encode())
+        for flag in (False,True):
+            with patch('urllib.request.OpenerDirector.open',side_effect=[Response(body) for body in raw]) as opened, \
+                    patch.object(caddy_status,'clock',wraps=native_clock) as clocks:
+                readings=[]
+                def wall():
+                    value=(100,100.5)[len(readings)];readings.append(value);return value
+                actual,packet=caddy_query.read_snapshot('owned_token',evaluated_at=100,wall_clock=wall,diagnose=flag)
+            self.assertEqual(opened.call_count,2)
+            self.assertEqual(readings,[100,100.5])
+            self.assertEqual(packet,{'values':raw[0],'timestamps':raw[1],'evaluated_at':100,'completed_at':100.5})
+            self.assertEqual(actual.pop('up_age_window',None),'crossed_by_completion' if flag else None)
+            self.assertEqual((actual['state'],actual['sample_age_seconds']),('stale',10.5))
+            if flag:self.assertEqual(clocks.call_args_list,query_clocks)
+            else:query_clocks=clocks.call_args_list
+        with patch('urllib.request.OpenerDirector.open',side_effect=TimeoutError('private-caddy-sentinel')):
+            refused,_=caddy_query.read_snapshot('owned_token',diagnose=True)
+        self.assertEqual(refused['state'],'query_unavailable')
+        self.assertNotIn('up_age_window',refused)
+        self.assertNotIn('private',json.dumps(refused))
+
+        # Exact stale Decimal ages may project to the persisted binary64 value10.0.
+        for source_stamp,final,token in (
+                ('89.9999999999999999',100,'over_at_evaluation'),
+                ('90',Decimal('100.0000000000000001'),'crossed_by_completion')):
+            left,right=acquisition(stamp=source_stamp)
+            raw=(json.dumps(left).encode(),json.dumps(right).encode())
+            reports=[];calls=[]
+            for flag in (False,True):
+                readings=[]
+                def wall():
+                    value=(100,final)[len(readings)];readings.append(value);return value
+                with patch('urllib.request.OpenerDirector.open',side_effect=[Response(body) for body in raw]) as opened, \
+                        patch.object(caddy_status,'clock',wraps=native_clock) as clocks:
+                    report,packet=caddy_query.read_snapshot('owned_token',evaluated_at=100,wall_clock=wall,diagnose=flag)
+                self.assertEqual(opened.call_count,2)
+                self.assertEqual(readings,[100,final])
+                self.assertEqual(packet,{'values':raw[0],'timestamps':raw[1],'evaluated_at':100,'completed_at':final})
+                self.assertEqual((report['state'],report['reason'],report['sample_age_seconds']),('stale','none',10.0))
+                self.assertIsNone(report['observation']);self.assertIsNone(report['comparison'])
+                calls.append(clocks.call_args_list);reports.append(report)
+            self.assertEqual(calls[0],calls[1])
+            diagnostic=reports[1].copy()
+            self.assertEqual(diagnostic.pop('up_age_window'),token)
+            self.assertEqual(diagnostic,reports[0])
+            with tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();private=root/'private';private.mkdir(mode=0o700)
+                metadata=root/'metadata';metadata.mkdir(mode=0o700)
+                artifact.write(private,reports[1])
+                self.assertEqual(artifact.read(private),reports[1])
+                failed=evidence.Run();failed.start('partition_initial_state');failed.fail('budget')
+                artifact.write_run(private,failed.snapshot())
+                target=root/'public';collection.collect(private,metadata,target)
+                self.assertEqual(artifact.read(target),reports[1])
+                self.assertEqual(artifact.read_run(target),failed.snapshot())
+
 
     def test_comparison_cannot_use_a_fresh_down_baseline_as_observed_traffic(self):
         values,stamps=acquisition()

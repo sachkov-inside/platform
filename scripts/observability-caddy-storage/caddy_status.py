@@ -25,6 +25,7 @@ NAMES=('up',TOTAL,ERRORS,FLIGHT,DURATION+'bucket',DURATION+'sum',DURATION+'count
 PARTIAL_REASONS=('partial_missing_total','partial_missing_errors','partial_missing_flight',
     'partial_no_duration_groups','partial_missing_bucket','partial_missing_sum','partial_missing_count',
     'partial_count_sum','partial_timestamps')
+UP_AGE_WINDOWS=('over_at_evaluation','crossed_by_completion')
 NOT_COVERED=['production-caddy','host','tcp','tls','http3','pre-route-parse','raw-errors']
 
 
@@ -181,7 +182,12 @@ def evaluate(values,timestamps,*,evaluated_at,completed_at,previous=None,complet
         if up not in rows:result=record('missing')
         else:
             age=completed-stamps[up]
-            if age>MAX_AGE_SECONDS:result=record('stale',age=age)
+            if age>MAX_AGE_SECONDS:
+                result=record('stale',age=age)
+                if diagnose is True:
+                    evaluation_point=Decimal(str(evaluated_at))
+                    evaluation_age=evaluation_point-stamps[up]
+                    result['up_age_window']=UP_AGE_WINDOWS[0 if evaluation_age>MAX_AGE_SECONDS else 1]
             elif rows[up]==0:result=record('down',age=age)
             elif any(completed-stamp>MAX_AGE_SECONDS for stamp in stamps.values()):result=record('stale',age=age)
             elif observed is None or len(set(stamps.values()))!=1:

@@ -2,7 +2,7 @@
 from decimal import Decimal
 import json
 import re
-from pg_oracle_reasons import ORACLE_REASONS
+from pg_oracle_reasons import ORACLE_BASE_REASONS,ORACLE_JOIN_REASONS,ORACLE_REASONS
 
 _MAX=9007199254740991
 _FIXED={'service.name':'inside-postgresql-source','deployment.environment.name':'isolated-pilot',
@@ -20,7 +20,7 @@ _FIELDS=('freshness','reason','points','age_seconds','continuity','count_complet
 class _Malformed(ValueError):
     __slots__=('_group',)
     def __init__(self,group):
-        if type(group) is not str or group not in (*_VECTOR_REASONS['values'],*ORACLE_REASONS):raise ValueError('malformed')
+        if type(group) is not str or group not in (*_VECTOR_REASONS['values'],*ORACLE_BASE_REASONS):raise ValueError('malformed')
         object.__setattr__(self,'_group',group)
         super().__init__('malformed')
     def __setattr__(self,name,value):
@@ -139,6 +139,32 @@ def _present_sample(values,completed_us):
     return sample
 
 
+def _refine_join_reason(labels,time_labels,stamps,completed_us):
+    # Only exact parser-owned shapes may contribute a post-rejection category.
+    coarse='oracle_join'
+    if (type(labels) is not dict or type(time_labels) is not dict or type(stamps) is not dict
+            or type(completed_us) is not int or not 0<completed_us<=_MAX):return coarse
+    for mapping in (labels,time_labels,stamps):
+        if len(mapping)>7 or any(type(key) is not str or key not in _NAMES for key in mapping):return coarse
+    presence,scope,zero,future=ORACLE_JOIN_REASONS
+    if set(labels)!=set(time_labels):return presence
+    for mapping in (labels,time_labels):
+        for value in mapping.values():
+            if type(value) is not dict or len(value) not in (4,5):return coarse
+            if any(type(key) is not str or type(item) is not str for key,item in value.items()):return coarse
+            if set(value) not in (set(_FIXED),{*_FIXED,'scope.version'}):return coarse
+            if any(value[key]!=item for key,item in _FIXED.items()):return coarse
+            if value.get('scope.version','') not in ('','unknown'):return coarse
+    if labels!=time_labels:return scope
+    if set(stamps)!=set(labels):return coarse
+    limit=Decimal(completed_us)/1_000_000
+    for stamp in stamps.values():
+        if type(stamp) is not Decimal or not stamp.is_finite() or not 0<=stamp<=_MAX:return coarse
+        if stamp==0:return zero
+        if stamp>limit:return future
+    return coarse
+
+
 def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owner_current=True,diagnose=False):
     if type(diagnose) is not bool:raise ValueError('malformed')
     stage='input'
@@ -191,7 +217,14 @@ def evaluate(raw_values,raw_timestamps,*,evaluated_at,completed_us,expected,owne
             except AttributeError:group=None
             if type(group) is str:
                 if stage in _VECTOR_REASONS:reason=_VECTOR_REASONS[stage].get(group,reason)
-                elif group in ORACLE_REASONS:reason=group
+                elif group in ORACLE_BASE_REASONS:reason=group
+                if diagnose and stage=='verdict' and group=='oracle_join':
+                    traceback=BaseException.__traceback__.__get__(error)
+                    try:
+                        refined=_refine_join_reason(labels,time_labels,stamps,completed_us)
+                        if type(refined) is str and refined in ORACLE_JOIN_REASONS:reason=refined
+                    except BaseException:pass
+                    finally:BaseException.__traceback__.__set__(error,traceback)
         elif stage in _VECTOR_REASONS and type(error) in (json.JSONDecodeError,UnicodeEncodeError,RecursionError):
             reason=_VECTOR_REASONS[stage]['decode']
         return _diagnosed(_report('malformed','malformed'),diagnose,reason)

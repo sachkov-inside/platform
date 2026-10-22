@@ -46,7 +46,7 @@ def _duration(value,delta=False):
 
 def validate(value):
     try:
-        if (type(value) is not dict or set(value)!=FIELDS or type(value['schema']) is not int or value['schema']!=1
+        if (type(value) is not dict or set(value) not in (FIELDS,FIELDS|{'up_age_window'}) or type(value['schema']) is not int or value['schema']!=1
                 or value['scope']!='isolated-pilot-caddy' or value['partition']!='srv0/subroute'
                 or value['not_covered']!=status.NOT_COVERED or type(value['not_covered']) is not list
                 or type(value['transport']) is not dict or set(value['transport'])!={'canonical','mcp'}
@@ -62,6 +62,11 @@ def validate(value):
         if state in ('missing','malformed','query_unavailable') and age is not None:refuse()
         if value['reason'] in status.PARTIAL_REASONS and (age is None or age>status.MAX_AGE_SECONDS
                 or value['transport']!={'canonical':'passed','mcp':'unrun'}):refuse()
+        if 'up_age_window' in value:
+            window=value['up_age_window']
+            if (type(window) is not str or window not in status.UP_AGE_WINDOWS
+                    or state!='stale' or value['reason']!='none' or age is None or value['sample_age_seconds']<status.MAX_AGE_SECONDS
+                    or value['transport']!={'canonical':'passed','mcp':'unrun'}):refuse()
         observation=comparison=None
         if state=='observed':
             if value['transport']!={'canonical':'passed','mcp':'passed'}:refuse()
@@ -86,6 +91,7 @@ def validate(value):
                 else:refuse()
         elif value['observation'] is not None or value['comparison'] is not None:refuse()
         result=status.record(state,value['reason'],age,observation,comparison);result['transport']=value['transport'].copy()
+        if 'up_age_window' in value:result['up_age_window']=value['up_age_window']
         if len(json.dumps(result,allow_nan=False).encode())>status.MAX_OUTPUT_BYTES:refuse()
         return result
     except (ValueError,KeyError,TypeError,OverflowError):refuse()

@@ -22,6 +22,7 @@
     "identity:proof:hardening": "node scripts/identity-hardening-proof.mjs",
     "local:setup": "node scripts/setup-local.mjs",
     "local:stand": "node scripts/local-stand.mjs",
+    "local:accounts:bootstrap": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/local-accounts-bootstrap.mjs",
     "local:product": "node scripts/local-product.mjs",
     "local:course": "node scripts/local-product.mjs --product inside-ai-engineering --course-preview",
     "build": "pnpm --recursive --if-present build",

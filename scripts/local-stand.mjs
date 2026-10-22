@@ -1,6 +1,6 @@
 // @ts-check
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
-// владелец входит по коду из письма и покупает, не переключая окружения.
+// владелец сразу открывает приложение, выбирает проверочный Account и покупает в том же окружении.
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { dirname, resolve } from "node:path";
@@ -181,17 +181,20 @@ try {
   await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
   // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
   await compose(["up", "--detach", "--no-build", "--wait"]);
+  await runPnpm(["local:accounts:bootstrap"]);
+  await compose(["up", "--detach", "--no-build", "--wait", "local-accounts"]);
   shouldCleanupCompose = false;
   process.stdout.write(
     [
       "",
       "Стенд поднят одной командой. Дальше всё в одном окружении:",
       `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
+      "  аккаунт           владелец по умолчанию; «Сменить» в приложении выбирает ученика или гостя",
       `  вход              https://identity.inside.localhost:${logtoPort}`,
       `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
       `  двойник банка     http://127.0.0.1:${process.env["BANK_DOUBLE_HOST_PORT"] ?? "8090"}`,
       "",
-      "Остановить: docker compose --profile identity down",
+      "Остановить: docker compose -f compose.yaml -f config/compose/local/learner-setup.compose.yaml --profile identity --profile local-accounts down (для --production-web добавьте его Compose override)",
       "",
     ].join("\n"),
   );
@@ -335,7 +338,9 @@ function shutdown() {
     if (shouldCleanupCompose) {
       shouldCleanupCompose = false;
       // Недоведённый стенд не оставляем поднятым: следующий запуск должен начинать с чистого места.
-      await compose(["down"], { cleanup: true }).catch(() => undefined);
+      await compose(["--profile", "local-accounts", "down"], {
+        cleanup: true,
+      }).catch(() => undefined);
     }
   })();
   return shutdownPromise;
