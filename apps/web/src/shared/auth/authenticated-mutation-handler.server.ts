@@ -180,7 +180,13 @@ export async function handleMutationOperation<
 
   const body = await readJsonBody(request);
   if (!body.ok) return mutationResponse(null, body.status);
-  const input = operation.input.safeParse(body.value);
+  let input: ReturnType<typeof operation.input.safeParse>;
+  try {
+    input = operation.input.safeParse(body.value);
+  } catch {
+    // Глубоко вложенное тело исчерпывает стек схемы; это неверный запрос, а не сбой сервера.
+    return mutationResponse(null, 400);
+  }
   if (!input.success) {
     return mutationResponse(implementation.invalidInput(input.error), 200);
   }
@@ -221,14 +227,18 @@ async function readJsonBody(
   if (contentType.split(";")[0]?.trim().toLowerCase() !== "application/json") {
     return { ok: false, status: 400 };
   }
+  // Тело без заявленной длины читается потоком и обрывается на лимите, а не целиком в память.
+  const limit = { exceeded: false };
   let text: string;
   try {
-    text = await request.text();
+    text =
+      request.body === null
+        ? ""
+        : await new Response(
+            limitBodyStream(request.body, MAX_BROWSER_MUTATION_BYTES, limit),
+          ).text();
   } catch {
-    return { ok: false, status: 400 };
-  }
-  if (new TextEncoder().encode(text).byteLength > MAX_BROWSER_MUTATION_BYTES) {
-    return { ok: false, status: 413 };
+    return { ok: false, status: limit.exceeded ? 413 : 400 };
   }
   try {
     return { ok: true, value: JSON.parse(text) as unknown };

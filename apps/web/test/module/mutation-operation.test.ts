@@ -125,6 +125,33 @@ describe("a mutation operation's Route Handler", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("stops reading a streamed body without a declared length at the limit", async () => {
+    const chunk = new TextEncoder().encode("я".repeat(512 * 1_024));
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += 1;
+        controller.enqueue(chunk);
+      },
+    });
+    const request = new Request(
+      "https://inside.example.test/api/authoring/rename",
+      {
+        body,
+        duplex: "half",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://inside.example.test",
+        },
+        method: "POST",
+      } as RequestInit,
+    );
+
+    expect((await handle(request)).status).toBe(413);
+    expect(sent).toBeLessThan(5);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it("separates a missing session from an unavailable identity provider", async () => {
     fakes.token.mockRejectedValueOnce(new fakes.LogtoSessionUnavailableError());
     expect((await handle(post("{}"))).status).toBe(401);

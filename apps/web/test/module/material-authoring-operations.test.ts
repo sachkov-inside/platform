@@ -156,6 +156,24 @@ describe("Save Material through its browser adapter and Route Handler", () => {
     expect(fakes.save).not.toHaveBeenCalled();
   });
 
+  it("rejects a document nested beyond the schema's stack as a bad request", async () => {
+    // Такое тело может прислать только не браузерный адаптер: его JSON.stringify не дойдёт до сети.
+    const response = await materialsRoute.PUT(
+      new Request("https://inside.example.test/api/authoring/materials", {
+        body: `{"document":{"type":"doc","x":${"[".repeat(200_000)}${"]".repeat(200_000)}}}`,
+        headers: {
+          "content-type": "application/json",
+          origin: "https://inside.example.test",
+        },
+        method: "PUT",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("cache-control")).toBe("no-store, private");
+    expect(fakes.save).not.toHaveBeenCalled();
+  });
+
   it("treats a missing session as unauthorized before reading the body", async () => {
     fakes.token.mockRejectedValue(new fakes.LogtoSessionUnavailableError());
     routeBrowserMutations({ "/api/authoring/materials": materialsRoute });
