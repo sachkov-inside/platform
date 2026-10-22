@@ -106,6 +106,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_sha || github.sha }}
+          # docs:check compares added lines with the merge base of origin/main.
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up Platform
         uses: ./.github/actions/setup-platform

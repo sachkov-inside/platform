@@ -13,7 +13,23 @@ reusable path uses that SHA, so a moving branch cannot change the candidate duri
 pushes do not start application CI; the protected `main` branch accepts changes only through the
 merge queue with a successful `CI Gate`.
 
-## Coverage selection
+## Wait for pull request CI
+
+Wait for the current head of a pull request with one command instead of repeated `gh run` calls:
+
+```bash
+pnpm ci:wait --repo sachkov-inside/platform --pr <number> --timeout-seconds 1200
+```
+
+The command reads the pull request's current head SHA, waits within the same budget for that
+head's Application CI `pull_request` run, and binds its run ID and latest attempt. It then observes
+that exact run as described in [Observe one exact CI run](#observe-one-exact-ci-run). Pass
+`--sha <full-sha>` to require that head; a different current head returns `identity-mismatch`.
+A later push does not change the observed identity; the JSON result names the observed `sha`.
+A head whose run does not appear before the deadline returns `missing-run`.
+On `failure` the command prints each failed job name and the last 60 lines of its log to stderr.
+For a merge-queue candidate or a release run, use the exact `--run-id` form.
+
 
 `scripts/ci-coverage-plan.mjs` owns path categories, application coverage, command IDs and provider job names. CI, recovery contract checks and release evidence use that authority. The planner checks the complete
 Git diff with full history: PR merge-base to head, queue base to candidate. `--no-renames -z` includes
@@ -67,7 +83,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 
 | Job | Repository command or proof |
 |---|---|
-| `docs` | `pnpm docs:check` |
+| `docs` | `pnpm docs:check`: document references, Materials documentation markers and new em dashes in `apps/web` and `docs` |
 | `contracts` | `pnpm test:tooling && pnpm test:contracts`: repository-owned tooling/workflow and root release/deploy process contracts |
 | `fullstack` | Stable aggregate over desktop/mobile `fullstack-browser` matrix jobs; each runs `pnpm smoke:fullstack` with isolated infrastructure and unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
@@ -325,7 +341,7 @@ Read the setup stderr on a new failure; another job's pull failure does not esta
 
 ### Observe one exact CI run
 
-Use the read-only `pnpm ci:wait` command after obtaining an actual run ID:
+Use the read-only `pnpm ci:wait` command with an actual run ID, or with `--pr` as above:
 
 ```bash
 pnpm ci:wait --repo sachkov-inside/platform --run-id <run-id> --sha <full-source-sha> --event pull_request --attempt 1 --timeout-seconds 1200

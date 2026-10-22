@@ -87,5 +87,107 @@ class WaitContracts(unittest.TestCase):
             self.assertEqual(run.call_args.kwargs['timeout'], 3)
 
 
+class PullRequestDiscoveryContracts(unittest.TestCase):
+    head = 'c'*40
+
+    def discover(self, *, pull=None, pages=None, sha=None, timeout=30):
+        pages = list(pages if pages is not None else [{'workflow_runs': [
+            {'id': 7, 'head_sha': self.head, 'event': 'pull_request', 'run_attempt': 2,
+             'path': '.github/workflows/ci.yml'}]}])
+        calls = []
+        def read(path, budget):
+            calls.append(path)
+            if '/pulls/' in path:
+                if isinstance(pull, Exception):
+                    raise pull
+                return pull or {'head': {'sha': self.head}}
+            return pages.pop(0) if len(pages) > 1 else pages[0]
+        now = [0]
+        result = ci_wait.discover_pr_run('owner/repo', 5, sha, timeout, read=read,
+                                         clock=lambda: now[0],
+                                         sleep=lambda seconds: now.__setitem__(0, now[0]+seconds))
+        return result, calls
+
+    def test_binds_current_head_and_latest_exact_run_attempt(self):
+        older = {'id': 3, 'head_sha': self.head, 'event': 'pull_request', 'run_attempt': 1,
+                 'path': '.github/workflows/ci.yml'}
+        latest = {**older, 'id': 9, 'run_attempt': 3}
+        foreign = [{**latest, 'id': 20, 'head_sha': 'd'*40},
+                   {**latest, 'id': 21, 'path': '.github/workflows/other.yml'},
+                   {**latest, 'id': 22, 'event': 'merge_group'}]
+        (identity, remaining), calls = self.discover(
+            pages=[{'workflow_runs': [older, latest, *foreign]}])
+        self.assertEqual(identity, {'pr': 5, 'event': 'pull_request', 'runId': 9,
+                                    'sha': self.head, 'attempt': 3})
+        self.assertEqual(remaining, 30)
+        self.assertEqual(calls, ['repos/owner/repo/pulls/5',
+                                 f'repos/owner/repo/actions/workflows/ci.yml/runs?head_sha={self.head}'
+                                 '&event=pull_request&per_page=100'])
+
+    def test_waits_for_the_head_run_to_appear_within_one_budget(self):
+        run = {'id': 7, 'head_sha': self.head, 'event': 'pull_request', 'run_attempt': 1,
+               'path': '.github/workflows/ci.yml'}
+        (identity, remaining), _ = self.discover(
+            pages=[{'workflow_runs': []}, {'workflow_runs': [run]}])
+        self.assertEqual(identity['runId'], 7)
+        self.assertEqual(remaining, 20)
+        (result, _), _ = self.discover(pages=[{'workflow_runs': []}])
+        self.assertEqual(result['outcome'], 'missing-run')
+
+    def test_expected_sha_must_be_the_current_head(self):
+        (result, _), calls = self.discover(sha='e'*40)
+        self.assertEqual(result['outcome'], 'identity-mismatch')
+        self.assertEqual(result['headSha'], self.head)
+        self.assertEqual(len(calls), 1)
+        (identity, _), _ = self.discover(sha=self.head)
+        self.assertEqual(identity['runId'], 7)
+
+    def test_missing_pull_request_and_network_failures_are_distinct(self):
+        (result, _), _ = self.discover(pull=ci_wait.MissingRun())
+        self.assertEqual(result['outcome'], 'missing-run')
+        (result, _), _ = self.discover(pull=ci_wait.NetworkError('network'))
+        self.assertEqual(result['outcome'], 'network-error')
+
+    def test_invalid_identity_is_rejected(self):
+        for kwargs in [{'pr': 0, 'sha': None}, {'pr': 5, 'sha': 'short'}]:
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                ci_wait.discover_pr_run('owner/repo', kwargs['pr'], kwargs['sha'], 10,
+                                        read=lambda path, budget: {})
+
+
+class FailureReportContracts(unittest.TestCase):
+    def test_reports_failed_jobs_with_log_tail_and_skips_passing_jobs(self):
+        result = {'outcome': 'failure', 'jobs': [
+            {'name': 'CI Gate', 'conclusion': 'failure', 'id': 1},
+            {'name': 'Unit tests', 'conclusion': 'failure', 'id': 2},
+            {'name': 'Web E2E', 'conclusion': 'skipped', 'id': 3},
+            {'name': 'Static', 'conclusion': 'success', 'id': 4},
+            {'name': 'Integration', 'conclusion': 'cancelled'}]}
+        logs = {1: None, 2: '\n'.join(f'line {n}' for n in range(100)) + '\n'}
+        requested = []
+        def read_text(repo, job_id, budget):
+            requested.append((repo, job_id))
+            return logs[job_id]
+        lines = ci_wait.failure_report('owner/repo', result, read_text=read_text)
+        self.assertEqual(requested, [('owner/repo', 1), ('owner/repo', 2)])
+        self.assertEqual(lines[:2], ['Failed job: CI Gate (failure)', '  log unavailable'])
+        self.assertEqual(lines[2], 'Failed job: Unit tests (failure)')
+        self.assertEqual(lines[3], '  line 40')
+        self.assertEqual(lines[3 + ci_wait.LOG_TAIL_LINES - 1], '  line 99')
+        self.assertEqual(lines[-2:], ['Failed job: Integration (cancelled)', '  log unavailable'])
+
+    def test_completed_failure_keeps_job_ids_for_logs(self):
+        run = {'id': 42, 'head_sha': 'a'*40, 'event': 'pull_request', 'run_attempt': 1,
+               'path': '.github/workflows/ci.yml', 'status': 'completed', 'conclusion': 'failure'}
+        jobs = {'total_count': 2, 'jobs': [
+            {'id': 11, 'name': 'CI Gate', 'status': 'completed', 'conclusion': 'failure'},
+            {'id': 12, 'name': 'Unit tests', 'status': 'completed', 'conclusion': 'failure'}]}
+        result = ci_wait.wait_run('owner/repo', 42, 'a'*40, 'pull_request', 1, 30,
+                                  read=lambda path, budget: jobs if '/jobs?' in path else run,
+                                  clock=lambda: 0, sleep=lambda _: None)
+        self.assertEqual(result['outcome'], 'failure')
+        self.assertEqual([job['id'] for job in result['jobs']], [11, 12])
+
+
 if __name__ == '__main__':
     unittest.main()
