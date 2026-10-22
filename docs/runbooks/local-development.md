@@ -1470,7 +1470,7 @@ recording with the original's chapters; the returned `providerVideoId` belongs i
 A package with `selection.scope: "product-shell"` releases only a product's page, card, summary and
 complete chapter list, without any Material (#803). It keeps the Materials the target already holds
 in their order and chapters, proposes no archive and refuses `--archive`; an empty selection without
-that scope is refused. The [Product shell contract](../contracts/authoring-product-shell-v1/README.md)
+that scope is refused. The [Product shell contract](../contracts/authoring-guide-shell-v1/README.md)
 describes the package the Content exporter writes.
 
 `pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...`
