@@ -116,6 +116,9 @@ describe("document references", () => {
   it("derives GitHub heading anchors for punctuation, Cyrillic, code and repeats", () => {
     const anchors = markdownAnchors(
       [
+        "---",
+        "description: y",
+        "---",
         "# Developer process",
         "## Branch, worktree and pull request",
         "## Поиск и навигация",
@@ -147,6 +150,7 @@ describe("document references", () => {
       assert.ok(anchors.has(anchor), anchor);
     }
     assert.equal(anchors.has("not-a-heading"), false);
+    assert.equal(anchors.has("description-y"), false);
     assert.equal(anchors.has("--list-item"), false);
     assert.equal(anchors.has("list-item"), false);
   });

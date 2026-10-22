@@ -104,6 +104,11 @@ export function markdownAnchors(markdown) {
   /** @type {Map<string, number>} */
   const seen = new Map();
   const { prose } = splitFences(markdown);
+  // YAML front matter (`---` ... `---` on the first lines) renders no headings.
+  if (prose[0] === "---") {
+    const end = prose.indexOf("---", 1);
+    prose.fill("", 0, end === -1 ? 0 : end + 1);
+  }
   for (const [index, line] of prose.entries()) {
     for (const [, id = ""] of line.matchAll(
       /<a\s+(?:[^>]*\s)?(?:id|name)="([^"]+)"/giu,
