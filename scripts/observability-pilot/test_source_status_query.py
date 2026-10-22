@@ -19,7 +19,7 @@ import source_status_query
 
 
 @contextlib.contextmanager
-def server(callback, *, poll_interval=.5):
+def server(callback, *, poll_interval=.05):
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             callback(self)
