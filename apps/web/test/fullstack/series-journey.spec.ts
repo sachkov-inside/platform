@@ -5,6 +5,7 @@ import { expect, test, type Locator } from "@playwright/test";
 import { resolve } from "node:path";
 
 import {
+  fullStackBrowserJsonRequest,
   fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
@@ -230,7 +231,7 @@ test("product programme appends a real composition and restores Reader return po
   );
   await page.goto("/account");
   const slug = `series-journey-${randomUUID()}`;
-  const created = await fullStackBrowserRequest(
+  const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/collections",
     "POST",
@@ -293,28 +294,28 @@ test("product programme appends a real composition and restores Reader return po
     // Материал практики перенесён из источника: продукт из редактора его не принимает, и отказ
     // называет именно его, а не завершившуюся сессию (#841).
     const [importedPracticeId] = importedMaterialIds;
-    const refused = await fullStackBrowserRequest(
+    const refused = await fullStackBrowserJsonRequest(
       page,
       "/api/authoring/series/order",
       "PUT",
       {
         seriesId: collection.id,
         expectedOrderVersion: order.orderVersion,
-        orderedMaterialIds: JSON.stringify([ids[0], importedPracticeId]),
+        orderedMaterialIds: [ids[0], importedPracticeId],
       },
     );
     expect(await refused.json()).toEqual({
       kind: "source_mismatch",
       materialIds: [importedPracticeId],
     });
-    const saved = await fullStackBrowserRequest(
+    const saved = await fullStackBrowserJsonRequest(
       page,
       "/api/authoring/series/order",
       "PUT",
       {
         seriesId: collection.id,
         expectedOrderVersion: order.orderVersion,
-        orderedMaterialIds: JSON.stringify(ids.slice(0, 13)),
+        orderedMaterialIds: ids.slice(0, 13),
       },
     );
     expect(await saved.json()).toMatchObject({ kind: "saved" });
@@ -393,27 +394,27 @@ test("product programme appends a real composition and restores Reader return po
         order: z.object({ orderVersion: z.string() }),
       })
       .parse(await orderResponse.json());
-    const cleared = await fullStackBrowserRequest(
+    const cleared = await fullStackBrowserJsonRequest(
       page,
       "/api/authoring/series/order",
       "PUT",
       {
         seriesId: collection.id,
         expectedOrderVersion: order.orderVersion,
-        orderedMaterialIds: JSON.stringify([]),
-        confirmedProductRemovals: JSON.stringify([collection.id]),
+        orderedMaterialIds: [],
+        confirmedProductRemovals: [collection.id],
       },
     );
     expect(await cleared.json()).toMatchObject({ kind: "saved" });
-    const archived = await fullStackBrowserRequest(
+    const archived = await fullStackBrowserJsonRequest(
       page,
       "/api/authoring/collections/archive",
       "PUT",
       {
         kind: "series",
         collectionId: collection.id,
-        expectedVersion: String(collection.version),
-        archived: "true",
+        expectedVersion: collection.version,
+        archived: true,
       },
     );
     expect(await archived.json()).toMatchObject({ kind: "saved" });

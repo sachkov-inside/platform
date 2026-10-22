@@ -48,19 +48,12 @@ const fixtures = [
     ],
   },
   {
-    root: "test/guardrails/fixtures/architecture/dynamic-mutation",
-    diagnostics: [
-      "each browser mutation must declare a literal same-origin route and HTTP method",
-    ],
-  },
-  {
     root: "test/guardrails/fixtures/architecture/mutation-operation",
     diagnostics: [
       "rename-note.operation.ts: mutation operation PUT /api/notes needs app/api/notes/route.ts exporting PUT",
       "computed-note.operation.ts: a mutation operation declares a literal /api/ path and HTTP method",
       "inline-note.browser.ts: declare a mutation operation in its own *.operation.ts module",
-      "form-note.browser.ts: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation",
-      "notes-route.server.ts: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation",
+      "notes-route.server.ts: handleAuthenticatedMutation serves only streaming uploads",
       "direct-note.browser.ts: a browser write goes through its mutation operation's send",
     ],
     accepted: [

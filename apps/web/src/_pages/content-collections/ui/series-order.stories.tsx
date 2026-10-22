@@ -123,10 +123,9 @@ export const Reordering: Story = {
     await moveFirstItem(canvasElement);
     await waitFor(() => expect(saveOrderSpy).toHaveBeenCalledTimes(2));
     const secondBody = saveOrderSpy.mock.calls[1]?.[1]?.body;
-    await expect(secondBody).toBeInstanceOf(FormData);
-    if (secondBody instanceof FormData) {
-      await expect(secondBody.get("expectedOrderVersion")).toBe("b".repeat(64));
-    }
+    await expect(sentField(secondBody, "expectedOrderVersion")).toBe(
+      "b".repeat(64),
+    );
   },
 };
 
@@ -148,18 +147,13 @@ export const StepAssignments: Story = {
       await canvas.findByText("Порядок сохранён."),
     ).toBeInTheDocument();
     const body = saveOrderSpy.mock.calls[0]?.[1]?.body;
-    if (!(body instanceof FormData))
-      throw new Error("Expected composition form");
-    await expect(body.get("stepGroups")).toBe(
-      JSON.stringify({
-        "95000000-0000-4000-8000-000000000001": "От проекта до релиза",
-      }),
-    );
+    await expect(sentField(body, "stepGroups")).toEqual({
+      "95000000-0000-4000-8000-000000000001": "От проекта до релиза",
+    });
     await userEvent.clear(input);
     await waitFor(() => expect(saveOrderSpy).toHaveBeenCalledTimes(2));
     const cleared = saveOrderSpy.mock.calls[1]?.[1]?.body;
-    if (!(cleared instanceof FormData)) throw new Error("Expected clear form");
-    await expect(cleared.get("stepGroups")).toBe("{}");
+    await expect(sentField(cleared, "stepGroups")).toEqual({});
   },
 };
 
@@ -260,14 +254,12 @@ export const DragBetweenChapters: Story = {
     ]);
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
-    if (!(body instanceof FormData))
-      throw new Error("Expected composition form");
-    await expect(JSON.parse(formField(body, "orderedMaterialIds"))).toEqual([
+    await expect(sentField(body, "orderedMaterialIds")).toEqual([
       "95000000-0000-4000-8000-000000000003",
       "95000000-0000-4000-8000-000000000001",
       "95000000-0000-4000-8000-000000000002",
     ]);
-    await expect(JSON.parse(formField(body, "chapterAssignments"))).toEqual({
+    await expect(sentField(body, "chapterAssignments")).toEqual({
       "95000000-0000-4000-8000-000000000001": chapters[0]?.id,
       "95000000-0000-4000-8000-000000000002": chapters[0]?.id,
       "95000000-0000-4000-8000-000000000003": chapters[0]?.id,
@@ -300,14 +292,12 @@ export const DragIntoLaterChapter: Story = {
     );
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
-    if (!(body instanceof FormData))
-      throw new Error("Expected composition form");
-    await expect(JSON.parse(formField(body, "orderedMaterialIds"))).toEqual([
+    await expect(sentField(body, "orderedMaterialIds")).toEqual([
       "95000000-0000-4000-8000-000000000002",
       "95000000-0000-4000-8000-000000000001",
       "95000000-0000-4000-8000-000000000003",
     ]);
-    await expect(JSON.parse(formField(body, "chapterAssignments"))).toEqual({
+    await expect(sentField(body, "chapterAssignments")).toEqual({
       "95000000-0000-4000-8000-000000000001": chapters[1]?.id,
       "95000000-0000-4000-8000-000000000002": chapters[0]?.id,
       "95000000-0000-4000-8000-000000000003": chapters[1]?.id,
@@ -326,18 +316,14 @@ export const DragIntoLaterChapter: Story = {
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
     await expect(saveOrderSpy).toHaveBeenCalledTimes(2);
     const keyboardBody = saveOrderSpy.mock.calls[1]?.[1]?.body;
-    if (!(keyboardBody instanceof FormData))
-      throw new Error("Expected keyboard composition form");
-    await expect(
-      JSON.parse(formField(keyboardBody, "orderedMaterialIds")),
-    ).toEqual([
+    await expect(sentField(keyboardBody, "orderedMaterialIds")).toEqual([
       "95000000-0000-4000-8000-000000000002",
       "95000000-0000-4000-8000-000000000003",
       "95000000-0000-4000-8000-000000000001",
     ]);
-    await expect(
-      JSON.parse(formField(keyboardBody, "chapterAssignments")),
-    ).toEqual(JSON.parse(formField(body, "chapterAssignments")));
+    await expect(sentField(keyboardBody, "chapterAssignments")).toEqual(
+      sentField(body, "chapterAssignments"),
+    );
   },
 };
 
@@ -372,15 +358,13 @@ export const CreateChapter: Story = {
       await canvas.findByText("Порядок сохранён."),
     ).toBeInTheDocument();
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
-    if (!(body instanceof FormData))
-      throw new Error("Expected composition form");
     const saved = z
       .array(z.object({ name: z.string() }))
-      .parse(JSON.parse(formField(body, "chapters")));
+      .parse(sentField(body, "chapters"));
     await expect(saved.map(({ name: value }) => value)).toEqual([
       "Проект и CI",
     ]);
-    await expect(body.get("chapterAssignments")).toBe("{}");
+    await expect(sentField(body, "chapterAssignments")).toEqual({});
     await expect(
       canvas.getByText(
         "Глава пока пустая. Перенесите в неё материал из списка ниже.",
@@ -435,12 +419,10 @@ export const MoveMaterialIntoChapter: Story = {
       await canvas.findByText("Порядок сохранён."),
     ).toBeInTheDocument();
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
-    if (!(body instanceof FormData))
-      throw new Error("Expected composition form");
-    await expect(JSON.parse(formField(body, "chapterAssignments"))).toEqual({
+    await expect(sentField(body, "chapterAssignments")).toEqual({
       "95000000-0000-4000-8000-000000000001": chapters[0]?.id,
     });
-    await expect(JSON.parse(formField(body, "orderedMaterialIds"))).toEqual([
+    await expect(sentField(body, "orderedMaterialIds")).toEqual([
       "95000000-0000-4000-8000-000000000001",
       "95000000-0000-4000-8000-000000000002",
       "95000000-0000-4000-8000-000000000003",
@@ -574,9 +556,9 @@ export const SourceMismatchRecovered: Story = {
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
     await expect(sourceMismatchSpy).toHaveBeenCalledTimes(2);
     const body = sourceMismatchSpy.mock.calls[1]?.[1]?.body;
-    await expect(
-      body instanceof FormData ? body.get("orderedMaterialIds") : null,
-    ).not.toContain("95000000-0000-4000-8000-000000000002");
+    await expect(sentField(body, "orderedMaterialIds")).not.toContain(
+      "95000000-0000-4000-8000-000000000002",
+    );
   },
 };
 
@@ -669,10 +651,16 @@ async function moveFirstItem(canvasElement: HTMLElement): Promise<void> {
   );
 }
 
-function formField(body: FormData, name: string): string {
-  const value = body.get(name);
-  if (typeof value !== "string") throw new Error(`Missing ${name} field`);
-  return value;
+/** One field of the JSON composition command the story sent. */
+function sentField(body: BodyInit | null | undefined, name: string): unknown {
+  if (typeof body !== "string") throw new Error("Expected composition command");
+  const parsed: unknown = JSON.parse(body);
+  const fields: Record<string, unknown> =
+    typeof parsed === "object" && parsed !== null
+      ? Object.fromEntries(Object.entries(parsed))
+      : {};
+  if (!(name in fields)) throw new Error(`Missing ${name} field`);
+  return fields[name];
 }
 
 export const SavedAfterActivity: Story = {

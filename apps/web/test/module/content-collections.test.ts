@@ -5,6 +5,11 @@ import { getContentCollections } from "@/_pages/content-collections/api/get-cont
 import { executeSetContentCollectionArchive } from "@/_pages/content-collections/api/set-content-collection-archive";
 import { executeUpdateContentCollection } from "@/_pages/content-collections/api/update-content-collection";
 import {
+  createContentCollectionOperation,
+  setContentCollectionArchiveOperation,
+  updateContentCollectionOperation,
+} from "@/_pages/content-collections/api/content-collections.operation";
+import {
   createContentCollectionResultSchema,
   setContentCollectionArchiveResultSchema,
   updateContentCollectionResultSchema,
@@ -84,18 +89,19 @@ describe("Content collection web adapters", () => {
       collections: [{ id: collectionId, presentation: "default" }],
       kind: "ready",
     });
-    const formData = new FormData();
-    formData.set("kind", "series");
-    formData.set("name", "Platform");
-    formData.set("slug", "platform");
-    formData.set("summary", "Architecture and delivery.");
+    const input = createContentCollectionOperation.input.parse({
+      kind: "series",
+      name: "Platform",
+      slug: "platform",
+      summary: "Architecture and delivery.",
+    });
     const create = vi.fn().mockResolvedValue({
       body: product,
       ok: true,
       response: Response.json({}),
     });
     await expect(
-      executeCreateContentCollection(formData, "token", create),
+      executeCreateContentCollection(input, "token", create),
     ).resolves.toMatchObject({
       kind: "saved",
       collection: { id: collectionId },
@@ -104,14 +110,16 @@ describe("Content collection web adapters", () => {
 
   it("creates a collection through the focused creation operation", async () => {
     const request = successfulRequest();
-    const formData = new FormData();
-    formData.set("kind", "topic");
-    formData.set("name", "Platform");
-    formData.set("slug", "platform");
-    formData.set("summary", "Architecture and delivery.");
+    const input = createContentCollectionOperation.input.parse({
+      kind: "topic",
+      name: "Platform",
+      slug: "platform",
+      summary: "Architecture and delivery.",
+      actor: "untrusted",
+    });
 
     await expect(
-      executeCreateContentCollection(formData, "token", request),
+      executeCreateContentCollection(input, "token", request),
     ).resolves.toEqual({ kind: "saved", collection });
     expect(request).toHaveBeenCalledWith(
       {
@@ -126,9 +134,8 @@ describe("Content collection web adapters", () => {
 
   it("updates immutable-slug metadata and maps optimistic conflicts", async () => {
     const request = successfulRequest();
-    const formData = metadataForm();
     await expect(
-      executeUpdateContentCollection(formData, "token", request),
+      executeUpdateContentCollection(metadataInput(), "token", request),
     ).resolves.toEqual({ kind: "saved", collection });
     expect(request).toHaveBeenCalledWith(
       {
@@ -147,24 +154,24 @@ describe("Content collection web adapters", () => {
       response: Response.json({}, { status: 409 }),
     });
     await expect(
-      executeUpdateContentCollection(metadataForm(), "token", conflict),
+      executeUpdateContentCollection(metadataInput(), "token", conflict),
     ).resolves.toEqual({ kind: "conflict" });
   });
 
   it("sends the Product introduction only when its four fields travel together", async () => {
     const withIntroduction = successfulRequest();
-    const form = metadataForm();
     const introduction = {
       audience: "Разработчики, которые впервые выпускают своё приложение.",
       outcome: "Настроить путь от проверок до подтверждённого обновления.",
       prerequisites: "Базовый Git и умение выполнить команду в терминале.",
       scope: "Один проект и один тестовый сервер.",
     };
-    for (const [field, value] of Object.entries(introduction)) {
-      form.set(field, value);
-    }
     await expect(
-      executeUpdateContentCollection(form, "token", withIntroduction),
+      executeUpdateContentCollection(
+        metadataInput({ introduction }),
+        "token",
+        withIntroduction,
+      ),
     ).resolves.toEqual({ kind: "saved", collection });
     expect(withIntroduction).toHaveBeenCalledWith(
       expect.objectContaining({ introduction }),
@@ -175,7 +182,7 @@ describe("Content collection web adapters", () => {
     const withoutIntroduction = successfulRequest();
     await expect(
       executeUpdateContentCollection(
-        metadataForm(),
+        metadataInput(),
         "token",
         withoutIntroduction,
       ),
@@ -185,25 +192,25 @@ describe("Content collection web adapters", () => {
     );
 
     // A partial introduction is a malformed command, not a partial write.
-    const partial = successfulRequest();
-    const partialForm = metadataForm();
-    partialForm.set("audience", introduction.audience);
-    await expect(
-      executeUpdateContentCollection(partialForm, "token", partial),
-    ).resolves.toEqual({ kind: "invalid" });
-    expect(partial).not.toHaveBeenCalled();
+    expect(
+      updateContentCollectionOperation.input.safeParse({
+        ...metadataBody(),
+        introduction: { audience: introduction.audience },
+      }).success,
+    ).toBe(false);
   });
 
   it("archives a collection through the focused archive operation", async () => {
     const request = successfulRequest();
-    const formData = new FormData();
-    formData.set("archived", "true");
-    formData.set("collectionId", collectionId);
-    formData.set("expectedVersion", "2");
-    formData.set("kind", "topic");
+    const input = setContentCollectionArchiveOperation.input.parse({
+      archived: true,
+      collectionId,
+      expectedVersion: 2,
+      kind: "topic",
+    });
 
     await expect(
-      executeSetContentCollectionArchive(formData, "token", request),
+      executeSetContentCollectionArchive(input, "token", request),
     ).resolves.toEqual({ kind: "saved", collection });
     expect(request).toHaveBeenCalledWith(
       {
@@ -217,14 +224,21 @@ describe("Content collection web adapters", () => {
   });
 });
 
-function metadataForm(): FormData {
-  const formData = new FormData();
-  formData.set("collectionId", collectionId);
-  formData.set("expectedVersion", "2");
-  formData.set("kind", "topic");
-  formData.set("name", "Platform engineering");
-  formData.set("summary", "Updated summary.");
-  return formData;
+function metadataBody(): Record<string, unknown> {
+  return {
+    collectionId,
+    expectedVersion: 2,
+    kind: "topic",
+    name: "Platform engineering",
+    summary: "Updated summary.",
+  };
+}
+
+function metadataInput(extra: Record<string, unknown> = {}) {
+  return updateContentCollectionOperation.input.parse({
+    ...metadataBody(),
+    ...extra,
+  });
 }
 
 function successfulRequest() {

@@ -1,14 +1,23 @@
 import "server-only";
 
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import { executeTransitionMaterialPublication } from "./transition-material-publication";
+import { transitionMaterialPublicationOperation } from "./material-lifecycle.operation";
+import {
+  executeTransitionMaterialPublication,
+  transitionMaterialPublicationInvalidInput,
+} from "./transition-material-publication";
 
 export function handleTransitionMaterialPublicationRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(
+  return handleMutationOperation(
     request,
-    executeTransitionMaterialPublication,
+    transitionMaterialPublicationOperation,
+    {
+      execute: (input, accessToken) =>
+        executeTransitionMaterialPublication(input, accessToken),
+      invalidInput: transitionMaterialPublicationInvalidInput,
+    },
   );
 }

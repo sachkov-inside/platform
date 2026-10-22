@@ -73,49 +73,11 @@ const runtimeConfigurationNames = new Set([
   "WEB_BASE_URL",
 ]);
 /**
- * Modules that still encode FormData mutations by hand (#1679), with their number of helper
- * calls. The counts only shrink: a new mutation, also inside a listed module, declares its
- * operation with `defineMutationOperation` and serves it with `handleMutationOperation`
- * (ADR 0038).
- */
-const formMutationModulesAwaitingOperations = new Map([
-  ["src/_pages/communications/api/broadcasts.browser.ts", 8],
-  ["src/_pages/communications/api/communications-route.server.ts", 12],
-  ["src/_pages/communications/api/communications.browser.ts", 12],
-  ["src/_pages/communications/api/communications.server.ts", 8],
-  ["src/_pages/content-collections/api/content-collections-route.server.ts", 3],
-  ["src/_pages/content-collections/api/content-collections.browser.ts", 3],
-  ["src/_pages/task-submissions/api/save-author-feedback-route.server.ts", 1],
-  ["src/_pages/task-submissions/api/save-author-feedback.browser.ts", 1],
-  [
-    "src/features/material-lifecycle/api/delete-material-draft-route.server.ts",
-    1,
-  ],
-  ["src/features/material-lifecycle/api/delete-material-draft.browser.ts", 1],
-  [
-    "src/features/material-lifecycle/api/transition-material-publication-route.server.ts",
-    1,
-  ],
-  [
-    "src/features/material-lifecycle/api/transition-material-publication.browser.ts",
-    1,
-  ],
-  ["src/features/material-video/api/video-authoring-route.server.ts", 4],
-  ["src/features/material-video/api/video-authoring.browser.ts", 4],
-  ["src/features/product-artifacts/api/product-artifacts-bff.server.ts", 6],
-  ["src/features/product-artifacts/api/product-artifacts.browser.ts", 8],
-  ["src/features/series-order/api/chapter-attachments.browser.ts", 1],
-  ["src/features/series-order/api/chapter-attachments.server.ts", 1],
-  ["src/features/series-order/api/home-pin-route.server.ts", 1],
-  ["src/features/series-order/api/home-pin.browser.ts", 1],
-  ["src/features/series-order/api/series-order-route.server.ts", 1],
-  ["src/features/series-order/api/series-order.browser.ts", 1],
-]);
-/**
  * Browser writes that cannot travel as one JSON operation body: binary uploads with their paired
  * removal and delivery reports sent by `sendBeacon` (ADR 0038).
  */
 const directBrowserWriteModules = new Set([
+  "src/features/product-artifacts/api/product-artifacts.browser.ts",
   "src/_pages/account/api/profile-avatar-mutation.browser.ts",
   "src/features/client-telemetry/api/client-telemetry.browser.ts",
   "src/features/content-covers/api/change-content-cover.browser.ts",
@@ -934,61 +896,6 @@ function callsNestOperationByAbsoluteUrl(program) {
   return found;
 }
 
-/** @param {Program} program */
-function callsSameOriginMutationDynamically(program) {
-  /** @type {Set<string>} */
-  const directBindings = new Set();
-  /** @type {Set<string>} */
-  const namespaceBindings = new Set();
-  for (const statement of program.body) {
-    if (
-      statement.type !== "ImportDeclaration" ||
-      statement.source.value !== "@/shared/api/same-origin-mutation"
-    ) {
-      continue;
-    }
-    for (const specifier of statement.specifiers) {
-      if (
-        specifier.type === "ImportSpecifier" &&
-        exportedName(specifier.imported) === "requestSameOriginMutation"
-      ) {
-        directBindings.add(specifier.local.name);
-      }
-      if (specifier.type === "ImportNamespaceSpecifier") {
-        namespaceBindings.add(specifier.local.name);
-      }
-    }
-  }
-
-  let found = false;
-  new Visitor({
-    CallExpression(node) {
-      const callsDirectBinding =
-        node.callee.type === "Identifier" &&
-        directBindings.has(node.callee.name);
-      const callsNamespaceBinding =
-        node.callee.type === "MemberExpression" &&
-        node.callee.object.type === "Identifier" &&
-        namespaceBindings.has(node.callee.object.name) &&
-        memberPropertyName(node.callee) === "requestSameOriginMutation";
-      if (!callsDirectBinding && !callsNamespaceBinding) return;
-      const route = node.arguments[0];
-      const method = node.arguments[1];
-      if (
-        route === undefined ||
-        route.type === "SpreadElement" ||
-        method === undefined ||
-        method.type === "SpreadElement" ||
-        literalString(route) === undefined ||
-        literalString(method) === undefined
-      ) {
-        found = true;
-      }
-    },
-  }).visit(program);
-  return found;
-}
-
 /**
  * Local names bound to `names` by import declarations whose source passes `fromSource`.
  *
@@ -1086,51 +993,30 @@ function exportsRouteMethod(program, method) {
 }
 
 /**
- * How many calls of the form-encoded mutation helpers that ADR 0038 replaces with an operation a
- * module makes. A streaming upload passes its options as the third argument and stays outside
- * this rule.
+ * Whether a module calls `handleAuthenticatedMutation` without the streaming options: that helper
+ * serves only binary uploads; every other mutation is an operation (ADR 0038).
  *
  * @param {Program} program
  */
-function formMutationHelperCalls(program) {
-  const browserBindings = importedBindings(
-    program,
-    (source) => source === "@/shared/api/same-origin-mutation",
-    new Set(["requestSameOriginMutation"]),
-  );
-  const namespaceImport = program.body.some(
-    (statement) =>
-      statement.type === "ImportDeclaration" &&
-      statement.source.value === "@/shared/api/same-origin-mutation" &&
-      statement.specifiers.some(
-        (specifier) => specifier.type === "ImportNamespaceSpecifier",
-      ),
-  );
-  const serverBindings = importedBindings(
+function usesStreamingHelperForForm(program) {
+  const bindings = importedBindings(
     program,
     (source) => source.startsWith("@/shared/auth"),
     new Set(["handleAuthenticatedMutation"]),
   );
-  const optionalBindings = importedBindings(
-    program,
-    (source) => source.startsWith("@/shared/auth"),
-    new Set(["handleOptionalAuthenticatedMutation"]),
-  );
-  let calls = namespaceImport ? 1 : 0;
+  let found = false;
   new Visitor({
     CallExpression(node) {
-      if (node.callee.type !== "Identifier") return;
-      const name = node.callee.name;
       if (
-        browserBindings.has(name) ||
-        optionalBindings.has(name) ||
-        (serverBindings.has(name) && node.arguments.length < 3)
+        node.callee.type === "Identifier" &&
+        bindings.has(node.callee.name) &&
+        node.arguments.length < 3
       ) {
-        calls += 1;
+        found = true;
       }
     },
   }).visit(program);
-  return calls;
+  return found;
 }
 
 /**
@@ -1478,28 +1364,19 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       );
     }
   }
-  if (
-    formMutationHelperCalls(program) >
-    (formMutationModulesAwaitingOperations.get(sourcePath) ?? 0)
-  ) {
+  if (usesStreamingHelperForForm(program)) {
     findingsForFile.push(
-      `${sourcePath}: a new mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation; FormData helpers remain only for mutations awaiting #1679`,
+      `${sourcePath}: handleAuthenticatedMutation serves only streaming uploads; a mutation declares its operation with defineMutationOperation and serves it with handleMutationOperation`,
     );
   }
   if (
     (isBrowserCode || /\.browser\.tsx?$/u.test(sourcePath)) &&
     sourcePath !== "src/shared/api/mutation-operation.ts" &&
-    sourcePath !== "src/shared/api/same-origin-mutation.ts" &&
     !directBrowserWriteModules.has(sourcePath) &&
     fetchesWithWriteMethod(program)
   ) {
     findingsForFile.push(
       `${sourcePath}: a browser write goes through its mutation operation's send; direct fetch writes are limited to binary uploads and delivery reports`,
-    );
-  }
-  if (callsSameOriginMutationDynamically(program)) {
-    findingsForFile.push(
-      `${sourcePath}: each browser mutation must declare a literal same-origin route and HTTP method`,
     );
   }
   if (
@@ -1630,19 +1507,6 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   }
   return findingsForFile;
 });
-
-// Список ожидающих перевода только сокращается: переведённый или удалённый модуль уходит из него.
-if (requestedRoots.length === 0) {
-  for (const awaiting of formMutationModulesAwaitingOperations) {
-    const program = parsedFiles.get(path.resolve(webRoot, awaiting[0]));
-    const calls = program === undefined ? 0 : formMutationHelperCalls(program);
-    if (calls < awaiting[1]) {
-      findings.push(
-        `${awaiting[0]}: makes ${String(calls)} FormData mutation calls; lower its count in formMutationModulesAwaitingOperations to ${String(calls)}, or remove it at 0`,
-      );
-    }
-  }
-}
 
 for (const entry of [...parsedFiles.keys()].filter((file) =>
   editorFreeRouteEntries.some((suffix) => scannedPath(file).endsWith(suffix)),

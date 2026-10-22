@@ -1,23 +1,17 @@
 import "server-only";
 
 import { z } from "zod";
-import { programmePlacementSchema } from "../model/presentation";
+import type {
+  reorderSeriesInputSchema,
+  ReorderSeriesResult,
+} from "../model/presentation";
 
-import {
-  productChapterDraftSchema,
-  type ReorderSeriesResult,
-} from "@/features/series-order";
 import { productRemovalsFromProblem } from "@/shared/lib/product-removal";
 import {
   requestSeriesReorder,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 
-const formSchema = z.object({
-  expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
-  orderedMaterialIds: z.string().max(1_000_000),
-  seriesId: z.uuid(),
-});
 const receiptSchema = z
   .object({
     orderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
@@ -25,69 +19,29 @@ const receiptSchema = z
   })
   .strict();
 
+/** A body outside the input schema answers as the former form did. */
+export function reorderSeriesInvalidInput(): ReorderSeriesResult {
+  return { kind: "error", reference: "series-order-form" };
+}
+
 export async function executeReorderSeries(
-  formData: FormData,
+  input: z.output<typeof reorderSeriesInputSchema>,
   accessToken: string,
   request: typeof requestSeriesReorder = requestSeriesReorder,
 ): Promise<ReorderSeriesResult> {
-  const parsed = formSchema.safeParse({
-    expectedOrderVersion: formData.get("expectedOrderVersion"),
-    orderedMaterialIds: formData.get("orderedMaterialIds"),
-    seriesId: formData.get("seriesId"),
-  });
-  if (!parsed.success) return { kind: "error", reference: "series-order-form" };
-  let materialIds: unknown;
-  try {
-    materialIds = JSON.parse(parsed.data.orderedMaterialIds) as unknown;
-  } catch {
-    return { kind: "error", reference: "series-order-form" };
-  }
-  const orderedMaterialIds = z.array(z.uuid()).safeParse(materialIds);
-  if (!orderedMaterialIds.success) {
-    return { kind: "error", reference: "series-order-form" };
-  }
-
-  const programmePlacements = readJsonField(
-    formData,
-    "programmePlacements",
-    z.array(programmePlacementSchema).max(20000),
-  );
-  const stepGroups = readJsonField(
-    formData,
-    "stepGroups",
-    z.record(z.uuid(), z.string().trim().min(1).max(120)),
-  );
-  const chapters = readJsonField(
-    formData,
-    "chapters",
-    z.array(productChapterDraftSchema),
-  );
-  const chapterAssignments = readJsonField(
-    formData,
-    "chapterAssignments",
-    z.record(z.uuid(), z.uuid()),
-  );
-  const confirmedProductRemovals = readJsonField(
-    formData,
-    "confirmedProductRemovals",
-    z.array(z.uuid()).min(1).max(100),
-  );
-  if (
-    programmePlacements === invalidField ||
-    stepGroups === invalidField ||
-    chapters === invalidField ||
-    chapterAssignments === invalidField ||
-    confirmedProductRemovals === invalidField
-  ) {
-    return { kind: "error", reference: "series-order-form" };
-  }
-
+  const {
+    chapterAssignments,
+    chapters,
+    confirmedProductRemovals,
+    programmePlacements,
+    stepGroups,
+  } = input;
   let result: BackendTransportResult;
   try {
     result = await request(
       {
-        expectedOrderVersion: parsed.data.expectedOrderVersion,
-        orderedMaterialIds: orderedMaterialIds.data,
+        expectedOrderVersion: input.expectedOrderVersion,
+        orderedMaterialIds: input.orderedMaterialIds,
         ...(programmePlacements === undefined ? {} : { programmePlacements }),
         ...(stepGroups === undefined ? {} : { stepGroups }),
         ...(chapters === undefined ? {} : { chapters }),
@@ -95,7 +49,7 @@ export async function executeReorderSeries(
         ...(confirmedProductRemovals === undefined
           ? {}
           : { confirmedProductRemovals }),
-        seriesId: parsed.data.seriesId,
+        seriesId: input.seriesId,
       },
       accessToken,
     );
@@ -116,7 +70,7 @@ export async function executeReorderSeries(
     if (result.response.status === 422) {
       const mismatchedIds = sourceMismatchMaterialIds(
         result.problem,
-        orderedMaterialIds.data,
+        input.orderedMaterialIds,
       );
       if (mismatchedIds.length > 0)
         return { kind: "source_mismatch", materialIds: mismatchedIds };
@@ -124,7 +78,7 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "series-order-save" };
   }
   const receipt = receiptSchema.safeParse(result.body);
-  if (!receipt.success || receipt.data.seriesId !== parsed.data.seriesId) {
+  if (!receipt.success || receipt.data.seriesId !== input.seriesId) {
     return { kind: "error", reference: "series-order-receipt" };
   }
   return { kind: "saved", orderVersion: receipt.data.orderVersion };
@@ -150,22 +104,4 @@ function sourceMismatchMaterialIds(
         : undefined;
     return materialId === undefined ? [] : [materialId];
   });
-}
-
-const invalidField = Symbol("invalid-series-order-field");
-
-/** Optional JSON-encoded form fields stay absent, valid, or an explicit rejection. */
-function readJsonField<Value>(
-  formData: FormData,
-  name: string,
-  schema: z.ZodType<Value>,
-): Value | undefined | typeof invalidField {
-  const value = formData.get(name);
-  if (value === null) return undefined;
-  if (typeof value !== "string") return invalidField;
-  try {
-    return schema.parse(JSON.parse(value) as unknown);
-  } catch {
-    return invalidField;
-  }
 }

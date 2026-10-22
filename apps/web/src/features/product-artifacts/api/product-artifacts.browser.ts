@@ -1,18 +1,21 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import {
-  requestSameOriginMutation,
-  type SameOriginMutationResult,
-} from "@/shared/api/same-origin-mutation";
-import {
-  ARTIFACT_NOT_ACCEPTED,
-  ARTIFACT_TOO_LARGE,
   productArtifactListStateSchema,
   productArtifactMutationResultSchema,
   type ProductArtifactAccess,
   type ProductArtifactListState,
   type ProductArtifactMutationResult,
 } from "../model/product-artifacts";
+import {
+  createProductArtifactFromLinkOperation,
+  productArtifactTransportFailure,
+  removeProductArtifactOperation,
+  replaceProductArtifactLinkOperation,
+  setProductArtifactArchivedOperation,
+  setProductArtifactProductsOperation,
+  updateProductArtifactOperation,
+} from "./product-artifacts.operation";
 
 export interface ProductArtifactMetadataDraft {
   readonly access: ProductArtifactAccess;
@@ -51,7 +54,7 @@ export async function createProductArtifactFromFile(input: {
   body.set("productId", input.productId);
   await appendFile(body, input.file);
   return interpret(
-    await requestSameOriginMutation(
+    await uploadArtifactFile(
       "/api/authoring/product-artifacts/uploads",
       "POST",
       body,
@@ -59,38 +62,26 @@ export async function createProductArtifactFromFile(input: {
   );
 }
 
-export async function createProductArtifactFromLink(input: {
+export function createProductArtifactFromLink(input: {
   readonly externalUrl: string;
   readonly productId: string;
   readonly metadata: ProductArtifactMetadataDraft;
 }): Promise<ProductArtifactMutationResult> {
-  const body = new FormData();
-  appendMetadata(body, input.metadata);
-  body.set("externalUrl", input.externalUrl);
-  body.set("productId", input.productId);
-  return interpret(
-    await requestSameOriginMutation(
-      "/api/authoring/product-artifacts/links",
-      "POST",
-      body,
-    ),
-  );
+  return createProductArtifactFromLinkOperation.send({
+    ...input.metadata,
+    externalUrl: input.externalUrl,
+    productId: input.productId,
+  });
 }
 
-export async function updateProductArtifact(input: {
+export function updateProductArtifact(input: {
   readonly artifactId: string;
   readonly metadata: ProductArtifactMetadataDraft;
 }): Promise<ProductArtifactMutationResult> {
-  const body = new FormData();
-  appendMetadata(body, input.metadata);
-  body.set("artifactId", input.artifactId);
-  return interpret(
-    await requestSameOriginMutation(
-      "/api/authoring/product-artifacts/metadata",
-      "PATCH",
-      body,
-    ),
-  );
+  return updateProductArtifactOperation.send({
+    ...input.metadata,
+    artifactId: input.artifactId,
+  });
 }
 
 export async function replaceProductArtifactFile(input: {
@@ -101,7 +92,7 @@ export async function replaceProductArtifactFile(input: {
   body.set("artifactId", input.artifactId);
   await appendFile(body, input.file);
   return interpret(
-    await requestSameOriginMutation(
+    await uploadArtifactFile(
       "/api/authoring/product-artifacts/file",
       "PUT",
       body,
@@ -109,67 +100,23 @@ export async function replaceProductArtifactFile(input: {
   );
 }
 
-export async function replaceProductArtifactLink(input: {
-  readonly artifactId: string;
-  readonly externalUrl: string;
-}): Promise<ProductArtifactMutationResult> {
-  const body = new FormData();
-  body.set("artifactId", input.artifactId);
-  body.set("externalUrl", input.externalUrl);
-  return interpret(
-    await requestSameOriginMutation(
-      "/api/authoring/product-artifacts/link",
-      "PUT",
-      body,
-    ),
-  );
-}
+export const replaceProductArtifactLink =
+  replaceProductArtifactLinkOperation.send;
 
-export async function setProductArtifactArchived(input: {
-  readonly archived: boolean;
-  readonly artifactId: string;
-}): Promise<ProductArtifactMutationResult> {
-  const body = new FormData();
-  body.set("archived", String(input.archived));
-  body.set("artifactId", input.artifactId);
-  return interpret(
-    await requestSameOriginMutation(
-      "/api/authoring/product-artifacts/archive",
-      "PUT",
-      body,
-    ),
-  );
-}
+export const setProductArtifactArchived =
+  setProductArtifactArchivedOperation.send;
 
-export async function setProductArtifactProducts(input: {
+export function setProductArtifactProducts(input: {
   readonly artifactId: string;
   readonly productIds: readonly string[];
 }): Promise<ProductArtifactMutationResult> {
-  const body = new FormData();
-  body.set("artifactId", input.artifactId);
-  body.set("productIds", JSON.stringify(input.productIds));
-  return interpret(
-    await requestSameOriginMutation(
-      "/api/authoring/product-artifacts/placements",
-      "PUT",
-      body,
-    ),
-  );
+  return setProductArtifactProductsOperation.send({
+    artifactId: input.artifactId,
+    productIds: [...input.productIds],
+  });
 }
 
-export async function removeProductArtifact(input: {
-  readonly artifactId: string;
-}): Promise<ProductArtifactMutationResult> {
-  const body = new FormData();
-  body.set("artifactId", input.artifactId);
-  return interpret(
-    await requestSameOriginMutation(
-      "/api/authoring/product-artifacts/removal",
-      "DELETE",
-      body,
-    ),
-  );
-}
+export const removeProductArtifact = removeProductArtifactOperation.send;
 
 async function readArtifactList(
   url: string,
@@ -180,29 +127,53 @@ async function readArtifactList(
   return productArtifactListStateSchema.parse(await response.json());
 }
 
-/** Maps one BFF outcome to the single artifact mutation result the panel reads. */
-export function interpret(
-  result: SameOriginMutationResult,
-): ProductArtifactMutationResult {
+/** Maps one streamed upload outcome to the single artifact mutation result the panel reads. */
+type UploadResult =
+  | { readonly body: unknown; readonly ok: true }
+  | { readonly ok: false; readonly status: number };
+
+/**
+ * A file travels as multipart to its streaming Route Handler, not as a JSON operation body
+ * (ADR 0038): the same request a form mutation sent.
+ */
+async function uploadArtifactFile(
+  path:
+    | "/api/authoring/product-artifacts/file"
+    | "/api/authoring/product-artifacts/uploads",
+  method: "POST" | "PUT",
+  body: FormData,
+): Promise<UploadResult> {
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      body,
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+      method,
+    });
+  } catch {
+    return { ok: false, status: 503 };
+  }
+  if (!response.ok) return { ok: false, status: response.status };
+  try {
+    return { body: await response.json(), ok: true };
+  } catch {
+    return { ok: false, status: 502 };
+  }
+}
+
+function interpret(result: UploadResult): ProductArtifactMutationResult {
   if (!result.ok) {
-    if (result.status === 401 || result.status === 403) {
-      return { kind: "unauthorized" };
-    }
-    if (result.status === 413) {
-      return { kind: "rejected", reason: ARTIFACT_TOO_LARGE };
-    }
-    if (result.status === 400 || result.status === 422) {
-      return { kind: "rejected", reason: ARTIFACT_NOT_ACCEPTED };
-    }
-    return {
-      kind: "error",
-      reference: `product-artifacts-bff-${String(result.status)}`,
-    };
+    return productArtifactTransportFailure({
+      kind: "status",
+      status: result.status,
+    });
   }
   const parsed = productArtifactMutationResultSchema.safeParse(result.body);
   return parsed.success
     ? parsed.data
-    : { kind: "error", reference: "product-artifacts-bff-contract" };
+    : productArtifactTransportFailure({ kind: "contract" });
 }
 
 function appendMetadata(

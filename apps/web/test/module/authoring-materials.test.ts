@@ -6,8 +6,10 @@ import {
 } from "@/_pages/authoring-materials/api/get-authoring-materials";
 import { parseAuthoringMaterialsQuery } from "@/_pages/authoring-materials/model/authoring-materials-query";
 import {
+  deleteMaterialDraftOperation,
   executeDeleteMaterialDraft,
   executeTransitionMaterialPublication,
+  transitionMaterialPublicationOperation,
 } from "@/features/material-lifecycle.operations.server";
 import {
   authoringMaterialPreviewHref,
@@ -309,7 +311,7 @@ describe("Authoring Materials server adapter", () => {
 
     await expect(
       executeTransitionMaterialPublication(
-        publicationFormData("published"),
+        publicationInput("published"),
         "access-token",
         dependencies.transition,
       ),
@@ -331,13 +333,13 @@ describe("Authoring Materials server adapter", () => {
 
   it("deletes a draft with the list version and preserves its key across retry", async () => {
     const dependencies = lifecycleDependencies();
-    const formData = deletionFormData();
+    const input = deletionInput();
 
     await expect(
-      executeDeleteMaterialDraft(formData, "access-token", dependencies.delete),
+      executeDeleteMaterialDraft(input, "access-token", dependencies.delete),
     ).resolves.toEqual({ kind: "deleted", materialId });
     await expect(
-      executeDeleteMaterialDraft(formData, "access-token", dependencies.delete),
+      executeDeleteMaterialDraft(input, "access-token", dependencies.delete),
     ).resolves.toEqual({ kind: "deleted", materialId });
     expect(dependencies.delete).toHaveBeenCalledTimes(2);
     expect(dependencies.delete).toHaveBeenNthCalledWith(
@@ -355,12 +357,10 @@ describe("Authoring Materials server adapter", () => {
 
   it("passes an explicitly selected owned Video through draft hard-delete", async () => {
     const dependencies = lifecycleDependencies();
-    const formData = deletionFormData();
     const videoId = "96000000-0000-4000-8000-000000000009";
-    formData.set("deleteVideoId", videoId);
 
     await executeDeleteMaterialDraft(
-      formData,
+      deletionInput(videoId),
       "access-token",
       dependencies.delete,
     );
@@ -457,12 +457,12 @@ describe("Authoring Materials server adapter", () => {
       await expect(
         operation === "delete"
           ? executeDeleteMaterialDraft(
-              deletionFormData(),
+              deletionInput(),
               "access-token",
               dependencies.delete,
             )
           : executeTransitionMaterialPublication(
-              publicationFormData(
+              publicationInput(
                 operation === "publish" ? "published" : "unpublished",
               ),
               "access-token",
@@ -473,21 +473,22 @@ describe("Authoring Materials server adapter", () => {
   );
 });
 
-function publicationFormData(publicationState: "published" | "unpublished") {
-  const formData = new FormData();
-  formData.set("expectedContentVersion", "7");
-  formData.set("materialId", materialId);
-  formData.set("publicationState", publicationState);
-  formData.set("submissionId", submissionId);
-  return formData;
+function publicationInput(publicationState: "published" | "unpublished") {
+  return transitionMaterialPublicationOperation.input.parse({
+    expectedContentVersion: 7,
+    materialId,
+    publicationState,
+    submissionId,
+  });
 }
 
-function deletionFormData() {
-  const formData = new FormData();
-  formData.set("expectedContentVersion", "7");
-  formData.set("materialId", materialId);
-  formData.set("submissionId", submissionId);
-  return formData;
+function deletionInput(deleteVideoId?: string) {
+  return deleteMaterialDraftOperation.input.parse({
+    deleteVideoId,
+    expectedContentVersion: 7,
+    materialId,
+    submissionId,
+  });
 }
 
 function lifecycleDependencies() {

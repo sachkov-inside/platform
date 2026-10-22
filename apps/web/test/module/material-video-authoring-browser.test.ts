@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  attachMaterialVideo,
   initMaterialVideoUpload,
   reconcileMaterialVideo,
 } from "@/features/material-video/api/video-authoring.browser";
@@ -102,5 +103,34 @@ describe("Material Video authoring browser contract", () => {
         videoId,
       },
     });
+  });
+
+  it("sends the attachment as JSON and reads a refused or malformed answer as unavailable", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ kind: "unauthorized" }))
+      .mockResolvedValueOnce(
+        Response.json({ kind: "ready", value: { videoId } }),
+      );
+    vi.stubGlobal("fetch", fetch);
+    const input = {
+      access: "closed",
+      materialId,
+      providerVideoId: "provider-video",
+    } as const;
+
+    await expect(attachMaterialVideo(input)).resolves.toEqual({
+      kind: "unavailable",
+    });
+    await expect(attachMaterialVideo(input)).resolves.toEqual({
+      kind: "unavailable",
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/authoring/material-video-attachments",
+      expect.objectContaining({
+        body: JSON.stringify(input),
+        method: "POST",
+      }),
+    );
   });
 });

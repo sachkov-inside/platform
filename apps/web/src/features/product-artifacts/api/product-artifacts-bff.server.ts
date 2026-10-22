@@ -21,32 +21,31 @@ import { MAX_PRODUCT_ARTIFACT_MUTATION_BYTES } from "@/shared/api/mutation-limit
 import {
   getOptionalPlatformAccessToken,
   handleAuthenticatedMutation,
+  handleMutationOperation,
   type AuthenticatedMutationFailure,
 } from "@/shared/auth/index.server";
 import {
   ARTIFACT_NOT_ACCEPTED,
   ARTIFACT_TOO_LARGE,
-  productArtifactAccessSchema,
   productArtifactListSchema,
   productArtifactSchema,
   type ProductArtifactListState,
   type ProductArtifactMutationResult,
 } from "../model/product-artifacts";
+import {
+  createProductArtifactFromLinkOperation,
+  productArtifactProductIdsSchema,
+  removeProductArtifactOperation,
+  replaceProductArtifactLinkOperation,
+  setProductArtifactArchivedOperation,
+  setProductArtifactProductsOperation,
+  updateProductArtifactOperation,
+} from "./product-artifacts.operation";
 
-const uuidSchema = z.uuid();
-const metadataFieldsSchema = z
-  .object({
-    access: productArtifactAccessSchema,
-    purpose: z.string().max(1000),
-    title: z.string().min(1).max(200),
-  })
-  .strict();
-const externalUrlSchema = z.url({ protocol: /^https?$/u }).max(2048);
-const productIdsSchema = z.array(uuidSchema).max(50);
 const referencedProblemSchema = z
   .object({
     code: z.literal("artifact_referenced"),
-    productIds: productIdsSchema,
+    productIds: productArtifactProductIdsSchema,
   })
   .loose();
 
@@ -93,118 +92,111 @@ export function handleReplaceProductArtifactFile(
 export function handleCreateProductArtifactLink(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const metadata = metadataFieldsSchema.safeParse(readMetadata(formData));
-    const externalUrl = externalUrlSchema.safeParse(
-      formData.get("externalUrl"),
-    );
-    const productId = uuidSchema.safeParse(formData.get("productId"));
-    if (!metadata.success || !externalUrl.success || !productId.success) {
-      return rejected("Проверьте название и адрес артефакта.");
-    }
-    return mutationResult(() =>
-      requestCreateProductArtifactFromLink(
-        {
-          ...metadata.data,
-          externalUrl: externalUrl.data,
-          productId: productId.data,
-        },
-        accessToken,
-      ),
-    );
-  });
+  return handleMutationOperation(
+    request,
+    createProductArtifactFromLinkOperation,
+    {
+      invalidInput: () => rejected("Проверьте название и адрес артефакта."),
+      execute: (link, accessToken) =>
+        mutationResult(() =>
+          requestCreateProductArtifactFromLink(
+            {
+              access: link.access,
+              purpose: link.purpose,
+              title: link.title,
+              externalUrl: link.externalUrl,
+              productId: link.productId,
+            },
+            accessToken,
+          ),
+        ),
+    },
+  );
 }
 
 export function handleUpdateProductArtifact(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const metadata = metadataFieldsSchema.safeParse(readMetadata(formData));
-    const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
-    if (!metadata.success || !artifactId.success) {
-      return rejected("Проверьте название артефакта.");
-    }
-    return mutationResult(() =>
-      requestUpdateProductArtifact(
-        { ...metadata.data, artifactId: artifactId.data },
-        accessToken,
+  return handleMutationOperation(request, updateProductArtifactOperation, {
+    invalidInput: () => rejected("Проверьте название артефакта."),
+    execute: (update, accessToken) =>
+      mutationResult(() =>
+        requestUpdateProductArtifact(
+          {
+            access: update.access,
+            purpose: update.purpose,
+            title: update.title,
+            artifactId: update.artifactId,
+          },
+          accessToken,
+        ),
       ),
-    );
   });
 }
 
 export function handleReplaceProductArtifactLink(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
-    const externalUrl = externalUrlSchema.safeParse(
-      formData.get("externalUrl"),
-    );
-    if (!artifactId.success || !externalUrl.success) {
-      return rejected("Укажите адрес, начинающийся с http или https.");
-    }
-    return mutationResult(() =>
-      requestReplaceProductArtifactLink(
-        { artifactId: artifactId.data, externalUrl: externalUrl.data },
-        accessToken,
+  return handleMutationOperation(request, replaceProductArtifactLinkOperation, {
+    invalidInput: () =>
+      rejected("Укажите адрес, начинающийся с http или https."),
+    execute: ({ artifactId, externalUrl }, accessToken) =>
+      mutationResult(() =>
+        requestReplaceProductArtifactLink(
+          { artifactId, externalUrl },
+          accessToken,
+        ),
       ),
-    );
   });
 }
 
 export function handleSetProductArtifactArchived(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
-    const archived = formData.get("archived");
-    if (!artifactId.success || (archived !== "true" && archived !== "false")) {
-      return rejected("Не удалось изменить состояние артефакта.");
-    }
-    return mutationResult(() =>
-      requestSetProductArtifactArchived(
-        { archived: archived === "true", artifactId: artifactId.data },
-        accessToken,
+  return handleMutationOperation(request, setProductArtifactArchivedOperation, {
+    invalidInput: () => rejected("Не удалось изменить состояние артефакта."),
+    execute: ({ archived, artifactId }, accessToken) =>
+      mutationResult(() =>
+        requestSetProductArtifactArchived(
+          { archived, artifactId },
+          accessToken,
+        ),
       ),
-    );
   });
 }
 
 export function handleSetProductArtifactProducts(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
-    const productIds = parseProductIds(formData.get("productIds"));
-    if (!artifactId.success || productIds === null) {
-      return rejected("Не удалось изменить размещение артефакта.");
-    }
-    return mutationResult(() =>
-      requestSetProductArtifactProducts(
-        { artifactId: artifactId.data, productIds },
-        accessToken,
+  return handleMutationOperation(request, setProductArtifactProductsOperation, {
+    invalidInput: () => rejected("Не удалось изменить размещение артефакта."),
+    execute: ({ artifactId, productIds }, accessToken) =>
+      mutationResult(() =>
+        requestSetProductArtifactProducts(
+          { artifactId, productIds },
+          accessToken,
+        ),
       ),
-    );
   });
 }
 
 export function handleRemoveProductArtifact(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (formData, accessToken) => {
-    const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
-    if (!artifactId.success) return rejected("Артефакт не найден.");
-    let result: BackendTransportResult;
-    try {
-      result = await requestRemoveProductArtifact(artifactId.data, accessToken);
-    } catch (error) {
-      return transportFailure(error);
-    }
-    if (result.ok) {
-      return { artifactId: artifactId.data, kind: "removed" } as const;
-    }
-    return failureResult(result);
+  return handleMutationOperation(request, removeProductArtifactOperation, {
+    invalidInput: () => rejected("Артефакт не найден."),
+    execute: async ({ artifactId }, accessToken) => {
+      let result: BackendTransportResult;
+      try {
+        result = await requestRemoveProductArtifact(artifactId, accessToken);
+      } catch (error) {
+        return transportFailure(error);
+      }
+      if (result.ok) {
+        return { artifactId, kind: "removed" } as const;
+      }
+      return failureResult(result);
+    },
   });
 }
 
@@ -405,24 +397,4 @@ function transportFailure(error: unknown): ProductArtifactMutationResult {
 
 function rejected(reason: string): ProductArtifactMutationResult {
   return { kind: "rejected", reason };
-}
-
-function readMetadata(formData: FormData) {
-  return {
-    access: formData.get("access"),
-    purpose: formData.get("purpose") ?? "",
-    title: formData.get("title"),
-  };
-}
-
-function parseProductIds(value: FormDataEntryValue | null): string[] | null {
-  if (typeof value !== "string") return null;
-  let input: unknown;
-  try {
-    input = JSON.parse(value);
-  } catch {
-    return null;
-  }
-  const parsed = productIdsSchema.safeParse(input);
-  return parsed.success ? parsed.data : null;
 }

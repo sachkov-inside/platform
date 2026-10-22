@@ -3,7 +3,6 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import {
   fullStackBrowserJsonRequest,
-  fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 import { z } from "zod";
@@ -76,13 +75,13 @@ test("multiple-answer quiz survives real document admission, published Reader an
       draft: z.object({ materialId: z.uuid(), contentVersion: z.number() }),
     })
     .parse(await created.json());
-  const published = await fullStackBrowserRequest(
+  const published = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/materials",
     "PATCH",
     {
       materialId: draft.draft.materialId,
-      expectedContentVersion: String(draft.draft.contentVersion),
+      expectedContentVersion: draft.draft.contentVersion,
       publicationState: "published",
       submissionId: randomUUID(),
     },

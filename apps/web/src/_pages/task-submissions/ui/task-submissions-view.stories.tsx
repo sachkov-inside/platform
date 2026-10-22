@@ -243,12 +243,11 @@ export const FeedbackSaves: Story = {
     await userEvent.click(save);
     await waitFor(() => expect(saveSpy).toHaveBeenCalledTimes(1));
     const body = saveSpy.mock.calls[0]?.[1]?.body;
-    if (!(body instanceof FormData))
-      throw new Error("Комментарий не отправлен");
-    await expect(Object.fromEntries(body)).toEqual({
+    if (typeof body !== "string") throw new Error("Комментарий не отправлен");
+    await expect(JSON.parse(body)).toEqual({
       submissionId: firstId,
       comment: savedFeedback.comment,
-      reviewed: "false",
+      reviewed: false,
     });
     await expect(
       await page.findByText(

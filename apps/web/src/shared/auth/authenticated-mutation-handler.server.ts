@@ -19,11 +19,6 @@ import { getOptionalPlatformAccessToken } from "./optional-platform-access-token
 import { readLogtoBffConfig } from "./logto-bff-config.server";
 import { isSameOriginMutation } from "./same-origin-mutation.server";
 
-type ExecuteMutation = (
-  formData: FormData,
-  accessToken: string,
-) => Promise<unknown>;
-
 type ExecuteStreamingMutation = (
   body: ReadableStream<Uint8Array> | null,
   accessToken: string,
@@ -42,89 +37,59 @@ export interface StreamingMutationOptions {
   readonly mode: "stream";
 }
 
-/** Authenticates one same-origin browser mutation and returns its typed feature result. */
-export function handleAuthenticatedMutation(
-  request: Request,
-  execute: ExecuteMutation,
-): Promise<Response>;
-export function handleAuthenticatedMutation(
+/**
+ * Authenticates one same-origin binary upload and streams its body under a named limit
+ * (ADR 0038). Every other browser mutation is an operation served by `handleMutationOperation`.
+ */
+export async function handleAuthenticatedMutation(
   request: Request,
   execute: ExecuteStreamingMutation,
   options: StreamingMutationOptions,
-): Promise<Response>;
-export async function handleAuthenticatedMutation(
-  request: Request,
-  ...[execute, options]:
-    | [execute: ExecuteMutation, options?: undefined]
-    | [execute: ExecuteStreamingMutation, options: StreamingMutationOptions]
 ): Promise<Response> {
   if (!isSameOriginMutation(request, sessionAdapter.baseUrl())) {
-    return options === undefined
-      ? mutationResponse(null, 403)
-      : privateAuthenticatedResponse(
-          options.failureResponse("cross_origin_request"),
-        );
+    return privateAuthenticatedResponse(
+      options.failureResponse("cross_origin_request"),
+    );
   }
   const contentLength = Number(request.headers.get("content-length"));
-  const maxBytes = options?.maxBytes ?? MAX_BROWSER_MUTATION_BYTES;
-  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    return options === undefined
-      ? mutationResponse(null, 413)
-      : privateAuthenticatedResponse(options.failureResponse("body_too_large"));
+  if (Number.isFinite(contentLength) && contentLength > options.maxBytes) {
+    return privateAuthenticatedResponse(
+      options.failureResponse("body_too_large"),
+    );
   }
 
   let accessToken: string;
   try {
     accessToken = await sessionAdapter.accessToken("route");
   } catch (error) {
-    if (options !== undefined) {
-      return privateAuthenticatedResponse(
-        options.failureResponse(
-          error instanceof LogtoSessionUnavailableError
-            ? "authentication_required"
-            : "identity_unavailable",
-        ),
-      );
-    }
-    return mutationResponse(
-      null,
-      error instanceof LogtoSessionUnavailableError ? 401 : 503,
+    return privateAuthenticatedResponse(
+      options.failureResponse(
+        error instanceof LogtoSessionUnavailableError
+          ? "authentication_required"
+          : "identity_unavailable",
+      ),
     );
   }
 
-  if (options !== undefined) {
-    const limit = { exceeded: false };
-    const body =
-      request.body === null
-        ? null
-        : limitBodyStream(request.body, options.maxBytes, limit);
-    try {
-      return privateAuthenticatedResponse(await execute(body, accessToken));
-    } catch {
-      return privateAuthenticatedResponse(
-        options.failureResponse(
-          limit.exceeded ? "body_too_large" : "dependency_unavailable",
-        ),
-      );
-    } finally {
-      // Запись могла состояться и до сбоя ответа, поэтому кеш сбрасывается при любом исходе. В
-      // `finally`, а не в `try`: сбой сброса не должен выдать состоявшуюся запись за недоступность.
-      // Обе ветки возвращают ответ: отложенный сброс Next.js выполняет только при обычном возврате.
-      expirePublicCatalogAfter(request);
-    }
-  }
-
-  let formData: FormData;
+  const limit = { exceeded: false };
+  const body =
+    request.body === null
+      ? null
+      : limitBodyStream(request.body, options.maxBytes, limit);
   try {
-    formData = await request.formData();
+    return privateAuthenticatedResponse(await execute(body, accessToken));
   } catch {
-    return mutationResponse(null, 400);
+    return privateAuthenticatedResponse(
+      options.failureResponse(
+        limit.exceeded ? "body_too_large" : "dependency_unavailable",
+      ),
+    );
+  } finally {
+    // Запись могла состояться и до сбоя ответа, поэтому кеш сбрасывается при любом исходе. В
+    // `finally`, а не в `try`: сбой сброса не должен выдать состоявшуюся запись за недоступность.
+    // Обе ветки возвращают ответ: отложенный сброс Next.js выполняет только при обычном возврате.
+    expirePublicCatalogAfter(request);
   }
-  if (formDataByteLength(formData) > maxBytes) {
-    return mutationResponse(null, 413);
-  }
-
-  return executeMutation(request, () => execute(formData, accessToken));
 }
 
 export interface MutationOperationImplementation<
@@ -341,18 +306,6 @@ function limitBodyStream(
       },
     }),
   );
-}
-
-function formDataByteLength(formData: FormData): number {
-  const encoder = new TextEncoder();
-  let bytes = 0;
-  for (const [name, value] of formData.entries()) {
-    bytes += encoder.encode(name).byteLength;
-    bytes +=
-      typeof value === "string" ? encoder.encode(value).byteLength : value.size;
-    if (bytes > MAX_BROWSER_MUTATION_BYTES) return bytes;
-  }
-  return bytes;
 }
 
 function mutationResponse(body: unknown, status: number): Response {
