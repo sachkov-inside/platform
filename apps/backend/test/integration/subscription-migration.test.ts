@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { expect, test } from "vitest";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import {
-  platformMigrations,
-  migrateToLatest,
-} from "../../src/migrations/index.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateBefore } from "./setup/historical-upgrade.js";
 import { statement } from "../../src/modules/account-rights/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
@@ -15,14 +12,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
   const db = await createTestDatabase();
   const pool = new Pool({ connectionString: db.url, max: 1 });
   try {
-    const migrationIndex = platformMigrations.findIndex(
-      (item) => item.name === "0063_subscription_enrollments",
-    );
-    expect(migrationIndex).toBeGreaterThan(0);
-    await runMigrationsToLatest(
-      db.url,
-      platformMigrations.slice(0, migrationIndex),
-    );
+    await migrateBefore(db, "0063_subscription_enrollments");
     const owner = randomUUID(),
       included = randomUUID(),
       excluded = randomUUID(),

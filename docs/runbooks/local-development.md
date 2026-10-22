@@ -975,9 +975,11 @@ must form an exact registry prefix, rejecting drift, gaps, reordering, and newer
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
 with the destructive reset below rather than supported by application compatibility code.
 
-A new migration also changes the applied-migration lists that integration tests pin: find them with
-`grep -rl '"<previous migration name>"' apps/backend/test` (on 30.09.2026 `migrations.test.ts` and
-`home-series-pin.test.ts`) and add the new name after the previous one.
+An integration test that upgrades from a historical point uses
+`apps/backend/test/integration/setup/historical-upgrade.ts`: `migrateBefore` stops the ledger before
+a named migration, the test seeds its rows, and `upgradeToLatest` derives the applied tail from the
+registry and checks that the ledger is an exact registry prefix. A new migration at the end of the
+registry therefore needs no edits in existing upgrade tests.
 
 ## Owner Account release bootstrap
 

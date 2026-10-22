@@ -22,11 +22,8 @@ import {
   type AccessGrants,
 } from "../../src/modules/account-rights/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
-import {
-  platformMigrations,
-  migrateToLatest,
-} from "../../src/migrations/index.js";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateBefore } from "./setup/historical-upgrade.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -44,11 +41,7 @@ const finish = new Date("2030-02-01T00:00:00.000Z");
 
 beforeEach(async () => {
   db = await createTestDatabase();
-  const boundary = platformMigrations.findIndex(
-    ({ name }) => name === "0090_explicit_community_rights",
-  );
-  expect(boundary).toBeGreaterThan(0);
-  await runMigrationsToLatest(db.url, platformMigrations.slice(0, boundary));
+  await migrateBefore(db, "0090_explicit_community_rights");
   await db.prisma.account.create({
     data: {
       id: account,
@@ -109,13 +102,7 @@ async function historicalGrant(
   return id;
 }
 async function migrateHistoricalBaseline() {
-  const repair = platformMigrations.findIndex(
-    ({ name }) => name === "0095_historical_community_coverage",
-  );
-  await runMigrationsToLatest(
-    db.url,
-    repair < 0 ? platformMigrations : platformMigrations.slice(0, repair),
-  );
+  await migrateBefore(db, "0095_historical_community_coverage");
 }
 
 async function expectCommunity(productId: string, validUntil: string | null) {

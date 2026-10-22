@@ -1,16 +1,13 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
-import {
-  migrateToLatest,
-  platformMigrations,
-} from "../../src/migrations/index.js";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
+import { platformMigrations } from "../../src/migrations/index.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import {
   createTestDatabase,
   type TestDatabase,
@@ -29,72 +26,8 @@ beforeAll(async () => {
     (migration) => migration.name === "0038_home_material_pin",
   );
   expect(platformMigrations[pinStart - 1]?.name).toBe("0045_notifications");
-  await runMigrationsToLatest(
-    database.url,
-    platformMigrations.slice(0, pinStart),
-  );
-  expect(await migrateToLatest(database.url)).toEqual({
-    appliedMigrations: [
-      "0038_home_material_pin",
-      "0039_home_series_pin",
-      "0046_scoped_access",
-      "0047_subscription_payments",
-      "0048_subscription_lifecycle",
-      "0050_guide_artifacts",
-      "0051_guide_chapters",
-      "0052_bookmarks",
-      "0053_community_entitlements",
-      "0054_billing_manage_permission",
-      "0055_billing_operations",
-      "0056_billing_notices",
-      "0057_guide_introduction",
-      "0058_offer_for_sale",
-      "0059_one_time_purchase",
-      "0060_material_announcements",
-      "0061_lesson_difficulty_and_outcomes",
-      "0062_reader_guide_mode",
-      "0063_subscription_enrollments",
-      "0064_tribute_sources",
-      "0067_legal_acceptances",
-      "0065_video_detachment",
-      "0069_guide_material_removals",
-      "0066_refund_basis",
-      "0068_starter_tier_access",
-      "0065_authoring_source",
-      "0070_guide_page",
-      "0071_offer_eligibility",
-      "0072_practice_definitions",
-      "0073_survey_respondents",
-      "0074_sales_funnel",
-      "0076_guide_cohorts",
-      "0077_access_ending_notices",
-      "0078_invitations",
-      "0079_guide_tasks",
-      "0080_guide_task_placement_and_form",
-      "0081_remove_workshop",
-      "0082_domain_names",
-      "0083_task_pages",
-      "0084_owner_command_keys",
-      "0085_community_projection_retries",
-      "0086_product_cohort_price_after_start",
-      "0087_web_telemetry",
-      "0088_web_telemetry_percentile_index",
-      "0089_bank_refund_history",
-      "0090_explicit_community_rights",
-      "0091_product_communities",
-      "0092_product_access_exclusions",
-      "0093_product_learning_started",
-      "0094_individual_payment_links",
-      "0095_historical_community_coverage",
-      "0096_task_review_progress",
-      "0097_task_submission_review_run",
-      "0098_material_task",
-      "0099_chapter_supplementary_materials",
-      "0100_product_waitlists",
-      "0101_waitlist_confirmations",
-      "0102_material_telegram_announcements",
-    ],
-  });
+  await migrateBefore(database, "0038_home_material_pin");
+  await upgradeToLatest(database);
   await database.prisma.topic.create({
     data: { id: topicId, name: "Home", slug: "home" },
   });

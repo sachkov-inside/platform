@@ -24,6 +24,11 @@ import {
   statement as accountsMigrationStatement,
 } from "../../src/modules/accounts/infrastructure/postgres/migrations/0004_accounts.js";
 import {
+  migrateBefore,
+  migrateThrough,
+  upgradeToLatest,
+} from "./setup/historical-upgrade.js";
+import {
   createTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
@@ -161,117 +166,8 @@ describe("Platform migrations", () => {
   });
 
   test("build an empty PostgreSQL database and replay without changes", async () => {
-    const first = await migrateToLatest(testDatabase.url);
-    const second = await migrateToLatest(testDatabase.url);
+    await upgradeToLatest(testDatabase);
 
-    expect(first).toEqual({
-      appliedMigrations: [
-        "0001_materials",
-        "0002_identity_principals",
-        "0003_published_materials_cursor_index",
-        "0004_accounts",
-        "0005_mutable_materials",
-        "0006_membership_entitlements",
-        "0007_remove_material_access_audit",
-        "0008_member_profiles",
-        "0009_published_material_search",
-        "0010_material_related_pins",
-        "0011_telegram_membership",
-        "0012_remove_member_profile_reports",
-        "0013_material_assets",
-        "0014_material_asset_reference_state",
-        "0015_profile_avatars",
-        "0016_videos",
-        "0017_primary_video",
-        "0018_durable_video_upload_attempts",
-        "0019_content_collections",
-        "0020_safe_video_deletion",
-        "0021_workshop_material_access",
-        "0022_workshop_video_access",
-        "0023_workshop_foundation",
-        "0024_workshop_membership_entitlement_projection",
-        "0025_content_covers",
-        "0026_video_duration",
-        "0027_current_collection_search",
-        "0028_series_step_groups",
-        "0029_telegram_sign_in",
-        "0030_communications_permission",
-        "0031_communication_tracking_hits",
-        "0032_reading_activity",
-        "0033_material_visits",
-        "0034_content_cover_cleanup",
-        "0035_domain_material_formats",
-        "0036_video_upload_rejections",
-        "0037_platform_admin",
-        "0038_account_access",
-        "0039_telegram_link_revisions",
-        "0040_billing_pricing",
-        "0041_billing_contact",
-        "0042_billing_notification_transport",
-        "0043_materials_notification_transport",
-        "0044_notifications_notification_transport",
-        "0045_notifications",
-        "0038_home_material_pin",
-        "0039_home_series_pin",
-        "0046_scoped_access",
-        "0047_subscription_payments",
-        "0048_subscription_lifecycle",
-        "0050_guide_artifacts",
-        "0051_guide_chapters",
-        "0052_bookmarks",
-        "0053_community_entitlements",
-        "0054_billing_manage_permission",
-        "0055_billing_operations",
-        "0056_billing_notices",
-        "0057_guide_introduction",
-        "0058_offer_for_sale",
-        "0059_one_time_purchase",
-        "0060_material_announcements",
-        "0061_lesson_difficulty_and_outcomes",
-        "0062_reader_guide_mode",
-        "0063_subscription_enrollments",
-        "0064_tribute_sources",
-        "0067_legal_acceptances",
-        "0065_video_detachment",
-        "0069_guide_material_removals",
-        "0066_refund_basis",
-        "0068_starter_tier_access",
-        "0065_authoring_source",
-        "0070_guide_page",
-        "0071_offer_eligibility",
-        "0072_practice_definitions",
-        "0073_survey_respondents",
-        "0074_sales_funnel",
-        "0076_guide_cohorts",
-        "0077_access_ending_notices",
-        "0078_invitations",
-        "0079_guide_tasks",
-        "0080_guide_task_placement_and_form",
-        "0081_remove_workshop",
-        "0082_domain_names",
-        "0083_task_pages",
-        "0084_owner_command_keys",
-        "0085_community_projection_retries",
-        "0086_product_cohort_price_after_start",
-        "0087_web_telemetry",
-        "0088_web_telemetry_percentile_index",
-        "0089_bank_refund_history",
-        "0090_explicit_community_rights",
-        "0091_product_communities",
-        "0092_product_access_exclusions",
-        "0093_product_learning_started",
-        "0094_individual_payment_links",
-        "0095_historical_community_coverage",
-        "0096_task_review_progress",
-        "0097_task_submission_review_run",
-        "0098_material_task",
-        "0099_chapter_supplementary_materials",
-        "0100_product_waitlists",
-        "0101_waitlist_confirmations",
-        "0102_material_telegram_announcements",
-      ],
-    });
-    expect(second).toEqual({ appliedMigrations: [] });
     await expectTables(testDatabase, "materials", materialTables);
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
@@ -408,14 +304,7 @@ describe("Platform migrations", () => {
   test("preserves uncertain legacy cover uploads during cleanup migration", async () => {
     const database = await createTestDatabase();
     try {
-      const migrationIndex = platformMigrations.findIndex(
-        ({ name }) => name === "0034_content_cover_cleanup",
-      );
-      expect(migrationIndex).toBeGreaterThan(0);
-      await runMigrationsToLatest(
-        database.url,
-        platformMigrations.slice(0, migrationIndex),
-      );
+      await migrateBefore(database, "0034_content_cover_cleanup");
       const topic = await database.prisma.topic.create({
         data: {
           id: "8a000000-0000-4000-8000-000000000034",
@@ -431,7 +320,7 @@ describe("Platform migrations", () => {
           ('failed', 'owner_not_found'), ('failed', 'conflict')
         ) as uploads(state, failure_code)
       `);
-      await migrateToLatest(database.url);
+      await upgradeToLatest(database);
       await expect(
         database.prisma.contentCover.findMany({
           orderBy: [{ state: "asc" }, { failureCode: "asc" }],
@@ -465,14 +354,9 @@ describe("Platform migrations", () => {
   test("backfills Workshop entitlement from the current Membership projection", async () => {
     const database = await createTestDatabase();
     try {
-      const migrationIndex = platformMigrations.findIndex(
-        ({ name }) =>
-          name === "0024_workshop_membership_entitlement_projection",
-      );
-      expect(migrationIndex).toBeGreaterThan(0);
-      await runMigrationsToLatest(
-        database.url,
-        platformMigrations.slice(0, migrationIndex),
+      await migrateBefore(
+        database,
+        "0024_workshop_membership_entitlement_projection",
       );
       await database.prisma.$executeRaw(Prisma.sql`
         insert into membership_entitlements.account_bindings (
@@ -508,14 +392,12 @@ describe("Platform migrations", () => {
         );
       `);
 
-      await expect(
-        runMigrationsToLatest(
-          database.url,
-          platformMigrations.slice(0, migrationIndex + 1),
+      expect(
+        await migrateThrough(
+          database,
+          "0024_workshop_membership_entitlement_projection",
         ),
-      ).resolves.toEqual({
-        appliedMigrations: ["0024_workshop_membership_entitlement_projection"],
-      });
+      ).toEqual(["0024_workshop_membership_entitlement_projection"]);
       await expect(
         database.prisma.$queryRaw(
           Prisma.sql`select principal_ref as "principalRef", decision, evidence_version as "evidenceVersion", valid_until as "validUntil" from workshop.membership_entitlement_projections where account_id = '8a000000-0000-4000-8000-000000000001'::uuid`,
@@ -536,15 +418,7 @@ describe("Platform migrations", () => {
   test("backfills conservative immutable Video origin from durable upload evidence", async () => {
     const database = await createTestDatabase();
     try {
-      await runMigrationsToLatest(
-        database.url,
-        platformMigrations.slice(
-          0,
-          platformMigrations.findIndex(
-            ({ name }) => name === "0020_safe_video_deletion",
-          ),
-        ),
-      );
+      await migrateBefore(database, "0020_safe_video_deletion");
       await database.prisma.$executeRaw(Prisma.sql`
         insert into videos.videos (
           id, material_id, created_by, access, project_id, provider_video_id,
@@ -583,7 +457,7 @@ describe("Platform migrations", () => {
         );
       `);
 
-      await migrateToLatest(database.url);
+      await upgradeToLatest(database);
 
       await expect(
         database.prisma.video.findMany({
@@ -870,109 +744,7 @@ describe("Platform migrations", () => {
         `);
       });
 
-      expect(await migrateToLatest(database.url)).toEqual({
-        appliedMigrations: [
-          "0005_mutable_materials",
-          "0006_membership_entitlements",
-          "0007_remove_material_access_audit",
-          "0008_member_profiles",
-          "0009_published_material_search",
-          "0010_material_related_pins",
-          "0011_telegram_membership",
-          "0012_remove_member_profile_reports",
-          "0013_material_assets",
-          "0014_material_asset_reference_state",
-          "0015_profile_avatars",
-          "0016_videos",
-          "0017_primary_video",
-          "0018_durable_video_upload_attempts",
-          "0019_content_collections",
-          "0020_safe_video_deletion",
-          "0021_workshop_material_access",
-          "0022_workshop_video_access",
-          "0023_workshop_foundation",
-          "0024_workshop_membership_entitlement_projection",
-          "0025_content_covers",
-          "0026_video_duration",
-          "0027_current_collection_search",
-          "0028_series_step_groups",
-          "0029_telegram_sign_in",
-          "0030_communications_permission",
-          "0031_communication_tracking_hits",
-          "0032_reading_activity",
-          "0033_material_visits",
-          "0034_content_cover_cleanup",
-          "0035_domain_material_formats",
-          "0036_video_upload_rejections",
-          "0037_platform_admin",
-          "0038_account_access",
-          "0039_telegram_link_revisions",
-          "0040_billing_pricing",
-          "0041_billing_contact",
-          "0042_billing_notification_transport",
-          "0043_materials_notification_transport",
-          "0044_notifications_notification_transport",
-          "0045_notifications",
-          "0038_home_material_pin",
-          "0039_home_series_pin",
-          "0046_scoped_access",
-          "0047_subscription_payments",
-          "0048_subscription_lifecycle",
-          "0050_guide_artifacts",
-          "0051_guide_chapters",
-          "0052_bookmarks",
-          "0053_community_entitlements",
-          "0054_billing_manage_permission",
-          "0055_billing_operations",
-          "0056_billing_notices",
-          "0057_guide_introduction",
-          "0058_offer_for_sale",
-          "0059_one_time_purchase",
-          "0060_material_announcements",
-          "0061_lesson_difficulty_and_outcomes",
-          "0062_reader_guide_mode",
-          "0063_subscription_enrollments",
-          "0064_tribute_sources",
-          "0067_legal_acceptances",
-          "0065_video_detachment",
-          "0069_guide_material_removals",
-          "0066_refund_basis",
-          "0068_starter_tier_access",
-          "0065_authoring_source",
-          "0070_guide_page",
-          "0071_offer_eligibility",
-          "0072_practice_definitions",
-          "0073_survey_respondents",
-          "0074_sales_funnel",
-          "0076_guide_cohorts",
-          "0077_access_ending_notices",
-          "0078_invitations",
-          "0079_guide_tasks",
-          "0080_guide_task_placement_and_form",
-          "0081_remove_workshop",
-          "0082_domain_names",
-          "0083_task_pages",
-          "0084_owner_command_keys",
-          "0085_community_projection_retries",
-          "0086_product_cohort_price_after_start",
-          "0087_web_telemetry",
-          "0088_web_telemetry_percentile_index",
-          "0089_bank_refund_history",
-          "0090_explicit_community_rights",
-          "0091_product_communities",
-          "0092_product_access_exclusions",
-          "0093_product_learning_started",
-          "0094_individual_payment_links",
-          "0095_historical_community_coverage",
-          "0096_task_review_progress",
-          "0097_task_submission_review_run",
-          "0098_material_task",
-          "0099_chapter_supplementary_materials",
-          "0100_product_waitlists",
-          "0101_waitlist_confirmations",
-          "0102_material_telegram_announcements",
-        ],
-      });
+      await upgradeToLatest(database);
 
       const materials = migratedMaterialRowsSchema.parse(
         await database.prisma.$queryRaw(Prisma.sql`

@@ -19,11 +19,8 @@ import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { expect, test } from "vitest";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
-import {
-  migrateToLatest,
-  platformMigrations,
-} from "../../src/migrations/index.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateBefore } from "./setup/historical-upgrade.js";
 import { createTestDatabase } from "./setup/test-database.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 
@@ -32,13 +29,7 @@ test("upgrades persisted product rights, tariff snapshots and closed access with
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      index < 0 ? platformMigrations : platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const productId = randomUUID();
     const grantId = randomUUID();
     const assignmentId = randomUUID();
@@ -174,13 +165,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const accountId = randomUUID(),
       productId = randomUUID(),
       grantId = randomUUID();
@@ -323,13 +308,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const accountId = randomUUID(),
       productId = randomUUID(),
       offerId = randomUUID();
@@ -550,13 +529,7 @@ test("replays an imported pre-upgrade task under its renamed operation and field
   const database = await createTestDatabase();
   const pool = new Pool({ connectionString: database.url, max: 1 });
   try {
-    const index = platformMigrations.findIndex(
-      ({ name }) => name === "0082_domain_names",
-    );
-    await runMigrationsToLatest(
-      database.url,
-      platformMigrations.slice(0, index),
-    );
+    await migrateBefore(database, "0082_domain_names");
     const actor = randomUUID(),
       productId = randomUUID(),
       chapterId = randomUUID(),
