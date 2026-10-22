@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { accountPresentationQueryKey } from "@/features/account-access";
+import { readShellScroll, restoreShellScroll } from "@/shared/lib/shell-scroll";
 import { internalRoute } from "@/shared/routing/internal-route";
 import {
   libraryCatalogQueryRootKey,
@@ -61,7 +62,7 @@ export function useMobileNavigation(
       pending.current?.href.split("?")[0] === path
         ? pending.current.top
         : path === window.location.pathname
-          ? readScrollTop()
+          ? readShellScroll()
           : (previous?.top ?? 0);
     const position = { href, top };
     positions.current = { ...positions.current, [path]: position };
@@ -162,46 +163,9 @@ export function useMobileNavigation(
     if (destination === null || destination.href.split("?")[0] !== pathname)
       return;
     pending.current = null;
-    const main = document.querySelector<HTMLElement>(
-      "[data-application-content]",
-    );
-    if (main === null) return;
-    let frame = 0;
-    const stop = () => {
-      observer.disconnect();
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-      window.removeEventListener("touchstart", stop);
-      window.removeEventListener("wheel", stop);
-      window.removeEventListener("keydown", stop);
-      window.removeEventListener("popstate", stop);
-    };
-    const restore = () => {
-      const scrollRoot = window.matchMedia("(min-width: 64rem)").matches
-        ? main
-        : document.documentElement;
-      const available = scrollRoot.scrollHeight - scrollRoot.clientHeight;
-      if (available + 1 < destination.top) return;
-      if (scrollRoot === main)
-        main.scrollTo({ top: destination.top, behavior: "instant" });
-      else window.scrollTo({ top: destination.top, behavior: "instant" });
-      stop();
-    };
-    const observer = new ResizeObserver(() => {
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(restore);
-    });
-    const timer = window.setTimeout(stop, restorationTimeoutMs);
-    observer.observe(main);
-    if (main.firstElementChild !== null)
-      observer.observe(main.firstElementChild);
-    window.addEventListener("touchstart", stop, { passive: true });
-    window.addEventListener("wheel", stop, { passive: true });
-    window.addEventListener("keydown", stop);
-    window.addEventListener("popstate", stop);
+    // Waits for the destination to grow tall enough; reader input or a timeout cancels it.
+    const stop = restoreShellScroll(destination.top, restorationTimeoutMs);
     stopRestoring.current = stop;
-    // Restore after the route commit so browser scroll anchoring cannot offset this write.
-    frame = window.requestAnimationFrame(restore);
     return stop;
   }, [pathname]);
 
@@ -228,11 +192,4 @@ export function useMobileNavigation(
     recordLocation,
     pendingHref,
   };
-}
-
-function readScrollTop(): number {
-  return window.matchMedia("(min-width: 64rem)").matches
-    ? (document.querySelector<HTMLElement>("[data-application-content]")
-        ?.scrollTop ?? 0)
-    : window.scrollY;
 }

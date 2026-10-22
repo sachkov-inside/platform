@@ -161,6 +161,18 @@ const fixtures = [
     accepted: ["sign-out/route.ts"],
   },
   {
+    root: "test/guardrails/fixtures/architecture/shell-scroll",
+    diagnostics: [
+      "src/_app/desktop-query.ts: the shell scroll root and its 64rem breakpoint belong to src/shared/lib/shell-scroll.ts",
+      "src/widgets/content-reset.ts: the shell scroll root and its 64rem breakpoint belong to src/shared/lib/shell-scroll.ts",
+    ],
+    accepted: [
+      "src/shared/lib/shell-scroll.ts",
+      "src/widgets/shell.stories.tsx",
+      "src/widgets/wide-layout.ts",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/site-animation",
     diagnostics: [
       "hero-motion.tsx: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets",
