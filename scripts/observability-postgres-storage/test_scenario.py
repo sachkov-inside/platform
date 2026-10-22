@@ -92,6 +92,20 @@ class Driver(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(EXPECTED,_baseline='first')
             self.assertIsNone(driver.oracle_failure_reason)
         self.assertNotIn('not-exported',json.dumps({'reason':driver.oracle_failure_reason}))
+        for index,reason in enumerate(oracle.ORACLE_JOIN_REASONS):
+            rows,stamps=vectors()
+            if index==0:stamps.pop()
+            elif index==1:stamps[-1]['metric']['scope.version']='unknown'
+            else:stamps[0]['value'][1]='0' if index==2 else '1790000001'
+            with patch.object(scenario.time,'monotonic',return_value=100), \
+                 patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+                with self.assertRaisesRegex(ValueError,'^storage$'):driver.stored(EXPECTED,_baseline='first')
+            self.assertEqual(driver.phase,'baseline_first_stored_oracle');self.assertEqual(driver.oracle_failure_reason,reason)
+            rows,stamps=vectors()
+            with patch.object(scenario.time,'monotonic',return_value=100), \
+                 patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+                self.assertEqual(driver.stored(EXPECTED,_baseline='second')['freshness'],'fresh')
+            self.assertIsNone(driver.oracle_failure_reason)
 
     def test_pending_and_foreign_oracle_results_cannot_borrow_a_diagnosed_failure(self):
         import oracle
@@ -123,25 +137,30 @@ class Driver(unittest.TestCase):
         import oracle
         from test_oracle import vectors,raw,NOW
         rows,stamps=vectors();rows[-1]['metric']['private']='not-exported'
-        for mode in ('same','different','interrupt','exit'):
-            with self.subTest(mode=mode),baseline_ports(self) as (driver,events,clock,raised,stop):
-                driver.oracle=oracle;seen=[]
-                def close(_deadline):
-                    primary,tb=sys.exc_info()[1:];seen.append((primary,tb))
-                    if mode=='same':raise primary
-                    if mode=='interrupt':raise KeyboardInterrupt()
-                    if mode=='exit':raise SystemExit()
-                    raise RuntimeError('private cleanup failure')
-                driver.actors.close=close
-                with patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
-                    try:driver.run(None)
-                    except ValueError as primary:
-                        self.assertEqual(str(primary),'storage');self.assertIs(primary,seen[0][0])
-                        trace=primary.__traceback__;frames=[];names=[]
-                        while trace is not None:frames.append(trace);names.append(trace.tb_frame.f_code.co_name);trace=trace.tb_next
-                        self.assertIn(seen[0][1],frames);self.assertIn('stored',names);self.assertNotIn('close',names)
-                    else:self.fail('storage failure replaced')
-                self.assertEqual(driver.oracle_failure_reason,'oracle_values_labels')
+        original_rows=rows
+        for pattern in ('labels','join'):
+            rows,stamps=vectors()
+            if pattern=='labels':rows=original_rows
+            else:stamps[0]['value'][1]='0'
+            for mode in ('same','different','interrupt','exit'):
+                with self.subTest(mode=mode),baseline_ports(self) as (driver,events,clock,raised,stop):
+                    driver.oracle=oracle;seen=[]
+                    def close(_deadline):
+                        primary,tb=sys.exc_info()[1:];seen.append((primary,tb))
+                        if mode=='same':raise primary
+                        if mode=='interrupt':raise KeyboardInterrupt()
+                        if mode=='exit':raise SystemExit()
+                        raise RuntimeError('private cleanup failure')
+                    driver.actors.close=close
+                    with patch.object(scenario.queries,'read',return_value=(raw(rows),raw(stamps),1790000000,NOW)):
+                        try:driver.run(None)
+                        except ValueError as primary:
+                            self.assertEqual(str(primary),'storage');self.assertIs(primary,seen[0][0])
+                            trace=primary.__traceback__;frames=[];names=[]
+                            while trace is not None:frames.append(trace);names.append(trace.tb_frame.f_code.co_name);trace=trace.tb_next
+                            self.assertIn(seen[0][1],frames);self.assertIn('stored',names);self.assertNotIn('close',names)
+                        else:self.fail('storage failure replaced')
+                    self.assertEqual(driver.oracle_failure_reason,'oracle_values_labels' if pattern=='labels' else 'oracle_join_stamp_zero')
 
     def test_restart_readiness_uses_only_frozen_postgres_and_same_remaining_deadline(self):
         driver=scenario.Scenario(None,['compose'],'fixed',None);driver.end=time.monotonic()+150
