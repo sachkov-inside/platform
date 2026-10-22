@@ -7,13 +7,11 @@ import {
 } from "@/shared/api/backend/index.server";
 import {
   handleAuthenticatedRead,
-  handleAuthenticatedMutation,
+  handleMutationOperation,
 } from "@/shared/auth/index.server";
 import {
   type Part,
   savedPostListSchema,
-  savedPostActionSchema,
-  savedPostSaveSchema,
   savedPostSampleSchema,
   broadcastResultSchema,
   broadcastListSchema,
@@ -22,9 +20,17 @@ import {
   deliveryListSchema,
   entryListSchema,
   templateResultSchema,
-  broadcastSaveInputSchema,
-  broadcastActionInputSchema,
 } from "../model/broadcasts";
+import {
+  cancelBroadcastOperation,
+  launchBroadcastOperation,
+  pauseBroadcastOperation,
+  resolveBroadcastTemplateOperation,
+  resumeBroadcastOperation,
+  samplePostOperation,
+  saveBroadcastOperation,
+  savePostOperation,
+} from "./broadcasts.operation";
 import { hasText } from "@/shared/lib/text";
 const version = { contractVersion: "inside-communications-v1" } as const;
 const problemSchema = z.object({ code: z.string() });
@@ -142,114 +148,101 @@ export const handleDeliveryList = (request: Request) =>
   read(request, "deliveries.read", deliveryListSchema);
 export const handleEntryList = (request: Request) =>
   read(request, "entries.read", entryListSchema);
-function formInput(form: FormData): unknown {
-  try {
-    const value = form.get("input");
-    return typeof value === "string" ? (JSON.parse(value) as unknown) : null;
-  } catch {
-    return null;
-  }
-}
+const invalidInput = () => ({ kind: "error", code: "invalid_input" }) as const;
 export function handleBroadcastSave(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = broadcastSaveInputSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          {
-            ...version,
-            ...parsed.data,
-            payload: {
-              ...parsed.data.payload,
-              parts: parsed.data.payload.parts.map((part) => ({
-                ...part,
-                content: providerContent(part.content),
-              })),
-            },
-            operation: "broadcasts.save",
+  return handleMutationOperation(request, saveBroadcastOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        {
+          ...version,
+          ...input,
+          payload: {
+            ...input.payload,
+            parts: input.payload.parts.map((part) => ({
+              ...part,
+              content: providerContent(part.content),
+            })),
           },
-          token,
-          broadcastResultSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+          operation: "broadcasts.save",
+        },
+        token,
+        broadcastResultSchema,
+      ),
   });
 }
 export function handleBroadcastLaunch(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = broadcastActionInputSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          { ...version, ...parsed.data, operation: "broadcasts.launch" },
-          token,
-          broadcastResultSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+  return handleMutationOperation(request, launchBroadcastOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        { ...version, ...input, operation: "broadcasts.launch" },
+        token,
+        broadcastResultSchema,
+      ),
   });
 }
 export function handleBroadcastPause(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = broadcastActionInputSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          {
-            ...version,
-            ...parsed.data,
-            operation: "broadcasts.lifecycle",
-            payload: { ...parsed.data.payload, action: "pause" },
-          },
-          token,
-          broadcastResultSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+  return handleMutationOperation(request, pauseBroadcastOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        {
+          ...version,
+          ...input,
+          operation: "broadcasts.lifecycle",
+          payload: { ...input.payload, action: "pause" },
+        },
+        token,
+        broadcastResultSchema,
+      ),
   });
 }
 export function handleBroadcastResume(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = broadcastActionInputSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          {
-            ...version,
-            ...parsed.data,
-            operation: "broadcasts.lifecycle",
-            payload: { ...parsed.data.payload, action: "resume" },
-          },
-          token,
-          broadcastResultSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+  return handleMutationOperation(request, resumeBroadcastOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        {
+          ...version,
+          ...input,
+          operation: "broadcasts.lifecycle",
+          payload: { ...input.payload, action: "resume" },
+        },
+        token,
+        broadcastResultSchema,
+      ),
   });
 }
 export function handleBroadcastCancel(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = broadcastActionInputSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          {
-            ...version,
-            ...parsed.data,
-            operation: "broadcasts.lifecycle",
-            payload: { ...parsed.data.payload, action: "cancel" },
-          },
-          token,
-          broadcastResultSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+  return handleMutationOperation(request, cancelBroadcastOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        {
+          ...version,
+          ...input,
+          operation: "broadcasts.lifecycle",
+          payload: { ...input.payload, action: "cancel" },
+        },
+        token,
+        broadcastResultSchema,
+      ),
   });
 }
 export function handleTemplateResolve(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const input = z
-      .object({ reference: z.string(), operationId: z.guid() })
-      .safeParse(formInput(form));
-    if (!input.success) return { kind: "error", code: "invalid_input" };
-    try {
-      return mapResult(
-        await requestCommunicationsTemplate(input.data, token),
-        templateResultSchema,
-      );
-    } catch {
-      return { kind: "error", code: "provider_unavailable" };
-    }
+  return handleMutationOperation(request, resolveBroadcastTemplateOperation, {
+    invalidInput,
+    execute: async (input, token) => {
+      try {
+        return mapResult(
+          await requestCommunicationsTemplate(input, token),
+          templateResultSchema,
+        );
+      } catch {
+        return { kind: "error", code: "provider_unavailable" };
+      }
+    },
   });
 }
 
@@ -257,35 +250,33 @@ export function handleSavedPostList(request: Request) {
   return read(request, "templates.list", savedPostListSchema);
 }
 export function handleSavedPostSave(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = savedPostSaveSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          {
-            ...version,
-            ...parsed.data,
-            payload: {
-              ...parsed.data.payload,
-              content: providerContent(parsed.data.payload.content),
-            },
-            operation: "templates.save",
+  return handleMutationOperation(request, savePostOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        {
+          ...version,
+          ...input,
+          payload: {
+            ...input.payload,
+            content: providerContent(input.payload.content),
           },
-          token,
-          templateResultSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+          operation: "templates.save",
+        },
+        token,
+        templateResultSchema,
+      ),
   });
 }
 export function handleSavedPostSample(request: Request) {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = savedPostActionSchema.safeParse(formInput(form));
-    return parsed.success
-      ? execute(
-          { ...version, ...parsed.data, operation: "templates.testSend" },
-          token,
-          savedPostSampleSchema,
-        )
-      : { kind: "error", code: "invalid_input" };
+  return handleMutationOperation(request, samplePostOperation, {
+    invalidInput,
+    execute: (input, token) =>
+      execute(
+        { ...version, ...input, operation: "templates.testSend" },
+        token,
+        savedPostSampleSchema,
+      ),
   });
 }
 

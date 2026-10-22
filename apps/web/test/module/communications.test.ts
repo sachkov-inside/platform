@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
-import { executeForm } from "../../src/_pages/communications/api/response.server";
+import { executeCommunications } from "../../src/_pages/communications/api/response.server";
 import {
   saveFunnel,
   publishFunnel,
@@ -9,7 +9,6 @@ import {
   skipDelivery,
 } from "../../src/_pages/communications/api/communications.browser";
 import {
-  commandSchema,
   contentSchema,
   newFunnel,
   funnelSchema,
@@ -23,12 +22,23 @@ vi.mock("../../src/shared/auth/platform-access-token.server", () => ({
 vi.mock("../../src/shared/auth/logto-bff-config.server", () => ({
   readLogtoBffConfig: () => ({ baseUrl: "https://inside.example" }),
 }));
+const session = vi.hoisted(() => ({
+  accessToken: vi.fn(() => Promise.resolve("synthetic-token")),
+}));
+vi.mock("../../src/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: session.accessToken,
+    baseUrl: () => "https://inside.example",
+  },
+  LogtoSessionUnavailableError: class extends Error {},
+}));
 const id = "30800000-0000-4000-8000-000000000001";
-const form = (input: unknown) => {
-  const data = new FormData();
-  data.set("input", JSON.stringify(input));
-  return data;
-};
+const publishRequest = (input: unknown, origin = "https://inside.example") =>
+  new Request("https://inside.example/api/communications/funnels/publish", {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
 describe("communications browser and presentation boundary", () => {
   it("preserves button rows while omitting an absent row from the provider shape", () => {
     const button = { text: "Open", url: "https://inside.test/material" };
@@ -72,8 +82,10 @@ describe("communications browser and presentation boundary", () => {
     for (const [url, options] of fetcher.mock.calls) {
       expect(url).toBe("/api/communications/funnels/save");
       expect(options?.method).toBe("POST");
-      const body = z.instanceof(FormData).parse(options?.body);
-      expect(JSON.parse(z.string().parse(body.get("input")))).toEqual(input);
+      expect(new Headers(options?.headers).get("content-type")).toBe(
+        "application/json",
+      );
+      expect(JSON.parse(z.string().parse(options?.body))).toEqual(input);
     }
   });
   it("keeps publish, template resolution, retry and skip on their own literal routes", async () => {
@@ -100,18 +112,41 @@ describe("communications browser and presentation boundary", () => {
       "/api/communications/deliveries/skip",
     ]);
   });
+  it("maps a failed or malformed answer to the old browser outcome", async () => {
+    const command = { operationId: id, expectedRevision: 4, funnelId: id };
+    for (const [response, code] of [
+      [new Response(null, { status: 401 }), "unauthorized"],
+      [new Response(null, { status: 403 }), "forbidden"],
+      [new Response(null, { status: 500 }), "unavailable"],
+      [new Response("not json"), "unavailable"],
+      [
+        Response.json({ kind: "ready", value: { funnelId: "bad" } }),
+        "unavailable",
+      ],
+      [Response.json({ kind: "error", code: "unknown" }), "unavailable"],
+      [Response.json({ kind: "error", code: "conflict" }), "conflict"],
+    ] as const) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() => Promise.resolve(response)),
+      );
+      expect(await publishFunnel(command)).toEqual({ kind: "error", code });
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new Error("offline"))),
+    );
+    expect(await publishFunnel(command)).toEqual({
+      kind: "error",
+      code: "unavailable",
+    });
+  });
   it("rejects an invalid command before transport and preserves conflict/unavailable/not-implemented outcomes", async () => {
-    const request = vi.fn();
-    expect(
-      await executeForm(
-        form({ funnelId: "bad" }),
-        commandSchema,
-        funnelSchema,
-        "funnel",
-        request,
-      ),
-    ).toEqual({ kind: "error", code: "invalid" });
-    expect(request).not.toHaveBeenCalled();
+    const invalid = await handlePublishFunnel(
+      publishRequest({ funnelId: "bad" }),
+    );
+    expect(invalid.status).toBe(200);
+    expect(await invalid.json()).toEqual({ kind: "error", code: "invalid" });
     for (const [code, status, expected] of [
       ["revision_conflict", 409, "conflict"],
       ["provider_unavailable", 503, "unavailable"],
@@ -119,7 +154,7 @@ describe("communications browser and presentation boundary", () => {
       ["forbidden", 403, "forbidden"],
     ] as const) {
       expect(
-        await executeForm(form({}), z.object({}), funnelSchema, "funnel", () =>
+        await executeCommunications(funnelSchema, "funnel", () =>
           Promise.resolve({
             ok: false,
             problem: { code },
@@ -130,9 +165,8 @@ describe("communications browser and presentation boundary", () => {
     }
   });
   it("rejects false success and maps Platform target validation into the preview", async () => {
-    const input = form({});
     expect(
-      await executeForm(input, z.object({}), funnelSchema, "funnel", () =>
+      await executeCommunications(funnelSchema, "funnel", () =>
         Promise.resolve({
           ok: true,
           body: { ok: true, value: { status: "ok" } },
@@ -158,25 +192,20 @@ describe("communications browser and presentation boundary", () => {
         reason: "not_found",
       },
     ];
-    const result = await executeForm(
-      input,
-      z.object({}),
-      previewSchema,
-      "preview",
-      () =>
-        Promise.resolve({
+    const result = await executeCommunications(previewSchema, "preview", () =>
+      Promise.resolve({
+        ok: true,
+        body: {
           ok: true,
-          body: {
-            ok: true,
-            value: {
-              contractVersion: "inside-communications-v1",
-              status: "ok",
-              preview: value,
-            },
-            targetErrors,
+          value: {
+            contractVersion: "inside-communications-v1",
+            status: "ok",
+            preview: value,
           },
-          response: new Response(),
-        }),
+          targetErrors,
+        },
+        response: new Response(),
+      }),
     );
     expect(result).toEqual({
       kind: "ready",
@@ -184,15 +213,12 @@ describe("communications browser and presentation boundary", () => {
     });
   });
   it("blocks cross-origin publication at the actual capability BFF", async () => {
-    const request = new Request(
-      "https://inside.example/api/communications/funnels/publish",
-      {
-        method: "POST",
-        headers: { origin: "https://foreign.example" },
-        body: form({ operationId: id, expectedRevision: 1, funnelId: id }),
-      },
+    const response = await handlePublishFunnel(
+      publishRequest(
+        { operationId: id, expectedRevision: 1, funnelId: id },
+        "https://foreign.example",
+      ),
     );
-    const response = await handlePublishFunnel(request);
     expect(response.status).toBe(403);
     expect(response.headers.get("cache-control")).toContain("no-store");
   });

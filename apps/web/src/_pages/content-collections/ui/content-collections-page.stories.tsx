@@ -221,10 +221,14 @@ export const UnsavedDraftAcrossSearchAndResort: Story = {
     const originalFetch = window.fetch;
     const lastId = "97000000-0000-4000-8000-000000000040";
     const write = spyOn(window, "fetch").mockImplementation((input, init) => {
-      const body = init?.body;
-      if (!(body instanceof FormData) || body.get("collectionId") !== lastId)
-        return originalFetch(input, init);
-      const name = body.get("name");
+      const raw = init?.body;
+      const parsed: unknown = typeof raw === "string" ? JSON.parse(raw) : null;
+      const body: Record<string, unknown> =
+        typeof parsed === "object" && parsed !== null
+          ? Object.fromEntries(Object.entries(parsed))
+          : {};
+      if (body["collectionId"] !== lastId) return originalFetch(input, init);
+      const name = body["name"];
       if (typeof name !== "string")
         throw new Error("The collection command must carry its edited name");
       return Promise.resolve(

@@ -71,13 +71,13 @@ Publisher releases: [Grafana 13.2.4](https://github.com/grafana/grafana/releases
 
 Для каждого asset закреплён `size_bytes` из GitHub Releases. Downloader читает не больше
 этого размера плюс один байт и требует точного размера и SHA256; дополнительный предел
-сжатого содержимого архива — 128MiB.
+сжатого содержимого архива составляет 128MiB.
 У VictoriaLogs datasource v0.33.1 опубликованный ZIP занимает 79,389,151B и превышает прежний
 общий предел 64MiB. Проверенная по закреплённому digest центральная директория ZIP содержит
-45 entries общим распакованным объёмом 224,056,733B; крупнейший entry — 28,246,176B.
+45 entries общим распакованным объёмом 224,056,733B; крупнейший entry занимает 28,246,176B.
 Эта проверка 19.10.2026 читала архив в памяти, без распаковки или выполнения. Точный
 `unpacked_size_bytes` закреплён отдельно; перед распаковкой требуется совпадение, в пределах 256MiB.
-Сумма compressed/unpacked размеров этого plugin — 303,445,884B, внутри общего growth cap 4GiB;
+Сумма compressed/unpacked размеров этого plugin составляет 303,445,884B, внутри общего growth cap 4GiB;
 расход images и всего workload по-прежнему проверяется самим пилотом.
 
 ## Права процессов при запуске
@@ -131,15 +131,15 @@ Backend ports хранилищ и vmauth не публикуются. Fixture in
 проверяет запреты на query ingress. Перед production нужна отдельная изоляция write ingress
 и проверка прямых сетевых обходов. Нельзя направлять сюда персональные данные или реальные секреты.
 
-Caddy разрешает GET/POST, vmauth — отдельный
+Caddy разрешает GET/POST, vmauth использует отдельный
 [каталог query routes](../../infra/observability/pilot/vmauth.routes.json).
 Неизвестные пути не имеют fallback backend. В закреплённом vmauth нет `src_methods`:
 [исходник 1.154.0](https://github.com/VictoriaMetrics/VictoriaMetrics/blob/v1.154.0/app/vmauth/auth_config.go)
 определяет paths/hosts/query/headers; методы ограничивает Caddy.
 [Правила нормализации Caddy](https://caddyserver.com/docs/caddyfile/matchers#path)
 проверяются отрицательным корпусом, а не предположением о raw URI.
-Запросы ограничены 64KB, ответы harness — 1MiB, backend query duration — 8s;
-vmauth concurrency — 2 на ключ / 4 суммарно. Это начальные ограничения smoke.
+Запросы ограничены 64KB, ответы harness ограничены 1MiB, backend query duration ограничен 8s;
+vmauth concurrency ограничен 2 на ключ / 4 суммарно. Это начальные ограничения smoke.
 
 ## Что делает smoke
 
@@ -205,7 +205,7 @@ user/system CPU seconds; native executable не наследует этот desc
 KILL; аварийная уборка helper повторяет KILL/reap с тем же 0,5-секундным сроком. Родитель ограничивает wait helper двумя секундами и затем KILL/reap ещё двумя.
 `isolated_reaped_child_cpu` описывает только измеренный интервал, без утверждения о запасе хоста.
 
-Core снимает CPU-pending только при трёх корректных Victoria records; Umami — при своём одном.
+Core снимает CPU-pending только при трёх корректных Victoria records; Umami снимает его при своём одном.
 Остальные missing/resource acceptance пункты сохраняются. Старые evidence не пересчитываются;
 четыре native Mac MCP уже получили корректные изолированные records на source `b708afe1`,
 при byte-identical runtime inputs integration `b33d7a52`:
@@ -219,7 +219,7 @@ curated SHA256 `b9fba18421c78d73a672d97d23eb9670b89abf21332b57132b781a7d4b0e73df
 
 Точка входа та же: только guarded `pilot.py run`, не `worker`. Никаких Linux machines
 создавать не нужно. Другие контейнеры OrbStack остаются посторонней нагрузкой.
-[OrbStack FAQ](https://docs.orbstack.dev/faq) объясняет: `~/OrbStack` — представление данных,
+[OrbStack FAQ](https://docs.orbstack.dev/faq) объясняет, что `~/OrbStack` представляет данные,
 а не backing filesystem. Runner требует context `orbstack` и локальный socket текущего
 пользователя, идентифицирует единственный открытый OrbStack Helper файл `data.img.raw` через
 `lsof` metadata и сохраняет canonical path/device/inode. Socket, daemon ID и DockerRootDir
@@ -229,7 +229,7 @@ curated SHA256 `b9fba18421c78d73a672d97d23eb9670b89abf21332b57132b781a7d4b0e73df
 До приобретения probe/image проверяется минимум 16GiB на host filesystem backing image,
 checkout и отчётов; разные filesystems измеряются отдельно. Внешний public supervisor
 запускает независимый host monitor каждые 250ms **до bootstrap**. Сохраняются пределы
-10GiB floor, общий 4GiB growth cap и 2GiB cleanup headroom; stop margin — 256MiB.
+10GiB floor, общий 4GiB growth cap и 2GiB cleanup headroom; stop margin составляет 256MiB.
 Проверяются также реальные allocated blocks sparse image, а не apparent size.
 Daemon/socket/backing identity проверяется отдельно, чтобы metadata commands не задерживали
 быстрые host measurements. Любая потеря или смена identity прерывает собственный worker.
@@ -241,7 +241,7 @@ Daemon/socket/backing identity проверяется отдельно, чтоб
 отдельный Linux arm64 OCI manifest, config и единственный gzip layer. Проверенные 19.10.2026
 размеры: 899,665B compressed / 1,853,440B unpacked. Manifest/config/layer и распакованный layer
 проверяются по точным размерам/digests и config diff ID в памяти до `docker pull`.
-Пределы входов — 2MiB compressed / 4MiB unpacked. Bootstrap получает отдельный sampled host
+Пределы входов составляют 2MiB compressed / 4MiB unpacked. Bootstrap получает отдельный sampled host
 рост не более 32MiB **внутри прежнего 4GiB cap**, включая metadata; это кандидат бюджета,
 а не измеренный расход Docker и не hard quota. Нет предположения о cached image.
 Bootstrap acquisition имеет timeout 60s; public worker deadline остаётся 10 минут.
@@ -250,7 +250,7 @@ Bootstrap acquisition имеет timeout 60s; public worker deadline остаё�
 До pull регистрируется тот же случайный Compose project и внешний supervisor. Probe service
 `storage-probe` входит в этот собственный project. Он non-root, read-only, без сети,
 capabilities, Docker socket и privileged mode, с 16MiB memory / 0.05 CPU / 8 pids. Единственный
-read-only bind — подтверждённый daemon DockerRootDir; missing path не создаётся. Фиксированная команда `stat -f` выполняется отдельным `compose exec -T` только в собственном
+read-only bind указывает на подтверждённый daemon DockerRootDir; missing path не создаётся. Фиксированная команда `stat -f` выполняется отдельным `compose exec -T` только в собственном
 probe с паузой 250ms после завершённой попытки измерения. Это не гарантированный период опроса 250ms.
 Каждый запрос несёт новый случайный challenge, который должен вернуться
 в единственном ответе с filesystem ID/type, fundamental block size и counters. Старые или
@@ -362,7 +362,7 @@ No-build smoke допускается при 16GiB на идентифициро
 10GiB обязательного host floor из
 [локального runbook](local-development.md#start-from-a-fresh-clone),
 4GiB ограниченного роста этого запуска и 2GiB на остановку/очистку.
-4GiB — выбранный защитный cap, не замер потребления.
+Выбранный защитный cap составляет 4GiB, это не замер потребления.
 20GiB из local stand относится к build; здесь build отсутствует.
 25% запаса приложения из #1565 относится к итоговому workload и не означает требование
 освободить четверть всего Mac-диска перед smoke.
@@ -372,7 +372,7 @@ No-build smoke допускается при 16GiB на идентифициро
 тоже может безопасно прервать пилот. Docker VM quota и физическая изоляция partition
 этим не доказаны; для resource acceptance они остаются открытыми.
 
-Публичная точка входа `run` — supervisor: до acquisition он записывает точный случайный проект
+Публичная точка входа `run` работает как supervisor: до acquisition он записывает точный случайный проект
 и cleanup, затем запускает внутренний worker в отдельной process group. Прямой запуск
 `worker` без зарегистрированного родителя не поддерживается. После успеха, ошибки, timeout,
 SIGTERM или SIGKILL worker supervisor ограниченно останавливает всю его группу **до**

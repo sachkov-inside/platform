@@ -1,7 +1,5 @@
 import "server-only";
 
-import { z } from "zod";
-
 import {
   requestTelegramMembershipLinkConfirmation,
   type BackendTransportResult,
@@ -13,20 +11,19 @@ import {
   unavailableTelegramLinkMutation,
 } from "./telegram-link-mutation-result";
 
-const formSchema = z.object({ linkRef: z.uuid() }).strict();
+/** A link reference outside the operation's schema: the same outcome the browser already knows. */
+export function invalidTelegramLinkInput(): TelegramLinkMutationResult {
+  return { kind: "unavailable", reference: "telegram-link-input" };
+}
 
 export async function executeConfirmTelegramLink(
-  formData: FormData,
+  input: { readonly linkRef: string },
   accessToken: string,
   request: typeof requestTelegramMembershipLinkConfirmation = requestTelegramMembershipLinkConfirmation,
 ): Promise<TelegramLinkMutationResult> {
-  const parsed = formSchema.safeParse({ linkRef: formData.get("linkRef") });
-  if (!parsed.success) {
-    return { kind: "unavailable", reference: "telegram-link-input" };
-  }
   let result: BackendTransportResult;
   try {
-    result = await request(parsed.data.linkRef, accessToken);
+    result = await request(input.linkRef, accessToken);
   } catch (error) {
     return unavailableTelegramLinkMutation(error);
   }

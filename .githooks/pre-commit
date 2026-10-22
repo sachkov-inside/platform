@@ -1,0 +1,7 @@
+#!/bin/sh
+# Root `prepare` (run by `pnpm install`) points core.hooksPath here. Skip once: git commit --no-verify.
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: node is not on PATH; staged checks skipped" >&2
+  exit 0
+fi
+exec node scripts/pre-commit.mjs

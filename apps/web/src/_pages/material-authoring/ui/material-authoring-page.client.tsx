@@ -29,8 +29,8 @@ import {
 } from "@/shared/routing/authoring";
 
 import { withMaterialNodeIds } from "@/widgets/material-authoring/model";
-import { createMaterialDraft } from "../api/create-material-draft.browser";
-import { saveMaterial } from "../api/save-material.browser";
+import { createMaterialDraftOperation } from "../api/create-material-draft.operation";
+import { saveMaterialOperation } from "../api/save-material.operation";
 import { getMaterialPublicUrl } from "../api/get-material-public-link.browser";
 import type { CreateMaterialDraftInput } from "../model/create-material-draft";
 import type { SaveMaterialInput } from "../model/save-material";
@@ -46,8 +46,10 @@ export function MaterialAuthoringPageClient({
   returnHref,
 }: MaterialAuthoringPageClientProps) {
   const router = useRouter();
-  const createMutation = useMutation({ mutationFn: createMaterialDraft });
-  const saveMutation = useMutation({ mutationFn: saveMaterial });
+  const createMutation = useMutation({
+    mutationFn: createMaterialDraftOperation.send,
+  });
+  const saveMutation = useMutation({ mutationFn: saveMaterialOperation.send });
   const deletionMutation = useMutation({
     mutationFn: deleteMaterialDraft,
     onSuccess: (result) => {
@@ -76,12 +78,12 @@ export function MaterialAuthoringPageClient({
   );
   const [noticeRevision, setNoticeRevision] = useState(0);
   const [materialResult, setMaterialResult] = useState<
-    | Awaited<ReturnType<typeof createMaterialDraft>>
-    | Awaited<ReturnType<typeof saveMaterial>>
+    | Awaited<ReturnType<typeof createMaterialDraftOperation.send>>
+    | Awaited<ReturnType<typeof saveMaterialOperation.send>>
     | null
   >(null);
   const [publicationValidation, setPublicationValidation] = useState<Extract<
-    Awaited<ReturnType<typeof saveMaterial>>,
+    Awaited<ReturnType<typeof saveMaterialOperation.send>>,
     { kind: "invalid_input" }
   > | null>(null);
   const retryCreateInput = useRef<CreateMaterialDraftInput | null>(null);
@@ -160,6 +162,7 @@ export function MaterialAuthoringPageClient({
           (current.status === "new" ? "draft" : current.status),
         submissionId: crypto.randomUUID(),
         confirmedProductRemovals: confirmedRemovals.current,
+        notifyTelegram: snapshot.notifyTelegram ?? false,
       };
       retrySaveInput.current = input;
       const result = await saveMutation.mutateAsync(input);
@@ -206,7 +209,7 @@ export function MaterialAuthoringPageClient({
             : draftRef.current.deleteVideoId,
         // Only what this Save carried is recorded; a removal made meanwhile waits for the next one.
         detachVideoIds: draftRef.current.detachVideoIds.filter(
-          (videoId) => !input.detachVideoIds.includes(videoId),
+          (videoId) => !(input.detachVideoIds ?? []).includes(videoId),
         ),
       };
       updateDraft(next);

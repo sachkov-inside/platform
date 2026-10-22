@@ -6,13 +6,11 @@ import {
   BackendConnectionError,
   requestSaveAuthorTaskFeedback,
 } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import {
-  saveAuthorFeedbackInputSchema,
-  type SaveAuthorFeedbackResult,
-} from "../model/author-feedback";
+import type { SaveAuthorFeedbackResult } from "../model/author-feedback";
 import { authorFeedbackSchema } from "../model/task-submissions";
+import { saveAuthorFeedbackOperation } from "./save-author-feedback.operation";
 
 const savedSchema = z
   .object({ authorFeedback: authorFeedbackSchema.nullable() })
@@ -20,20 +18,14 @@ const savedSchema = z
 
 /** `PUT /api/authoring/product-tasks/feedback`: the author's comment and mark on one submission (#948). */
 export function handleSaveAuthorFeedback(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(
-    request,
-    async (form, token): Promise<SaveAuthorFeedbackResult> => {
-      const parsed = saveAuthorFeedbackInputSchema.safeParse({
-        submissionId: form.get("submissionId"),
-        comment: form.get("comment"),
-        reviewed: form.get("reviewed"),
-      });
-      if (!parsed.success) return { kind: "invalid_input" };
+  return handleMutationOperation(request, saveAuthorFeedbackOperation, {
+    invalidInput: () => ({ kind: "invalid_input" }),
+    execute: async (input, token): Promise<SaveAuthorFeedbackResult> => {
       try {
         const result = await requestSaveAuthorTaskFeedback(
-          parsed.data.submissionId,
+          input.submissionId,
           // The backend owns the trimming: a blank comment is no comment.
-          { comment: parsed.data.comment, reviewed: parsed.data.reviewed },
+          { comment: input.comment, reviewed: input.reviewed },
           token,
         );
         if (result.ok) {
@@ -60,5 +52,5 @@ export function handleSaveAuthorFeedback(request: Request): Promise<Response> {
         throw error;
       }
     },
-  );
+  });
 }

@@ -48,9 +48,18 @@ const fixtures = [
     ],
   },
   {
-    root: "test/guardrails/fixtures/architecture/dynamic-mutation",
+    root: "test/guardrails/fixtures/architecture/mutation-operation",
     diagnostics: [
-      "each browser mutation must declare a literal same-origin route and HTTP method",
+      "rename-note.operation.ts: mutation operation PUT /api/notes needs app/api/notes/route.ts exporting PUT",
+      "computed-note.operation.ts: a mutation operation declares a literal /api/ path and HTTP method",
+      "inline-note.browser.ts: declare a mutation operation in its own *.operation.ts module",
+      "notes-route.server.ts: handleAuthenticatedMutation serves only streamed bodies with their options",
+      "direct-note.browser.ts: a browser write goes through its mutation operation's send",
+    ],
+    accepted: [
+      "create-note.operation.ts",
+      "note-upload-route.server.ts",
+      "app/api/notes/route.ts",
     ],
   },
   {
@@ -159,6 +168,18 @@ const fixtures = [
       "read-account.ts: a server render reads the session only through @/shared/auth, whose connection() stops a prefetch before it starts a token refresh",
     ],
     accepted: ["sign-out/route.ts"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/shell-scroll",
+    diagnostics: [
+      "src/_app/desktop-query.ts: the shell scroll root and its 64rem breakpoint belong to src/shared/lib/shell-scroll.ts",
+      "src/widgets/content-reset.ts: the shell scroll root and its 64rem breakpoint belong to src/shared/lib/shell-scroll.ts",
+    ],
+    accepted: [
+      "src/shared/lib/shell-scroll.ts",
+      "src/widgets/shell.stories.tsx",
+      "src/widgets/wide-layout.ts",
+    ],
   },
   {
     root: "test/guardrails/fixtures/architecture/site-animation",

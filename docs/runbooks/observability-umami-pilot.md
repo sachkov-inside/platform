@@ -18,11 +18,11 @@ PostgreSQL 16.13 и Python 3.13.12 OCI index digest. Там же находят�
 файлов upstream commit `ec0ff50388c264ed8ce46f00967e92f7e71476ae`. Digest подтверждён registry
 manifest. [Compatibility evidence #1566](https://github.com/sachkov-inside/platform/issues/1566#issuecomment-6274005423):
 Mac source `fbb1a9c970edef6648e76496885a551cf4bcca21`, tree
-`c779b356c9b4bf7e99fd93947952d1119c464f11`, explicit Node 26.10.0 — native
+`c779b356c9b4bf7e99fd93947952d1119c464f11`, explicit Node 26.10.0, native
 `get_website_stats`, один известный pageview, privacy, mutation denial и key revocation PASS.
 Linux [run 39299627883](https://github.com/sachkov-inside/platform/actions/runs/39299627883),
 checkout `36eb90bb`, имеет тот же tree и SUCCESS. Monitor не отказал; diagnostics/down/residue
-PASS, собственных containers/volumes/networks после cleanup — 0. Это API/MCP compatibility,
+PASS, собственных containers/volumes/networks после cleanup осталось 0. Это API/MCP compatibility,
 не history TTL, capacity, resource acceptance или pgBackRest proof.
 
 Текущий retention proof: Mac source `fe89f4062960178fcf3ddea45fb35fc861b3736b`, tree
@@ -54,7 +54,7 @@ Cookie-free не означает очистку этих значений. Пи
 
 Native session UUID зависит от сайта, IP, User-Agent, месячного salt и optional distinct ID.
 Visit ID использует session и salt начала часа. Cache хранит visit/iat; без явного timestamp
-handler обновляет visit при возрасте iat больше 1800 секунд, при session drift — сразу.
+handler обновляет visit при возрасте iat больше 1800 секунд, при session drift обновляет сразу.
 Это поведение закреплённого кода; собственные сессии поверх него не вводятся. Приблизительный
 visitor не равен человеку. Переход часа сам по себе не обязательно меняет cached visit.
 
@@ -83,18 +83,18 @@ published ports. Gateway допускает только GET `/api/websites` и 
 каждый раз проверяется native API: кеша авторизации нет. Отзыв проверяется настоящим
 удалением ключа через сессию его владельца.
 
-Окно запроса ограничено 31 сутками, история — 365 сутками по event time. Для stats учитывается
+Окно запроса ограничено 31 сутками, история ограничена 365 сутками по event time. Для stats учитывается
 также implicit previous-period comparison; если она вышла бы за историю, запрос отклоняется.
 Events сохраняют native pagination, pageSize ≤100, page ≤1000. Неизвестные query-параметры,
 дубликаты, методы и пути запрещены. Ответ ограничен 1 MiB. На принятый запрос даётся 10 секунд целиком: чтение client headers,
 DNS/connect, upstream headers/body и запись ответа. Отдельный процесс-владелец принимает
 соединения и по monotonic deadline завершает запрос; проверка выполняется каждые 20 ms.
-Одновременно работают не более четырёх request processes, backlog — 8; при заполнении
+Одновременно работают не более четырёх request processes, backlog ограничен 8; при заполнении
 новое соединение закрывается. Медленная передача байтов не продлевает срок. При shutdown
 владелец завершает и reap-ит только собственные процессы; child alarm ограничивает их
 жизнь также при потере владельца. Это Unix/Linux boundary; resource measurements ещё pending.
 Обычный сбой источника становится HTTP 502; исчерпание абсолютного срока закрывает
-соединение. Недоступный локальный ключ даёт 503, отзыв — 401;
+соединение. Недоступный локальный ключ даёт 503, отзыв даёт 401;
 это не нулевые показатели. URL, ключи, body и provider exceptions не журналируются gateway.
 
 В этом срезе gateway намеренно не пропускает embedded `/mcp`: тот вызывает внутренний API и
@@ -120,7 +120,7 @@ python3 scripts/observability-umami/prepare.py /absolute/task-owned/new-private-
 
 Python contracts запускаются отдельной POSIX process group. Внешний Node owner находится
 вне этой группы и сразу регистрирует очистку. При завершении worker, ошибке, deadline 30 секунд
-или SIGTERM/SIGINT владельца он останавливает всю группу: SIGTERM, через 250 ms — SIGKILL,
+или SIGTERM/SIGINT владельца он останавливает всю группу: SIGTERM, через 250 ms отправляет SIGKILL,
 проверка исчезновения группы ограничена тремя секундами. Output ограничен 1 MiB; ожидание
 worker exit и закрытия inherited descriptors также ограничено. Убийство только Python worker
 сигналом SIGKILL не обходит этот внешний cleanup. Process fixtures отдельно проверяют
@@ -157,7 +157,7 @@ Runtime использует тот же внешний supervisor и policy, ч
 неизменённые floor/growth/headroom, host+VM checks на OrbStack и Linux storage monitor,
 отдельная worker process group, 600 секунд worker deadline, обязательные down/volumes/residue
 после success/failure/timeout/interruption. Linux фиксирует context/socket inode/daemon/storage;
-OrbStack — также backing identity. Изменение identity запрещает mutation и автоматический
+OrbStack также требует backing identity. Изменение identity запрещает mutation и автоматический
 cleanup на другом daemon; требуется ручная проверка владельцем. Подробности storage guard
 находятся в [общем runbook](observability-pilot.md), их отдельная копия здесь не вводится.
 
@@ -205,20 +205,20 @@ credentials, response body, exception text или произвольный stder
 от роли `umami`. Platform/Telegram migrations, доменные таблицы и общие TTL не меняются.
 Cutoff берётся из DB clock в UTC: `transaction_timestamp() - INTERVAL '365 days'` и фиксируется
 между batches; точная граница сохраняется (`created_at >= cutoff`). NULL event times удаляются.
-Metadata `snapshot_at` — начало REPEATABLE READ transaction; `cutoff_age_seconds` показывает
+Metadata `snapshot_at` обозначает начало REPEATABLE READ transaction; `cutoff_age_seconds` показывает
 отставание фиксированной границы от часов текущего batch. Это не календарный год.
 
-Один batch — transaction с nonblocking advisory ownership, statement timeout 1 секунда,
+Один batch выполняется как transaction с nonblocking advisory ownership, statement timeout 1 секунда,
 lock timeout 250 ms, idle transaction timeout 2 секунды, не более 500 строк каждой из девяти
-telemetry tables. Внешний transport deadline — 12 секунд, включая fresh-daemon preflight и SQL subprocess;
-один drain — до 20 batches/30 секунд. Optional absolute deadline только ужесточает preflight: его
+telemetry tables. Внешний transport deadline составляет 12 секунд, включая fresh-daemon preflight и SQL subprocess;
+один drain ограничен 20 batches/30 секунд. Optional absolute deadline только ужесточает preflight: его
 существующий command cap и проверки socket/context/daemon/storage не меняются.
-При исчерпании бюджета возвращается `partial`, при отказе/недостоверном ответе — `error`.
+При исчерпании бюджета возвращается `partial`, при отказе/недостоверном ответе возвращается `error`.
 Повтор продолжает по предикатам, без cursor и изменения миграций. Counts относятся только к
 acknowledged committed batches: потерянный ответ не доказывает отсутствие уже совершённых удалений.
 Открытую транзакцию при обрыве соединения PostgreSQL откатывает; committed batches остаются.
 
-Сначала удаляются expired/orphan event properties и revenue, затем события; отдельно —
+Сначала удаляются expired/orphan event properties и revenue, затем события; отдельно удаляются
 session properties/identity links по собственному времени или отсутствию parent session.
 Старые/NULL sessions удаляются только без оставшихся references. Old session metadata,
 нужная retained событию, сохраняется; fresh orphan session не удаляется мгновенно, чтобы не

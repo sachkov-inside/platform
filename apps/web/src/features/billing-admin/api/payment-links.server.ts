@@ -1,38 +1,27 @@
 import "server-only";
-import { ownerCommand } from "./billing-admin.server";
 import {
-  createPaymentLinkInputSchema,
-  revokePaymentLinkInputSchema,
-  listPaymentLinksInputSchema,
-  paymentLinkOutcomeSchema,
-  paymentLinksOutcomeSchema,
-} from "../model/payment-link-operations";
+  createPaymentLinkOperation,
+  listPaymentLinksOperation,
+  revokePaymentLinkOperation,
+} from "./payment-links.operation";
+import { ownerCommand } from "./billing-admin.server";
 export function handleCreatePaymentLink(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    createPaymentLinkInputSchema,
-    paymentLinkOutcomeSchema,
-    (input) => ({ ...input, operation: "paymentLinks.create" }),
-  );
+  return ownerCommand(request, createPaymentLinkOperation, (input) => ({
+    ...input,
+    operation: "paymentLinks.create",
+  }));
 }
 export function handleRevokePaymentLink(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    revokePaymentLinkInputSchema,
-    paymentLinkOutcomeSchema,
-    (input) => ({ ...input, operation: "paymentLinks.revoke" }),
-  );
+  return ownerCommand(request, revokePaymentLinkOperation, (input) => ({
+    ...input,
+    operation: "paymentLinks.revoke",
+  }));
 }
 export function handleListPaymentLinks(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    listPaymentLinksInputSchema,
-    paymentLinksOutcomeSchema,
-    (input) => ({
-      operationId: input.operationId,
-      limit: input.limit,
-      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-      operation: "paymentLinks.list",
-    }),
-  );
+  return ownerCommand(request, listPaymentLinksOperation, (input) => ({
+    operationId: input.operationId,
+    limit: input.limit,
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+    operation: "paymentLinks.list",
+  }));
 }

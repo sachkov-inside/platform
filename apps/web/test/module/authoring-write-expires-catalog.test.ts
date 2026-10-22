@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+
+import { defineMutationOperation } from "@/shared/api/mutation-operation";
 
 const fakes = vi.hoisted(() => ({ expirePublicCatalog: vi.fn() }));
 
@@ -20,12 +23,34 @@ vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
 }));
 
 function mutation(path: string, method = "POST"): Request {
-  const body = new FormData();
-  body.set("value", "1");
   return new Request(`https://inside.example.test${path}`, {
-    body,
-    headers: { origin: "https://inside.example.test" },
+    body: JSON.stringify({ value: "1" }),
+    headers: {
+      "content-type": "application/json",
+      origin: "https://inside.example.test",
+    },
     method,
+  });
+}
+
+/** Any operation: the catalog rule reads the request's own path, not the operation's. */
+const writeOperation = defineMutationOperation({
+  input: z.object({ value: z.string() }),
+  method: "POST",
+  path: "/api/authoring/write",
+  result: z.unknown(),
+  transportFailure: () => null,
+});
+
+async function serve(
+  request: Request,
+  execute: () => Promise<unknown>,
+): Promise<Response> {
+  const { handleMutationOperation } =
+    await import("@/shared/auth/authenticated-mutation-handler.server");
+  return handleMutationOperation(request, writeOperation, {
+    execute,
+    invalidInput: () => null,
   });
 }
 
@@ -35,10 +60,7 @@ describe("an authoring write expires the public catalog cache", () => {
   });
 
   it("expires the catalog after a catalog authoring write", async () => {
-    const { handleAuthenticatedMutation } =
-      await import("@/shared/auth/authenticated-mutation-handler.server");
-
-    const response = await handleAuthenticatedMutation(
+    const response = await serve(
       mutation("/api/authoring/products/order", "PUT"),
       () => Promise.resolve({ ok: true }),
     );
@@ -50,16 +72,13 @@ describe("an authoring write expires the public catalog cache", () => {
   // Next.js выполняет отложенный сброс только при обычном возврате обработчика: исключение его
   // отбросило бы, поэтому сбой записи каталога обязан вернуться ответом.
   it("answers a failed catalog write with a response, so that the queued expiry still runs", async () => {
-    const { handleAuthenticatedMutation } =
-      await import("@/shared/auth/authenticated-mutation-handler.server");
-
     // Исключение больше не доходит до Next.js, поэтому обработчик печатает его сам.
     const logged = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
     const failure = new Error("response lost");
 
-    const response = await handleAuthenticatedMutation(
+    const response = await serve(
       mutation("/api/authoring/products/order", "PUT"),
       () => Promise.reject(failure),
     );
@@ -70,11 +89,8 @@ describe("an authoring write expires the public catalog cache", () => {
   });
 
   it("lets a failed write outside the catalog fail as before", async () => {
-    const { handleAuthenticatedMutation } =
-      await import("@/shared/auth/authenticated-mutation-handler.server");
-
     await expect(
-      handleAuthenticatedMutation(mutation("/api/reading-progress/state"), () =>
+      serve(mutation("/api/reading-progress/state"), () =>
         Promise.reject(new Error("response lost")),
       ),
     ).rejects.toThrow("response lost");
@@ -91,12 +107,7 @@ describe("an authoring write expires the public catalog cache", () => {
       "/api/authoring/billing/payment-options/archive",
     ],
   ])("expires the catalog after %s", async (_name, path) => {
-    const { handleAuthenticatedMutation } =
-      await import("@/shared/auth/authenticated-mutation-handler.server");
-
-    await handleAuthenticatedMutation(mutation(path), () =>
-      Promise.resolve({ ok: true }),
-    );
+    await serve(mutation(path), () => Promise.resolve({ ok: true }));
 
     expect(fakes.expirePublicCatalog).toHaveBeenCalledTimes(1);
   });
@@ -108,29 +119,25 @@ describe("an authoring write expires the public catalog cache", () => {
       "/api/authoring/billing/cohorts/save",
     ],
   ])("keeps the catalog after %s", async (_name, path) => {
-    const { handleAuthenticatedMutation } =
-      await import("@/shared/auth/authenticated-mutation-handler.server");
-
-    await handleAuthenticatedMutation(mutation(path), () =>
-      Promise.resolve({ ok: true }),
-    );
+    await serve(mutation(path), () => Promise.resolve({ ok: true }));
 
     expect(fakes.expirePublicCatalog).not.toHaveBeenCalled();
   });
 
   it("keeps the catalog when the request never reached the write", async () => {
-    const { handleAuthenticatedMutation } =
-      await import("@/shared/auth/authenticated-mutation-handler.server");
     const crossOrigin = new Request(
       "https://inside.example.test/api/authoring/products/order",
       {
-        body: new FormData(),
-        headers: { origin: "https://elsewhere.example.test" },
+        body: "{}",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://elsewhere.example.test",
+        },
         method: "PUT",
       },
     );
 
-    const response = await handleAuthenticatedMutation(crossOrigin, () =>
+    const response = await serve(crossOrigin, () =>
       Promise.resolve({ ok: true }),
     );
 

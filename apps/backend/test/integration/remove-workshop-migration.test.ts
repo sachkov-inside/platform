@@ -1,22 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { expect, test } from "vitest";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
-import {
-  platformMigrations,
-  migrateToLatest,
-} from "../../src/migrations/index.js";
-import { runMigrationsToLatest } from "../../src/infrastructure/postgres/migrate-to-latest.js";
+import { migrateToLatest } from "../../src/migrations/index.js";
+import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { createTestDatabase } from "./setup/test-database.js";
 
 async function previousDatabase() {
   const database = await createTestDatabase();
-  const index = platformMigrations.findIndex(
-    ({ name }) => name === "0081_remove_workshop",
-  );
-  await runMigrationsToLatest(
-    database.url,
-    index < 0 ? platformMigrations : platformMigrations.slice(0, index),
-  );
+  await migrateBefore(database, "0081_remove_workshop");
   return database;
 }
 
@@ -37,45 +28,7 @@ test("removes the cancelled Workshop and its derived projection without changing
         (account_id, principal_ref, decision, evidence_ref, evidence_version, evidence_fingerprint, checked_at, valid_until, updated_at)
       values (${id}::uuid, 'removal-fixture', 'member', 'removal-evidence', 1, ${"a".repeat(64)}, now(), now() + interval '5 minutes', now())
     `);
-    expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: [
-        "0081_remove_workshop",
-        "0082_domain_names",
-        "0083_task_pages",
-        "0084_owner_command_keys",
-        "0085_community_projection_retries",
-        "0086_product_cohort_price_after_start",
-        "0087_web_telemetry",
-        "0088_web_telemetry_percentile_index",
-        "0089_bank_refund_history",
-        "0090_explicit_community_rights",
-        "0091_product_communities",
-        "0092_product_access_exclusions",
-        "0093_product_learning_started",
-        "0094_individual_payment_links",
-        "0095_historical_community_coverage",
-        "0096_task_review_progress",
-        "0097_task_submission_review_run",
-        "0098_material_task",
-        "0099_chapter_supplementary_materials",
-        "0100_product_waitlists",
-        "0101_waitlist_confirmations",
-        "0102_material_telegram_announcements",
-        "0101_funnel_diagnostic_candidates",
-        "0102_billing_funnel_diagnostic_sources",
-        "0103_reading_funnel_diagnostic_sources",
-        "0104_telegram_funnel_diagnostic_identities",
-        "0105_funnel_diagnostic_current_products",
-        "0106_learning_activity_provenance",
-        "0107_bookmark_activity_provenance",
-        "0108_submission_activity_period",
-        "0109_materials_notification_trace_context",
-        "0110_notifications_notification_trace_context",
-        "0111_notifications_email_trace_context",
-        "0112_communications_tracking_trace_context",
-        "0113_waitlist_trace_context",
-      ],
-    });
+    await upgradeToLatest(database);
     expect(
       await database.prisma.$queryRaw(
         Prisma.sql`select schema_name from information_schema.schemata where schema_name = 'workshop'`,
@@ -92,9 +45,6 @@ test("removes the cancelled Workshop and its derived projection without changing
     `);
     expect(constraints).toHaveLength(3);
     expect(JSON.stringify(constraints)).not.toContain("workshop");
-    expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: [],
-    });
   } finally {
     await database.dispose();
   }

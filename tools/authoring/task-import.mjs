@@ -1,4 +1,5 @@
 // @ts-check
+import { contentTasks } from "./package.mjs";
 import { z } from "zod";
 import { canonical, checksum, taskPositions } from "./package.mjs";
 import { applyJournaled } from "./journal.mjs";
@@ -22,7 +23,8 @@ import { fingerprintAccess } from "./compatibility.mjs";
  */
 
 const version = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const storedSchema = z
+/** The receipt a Task write leaves in `journal.resources` under its `taskResourceKey`. */
+export const taskJournalReceiptSchema = z
   .object({ revision: version, digest: z.hash("sha256") })
   .strict();
 const operationSchema = z
@@ -41,7 +43,7 @@ const operationSchema = z
 /** @param {Pick<Manifest, "sourceNamespace">} manifest @param {string} id */
 const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
 /** @param {string} code */
-const resourceKey = (code) => `task:${code}`;
+export const taskResourceKey = (code) => `task:${code}`;
 
 /** Resolve explicit preview choices without mutating the canonical package.
  * @param {Manifest} manifest
@@ -108,7 +110,7 @@ export function taskPublication(task, selected, current) {
  * @param {ManifestTask} task
  * @param {TaskPublication} publicationState
  */
-function authoredBody(manifest, task, publicationState) {
+export function authoredTaskBody(manifest, task, publicationState) {
   return {
     sourceId: sourceKey(manifest, task.sourceId),
     code: task.sourceId,
@@ -150,7 +152,7 @@ function authoredBody(manifest, task, publicationState) {
  * @param {TaskPublication} publicationState
  */
 export function taskDigest(manifest, task, publicationState) {
-  const { provenance: _provenance, ...state } = authoredBody(
+  const { provenance: _provenance, ...state } = authoredTaskBody(
     manifest,
     task,
     publicationState,
@@ -190,10 +192,10 @@ export function taskChapterId(manifest, task) {
  * @param {Manifest} manifest
  * @param {import('./local-boundaries.mjs').LocalRequest} request */
 export async function validateSourceTasks(manifest, request) {
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     const result = await request(
       "/authoring/import/tasks/validate",
-      authoredBody(manifest, task, task.publicationState),
+      authoredTaskBody(manifest, task, task.publicationState),
     );
     if (result.migration != null)
       throw new Error(
@@ -254,7 +256,7 @@ export async function replayTaskImports(context, request, selected) {
       ),
     );
     // The digest is unknown here; the next transfer compares and sends the package state again.
-    delete resources[resourceKey(receipt.code)];
+    delete resources[taskResourceKey(receipt.code)];
     await context.persist();
   }
 }
@@ -280,20 +282,20 @@ export async function syncSourceTasks(
   const positions = taskPositions(manifest);
   /** @type {TaskChange[]} */
   const changes = [];
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     const { current, migration } = await request(
       "/authoring/import/tasks/validate",
-      authoredBody(manifest, task, task.publicationState),
+      authoredTaskBody(manifest, task, task.publicationState),
     );
     if (migration != null)
       throw new Error(
         `${task.sourceId}: material_to_task_migration requires a release decision`,
       );
-    const key = resourceKey(task.sourceId);
+    const key = taskResourceKey(task.sourceId);
     const previous =
       resources[key] === undefined
         ? undefined
-        : storedSchema.parse(resources[key]);
+        : taskJournalReceiptSchema.parse(resources[key]);
     if (previous !== undefined && previous.revision !== current?.revision)
       throw new Error(
         `${task.sourceId}: the task changed on the target; reconcile before overwriting`,
@@ -322,7 +324,7 @@ export async function syncSourceTasks(
       continue;
     }
     const body = {
-      ...authoredBody(manifest, task, publicationState),
+      ...authoredTaskBody(manifest, task, publicationState),
       ...(task.page === undefined || pageOf === undefined
         ? {}
         : await pageOf(task)),
@@ -370,7 +372,7 @@ export async function previewTasks(manifest, journal, request, selected) {
   const tasks = [];
   /** @type {Record<string, number>} */
   const expected = {};
-  for (const task of manifest.tasks ?? []) {
+  for (const task of contentTasks(manifest)) {
     if (task.access === null) {
       tasks.push({
         sourceId: task.sourceId,
@@ -383,12 +385,12 @@ export async function previewTasks(manifest, journal, request, selected) {
     }
     const { current, migration } = await request(
       "/authoring/import/tasks/validate",
-      authoredBody(manifest, task, task.publicationState),
+      authoredTaskBody(manifest, task, task.publicationState),
     );
-    expected[resourceKey(task.sourceId)] = current?.revision ?? 0;
-    const stored = resources[resourceKey(task.sourceId)];
+    expected[taskResourceKey(task.sourceId)] = current?.revision ?? 0;
+    const stored = resources[taskResourceKey(task.sourceId)];
     const previous =
-      stored === undefined ? undefined : storedSchema.parse(stored);
+      stored === undefined ? undefined : taskJournalReceiptSchema.parse(stored);
     const publication = taskPublication(
       task,
       selected(sourceKey(manifest, task.sourceId)),

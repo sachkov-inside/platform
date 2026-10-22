@@ -1,7 +1,8 @@
 export {
   billingFailureCode,
   billingFailureResponse,
-  executeBillingCommand,
+  billingInvalidInput,
+  executeBillingOperation,
   privateBillingHeaders,
   readAuthenticatedBilling,
   readBillingResource,

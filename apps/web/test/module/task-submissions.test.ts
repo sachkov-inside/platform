@@ -22,7 +22,11 @@ vi.mock("@/shared/auth/logto-bff-config.server", () => ({
 vi.mock("@/shared/auth/index.server", async () => {
   const handlers =
     await import("@/shared/auth/authenticated-mutation-handler.server");
-  return { handleAuthenticatedMutation: handlers.handleAuthenticatedMutation };
+  return {
+    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
+    handleMutationOperation: handlers.handleMutationOperation,
+    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
+  };
 });
 import { handleSaveAuthorFeedback } from "@/_pages/task-submissions/api/save-author-feedback-route.server";
 import {
@@ -35,14 +39,16 @@ import {
 const submissionId = "30000000-0000-4000-8000-000000000001";
 
 function feedback(
-  values: Record<string, string>,
+  values: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(values)) body.set(key, value);
   return new Request(
     "https://inside.example.test/api/authoring/product-tasks/feedback",
-    { method: "PUT", headers: { origin }, body },
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json", origin },
+      body: JSON.stringify(values),
+    },
   );
 }
 
@@ -55,7 +61,7 @@ describe("author feedback BFF (#948)", () => {
   it("refuses a cross-origin save before the session or the backend", async () => {
     const response = await handleSaveAuthorFeedback(
       feedback(
-        { submissionId, comment: "x", reviewed: "true" },
+        { submissionId, comment: "x", reviewed: true },
         "https://outside.test",
       ),
     );
@@ -79,7 +85,7 @@ describe("author feedback BFF (#948)", () => {
       feedback({
         submissionId,
         comment: "  Хорошее разделение.  ",
-        reviewed: "true",
+        reviewed: true,
       }),
     );
     expect(fakes.save).toHaveBeenCalledWith(
@@ -99,7 +105,7 @@ describe("author feedback BFF (#948)", () => {
       response: new Response(),
     });
     await handleSaveAuthorFeedback(
-      feedback({ submissionId, comment: "   ", reviewed: "false" }),
+      feedback({ submissionId, comment: "   ", reviewed: false }),
     );
     expect(fakes.save).toHaveBeenLastCalledWith(
       submissionId,
@@ -116,7 +122,7 @@ describe("author feedback BFF (#948)", () => {
     });
     const comment = `${"x".repeat(3_990)}${"\r\n".repeat(10)}`;
     const response = await handleSaveAuthorFeedback(
-      feedback({ submissionId, comment, reviewed: "true" }),
+      feedback({ submissionId, comment, reviewed: true }),
     );
     expect(await response.json()).toEqual({
       kind: "saved",
@@ -131,9 +137,9 @@ describe("author feedback BFF (#948)", () => {
 
   it("refuses a malformed save without calling the backend", async () => {
     for (const values of [
-      { submissionId: "not-a-uuid", comment: "", reviewed: "true" },
+      { submissionId: "not-a-uuid", comment: "", reviewed: true },
       { submissionId, comment: "", reviewed: "yes" },
-      { submissionId, comment: "x".repeat(4_001), reviewed: "true" },
+      { submissionId, comment: "x".repeat(4_001), reviewed: true },
     ]) {
       const response = await handleSaveAuthorFeedback(feedback(values));
       expect(await response.json()).toEqual({ kind: "invalid_input" });
@@ -154,7 +160,7 @@ describe("author feedback BFF (#948)", () => {
       response: new Response(null, { status }),
     });
     const response = await handleSaveAuthorFeedback(
-      feedback({ submissionId, comment: "", reviewed: "true" }),
+      feedback({ submissionId, comment: "", reviewed: true }),
     );
     expect(await response.json()).toEqual(outcome);
   });

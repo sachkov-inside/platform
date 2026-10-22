@@ -17,11 +17,14 @@ vi.mock("@/shared/auth/platform-access-token.server", () => ({
 vi.mock("@/shared/auth/logto-bff-config.server", () => ({
   readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
 }));
-vi.mock("@/shared/auth/index.server", async () => ({
-  handleAuthenticatedMutation: (
-    await import("@/shared/auth/authenticated-mutation-handler.server")
-  ).handleAuthenticatedMutation,
-}));
+vi.mock("@/shared/auth/index.server", async () => {
+  const handlers =
+    await import("@/shared/auth/authenticated-mutation-handler.server");
+  return {
+    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
+    handleMutationOperation: handlers.handleMutationOperation,
+  };
+});
 import {
   handleMaterialOpen,
   handleSeriesContinuation,
@@ -30,14 +33,13 @@ import { handlePersonalHome } from "@/features/reading-progress.server";
 const materialId = "10000000-0000-4000-8000-000000000001";
 const commandId = "20000000-0000-4000-8000-000000000001";
 function request(
-  input: Record<string, string>,
+  input: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(input)) body.set(key, value);
+  const body = JSON.stringify(input);
   return new Request("https://inside.example.test/api/reading-progress/open", {
     method: "POST",
-    headers: { origin },
+    headers: { "content-type": "application/json", origin },
     body,
   });
 }
@@ -53,7 +55,7 @@ it("authenticates visible-open commands, preserves replay and keeps responses pr
     response: new Response(),
   });
   const response = await handleMaterialOpen(
-    request({ materialId, commandId, contentVersion: "4" }),
+    request({ materialId, commandId, contentVersion: 4 }),
   );
   expect(await response.json()).toEqual({ kind: "saved", ...saved });
   expect(fakes.open).toHaveBeenCalledWith(
@@ -72,7 +74,7 @@ it("rejects cross-origin and user-supplied Account before sending an open", asyn
         request({
           materialId,
           commandId,
-          contentVersion: "4",
+          contentVersion: 4,
           accountId: materialId,
         }),
       )
@@ -92,7 +94,7 @@ it("does not confirm unavailable, stale-version or malformed success", async () 
     expect(
       await (
         await handleMaterialOpen(
-          request({ materialId, commandId, contentVersion: "4" }),
+          request({ materialId, commandId, contentVersion: 4 }),
         )
       ).json(),
     ).toEqual({ kind });

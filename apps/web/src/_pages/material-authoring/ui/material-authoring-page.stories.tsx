@@ -82,12 +82,12 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-/** Последняя отправленная форма сохранения: поле по имени. */
-function savedField(name: string): FormDataEntryValue | null | undefined {
+/** Последнее отправленное сохранение: поле по имени. */
+function savedField(name: string): unknown {
   const call = materialRequests.mock.calls.findLast(
     ([method]) => method === "PUT",
   );
-  return call?.[1]?.get(name);
+  return call?.[1]?.[name];
 }
 
 /** Правка названия переводит черновик в «Не сохранено», пауза сохраняет его через BFF. */
@@ -122,7 +122,7 @@ export const Editing: Story = {
     ).toBeGreaterThan(0);
     await expect(savedField("title")).toBe("Новая версия Developer Pipeline");
     await expect(savedField("publicationState")).toBe("draft");
-    await expect(savedField("expectedContentVersion")).toBe("3");
+    await expect(savedField("expectedContentVersion")).toBe(3);
     await expect(
       canvas.queryByText("Версия", { exact: true }),
     ).not.toBeInTheDocument();
@@ -428,9 +428,9 @@ export const ProductRemovalConfirmation: Story = {
     await expect(
       (await canvas.findAllByText("Снят с публикации")).length,
     ).toBeGreaterThan(0);
-    await expect(savedField("confirmedProductRemovals")).toBe(
+    await expect(savedField("confirmedProductRemovals")).toEqual([
       removalRequired.products[0].productId,
-    );
+    ]);
   },
 };
 
@@ -1256,7 +1256,7 @@ export const WorkspaceTyping: Story = {
     await expect(
       (await canvas.findAllByText("Сохранено сейчас")).length,
     ).toBeGreaterThan(0);
-    await expect(savedField("document")).toContain(text.trim());
+    await expect(JSON.stringify(savedField("document"))).toContain(text.trim());
     // Positive control: metadata changes still reach every dependent part and the next save.
     await userEvent.click(canvas.getByRole("tab", { name: "Параметры" }));
     const title = canvas.getByLabelText("Название");
@@ -1275,7 +1275,7 @@ export const WorkspaceTyping: Story = {
       (await canvas.findAllByText("Сохранено сейчас")).length,
     ).toBeGreaterThan(0);
     await expect(savedField("title")).toBe("Developer Pipeline без магии!");
-    await expect(savedField("document")).toContain(text.trim());
+    await expect(JSON.stringify(savedField("document"))).toContain(text.trim());
   },
 };
 
@@ -1421,7 +1421,7 @@ export const ImportedCollapsibleAdvice: Story = {
     await expect(
       (await canvas.findAllByText(/Сохранено сейчас/u)).length,
     ).toBeGreaterThan(0);
-    const saved = savedField("document");
+    const saved = JSON.stringify(savedField("document"));
     if (typeof saved !== "string") throw new Error("Autosave must send a body");
     await expect(saved).toContain('"collapse":"collapsed"');
     await expect(saved).toContain('"collapse":"expanded"');
@@ -1494,7 +1494,7 @@ function referenceSelectorWorkload(size: number): Story {
           }),
         );
         await flushPendingEdits();
-        await expect(savedField("tagIds")).toContain(
+        await expect(JSON.stringify(savedField("tagIds"))).toContain(
           String(size).padStart(12, "0"),
         );
       }
@@ -1564,7 +1564,7 @@ export const TelegramAnnouncement: Story = {
     await expect(checkbox).not.toBeChecked();
     await userEvent.click(checkbox);
     await expect(checkbox).toBeChecked();
-    await waitFor(() => expect(savedField("notifyTelegram")).toBe("true"));
+    await waitFor(() => expect(savedField("notifyTelegram")).toBe(true));
   },
 };
 export const TelegramAnnouncementPublished: Story = {

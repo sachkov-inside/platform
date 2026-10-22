@@ -18,7 +18,11 @@ vi.mock("@/shared/auth/logto-bff-config.server", () => ({
 vi.mock("@/shared/auth/index.server", async () => {
   const handlers =
     await import("@/shared/auth/authenticated-mutation-handler.server");
-  return { handleAuthenticatedMutation: handlers.handleAuthenticatedMutation };
+  return {
+    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
+    handleMutationOperation: handlers.handleMutationOperation,
+    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
+  };
 });
 import {
   handleReadingStates,
@@ -34,14 +38,13 @@ const state = {
   updatedAt: "2026-09-07T00:00:00.000Z",
 };
 function request(
-  values: Record<string, string>,
+  values: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(values)) body.set(key, value);
+  const body = JSON.stringify(values);
   return new Request("https://inside.example.test/api/reading-progress/state", {
     method: "POST",
-    headers: { origin },
+    headers: { "content-type": "application/json", origin },
     body,
   });
 }
@@ -68,8 +71,8 @@ it("preserves the idempotency command and authenticates independently of posted 
     request({
       materialId,
       commandId,
-      expectedVersion: "2",
-      isRead: "true",
+      expectedVersion: 2,
+      isRead: true,
       accountId: "untrusted",
     }),
   );
@@ -91,7 +94,7 @@ it("returns current conflict state without claiming a successful write", async (
     response: new Response(null, { status: 409 }),
   });
   const response = await handleSetReadingState(
-    request({ materialId, commandId, expectedVersion: "1", isRead: "false" }),
+    request({ materialId, commandId, expectedVersion: 1, isRead: false }),
   );
   expect(await response.json()).toEqual({ kind: "conflict", current: state });
 });
@@ -110,8 +113,8 @@ it("does not report success for transport failures or malformed success bodies",
           request({
             materialId,
             commandId,
-            expectedVersion: "2",
-            isRead: "true",
+            expectedVersion: 2,
+            isRead: true,
           }),
         )
       ).json(),
@@ -123,17 +126,23 @@ it("bounds batch reads and returns private state without public metadata", async
     body: [state],
     response: new Response(),
   });
-  const response = await handleReadingStates(request({ materialId }));
+  const response = await handleReadingStates(
+    request({ materialIds: [materialId] }),
+  );
   expect(await response.json()).toEqual({ kind: "ready", states: [state] });
   expect(fakes.states).toHaveBeenCalledWith([materialId], "trusted-token");
-  const body = new FormData();
-  for (let i = 0; i < 101; i++) body.append("materialId", materialId);
+  const body = JSON.stringify({
+    materialIds: Array.from({ length: 101 }, () => materialId),
+  });
   expect(
     await (
       await handleReadingStates(
         new Request("https://inside.example.test/api/reading-progress/states", {
           method: "POST",
-          headers: { origin: "https://inside.example.test" },
+          headers: {
+            "content-type": "application/json",
+            origin: "https://inside.example.test",
+          },
           body,
         }),
       )

@@ -54,12 +54,10 @@ const invitation: Invitation = {
 };
 
 function command(url: string, input: unknown): Request {
-  const body = new FormData();
-  body.set("input", JSON.stringify(input));
   return new Request(`${origin}${url}`, {
     method: "POST",
-    headers: { origin },
-    body,
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify(input),
   });
 }
 const ok = (body: unknown) => ({ ok: true, body, response: new Response() });

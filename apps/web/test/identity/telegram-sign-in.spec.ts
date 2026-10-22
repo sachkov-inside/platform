@@ -241,7 +241,7 @@ async function profileId(page: Page) {
 async function createProfile(page: Page) {
   const response = await page.request.post("/api/account/profile", {
     headers: { origin: new URL(page.url()).origin },
-    form: { displayName: "Synthetic identity proof", bio: "" },
+    data: { displayName: "Synthetic identity proof", bio: "" },
   });
   expect(response.ok()).toBeTruthy();
   return profileId(page);
@@ -301,7 +301,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
   const origin = new URL(page.url()).origin;
   const response = await page.request.post("/api/account/telegram-link/begin", {
     headers: { origin },
-    form: {},
+    data: {},
   });
   const link = z
     .object({
@@ -334,7 +334,7 @@ test("email Account explicitly links Telegram and bot sign-in retains its privat
     .poll(async () => {
       const confirmation = await page.request.post(
         "/api/account/telegram-link/confirm",
-        { headers: { origin }, form: { linkRef: link.linkRef } },
+        { headers: { origin }, data: { linkRef: link.linkRef } },
       );
       return z
         .object({ state: z.object({ status: z.string() }) })

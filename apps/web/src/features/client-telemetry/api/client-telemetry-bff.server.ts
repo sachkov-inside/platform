@@ -105,8 +105,8 @@ function refuseOverCeiling(
 }
 
 /**
- * Узкое исключение из общей границы BFF (`handleAuthenticatedMutation`): отчёт присылает и гость,
- * поэтому сессии здесь нет, а тело — JSON, а не форма. От общей границы остаются проверка Origin,
+ * Узкое исключение из общей границы BFF (`handleMutationOperation`): отчёт присылает и гость, часто
+ * через `sendBeacon`, поэтому сессии здесь нет. От общей границы остаются проверка Origin,
  * предел тела — меньший, `MAX_CLIENT_TELEMETRY_BYTES`, — и ответ `no-store, private`.
  */
 async function readReport<Schema extends z.ZodType>(

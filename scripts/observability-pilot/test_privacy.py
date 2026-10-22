@@ -258,6 +258,26 @@ class CollectorPrivacyContract(unittest.TestCase):
             self.assertNotIn(rejected, policy['routes'])
             self.assertIsNone(re.fullmatch(expression, rejected))
 
+
+        for route in ('/authoring/import/materials/state', '/authoring/import/tasks/state'):
+            self.assertEqual(list(paths).count(route), 1)
+            self.assertEqual(policy['routes'].count(route), 1)
+            self.assertNotIn(route, policy['telegram_runtime']['routes'])
+            self.assertEqual(re.sub(r'\{([^}]+)\}', r':\1', route), route)
+            self.assertTrue(expression.startswith('^('))
+            self.assertTrue(expression.endswith(')$'))
+            self.assertIsNotNone(re.fullmatch(expression, route))
+            self.assertIsNone(re.fullmatch(expression, '_OTHER'))
+            rule = privacy_config.enum_rule('http.route', policy['routes'])
+            self.assertTrue(rule.startswith('set(attributes["http.route"], "_OTHER") where '))
+            self.assertIn(privacy_config.only(rule, 'not ('+privacy_config.TELEGRAM_SERVICE+')'),
+                          privacy_config.render())
+            for rejected in (route+'suffix', route+'/', route+'/private-person@example.test',
+                             route+'?token=SECRET', route+'/_OTHER',
+                             route.rsplit('/', 1)[0]+'/private-person@example.test'):
+                self.assertNotIn(rejected, policy['routes'])
+                self.assertIsNone(re.fullmatch(expression, rejected))
+
     def test_materials_route_admits_only_the_canonical_registered_template(self):
         import privacy_config
         route = '/integrations/telegram/v1/communications/materials'

@@ -1,9 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { z } from "zod";
 
-const fakes = vi.hoisted(() => ({ request: vi.fn() }));
-vi.mock("@/shared/api/same-origin-mutation", () => ({
-  requestSameOriginMutation: fakes.request,
-}));
+/** Ответ маршрута на каждую команду браузерного адаптера; вход приходит разобранным JSON. */
+const fakes = { request: vi.fn() };
 import { listAllSubscriptionTiers } from "@/features/billing-admin/api/enrollments.browser";
 import { listTiersSchema } from "@/features/billing-admin/model/enrollment-operations";
 
@@ -40,6 +39,26 @@ function page(
 }
 beforeEach(() => {
   fakes.request.mockReset();
+  vi.stubGlobal(
+    "fetch",
+    async (url: string, init: RequestInit): Promise<Response> => {
+      const answer = z
+        .union([
+          z.object({ ok: z.literal(true), body: z.unknown() }),
+          z.object({ ok: z.literal(false), status: z.number() }),
+        ])
+        .parse(
+          await fakes.request(
+            url,
+            init.method,
+            JSON.parse(z.string().parse(init.body)),
+          ),
+        );
+      return answer.ok
+        ? Response.json(answer.body)
+        : new Response(null, { status: answer.status });
+    },
+  );
 });
 
 it("reaches an assignable Tier after a hundred nonassignable rows and keeps its cursor through BFF validation", async () => {
@@ -60,15 +79,12 @@ it("reaches an assignable Tier after a hundred nonassignable rows and keeps its 
       .map((row) => row.tier.id),
   ).toEqual([id(101)]);
   expect(fakes.request).toHaveBeenCalledTimes(2);
-  const payload: unknown = fakes.request.mock.calls[1]?.[2];
-  if (!(payload instanceof FormData))
-    throw new Error("Expected command FormData");
-  const raw = payload.get("input");
-  if (typeof raw !== "string") throw new Error("Expected command input");
-  expect(listTiersSchema.parse(JSON.parse(raw))).toMatchObject({
-    cursor: id(100),
-    limit: 100,
-  });
+  expect(listTiersSchema.parse(fakes.request.mock.calls[1]?.[2])).toMatchObject(
+    {
+      cursor: id(100),
+      limit: 100,
+    },
+  );
 });
 
 it("keeps failed continuation explicit and retryable instead of committing an incomplete selector", async () => {

@@ -3,7 +3,11 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readPackageManifest } from "./package-manifest.mjs";
+import {
+  checkDocumentReferences,
+  extractMarkdownLinks,
+} from "./documentation-references.mjs";
+import { readPackageScripts } from "./package-scripts.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = resolve(dirname(scriptPath), "..");
@@ -16,30 +20,15 @@ const ignoredDirectories = new Set([
   "storybook-static",
 ]);
 
-/** @param {string} markdown */
+/**
+ * Local files that Markdown links point to, without fragments; same-document anchors excluded.
+ *
+ * @param {string} markdown
+ */
 export function extractLocalMarkdownTargets(markdown) {
-  /** @type {string[]} */
-  const targets = [];
-  const links = markdown.matchAll(
-    /\[[^\]]*\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/gu,
-  );
-
-  for (const [, rawTarget = ""] of links) {
-    const target = rawTarget.replace(/^<|>$/gu, "");
-    if (
-      target.startsWith("#") ||
-      target.startsWith("/") ||
-      /^[a-z][a-z\d+.-]*:/iu.test(target)
-    ) {
-      continue;
-    }
-
-    const [withoutFragment = ""] = target.split("#", 1);
-    const [file = ""] = withoutFragment.split("?", 1);
-    targets.push(decodeURIComponent(file));
-  }
-
-  return targets.filter(Boolean);
+  return extractMarkdownLinks(markdown)
+    .map(({ file }) => file)
+    .filter(Boolean);
 }
 
 /** @param {string} repositoryRoot */
@@ -118,58 +107,6 @@ function rejectText(failures, path, content, forbidden, explanation) {
   if (content.includes(forbidden)) {
     failures.push(`${path}: ${explanation}`);
   }
-}
-
-export const codingStandardsLineLimit = 200;
-export const processContractLineLimit = 150;
-
-/**
- * A document past its limit is a signal, not a failure (#848, #861): the rules of a coding standard
- * that a check can enforce should become checks, and a process contract should stay short.
- *
- * @param {string} repositoryRoot
- */
-export function documentationWarnings(repositoryRoot = defaultRepositoryRoot) {
-  /** @type {string[]} */
-  const warnings = [];
-  const standards = collectAgentDocumentation(repositoryRoot).filter((path) =>
-    path.endsWith("CODING_STANDARDS.md"),
-  );
-  for (const path of standards) {
-    if (!existsSync(resolve(repositoryRoot, path))) {
-      continue;
-    }
-
-    const lines = lineCount(read(repositoryRoot, path));
-    if (lines > codingStandardsLineLimit) {
-      warnings.push(
-        `${path}: ${lines} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
-      );
-    }
-  }
-  for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
-    if (!existsSync(resolve(repositoryRoot, path))) {
-      continue;
-    }
-
-    const lines = lineCount(read(repositoryRoot, path));
-    if (lines > processContractLineLimit) {
-      warnings.push(
-        `${path}: ${lines} lines, more than ${processContractLineLimit}; shorten the process contract`,
-      );
-    }
-  }
-
-  return warnings;
-}
-
-/** @param {string} content */
-function lineCount(content) {
-  if (content.length === 0) {
-    return 0;
-  }
-
-  return content.replace(/\n$/u, "").split("\n").length;
 }
 
 /** @param {string} repositoryRoot */
@@ -282,7 +219,7 @@ export function checkHarnessRouting(repositoryRoot = defaultRepositoryRoot) {
       continue;
     }
     const content = read(repositoryRoot, path);
-    if (path === "AGENTS.md" || path === "WORKFLOW.md") {
+    if (path === "AGENTS.md") {
       requireText(
         failures,
         path,
@@ -366,25 +303,27 @@ export function checkStandardsReviewRouting(
 ) {
   /** @type {string[]} */
   const failures = [];
+  // The root routes every reviewer to the standards; nested files need not repeat it.
+  if (!existsSync(resolve(repositoryRoot, "AGENTS.md"))) {
+    failures.push("AGENTS.md: standards review routing is missing");
+  } else if (
+    !/Before review,[^\n]*(?:\n[^\n]+)?CODING_STANDARDS\.md/u.test(
+      read(repositoryRoot, "AGENTS.md"),
+    )
+  ) {
+    failures.push("AGENTS.md: route coding standards explicitly to review");
+  }
+  // No file may restore the former implementation-wide loading of the standards.
   for (const path of [
     "AGENTS.md",
     "apps/backend/AGENTS.md",
     "apps/web/AGENTS.md",
     "apps/telegram/AGENTS.md",
   ]) {
-    if (!existsSync(resolve(repositoryRoot, path))) {
-      failures.push(`${path}: standards review routing is missing`);
-      continue;
-    }
-    const content = read(repositoryRoot, path);
     if (
-      !/Before review,[^\n]*(?:\n[^\n]+)?CODING_STANDARDS\.md/u.test(content)
-    ) {
-      failures.push(`${path}: route coding standards explicitly to review`);
-    }
-    if (
+      existsSync(resolve(repositoryRoot, path)) &&
       /Before (?:changing|writing|implementing)[^\n]*reviewing[^\n]*(?:\n[^\n]*)?CODING_STANDARDS\.md|For coding and review rules/u.test(
-        content,
+        read(repositoryRoot, path),
       )
     ) {
       failures.push(
@@ -395,193 +334,80 @@ export function checkStandardsReviewRouting(
   return failures;
 }
 
+/**
+ * Documents whose links, anchors and `pnpm` scripts must resolve, and the subset whose
+ * backticked repository paths must also exist.
+ *
+ * @param {string} repositoryRoot
+ */
+export function collectReferenceDocuments(repositoryRoot) {
+  const agentDocuments = [
+    ...collectAgentDocumentation(repositoryRoot),
+    "WORKFLOW.md",
+  ];
+  const documents = new Set([
+    ...agentDocuments,
+    "README.md",
+    "REPOSITORIES.md",
+  ]);
+  walk(resolve(repositoryRoot, "docs/runbooks"), (path, name) => {
+    if (name.endsWith(".md")) documents.add(relative(repositoryRoot, path));
+  });
+  return {
+    documents: [...documents].sort(),
+    pathDocuments: new Set(agentDocuments),
+  };
+}
+
+export const docsCheckCommand =
+  "node scripts/check-agent-documentation.mjs && node scripts/check-materials-documentation.mjs && node scripts/check-new-em-dashes.mjs";
+
 export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
   failures.push(...checkHarnessRouting(repositoryRoot));
   failures.push(...checkHarnessConfiguration(repositoryRoot));
   failures.push(...checkStandardsReviewRouting(repositoryRoot));
-  const agentFiles = collectAgentDocumentation(repositoryRoot);
-
-  for (const path of agentFiles) {
-    const absolutePath = resolve(repositoryRoot, path);
-    if (!existsSync(absolutePath)) {
-      failures.push(`${path}: required agent document is missing`);
-      continue;
-    }
-
-    for (const target of extractLocalMarkdownTargets(
-      readFileSync(absolutePath, "utf8"),
-    )) {
-      const resolvedTarget = resolve(dirname(absolutePath), target);
-      if (!existsSync(resolvedTarget)) {
-        failures.push(`${path}: local pointer does not resolve: ${target}`);
-      }
-    }
-  }
-
-  const rootAgents = read(repositoryRoot, "AGENTS.md");
-  const backendAgents = read(repositoryRoot, "apps/backend/AGENTS.md");
-  const context = read(repositoryRoot, "GLOSSARY.md");
-  const materialsAdr = read(
-    repositoryRoot,
-    "docs/adr/0002-deep-materials-module.md",
-  );
-  const generatedTransportAdr = read(
-    repositoryRoot,
-    "docs/adr/0007-generated-openapi-web-transport.md",
-  );
-  const mutableMaterialsAdr = read(
-    repositoryRoot,
-    "docs/adr/0009-one-mutable-material.md",
-  );
-  const clientLibraryAdr = read(
-    repositoryRoot,
-    "docs/adr/0011-client-owned-library-catalog.md",
-  );
-  const platformSpecification = read(
-    repositoryRoot,
-    "docs/specifications/platform-v1.md",
-  );
-  const backendAudit = read(
-    repositoryRoot,
-    "docs/research/backend-architecture-audit.md",
-  );
-  const engineeringResearch = read(
-    repositoryRoot,
-    "docs/research/platform-v1-engineering-contract.md",
-  );
-  const rootPackage = readPackageManifest(
-    resolve(repositoryRoot, "package.json"),
+  const { documents, pathDocuments } =
+    collectReferenceDocuments(repositoryRoot);
+  failures.push(
+    ...checkDocumentReferences(repositoryRoot, documents, pathDocuments),
   );
 
   requireText(
     failures,
     "AGENTS.md",
-    rootAgents,
+    read(repositoryRoot, "AGENTS.md"),
     "docs/agents/documentation-maintenance.md",
     "route durable documentation changes through the maintenance contract",
   );
-  requireText(
-    failures,
-    "apps/backend/AGENTS.md",
-    backendAgents,
-    "docs/adr/0009-one-mutable-material.md",
-    "route Materials changes through the current mutable-model ADR",
-  );
-  rejectText(
-    failures,
-    "GLOSSARY.md",
-    context,
-    "MaterialRevision",
-    "the active glossary must not restore the superseded MaterialRevision term",
-  );
-  requireText(
-    failures,
-    "docs/adr/0002-deep-materials-module.md",
-    materialsAdr,
-    "status: superseded by ADR-0009",
-    "make ADR 0009 the machine-readable current Materials decision",
-  );
-  requireText(
-    failures,
-    "docs/adr/0009-one-mutable-material.md",
-    mutableMaterialsAdr,
-    "This ADR supersedes ADR 0002 and restates all retained decisions",
-    "keep the current Materials ADR self-contained",
-  );
-  requireText(
-    failures,
-    "docs/adr/0007-generated-openapi-web-transport.md",
-    generatedTransportAdr,
-    "status: superseded by ADR-0011",
-    "make ADR 0011 the machine-readable current Web data-boundary decision",
-  );
-  requireText(
-    failures,
-    "docs/adr/0011-client-owned-library-catalog.md",
-    clientLibraryAdr,
-    "This ADR supersedes ADR 0007 and restates its retained transport",
-    "keep the current Web data-boundary ADR self-contained",
-  );
-  rejectText(
-    failures,
-    "docs/adr/0002-deep-materials-module.md",
-    materialsAdr,
-    "MaterialRevisionId",
-    "the retained ADR decision must not present revision identifiers as current",
-  );
-  for (const staleClaim of [
-    "MaterialsModule` ещё не потребляет",
-    "Testcontainers PostgreSQL принят как future",
-    "mapping checks приняты как future enforcement",
-    "остаётся thin MCP adapter и ждёт",
-  ]) {
-    rejectText(
-      failures,
-      "docs/specifications/platform-v1.md",
-      platformSpecification,
-      staleClaim,
-      `remove superseded current-state claim: ${staleClaim}`,
-    );
-  }
-  requireText(
-    failures,
-    "docs/specifications/platform-v1.md",
-    platformSpecification,
-    "один mutable Material",
-    "retain the current one-mutable-Material contract",
-  );
-  for (const [path, content] of /** @type {const} */ ([
-    ["docs/research/backend-architecture-audit.md", backendAudit],
-    ["docs/research/platform-v1-engineering-contract.md", engineeringResearch],
-  ])) {
-    requireText(
-      failures,
-      path,
-      content,
-      "Статус: исторический snapshot",
-      "mark revision-based research as historical rather than current guidance",
-    );
-    requireText(
-      failures,
-      path,
-      content,
-      "../adr/0009-one-mutable-material.md",
-      "point historical Materials research to the current mutable-model ADR",
-    );
-  }
 
-  if (
-    rootPackage.scripts["docs:check"] !==
-    "node scripts/check-agent-documentation.mjs"
-  ) {
+  const rootScripts = readPackageScripts(
+    resolve(repositoryRoot, "package.json"),
+  ).scripts;
+  if (rootScripts["docs:check"] !== docsCheckCommand) {
     failures.push(
-      "package.json: docs:check must run the agent documentation contract",
+      "package.json: docs:check must run the agent documentation, Materials documentation and new em dash checks",
     );
   }
   if (
     !(
-      rootPackage.scripts["check"]?.startsWith("pnpm check:static &&") ||
-      rootPackage.scripts["check"]?.startsWith(
+      rootScripts["check"]?.startsWith("pnpm check:static &&") ||
+      rootScripts["check"]?.startsWith(
         "bash scripts/heavy-check.sh bash -c 'pnpm check:static &&",
       )
     ) ||
-    !rootPackage.scripts["check:static"]?.startsWith("pnpm docs:check &&")
+    !rootScripts["check:static"]?.startsWith("pnpm docs:check &&")
   ) {
     failures.push(
       "package.json: the root check must start with pnpm check:static, which starts with pnpm docs:check",
     );
   }
 
-  return failures;
+  return [...new Set(failures)];
 }
 
 function run() {
-  for (const warning of documentationWarnings()) {
-    console.warn(`Warning: ${warning}`);
-  }
-
   const failures = checkDocumentation();
   if (failures.length > 0) {
     console.error(`Documentation contract failed (${failures.length}):`);

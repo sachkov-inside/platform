@@ -113,15 +113,11 @@ describe.each(["confidential", "public"] as const)(
       expect(
         proof.tokenRequests.map((request) => request.get("grant_type")),
       ).toEqual(["authorization_code", "refresh_token"]);
-      const form = new FormData();
-      form.set(
-        "input",
-        JSON.stringify({
-          operationId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
-          version: "1",
-          digest: "a".repeat(64),
-        }),
-      );
+      const form = {
+        operationId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+        version: "1",
+        digest: "a".repeat(64),
+      };
       const resumeTelegramSignIn = vi.fn().mockResolvedValue({
         accountId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
       });

@@ -1,7 +1,7 @@
 # Web coding standards
 
-The nearest `AGENTS.md` owns routing and verification. ADRs 0011, 0012 and 0027 own transport,
-mutations and navigation. Reviewers apply this file to Web changes.
+The nearest `AGENTS.md` owns routing and verification. ADRs 0011, 0012 with 0038, and 0027 own
+transport, mutations and navigation. Reviewers apply this file to Web changes.
 `pnpm --filter @inside/web guardrails` runs `scripts/check-web-architecture.mjs` and its negative
 fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforced rules.
 
@@ -169,6 +169,14 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.
   Give each product operation its own named mutation and browser adapter with exact input/result
   types. Do not multiplex unrelated writes through `operation` or `mode`.
+- Declare each mutation once with `defineMutationOperation` in a `*.operation.ts` module
+  ([ADR 0038](../../docs/adr/0038-one-definition-per-browser-mutation.md)). Its `send` is the
+  browser adapter; the route serves it with `handleMutationOperation`, whose `execute` calls Nest
+  and whose `invalidInput` names the outcome for a body outside the schema. A route a guest may
+  also call uses `handleOptionalMutationOperation`.
+  `test/module/mutation-operation-routes.test.ts` sends every declared operation once through its
+  route; feature outcomes are tested through `send` and the route module with
+  `test/support/mutation-operation-route.ts`.
 - Put `QueryProvider` in the lowest layout shared by its consumers.
 
 ## Effects and asynchronous synchronization

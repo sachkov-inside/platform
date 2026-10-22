@@ -14,6 +14,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { keepShellScrollAcrossBreakpoint } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
 import { PublicFooter } from "./public-footer";
@@ -59,50 +60,7 @@ export function ApplicationShell({
   onMobileNavigate,
 }: ApplicationShellProps) {
   const content = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const main = content.current;
-    if (main === null) return;
-    const desktop = window.matchMedia("(width >= 64rem)");
-    let mainScrollTop = main.scrollTop;
-    let documentScrollTop = window.scrollY;
-    const rememberMainScroll = () => {
-      if (desktop.matches) mainScrollTop = main.scrollTop;
-    };
-    const rememberDocumentScroll = () => {
-      if (!desktop.matches) documentScrollTop = window.scrollY;
-    };
-    const transferScroll = () => {
-      // Layout can clamp the old scroll owner before the media-query event arrives.
-      if (desktop.matches) {
-        // A scroll in the new owner can precede this media-query event.
-        // Preserve it instead of restoring the previous owner's older position.
-        const top =
-          main.scrollTop > 0
-            ? main.scrollTop
-            : window.scrollY > 0
-              ? window.scrollY
-              : documentScrollTop;
-        window.scrollTo({ top: 0, behavior: "instant" });
-        main.scrollTo({ top, behavior: "instant" });
-        mainScrollTop = main.scrollTop;
-      } else {
-        const top = window.scrollY > 0 ? window.scrollY : mainScrollTop;
-        main.scrollTo({ top: 0, behavior: "instant" });
-        window.scrollTo({ top, behavior: "instant" });
-        documentScrollTop = window.scrollY;
-      }
-    };
-    main.addEventListener("scroll", rememberMainScroll, { passive: true });
-    window.addEventListener("scroll", rememberDocumentScroll, {
-      passive: true,
-    });
-    desktop.addEventListener("change", transferScroll);
-    return () => {
-      main.removeEventListener("scroll", rememberMainScroll);
-      window.removeEventListener("scroll", rememberDocumentScroll);
-      desktop.removeEventListener("change", transferScroll);
-    };
-  }, []);
+  useEffect(() => keepShellScrollAcrossBreakpoint(content.current), []);
   return (
     <div
       className="flex min-h-svh flex-col bg-background text-foreground lg:h-svh lg:overflow-hidden"

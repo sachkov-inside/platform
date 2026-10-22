@@ -5,18 +5,19 @@ import { authorFeedbackSchema } from "./task-submissions";
 /** The backend owns the limit; the form uses it as a hint and a drift shows as `invalid_input`. */
 export const AUTHOR_COMMENT_MAX_CHARACTERS = 4_000;
 
-/** One save of the author's comment and «посмотрел автор» on a submission (#948). */
-export const saveAuthorFeedbackInputSchema = z
-  .object({
-    submissionId: z.uuid(),
-    // A multipart form sends a line break as CRLF; the textarea and the backend count one character.
-    comment: z
-      .string()
-      .transform((value) => value.replace(/\r\n?/gu, "\n"))
-      .pipe(z.string().max(AUTHOR_COMMENT_MAX_CHARACTERS)),
-    reviewed: z.enum(["true", "false"]).transform((value) => value === "true"),
-  })
-  .strict();
+/**
+ * One save of the author's comment and «посмотрел автор» on a submission (#948). Another field is
+ * ignored, as the former form did.
+ */
+export const saveAuthorFeedbackInputSchema = z.object({
+  submissionId: z.uuid(),
+  // A CRLF line break counts as one character, as in the textarea and the backend.
+  comment: z
+    .string()
+    .transform((value) => value.replace(/\r\n?/gu, "\n"))
+    .pipe(z.string().max(AUTHOR_COMMENT_MAX_CHARACTERS)),
+  reviewed: z.boolean(),
+});
 
 export interface SaveAuthorFeedbackInput {
   readonly submissionId: string;

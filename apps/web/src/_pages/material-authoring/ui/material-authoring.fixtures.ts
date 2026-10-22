@@ -535,10 +535,24 @@ export interface MaterialReplies {
   readonly PUT?: MaterialReply | readonly MaterialReply[];
 }
 
-/** Каждый запрос страницы к `/api/authoring/materials`: метод и отправленная форма. */
+/** Каждый запрос страницы к `/api/authoring/materials`: метод и отправленные поля. */
 export const materialRequests = fn(
-  (_method: string, _form: FormData | undefined): void => undefined,
+  (
+    _method: string,
+    _fields: Readonly<Record<string, unknown>> | undefined,
+  ): void => undefined,
 );
+
+/** Поля запроса: JSON-тело операции. */
+function sentFields(
+  body: BodyInit | null | undefined,
+): Readonly<Record<string, unknown>> | undefined {
+  if (typeof body !== "string") return undefined;
+  const parsed: unknown = JSON.parse(body);
+  return typeof parsed === "object" && parsed !== null
+    ? Object.fromEntries(Object.entries(parsed))
+    : undefined;
+}
 
 export function savedReply(
   publicationState: "draft" | "published" | "unpublished" = "draft",
@@ -588,10 +602,7 @@ function materialFetch(replies: MaterialReplies) {
         new Error(`Story has no material reply for ${method} ${url.pathname}`),
       );
     }
-    materialRequests(
-      method,
-      init?.body instanceof FormData ? init.body : undefined,
-    );
+    materialRequests(method, sentFields(init?.body));
     const configured = replies[method];
     const index = served.get(method) ?? 0;
     served.set(method, index + 1);

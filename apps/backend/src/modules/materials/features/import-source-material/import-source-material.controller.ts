@@ -34,6 +34,7 @@ import {
   parseMaterialAuthoringBody,
   throwMaterialAuthoringError,
 } from "../../adapters/nest/material-authoring-http.js";
+import { authoringImportContract } from "../../domain/authoring-import-contract.js";
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import {
@@ -41,6 +42,23 @@ import {
   reserveSourceBodySchema,
   applySourceBodySchema,
 } from "./import-source-material.contract.js";
+
+/**
+ * The receiving runtime and the import contract it accepts. The client refuses before any write
+ * when its contract version or one of its package features is not listed here.
+ */
+const importEnvironmentSchema = z
+  .object({
+    mode: z.enum(["development", "test", "production"]),
+    contract: z
+      .object({
+        // Generic on the wire, so a client of another contract can still read and compare it.
+        version: z.number().int().positive(),
+        packageFeatures: z.array(z.string().min(1)),
+      })
+      .strict(),
+  })
+  .strict();
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/materials")
@@ -55,16 +73,16 @@ export class ImportSourceMaterialController {
     operationId: "readAuthoringImportEnvironment",
     summary: "Identify the receiving runtime before local synchronization",
   })
-  @ApiOkResponse({
-    schema: toOpenApiSchema(
-      z
-        .object({ mode: z.enum(["development", "test", "production"]) })
-        .strict(),
-    ),
-  })
+  @ApiOkResponse({ schema: toOpenApiSchema(importEnvironmentSchema) })
   @ApiMaterialAuthoringErrors(401, 403, 500, 503)
-  environment() {
-    return { mode: this.config.mode };
+  environment(): z.output<typeof importEnvironmentSchema> {
+    return {
+      mode: this.config.mode,
+      contract: {
+        version: authoringImportContract.version,
+        packageFeatures: [...authoringImportContract.packageFeatures],
+      },
+    };
   }
 
   @Post("validate")

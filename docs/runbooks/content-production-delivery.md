@@ -1,6 +1,6 @@
 # Перенос Content в production
 
-Инструкция для автора и агента (#805). Выбранная версия оригиналов из Engineering Content попадает на
+Инструкция для автора и агента (#805). Выбранная версия оригиналов из Content Studio попадает на
 `https://sachkov.dev` тем же путём, что и на локальный стенд: предпросмотр, отпечаток, точное
 применение и журнал. Агент выполняет те же команды, поэтому их можно запустить и вручную.
 
@@ -54,12 +54,12 @@ Keychain, и следующие переносы входа не требуют.
 В нём лежат журнал, экспортированные пакеты и предпросмотры. Его нельзя смешивать с каталогом
 стенда: инструмент откажется работать с журналом другой цели.
 
-1. Закоммитьте изменения в Engineering Content: переносится только закоммиченная версия.
+1. Закоммитьте изменения в Content Studio: переносится только закоммиченная версия.
 2. Предпросмотр. Команда ничего не пишет на сайт:
 
    ```bash
    pnpm authoring:release preview --target production \
-     --content ~/Work/Materials/engineering-content --product inside-ai-engineering [--ref COMMIT] \
+     --content ~/Work/Materials/content-studio --product inside-ai-engineering [--ref COMMIT] \
      --state ~/.inside-authoring/production [--publish SOURCE_ID]... \
      [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...
    ```
@@ -85,6 +85,52 @@ Keychain, и следующие переносы входа не требуют.
 
 Готовый пакет, например оболочку `product-shell`, можно передать через `--package PACKAGE_JSON` вместо
 `--content` и `--product`.
+
+## Обновление существующего содержания
+
+Новый текст уже перенесённых Materials и Tasks Content Studio доставляет командой
+`pnpm --silent authoring:deliver` (#1672), той же, что и на стенд. Она сохраняет доступ, публикацию,
+членство в Product и размещение заданий, а создание, архив и изменения Product отклоняет: для них
+остаётся полный выпуск выше. Сохраняемое состояние приходит из авторизованного API production, а не из
+базы. Порядок, вывод JSON и коды отказов описаны в
+[процедуре доставки только содержания](authoring-preservation.md).
+
+```bash
+pnpm --silent authoring:deliver preview --target production --package PACKAGE_JSON \
+  --commit CONTENT_SHA --content-repository ~/Work/Materials/content-studio \
+  --state ~/.inside-authoring/production --material SOURCE_ID [--task SOURCE_ID]...
+pnpm --silent authoring:deliver apply --receipt RECEIPT_JSON --state ~/.inside-authoring/production
+```
+
+Команда сама проверяет закреплённую версию Node, контракт приёмника, вход владельца в Keychain и сеть.
+Если `inside.sachkov.dev` или `auth.sachkov.dev` разрешается в адрес VPN FakeDNS (`198.18.0.0/15`), команда
+отказывает с `network_fake_dns`: исключите `sachkov.dev` из FakeDNS в настройках VPN и повторите.
+Ручные relay, адаптеры с подставленным IP и `--dns-result-order` больше не нужны.
+
+### Сверка журнала с production
+
+Журнал `~/.inside-authoring/production` знает не все Materials, которые есть на сайте. До первой доставки
+посмотрите расхождение; команда ничего не пишет на сайт:
+
+```bash
+pnpm --silent authoring:deliver reconcile --target production --state ~/.inside-authoring/production \
+  --namespace inside-ai-engineering
+```
+
+Статусы строк: `agree`, `target_only` (есть на сайте, нет в журнале), `journal_only`, `identity_differs`,
+`version_differs`; для заданий то же по ревизии их записи в журнале. Материал или задание, которые владелец поручил обновить, примите в журнал явно:
+повторите команду с `--adopt SOURCE_ID`. Журнал вручную не правьте.
+
+### Защита от старого пакета
+
+Доставка сама экспортирует Guide из названного коммита и из `HEAD` репозитория Content и сравнивает
+выбранные строки с пакетом: старый пакет с текущим коммитом даёт `package_commit_mismatch`, а пакет
+из коммита, после которого `HEAD` уже изменил тот же урок, даёт `source_newer_in_repository`.
+Каждый импорт записывает у Material коммит Content (`source.commit`). Доставка и полный `preview`
+отказывают, если пакет старше записанного коммита (`source_commit_older`) или ушёл в другую ветку
+истории (`source_commit_diverged`). Полный `preview --package` без `--commit CONTENT_SHA
+--content-repository CONTENT_REPOSITORY` даёт конфликт `source_commit_unknown` для материала с записанным
+коммитом. Так повторное применение старого подготовленного пакета, как 19.10.2026, останавливается до записи.
 
 ## Смена статуса без замены содержания
 
@@ -147,7 +193,7 @@ pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY
 
 Для очередного текста новый выпуск приложения не нужен (#806).
 
-1. **Коммит в Content.** Закоммитьте урок в Engineering Content.
+1. **Коммит в Content.** Закоммитьте урок в Content Studio.
 2. **Перенос черновиком.** Выполните `preview` и `apply` из раздела выше без `--publish`: урок
    попадёт на сайт закрытым черновиком.
 3. **Просмотр точной версии.** Откройте `https://sachkov.dev/authoring/materials`, найдите
@@ -166,7 +212,7 @@ pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY
 
 Замените поля в угловых скобках и передайте агенту этот текст:
 
-> Из Platform подготовь перенос курса `<PRODUCT_ID>` из Engineering Content. Используй только
+> Из Platform подготовь перенос курса `<PRODUCT_ID>` из Content Studio. Используй только
 > commit `<CONTENT_SHA>` и штатный `authoring:release`. Проверь исходники и экспорт: главы,
 > порядок, уроки, квизы, задания, медиа и постоянные source ID. Оригиналы меняет сессия Content.
 > Публиковать можно только `<SOURCE_ID_LIST>`; пустой список означает перенос черновиками.

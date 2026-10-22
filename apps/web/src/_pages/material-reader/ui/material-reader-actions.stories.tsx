@@ -1,6 +1,7 @@
 import { useState, type ComponentProps } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
+import { z } from "zod";
 
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import {
@@ -20,6 +21,12 @@ import { MaterialReaderView } from "./material-reader-view";
 const materialId = "10000000-0000-4000-8000-000000001336";
 const accountId = "20000000-0000-4000-8000-000000001336";
 const at = "2026-10-10T08:00:00.000Z";
+/** JSON-тело команды прочтения или закладки: история читает только нужные поля. */
+const commandBodySchema = z.object({
+  bookmarked: z.boolean().optional(),
+  commandId: z.string().optional(),
+  isRead: z.boolean().optional(),
+});
 import { courseGuide } from "@/storybook/course-reading.fixtures";
 
 const programme = productProgrammeHref("ai-engineering");
@@ -88,12 +95,12 @@ const meta = {
         return Response.json({ kind: "ready", states: [readingState()] });
       if (path === "/api/bookmarks/states")
         return Response.json({ kind: "ready", states: [bookmarkState()] });
-      const body =
-        input instanceof Request ? await input.formData() : init?.body;
-      if (!(body instanceof FormData))
+      const raw = input instanceof Request ? await input.text() : init?.body;
+      if (typeof raw !== "string")
         throw new Error(`Unexpected request: ${path}`);
+      const body = commandBodySchema.parse(JSON.parse(raw));
       if (path === "/api/reading-progress/state") {
-        const commandId = body.get("commandId");
+        const commandId = body.commandId;
         if (typeof commandId !== "string")
           throw new Error("Missing command ID");
         commands.push(commandId);
@@ -107,7 +114,7 @@ const meta = {
               ? { kind: "conflict", current: readingState() }
               : { kind: readingFailure },
           );
-        isRead = body.get("isRead") === "true";
+        isRead = body.isRead === true;
         version += 1;
         return Response.json({
           kind: "saved",
@@ -118,7 +125,7 @@ const meta = {
       if (path === "/api/bookmarks/state") {
         if (bookmarkFailure !== null)
           return Response.json({ kind: bookmarkFailure });
-        bookmarked = body.get("bookmarked") === "true";
+        bookmarked = body.bookmarked === true;
         return Response.json({ kind: "ready", state: bookmarkState() });
       }
       throw new Error(`Unexpected request: ${path}`);

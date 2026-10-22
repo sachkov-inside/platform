@@ -15,17 +15,17 @@ const ledger = (rows: readonly Migration[]) =>
     position: index + 1,
   }));
 
-it("retains exact main101/102/103 prefixes and all thirteen immutable observability statements", () => {
-  for (const label of ["main101", "main102", "main103"] as const) {
+it("retains exact main101/102/103/104 prefixes and all thirteen immutable observability statements", () => {
+  for (const label of ["main101", "main102", "main103", "main104"] as const) {
     const main = frozenRegistry(label);
     expect(platformMigrations.slice(0, main.length)).toEqual(main);
     expect(() =>
       assertAppliedMigrations(ledger(main), platformMigrations),
     ).not.toThrow();
   }
-  expect(platformMigrations).toHaveLength(116);
-  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(116);
-  expect(platformMigrations.slice(103)).toEqual(
+  expect(platformMigrations).toHaveLength(117);
+  expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(117);
+  expect(platformMigrations.slice(104)).toEqual(
     frozenRegistry("legacy115").slice(102),
   );
 });

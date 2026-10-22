@@ -176,6 +176,37 @@ export async function fullStackBrowserRequest(
   };
 }
 
+/** Sends one mutation operation's JSON body from the page, as its browser adapter does. */
+export async function fullStackBrowserJsonRequest(
+  page: Page,
+  path: string,
+  method: "DELETE" | "PATCH" | "POST" | "PUT",
+  input: unknown,
+) {
+  const result = await page.evaluate(
+    async ({ path, method, body }) => {
+      const response = await fetch(path, {
+        body,
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        method,
+      });
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: await response.text(),
+      };
+    },
+    { path, method, body: JSON.stringify(input) },
+  );
+  return {
+    ok: () => result.ok,
+    status: () => result.status,
+    json: (): Promise<unknown> =>
+      Promise.resolve(JSON.parse(result.body) as unknown),
+  };
+}
+
 /**
  * HTTP-запросы от имени сессии страницы. Продлённая сессия ставит cookie с `Secure`; браузер шлёт его
  * на 127.0.0.1, а собственный клиент Playwright — нет, и запрос уходит гостем. Здесь cookie браузера

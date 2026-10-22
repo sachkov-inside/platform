@@ -5,6 +5,7 @@ const fakes = vi.hoisted(() => ({
   getAccessToken: vi.fn(),
   getOptionalAccessToken: vi.fn(),
   requestCreateFile: vi.fn(),
+  requestCreateLink: vi.fn(),
   requestListForProduct: vi.fn(),
   requestRemove: vi.fn(),
   requestSetProducts: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("@/shared/api/backend/index.server", async (importOriginal) => {
   return {
     ...original,
     requestCreateProductArtifactFile: fakes.requestCreateFile,
+    requestCreateProductArtifactFromLink: fakes.requestCreateLink,
     requestProductArtifactsForProduct: fakes.requestListForProduct,
     requestRemoveProductArtifact: fakes.requestRemove,
     requestSetProductArtifactProducts: fakes.requestSetProducts,
@@ -41,13 +43,17 @@ vi.mock("@/shared/auth/index.server", async () => {
   return {
     getOptionalPlatformAccessToken: fakes.getOptionalAccessToken,
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
+    handleMutationOperation: handler.handleMutationOperation,
+    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
   };
 });
 
 import {
   handleCreateProductArtifactFile,
+  handleCreateProductArtifactLink,
   handleReadProductArtifactsRequest,
   handleRemoveProductArtifact,
+  handleSetProductArtifactProducts,
 } from "@/features/product-artifacts/api/product-artifacts-bff.server";
 import {
   describeArtifactContent,
@@ -189,18 +195,8 @@ describe("Product artifacts BFF", () => {
       problem: { code: "artifact_referenced", productIds: [productId] },
       response: new Response(null, { status: 409 }),
     });
-    const body = new FormData();
-    body.set("artifactId", artifactId);
-
     const response = await handleRemoveProductArtifact(
-      new Request(
-        "https://inside.example.test/api/authoring/product-artifacts/removal",
-        {
-          body,
-          headers: { origin: "https://inside.example.test" },
-          method: "DELETE",
-        },
-      ),
+      artifactRequest("/removal", { artifactId }, "DELETE"),
     );
 
     await expect(response.json()).resolves.toEqual({
@@ -209,17 +205,67 @@ describe("Product artifacts BFF", () => {
     });
   });
 
-  it("refuses a cross-origin artifact mutation before reading any session", async () => {
-    const body = new FormData();
-    body.set("artifactId", artifactId);
-    const response = await handleRemoveProductArtifact(
-      new Request(
-        "https://inside.example.test/api/authoring/product-artifacts/removal",
+  it("creates a link artifact with an empty purpose when the author leaves it out", async () => {
+    fakes.requestCreateLink.mockResolvedValue({
+      body: {
+        ...artifact,
+        content: { externalUrl: "https://example.test/board", kind: "link" },
+        purpose: "",
+      },
+      ok: true,
+      response: new Response(null, { status: 201 }),
+    });
+
+    const response = await handleCreateProductArtifactLink(
+      artifactRequest(
+        "/links",
         {
-          body,
-          headers: { origin: "https://attacker.example.test" },
-          method: "DELETE",
+          access: "free",
+          externalUrl: "https://example.test/board",
+          productId,
+          title: "Доска",
         },
+        "POST",
+      ),
+    );
+
+    await expect(response.json()).resolves.toMatchObject({ kind: "saved" });
+    expect(fakes.requestCreateLink).toHaveBeenCalledWith(
+      {
+        access: "free",
+        externalUrl: "https://example.test/board",
+        productId,
+        purpose: "",
+        title: "Доска",
+      },
+      "access-token",
+    );
+  });
+
+  it("answers an invalid placement with its own refusal before any backend call", async () => {
+    const response = await handleSetProductArtifactProducts(
+      artifactRequest(
+        "/placements",
+        { artifactId, productIds: ["not-a-product"] },
+        "PUT",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      kind: "rejected",
+      reason: "Не удалось изменить размещение артефакта.",
+    });
+    expect(fakes.requestSetProducts).not.toHaveBeenCalled();
+  });
+
+  it("refuses a cross-origin artifact mutation before reading any session", async () => {
+    const response = await handleRemoveProductArtifact(
+      artifactRequest(
+        "/removal",
+        { artifactId },
+        "DELETE",
+        "https://attacker.example.test",
       ),
     );
 
@@ -254,3 +300,19 @@ describe("Product artifacts BFF", () => {
     ).toBe("https://example.test/board");
   });
 });
+
+function artifactRequest(
+  path: string,
+  input: Readonly<Record<string, unknown>>,
+  method: "DELETE" | "POST" | "PUT",
+  origin = "https://inside.example.test",
+): Request {
+  return new Request(
+    `https://inside.example.test/api/authoring/product-artifacts${path}`,
+    {
+      body: JSON.stringify(input),
+      headers: { "content-type": "application/json", origin },
+      method,
+    },
+  );
+}

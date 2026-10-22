@@ -212,10 +212,10 @@ export const FormSubmits: Story = {
     );
     await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(1));
     const body = submitSpy.mock.calls[0]?.[1]?.body;
-    if (!(body instanceof FormData)) throw new Error("Форма не отправлена");
-    await expect(Object.fromEntries(body)).toMatchObject({
+    if (typeof body !== "string") throw new Error("Форма не отправлена");
+    await expect(JSON.parse(body)).toMatchObject({
       code: "aie-ch1-onboarding",
-      taskVersion: "2",
+      taskVersion: 2,
       note: "Сделал выдачу доступа.",
       repositoryUrl: "https://github.com/learner/devportal",
     });

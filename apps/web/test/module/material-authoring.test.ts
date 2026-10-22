@@ -15,6 +15,14 @@ import {
   executeCreateMaterialDraft,
   type MaterialDraftWorkflowDependencies,
 } from "@/_pages/material-authoring/api/create-material-draft";
+import {
+  createMaterialDraftInputSchema,
+  type CreateMaterialDraftInput,
+} from "@/_pages/material-authoring/model/create-material-draft";
+import {
+  saveMaterialInputSchema,
+  type SaveMaterialInput,
+} from "@/_pages/material-authoring/model/save-material";
 import { getCurrentMaterialPreview } from "@/_pages/material-authoring/api/get-current-material-preview";
 import {
   getCurrentMaterial,
@@ -66,7 +74,11 @@ describe("Material Authoring action workflow", () => {
     const dependencies = successfulDependencies();
 
     await expect(
-      executeCreateMaterialDraft(validFormData(), "access-token", dependencies),
+      executeCreateMaterialDraft(
+        validDraftInput(),
+        "access-token",
+        dependencies,
+      ),
     ).resolves.toMatchObject({
       kind: "created",
       draft: {
@@ -88,13 +100,12 @@ describe("Material Authoring action workflow", () => {
     );
   });
 
-  it("rejects malformed form input before the Nest mutation", async () => {
+  it("rejects a malformed document before the Nest mutation", async () => {
     const dependencies = successfulDependencies();
-    const formData = validFormData();
-    formData.set("document", "not-json");
+    const input = validDraftInput({ document: { type: "paragraph" } });
 
     await expect(
-      executeCreateMaterialDraft(formData, "access-token", dependencies),
+      executeCreateMaterialDraft(input, "access-token", dependencies),
     ).resolves.toMatchObject({
       kind: "invalid_input",
       issues: [{ path: "/document" }],
@@ -113,7 +124,11 @@ describe("Material Authoring action workflow", () => {
     } satisfies MaterialDraftWorkflowDependencies;
 
     await expect(
-      executeCreateMaterialDraft(validFormData(), "access-token", dependencies),
+      executeCreateMaterialDraft(
+        validDraftInput(),
+        "access-token",
+        dependencies,
+      ),
     ).resolves.toEqual({ kind: "forbidden" });
   });
 
@@ -124,7 +139,11 @@ describe("Material Authoring action workflow", () => {
     } satisfies MaterialDraftWorkflowDependencies;
 
     await expect(
-      executeCreateMaterialDraft(validFormData(), "access-token", dependencies),
+      executeCreateMaterialDraft(
+        validDraftInput(),
+        "access-token",
+        dependencies,
+      ),
     ).resolves.toEqual({
       kind: "unexpected_error",
       reference: "unexpected-authoring-error",
@@ -345,9 +364,8 @@ describe("Material Authoring action workflow", () => {
     "preserves an explicit Telegram author choice %s through the save adapter",
     async (enabled) => {
       const dependencies = successfulSaveDependencies();
-      const form = validSaveFormData();
-      form.set("notifyTelegram", String(enabled));
-      await executeSaveMaterial(form, "access-token", dependencies);
+      const input = validSaveInput({ notifyTelegram: enabled });
+      await executeSaveMaterial(input, "access-token", dependencies);
       expect(dependencies.save).toHaveBeenCalledWith(
         expect.objectContaining({ notifyTelegram: enabled }),
         "access-token",
@@ -359,7 +377,7 @@ describe("Material Authoring action workflow", () => {
     const dependencies = successfulSaveDependencies();
 
     await expect(
-      executeSaveMaterial(validSaveFormData(), "access-token", dependencies),
+      executeSaveMaterial(validSaveInput(), "access-token", dependencies),
     ).resolves.toMatchObject({
       contentVersion: 4,
       kind: "saved",
@@ -403,10 +421,9 @@ describe("Material Authoring action workflow", () => {
 
   it("passes explicit Video deletion intent only as part of the full-state Save", async () => {
     const dependencies = successfulSaveDependencies();
-    const formData = validSaveFormData();
-    formData.set("deleteVideoId", videoId);
+    const input = validSaveInput({ deleteVideoId: videoId });
 
-    await executeSaveMaterial(formData, "access-token", dependencies);
+    await executeSaveMaterial(input, "access-token", dependencies);
 
     expect(dependencies.save).toHaveBeenCalledWith(
       expect.objectContaining({ deleteVideoId: videoId }),
@@ -416,12 +433,12 @@ describe("Material Authoring action workflow", () => {
 
   it("passes every Video the author removed as part of the full-state Save", async () => {
     const dependencies = successfulSaveDependencies();
-    const formData = validSaveFormData();
     const replacementId = "30000000-0000-4000-8000-000000000009";
-    formData.append("detachVideoIds", videoId);
-    formData.append("detachVideoIds", replacementId);
+    const input = validSaveInput({
+      detachVideoIds: [videoId, replacementId],
+    });
 
-    await executeSaveMaterial(formData, "access-token", dependencies);
+    await executeSaveMaterial(input, "access-token", dependencies);
 
     expect(dependencies.save).toHaveBeenCalledWith(
       expect.objectContaining({ detachVideoIds: [videoId, replacementId] }),
@@ -442,17 +459,17 @@ describe("Material Authoring action workflow", () => {
         response: Response.json({}, { status: 409 }),
       }),
     } satisfies SaveMaterialDependencies;
-    const formData = validSaveFormData();
+    const input = validSaveInput();
 
     await expect(
-      executeSaveMaterial(formData, "access-token", dependencies),
+      executeSaveMaterial(input, "access-token", dependencies),
     ).resolves.toEqual({
       currentContentVersion: 4,
       kind: "conflict",
       staleContentVersion: 3,
     });
-    expect(formData.get("title")).toBe("Saved Material");
-    expect(formData.get("document")).toContain("Local full state");
+    expect(input.title).toBe("Saved Material");
+    expect(JSON.stringify(input.document)).toContain("Local full state");
   });
 
   it("explains source ownership mismatches in Save", async () => {
@@ -474,7 +491,7 @@ describe("Material Authoring action workflow", () => {
       }),
     } satisfies SaveMaterialDependencies;
     await expect(
-      executeSaveMaterial(validSaveFormData(), "access-token", refused),
+      executeSaveMaterial(validSaveInput(), "access-token", refused),
     ).resolves.toEqual({
       kind: "invalid_input",
       issues: [
@@ -504,13 +521,12 @@ describe("Material Authoring action workflow", () => {
       }),
     } satisfies SaveMaterialDependencies;
     await expect(
-      executeSaveMaterial(validSaveFormData(), "access-token", refused),
+      executeSaveMaterial(validSaveInput(), "access-token", refused),
     ).resolves.toEqual({ products, kind: "removal_confirmation_required" });
 
     const dependencies = successfulSaveDependencies();
-    const formData = validSaveFormData();
-    formData.append("confirmedProductRemovals", seriesId);
-    await executeSaveMaterial(formData, "access-token", dependencies);
+    const input = validSaveInput({ confirmedProductRemovals: [seriesId] });
+    await executeSaveMaterial(input, "access-token", dependencies);
     expect(dependencies.save).toHaveBeenCalledWith(
       expect.objectContaining({ confirmedProductRemovals: [seriesId] }),
       "access-token",
@@ -527,16 +543,8 @@ describe("Material Authoring action workflow", () => {
       }),
     } satisfies SaveMaterialDependencies;
 
-    await executeSaveMaterial(
-      validSaveFormData(),
-      "access-token",
-      dependencies,
-    );
-    await executeSaveMaterial(
-      validSaveFormData(),
-      "access-token",
-      dependencies,
-    );
+    await executeSaveMaterial(validSaveInput(), "access-token", dependencies);
+    await executeSaveMaterial(validSaveInput(), "access-token", dependencies);
 
     expect(dependencies.save).toHaveBeenCalledTimes(2);
     expect(dependencies.save).toHaveBeenNthCalledWith(
@@ -562,17 +570,17 @@ describe("Material Authoring action workflow", () => {
     } satisfies SaveMaterialDependencies;
 
     await expect(
-      executeSaveMaterial(validSaveFormData(), "access-token", dependencies),
+      executeSaveMaterial(validSaveInput(), "access-token", dependencies),
     ).rejects.toThrow("Malformed response");
   });
 });
 
-function validFormData(): FormData {
-  const formData = new FormData();
-  formData.set("access", "free");
-  formData.set(
-    "document",
-    JSON.stringify({
+function validDraftInput(
+  overrides: Partial<CreateMaterialDraftInput> = {},
+): z.output<typeof createMaterialDraftInputSchema> {
+  return createMaterialDraftInputSchema.parse({
+    access: "free",
+    document: {
       type: "doc",
       content: [
         {
@@ -580,19 +588,18 @@ function validFormData(): FormData {
           content: [{ type: "text", text: "Current из PostgreSQL." }],
         },
       ],
-    }),
-  );
-  formData.set("difficulty", "basic");
-  formData.append("outcome", "Собрать один production path");
-  formData.append("outcome", "Проверить его одним прогоном");
-  formData.set("formatId", formatId);
-  formData.set("submissionId", submissionId);
-  formData.set("seriesIds", JSON.stringify([seriesId]));
-  formData.set("summary", "Проверяем create, validation и current Preview.");
-  formData.append("tagIds", tagId);
-  formData.set("title", "Один production path");
-  formData.set("topicId", topicId);
-  return formData;
+    },
+    difficulty: "basic",
+    outcomes: ["Собрать один production path", "Проверить его одним прогоном"],
+    formatId,
+    submissionId,
+    seriesIds: [seriesId],
+    summary: "Проверяем create, validation и current Preview.",
+    tagIds: [tagId],
+    title: "Один production path",
+    topicId,
+    ...overrides,
+  } satisfies CreateMaterialDraftInput);
 }
 
 function successfulDependencies(): MaterialDraftWorkflowDependencies {
@@ -662,12 +669,14 @@ function successfulReferences() {
   });
 }
 
-function validSaveFormData(): FormData {
-  const formData = new FormData();
-  formData.set("access", "closed");
-  formData.set(
-    "document",
-    JSON.stringify({
+function validSaveInput(
+  overrides: Partial<SaveMaterialInput> = {},
+): z.output<typeof saveMaterialInputSchema> {
+  return saveMaterialInputSchema.parse({
+    access: "closed",
+    deleteVideoId: null,
+    detachVideoIds: [],
+    document: {
       content: [
         {
           content: [{ text: "Local full state", type: "text" }],
@@ -675,23 +684,22 @@ function validSaveFormData(): FormData {
         },
       ],
       type: "doc",
-    }),
-  );
-  formData.set("expectedContentVersion", "3");
-  formData.set("difficulty", "basic");
-  formData.append("outcome", "Собрать один production path");
-  formData.append("outcome", "Проверить его одним прогоном");
-  formData.set("formatId", formatId);
-  formData.set("materialId", materialId);
-  formData.set("publicationState", "published");
-  formData.set("seriesIds", JSON.stringify([seriesId]));
-  formData.set("slug", "saved-material");
-  formData.set("submissionId", submissionId);
-  formData.set("summary", "Saved summary");
-  formData.append("tagIds", tagId);
-  formData.set("title", "Saved Material");
-  formData.set("topicId", topicId);
-  return formData;
+    },
+    expectedContentVersion: 3,
+    difficulty: "basic",
+    outcomes: ["Собрать один production path", "Проверить его одним прогоном"],
+    formatId,
+    materialId,
+    primaryVideoId: null,
+    publicationState: "published",
+    seriesIds: [seriesId],
+    submissionId,
+    summary: "Saved summary",
+    tagIds: [tagId],
+    title: "Saved Material",
+    topicId,
+    ...overrides,
+  } satisfies SaveMaterialInput);
 }
 
 function successfulSaveDependencies(): SaveMaterialDependencies {

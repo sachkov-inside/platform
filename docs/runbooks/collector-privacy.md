@@ -18,7 +18,7 @@ Production и default-OFF настройки SDK не меняются. Конф
 HTTP methods, зарегистрированные route templates, canonical `jobQueues`, pg-boss operations и metric
 names. Routes сверяются с checked-in OpenAPI; это шаблоны с параметрами, а не значения URL.
 Неизвестные attributes удаляются. Неизвестные значения разрешённых строковых attributes становятся
-`_OTHER`; статус ограничен 100–599, retry/batch counters — 0–1,000,000, job ID — UUID только в span,
+`_OTHER`; статус ограничен 100–599, retry/batch counters ограничены 0–1,000,000, job ID имеет формат UUID только в span,
 не в metric labels. Release допускает только 40 lowercase hex или три числовые части версии.
 
 Сохраняются trace/span/parent IDs, время, код статуса, шаблон route, HTTP counts/durations и

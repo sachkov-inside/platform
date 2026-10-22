@@ -15,16 +15,16 @@ import { createTestDatabase } from "./setup/test-database.js";
 import { z } from "zod";
 import { frozenRegistry } from "../support/observability-migration-fixtures.js";
 
-it.each(["main101", "main102", "main103"] as const)(
-  "upgrades exact frozen %s to canonical116 without changing its prefix",
+it.each(["main101", "main102", "main103", "main104"] as const)(
+  "upgrades exact frozen %s to canonical117 without changing its prefix",
   async (label) => {
     const mainRegistry = frozenRegistry(label);
     expect(platformMigrations.slice(0, mainRegistry.length)).toEqual(
       mainRegistry,
     );
-    expect(platformMigrations).toHaveLength(116);
-    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(116);
-    expect(platformMigrations.slice(103)).toEqual(
+    expect(platformMigrations).toHaveLength(117);
+    expect(new Set(platformMigrations.map(({ name }) => name)).size).toBe(117);
+    expect(platformMigrations.slice(104)).toEqual(
       frozenRegistry("legacy115").slice(102),
     );
     const database = await createTestDatabase();
@@ -84,7 +84,13 @@ it.each(["main101", "main102", "main103"] as const)(
   },
 );
 
-it.each(["root109", "legacy113", "legacy114", "legacy115"] as const)(
+it.each([
+  "root109",
+  "legacy113",
+  "legacy114",
+  "legacy115",
+  "legacy116",
+] as const)(
   "rejects frozen %s without changing ledger or historical tracking rows",
   async (label) => {
     const historical = frozenRegistry(label);
@@ -114,7 +120,7 @@ it.each(["root109", "legacy113", "legacy114", "legacy115"] as const)(
       const rows = await domain();
       expect(rows).toHaveLength(1);
       await expect(migrateToLatest(database.url)).rejects.toThrow(
-        `not an exact registry prefix at position ${label === "root109" ? "102" : "103"}`,
+        `not an exact registry prefix at position ${label === "root109" ? "102" : label === "legacy116" ? "104" : "103"}`,
       );
       expect(await ledger()).toEqual(before);
       expect(await domain()).toEqual(rows);
@@ -258,17 +264,25 @@ it("retains the frozen historical root0108 upgrade and rejects its divergent led
 });
 
 // Frozen from the exact prepared registry at root88301c77, before the nullable tracking carrier.
-it.each(["historical113", "canonical114"] as const)(
-  "preserves old tracking writers from %s using its matching registry",
-  async (label) => {
-    const prefix =
-      label === "historical113"
-        ? frozenRegistry("legacy113")
-        : platformMigrations.slice(0, 114);
-    const target =
-      label === "historical113"
-        ? frozenRegistry("legacy115")
-        : platformMigrations;
+it.each([
+  {
+    label: "historical113",
+    prefix: frozenRegistry("legacy113"),
+    target: frozenRegistry("legacy115"),
+  },
+  {
+    label: "frozenCanonical114",
+    prefix: frozenRegistry("legacy116").slice(0, 114),
+    target: frozenRegistry("legacy116"),
+  },
+  {
+    label: "currentCanonical115",
+    prefix: platformMigrations.slice(0, 115),
+    target: platformMigrations,
+  },
+] as const)(
+  "preserves old tracking writers from $label using its matching registry",
+  async ({ prefix, target }) => {
     const database = await createTestDatabase();
     try {
       await runMigrationsToLatest(database.url, prefix);
@@ -323,17 +337,25 @@ it.each(["historical113", "canonical114"] as const)(
   },
 );
 
-it.each(["historical114", "canonical115"] as const)(
-  "preserves old waitlist receipt writers from %s using its matching registry",
-  async (label) => {
-    const prefix =
-      label === "historical114"
-        ? frozenRegistry("legacy114")
-        : platformMigrations.slice(0, 115);
-    const target =
-      label === "historical114"
-        ? frozenRegistry("legacy115")
-        : platformMigrations;
+it.each([
+  {
+    label: "historical114",
+    prefix: frozenRegistry("legacy114"),
+    target: frozenRegistry("legacy115"),
+  },
+  {
+    label: "frozenCanonical115",
+    prefix: frozenRegistry("legacy116").slice(0, 115),
+    target: frozenRegistry("legacy116"),
+  },
+  {
+    label: "currentCanonical116",
+    prefix: platformMigrations.slice(0, 116),
+    target: platformMigrations,
+  },
+] as const)(
+  "preserves old waitlist receipt writers from $label using its matching registry",
+  async ({ prefix, target }) => {
     const database = await createTestDatabase();
     try {
       await runMigrationsToLatest(database.url, prefix);

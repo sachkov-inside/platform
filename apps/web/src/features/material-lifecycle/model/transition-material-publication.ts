@@ -10,6 +10,14 @@ export type TransitionMaterialPublicationResult = z.infer<
 >;
 import { z } from "zod";
 
+/** The JSON body of the publication transition; another field is ignored, as the former form did. */
+export const transitionMaterialPublicationInputSchema = z.object({
+  expectedContentVersion: z.number().int().positive(),
+  materialId: z.uuid(),
+  publicationState: z.enum(["published", "unpublished"]),
+  submissionId: z.uuid(),
+});
+
 const issueSchema = z.object({ code: z.string(), path: z.string() }).strict();
 
 export const transitionMaterialPublicationResultSchema = z.discriminatedUnion(

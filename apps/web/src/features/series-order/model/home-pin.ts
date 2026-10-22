@@ -22,6 +22,11 @@ export const homePinResultSchema = z.discriminatedUnion("kind", [
 ]);
 export type HomePinResult = z.infer<typeof homePinResultSchema>;
 export type HomePin = z.infer<typeof homePinSchema>;
+/** The JSON body of a Home pin change; `null` clears the pin. */
+export const setHomePinInputSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  seriesId: z.uuid().nullable(),
+});
 export interface SetHomePinInput {
   readonly seriesId: string | null;
   readonly expectedVersion: number;

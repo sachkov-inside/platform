@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 
 import { AccountsModule } from "../accounts/index.js";
 import { ImportProductTaskController } from "./features/import-product-task/import-product-task.controller.js";
+import { ReadSourceTaskStateController } from "./features/read-source-task-state/read-source-task-state.controller.js";
 import { ListAuthorSubmissionsController } from "./features/list-author-submissions/list-author-submissions.controller.js";
 import { ListOwnTaskSubmissionsController } from "./features/list-task-submissions/list-task-submissions.controller.js";
 import { ReadTaskPageController } from "./features/read-task-page/read-task-page.controller.js";
@@ -19,6 +20,7 @@ import { ProductTasksModule } from "./product-tasks.module.js";
   imports: [AccountsModule, ProductTasksModule],
   controllers: [
     ImportProductTaskController,
+    ReadSourceTaskStateController,
     ReadTaskPageController,
     DeliverTaskAssetController,
     ListOwnTaskSubmissionsController,

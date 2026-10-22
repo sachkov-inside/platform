@@ -128,7 +128,7 @@ async function purchase() {
       await (
         await page.request.post(origin + "/api/account/billing/contact/start", {
           headers: { origin },
-          form: { operationId: randomUUID(), expectedRevision: "0", email },
+          data: { operationId: randomUUID(), expectedRevision: 0, email },
         })
       ).json(),
     );
@@ -159,7 +159,7 @@ async function purchase() {
           origin + "/api/account/billing/contact/confirm",
           {
             headers: { origin },
-            form: {
+            data: {
               operationId: randomUUID(),
               challengeRef: challenge.challengeRef,
               code,
@@ -218,7 +218,7 @@ async function activateExisting() {
   ).json();
   const profile = await page.request.post(origin + "/api/account/profile", {
     headers: { origin },
-    form: { displayName: "Synthetic existing course buyer", bio: "" },
+    data: { displayName: "Synthetic existing course buyer", bio: "" },
   });
   expect(profile.ok()).toBe(true);
   /** @type {unknown} */
@@ -233,7 +233,7 @@ async function activateExisting() {
     await (
       await page.request.post(origin + "/api/account/telegram-link/begin", {
         headers: { origin },
-        form: {},
+        data: {},
       })
     ).json(),
   );
@@ -248,7 +248,7 @@ async function activateExisting() {
           await (
             await page.request.post(
               origin + "/api/account/telegram-link/confirm",
-              { headers: { origin }, form: { linkRef: begin.state.linkRef } },
+              { headers: { origin }, data: { linkRef: begin.state.linkRef } },
             )
           ).json(),
         );

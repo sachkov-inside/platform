@@ -25,6 +25,10 @@ import {
   handleBroadcastSave,
 } from "@/_pages/communications/api/communications.server";
 import {
+  launchBroadcast,
+  samplePost,
+} from "@/_pages/communications/api/broadcasts.browser";
+import {
   handleTrackingVisit,
   handleTrackingHead,
   classifyTrackingTraffic,
@@ -33,11 +37,13 @@ const broadcastId = "10000000-0000-4000-8000-000000000001";
 const operationId = "10000000-0000-4000-8000-000000000002";
 const input = { operationId, expectedRevision: 2, payload: { broadcastId } };
 function request(value: unknown, origin = "https://inside.test") {
-  const form = new FormData();
-  form.set("input", JSON.stringify(value));
   return new Request(
     "https://inside.test/api/communications/broadcasts/launch",
-    { method: "POST", headers: { origin }, body: form },
+    {
+      method: "POST",
+      headers: { origin, "content-type": "application/json" },
+      body: JSON.stringify(value),
+    },
   );
 }
 beforeEach(() => {
@@ -84,6 +90,33 @@ test("cross-origin and malformed saves cannot reach the provider", async () => {
     code: "invalid_input",
   });
   expect(mocks.request).not.toHaveBeenCalled();
+});
+test("broadcast writes keep their transport outcomes in the browser", async () => {
+  for (const [response, code] of [
+    [new Response(null, { status: 401 }), "authentication_required"],
+    [new Response(null, { status: 403 }), "authentication_required"],
+    [new Response(null, { status: 500 }), "provider_unavailable"],
+    [new Response("not json"), "provider_unavailable"],
+    [Response.json({ kind: "ready" }), "invalid_response"],
+  ] as const) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(response)),
+    );
+    expect(await launchBroadcast(input)).toEqual({ kind: "error", code });
+  }
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.reject(new Error("offline"))),
+  );
+  expect(
+    await samplePost({
+      operationId,
+      expectedRevision: 1,
+      payload: { templateId: broadcastId },
+    }),
+  ).toEqual({ kind: "error", code: "provider_unavailable" });
+  vi.unstubAllGlobals();
 });
 test("redirect records known previews, ignores caller URLs, disables cache/referrer and does not grant content access", async () => {
   mocks.visit.mockResolvedValue({

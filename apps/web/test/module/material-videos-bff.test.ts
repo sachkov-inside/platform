@@ -43,8 +43,8 @@ vi.mock("@/shared/auth/index.server", async () => {
     await import("@/shared/auth/authenticated-mutation-handler.server");
   return {
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
-    handleOptionalAuthenticatedMutation:
-      handler.handleOptionalAuthenticatedMutation,
+    handleMutationOperation: handler.handleMutationOperation,
+    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
   };
 });
 
@@ -118,7 +118,7 @@ describe("Material Video playback BFF", () => {
     });
 
     await handleVideoPlaybackSessionRequest(
-      playbackRequest("https://inside.example.test", "true"),
+      playbackRequest("https://inside.example.test", true),
     );
     expect(fakes.requestPlayback).toHaveBeenLastCalledWith(
       { materialId, preview: true, videoId },
@@ -179,11 +179,11 @@ describe("Material Video named authoring BFF mutations", () => {
         response: Response.json({}, { status: 503 }),
       });
       const response = await handleVideoUploadRequest(
-        mutationRequest(
+        operationRequest(
           "/api/authoring/material-video-uploads",
           {
             access: "free",
-            byteSize: "42",
+            byteSize: 42,
             filename: "video.mp4",
             materialId,
             submissionId: videoId,
@@ -206,11 +206,11 @@ describe("Material Video named authoring BFF mutations", () => {
       response: Response.json({}),
     });
     const response = await handleVideoUploadRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-uploads",
         {
           access: "free",
-          byteSize: "1024",
+          byteSize: 1024,
           filename: "lesson.mp4",
           materialId,
           submissionId: "30000000-0000-4000-8000-000000000001",
@@ -248,14 +248,14 @@ describe("Material Video named authoring BFF mutations", () => {
     });
 
     const attached = await handleVideoAttachmentRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-attachments",
         { access: "closed", materialId, providerVideoId: "provider-video" },
         "POST",
       ),
     );
     const reconciled = await handleVideoReconciliationRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-reconciliations",
         { videoId },
         "POST",
@@ -286,7 +286,7 @@ describe("Material Video named authoring BFF mutations", () => {
     });
 
     const response = await handleVideoDeletionRetryRequest(
-      mutationRequest(
+      operationRequest(
         "/api/authoring/material-video-deletion-retries",
         { videoId },
         "POST",
@@ -300,15 +300,37 @@ describe("Material Video named authoring BFF mutations", () => {
     );
   });
 
+  it("refuses an upload body with an unknown field before any backend call", async () => {
+    const response = await handleVideoUploadRequest(
+      operationRequest(
+        "/api/authoring/material-video-uploads",
+        {
+          access: "free",
+          byteSize: 42,
+          filename: "video.mp4",
+          materialId,
+          submissionId: videoId,
+          title: "Video",
+          unexpected: true,
+        },
+        "POST",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ kind: "invalid_input" });
+    expect(fakes.requestUpload).not.toHaveBeenCalled();
+  });
+
   it("saves progress through the authenticated PUT capability", async () => {
     fakes.requestProgress.mockResolvedValue({
       ok: true,
       response: new Response(null, { status: 204 }),
     });
     const response = await handleVideoProgressSaveRequest(
-      mutationRequest(
+      operationRequest(
         "/api/material-video-progress",
-        { durationSeconds: "120", materialId, positionSeconds: "37", videoId },
+        { durationSeconds: 120, materialId, positionSeconds: 37, videoId },
         "PUT",
       ),
     );
@@ -327,27 +349,28 @@ describe("Material Video named authoring BFF mutations", () => {
   });
 });
 
-function playbackRequest(origin: string, preview?: string): Request {
-  const formData = new FormData();
-  formData.set("materialId", materialId);
-  formData.set("videoId", videoId);
-  if (preview !== undefined) formData.set("preview", preview);
+function playbackRequest(origin: string, preview?: unknown): Request {
   return new Request(
     "https://inside.example.test/api/material-video-playback-sessions",
-    { body: formData, headers: { origin }, method: "POST" },
+    {
+      body: JSON.stringify({ materialId, videoId, preview }),
+      headers: { "content-type": "application/json", origin },
+      method: "POST",
+    },
   );
 }
 
-function mutationRequest(
+function operationRequest(
   path: string,
-  fields: Readonly<Record<string, string>>,
+  input: Readonly<Record<string, unknown>>,
   method: "POST" | "PUT",
 ): Request {
-  const formData = new FormData();
-  for (const [name, value] of Object.entries(fields)) formData.set(name, value);
   return new Request(`https://inside.example.test${path}`, {
-    body: formData,
-    headers: { origin: "https://inside.example.test" },
+    body: JSON.stringify(input),
+    headers: {
+      "content-type": "application/json",
+      origin: "https://inside.example.test",
+    },
     method,
   });
 }

@@ -9,16 +9,11 @@ import {
   requestMaterialPublicationTransition,
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
-import type { TransitionMaterialPublicationResult } from "../model/transition-material-publication";
+import type {
+  transitionMaterialPublicationInputSchema,
+  TransitionMaterialPublicationResult,
+} from "../model/transition-material-publication";
 
-const formSchema = z
-  .object({
-    expectedContentVersion: z.coerce.number().int().positive(),
-    materialId: z.uuid(),
-    publicationState: z.enum(["published", "unpublished"]),
-    submissionId: z.uuid(),
-  })
-  .strict();
 const receiptSchema = z
   .object({
     contentVersion: z.number().int().positive(),
@@ -39,35 +34,32 @@ const problemSchema = z
   })
   .loose();
 
+/** Maps a body outside the input schema to the issues the former form answered with. */
+export function transitionMaterialPublicationInvalidInput(
+  error: z.ZodError,
+): TransitionMaterialPublicationResult {
+  return {
+    issues: error.issues.map((issue) => ({
+      code: issue.code,
+      path: `/${issue.path.map(String).join("/")}`,
+    })),
+    kind: "invalid_input",
+  };
+}
+
 export async function executeTransitionMaterialPublication(
-  formData: FormData,
+  input: z.output<typeof transitionMaterialPublicationInputSchema>,
   accessToken: string,
   request: typeof requestMaterialPublicationTransition = requestMaterialPublicationTransition,
 ): Promise<TransitionMaterialPublicationResult> {
-  const parsed = formSchema.safeParse({
-    expectedContentVersion: formData.get("expectedContentVersion"),
-    materialId: formData.get("materialId"),
-    publicationState: formData.get("publicationState"),
-    submissionId: formData.get("submissionId"),
-  });
-  if (!parsed.success) {
-    return {
-      issues: parsed.error.issues.map((issue) => ({
-        code: issue.code,
-        path: `/${issue.path.map(String).join("/")}`,
-      })),
-      kind: "invalid_input",
-    };
-  }
-
   let result: BackendTransportResult;
   try {
     result = await request(
       {
-        expectedContentVersion: parsed.data.expectedContentVersion,
-        idempotencyKey: `web-transition-material-publication-${parsed.data.submissionId}`,
-        materialId: parsed.data.materialId,
-        publicationState: parsed.data.publicationState,
+        expectedContentVersion: input.expectedContentVersion,
+        idempotencyKey: `web-transition-material-publication-${input.submissionId}`,
+        materialId: input.materialId,
+        publicationState: input.publicationState,
       },
       accessToken,
     );
@@ -84,8 +76,8 @@ export async function executeTransitionMaterialPublication(
   const receipt = receiptSchema.safeParse(result.body);
   if (
     !receipt.success ||
-    receipt.data.materialId !== parsed.data.materialId ||
-    receipt.data.publicationState !== parsed.data.publicationState
+    receipt.data.materialId !== input.materialId ||
+    receipt.data.publicationState !== input.publicationState
   ) {
     return unexpected("malformed-save-response");
   }
@@ -93,7 +85,7 @@ export async function executeTransitionMaterialPublication(
     contentVersion: receipt.data.contentVersion,
     kind: "saved",
     nextSubmissionId: randomUUID(),
-    publicationState: parsed.data.publicationState,
+    publicationState: input.publicationState,
   };
 }
 

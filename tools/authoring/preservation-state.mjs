@@ -1,8 +1,12 @@
 // @ts-check
-import { createRequire } from "node:module";
+// The target state a content-only delivery preserves (#1672). It comes from the receiver's
+// authenticated state reads, so the stand and production use the same source of truth.
 import { z } from "zod";
 
+import { parseLocalResponse } from "./local-boundaries.mjs";
+
 const access = z.enum(["free", "closed"]);
+const commit = z.hash("sha1").nullable();
 export const targetStateSchema = z
   .object({
     materials: z.array(
@@ -13,6 +17,19 @@ export const targetStateSchema = z
           contentVersion: z.number().int().positive(),
           access,
           publicationState: z.enum(["draft", "published", "unpublished"]),
+          sourceRevision: z.hash("sha256").optional(),
+          sourceCommit: commit.optional(),
+          memberships: z
+            .array(
+              z
+                .object({
+                  productId: z.uuid(),
+                  ordinal: z.number().int().positive(),
+                  chapterId: z.uuid().nullable(),
+                })
+                .strict(),
+            )
+            .optional(),
         })
         .strict(),
     ),
@@ -23,85 +40,115 @@ export const targetStateSchema = z
           taskId: z.uuid(),
           code: z.string().min(1),
           productId: z.uuid(),
+          chapterId: z.uuid().optional(),
+          position: z.number().int().positive().optional(),
+          afterMaterialSourceId: z.string().nullable().optional(),
+          programmeVisibility: z
+            .enum(["standalone", "embedded", "legacy"])
+            .optional(),
+          embeddedMaterialId: z.uuid().nullable().optional(),
           revision: z.number().int().positive(),
           access,
           publicationState: z.enum(["published", "unpublished"]),
+          sourceCommit: commit.optional(),
         })
         .strict(),
     ),
+    // Reader paths of context Materials that the selected bodies may link to, by source key.
+    links: z
+      .record(z.string(), z.string().startsWith("/materials/"))
+      .optional(),
   })
   .strict();
 
 /** @typedef {z.infer<typeof targetStateSchema>} TargetState */
-/** @typedef {(materialIds: string[], taskIds: string[]) => Promise<TargetState>} ReadTargetState */
+/**
+ * @typedef {(
+ *   materialIds: string[],
+ *   taskIds: string[],
+ *   contextMaterialIds?: string[],
+ * ) => Promise<TargetState>} ReadTargetState
+ */
 
-/** PostgreSQL access is deliberately restricted to the local stand.
- * @param {string} databaseUrl */
-export function localPreservationDatabase(databaseUrl) {
-  const url = new URL(databaseUrl);
-  if (
-    !["postgres:", "postgresql:"].includes(url.protocol) ||
-    !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
-    url.search ||
-    url.hash ||
-    url.pathname !== "/inside"
-  )
-    throw new Error(
-      "Preservation requires a loopback PostgreSQL inside database without URL options",
-    );
-  return databaseUrl;
+/**
+ * Every source-owned Material and Task of one namespace, as the receiver reports them.
+ *
+ * @param {import("./target.mjs").LocalTransport} send
+ * @param {string} namespace
+ */
+export async function readNamespaceState(send, namespace) {
+  const query = encodeURIComponent(namespace);
+  /** @type {`/authoring/import/materials/state?namespace=${string}`} */
+  const materialsPath = `/authoring/import/materials/state?namespace=${query}`;
+  /** @type {`/authoring/import/tasks/state?namespace=${string}`} */
+  const tasksPath = `/authoring/import/tasks/state?namespace=${query}`;
+  const materials = parseLocalResponse(
+    materialsPath,
+    await send(materialsPath),
+  );
+  const tasks = parseLocalResponse(tasksPath, await send(tasksPath));
+  if (materials.namespace !== namespace || tasks.namespace !== namespace)
+    throw new Error("The receiver answered for another source namespace");
+  return { materials: materials.materials, tasks: tasks.tasks };
 }
 
-/** A bounded read-only transaction; no reader/account/submission tables are inspected.
- * @param {string} databaseUrl
- * @param {(options: { connectionString: string; connectionTimeoutMillis: number }) => import('../../apps/backend/test/support/proof-dependencies.js').Client} [createClient]
- * @returns {ReadTargetState} */
-export function postgresPreservationState(databaseUrl, createClient) {
-  localPreservationDatabase(databaseUrl);
-  return async (materialIds, taskIds) => {
-    const factory =
-      createClient ??
-      ((options) => {
-        const require = createRequire(
-          new URL("../../apps/backend/package.json", import.meta.url),
-        );
-        // oxlint-disable typescript/no-unsafe-type-assertion
-        const pg =
-          /** @type {typeof import('../../apps/backend/test/support/proof-dependencies.js')} */ (
-            require("pg")
-          );
-        // oxlint-enable typescript/no-unsafe-type-assertion
-        return new pg.Client(options);
-      });
-    const client = factory({
-      connectionString: databaseUrl,
-      connectionTimeoutMillis: 10_000,
+/** @typedef {Awaited<ReturnType<typeof readNamespaceState>>} NamespaceState */
+
+/**
+ * The selected rows of the receiver state in the preserved shape, plus context links.
+ *
+ * @param {import("./target.mjs").LocalTransport} send
+ * @param {string} namespace
+ * @returns {ReadTargetState}
+ */
+export function apiPreservationState(send, namespace) {
+  return async (materialIds, taskIds, contextMaterialIds = []) => {
+    const state = await readNamespaceState(send, namespace);
+    const codes = new Set(taskIds.map((id) => id.slice(id.indexOf(":") + 1)));
+    return targetStateSchema.parse({
+      materials: state.materials
+        .filter((row) => materialIds.includes(row.sourceId))
+        .map((row) => ({
+          sourceId: row.sourceId,
+          materialId: row.materialId,
+          contentVersion: row.contentVersion,
+          access: row.access,
+          publicationState: row.publicationState,
+          sourceRevision: row.source.revision,
+          sourceCommit: row.source.commit,
+          memberships: row.memberships
+            .map(({ productId, ordinal, chapterId }) => ({
+              productId,
+              ordinal,
+              chapterId,
+            }))
+            .sort((a, b) => a.productId.localeCompare(b.productId)),
+        })),
+      // A Task code in use by another source identity is returned too, so it is refused as ambiguous.
+      tasks: state.tasks
+        .filter((row) => taskIds.includes(row.sourceId) || codes.has(row.code))
+        .map((row) => ({
+          sourceId: row.sourceId,
+          taskId: row.taskId,
+          code: row.code,
+          productId: row.productId,
+          chapterId: row.chapterId,
+          position: row.position,
+          afterMaterialSourceId: row.afterMaterialSourceId,
+          programmeVisibility: row.programmeVisibility,
+          embeddedMaterialId: row.embeddedMaterialId,
+          revision: row.revision,
+          access: row.access,
+          publicationState: row.publicationState,
+          sourceCommit: row.sourceCommit,
+        })),
+      links: Object.fromEntries(
+        state.materials.flatMap((row) =>
+          contextMaterialIds.includes(row.sourceId) && row.slug !== null
+            ? [[row.sourceId, `/materials/${row.slug}`]]
+            : [],
+        ),
+      ),
     });
-    try {
-      await client.connect();
-      await client.query(
-        "BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY",
-      );
-      await client.query("SET LOCAL statement_timeout = '10s'");
-      const materials = await client.query(
-        `SELECT source_id AS "sourceId", id AS "materialId",
-        content_version::integer AS "contentVersion", access, publication_state AS "publicationState"
-        FROM materials.materials WHERE source_id = ANY($1::text[]) ORDER BY source_id`,
-        [materialIds],
-      );
-      const tasks = await client.query(
-        `SELECT source_id AS "sourceId", id AS "taskId", code,
-        product_id AS "productId", revision, access, publication_state AS "publicationState"
-        FROM product_tasks.tasks WHERE source_id = ANY($1::text[]) OR code = ANY($2::text[]) ORDER BY source_id`,
-        [taskIds, taskIds.map((id) => id.slice(id.indexOf(":") + 1))],
-      );
-      await client.query("COMMIT");
-      return targetStateSchema.parse({
-        materials: materials.rows,
-        tasks: tasks.rows,
-      });
-    } finally {
-      await client.end();
-    }
   };
 }

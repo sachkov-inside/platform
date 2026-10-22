@@ -90,8 +90,7 @@ function SelectionScenario(args: CheckoutFlowProps) {
 }
 
 function commandBody(init: RequestInit | undefined): unknown {
-  const form = init?.body;
-  const value = form instanceof FormData ? form.get("input") : null;
+  const value = init?.body;
   if (typeof value !== "string") throw new Error("missing command input");
   return JSON.parse(value);
 }

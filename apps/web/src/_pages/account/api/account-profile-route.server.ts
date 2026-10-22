@@ -1,12 +1,22 @@
 import "server-only";
 
 import {
+  createMemberProfileOperation,
+  updateMemberProfileOperation,
+} from "@/features/member-profile-editor.operations";
+import {
   handleAuthenticatedRead,
-  handleAuthenticatedMutation,
+  handleMutationOperation,
 } from "@/shared/auth/index.server";
 import { getPrivateMemberProfile } from "./get-private-member-profile";
-import { executeCreateMemberProfile } from "./create-member-profile";
-import { executeUpdateMemberProfile } from "./update-member-profile";
+import {
+  executeCreateMemberProfile,
+  invalidCreateProfileFields,
+} from "./create-member-profile";
+import {
+  executeUpdateMemberProfile,
+  invalidUpdateProfileFields,
+} from "./update-member-profile";
 
 export async function handleAccountProfileRequest(): Promise<Response> {
   return handleAuthenticatedRead(async (accessToken) => {
@@ -29,11 +39,19 @@ export async function handleAccountProfileRequest(): Promise<Response> {
 export function handleCreateMemberProfileRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeCreateMemberProfile);
+  return handleMutationOperation(request, createMemberProfileOperation, {
+    execute: (input, accessToken) =>
+      executeCreateMemberProfile(input, accessToken),
+    invalidInput: invalidCreateProfileFields,
+  });
 }
 
 export function handleUpdateMemberProfileRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeUpdateMemberProfile);
+  return handleMutationOperation(request, updateMemberProfileOperation, {
+    execute: (input, accessToken) =>
+      executeUpdateMemberProfile(input, accessToken),
+    invalidInput: invalidUpdateProfileFields,
+  });
 }

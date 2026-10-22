@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { z } from "zod";
+
 import { privateAuthenticatedResponse } from "./private-response.server";
 
 import {
@@ -8,6 +10,7 @@ import {
   isCatalogWrite,
 } from "@/shared/api/catalog-cache.server";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
+import type { MutationOperation } from "@/shared/api/mutation-operation";
 import {
   sessionAdapter,
   LogtoSessionUnavailableError,
@@ -16,19 +19,9 @@ import { getOptionalPlatformAccessToken } from "./optional-platform-access-token
 import { readLogtoBffConfig } from "./logto-bff-config.server";
 import { isSameOriginMutation } from "./same-origin-mutation.server";
 
-type ExecuteMutation = (
-  formData: FormData,
-  accessToken: string,
-) => Promise<unknown>;
-
 type ExecuteStreamingMutation = (
   body: ReadableStream<Uint8Array> | null,
   accessToken: string,
-) => Promise<Response>;
-
-type ExecuteOptionalAuthenticatedMutation = (
-  formData: FormData,
-  accessToken: string | undefined,
 ) => Promise<Response>;
 
 export type AuthenticatedMutationFailure =
@@ -44,91 +37,210 @@ export interface StreamingMutationOptions {
   readonly mode: "stream";
 }
 
-/** Authenticates one same-origin browser mutation and returns its typed feature result. */
-export function handleAuthenticatedMutation(
-  request: Request,
-  execute: ExecuteMutation,
-): Promise<Response>;
-export function handleAuthenticatedMutation(
+/**
+ * Authenticates one same-origin request whose body is streamed under a named limit: a binary
+ * upload or a cover or avatar removal paired with it (ADR 0038). Other browser mutations are
+ * operations served by `handleMutationOperation` or `handleOptionalMutationOperation`.
+ */
+export async function handleAuthenticatedMutation(
   request: Request,
   execute: ExecuteStreamingMutation,
   options: StreamingMutationOptions,
-): Promise<Response>;
-export async function handleAuthenticatedMutation(
-  request: Request,
-  ...[execute, options]:
-    | [execute: ExecuteMutation, options?: undefined]
-    | [execute: ExecuteStreamingMutation, options: StreamingMutationOptions]
 ): Promise<Response> {
   if (!isSameOriginMutation(request, sessionAdapter.baseUrl())) {
-    return options === undefined
-      ? mutationResponse(null, 403)
-      : privateAuthenticatedResponse(
-          options.failureResponse("cross_origin_request"),
-        );
+    return privateAuthenticatedResponse(
+      options.failureResponse("cross_origin_request"),
+    );
   }
   const contentLength = Number(request.headers.get("content-length"));
-  const maxBytes = options?.maxBytes ?? MAX_BROWSER_MUTATION_BYTES;
-  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
-    return options === undefined
-      ? mutationResponse(null, 413)
-      : privateAuthenticatedResponse(options.failureResponse("body_too_large"));
+  if (Number.isFinite(contentLength) && contentLength > options.maxBytes) {
+    return privateAuthenticatedResponse(
+      options.failureResponse("body_too_large"),
+    );
   }
 
   let accessToken: string;
   try {
     accessToken = await sessionAdapter.accessToken("route");
   } catch (error) {
-    if (options !== undefined) {
-      return privateAuthenticatedResponse(
-        options.failureResponse(
-          error instanceof LogtoSessionUnavailableError
-            ? "authentication_required"
-            : "identity_unavailable",
-        ),
-      );
-    }
+    return privateAuthenticatedResponse(
+      options.failureResponse(
+        error instanceof LogtoSessionUnavailableError
+          ? "authentication_required"
+          : "identity_unavailable",
+      ),
+    );
+  }
+
+  const limit = { exceeded: false };
+  const body =
+    request.body === null
+      ? null
+      : limitBodyStream(request.body, options.maxBytes, limit);
+  try {
+    return privateAuthenticatedResponse(await execute(body, accessToken));
+  } catch {
+    return privateAuthenticatedResponse(
+      options.failureResponse(
+        limit.exceeded ? "body_too_large" : "dependency_unavailable",
+      ),
+    );
+  } finally {
+    // Запись могла состояться и до сбоя ответа, поэтому кеш сбрасывается при любом исходе. В
+    // `finally`, а не в `try`: сбой сброса не должен выдать состоявшуюся запись за недоступность.
+    // Обе ветки возвращают ответ: отложенный сброс Next.js выполняет только при обычном возврате.
+    expirePublicCatalogAfter(request);
+  }
+}
+
+export interface MutationOperationImplementation<
+  Input extends z.ZodType,
+  Result extends z.ZodType,
+> {
+  /** Calls Nest with the parsed input and maps its answer to the operation result. */
+  readonly execute: (
+    input: z.output<Input>,
+    accessToken: string,
+  ) => Promise<z.input<Result>>;
+  /** The feature outcome for a body that does not match the operation's input schema. */
+  readonly invalidInput: (error: z.ZodError) => z.input<Result>;
+}
+
+/**
+ * Serves one operation declared by `defineMutationOperation` (ADR 0038): the shared Origin,
+ * body-size and session boundary, then the operation's JSON input schema and its backend call.
+ */
+export async function handleMutationOperation<
+  Input extends z.ZodType,
+  Result extends z.ZodType,
+>(
+  request: Request,
+  operation: MutationOperation<Input, Result>,
+  implementation: NoInfer<MutationOperationImplementation<Input, Result>>,
+): Promise<Response> {
+  const refused = refuseForeignOrOversized(request, sessionAdapter.baseUrl());
+  if (refused !== undefined) return refused;
+
+  let accessToken: string;
+  try {
+    accessToken = await sessionAdapter.accessToken("route");
+  } catch (error) {
     return mutationResponse(
       null,
       error instanceof LogtoSessionUnavailableError ? 401 : 503,
     );
   }
 
-  if (options !== undefined) {
-    const limit = { exceeded: false };
-    const body =
-      request.body === null
-        ? null
-        : limitBodyStream(request.body, options.maxBytes, limit);
-    try {
-      return privateAuthenticatedResponse(await execute(body, accessToken));
-    } catch {
-      return privateAuthenticatedResponse(
-        options.failureResponse(
-          limit.exceeded ? "body_too_large" : "dependency_unavailable",
-        ),
-      );
-    } finally {
-      // Запись могла состояться и до сбоя ответа, поэтому кеш сбрасывается при любом исходе. В
-      // `finally`, а не в `try`: сбой сброса не должен выдать состоявшуюся запись за недоступность.
-      // Обе ветки возвращают ответ: отложенный сброс Next.js выполняет только при обычном возврате.
-      expirePublicCatalogAfter(request);
-    }
+  const input = await readOperationInput(request, operation.input);
+  if (!input.ok) return input.response;
+  if (!input.parsed.success) {
+    return mutationResponse(
+      implementation.invalidInput(input.parsed.error),
+      200,
+    );
   }
+  const data = input.parsed.data;
+  return executeMutation(request, () =>
+    implementation.execute(data, accessToken),
+  );
+}
 
-  let formData: FormData;
+export interface OptionalMutationOperationImplementation<
+  Input extends z.ZodType,
+> {
+  /** Answers with its own status; a missing session reaches it as `undefined`. */
+  readonly execute: (
+    input: z.output<Input>,
+    accessToken: string | undefined,
+  ) => Promise<Response>;
+  /** The answer for a body outside the operation's input schema. */
+  readonly invalidInput: (error: z.ZodError) => Response;
+}
+
+/**
+ * Serves an operation a guest may also send (ADR 0038): the shared Origin and body-size boundary,
+ * the operation's JSON input schema and an optional session. The feature owns every answer and
+ * its status, so the route's `result` schema is held by its tests rather than by the compiler.
+ */
+export async function handleOptionalMutationOperation<
+  Input extends z.ZodType,
+  Result extends z.ZodType,
+>(
+  request: Request,
+  operation: MutationOperation<Input, Result>,
+  implementation: NoInfer<OptionalMutationOperationImplementation<Input>>,
+): Promise<Response> {
+  const refused = refuseForeignOrOversized(
+    request,
+    readLogtoBffConfig().baseUrl,
+  );
+  if (refused !== undefined) return refused;
+  const input = await readOperationInput(request, operation.input);
+  if (!input.ok) return input.response;
+  if (!input.parsed.success) {
+    return privateAuthenticatedResponse(
+      implementation.invalidInput(input.parsed.error),
+    );
+  }
+  const data = input.parsed.data;
   try {
-    formData = await request.formData();
+    return privateAuthenticatedResponse(
+      await implementation.execute(
+        data,
+        await getOptionalPlatformAccessToken(request),
+      ),
+    );
   } catch {
-    return mutationResponse(null, 400);
+    return mutationResponse(null, 503);
   }
-  if (formDataByteLength(formData) > maxBytes) {
-    return mutationResponse(null, 413);
-  }
+}
 
+/** The shared first checks: another Origin answers 403, a declared body above the limit 413. */
+function refuseForeignOrOversized(
+  request: Request,
+  baseUrl: string,
+): Response | undefined {
+  if (!isSameOriginMutation(request, baseUrl)) {
+    return mutationResponse(null, 403);
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  return Number.isFinite(contentLength) &&
+    contentLength > MAX_BROWSER_MUTATION_BYTES
+    ? mutationResponse(null, 413)
+    : undefined;
+}
+
+/** Reads the JSON body and parses it with the operation's input schema. */
+async function readOperationInput<Input extends z.ZodType>(
+  request: Request,
+  schema: Input,
+): Promise<
+  | {
+      readonly ok: true;
+      readonly parsed: z.ZodSafeParseResult<z.output<Input>>;
+    }
+  | { readonly ok: false; readonly response: Response }
+> {
+  const body = await readJsonBody(request);
+  if (!body.ok)
+    return { ok: false, response: mutationResponse(null, body.status) };
+  try {
+    return { ok: true, parsed: schema.safeParse(body.value) };
+  } catch (error) {
+    // Глубоко вложенное тело исчерпывает стек схемы; это неверный запрос, а не сбой сервера.
+    // Другая ошибка схемы остаётся ошибкой программы.
+    if (!(error instanceof RangeError)) throw error;
+    return { ok: false, response: mutationResponse(null, 400) };
+  }
+}
+
+async function executeMutation(
+  request: Request,
+  execute: () => Promise<unknown>,
+): Promise<Response> {
   let result: unknown;
   try {
-    result = await execute(formData, accessToken);
+    result = await execute();
   } catch (error) {
     // Запись могла состояться до того, как потерялся ответ backend. Отложенный сброс кеша Next.js
     // выполняет только при обычном возврате обработчика, а с исключением отбрасывает, поэтому сбой
@@ -143,37 +255,34 @@ export async function handleAuthenticatedMutation(
   return mutationResponse(result, 200);
 }
 
-/** Applies the shared browser-mutation boundary while allowing an anonymous caller. */
-export async function handleOptionalAuthenticatedMutation(
+/** Reads a JSON body under the shared limit: 400 for another encoding or malformed JSON. */
+async function readJsonBody(
   request: Request,
-  execute: ExecuteOptionalAuthenticatedMutation,
-): Promise<Response> {
-  const config = readLogtoBffConfig();
-  if (!isSameOriginMutation(request, config.baseUrl)) {
-    return mutationResponse(null, 403);
+): Promise<
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly status: 400 | 413 }
+> {
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.split(";")[0]?.trim().toLowerCase() !== "application/json") {
+    return { ok: false, status: 400 };
   }
-  const contentLength = Number(request.headers.get("content-length"));
-  if (
-    Number.isFinite(contentLength) &&
-    contentLength > MAX_BROWSER_MUTATION_BYTES
-  ) {
-    return mutationResponse(null, 413);
-  }
-  let formData: FormData;
+  // Тело без заявленной длины читается потоком и обрывается на лимите, а не целиком в память.
+  const limit = { exceeded: false };
+  let text: string;
   try {
-    formData = await request.formData();
+    text =
+      request.body === null
+        ? ""
+        : await new Response(
+            limitBodyStream(request.body, MAX_BROWSER_MUTATION_BYTES, limit),
+          ).text();
   } catch {
-    return mutationResponse(null, 400);
-  }
-  if (formDataByteLength(formData) > MAX_BROWSER_MUTATION_BYTES) {
-    return mutationResponse(null, 413);
+    return { ok: false, status: limit.exceeded ? 413 : 400 };
   }
   try {
-    return privateAuthenticatedResponse(
-      await execute(formData, await getOptionalPlatformAccessToken(request)),
-    );
+    return { ok: true, value: JSON.parse(text) as unknown };
   } catch {
-    return mutationResponse(null, 503);
+    return { ok: false, status: 400 };
   }
 }
 
@@ -198,18 +307,6 @@ function limitBodyStream(
       },
     }),
   );
-}
-
-function formDataByteLength(formData: FormData): number {
-  const encoder = new TextEncoder();
-  let bytes = 0;
-  for (const [name, value] of formData.entries()) {
-    bytes += encoder.encode(name).byteLength;
-    bytes +=
-      typeof value === "string" ? encoder.encode(value).byteLength : value.size;
-    if (bytes > MAX_BROWSER_MUTATION_BYTES) return bytes;
-  }
-  return bytes;
 }
 
 function mutationResponse(body: unknown, status: number): Response {

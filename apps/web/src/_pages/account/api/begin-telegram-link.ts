@@ -12,7 +12,6 @@ import {
 } from "./telegram-link-mutation-result";
 
 export async function executeBeginTelegramLink(
-  _formData: FormData,
   accessToken: string,
   request: typeof requestTelegramMembershipLinkBegin = requestTelegramMembershipLinkBegin,
 ): Promise<TelegramLinkMutationResult> {

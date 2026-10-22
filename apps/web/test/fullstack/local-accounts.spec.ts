@@ -29,16 +29,16 @@ test("local accounts: fresh owner, private draft and real denials survive restar
       `${fullStackBaseUrl()}/api/authoring/materials`,
       {
         headers: { origin: fullStackBaseUrl() },
-        form: {
+        data: {
           title: "Local account private draft",
           summary: "",
           access: "free",
           difficulty: "unassigned",
           formatId: "unassigned",
           topicId: "unassigned",
-          seriesIds: "[]",
+          seriesIds: [],
           submissionId: randomUUID(),
-          document: JSON.stringify({
+          document: {
             type: "doc",
             content: [
               {
@@ -48,7 +48,7 @@ test("local accounts: fresh owner, private draft and real denials survive restar
                 ],
               },
             ],
-          }),
+          },
         },
       },
     );

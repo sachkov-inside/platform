@@ -56,15 +56,13 @@ const projection = {
 };
 
 function mutation(
-  values: Record<string, string>,
+  values: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(values)) body.set(key, value);
   return new Request("https://inside.example.test/api/bookmarks/state", {
     method: "PUT",
-    headers: { origin },
-    body,
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify(values),
   });
 }
 
@@ -75,7 +73,7 @@ beforeEach(() => {
 
 it("rejects cross-origin writes before authentication or backend calls", async () => {
   const response = await handleSetBookmark(
-    mutation({ materialId, bookmarked: "true" }, "https://outside.test"),
+    mutation({ materialId, bookmarked: true }, "https://outside.test"),
   );
   expect(response.status).toBe(403);
   expect(fakes.token).not.toHaveBeenCalled();
@@ -95,12 +93,12 @@ it("routes the desired bookmark state to add or remove without trusting posted i
     response: new Response(),
   });
   const added = await handleSetBookmark(
-    mutation({ materialId, bookmarked: "true", accountId: "untrusted" }),
+    mutation({ materialId, bookmarked: true, accountId: "untrusted" }),
   );
   expect(fakes.add).toHaveBeenCalledWith(materialId, "trusted-token");
   expect(await added.json()).toEqual({ kind: "ready", state });
   const removed = await handleSetBookmark(
-    mutation({ materialId, bookmarked: "false" }),
+    mutation({ materialId, bookmarked: false }),
   );
   expect(fakes.remove).toHaveBeenCalledWith(materialId, "trusted-token");
   expect(await removed.json()).toEqual({
@@ -117,7 +115,7 @@ it("reports denied and unavailable without claiming a saved bookmark", async () 
   });
   expect(
     await (
-      await handleSetBookmark(mutation({ materialId, bookmarked: "true" }))
+      await handleSetBookmark(mutation({ materialId, bookmarked: true }))
     ).json(),
   ).toEqual({ kind: "denied" });
   fakes.add
@@ -130,7 +128,7 @@ it("reports denied and unavailable without claiming a saved bookmark", async () 
   for (let index = 0; index < 2; index += 1) {
     expect(
       await (
-        await handleSetBookmark(mutation({ materialId, bookmarked: "true" }))
+        await handleSetBookmark(mutation({ materialId, bookmarked: true }))
       ).json(),
     ).toEqual({ kind: "unavailable" });
   }
@@ -142,18 +140,23 @@ it("bounds and validates bookmark state batches", async () => {
     body: [state],
     response: new Response(),
   });
-  const response = await handleBookmarkStates(mutation({ materialId }));
+  const response = await handleBookmarkStates(
+    mutation({ materialIds: [materialId] }),
+  );
   expect(await response.json()).toEqual({ kind: "ready", states: [state] });
   expect(fakes.states).toHaveBeenCalledWith([materialId], "trusted-token");
-  const body = new FormData();
-  for (let index = 0; index < 101; index += 1)
-    body.append("materialId", materialId);
+  const body = JSON.stringify({
+    materialIds: Array.from({ length: 101 }, () => materialId),
+  });
   expect(
     await (
       await handleBookmarkStates(
         new Request("https://inside.example.test/api/bookmarks/states", {
           method: "POST",
-          headers: { origin: "https://inside.example.test" },
+          headers: {
+            "content-type": "application/json",
+            origin: "https://inside.example.test",
+          },
           body,
         }),
       )

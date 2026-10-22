@@ -1,57 +1,18 @@
-import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
-
-import {
-  reorderSeriesResultSchema,
-  type ReorderSeriesInput,
-  type ReorderSeriesResult,
+import type {
+  ReorderSeriesInput,
+  ReorderSeriesResult,
 } from "../model/presentation";
+import { reorderSeriesOperation } from "./series-order.operation";
 
-export async function reorderSeries(
+export function reorderSeries(
   input: ReorderSeriesInput,
 ): Promise<ReorderSeriesResult> {
-  const formData = new FormData();
-  formData.set("expectedOrderVersion", input.expectedOrderVersion);
-  formData.set("orderedMaterialIds", JSON.stringify(input.orderedMaterialIds));
-  formData.set("seriesId", input.seriesId);
-  if (input.programmePlacements !== undefined)
-    formData.set(
-      "programmePlacements",
-      JSON.stringify(input.programmePlacements),
-    );
-  if (input.stepGroups !== undefined)
-    formData.set("stepGroups", JSON.stringify(input.stepGroups));
-  if (input.chapters !== undefined)
-    formData.set("chapters", JSON.stringify(input.chapters));
-  if (input.chapterAssignments !== undefined) {
-    formData.set(
-      "chapterAssignments",
-      JSON.stringify(input.chapterAssignments),
-    );
-  }
-  if (
-    input.confirmedProductRemovals !== undefined &&
-    input.confirmedProductRemovals.length > 0
-  ) {
-    formData.set(
-      "confirmedProductRemovals",
-      JSON.stringify(input.confirmedProductRemovals),
-    );
-  }
-  const result = await requestSameOriginMutation(
-    "/api/authoring/products/order",
-    "PUT",
-    formData,
+  const { confirmedProductRemovals, ...order } = input;
+  // Пустое подтверждение не отправляется: команда без него ничего не снимает из купленных продуктов.
+  return reorderSeriesOperation.send(
+    confirmedProductRemovals === undefined ||
+      confirmedProductRemovals.length === 0
+      ? order
+      : { ...order, confirmedProductRemovals },
   );
-  if (!result.ok) {
-    return result.status === 401 || result.status === 403
-      ? { kind: "unauthorized" }
-      : {
-          kind: "error",
-          reference: `series-order-bff-${String(result.status)}`,
-        };
-  }
-  const parsed = reorderSeriesResultSchema.safeParse(result.body);
-  return parsed.success
-    ? parsed.data
-    : { kind: "error", reference: "series-order-bff-contract" };
 }

@@ -7,14 +7,6 @@ import {
   statement as trackingTraceStatement,
 } from "../modules/communications/infrastructure/postgres/migrations/0112-tracking-trace-context.js";
 import {
-  name as materialTelegramAnnouncementsName,
-  statement as materialTelegramAnnouncementsStatement,
-} from "../modules/materials/infrastructure/postgres/migrations/0102-material-telegram-announcements.js";
-import {
-  name as waitlistConfirmationsName,
-  statement as waitlistConfirmationsStatement,
-} from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-waitlist-confirmations.js";
-import {
   name as emailTraceName,
   statement as emailTraceStatement,
 } from "../modules/notifications/infrastructure/postgres/migrations/0111-email-trace-context.js";
@@ -26,10 +18,6 @@ import {
   name as notificationTraceName,
   statement as notificationTraceStatement,
 } from "../modules/notifications/infrastructure/postgres/migrations/0110-notification-trace-context.js";
-import {
-  name as productWaitlistsName,
-  statement as productWaitlistsStatement,
-} from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-product-waitlists.js";
 import {
   name as learningActivityName,
   statement as learningActivityStatement,
@@ -62,6 +50,22 @@ import {
   name as funnelDiagnostic4Name,
   statement as funnelDiagnostic4Statement,
 } from "../modules/materials/infrastructure/postgres/migrations/0105-funnel-diagnostic-current-products.js";
+import {
+  name as materialSourceCommitName,
+  statement as materialSourceCommitStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0103-material-source-commit.js";
+import {
+  name as materialTelegramAnnouncementsName,
+  statement as materialTelegramAnnouncementsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0102-material-telegram-announcements.js";
+import {
+  name as waitlistConfirmationsName,
+  statement as waitlistConfirmationsStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0101-waitlist-confirmations.js";
+import {
+  name as productWaitlistsName,
+  statement as productWaitlistsStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0100-product-waitlists.js";
 import {
   name as historicalCommunityCoverageName,
   statement as historicalCommunityCoverageStatement,
@@ -715,6 +719,10 @@ export const platformMigrations = [
   {
     name: materialTelegramAnnouncementsName,
     statement: materialTelegramAnnouncementsStatement,
+  },
+  {
+    name: materialSourceCommitName,
+    statement: materialSourceCommitStatement,
   },
   { name: funnelDiagnostic0Name, statement: funnelDiagnostic0Statement },
   { name: funnelDiagnostic1Name, statement: funnelDiagnostic1Statement },

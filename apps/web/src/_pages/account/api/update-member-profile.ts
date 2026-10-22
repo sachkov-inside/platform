@@ -1,6 +1,8 @@
 import "server-only";
 
-import { z } from "zod";
+import type { z } from "zod";
+
+import type { updateMemberProfileInputSchema } from "@/features/member-profile-editor.operations";
 
 import { parseMemberProfileProblem } from "@/entities/member-profile";
 import {
@@ -15,39 +17,18 @@ import {
   profileIssueMessage,
 } from "@/entities/member-profile";
 
-const textField = z
-  .string()
-  .refine((value) => !hasRejectedControlCharacters(value));
-const formSchema = z
-  .object({
-    bio: textField.refine((value) => codePointLength(value) <= 500),
-    displayName: textField.refine((value) => {
-      const length = codePointLength(value.trim());
-      return length >= 2 && length <= 80;
-    }),
-    expectedVersion: z.coerce.number().int().positive(),
-  })
-  .strict();
-
 export async function executeUpdateMemberProfile(
-  formData: FormData,
+  input: z.output<typeof updateMemberProfileInputSchema>,
   accessToken: string,
   request: typeof requestMemberProfileUpdate = requestMemberProfileUpdate,
 ): Promise<UpdateMemberProfileResult> {
-  const parsed = formSchema.safeParse({
-    bio: formData.get("bio"),
-    displayName: formData.get("displayName"),
-    expectedVersion: formData.get("expectedVersion"),
-  });
-  if (!parsed.success) return invalidProfileFields(parsed.error);
-
   let result: BackendTransportResult;
   try {
     result = await request(
       {
-        bio: emptyToNull(parsed.data.bio),
-        displayName: parsed.data.displayName.trim(),
-        expectedVersion: parsed.data.expectedVersion,
+        bio: emptyToNull(input.bio),
+        displayName: input.displayName.trim(),
+        expectedVersion: input.expectedVersion,
       },
       accessToken,
     );
@@ -95,7 +76,9 @@ function mapUpdateProfileProblem(
   };
 }
 
-function invalidProfileFields(error: z.ZodError): UpdateMemberProfileResult {
+export function invalidUpdateProfileFields(
+  error: z.ZodError,
+): UpdateMemberProfileResult {
   const fields = new Set(error.issues.map((issue) => issue.path[0]));
   return {
     fieldErrors: {
@@ -122,22 +105,4 @@ function unavailable(error: unknown): UpdateMemberProfileResult {
 
 function emptyToNull(value: string): string | null {
   return value.trim().length === 0 ? null : value;
-}
-
-function codePointLength(value: string): number {
-  return Array.from(value).length;
-}
-
-function hasRejectedControlCharacters(value: string): boolean {
-  return Array.from(value).some((character) => {
-    const codePoint = character.codePointAt(0);
-    return (
-      codePoint !== undefined &&
-      ((codePoint >= 0 && codePoint <= 8) ||
-        codePoint === 11 ||
-        codePoint === 12 ||
-        (codePoint >= 14 && codePoint <= 31) ||
-        codePoint === 127)
-    );
-  });
 }

@@ -49,13 +49,13 @@ protected-resource metadata и делегированного bearer token оп�
 
 Время хранится и возвращается в UTC. Окно `[from,to)` включает начало и исключает конец;
 московский календарный день начинается в 21:00 UTC предыдущего дня. Положительное окно
-ограничено 31 сутками, страница — 1–50 оплатами, по умолчанию 20.
+ограничено 31 сутками, страница ограничена 1–50 оплатами, по умолчанию 20.
 Отчёт выбирает подтверждённые оплаты по `confirmedAt`; открытие страницы, checkout и HTTP 200
 подтверждением оплаты не являются. Поле `counts.scope=returned_page` означает счётчики
 только возвращённой страницы. Это не итог за весь период и не distinct число покупателей.
 
 При непустом `nextCursor` повторите запрос с теми же `from` и `to`, добавив `cursor`
-ровно из ответа. Cursor нельзя собирать или изменять вручную. Порядок — по уникальному
+ровно из ответа. Cursor нельзя собирать или изменять вручную. Порядок определяется уникальным
 `purchaseRef` по возрастанию; одинаковое время оплаты порядок не нарушает.
 `nextCursor=null` означает конец текущего обхода источника. Обход живой (`live_source`):
 оплаты и права могут изменяться между страницами. Billing и AccountRights читаются независимо,
@@ -81,13 +81,13 @@ protected-resource metadata и делегированного bearer token оп�
 `unknown` означают неполное знание. При неизвестных строках `missingPaidGrant=null`, а не 0;
 поле `unknown` считает такие оплаты на странице. Ошибка AccountRights показана как
 `sources.accountRights=unavailable`; `not_queried` означает, что ключей для чтения прав не было.
-Ошибка чтения Billing возвращает `dependency_unavailable`, отказ в праве — `forbidden`.
+Ошибка чтения Billing возвращает `dependency_unavailable`, отказ в праве возвращает `forbidden`.
 Ни один из этих исходов не означает «проблем нет». Пустая успешно прочитанная страница без
 продолжения означает отсутствие подходящих подтверждённых оплат в данном текущем обходе окна.
 
 Форма запроса и результата принадлежит
 [Billing PaymentDiagnostics](../../apps/backend/src/modules/billing/features/read-payment-diagnostics/payment-diagnostics.ts),
-регистрация инструмента — [MCP adapter](../../apps/backend/src/modules/billing/features/read-payment-diagnostics/register-payment-diagnostics-tool.ts).
+регистрация инструмента находится в [MCP adapter](../../apps/backend/src/modules/billing/features/read-payment-diagnostics/register-payment-diagnostics-tool.ts).
 Проверки настоящего PostgreSQL и полного процесса остаются обязательными до принятия поставки.
 
 
@@ -118,8 +118,8 @@ protected-resource metadata и делегированного bearer token оп�
 
 Замените пример `productId` настоящим Product; без него Platform-шаги и покупки респондентов
 не измеряются и остаются `null`. `chapterId` необязателен; по умолчанию выбирается первая глава.
-Время — UTC, календарный пояс — Europe/Moscow, окно — не более 31 суток.
-Запрашиваемый `limit` — 1–50 строк источников, по умолчанию 20. Фактически страница содержит
+Время указано в UTC, календарный пояс Europe/Moscow, окно ограничено 31 сутками.
+Запрашиваемый `limit` составляет 1–50 строк источников, по умолчанию 20. Фактически страница содержит
 от 0 до `limit` строк. В отличие от отчёта оплат,
 `totalScope=bounded_cohort`: `total` относится ко всей вычисленной когорте, а не странице.
 Не складывайте повторяющийся `total` разных страниц. При продолжении передавайте неизменённый
@@ -148,7 +148,7 @@ SQL возвращает максимум 2001, переполнение даё�
 физических строк PostgreSQL»: aggregate может обработать больше строк через отфильтрованный индекс.
 
 `surveyRespondents` имеет собственную семантику #818 и не является bot-когортой:
-`uploaded`/`issued` — полные глобальные scalar counts владельца основания, `paid` — distinct
+`uploaded`/`issued` обозначают полные глобальные scalar counts владельца основания, `paid` обозначает distinct
 респонденты с подтверждённой оплатой выбранного Product по личной ссылке в окне платежа.
 Исторические основания/оплаты не отсекаются row cap; нельзя складывать эти числа с bot sources
 или трактовать их как список связанных Accounts. Значение `null` сохраняет отсутствие основания
@@ -157,8 +157,8 @@ SQL возвращает максимум 2001, переполнение даё�
 контакты, дочитанные лишь для исключения/атрибуции Account.
 
 Каждое bounded owner-чтение использует RepeatableRead; statement ограничен 2 секундами,
-транзакция — 5 секундами, ожидание соединения — 1 секундой. Candidate discovery и последующее
-чтение полных фактов — отдельные owner snapshots. Ошибка/таймаут возвращает
+транзакция ограничена 5 секундами, ожидание соединения ограничено 1 секундой. Candidate discovery и последующее
+чтение полных фактов используют отдельные owner snapshots. Ошибка/таймаут возвращает
 `dependency_unavailable` и неизвестное покрытие. Большая релевантная cohort или медленный aggregate
 по-прежнему могут дать отказ; полезность всех production workloads не предполагается по
 одному успешному fixture.
@@ -236,7 +236,7 @@ Account ID и username респондентов в этот отчёт не вх
 ### Операционные очереди pg-boss
 
 `operational_queue_diagnostics` в Platform MCP требует актуального `platform:admin` делегированного
-Account. Вход — строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
+Account. Вход принимает строго `{}`: нельзя передать другой Account, имя очереди, SQL, payload или увеличить
 бюджеты. Проверка права выполняется перед чтением очередей, в том числе после отзыва права.
 Отчёт читает только инфраструктурные `pgboss.version`, `pgboss.queue`, `pgboss.job` через
 [owner interface](../../apps/backend/src/infrastructure/pg-boss-queue-diagnostics.ts).
@@ -249,19 +249,19 @@ retry/cancel/purge, не читает `data`, `output` или provider payload �
 pg-boss и агрегирует сохранённые задания. Бюджеты: statement 2 s, transaction 5 s, ожидание соединения
 1 s. Объём ответа ограничен девятью очередями и шестью известными states; история не обрезается до
 произвольного числа jobs. Агрегация может сканировать всю сохранённую историю выбранных очередей;
-при превышении бюджета или недоступности источника ответ — `coverage: unknown` и
-`source_unavailable`, при несовместимой версии — `schema_mismatch`. Это не нулевые счётчики.
-Отсутствующая очередь имеет `status: unknown / queue_not_registered`, существующая пустая — нули и
+при превышении бюджета или недоступности источника ответ содержит `coverage: unknown` и
+`source_unavailable`, при несовместимой версии содержит `schema_mismatch`. Это не нулевые счётчики.
+Отсутствующая очередь имеет `status: unknown / queue_not_registered`, существующая пустая имеет нули и
 `oldestBacklogAgeSeconds: null`.
 
 `states` считает сохранённые `created`, `retry`, `active`, `completed`, `cancelled`, `failed`.
-`backlog` — `created + retry`, включая отложенные и blocked задания; `ready` — не blocked с
-`start_after <= asOf`, `scheduled` — не blocked с будущим `start_after`, `blocked` — ожидающие
+`backlog` равен `created + retry`, включая отложенные и blocked задания; `ready` означает не blocked с
+`start_after <= asOf`, `scheduled` означает не blocked с будущим `start_after`, `blocked` означает ожидающие
 зависимости jobs этих двух states. Возраст старейшего backlog считается от `created_on`, включая
-scheduled/blocked. `retrying` — незавершённые `created/retry/active` с `retry_count > 0`;
+scheduled/blocked. `retrying` означает незавершённые `created/retry/active` с `retry_count > 0`;
 `retainedRetryAttempts` суммирует `retry_count` всех сохранённых states. После удаления истории эти
 значения не являются пожизненными totals. Повторная попытка задания не равна повторному внешнему
-платежу. `failed` не доказывает денежную ошибку, а `completed` — успешный внешний эффект.
+платежу. `failed` не доказывает денежную ошибку, а `completed` не доказывает успешный внешний эффект.
 
 `workerFreshness: not_proven` и `lastSuccessfulWorkAt: null` остаются даже после успешного запроса:
 текущего durable owner-факта, подтверждающего последнее успешное выполнение/доставку, здесь нет.
@@ -315,7 +315,7 @@ Unread/removal сохранены отдельно; решение об их в�
 с короткой registry не является допустимым rollback. Предыдущая история и пропуски не объявляются
 нулевой активностью. Удаление/недоступность источника и превышение бюджета возвращают unknown.
 
-Read horizon — последние 365 дней относительно DB snapshot clock; более раннее начало запроса
+Read horizon охватывает последние 365 дней относительно DB snapshot clock; более раннее начало запроса
 получает `outside_retention / unknown`. Исходные учебные receipts/manual journals и Product state
 не удаляются ради аналитики. Физическая очистка двух новых activity journals **ещё не реализована**:
 365-дневная retention полностью не принята. Для следующего retention slice подготовлен owner index

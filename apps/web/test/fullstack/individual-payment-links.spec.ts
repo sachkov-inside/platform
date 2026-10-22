@@ -4,6 +4,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
 import {
+  fullStackBrowserJsonRequest,
   fullStackBrowserRequest,
   signInFullStack,
 } from "../support/full-stack-session";
@@ -30,11 +31,11 @@ test("individual payment link shows its fixed price and terms, revokes across op
   await page
     .getByRole("tab", { name: "Ссылки на оплату", exact: true })
     .click();
-  const content = await fullStackBrowserRequest(
+  const content = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/content/list",
     "POST",
-    { input: JSON.stringify({ operationId: randomUUID() }) },
+    { operationId: randomUUID() },
   );
   const parsed = z
     .object({
@@ -60,57 +61,51 @@ test("individual payment link shows its fixed price and terms, revokes across op
     throw new Error("Seeded published Product is missing");
   const offerId = randomUUID(),
     optionId = randomUUID();
-  const saved = await fullStackBrowserRequest(
+  const saved = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/offers/save",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        value: {
-          id: offerId,
-          name: `Private synthetic ${offerId}`,
-          benefits: [productCapability(product.id), "support"],
-          benefitPeriods: [
-            { capability: productCapability(product.id), months: null },
-            { capability: "support", months: 6 },
-          ],
-          coverage: { productIds: [product.id], materialIds: [] },
-        },
-      }),
+      operationId: randomUUID(),
+      value: {
+        id: offerId,
+        name: `Private synthetic ${offerId}`,
+        benefits: [productCapability(product.id), "support"],
+        benefitPeriods: [
+          { capability: productCapability(product.id), months: null },
+          { capability: "support", months: 6 },
+        ],
+        coverage: { productIds: [product.id], materialIds: [] },
+      },
     },
   );
   expect(await saved.json()).toMatchObject({ ok: true });
-  const priced = await fullStackBrowserRequest(
+  const priced = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-options/save",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        value: {
-          id: optionId,
-          offerId,
-          mode: "one_time",
-          months: 6,
-          priceKopecks: 2900000,
-        },
-      }),
+      operationId: randomUUID(),
+      value: {
+        id: optionId,
+        offerId,
+        mode: "one_time",
+        months: 6,
+        priceKopecks: 2900000,
+      },
     },
   );
   expect(await priced.json()).toMatchObject({ ok: true });
-  const created = await fullStackBrowserRequest(
+  const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-links/create",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-        price: { kind: "discount", percent: 10 },
-        expiresAt: null,
-      }),
+      operationId: randomUUID(),
+      paymentOptionId: optionId,
+      optionRevision: 1,
+      price: { kind: "discount", percent: 10 },
+      expiresAt: null,
     },
   );
   const link = z

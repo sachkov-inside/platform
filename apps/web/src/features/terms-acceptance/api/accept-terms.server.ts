@@ -8,7 +8,7 @@ import {
 } from "@/shared/api/backend/index.server";
 
 import {
-  acceptTermsInputSchema,
+  type acceptTermsInputSchema,
   termsAcceptanceButtonLabel,
   type AcceptTermsResult,
 } from "../model/terms-acceptance";
@@ -18,7 +18,7 @@ import {
  * присылает только операцию и редакцию, которую видел.
  */
 export async function executeAcceptTerms(
-  form: FormData,
+  input: z.infer<typeof acceptTermsInputSchema>,
   accessToken: string,
   dependencies: {
     readonly accept: typeof requestAcceptTerms;
@@ -28,14 +28,6 @@ export async function executeAcceptTerms(
     resumeTelegramSignIn: resumeTelegramAccountSignIn,
   },
 ): Promise<AcceptTermsResult> {
-  let input: z.infer<typeof acceptTermsInputSchema>;
-  try {
-    input = acceptTermsInputSchema.parse(
-      JSON.parse(z.string().parse(form.get("input"))),
-    );
-  } catch {
-    return { kind: "unavailable" };
-  }
   try {
     const result = await dependencies.accept(
       { ...input, buttonLabel: termsAcceptanceButtonLabel },

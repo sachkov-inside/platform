@@ -17,7 +17,7 @@ test("editor ports retain defaults and accept distinct environment overrides", (
   assert.deepEqual(editorLocalPorts({}), {
     gateway: 4396,
     api: 4397,
-    web: 4398,
+    web: 4399,
   });
   assert.deepEqual(
     editorLocalPorts({
@@ -37,6 +37,10 @@ test("editor ports retain defaults and accept distinct environment overrides", (
     () => editorLocalPorts({ EDITOR_LOCAL_WEB_PORT: "4396" }),
     /distinct/u,
   );
+  assert.throws(
+    () => editorLocalPorts({ EDITOR_LOCAL_WEB_PORT: "4398" }),
+    /reserved for the stand authoring gateway/u,
+  );
 });
 
 // Loopback/process adapter contract: hold an owned port and prove refusal before any runtime setup.
@@ -53,7 +57,7 @@ test("occupied editor port refuses launcher before identity or subprocess startu
   );
   const address = server.address();
   assert.ok(address && typeof address === "object");
-  const ports = { gateway: address.port, api: 4397, web: 4398 };
+  const ports = { gateway: address.port, api: 4397, web: 4399 };
   await assert.rejects(
     assertEditorPortsAvailable(ports),
     /EDITOR_LOCAL_GATEWAY_PORT.*already in use/u,

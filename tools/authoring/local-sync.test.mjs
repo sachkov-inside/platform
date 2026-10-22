@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
-import { syncLocal } from "./local-sync.mjs";
+import { productChapters, syncLocal } from "./local-sync.mjs";
 import { previewRelease } from "./release.mjs";
 import {
   entryAt,
@@ -489,4 +489,44 @@ test("v2 quiz survives preview, apply and repeated sync without rendering raw an
   assert.match(JSON.stringify(saved), /После вопроса/u);
   await setup.sync(api);
   assert.deepEqual(valueAt(api.materials, sourceId).body, saved);
+});
+
+test("chapter text is compared and sent the way the receiver stores it, trimmed", () => {
+  /** @type {import("./package.mjs").Manifest["products"][number]} */
+  const product = {
+    sourceId: "course",
+    title: "Course",
+    summary: "",
+    complete: true,
+    materialIds: [],
+    supplementaryMaterialIds: [],
+    chapters: [
+      {
+        sourceId: "one",
+        title: " Chapter \n",
+        summary: "Summary.\n",
+        materialIds: [],
+      },
+    ],
+  };
+  /** @type {import("./package.mjs").Manifest} */
+  const manifest = {
+    schemaVersion: 2,
+    requiredFeatures: [],
+    sourceNamespace: "synthetic",
+    selection: {
+      productId: "course",
+      chapterIds: [],
+      materialIds: [],
+      taskIds: [],
+      complete: true,
+    },
+    materials: [],
+    products: [product],
+    assets: [],
+    diagnostics: [],
+  };
+  const [chapter] = productChapters(manifest, product);
+  assert.equal(chapter?.name, "Chapter");
+  assert.equal(chapter?.summary, "Summary.");
 });

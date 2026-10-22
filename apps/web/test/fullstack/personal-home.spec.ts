@@ -1,8 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
+import { z } from "zod";
 import {
-  fullStackBrowserRequest,
+  fullStackBrowserJsonRequest,
   fullStackPageRequest,
   signInFullStack,
 } from "../support/full-stack-session";
@@ -83,7 +84,7 @@ async function personal(page: Page) {
     await fullStackPageRequest(page)
   ).post("/api/personal-home", {
     headers: { origin: new URL(page.url()).origin },
-    multipart: {},
+    data: {},
   });
   expect(response.headers()["cache-control"]).toContain("private");
   return response;
@@ -125,10 +126,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await resetSeries(page);
   // Dispose the previous Reader before intercepting the new visible open.
   await page.goto("about:blank");
-  const commands: string[] = [];
+  const commands: unknown[] = [];
   let lost = true;
   await page.route("**/api/reading-progress/open", async (route) => {
-    commands.push(route.request().postData() ?? "");
+    commands.push(route.request().postDataJSON());
     if (lost) {
       lost = false;
       await route.fetch();
@@ -145,10 +146,10 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const button = await unmark(page, "Прочитано");
   await opened;
   expect(commands.length).toBeGreaterThanOrEqual(2);
-  const commandId = (body: string) =>
-    /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];
-  expect(commandId(commands[0] ?? "")).toBeTruthy();
-  expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
+  const commandId = (body: unknown) =>
+    z.object({ commandId: z.string() }).safeParse(body).data?.commandId;
+  expect(commandId(commands[0])).toBeTruthy();
+  expect(commandId(commands[1])).toBe(commandId(commands[0]));
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
   await expectReadingMark(page, "Прочитано", true);
@@ -333,13 +334,13 @@ test("profile resumes real Video progress and excludes playback end", async ({
     .getAttribute("data-video-id");
   if (materialId === null || videoId === null)
     throw new Error("Missing real video identity");
-  async function save(positionSeconds: string) {
-    const response = await fullStackBrowserRequest(
+  async function save(positionSeconds: number) {
+    const response = await fullStackBrowserJsonRequest(
       page,
       "/api/material-video-progress",
       "PUT",
       {
-        durationSeconds: "628",
+        durationSeconds: 628,
         materialId: materialId ?? "",
         videoId: videoId ?? "",
         positionSeconds,
@@ -347,7 +348,7 @@ test("profile resumes real Video progress and excludes playback end", async ({
     );
     expect(await response.json()).toEqual({ kind: "saved" });
   }
-  await save("123");
+  await save(123);
   await page.goto("/account");
   const videos = page.getByRole("region", { name: "Продолжить обучение" });
   const card = videos
@@ -361,7 +362,7 @@ test("profile resumes real Video progress and excludes playback end", async ({
   await expect(
     page.locator("[data-video-player-mount] iframe"),
   ).toHaveAttribute("data-seek-seconds", "123");
-  await save("628");
+  await save(628);
   await page.goto("/account");
   await expect(
     videos
@@ -370,7 +371,7 @@ test("profile resumes real Video progress and excludes playback end", async ({
   ).toHaveCount(0);
   await page.goto("/materials/video-pro-developer-pipeline");
   await expect(mark).toHaveAttribute("aria-pressed", "false");
-  await save("123");
+  await save(123);
   await mark.click();
   await expect(mark).toHaveAttribute("aria-pressed", "true");
   await page.goto("/account");
@@ -504,9 +505,9 @@ test("personal Home retries an already visible open with the same command after 
   await page.clock.install();
   await signInFullStack(context);
   await dismissOnboarding(page);
-  const commands: string[] = [];
+  const commands: unknown[] = [];
   await page.route("**/api/reading-progress/open", async (route) => {
-    commands.push(route.request().postData() ?? "");
+    commands.push(route.request().postDataJSON());
     if (commands.length === 1) {
       await page.evaluate(() => {
         Object.defineProperty(document, "visibilityState", {
@@ -543,10 +544,10 @@ test("personal Home retries an already visible open with the same command after 
     document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
   });
   await opened;
-  const commandId = (body: string) =>
-    /name="commandId"\r\n\r\n([^\r]+)/u.exec(body)?.[1];
-  expect(commandId(commands[0] ?? "")).toBeTruthy();
-  expect(commandId(commands[1] ?? "")).toBe(commandId(commands[0] ?? ""));
+  const commandId = (body: unknown) =>
+    z.object({ commandId: z.string() }).safeParse(body).data?.commandId;
+  expect(commandId(commands[0])).toBeTruthy();
+  expect(commandId(commands[1])).toBe(commandId(commands[0]));
 });
 
 /**

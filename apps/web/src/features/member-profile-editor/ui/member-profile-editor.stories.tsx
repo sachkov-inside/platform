@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn, expect, userEvent, within } from "storybook/test";
+import { z } from "zod";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 import {
   memberProfile,
@@ -32,14 +33,16 @@ export const SaveName: Story = {
         window.location.origin,
       ).pathname;
       if (path === "/api/account/profile" && init?.method === "PUT") {
-        const body = init.body;
-        if (!(body instanceof FormData))
+        if (typeof init.body !== "string")
           return new Response(null, { status: 400 });
+        const body = z
+          .object({ displayName: z.string() })
+          .parse(JSON.parse(init.body));
         return Response.json({
           kind: "saved",
           profile: {
             ...memberProfile,
-            displayName: body.get("displayName"),
+            displayName: body.displayName,
             version: 4,
           },
         });
