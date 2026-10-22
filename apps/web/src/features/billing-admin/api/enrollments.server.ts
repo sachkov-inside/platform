@@ -1,16 +1,5 @@
 import "server-only";
-import {
-  sourceOutcomeSchema,
-  contentCatalogOutcomeSchema,
-  applyExpansionOutcomeSchema,
-  previewExpansionOutcomeSchema,
-  ruleOutcomeSchema,
-  rulesOutcomeSchema,
-  enrollmentOutcomeSchema,
-  enrollmentsOutcomeSchema,
-  tiersOutcomeSchema,
-  recipientOutcomeSchema,
-} from "../model/enrollment-operations";
+import {} from "../model/enrollment-operations";
 import {
   applyEnrollmentExpansionOperation,
   assignTariffAssignmentOperation,
@@ -36,16 +25,19 @@ export function handleListSubscriptionTiers(
   return handleMutationOperation(request, listSubscriptionTiersOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, tiersOutcomeSchema, (input) =>
-        requestManageBilling(
-          {
-            operationId: input.operationId,
-            limit: input.limit,
-            operation: "tiers.list",
-            ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-          },
-          accessToken,
-        ),
+      executeBillingOperation(
+        listSubscriptionTiersOperation,
+        command,
+        (input) =>
+          requestManageBilling(
+            {
+              operationId: input.operationId,
+              limit: input.limit,
+              operation: "tiers.list",
+              ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+            },
+            accessToken,
+          ),
       ),
   });
 }
@@ -55,11 +47,14 @@ export function handleReadTariffAssignments(
   return handleMutationOperation(request, readTariffAssignmentsOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, enrollmentsOutcomeSchema, (input) =>
-        requestManageBilling(
-          { ...input, operation: "enrollments.list" },
-          accessToken,
-        ),
+      executeBillingOperation(
+        readTariffAssignmentsOperation,
+        command,
+        (input) =>
+          requestManageBilling(
+            { ...input, operation: "enrollments.list" },
+            accessToken,
+          ),
       ),
   });
 }
@@ -69,17 +64,21 @@ export function handleAssignTariffAssignment(
   return handleMutationOperation(request, assignTariffAssignmentOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, enrollmentOutcomeSchema, (input) => {
-        const { courseSource, ...command } = input;
-        return requestManageBilling(
-          {
-            ...command,
-            ...(courseSource === undefined ? {} : { courseSource }),
-            operation: "enrollments.assign",
-          },
-          accessToken,
-        );
-      }),
+      executeBillingOperation(
+        assignTariffAssignmentOperation,
+        command,
+        (input) => {
+          const { courseSource, ...command } = input;
+          return requestManageBilling(
+            {
+              ...command,
+              ...(courseSource === undefined ? {} : { courseSource }),
+              operation: "enrollments.assign",
+            },
+            accessToken,
+          );
+        },
+      ),
   });
 }
 export function handleChangeTariffAssignment(
@@ -88,11 +87,14 @@ export function handleChangeTariffAssignment(
   return handleMutationOperation(request, changeTariffAssignmentOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, enrollmentOutcomeSchema, (input) =>
-        requestManageBilling(
-          { ...input, operation: "enrollments.change" },
-          accessToken,
-        ),
+      executeBillingOperation(
+        changeTariffAssignmentOperation,
+        command,
+        (input) =>
+          requestManageBilling(
+            { ...input, operation: "enrollments.change" },
+            accessToken,
+          ),
       ),
   });
 }
@@ -101,7 +103,7 @@ export function handleListActivationRules(request: Request): Promise<Response> {
   return handleMutationOperation(request, listActivationRulesOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, rulesOutcomeSchema, (input) =>
+      executeBillingOperation(listActivationRulesOperation, command, (input) =>
         requestManageBilling(
           { ...input, operation: "activationRules.list" },
           accessToken,
@@ -114,7 +116,7 @@ export function handleSaveActivationRule(request: Request): Promise<Response> {
   return handleMutationOperation(request, saveActivationRuleOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, ruleOutcomeSchema, (input) => {
+      executeBillingOperation(saveActivationRuleOperation, command, (input) => {
         const { expectedRevision, value: ruleValue, ...command } = input;
         const { verificationMode, ...rule } = ruleValue;
         return requestManageBilling(
@@ -139,11 +141,14 @@ export function handlePreviewEnrollmentExpansion(
   return handleMutationOperation(request, previewEnrollmentExpansionOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, previewExpansionOutcomeSchema, (input) =>
-        requestManageBilling(
-          { ...input, operation: "enrollments.previewExpansion" },
-          accessToken,
-        ),
+      executeBillingOperation(
+        previewEnrollmentExpansionOperation,
+        command,
+        (input) =>
+          requestManageBilling(
+            { ...input, operation: "enrollments.previewExpansion" },
+            accessToken,
+          ),
       ),
   });
 }
@@ -154,11 +159,14 @@ export function handleApplyEnrollmentExpansion(
   return handleMutationOperation(request, applyEnrollmentExpansionOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, applyExpansionOutcomeSchema, (input) =>
-        requestManageBilling(
-          { ...input, operation: "enrollments.applyExpansion" },
-          accessToken,
-        ),
+      executeBillingOperation(
+        applyEnrollmentExpansionOperation,
+        command,
+        (input) =>
+          requestManageBilling(
+            { ...input, operation: "enrollments.applyExpansion" },
+            accessToken,
+          ),
       ),
   });
 }
@@ -167,7 +175,7 @@ export function handleReadContentCatalog(request: Request): Promise<Response> {
   return handleMutationOperation(request, readContentCatalogOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, contentCatalogOutcomeSchema, (input) =>
+      executeBillingOperation(readContentCatalogOperation, command, (input) =>
         requestManageBilling(
           { ...input, operation: "content.list" },
           accessToken,
@@ -182,11 +190,14 @@ export function handleRegisterSubscriptionSource(
   return handleMutationOperation(request, registerSubscriptionSourceOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, sourceOutcomeSchema, (input) =>
-        requestManageBilling(
-          { ...input, operation: "sources.register" },
-          accessToken,
-        ),
+      executeBillingOperation(
+        registerSubscriptionSourceOperation,
+        command,
+        (input) =>
+          requestManageBilling(
+            { ...input, operation: "sources.register" },
+            accessToken,
+          ),
       ),
   });
 }
@@ -200,11 +211,14 @@ export function handleLookupSubscriptionRecipient(
     {
       invalidInput: billingInvalidInput,
       execute: (command, accessToken) =>
-        executeBillingOperation(command, recipientOutcomeSchema, (input) =>
-          requestManageBilling(
-            { ...input, operation: "recipients.lookup" },
-            accessToken,
-          ),
+        executeBillingOperation(
+          lookupSubscriptionRecipientOperation,
+          command,
+          (input) =>
+            requestManageBilling(
+              { ...input, operation: "recipients.lookup" },
+              accessToken,
+            ),
         ),
     },
   );

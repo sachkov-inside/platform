@@ -37,6 +37,7 @@ import {
 } from "@/entities/subscription.server";
 import type {
   BillingFailureCode,
+  BillingOperation,
   BillingOperationResult,
   PriceSnapshot,
 } from "@/entities/subscription";
@@ -50,117 +51,87 @@ import {
   handleMutationOperation,
 } from "@/shared/auth/index.server";
 
-import {
-  catalogOffersOutcomeSchema,
-  catalogOutcomeSchema,
-  classificationOutcomeSchema,
-  grantBatchOutcomeSchema,
-  grantOutcomeSchema,
-  grantPreviewOutcomeSchema,
-  grantsOutcomeSchema,
-  paymentOutcomeSchema,
-  paymentsOutcomeSchema,
-  reconciledOutcomeSchema,
-  refundsOutcomeSchema,
-  subscriptionOutcomeSchema,
-} from "../model/admin-operations";
+import { catalogOffersOutcomeSchema } from "../model/admin-operations";
 
 /** Одна владельческая операция за маршрут: дискриминатор не становится общим прокси браузера. */
-export function ownerCommand<Input extends z.ZodType>(
+export function ownerCommand<Input extends z.ZodType, Value extends z.ZodType>(
   request: Request,
-  operation: MutationOperation<Input, BillingOperationResult>,
-  valueSchema: z.ZodType,
+  operation: BillingOperation<Input, Value>,
   toCommand: (input: z.output<Input>) => ManageBillingCommand,
   options: { readonly bankCommand?: boolean } = {},
 ): Promise<Response> {
   return handleMutationOperation(request, operation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, valueSchema, (input) =>
+      executeBillingOperation(operation, command, (input) =>
         requestManageBilling(toCommand(input), accessToken, options),
       ),
   });
 }
 
 export function handleSaveOffer(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    saveBillingOfferOperation,
-    catalogOutcomeSchema,
-    (input) => ({
-      operation: "offers.save",
-      operationId: input.operationId,
-      ...(input.expectedRevision === undefined
+  return ownerCommand(request, saveBillingOfferOperation, (input) => ({
+    operation: "offers.save",
+    operationId: input.operationId,
+    ...(input.expectedRevision === undefined
+      ? {}
+      : { expectedRevision: input.expectedRevision }),
+    value: {
+      id: input.value.id,
+      name: input.value.name,
+      benefits: [...input.value.benefits],
+      ...(input.value.availableForAssignment === undefined
         ? {}
-        : { expectedRevision: input.expectedRevision }),
-      value: {
-        id: input.value.id,
-        name: input.value.name,
-        benefits: [...input.value.benefits],
-        ...(input.value.availableForAssignment === undefined
-          ? {}
-          : { availableForAssignment: input.value.availableForAssignment }),
-        ...(input.value.coverage === undefined
-          ? {}
-          : { coverage: input.value.coverage }),
-        ...(input.value.eligibility === undefined
-          ? {}
-          : { eligibility: input.value.eligibility }),
-        ...(input.value.benefitPeriods === undefined
-          ? {}
-          : { benefitPeriods: [...input.value.benefitPeriods] }),
-      },
-    }),
-  );
+        : { availableForAssignment: input.value.availableForAssignment }),
+      ...(input.value.coverage === undefined
+        ? {}
+        : { coverage: input.value.coverage }),
+      ...(input.value.eligibility === undefined
+        ? {}
+        : { eligibility: input.value.eligibility }),
+      ...(input.value.benefitPeriods === undefined
+        ? {}
+        : { benefitPeriods: [...input.value.benefitPeriods] }),
+    },
+  }));
 }
 
 export function handleArchiveOffer(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    archiveBillingOfferOperation,
-    catalogOutcomeSchema,
-    (input) => ({ ...input, operation: "offers.archive" }),
-  );
+  return ownerCommand(request, archiveBillingOfferOperation, (input) => ({
+    ...input,
+    operation: "offers.archive",
+  }));
 }
 
 export function handlePublishOffer(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    publishBillingOfferOperation,
-    catalogOutcomeSchema,
-    (input) => ({ ...input, operation: "offers.publish" }),
-  );
+  return ownerCommand(request, publishBillingOfferOperation, (input) => ({
+    ...input,
+    operation: "offers.publish",
+  }));
 }
 
 export function handleUnpublishOffer(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    unpublishBillingOfferOperation,
-    catalogOutcomeSchema,
-    (input) => ({ ...input, operation: "offers.unpublish" }),
-  );
+  return ownerCommand(request, unpublishBillingOfferOperation, (input) => ({
+    ...input,
+    operation: "offers.unpublish",
+  }));
 }
 
 export function handleSavePaymentOption(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    saveBillingPaymentOptionOperation,
-    catalogOutcomeSchema,
-    (input) => ({
-      operation: "paymentOptions.save",
-      operationId: input.operationId,
-      ...(input.expectedRevision === undefined
-        ? {}
-        : { expectedRevision: input.expectedRevision }),
-      value: {
-        id: input.value.id,
-        offerId: input.value.offerId,
-        months: input.value.months,
-        priceKopecks: input.value.priceKopecks,
-        ...(input.value.mode === undefined ? {} : { mode: input.value.mode }),
-      },
-    }),
-  );
+  return ownerCommand(request, saveBillingPaymentOptionOperation, (input) => ({
+    operation: "paymentOptions.save",
+    operationId: input.operationId,
+    ...(input.expectedRevision === undefined
+      ? {}
+      : { expectedRevision: input.expectedRevision }),
+    value: {
+      id: input.value.id,
+      offerId: input.value.offerId,
+      months: input.value.months,
+      priceKopecks: input.value.priceKopecks,
+      ...(input.value.mode === undefined ? {} : { mode: input.value.mode }),
+    },
+  }));
 }
 
 export function handleArchivePaymentOption(
@@ -169,95 +140,71 @@ export function handleArchivePaymentOption(
   return ownerCommand(
     request,
     archiveBillingPaymentOptionOperation,
-    catalogOutcomeSchema,
     (input) => ({ ...input, operation: "paymentOptions.archive" }),
   );
 }
 
 export function handleSavePromotion(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    saveBillingPromotionOperation,
-    catalogOutcomeSchema,
-    (input) => ({
-      operation: "promotions.save",
-      operationId: input.operationId,
-      ...(input.expectedRevision === undefined
-        ? {}
-        : { expectedRevision: input.expectedRevision }),
-      value: {
-        ...input.value,
-        offerIds: [...input.value.offerIds],
-        paymentOptionIds: [...input.value.paymentOptionIds],
-      },
-    }),
-  );
+  return ownerCommand(request, saveBillingPromotionOperation, (input) => ({
+    operation: "promotions.save",
+    operationId: input.operationId,
+    ...(input.expectedRevision === undefined
+      ? {}
+      : { expectedRevision: input.expectedRevision }),
+    value: {
+      ...input.value,
+      offerIds: [...input.value.offerIds],
+      paymentOptionIds: [...input.value.paymentOptionIds],
+    },
+  }));
 }
 
 /** Поток продукта: запись каталога, которую страница курса читает без кеша. */
 export function handleSaveCohort(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    saveBillingCohortOperation,
-    catalogOutcomeSchema,
-    (input) => ({
-      operation: "cohorts.save",
-      operationId: input.operationId,
-      ...(input.expectedRevision === undefined
-        ? {}
-        : { expectedRevision: input.expectedRevision }),
-      value: input.value,
-    }),
-  );
+  return ownerCommand(request, saveBillingCohortOperation, (input) => ({
+    operation: "cohorts.save",
+    operationId: input.operationId,
+    ...(input.expectedRevision === undefined
+      ? {}
+      : { expectedRevision: input.expectedRevision }),
+    value: input.value,
+  }));
 }
 
 export function handleArchivePromotion(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    archiveBillingPromotionOperation,
-    catalogOutcomeSchema,
-    (input) => ({ ...input, operation: "promotions.archive" }),
-  );
+  return ownerCommand(request, archiveBillingPromotionOperation, (input) => ({
+    ...input,
+    operation: "promotions.archive",
+  }));
 }
 
 export function handleListPayments(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    listBillingPaymentsOperation,
-    paymentsOutcomeSchema,
-    (input) => ({
-      operation: "payments.list",
-      operationId: input.operationId,
-      limit: input.limit,
-      ...(input.accountId === undefined ? {} : { accountId: input.accountId }),
-      ...(input.state === undefined ? {} : { state: input.state }),
-      ...(input.kind === undefined ? {} : { kind: input.kind }),
-      ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-    }),
-  );
+  return ownerCommand(request, listBillingPaymentsOperation, (input) => ({
+    operation: "payments.list",
+    operationId: input.operationId,
+    limit: input.limit,
+    ...(input.accountId === undefined ? {} : { accountId: input.accountId }),
+    ...(input.state === undefined ? {} : { state: input.state }),
+    ...(input.kind === undefined ? {} : { kind: input.kind }),
+    ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
+  }));
 }
 
 export function handleReadPayment(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    readBillingPaymentOperation,
-    paymentOutcomeSchema,
-    (input) => ({
-      operation: "payments.read",
-      operationId: input.operationId,
-      purchaseRef: input.purchaseRef,
-      ...(input.auditCursor === undefined
-        ? {}
-        : { auditCursor: input.auditCursor }),
-    }),
-  );
+  return ownerCommand(request, readBillingPaymentOperation, (input) => ({
+    operation: "payments.read",
+    operationId: input.operationId,
+    purchaseRef: input.purchaseRef,
+    ...(input.auditCursor === undefined
+      ? {}
+      : { auditCursor: input.auditCursor }),
+  }));
 }
 
 export function handleReconcilePayment(request: Request): Promise<Response> {
   return ownerCommand(
     request,
     reconcileBillingPaymentOperation,
-    reconciledOutcomeSchema,
     (input) => ({ ...input, operation: "payments.reconcile" }),
     { bankCommand: true },
   );
@@ -266,12 +213,10 @@ export function handleReconcilePayment(request: Request): Promise<Response> {
 export function handleCancelOwnerSubscription(
   request: Request,
 ): Promise<Response> {
-  return ownerCommand(
-    request,
-    cancelOwnerSubscriptionOperation,
-    subscriptionOutcomeSchema,
-    (input) => ({ ...input, operation: "subscriptions.cancel" }),
-  );
+  return ownerCommand(request, cancelOwnerSubscriptionOperation, (input) => ({
+    ...input,
+    operation: "subscriptions.cancel",
+  }));
 }
 
 /** Исторические маршруты сохраняют проверку сессии и Origin, но больше не обращаются к backend. */
@@ -295,98 +240,76 @@ export function handleExecuteRefund(request: Request): Promise<Response> {
 }
 
 export function handleReadRefunds(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    readBillingRefundsOperation,
-    refundsOutcomeSchema,
-    (input) => ({ ...input, operation: "refunds.read" }),
-  );
+  return ownerCommand(request, readBillingRefundsOperation, (input) => ({
+    ...input,
+    operation: "refunds.read",
+  }));
 }
 
 export function handleReadGrants(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    readAccessGrantsOperation,
-    grantsOutcomeSchema,
-    (input) => ({ ...input, operation: "grants.read" }),
-  );
+  return ownerCommand(request, readAccessGrantsOperation, (input) => ({
+    ...input,
+    operation: "grants.read",
+  }));
 }
 
 export function handleReadAccountClassification(
   request: Request,
 ): Promise<Response> {
-  return ownerCommand(
-    request,
-    readAccountClassificationOperation,
-    classificationOutcomeSchema,
-    (input) => ({ ...input, operation: "grants.readClassification" }),
-  );
+  return ownerCommand(request, readAccountClassificationOperation, (input) => ({
+    ...input,
+    operation: "grants.readClassification",
+  }));
 }
 
 export function handleClassifyAccount(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    classifyAccountOperation,
-    classificationOutcomeSchema,
-    (input) => ({ ...input, operation: "grants.classify" }),
-  );
+  return ownerCommand(request, classifyAccountOperation, (input) => ({
+    ...input,
+    operation: "grants.classify",
+  }));
 }
 
 export function handlePreviewGrantBatch(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    previewAccessGrantBatchOperation,
-    grantPreviewOutcomeSchema,
-    (input) => ({
-      operation: "grants.previewBatch",
-      // Строка выдачи несёт условия права, строка классификации — решение о покупателе.
-      rows: input.rows.map((row) =>
-        "terms" in row
-          ? {
-              ...row,
-              terms: {
-                ...row.terms,
-                capabilities: [...row.terms.capabilities],
-              },
-            }
-          : { ...row },
-      ),
-      operationId: input.operationId,
-    }),
-  );
+  return ownerCommand(request, previewAccessGrantBatchOperation, (input) => ({
+    operation: "grants.previewBatch",
+    // Строка выдачи несёт условия права, строка классификации — решение о покупателе.
+    rows: input.rows.map((row) =>
+      "terms" in row
+        ? {
+            ...row,
+            terms: {
+              ...row.terms,
+              capabilities: [...row.terms.capabilities],
+            },
+          }
+        : { ...row },
+    ),
+    operationId: input.operationId,
+  }));
 }
 
 export function handleApplyGrantBatch(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    applyAccessGrantBatchOperation,
-    grantBatchOutcomeSchema,
-    (input) => ({
-      operation: "grants.applyBatch",
-      operationId: input.operationId,
-      previewRef: input.previewRef,
-      expectedRevision: input.expectedRevision,
-      confirmedRows: [...input.confirmedRows],
-    }),
-  );
+  return ownerCommand(request, applyAccessGrantBatchOperation, (input) => ({
+    operation: "grants.applyBatch",
+    operationId: input.operationId,
+    previewRef: input.previewRef,
+    expectedRevision: input.expectedRevision,
+    confirmedRows: [...input.confirmedRows],
+  }));
 }
 
 export function handleExtendGrant(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    extendAccessGrantOperation,
-    grantOutcomeSchema,
-    (input) => ({ ...input, operation: "grants.extend" }),
-  );
+  return ownerCommand(request, extendAccessGrantOperation, (input) => ({
+    ...input,
+    operation: "grants.extend",
+  }));
 }
 
 export function handleRevokeGrant(request: Request): Promise<Response> {
-  return ownerCommand(
-    request,
-    revokeAccessGrantOperation,
-    grantOutcomeSchema,
-    (input) => ({ ...input, operation: "grants.revoke" }),
-  );
+  return ownerCommand(request, revokeAccessGrantOperation, (input) => ({
+    ...input,
+    operation: "grants.revoke",
+  }));
 }
 
 /**

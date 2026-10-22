@@ -15,6 +15,7 @@ export function routeBrowserMutations(
   origin = testSiteOrigin,
 ) {
   const requests: Request[] = [];
+  const statuses: number[] = [];
   const fetch = vi.fn(
     async (url: string | URL, init?: RequestInit): Promise<Response> => {
       const target = new URL(url, testSiteOrigin);
@@ -24,10 +25,14 @@ export function routeBrowserMutations(
       requests.push(request.clone());
       const route = routes[target.pathname];
       const handler = route?.[request.method];
-      if (handler === undefined) return new Response(null, { status: 404 });
-      return handler(request);
+      const response =
+        handler === undefined
+          ? new Response(null, { status: 404 })
+          : await handler(request);
+      statuses.push(response.status);
+      return response;
     },
   );
   vi.stubGlobal("fetch", fetch);
-  return { fetch, requests };
+  return { fetch, requests, statuses };
 }

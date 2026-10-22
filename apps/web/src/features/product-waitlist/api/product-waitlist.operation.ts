@@ -8,8 +8,18 @@ const productInput = z.object({ productId: z.uuid() });
 const unavailable = () => ({ kind: "unavailable" }) as const;
 
 /** Starts joining a Product waitlist; a guest is sent to sign in first. */
+/** Where the reader came from; an unknown or malformed source is dropped, not refused. */
+const sourceSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/u)
+  .nullable()
+  .catch(null);
+
 export const beginWaitlistIntentOperation = defineMutationOperation({
-  input: productInput.extend({ source: z.string().nullable().optional() }),
+  input: productInput.extend({ source: sourceSchema.optional() }),
   method: "POST",
   path: "/api/product-waitlist/intent",
   result: waitlistMutationSchema,

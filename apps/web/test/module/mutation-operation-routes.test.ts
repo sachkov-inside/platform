@@ -22,6 +22,12 @@ import type { MutationOperation } from "@/shared/api/mutation-operation";
 
 import { routeBrowserMutations } from "../support/mutation-operation-route";
 
+/** Operations a guest may send: their route answers without a session, so only Origin is checked. */
+const guestOperations = new Set([
+  "createMaterialVideoPlaybackSessionOperation",
+  "beginWaitlistIntentOperation",
+]);
+
 type AnyOperation = MutationOperation<z.ZodType, z.ZodType>;
 
 const moduleExports = z.record(z.string(), z.unknown());
@@ -90,10 +96,14 @@ describe("every mutation operation reaches its Route Handler", () => {
     expect(operations.length).toBeGreaterThan(0);
   });
 
-  it.each(operations.map((entry) => [entry.name, entry] as const))(
+  it.each(
+    operations
+      .filter((entry) => !guestOperations.has(entry.name))
+      .map((entry) => [entry.name, entry] as const),
+  )(
     "%s refuses a missing session through its route",
     async (_name, { operation }) => {
-      const { requests } = routeBrowserMutations({
+      const { requests, statuses } = routeBrowserMutations({
         [operation.path]: await routeModule(operation.path),
       });
 
@@ -101,6 +111,7 @@ describe("every mutation operation reaches its Route Handler", () => {
       const result = await outcome(() => operation.send({}));
 
       expect(requests[0]?.method).toBe(operation.method);
+      expect(statuses).toEqual([401]);
       expect(result).toEqual(
         await outcome(() =>
           operation.transportFailure({ kind: "status", status: 401 }),
@@ -112,7 +123,7 @@ describe("every mutation operation reaches its Route Handler", () => {
   it.each(operations.map((entry) => [entry.name, entry] as const))(
     "%s refuses another origin before the session",
     async (_name, { operation }) => {
-      routeBrowserMutations(
+      const { statuses } = routeBrowserMutations(
         { [operation.path]: await routeModule(operation.path) },
         "https://outside.test",
       );
@@ -124,6 +135,7 @@ describe("every mutation operation reaches its Route Handler", () => {
           operation.transportFailure({ kind: "status", status: 403 }),
         ),
       );
+      expect(statuses).toEqual([403]);
       expect(fakes.token).not.toHaveBeenCalled();
     },
   );

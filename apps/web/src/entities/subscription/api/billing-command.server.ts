@@ -2,6 +2,11 @@ import "server-only";
 import { z } from "zod";
 
 import type { BackendTransportResult } from "@/shared/api/backend/index.server";
+
+import {
+  billingOperationValue,
+  type BillingOperation,
+} from "./billing-operation";
 import { handleAuthenticatedRead } from "@/shared/auth/index.server";
 
 import {
@@ -91,10 +96,13 @@ export function billingInvalidInput(): {
  * Одна billing-команда: вызов её use case и закрытый исход. Вход уже разобран схемой операции.
  * Повтор с прежним `operationId` безопасен, потому что решение принимает сервер.
  */
-export async function executeBillingOperation<Input, Value extends z.ZodType>(
-  input: Input,
-  valueSchema: Value,
-  execute: (input: Input) => Promise<BackendTransportResult>,
+export async function executeBillingOperation<
+  Input extends z.ZodType,
+  Value extends z.ZodType,
+>(
+  operation: BillingOperation<Input, Value>,
+  input: z.output<Input>,
+  execute: (input: z.output<Input>) => Promise<BackendTransportResult>,
 ): Promise<
   | { readonly ok: true; readonly value: z.infer<Value> }
   | { readonly ok: false; readonly code: BillingFailureCode }
@@ -106,7 +114,8 @@ export async function executeBillingOperation<Input, Value extends z.ZodType>(
     return { ok: false, code: "unavailable" };
   }
   if (!result.ok) return { ok: false, code: billingFailureCode(result) };
-  const parsed = valueSchema.safeParse(result.body);
+  // Тело backend проверяет схема значения самой операции: та же, что у браузера.
+  const parsed = billingOperationValue(operation).safeParse(result.body);
   return parsed.success
     ? { ok: true, value: parsed.data }
     : { ok: false, code: "unavailable" };

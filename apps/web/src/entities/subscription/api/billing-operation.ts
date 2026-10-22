@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import type { MutationTransportFailure } from "@/shared/api/mutation-operation";
+import type {
+  MutationOperation,
+  MutationTransportFailure,
+} from "@/shared/api/mutation-operation";
 
 import {
   billingFailureCodeSchema,
@@ -24,6 +27,22 @@ export function billingCommandResultSchema<Value extends z.ZodType>(
 export type BillingOperationResult = ReturnType<
   typeof billingCommandResultSchema<z.ZodType>
 >;
+
+/** A billing operation whose result carries the value schema `Value`. */
+export type BillingOperation<
+  Input extends z.ZodType,
+  Value extends z.ZodType,
+> = MutationOperation<
+  Input,
+  ReturnType<typeof billingCommandResultSchema<Value>>
+>;
+
+/** The value schema of a billing operation: the one owner of its success shape. */
+export function billingOperationValue<Value extends z.ZodType>(
+  operation: BillingOperation<z.ZodType, Value>,
+): Value {
+  return operation.result.options[1].shape.value;
+}
 
 /** A billing operation without an answer: only a missing session is named, the rest is unavailable. */
 export function billingTransportFailure(failure: MutationTransportFailure): {

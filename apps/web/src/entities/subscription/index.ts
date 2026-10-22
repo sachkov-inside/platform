@@ -102,6 +102,7 @@ export {
 export {
   billingCommandResultSchema,
   billingTransportFailure,
+  type BillingOperation,
   type BillingOperationResult,
 } from "./api/billing-operation";
 export { AcceptanceNote } from "./ui/acceptance-note";

@@ -45,8 +45,6 @@ vi.mock("@/shared/auth/index.server", async () => {
     handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
     handleMutationOperation: handler.handleMutationOperation,
     handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
-    handleOptionalAuthenticatedMutation:
-      handler.handleOptionalAuthenticatedMutation,
   };
 });
 

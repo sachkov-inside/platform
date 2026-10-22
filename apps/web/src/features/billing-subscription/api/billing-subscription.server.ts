@@ -24,10 +24,7 @@ import {
 
 import {
   enrollmentsSchema,
-  changeQuoteSchema,
-  changeResultSchema,
   currentBillingSchema,
-  subscriptionViewSchema,
 } from "@/entities/subscription";
 import {
   readAuthenticatedBilling,
@@ -36,7 +33,7 @@ import {
 } from "@/entities/subscription.server";
 import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import { methodChangeValueSchema } from "../model/subscription-commands";
+import {} from "../model/subscription-commands";
 
 export function handleCurrentBilling(): Promise<Response> {
   return readAuthenticatedBilling(
@@ -49,7 +46,7 @@ export function handleCancelRenewal(request: Request): Promise<Response> {
   return handleMutationOperation(request, cancelBillingRenewalOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, subscriptionViewSchema, (input) =>
+      executeBillingOperation(cancelBillingRenewalOperation, command, (input) =>
         requestCancelBillingRenewal(input, accessToken),
       ),
   });
@@ -59,7 +56,7 @@ export function handleResumeRenewal(request: Request): Promise<Response> {
   return handleMutationOperation(request, resumeBillingRenewalOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, subscriptionViewSchema, (input) =>
+      executeBillingOperation(resumeBillingRenewalOperation, command, (input) =>
         requestResumeBillingRenewal(input, accessToken),
       ),
   });
@@ -69,7 +66,7 @@ export function handleChangeQuote(request: Request): Promise<Response> {
   return handleMutationOperation(request, quoteBillingChangeOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, changeQuoteSchema, (input) =>
+      executeBillingOperation(quoteBillingChangeOperation, command, (input) =>
         requestBillingChangeQuote(input, accessToken),
       ),
   });
@@ -79,7 +76,7 @@ export function handleChangeOption(request: Request): Promise<Response> {
   return handleMutationOperation(request, changeBillingOptionOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, changeResultSchema, (input) =>
+      executeBillingOperation(changeBillingOptionOperation, command, (input) =>
         requestBillingChange(input, accessToken),
       ),
   });
@@ -89,7 +86,7 @@ export function handleCancelChange(request: Request): Promise<Response> {
   return handleMutationOperation(request, cancelBillingChangeOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, subscriptionViewSchema, (input) =>
+      executeBillingOperation(cancelBillingChangeOperation, command, (input) =>
         requestCancelBillingChange(input, accessToken),
       ),
   });
@@ -99,8 +96,10 @@ export function handleChangePaymentMethod(request: Request): Promise<Response> {
   return handleMutationOperation(request, changeBillingPaymentMethodOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, methodChangeValueSchema, (input) =>
-        requestChangeBillingMethod(input, accessToken),
+      executeBillingOperation(
+        changeBillingPaymentMethodOperation,
+        command,
+        (input) => requestChangeBillingMethod(input, accessToken),
       ),
   });
 }
@@ -109,8 +108,10 @@ export function handleRevokePaymentMethod(request: Request): Promise<Response> {
   return handleMutationOperation(request, revokeBillingPaymentMethodOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, subscriptionViewSchema, (input) =>
-        requestRevokeBillingMethod(input, accessToken),
+      executeBillingOperation(
+        revokeBillingPaymentMethodOperation,
+        command,
+        (input) => requestRevokeBillingMethod(input, accessToken),
       ),
   });
 }

@@ -10,7 +10,7 @@ import {
   billingInvalidInput,
   executeBillingOperation,
 } from "@/entities/subscription.server";
-import { purchaseStatusSchema, quoteSchema } from "@/entities/subscription";
+import { purchaseStatusSchema } from "@/entities/subscription";
 import {
   requestBillingPurchase,
   requestRestoreProductPurchase,
@@ -25,7 +25,7 @@ export function handleBillingQuote(request: Request): Promise<Response> {
   return handleMutationOperation(request, createBillingQuoteOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, quoteSchema, (input) =>
+      executeBillingOperation(createBillingQuoteOperation, command, (input) =>
         requestBillingQuote(
           {
             operationId: input.operationId,
@@ -48,7 +48,7 @@ export function handleBillingPurchase(request: Request): Promise<Response> {
   return handleMutationOperation(request, startBillingPurchaseOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, accessToken) =>
-      executeBillingOperation(command, purchaseStatusSchema, (input) =>
+      executeBillingOperation(startBillingPurchaseOperation, command, (input) =>
         requestBillingPurchase(
           {
             operationId: input.operationId,

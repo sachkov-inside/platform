@@ -11,10 +11,7 @@ import {
   requestReadProductCommunityConfiguration,
   requestConfigureProductCommunity,
 } from "@/shared/api/backend/index.server";
-import {
-  productCommunityConfigurationSchema,
-  configuredProductCommunitySchema,
-} from "../model/configuration";
+import { productCommunityConfigurationSchema } from "../model/configuration";
 export function handleReadProductCommunityConfiguration(
   request: Request,
 ): Promise<Response> {
@@ -36,8 +33,8 @@ export function handleConfigureProductCommunity(
     invalidInput: billingInvalidInput,
     execute: (command, token) =>
       executeBillingOperation(
+        configureProductCommunityOperation,
         command,
-        configuredProductCommunitySchema,
         (input) =>
           requestConfigureProductCommunity(
             input.productId,

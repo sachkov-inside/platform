@@ -12,10 +12,6 @@ import {
   requestPreviewProductRevocation,
   requestRevokeProductAccess,
 } from "@/shared/api/backend/index.server";
-import {
-  productRevocationResponseSchema,
-  productRevocationPreviewResponseSchema,
-} from "../model/product-revocation";
 export function handlePreviewProductRevocation(
   request: Request,
 ): Promise<Response> {
@@ -23,8 +19,8 @@ export function handlePreviewProductRevocation(
     invalidInput: billingInvalidInput,
     execute: (command, token) =>
       executeBillingOperation(
+        previewProductRevocationOperation,
         command,
-        productRevocationPreviewResponseSchema,
         (input) => requestPreviewProductRevocation(input, token),
       ),
   });
@@ -33,10 +29,8 @@ export function handleRevokeProductAccess(request: Request): Promise<Response> {
   return handleMutationOperation(request, revokeProductAccessOperation, {
     invalidInput: billingInvalidInput,
     execute: (command, token) =>
-      executeBillingOperation(
-        command,
-        productRevocationResponseSchema,
-        (input) => requestRevokeProductAccess(input, token),
+      executeBillingOperation(revokeProductAccessOperation, command, (input) =>
+        requestRevokeProductAccess(input, token),
       ),
   });
 }

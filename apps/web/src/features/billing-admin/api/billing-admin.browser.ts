@@ -56,8 +56,7 @@ export const listBillingPayments = listBillingPaymentsOperation.send;
 export async function readBillingPayment(
   input: ReadPaymentInput,
 ): Promise<BillingCommandResult<PaymentOutcome>> {
-  const read = (command: ReadPaymentInput) =>
-    readBillingPaymentOperation.send(command);
+  const read = readBillingPaymentOperation.send;
   const first = await read(input);
   if (!first.ok) return first;
   const audit = [...first.value.result.audit];

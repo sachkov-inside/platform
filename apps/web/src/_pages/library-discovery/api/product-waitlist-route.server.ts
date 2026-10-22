@@ -29,12 +29,6 @@ import {
 } from "@/features/product-waitlist.operations";
 const intakeSchema = z.strictObject({ intakeId: z.uuid(), name: z.string() });
 const membershipSchema = intakeSchema.extend({ active: z.boolean() });
-const sourceSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(64)
-  .regex(/^[A-Za-z0-9_-]+$/u);
 const unavailable = () => ({ kind: "unavailable" }) as const;
 
 export async function handleWaitlistRead(request: Request): Promise<Response> {
@@ -97,7 +91,7 @@ export function handleWaitlistIntent(request: Request): Promise<Response> {
             productId,
             intakeId: intake.data.intakeId,
             accountId: account?.accountId ?? null,
-            source: sourceSchema.safeParse(source).data ?? null,
+            source: source ?? null,
           },
           config.cookieSecret,
           now,
