@@ -118,7 +118,7 @@ pnpm --silent authoring:deliver reconcile --target production --state ~/.inside-
 ```
 
 Статусы строк: `agree`, `target_only` (есть на сайте, нет в журнале), `journal_only`, `identity_differs`,
-`version_differs`. Материал, который владелец поручил обновить, примите в журнал явно:
+`version_differs`; для заданий то же по ревизии их записи в журнале. Материал или задание, которые владелец поручил обновить, примите в журнал явно:
 повторите команду с `--adopt SOURCE_ID`. Журнал вручную не правьте.
 
 ### Защита от старого пакета

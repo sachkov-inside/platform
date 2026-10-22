@@ -10,6 +10,11 @@ import { parseLocalResponse } from "./local-boundaries.mjs";
 import { readNamespaceState } from "./preservation-state.mjs";
 import { refusal } from "./refusal.mjs";
 
+// The receipt `task-import.mjs` keeps under `task:<code>` after each Task write.
+const taskReceiptSchema = z
+  .object({ revision: z.number().int().positive(), digest: z.hash("sha256") })
+  .strict();
+
 /**
  * @typedef {"agree" | "journal_only" | "target_only" | "identity_differs" | "version_differs"} ReconcileStatus
  * @typedef {{
@@ -93,13 +98,64 @@ export async function reconcileJournal(
           sourceCommit: current?.source.commit ?? null,
         };
       });
+      const resources = (journal.resources ??= {});
+      const heldTasks = new Map(state.tasks.map((row) => [row.sourceId, row]));
+      // A Task's journal receipt records the revision this journal last wrote; another journal may
+      // have revised it since, and apply refuses to overwrite that unseen revision.
+      const taskRows = state.tasks.map((current) => {
+        const receipt = taskReceiptSchema.safeParse(
+          resources[`task:${current.code}`],
+        );
+        /** @type {"agree" | "target_only" | "version_differs"} */
+        const status = !receipt.success
+          ? "target_only"
+          : receipt.data.revision === current.revision
+            ? "agree"
+            : "version_differs";
+        return {
+          sourceId: current.sourceId,
+          status,
+          taskId: current.taskId,
+          revision: current.revision,
+          journalRevision: receipt.success ? receipt.data.revision : null,
+          publicationState: current.publicationState,
+          sourceCommit: current.sourceCommit,
+        };
+      });
       for (const sourceId of adopted) {
+        const task = heldTasks.get(sourceId);
+        if (task !== undefined) {
+          const row = taskRows.find((item) => item.sourceId === sourceId);
+          if (row === undefined || row.status === "agree") continue;
+          const previous = resources[`task:${task.code}`];
+          // As for Materials, the digest matches no package, so the next preview shows the Task as changed.
+          resources[`task:${task.code}`] = {
+            revision: task.revision,
+            digest: checksum(
+              canonical({
+                adopted: sourceId,
+                taskId: task.taskId,
+                revision: task.revision,
+              }),
+            ),
+          };
+          resources[`adopted:${sourceId}`] = {
+            at: now().toISOString(),
+            status: row.status,
+            previous: previous === undefined ? null : canonicalEntry(previous),
+            taskId: task.taskId,
+            revision: task.revision,
+          };
+          row.status = "agree";
+          row.journalRevision = task.revision;
+          continue;
+        }
         const row = rows.find((item) => item.sourceId === sourceId);
         const current = held.get(sourceId);
         if (row === undefined || current === undefined)
           throw refusal(
             "adopt_unknown",
-            `${sourceId}: the target holds no Material with this source identity`,
+            `${sourceId}: the target holds no Material or Task with this source identity`,
           );
         if (row.status === "agree") continue;
         const previous = journal.materials[sourceId];
@@ -126,7 +182,7 @@ export async function reconcileJournal(
             ? {}
             : { url: `/materials/${current.slug}` }),
         };
-        (journal.resources ??= {})[`adopted:${sourceId}`] = {
+        resources[`adopted:${sourceId}`] = {
           at: now().toISOString(),
           status: row.status,
           previous: previous === undefined ? null : canonicalEntry(previous),
@@ -153,13 +209,15 @@ export async function reconcileJournal(
         counts,
         adopted,
         materials: rows,
-        tasks: state.tasks.map((row) => ({
-          sourceId: row.sourceId,
-          taskId: row.taskId,
-          revision: row.revision,
-          publicationState: row.publicationState,
-          sourceCommit: row.sourceCommit,
-        })),
+        tasks: taskRows,
+        taskCounts: {
+          agree: taskRows.filter((row) => row.status === "agree").length,
+          target_only: taskRows.filter((row) => row.status === "target_only")
+            .length,
+          version_differs: taskRows.filter(
+            (row) => row.status === "version_differs",
+          ).length,
+        },
       };
     },
   );
