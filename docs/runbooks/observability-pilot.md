@@ -1397,6 +1397,17 @@ saturation flag. Existing30/60/600-second budgets and all byte, row, role, flags
 A pending observation is recorded only after the complete unchanged raw oracle accepts the response.
 No role-presence projection bypasses that gate. No raw native stderr or exception message is collected.
 
+Tracking and waitlist may add one optional `temporal` object only to a failed
+`trace_validation` / `trace_gate_17` diagnostic. Its closed roles, `start` / `end` /
+`both` comparison and `lt_1ms` / `ge_1ms` maximum-gap band describe only the first
+already-refused visible edge. No identifiers, raw rows, timestamps or exact gaps
+are retained. A band is neither an acceptance tolerance nor proof of a native
+cause. The complete raw oracle and `provider_temporal` refusal stay unchanged.
+Other scopes and outcomes forbid the object; old records without it keep their
+original shape. Collection validates and rewrites only canonical bounded metadata,
+and interpretation requires the matching source revision. Query counts, clocks,
+profiles, first-failure ownership and existing byte/process limits are unchanged.
+
 Tracking witness refusals retain the original `ValueError` messages and expose only the fixed
 `witness_header`, `witness_group`, `witness_row`, `witness_path`, `witness_digest`,
 `witness_duplicate` or `witness_required` category. The owning exception sets its read-only reason

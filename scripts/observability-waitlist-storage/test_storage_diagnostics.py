@@ -81,6 +81,72 @@ class StorageFeedback(unittest.TestCase):
         self.assertEqual(snapshot.get('temporal'),
             {'row_role':'provider','parent_role':'delivery','comparison':'end','gap_band':'lt_1ms'})
 
+        # Worked ns boundaries exercise the real parser; expected bands are literals.
+        for index,role,parent_role in ((3,'provider','delivery'),(2,'identity','root'),(4,'postgresql','root'),(5,'postgresql','delivery')):
+            for start,end,duration,instant,comparison,band in (
+                    ('1800000000000000000','1800000000001999999','1999999','2027-01-15T08:00:00.000000000Z','end','lt_1ms'),
+                    ('1800000000000000000','1800000000002000000','2000000','2027-01-15T08:00:00.000000000Z','end','ge_1ms'),
+                    ('1799999999999000001','1800000000001000000','1999999','2027-01-15T07:59:59.999000001Z','start','lt_1ms'),
+                    ('1799999999999000000','1800000000001999999','2999999','2027-01-15T07:59:59.999000000Z','both','ge_1ms')):
+                with self.subTest(role=role,comparison=comparison,band=band):
+                    rows=trace_rows();row=rows[index]
+                    row.update(start_time_unix_nano=start,end_time_unix_nano=end,duration=duration,_time=instant)
+                    value=diagnostics.Diagnostic('waitlist')
+                    with tempfile.TemporaryDirectory() as directory, patch.object(storage.sdk_storage,'metric_response',return_value=json.dumps(vector())), patch.object(storage,'trace_response',return_value='\n'.join(json.dumps(row) for row in rows)):
+                        with self.assertRaisesRegex(diagnostics.TraceOracleRefusal,'^Waitlist storage trace contract failed$') as caught:
+                            storage.stored_metrics_and_traces(Path(directory),token='synthetic',compose=[],targets=None,observed={'trace_id':TRACE,'root_id':ROOT},result={},diagnostic=value)
+                    self.assertEqual(caught.exception.reason,'trace_gate_17')
+                    self.assertEqual(value.snapshot()['temporal'],
+                        {'row_role':role,'parent_role':parent_role,'comparison':comparison,'gap_band':band})
+        for parent_index,parent_role in ((2,'identity'),(4,'postgresql')):
+            rows=trace_rows();rows[3]['parent_span_id']=rows[parent_index]['span_id']
+            rows[3].update(end_time_unix_nano='1800000000001999999',duration='1999999');rows.pop(1)
+            value=diagnostics.Diagnostic('waitlist')
+            with tempfile.TemporaryDirectory() as directory, patch.object(storage.sdk_storage,'metric_response',return_value=json.dumps(vector())), patch.object(storage,'trace_response',return_value='\n'.join(json.dumps(row) for row in rows)):
+                with self.assertRaises(diagnostics.TraceOracleRefusal) as caught:
+                    storage.stored_metrics_and_traces(Path(directory),token='synthetic',compose=[],targets=None,observed={'trace_id':TRACE,'root_id':ROOT},result={},diagnostic=value)
+            self.assertEqual(caught.exception.reason,'trace_gate_17')
+            self.assertEqual(value.snapshot()['temporal'],
+                {'row_role':'provider','parent_role':parent_role,'comparison':'end','gap_band':'lt_1ms'})
+        rows=trace_rows();rows[3]['private-key-canary']='private-value-canary'
+        value=diagnostics.Diagnostic('waitlist')
+        with tempfile.TemporaryDirectory() as directory, patch.object(storage.sdk_storage,'metric_response',return_value=json.dumps(vector())), patch.object(storage,'trace_response',return_value='\n'.join(json.dumps(row) for row in rows)):
+            with self.assertRaises(RuntimeError) as caught:
+                storage.stored_metrics_and_traces(Path(directory),token='synthetic',compose=[],targets=None,observed={'trace_id':TRACE,'root_id':ROOT},result={},diagnostic=value)
+        self.assertNotEqual(getattr(caught.exception,'reason',None),'trace_gate_17')
+        self.assertNotIn('temporal',value.snapshot())
+        self.assertNotIn('private',json.dumps(value.snapshot()))
+
+        # Actual collector: one canonical finite record; invalid-present stops before copy.
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();output=root/'private';metadata=root/'metadata'
+            output.mkdir(mode=0o700);metadata.mkdir(mode=0o700)
+            source=storage.ci.read_command(['git','-C',str(storage.pilot.ROOT),'rev-parse','HEAD'])
+            tree=storage.ci.read_command(['git','-C',str(storage.pilot.ROOT),'rev-parse','HEAD^{tree}'])
+            (metadata/'source.json').write_text(json.dumps(dict(checkout_sha=source,checkout_tree=tree,
+                repository=None,run_id=None,run_attempt=None,event=None,provider_execution_sha=source,
+                provider_pr_head_sha=None,provider_pr_base_sha=None,inputs={},scope='source-fixture')))
+            temporal={'row_role':'provider','parent_role':'delivery','comparison':'end','gap_band':'lt_1ms'}
+            valid={**diagnostics.unknown('waitlist'),'phase':'trace_validation','outcome':'failed',
+                'reason':'trace_gate_17','attempts':1,'temporal':temporal}
+            (output/'stderr.txt').write_text('private-raw-trace-canary')
+            (output/diagnostics.NAME).write_text(json.dumps(valid,indent=4)+'\n\n')
+            storage.collect(output,metadata,root/'canonical-temporal')
+            canonical=(root/'canonical-temporal'/diagnostics.NAME).read_text()
+            self.assertEqual(json.loads(canonical),valid)
+            self.assertEqual(diagnostics.read(root/'canonical-temporal'/diagnostics.NAME,scope='waitlist'),valid)
+            self.assertNotIn('private',canonical)
+            self.assertLess(len(canonical),len(json.dumps(valid,indent=4)))
+            self.assertEqual((root/'canonical-temporal'/diagnostics.NAME).stat().st_mode&0o777,0o600)
+            for index,bad in enumerate((None,{**temporal,'private':'private-canary'},
+                                        {**temporal,'comparison':'private-canary'},
+                                        {**temporal,'gap_band':1000000},{})):
+                (output/diagnostics.NAME).write_text(json.dumps({**valid,'temporal':bad}))
+                target=root/('refused-temporal-'+str(index))
+                with self.assertRaisesRegex(ValueError,'^closed storage diagnostic contract failed$'):
+                    storage.collect(output,metadata,target)
+                self.assertFalse(target.exists())
+
     def test_observer_write_failure_preserves_primary_but_refuses_success(self):
         for observer in (OSError,ValueError):
             for kind in ('runtime','timeout','interrupt','success'):

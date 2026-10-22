@@ -52,7 +52,7 @@ def _valid_detail(scope,gate,detail):
 
 class TraceGateRefusal(ValueError):
     """An empty ValueError with a constructor-owned semantic predicate identifier."""
-    __slots__ = ('_scope','_reason','_detail')
+    __slots__ = ('_scope','_reason','_detail','_temporal')
     def __init__(self, scope, reason, *, detail=None):
         if (type(scope) is not str or scope not in TRACE_GATES or type(reason) is not str
                 or reason not in TRACE_GATES[scope] or not _valid_detail(scope,reason,detail)):
@@ -60,6 +60,7 @@ class TraceGateRefusal(ValueError):
         object.__setattr__(self,'_scope',scope)
         object.__setattr__(self,'_reason',reason)
         object.__setattr__(self,'_detail',detail)
+        object.__setattr__(self,'_temporal',None)
         super().__init__()
 
     @property
@@ -71,18 +72,19 @@ class TraceGateRefusal(ValueError):
     @property
     def diagnostic_reason(self):return self._reason if self._detail is None else TRACKING_GATE06_DETAILS[self._detail]
     def __setattr__(self,name,value):
-        if name in ('scope','reason','detail','diagnostic_reason','_scope','_reason','_detail'):raise AttributeError('read-only trace reason')
+        if name in ('scope','reason','detail','diagnostic_reason','temporal','_scope','_reason','_detail','_temporal'):raise AttributeError('read-only trace reason')
         super().__setattr__(name,value)
 
 
 class TraceOracleRefusal(OracleRefusal):
     """Fixed original RuntimeError message, never caller-provided native details."""
-    __slots__ = ('_scope','_reason','_detail')
+    __slots__ = ('_scope','_reason','_detail','_temporal')
     def __init__(self,scope,reason,*,detail=None):
         admitted=TraceGateRefusal(scope,reason,detail=detail)
         object.__setattr__(self,'_scope',admitted.scope)
         object.__setattr__(self,'_reason',admitted.reason)
         object.__setattr__(self,'_detail',admitted.detail)
+        object.__setattr__(self,'_temporal',None)
         RuntimeError.__init__(self,TRACE_MESSAGES[scope])
 
     @property
@@ -94,7 +96,7 @@ class TraceOracleRefusal(OracleRefusal):
     @property
     def diagnostic_reason(self):return self._reason if self._detail is None else TRACKING_GATE06_DETAILS[self._detail]
     def __setattr__(self,name,value):
-        if name in ('scope','reason','detail','diagnostic_reason','_scope','_reason','_detail'):raise AttributeError('read-only trace reason')
+        if name in ('scope','reason','detail','diagnostic_reason','temporal','_scope','_reason','_detail','_temporal'):raise AttributeError('read-only trace reason')
         super().__setattr__(name,value)
 
 
@@ -117,9 +119,83 @@ def _trace_reason(error,scope):
     return None if metadata is None else metadata[0]
 
 
+
+TEMPORAL_FIELDS = ('row_role','parent_role','comparison','gap_band')
+TEMPORAL_VALUES = (('provider','identity','postgresql'),
+                   ('root','delivery','provider','identity','postgresql'),
+                   ('start','end','both'),('lt_1ms','ge_1ms'))
+
+
+def _temporal_tuple(value):
+    if (type(value) is tuple and len(value)==4
+            and all(type(item) is str and item in allowed for item,allowed in zip(value,TEMPORAL_VALUES))):
+        return value
+    return None
+
+
+def _trace_temporal(error,scope):
+    if scope not in ('tracking','waitlist') or _trace_metadata(error,scope)!=('trace_gate_17',None):return None
+    try:value=object.__getattribute__(error,'_temporal')
+    except AttributeError:return None
+    return _temporal_tuple(value)
+
+
+def _interval_temporal(row_role,parent_role,start,end,parent_start,parent_end):
+    if (type(row_role) is not str or row_role not in TEMPORAL_VALUES[0]
+            or type(parent_role) is not str or parent_role not in TEMPORAL_VALUES[1]
+            or any(type(item) is not int for item in (start,end,parent_start,parent_end))):return None
+    before=start<parent_start;after=end>parent_end
+    if not before and not after:return None
+    comparison='both' if before and after else 'start' if before else 'end'
+    gap=max(parent_start-start,end-parent_end)
+    return row_role,parent_role,comparison,'lt_1ms' if gap<1000000 else 'ge_1ms'
+
+
+def temporal_refusal(primary,row_role,parent_role,start,end,parent_start,parent_end):
+    """Enrich only an already-created gate17 refusal, never its acceptance predicate."""
+    if type(primary) is not TraceGateRefusal:return primary
+    traceback=BaseException.__traceback__.__get__(primary)
+    try:
+        scope=object.__getattribute__(primary,'_scope')
+        if scope in ('tracking','waitlist') and _trace_metadata(primary,scope)==('trace_gate_17',None):
+            value=_temporal_tuple(_interval_temporal(row_role,parent_role,start,end,parent_start,parent_end))
+            object.__setattr__(primary,'_temporal',value)
+    except BaseException:
+        object.__setattr__(primary,'_temporal',None)
+        BaseException.__traceback__.__set__(primary,traceback)
+    return primary
+
+
+def _copy_temporal(primary,error,scope):
+    # Optional exact-type finite projection only; preserve both owned primary tracebacks.
+    if type(error) not in (TraceGateRefusal,TraceOracleRefusal):return
+    primary_tb=BaseException.__traceback__.__get__(primary)
+    error_tb=BaseException.__traceback__.__get__(error)
+    try:object.__setattr__(primary,'_temporal',_temporal_tuple(_trace_temporal(error,scope)))
+    except BaseException:
+        object.__setattr__(primary,'_temporal',None)
+        BaseException.__traceback__.__set__(primary,primary_tb)
+        BaseException.__traceback__.__set__(error,error_tb)
+
+
+def _diagnostic_temporal(value,error):
+    # This bounded optional leaf owns no I/O or primary failure operations.
+    primary,traceback=sys.exc_info()[1:]
+    try:
+        temporal=_trace_temporal(error,value['scope'])
+        if temporal is not None:
+            return validate({**value,'temporal':dict(zip(TEMPORAL_FIELDS,temporal))},scope=value['scope'])
+    except BaseException:
+        if primary is not None:BaseException.__traceback__.__set__(primary,traceback)
+    return value
+
+
 def trace_refusal(error,*,scope):
     metadata=_trace_metadata(error,scope)
-    if metadata is not None:return TraceOracleRefusal(scope,metadata[0],detail=metadata[1])
+    if metadata is not None:
+        primary=TraceOracleRefusal(scope,metadata[0],detail=metadata[1])
+        _copy_temporal(primary,error,scope)
+        return primary
     if type(error) is ResponseDecode:return OracleRefusal(TRACE_MESSAGES[scope],'response_decode')
     if scope=='waitlist':return RuntimeError(TRACE_MESSAGES[scope])
     return OracleRefusal(TRACE_MESSAGES[scope],'oracle_refusal')
@@ -154,7 +230,7 @@ def unknown(scope):
 
 
 def validate(value, *, scope):
-    if (scope not in ('sdk', 'tracking', 'waitlist') or type(value) is not dict or set(value) != set(FIELDS)
+    if (scope not in ('sdk', 'tracking', 'waitlist') or type(value) is not dict or set(value) not in (set(FIELDS),{*FIELDS,'temporal'})
             or type(value['schema']) is not int or value['schema'] != 1
             or type(value['scope']) is not str or value['scope'] != scope
             or any(type(value[key]) is not str for key in ('phase', 'outcome', 'reason'))
@@ -179,7 +255,14 @@ def validate(value, *, scope):
     if (phase == 'complete' and outcome not in ('passed','failed','interrupted')
             or outcome == 'pending' and phase not in ('metric_validation','trace_validation','reconciliation')):
         _refuse()
-    return {key:value[key] for key in FIELDS}
+    canonical={key:value[key] for key in FIELDS}
+    if 'temporal' in value:
+        temporal=value['temporal']
+        if (scope not in ('tracking','waitlist') or (phase,outcome,reason)!=('trace_validation','failed','trace_gate_17')
+                or type(temporal) is not dict or set(temporal)!=set(TEMPORAL_FIELDS)
+                or _temporal_tuple(tuple(temporal[key] for key in TEMPORAL_FIELDS)) is None):_refuse()
+        canonical['temporal']={key:temporal[key] for key in TEMPORAL_FIELDS}
+    return canonical
 
 
 def read(path, *, scope):
@@ -259,8 +342,13 @@ class Diagnostic:
         self._set(attempts=min(count+1, MAX_ATTEMPTS),
                   attempts_saturated=self._value['attempts_saturated'] or count == MAX_ATTEMPTS)
 
-    def fail(self, reason):
+    def fail(self, reason, *, trace_error=None):
+        if self._value['outcome'] in ('failed','interrupted'):return
         self._set(outcome='interrupted' if reason == 'interrupted' else 'failed', reason=reason)
+        if (self._value['scope'] in ('tracking','waitlist') and self._value['phase']=='trace_validation'
+                and self._value['outcome']=='failed' and self._value['reason']=='trace_gate_17'):
+            self._value=_diagnostic_temporal(self._value,trace_error)
+
 
     def snapshot(self):
         return validate(self._value, scope=self._value['scope'])

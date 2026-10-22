@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'observability-sdk-storage'))
 import oracle as sdk_oracle
-from diagnostics import ResponseDecode, TraceGateRefusal, trace_refusal
+from diagnostics import ResponseDecode, TraceGateRefusal, trace_refusal, temporal_refusal
 
 BOUNDS = sdk_oracle.BOUNDS
 COMMON = {'service.name':'platform-api', 'deployment.environment.name':'test',
@@ -198,7 +198,11 @@ def traces(raw, *, trace_id, root_id):
                 if delivery is not None and parent_id not in (root_id,delivery['span_id']): raise TraceGateRefusal('waitlist','trace_gate_16')
             parent = parsed.get(parent_id)
             if parent is not None and row is not delivery:
-                if not int(parent['start_time_unix_nano']) <= int(row['start_time_unix_nano']) <= int(row['end_time_unix_nano']) <= int(parent['end_time_unix_nano']): raise TraceGateRefusal('waitlist','trace_gate_17')
+                if not int(parent['start_time_unix_nano']) <= int(row['start_time_unix_nano']) <= int(row['end_time_unix_nano']) <= int(parent['end_time_unix_nano']):
+                    primary=TraceGateRefusal('waitlist','trace_gate_17')
+                    temporal_refusal(primary,roles[row['span_id']],roles[parent_id],int(row['start_time_unix_nano']),
+                        int(row['end_time_unix_nano']),int(parent['start_time_unix_nano']),int(parent['end_time_unix_nano']))
+                    raise primary
             visited = set(); current=row
             while current.get('parent_span_id') in parsed:
                 if current['span_id'] in visited: raise TraceGateRefusal('waitlist','trace_gate_18')
