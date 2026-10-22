@@ -17,6 +17,7 @@ export interface TelegramLinkActionProps {
   /** Перечитывает состояние, которое показывает кнопку, после каждого шага привязки. */
   readonly onRefresh: () => Promise<void>;
   readonly className?: string;
+  /** Кнопка шапки: на телефоне только значок; значок 20px на любой ширине, как у соседних в шапке. */
   readonly compact?: boolean;
 }
 
@@ -43,6 +44,7 @@ export function TelegramLinkAction({
           asChild
           className={className}
           variant={compact ? "ghost" : "default"}
+          data-glyph={compact ? "header" : undefined}
         >
           <a
             aria-label={compact ? "Открыть Telegram" : undefined}
@@ -73,6 +75,7 @@ export function TelegramLinkAction({
       <Button
         className={className}
         variant={compact ? "ghost" : "default"}
+        data-glyph={compact ? "header" : undefined}
         aria-label={compact ? label : undefined}
         disabled={flow.pending}
         onClick={() => {
