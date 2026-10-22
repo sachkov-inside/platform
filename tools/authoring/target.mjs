@@ -29,6 +29,8 @@ export const trustedTargets = Object.freeze({
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
 // Large Markdown bodies and file uploads stay within one local request budget.
 const localRequestTimeoutMs = 60_000;
+// A read that failed before any HTTP answer is repeated; a write is replayed by its journal instead.
+const readRetryDelaysMs = [1_000, 3_000];
 
 /**
  * @typedef {(
@@ -220,21 +222,35 @@ export function transportFor(target, accessToken) {
 function httpTransport(base, credential) {
   return async function request(path, body, key, { method } = {}) {
     const form = body instanceof FormData;
-    const response = await fetch(`${base}${path}`, {
-      method: method ?? (body === undefined ? "GET" : "POST"),
-      redirect: "error",
-      headers: {
-        ...(await credential()),
-        ...(body === undefined || form
+    const verb = method ?? (body === undefined ? "GET" : "POST");
+    const send = async () =>
+      fetch(`${base}${path}`, {
+        method: verb,
+        redirect: "error",
+        headers: {
+          ...(await credential()),
+          ...(body === undefined || form
+            ? {}
+            : { "content-type": "application/json" }),
+          ...(key ? { "idempotency-key": key } : {}),
+        },
+        ...(body === undefined
           ? {}
-          : { "content-type": "application/json" }),
-        ...(key ? { "idempotency-key": key } : {}),
-      },
-      ...(body === undefined
-        ? {}
-        : { body: form ? body : JSON.stringify(body) }),
-      signal: AbortSignal.timeout(localRequestTimeoutMs),
-    });
+          : { body: form ? body : JSON.stringify(body) }),
+        signal: AbortSignal.timeout(localRequestTimeoutMs),
+      });
+    /** @type {Response | undefined} */
+    let response;
+    for (const delay of verb === "GET" ? [...readRetryDelaysMs, null] : [null])
+      try {
+        response = await send();
+        break;
+      } catch (error) {
+        // fetch rejects with a TypeError only when no HTTP response arrived.
+        if (delay === null || !(error instanceof TypeError)) throw error;
+        await new Promise((accept) => setTimeout(accept, delay));
+      }
+    if (response === undefined) throw new Error(`${path}: no response`);
     const text = await response.text();
     /** @type {unknown} */
     const result = text === "" ? null : JSON.parse(text);

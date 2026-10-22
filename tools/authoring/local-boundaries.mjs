@@ -171,7 +171,76 @@ const applyBodySchema = z
   .passthrough();
 
 const environmentSchema = z
-  .object({ mode: z.enum(["development", "test", "production"]) })
+  .object({
+    mode: z.enum(["development", "test", "production"]),
+    // The import contract (#1672); a receiver before it reports none.
+    contract: z
+      .object({ version, packageFeatures: z.array(text) })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+const namespace = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u);
+const sourceCommit = z.hash("sha1");
+/** Every source-owned Material of one namespace, as `GET /authoring/import/materials/state` reports it. */
+const materialStateSchema = z
+  .object({
+    namespace,
+    materials: z.array(
+      z
+        .object({
+          sourceId: text,
+          materialId: z.uuid(),
+          slug: text.nullable(),
+          contentVersion: version,
+          access,
+          publicationState: publicationStateSchema,
+          source: z
+            .object({
+              path: text,
+              revision: hash,
+              commit: sourceCommit.nullable(),
+              showInFeed: z.boolean(),
+            })
+            .passthrough(),
+          memberships: z.array(
+            z
+              .object({
+                productId: z.uuid(),
+                ordinal: version,
+                chapterId: z.uuid().nullable(),
+              })
+              .passthrough(),
+          ),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+/** Every source-owned Task of one namespace, as `GET /authoring/import/tasks/state` reports it. */
+const taskStateSchema = z
+  .object({
+    namespace,
+    tasks: z.array(
+      z
+        .object({
+          sourceId: text,
+          taskId: z.uuid(),
+          code: text,
+          productId: z.uuid(),
+          chapterId: z.uuid(),
+          position: version,
+          afterMaterialSourceId: text.nullable(),
+          programmeVisibility: z.enum(["standalone", "embedded", "legacy"]),
+          embeddedMaterialId: z.uuid().nullable(),
+          revision: version,
+          access,
+          publicationState: z.enum(["published", "unpublished"]),
+          sourceCommit,
+        })
+        .passthrough(),
+    ),
+  })
   .passthrough();
 const validSchema = z.object({ valid: z.literal(true) }).passthrough();
 const homePinSchema = z
@@ -220,6 +289,8 @@ const localResponseSchemas = {
   taskReceipt: taskReceiptSchema,
   taskValidation: taskValidationSchema,
   environment: environmentSchema,
+  materialState: materialStateSchema,
+  taskState: taskStateSchema,
   topics: z.array(topicSchema),
   products: z.array(productSchema),
   topic: topicSchema,
@@ -250,6 +321,10 @@ const localResponseSchemas = {
  * @template {string} P
  * @typedef {P extends "/authoring/import/materials/environment"
  *   ? "environment"
+ *   : P extends `/authoring/import/materials/state?namespace=${string}`
+ *   ? "materialState"
+ *   : P extends `/authoring/import/tasks/state?namespace=${string}`
+ *   ? "taskState"
  *   : P extends "/authoring/import/practices/validate"
  *   ? "practiceValidation"
  *   : P extends "/authoring/import/practices/apply"
@@ -356,6 +431,12 @@ export function localResponseKind(path) {
     case "/authoring/home-pin":
       return "homePin";
     default:
+      if (
+        /^\/authoring\/import\/materials\/state\?namespace=[^&]+$/u.test(path)
+      )
+        return "materialState";
+      if (/^\/authoring\/import\/tasks\/state\?namespace=[^&]+$/u.test(path))
+        return "taskState";
       if (/^\/authoring\/materials\/[^/]+\/assets$/u.test(path))
         return "assetReceipt";
       if (/^\/authoring\/materials\/[^/]+\/videos\/attach$/u.test(path))

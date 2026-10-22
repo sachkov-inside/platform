@@ -402,3 +402,47 @@ test("a package names each task's Product and chapter, keeps codes apart from Ma
     /outside this package/u,
   );
 });
+
+test("bounded Task updates preserve full-context positions and ignore unselected Task drift", async (t) => {
+  const f = await fixture(t);
+  const manifest = manifestOf([task("first"), task("second")]);
+  await f.journal((c) =>
+    syncSourceTasks(manifest, c, f.request, selection(true)),
+  );
+  const untouched = structuredClone(f.tasks.get("first"));
+  f.applied.length = 0;
+  const first = manifest.tasks?.[0];
+  const second = manifest.tasks?.[1];
+  assert.ok(first && second);
+  first.access = null;
+  first.definition = { changed: "Unselected context" };
+  second.definition = { changed: "Selected revision" };
+  manifest.selection.contentOnly = {
+    materialIds: [],
+    taskIds: ["second"],
+    artifactIds: [],
+  };
+  await validateSourceTasks(manifest, f.request);
+  await f.journal(async (c) => {
+    const before = await previewTasks(
+      manifest,
+      c.journal,
+      f.request,
+      () => true,
+    );
+    assert.deepEqual(
+      before.tasks.map((row) => row.sourceId),
+      ["second"],
+    );
+    await syncSourceTasks(manifest, c, f.request, selection(true));
+  });
+  assert.deepEqual(
+    f.applied.map((row) => [row.code, row.position]),
+    [["second", 2]],
+  );
+  assert.deepEqual(f.tasks.get("first"), untouched);
+  await f.journal((c) =>
+    syncSourceTasks(manifest, c, f.request, selection(true)),
+  );
+  assert.equal(f.applied.length, 1);
+});

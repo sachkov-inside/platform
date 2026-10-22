@@ -25,10 +25,12 @@
 ├── Products/
 │   └── inside-platform/       # Platform, включая apps/telegram
 └── Materials/                # общий Obsidian vault
-    ├── engineering-content/  # инженерные авторские материалы
-    ├── content-studio/       # сценарии канала, посты, упаковка и продвижение
+    ├── content-studio/       # оригиналы уроков, заданий и иллюстраций; канал, посты и продвижение
     └── knowledge-base/       # исследования и накопленные знания
 ```
+
+На 2026-10-22 оригиналы курса живут в `content-studio` (`inside-content` указывает на него), а
+каталога `engineering-content` нет; Platform по умолчанию берёт Content оттуда (#1672).
 
 Каждый репозиторий сохраняет собственные правила. Агент начинает сессию в репозитории
 или назначенном worktree и читает его `AGENTS.md`.
