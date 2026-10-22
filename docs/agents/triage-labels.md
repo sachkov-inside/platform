@@ -12,7 +12,7 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 
 For execution after triage, follow the [owner assignment rules](../../WORKFLOW.md#completion-requirements).
 
-A specification or version carries no role; its tickets carry the readiness role. Every other
-triaged issue has exactly one role from this table. `ready-for-human` is only for work a human does. The
+Every triaged issue has exactly one role from this table; a specification or version has none once
+it has sub-issues, and `to-spec` publishes it without `ready-for-agent`. `ready-for-human` is only for work a human does. The
 `wayfinder` skill adds its own `wayfinder:*` labels. There are no category labels (`bug`,
 `enhancement`): `triage` sets only the role from this table.

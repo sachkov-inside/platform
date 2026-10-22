@@ -26,7 +26,8 @@ and continue independent preparation. Stop before automatic merge if the uncerta
 ## Advance acceptance
 
 Owner decision 1 (2026-10-22): an explicit owner assignment to finish the work through merge, such
-as «сделай всё до конца», counts as acceptance of its high-risk prepared result in advance. Standing
+as «сделай всё до конца», counts as acceptance of its high-risk prepared result in advance. This
+replaces the `classify-change` participation rule that the assigning owner cannot give that acceptance. Standing
 merge authorization alone is not such an assignment. The agent still completes classification,
 required checks and independent review, records them in the PR, and merges under existing merge
 authorization.
@@ -55,7 +56,8 @@ legal or commercial promise.
 For a diff inside the set, the implementing agent writes one inline assessment in the PR (base,
 head, trusted policy revision, "low risk: fast-path set", checks) in place of the two classifier
 workers. Reuse it for later commits while the cumulative diff stays inside the set. When any change
-leaves the set, run the full classification. Scoped checks and the short independent review remain.
+leaves the set, run the full classification. Scoped checks, the short independent review and the
+visual acceptance gates of [frontend delivery](frontend-delivery.md) remain.
 
 ## Asking the owner
 

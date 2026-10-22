@@ -15,15 +15,15 @@ owner overrides and [skill exceptions](#skill-exceptions). Keep skills identical
 ## Completion requirements
 
 Complete the owner's requested result within its assigned scope. A follow-up keeps that scope unless the owner changes it.
-The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a skill;
-[implement](.agents/skills/implement/SKILL.md) is available for it. An explicit request to implement a whole
+The owner selects pipeline stages and manual skills. A direct ordinary task is actionable without invoking a skill. An explicit request to implement a whole
 specification, including in natural language, invokes [implement-spec](.agents/skills/implement-spec/SKILL.md).
 Session launches, assigned coordination and whole-specification execution follow [coordinated execution](docs/agents/coordinated-execution.md).
 An explicitly invoked skill completes its internal actions, including required subordinate skills, without renewed approval.
 Preparation completes its own result and recommends the next stage; the owner assigns that stage separately.
 Readiness labels, status requests, resumed chats, and repository membership supply context, not new execution assignments.
 Ordinary writing, editing, research and material review follow the requested result and the
-[domain/editorial contracts](docs/agents/domain.md), including author acceptance and publication gates.
+[domain/editorial contracts](docs/agents/domain.md), including author acceptance and publication gates; engineering
+task graphs, integration branches and TDD belong to software/tooling work or an assigned implementation workflow.
 
 | Owner-requested deliverable | Completion requirements |
 |---|---|
@@ -72,8 +72,8 @@ Use the environment-provided isolated worktree; CLI sessions without one create 
 
 The primary checkout belongs to the owner. Leave its tracked files unchanged; read it through `git -C`
 or absolute paths. Update it only when the owner assigns that action.
-Preserve other sessions' worktrees, branches, containers, volumes, stashes, servers and results.
-A resource with changed ownership belongs to its new owner.
+Preserve other sessions' worktrees, branches, containers, volumes, stashes, servers and results; a resource with
+changed ownership belongs to its new owner.
 An independent delivery has one branch and PR. A specification uses one integration branch and final PR;
 its worker branches and worktrees remain until integration, and independent assigned tasks use separate PRs.
 
@@ -97,10 +97,10 @@ Classification: enabled; policy: docs/agents/change-risk.md
 
 For implementation and durable integration, including ordinary assignments, tickets and the final integrated
 specification, invoke [classify-change](.agents/skills/classify-change/SKILL.md) under the [project policy](docs/agents/change-risk.md);
-its advance acceptance, low-risk fast path and owner-ask format override the skill's defaults. Use trusted target
-rules; a proposed policy cannot authorize its own merge. Deployment keeps its existing gates. Request the owner's
-acceptance only when trusted policy or classification requires it; low/medium-risk authorized work may merge
-automatically. Preserve unresolved decisions and evidence revisions in the existing issue/PR.
+its advance acceptance, low-risk fast path and owner-ask format override the skill's defaults, including its
+participation rule. Use trusted target rules; a proposed policy cannot authorize its own merge. Deployment keeps its
+gates. Request owner acceptance only when trusted policy or classification requires it; low/medium-risk authorized
+work may merge automatically. Keep unresolved decisions and evidence revisions in the existing issue/PR.
 
 ## Completion and handoff
 
@@ -131,7 +131,7 @@ These project rules replace the named parts of installed pipeline skills.
   and `Merge Danger` to `Риск merge`.
 - `prototype`: UI variants follow [Prototypes](#prototypes) in Storybook, in place of `UI.md` sub-shapes A
   and B on application routes. Logic prototypes follow the skill.
-- `to-spec`: publish the specification without a readiness label, as [triage labels](docs/agents/triage-labels.md) define.
+- `to-spec`: publish the specification without `ready-for-agent`, as [triage labels](docs/agents/triage-labels.md) define.
 - `to-tickets`: after publishing child tickets, remove `ready-for-agent` from the parent.
 - `triage`: apply roles from [triage labels](docs/agents/triage-labels.md) and record a rejected request
   in its `wontfix` closing comment in place of `.out-of-scope/`.
