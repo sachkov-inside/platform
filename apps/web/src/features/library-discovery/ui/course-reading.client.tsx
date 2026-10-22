@@ -26,6 +26,7 @@ import {
 } from "react";
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
 import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
+import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import {
   Select,
@@ -462,13 +463,11 @@ export function ProgrammeDialog({
   const pathname = usePathname();
   useEffect(() => {
     const element = dialog.current;
-    const desktop = window.matchMedia("(width >= 64rem)");
-    const closeOnDesktop = () => {
-      if (desktop.matches) element?.close();
-    };
-    desktop.addEventListener("change", closeOnDesktop);
+    const unsubscribe = subscribeShellBreakpoint((desktop) => {
+      if (desktop) element?.close();
+    });
     return () => {
-      desktop.removeEventListener("change", closeOnDesktop);
+      unsubscribe();
       element?.close();
     };
   }, [pathname, context.current.id]);

@@ -1338,6 +1338,18 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       `${sourcePath}: BroadcastChannel belongs to src/shared/api/fact-announcement.ts`,
     );
   }
+  if (
+    !/(?:^|\/)src\/shared\/lib\/shell-scroll\.ts$/u.test(sourcePath) &&
+    !isStorybookModule(sourcePath) &&
+    stringLiterals(program).some(
+      (value) =>
+        value.includes("data-application-content") || value.includes("64rem"),
+    )
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: the shell scroll root and its 64rem breakpoint belong to src/shared/lib/shell-scroll.ts; ask it instead of matching [data-application-content] or 64rem`,
+    );
+  }
   if (specifiers.some((specifier) => siteAnimationPackages.test(specifier))) {
     findingsForFile.push(
       `${sourcePath}: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets`,

@@ -19,6 +19,7 @@ import {
 } from "@/entities/material";
 import { formatMaterialCount } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
+import { resetShellScroll } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
 import {
   catalogReaderReturnHref,
@@ -314,10 +315,7 @@ export function SeriesJourneyControls({
   function openPart(id: JourneyPart["id"]) {
     // Новый раздел открывается с самого верха страницы, вместе с шапкой продукта (решение
     // владельца 09.10.2026). Сбрасываем реальную оболочку до появления lastLesson нового раздела.
-    window.scrollTo({ top: 0 });
-    routeRef.current
-      ?.closest<HTMLElement>("[data-application-content]")
-      ?.scrollTo({ top: 0 });
+    resetShellScroll();
     selectPart(id);
   }
 
