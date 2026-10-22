@@ -980,8 +980,8 @@ An integration test that upgrades from a historical point uses
 a named migration, the test seeds its rows, and `upgradeToLatest` derives the applied tail from the
 registry, checks that the ledger then equals the registry by name and position, and that a replay
 applies nothing. `historical-upgrade.test.ts` pins the identity of the registry as it stood on
-22.10.2026, so removing, reordering or editing a historical migration still fails a test. A new migration at the end of the
-registry therefore needs no edits in existing upgrade tests.
+22.10.2026, so removing, renaming, reordering or editing a historical migration still fails a test.
+A new migration at the end of the registry therefore needs no edits in existing upgrade tests.
 
 ## Owner Account release bootstrap
 

@@ -22,7 +22,6 @@ import {
   type AccessGrants,
 } from "../../src/modules/account-rights/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
-import { migrateToLatest } from "../../src/migrations/index.js";
 import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import {
   createTestDatabase,
@@ -374,13 +373,6 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
     orderBy: { id: "asc" },
   });
   await upgradeToLatest(db);
-  expect(
-    await db.prisma.accessGrant.findMany({
-      where: { id: { in: ids } },
-      orderBy: { id: "asc" },
-    }),
-  ).toEqual(original);
-  expect(await migrateToLatest(db.url)).toEqual({ appliedMigrations: [] });
   expect(
     await db.prisma.accessGrant.findMany({
       where: { id: { in: ids } },
