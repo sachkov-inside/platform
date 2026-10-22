@@ -68,6 +68,10 @@ class StrictWire(unittest.TestCase):
     def test_actual_owned_rpc_uses_strict_initialization_discovery_and_complete_tool_body(self):
         import caddy_mcp
         from test_observation import acquisition
+        legacy={'protocolVersion':'2024-11-05','capabilities':{},'serverInfo':{'name':'fixture','version':'1'}}
+        def initialize(result):
+            return json.dumps({'jsonrpc':'2.0','id':1,'result':result}).encode()
+        self.assertEqual(caddy_mcp.decode_response(initialize(legacy),1)['result'],legacy)
         fixture=Path(__file__).with_name('fixtures')/'mcp.py'
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);report=root/'child.json';body=root/'body.json'
@@ -81,6 +85,29 @@ class StrictWire(unittest.TestCase):
                 self.assertTrue(report.exists())
                 pid=json.loads(report.read_text())['pid']
                 with self.assertRaises(ProcessLookupError): os.kill(pid,0)
+
+        # The pinned public producer sets this optional SDK string. Its contents
+        # are ignored metadata, never instructions executed by the consumer.
+        for text in ('Controlled public metadata.','', 'é'*512):
+            result={**legacy,'instructions':text}
+            self.assertEqual(caddy_mcp.decode_response(initialize(result),1)['result'],result)
+        invalid=[{**legacy,'instructions':value} for value in (None,True,1,[],{})]
+        invalid.extend(({**legacy,'instructions':'é'*512+'a'},
+                        {**legacy,'instructions':'PRIVACY_SENTINEL_1566'},
+                        {**legacy,'instructions':'private-caddy-sentinel'},
+                        {**legacy,'instructions':'public','unknown':'public'},
+                        {**legacy,'instructions':'public','protocolVersion':'2025-03-26'},
+                        {**legacy,'instructions':'public','serverInfo':{'name':'fixture','version':'1','unknown':'public'}},
+                        {**legacy,'instructions':'public','capabilities':{'unknown':{}}}))
+        for result in invalid:
+            with self.subTest(result_keys=sorted(result)),self.assertRaisesRegex(ValueError,'^closed Caddy MCP refusal$'):
+                caddy_mcp.decode_response(initialize(result),1)
+        duplicate=initialize({**legacy,'instructions':'public'}).replace(b'"instructions": "public"',b'"instructions":"public","instructi\\u006fns":"public"')
+        with self.assertRaisesRegex(ValueError,'^closed Caddy MCP refusal$'):
+            caddy_mcp.decode_response(duplicate,1)
+        tool={'content':[{'type':'text','text':json.dumps(vector)}],'instructions':'public'}
+        with self.assertRaisesRegex(ValueError,'^closed Caddy MCP refusal$'):
+            caddy_mcp.decode_response(json.dumps({'jsonrpc':'2.0','id':3,'result':tool}).encode(),3)
 
     def test_embedded_valid_vm_numeric_timestamp_does_not_fail_privacy_scan_serialization(self):
         import caddy_mcp

@@ -91,7 +91,8 @@ def _schema(value):
 
 
 def _initialize(value):
-    if (type(value) is not dict or set(value)!={'protocolVersion','capabilities','serverInfo'} or value['protocolVersion']!='2024-11-05'
+    if (type(value) is not dict or set(value) not in ({'protocolVersion','capabilities','serverInfo'},{'protocolVersion','capabilities','serverInfo','instructions'})
+            or 'instructions' in value and type(value['instructions']) is not str or value['protocolVersion']!='2024-11-05'
             or type(value['capabilities']) is not dict or type(value['serverInfo']) is not dict or set(value['serverInfo'])!={'name','version'}
             or any(type(v) is not str or not 1<=len(v)<=128 for v in value['serverInfo'].values())):refuse()
     fields={'tools':{'listChanged'},'prompts':{'listChanged'},'resources':{'listChanged','subscribe'},'logging':set(),'completions':set()}
