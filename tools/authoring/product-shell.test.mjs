@@ -88,6 +88,7 @@ const updateSchema = z
 
 /**
  * Platform's product_chapter_not_continuous rule: each chapter's Materials form one uninterrupted run.
+ * The double omits product_chapter_out_of_order; the shell sends chapters in package order.
  *
  * @param {Item[]} items
  */

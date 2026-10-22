@@ -219,6 +219,92 @@ describe("Product chapters", () => {
     );
   });
 
+  test("a Product shell regroups an interrupted chapter run and keeps the programme", async () => {
+    const productId = await product("interrupted-chapter-run");
+    const a1 = await material("Interrupted A1", [productId]);
+    const a2 = await material("Interrupted A2", [productId]);
+    const b1 = await material("Interrupted B1", [productId]);
+    const b2 = await material("Interrupted B2", [productId]);
+    const loose = await material("Interrupted loose", [productId]);
+    const [first, second] = [randomUUID(), randomUUID()];
+    const chapters = (name: string) => [
+      { id: first, name, summary: "" },
+      { id: second, name: "Second", summary: "" },
+    ];
+    const programmePlacements = (
+      [
+        [a1, first],
+        [a2, first],
+        [b2, second],
+        [b1, second],
+        [a1, second],
+      ] as const
+    ).map(([materialId, chapterId]) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId,
+      stepGroup: null,
+    }));
+    // An explicit programme leaves the Material order unchecked, so a chapter run can break.
+    const saved = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: (await load(productId)).orderVersion,
+      orderedMaterialIds: [a1, b1, loose, b2, a2],
+      chapters: chapters("First"),
+      programmePlacements,
+    });
+    if (!saved.ok) throw new Error(saved.error.code);
+
+    // Resending that order with new chapter text is the refused shell.
+    await expect(
+      materials.authoring.reorderSeries({
+        actor,
+        seriesId: productId,
+        expectedOrderVersion: saved.value.orderVersion,
+        orderedMaterialIds: [a1, b1, loose, b2, a2],
+        chapters: chapters("Renamed"),
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [
+          {
+            code: "product_chapter_not_continuous",
+            path: "/orderedMaterialIds/3",
+          },
+          {
+            code: "product_chapter_not_continuous",
+            path: "/orderedMaterialIds/4",
+          },
+        ],
+      },
+    });
+
+    // The shell's order: each chapter by first programme placement, unchaptered Materials last.
+    const regrouped = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: productId,
+      expectedOrderVersion: saved.value.orderVersion,
+      orderedMaterialIds: [a1, a2, b2, b1, loose],
+      chapters: chapters("Renamed"),
+    });
+    if (!regrouped.ok) throw new Error(regrouped.error.code);
+    const after = await load(productId);
+    expect(after.programmePlacements).toEqual(programmePlacements);
+    expect(
+      after.items.map(({ chapterId, materialId }) => [materialId, chapterId]),
+    ).toEqual([
+      [a1, first],
+      [a2, first],
+      [b2, second],
+      [b1, second],
+      [loose, null],
+    ]);
+    expect(after.chapters[0]?.name).toBe("Renamed");
+  });
+
   test("chapter attachment writes preserve programme and reject stale or foreign references", async () => {
     const productId = await product("independent-attachments");
     const lesson = await material("Lesson for attachments", [productId]);

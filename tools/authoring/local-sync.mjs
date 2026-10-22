@@ -500,26 +500,26 @@ export function productShellComposition(manifest, product, order) {
       `Product ${product.sourceId}: the Product shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
     );
   /** @type {Map<string, number>} */
-  const placement = new Map();
+  const firstPlacement = new Map();
   for (const [index, entry] of (order.programmePlacements ?? []).entries())
-    if (!placement.has(entry.materialId))
-      placement.set(entry.materialId, index);
+    if (!firstPlacement.has(entry.materialId))
+      firstPlacement.set(entry.materialId, index);
   /** @param {string | null} chapterId */
-  const run = (chapterId) =>
+  const chapterRun = (chapterId) =>
     order.items
       .filter((item) => item.chapterId === chapterId)
       .map((item) => item.materialId)
       // A stable sort keeps unplaced Materials after the placed ones, in their current order.
       .sort(
         (left, right) =>
-          (placement.get(left) ?? Number.MAX_SAFE_INTEGER) -
-          (placement.get(right) ?? Number.MAX_SAFE_INTEGER),
+          (firstPlacement.get(left) ?? Number.MAX_SAFE_INTEGER) -
+          (firstPlacement.get(right) ?? Number.MAX_SAFE_INTEGER),
       );
   return {
     chapters,
     orderedMaterialIds: [
-      ...chapters.flatMap((chapter) => run(chapter.id)),
-      ...run(null),
+      ...chapters.flatMap((chapter) => chapterRun(chapter.id)),
+      ...chapterRun(null),
     ],
   };
 }
