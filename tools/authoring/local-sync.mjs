@@ -108,6 +108,10 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
  * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
  *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
+ * @property {string | undefined} [sourceCommit] The Content commit of the package; a receiver that
+ *   reports the import contract records it on every written Material (#1672).
+ * @property {Record<string, string> | undefined} [contextLinks] Reader paths of unselected context
+ *   Materials by source key, read from the target for a bounded update.
  * @typedef {import("./local-boundaries.mjs").PublishSelection} PublishSelection
  * @typedef {import("./local-boundaries.mjs").PublicationState} PublicationState
  * @typedef {"draft" | "published"} DesiredPublication The only states an import asks for.
@@ -635,6 +639,8 @@ export async function syncLocal(
     reviewedTaskAccess = [],
     reviewedProductRemovals = [],
     reconcileOnly = false,
+    sourceCommit,
+    contextLinks,
   } = {},
 ) {
   const target = authoringTarget(origin);
@@ -698,13 +704,17 @@ export async function syncLocal(
     if (
       pkg.manifest.selection.contentOnly &&
       (!reviewed ||
-        target.id !== authoringTarget("stand").id ||
+        ![
+          authoringTarget("stand").id,
+          authoringTarget("production").id,
+        ].includes(target.id) ||
         archive.length ||
         confirmedProductRemovals.length ||
+        pinHome ||
         pendingOperations(journal))
     )
       throw new Error(
-        "Bounded content requires a reviewed local stand update without pending operations, archive or Product changes",
+        "Bounded content requires a reviewed stand or production update without pending operations, archive, Home or Product changes",
       );
     if (pkg.manifest.schemaVersion === 2)
       assertTaskReplayAccess(pkg.manifest, journal);
@@ -767,12 +777,18 @@ export async function syncLocal(
     );
     /** @param {string} id */
     const sourceId = (id) => sourceKey(pkg.manifest, id);
+    // An older receiver refuses unknown source fields, so the commit goes only to a contract receiver.
+    const recordedCommit =
+      sourceCommit !== undefined && environment["contract"] !== undefined
+        ? z.hash("sha1").parse(sourceCommit)
+        : undefined;
     /** @param {ManifestMaterial} row */
     const source = (row) => ({
       id: sourceId(row.sourceId),
       path: row.sourcePath,
       revision: materialRevision(pkg.manifest, row),
       showInFeed: row.showInFeed,
+      ...(recordedCommit === undefined ? {} : { commit: recordedCommit }),
     });
     /** @param {ManifestAsset} asset */
     const readAsset = async (asset) => {
@@ -909,9 +925,11 @@ export async function syncLocal(
     const links = taskLinks(pkg.manifest);
     if (pkg.manifest.selection.contentOnly)
       for (const row of pkg.manifest.materials) {
-        const saved = journal.materials[sourceId(row.sourceId)];
-        if (saved?.url)
-          links.set(row.sourceId, new URL(saved.url, reader).pathname);
+        // The target's own answer wins: a journal may not know every Material the target holds.
+        const url =
+          contextLinks?.[sourceId(row.sourceId)] ??
+          journal.materials[sourceId(row.sourceId)]?.url;
+        if (url) links.set(row.sourceId, new URL(url, reader).pathname);
       }
     for (const row of rows.values()) {
       const previous = journal.materials[sourceId(row.sourceId)];

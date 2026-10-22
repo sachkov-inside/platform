@@ -603,6 +603,7 @@ export class MaterialAuthoringService {
       primaryVideoId: string | null;
       publicationState: 'draft' | 'published' | 'unpublished';
       source: {
+        commit?: string | null;
         id: string;
         path: string;
         revision: string;
@@ -635,6 +636,10 @@ export class MaterialAuthoringService {
    * @throws ApiError
    */
   public readAuthoringImportEnvironment(): CancelablePromise<{
+    contract: {
+      packageFeatures: Array<string>;
+      version: number;
+    };
     mode: 'development' | 'test' | 'production';
   }> {
     return this.httpRequest.request({
@@ -685,6 +690,7 @@ export class MaterialAuthoringService {
   }: {
     requestBody: {
       source: {
+        commit?: string | null;
         id: string;
         path: string;
         revision: string;
@@ -702,6 +708,45 @@ export class MaterialAuthoringService {
       url: '/authoring/import/materials/reserve',
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read every source-owned Material of one source namespace in one snapshot
+   * @returns any
+   * @throws ApiError
+   */
+  public readSourceMaterialState({
+    namespace,
+  }: {
+    namespace: string,
+  }): CancelablePromise<{
+    materials: Array<{
+      access: 'free' | 'closed';
+      contentVersion: number;
+      materialId: string;
+      memberships: Array<{
+        chapterId: string | null;
+        ordinal: number;
+        productId: string;
+      }>;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      slug: string | null;
+      source: {
+        commit: string | null;
+        path: string;
+        revision: string;
+        showInFeed: boolean;
+      };
+      sourceId: string;
+    }>;
+    namespace: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/import/materials/state',
+      query: {
+        'namespace': namespace,
+      },
     });
   }
   /**
@@ -731,6 +776,7 @@ export class MaterialAuthoringService {
       notifyTelegram?: boolean;
       publicationState: 'draft' | 'published' | 'unpublished';
       source: {
+        commit?: string | null;
         id: string;
         path: string;
         revision: string;
@@ -1516,6 +1562,7 @@ export class MaterialAuthoringService {
     publicationState: 'draft' | 'published' | 'unpublished';
     publishedAt: string | null;
     source?: {
+      commit: string | null;
       id: string;
       path: string;
       revision: string;

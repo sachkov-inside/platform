@@ -60,6 +60,7 @@ import {
   PRODUCT_TASK_IMPORT,
   type ProductTaskImport,
 } from "./features/import-product-task/import-product-task.controller.js";
+import { assembleReadSourceTaskState } from "./features/read-source-task-state/read-source-task-state.js";
 import {
   assembleApplySourceTask,
   assembleValidateSourceTask,
@@ -163,6 +164,7 @@ import {
         return {
           validate: assembleValidateSourceTask(dependencies),
           apply: assembleApplySourceTask(dependencies),
+          readState: assembleReadSourceTaskState(dependencies),
         };
       },
     },

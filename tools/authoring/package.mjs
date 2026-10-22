@@ -528,6 +528,23 @@ export function taskPositions(manifest) {
  * @typedef {{ id: string; manifest: Manifest; directory: string }} AuthoringPackage
  */
 
+/**
+ * Package v2 features this client translates into import requests. The receiver reports the same
+ * list in its import contract; `contract.test.mjs` pins both to one revision.
+ *
+ * @type {readonly string[]}
+ */
+export const supportedPackageFeatures = Object.freeze([
+  "material-task-v1",
+  "task-c-v2",
+  "quiz-v1",
+  "quiz-multiple-v1",
+  "github-anchors-v1",
+  "image-variants-v1",
+  "collapsible-callouts-v1",
+  "bounded-content-v1",
+]);
+
 /** Refuse unsupported envelope features before any asset or network operation.
  * @param {unknown} value */
 export function checkCapabilities(value) {
@@ -546,18 +563,7 @@ export function checkCapabilities(value) {
   if (envelope.schemaVersion === 1 && envelope.requiredFeatures !== undefined)
     throw new Error("Package v1 cannot declare requiredFeatures");
   for (const feature of envelope.requiredFeatures ?? [])
-    if (
-      ![
-        "material-task-v1",
-        "task-c-v2",
-        "quiz-v1",
-        "quiz-multiple-v1",
-        "github-anchors-v1",
-        "image-variants-v1",
-        "collapsible-callouts-v1",
-        "bounded-content-v1",
-      ].includes(feature)
-    )
+    if (!supportedPackageFeatures.includes(feature))
       throw new Error(`Unsupported requiredFeature: ${feature}`);
 }
 

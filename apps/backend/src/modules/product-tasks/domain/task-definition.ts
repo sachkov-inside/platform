@@ -9,6 +9,9 @@ const identifier = z
 /** The Content ID without its namespace, for example `aie-ch1-onboarding`; it never changes. */
 export const taskCodeSchema = identifier;
 
+/** The part of a task source ID before its `:`, for example `inside-content`. */
+export const taskSourceNamespaceSchema = identifier;
+
 /** `inside-content:<code>`: the source of a Product Task names its code. */
 export const taskSourceIdSchema = z
   .string()

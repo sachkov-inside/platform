@@ -1,4 +1,4 @@
-import type { AuthoringSource } from "../../domain/authoring-source.js";
+import type { RecordedAuthoringSource } from "../../domain/authoring-source.js";
 import type {
   MaterialAccess,
   MaterialDifficulty,
@@ -39,7 +39,7 @@ export interface MaterialMetadataDto extends Omit<
 
 export interface MaterialDto {
   readonly notifyTelegram?: boolean | null;
-  readonly source?: AuthoringSource;
+  readonly source?: RecordedAuthoringSource;
   readonly materialId: string;
   readonly contentVersion: number;
   readonly publicationState: PublicationState;

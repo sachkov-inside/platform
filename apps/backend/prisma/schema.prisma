@@ -354,6 +354,7 @@ model Material {
   sourceId         String?   @unique(map: "materials_source_id_unique") @map("source_id")
   sourcePath       String?   @map("source_path")
   sourceRevision   String?   @map("source_revision")
+  sourceCommit     String?   @map("source_commit") @db.Char(40)
   showInFeed       Boolean   @default(true) @map("show_in_feed")
   id               String    @id @db.Uuid
   slug             String?   @unique(map: "materials_slug_unique")

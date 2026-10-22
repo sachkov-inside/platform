@@ -1,85 +1,138 @@
-# Content-only stand delivery and affected-image evidence
+# Content-only delivery and affected-image evidence
 
-Use this procedure for an assigned content-only transfer to the existing local stand.
-It preserves selected existing Material access and `draft`/`published` state, and Task access and publication state.
-It does not approve a new access policy, public release, content acceptance, or learner progress.
+Use this procedure to update selected existing Materials and Tasks from Content Studio on the stand
+or in production (#1672). It replaces their content and keeps what the target holds: Material access
+and `draft`/`published` state, Product membership, Task access, publication and placement.
+It does not create rows, archive, change Products or artifacts, approve a new access policy,
+publish, accept content, or touch accounts, grants, submissions and reading progress.
+Creation, archives and Product changes use the full reviewed `pnpm authoring:release`.
 
-## Preservation preview
+Content Studio owns the export, its `content.py deliver` command and its delivery records.
+Platform owns this entrypoint and the receiver.
 
-1. Export the assigned committed Content revision with `exportCommittedPackage` from
-   [`tools/authoring/git-local.mjs`](../../tools/authoring/git-local.mjs).
-   Retain its exact `commit` and original `packagePath`; the supplied source SHA is an operator assertion about this export.
-2. Use the stand's existing authoring gateway and state directory under
-   [local authoring](local-development.md#local-obsidian-authoring-preview-468).
-   Keep the singleton stand and its data under its current owner's control.
-3. Set `AUTHORING_PRESERVATION_DATABASE_URL` privately to the stand's existing loopback PostgreSQL `inside` database.
-   Do not put credentials in command arguments, receipts, Git, or logs.
-4. Create the preservation preview:
+## Requirements
 
-   ```bash
-   pnpm authoring:preserve preview --package PACKAGE_JSON --state STATE_DIRECTORY --commit SOURCE_SHA
-   ```
+- A Platform checkout at a merged `main` revision whose receiver is deployed on the target.
+  The minimal revision is the merge of #1672; the receiver reports import contract `1`.
+- Node exactly as pinned in [`.node-version`](../../.node-version). Another version is refused
+  with `node_version`; run the command through it, for example
+  `fnm exec --using 26.10.0 pnpm --dir PLATFORM_CHECKOUT --silent authoring:deliver ...`.
+- An immutable package exported from one committed Content revision, with package v2 feature
+  `bounded-content-v1` and `selection.contentOnly` naming the selected Materials and Tasks.
+  The package keeps the full Guide context for links, embedded Tasks and positions; only selected rows are written.
+  `artifactIds` must stay empty.
+- The Content repository that holds that commit, so history can be compared.
+- One state directory per target. It holds the journal, derived packages, previews, receipts and proofs.
+  Never share it between targets or reset it.
 
-A v2 package can require `bounded-content-v1` and declare
-`selection.contentOnly: { materialIds: [...], taskIds: [...], artifactIds: [] }`.
-The explicit IDs select only existing rows for preview, policy reads and writes. Full Material,
-Task and Product declarations remain validated context for source links, embedded Task bindings
-and Task positions. Duplicate, missing, empty or unknown selections fail before transport;
-nonempty `artifactIds` are unsupported. The required feature and selection must appear together.
-Bounded apply requires the reviewed local stand route and refuses pending operations and archive
-or Product removal choices. It reads Product identities without updating Product details, covers,
-chapters, composition or artifacts. Selected Material memberships must match fresh API metadata;
-Task chapter, position, visibility, anchor and embedded binding must match fresh database state.
-A mismatch stops before content writes and requires the separately reviewed composition route.
-Its preview carries `contentOnly` and no Product changes.
+## Command
 
-Without that envelope, the package itself defines the selected Material and Task source IDs. Unselected originals are not imported.
-The profile queries only those identities in `materials.materials` and `product_tasks.tasks`.
-Task code lookup also detects a conflicting source identity.
-The database adapter uses a bounded, repeatable-read, read-only transaction.
-It accepts only loopback PostgreSQL URLs without URL options and the database name `inside`.
-The authoring API must independently report the same environment, Material identity/version/access/publication,
-and Task identity/code/revision/publication. Task Product binding must match the authoring Product source identity.
-Existing journal Material identities and versions must agree; stale journals require reconciliation first.
-
-The profile copies fresh access choices and Task publication into a separately hashed package.
-It selects only already published Materials for the existing release publication mechanism.
-This selection preserves their publication state; it can replace their published body with the assigned content.
-The original package remains unchanged. When an original omits `notifyTelegram`, the Material
-command omits it too. This preserves notification intent on current receivers and remains compatible
-with pre-notification receivers. Explicit `true` or `false` stays explicit; unsupported requested
-notification behavior is not silently downgraded. A definitively rejected earlier command remains
-in the journal, while corrected request bytes receive their own ordinary operation fingerprint. The profile does not use earlier task-local package or policy snapshots.
-
-The returned immutable receipt binds source SHA, original/derived package IDs and paths, reviewed preview,
-and fresh selected target state. Review the ordinary preview changes before applying this receipt.
-
-## Apply and preservation proof
+Every command prints one JSON document on stdout and exits `0` on success, `1` on a refusal or failure and
+`2` on wrong usage. A failure document is `{ "ok": false, "error": { "code", "message" } }`; branch on `code`.
 
 ```bash
-pnpm authoring:preserve apply --receipt PRESERVATION_JSON --state STATE_DIRECTORY
+pnpm --silent authoring:deliver preview --target stand|production --package PACKAGE_JSON \
+  --commit CONTENT_SHA --content-repository CONTENT_REPOSITORY --state STATE_DIRECTORY \
+  [--material SOURCE_ID]... [--task SOURCE_ID]... [--owner-email STAND_OWNER_EMAIL]
+pnpm --silent authoring:deliver apply --receipt RECEIPT_JSON --state STATE_DIRECTORY [--owner-email STAND_OWNER_EMAIL]
+pnpm --silent authoring:deliver reconcile --target stand|production --state STATE_DIRECTORY \
+  --namespace SOURCE_NAMESPACE [--adopt SOURCE_ID]... [--owner-email STAND_OWNER_EMAIL]
 ```
 
-Apply checks receipt/package/preview bindings and fresh selected identities, versions, access and publication
-before invoking ordinary release reconciliation. A changed guard requires a new preview.
-Ordinary release fingerprint and optimistic version checks remain active.
-Concurrent writes after preflight still follow those existing per-operation checks; the transfer is not an atomic database transaction.
-After apply, the profile compares identities/access/publication again, allowing content revisions to advance.
-Its immutable `.applied.json` links the original package, derived package, preview, before/after states, and apply report.
-A failed post-apply proof requires inspection; it does not roll back a partially applied transfer.
+`--material` and `--task` must name exactly the package's `selection.contentOnly`; the repetition is the
+caller's explicit statement of what it delivers. `CONTENT_SHA` is the caller's assertion that the package
+was exported from that commit; Task provenance in the package must name the same commit.
 
-The profile refuses these cases before release writes:
+### Preview
 
-- Missing or ambiguous selected identities, inconsistent API/database state, stale Material journals, and pending release operations.
-- New rows. Use a separately reviewed release with an explicit access/publication policy before using this preservation profile.
-- Nonempty legacy `practiceDefinitions`. Use the ordinary release with a separately selected Practice policy.
-- Existing `unpublished` Materials. Current Material import supports `draft` or `published`; the profile refuses to republish them.
-- Product details/composition changes and import conflicts. Review those through the ordinary release workflow.
+Preview writes nothing to the target. In order it:
 
-The wrapper never approves archives. Unselected journal archive proposals remain unapplied.
-The profile preserves Material and Task policy and refuses legacy Practice definitions.
-It never queries or edits accounts, subscriptions, submissions, or reading progress.
-No production target, backend route, public API, Reader UI, Compose lifecycle, or publication policy changes belong to this command.
+1. checks the Node version, the selection and the package;
+2. connects to the target (see [Connection](#connection));
+3. reads `GET /authoring/import/materials/environment`, requires the expected runtime mode and import
+   contract `1`, and requires every package feature to be listed by both the receiver and this client
+   (`receiver_contract_missing`, `receiver_contract_mismatch`, `package_feature_unsupported`);
+4. reads the target state of the package namespace through `GET /authoring/import/materials/state` and
+   `GET /authoring/import/tasks/state` (permission `materials:manage`), and cross-checks each selected
+   Material with `GET /authoring/materials/{id}` and each Task with `POST /authoring/import/tasks/validate`;
+5. requires the journal to know each selected Material with the target's identity and version
+   (`journal_missing`, `journal_identity_missing`, `journal_stale`: see [Reconciliation](#reconciliation));
+6. refuses an older or diverged Content commit (see [History guard](#history-guard));
+7. derives a package whose access and Task publication come from the target, previews it with the ordinary
+   release, and refuses new rows, conflicts, Product or artifact changes, membership changes, Task placement
+   changes and any access or publication change.
+
+The success document contains `receiver` (target, mode, contract), `connection`, `sourceCommit`, the original
+and derived `package`, `selection`, the immutable `receipt` path, the release `preview` path and fingerprint,
+`rows` and `hasChanges`. Each row names `kind` (`material` or `task`), `sourceId`, target `id`,
+`change` (`changed` or `unchanged`), the preserved `access` and `publicationState`, the target version or
+revision and `sourceCommit` with the target's recorded commit and its `relation` to the package.
+Review the rows; when `hasChanges` is `false` there is nothing to apply.
+
+### Apply
+
+Apply takes only the receipt. It rechecks the contract, the receipt, package and preview bindings and the
+fresh target state; a change since preview stops before any write (`target_changed`). It then applies exactly
+the reviewed release preview, whose fingerprint and optimistic version checks stay active. Unfinished writes of
+an earlier run complete first with their original idempotency keys. Each written Material records `source.commit`.
+
+After the writes it reads the state again and requires identical access, publication, membership and placement
+(`preservation_failed`), then previews the same package once more and requires every row to be `unchanged`
+(`verification_failed`). The immutable proof `PRESERVATION.applied.json` binds the receipt, before/after state,
+the apply report and that verification; the success document repeats `proof`, `applied`, `unchanged`,
+per-row version and commit changes and `verification`. A failed proof needs inspection; it never rolls back.
+The transfer is not one database transaction: concurrent edits are caught by the per-operation version checks.
+
+## Connection
+
+For `stand` the command owns the authoring gateway on `127.0.0.1:4398`. It asks the port for the gateway's
+identity (`GET /__local-api/gateway`): a gateway of the same owner is reused and left running; a free port gets a
+gateway for the duration of the command, stopped afterwards. Any other process on the port is refused
+(`gateway_port_busy`, with its PID when `lsof` finds it), as is a gateway acting for another owner.
+The stand owner's email comes from the gateway's stored token file or `--owner-email`. The stand itself must
+already run under its [singleton owner](local-development.md#parallel-worktrees-and-singleton-ownership);
+the command never starts, rebuilds or stops Compose services.
+
+For `production` the command uses the owner's Keychain session from `pnpm authoring:login --target production`
+(`owner_session` when it is missing or revoked) and holds `~/.inside-authoring/production-session.lock`, so two
+deliveries cannot rotate one refresh token against each other (`target_busy`). It resolves the API and sign-in
+hosts first and prefers IPv4 answers, which is all the production edge publishes. A VPN fake DNS answer
+(`198.18.0.0/15`) is refused with `network_fake_dns`: exclude `sachkov.dev` from fake DNS in the VPN
+(real-IP or direct rule) and repeat. Reads without any HTTP answer are retried twice; writes are completed by
+the journal with their idempotency keys. No relay, resolved-IP adapter or certificate override is supported.
+
+## History guard
+
+A Material records the Content commit of its last import (`source.commit`); a Task version records its provenance
+commit. For each selected row the package commit must equal the recorded commit or descend from it in the
+Content repository. An older package is refused with `source_commit_older` and a diverged one with
+`source_commit_diverged`; a commit the repository does not contain is an error. A row whose content came from an
+import that named no commit reports `relation: "unrecorded"` and is accepted; its first delivery records the commit.
+
+The full `authoring:release preview` applies the same rule to Materials. With `--content` it uses the exported
+commit; a ready `--package` names it with `--commit CONTENT_SHA --content-repository CONTENT_REPOSITORY`.
+A Material with a recorded commit is a `source_commit_unknown` conflict when the release names no commit, and
+`source_commit_older` or `source_commit_diverged` when history goes back or sideways. An import without a commit
+clears the recorded commit, because the content then comes from no known revision.
+
+## Reconciliation
+
+The journal of a state directory may not know every Material the target holds: on 2026-10-22 the production
+journal knew 33 of about 70. `reconcile` compares the journal with the target state of one namespace and writes
+nothing to the target. Each Material row has a status: `agree`, `target_only`, `journal_only`,
+`identity_differs` or `version_differs`; `counts` sums them and `tasks` lists the Tasks the target holds.
+
+`--adopt SOURCE_ID` records the target's identity, version, access, publication and Reader path for that
+Material in the journal, with an `adopted:<source key>` receipt naming the previous entry. Adopt only rows the
+owner assigned for delivery after reviewing the report. An adopted row previews as `changed` once, because its
+digest is unknown. Never adopt by hand-editing the journal, and never adopt a `journal_only` row.
+
+## Refusals that keep the full release
+
+Content-only delivery refuses, before writes: missing or ambiguous identities, pending journal operations,
+existing `unpublished` Materials, nonempty legacy `practiceDefinitions`, Product shells, Product details,
+composition or artifact changes, membership changes, Task placement changes and import conflicts.
+Use the full reviewed `pnpm authoring:release` with an explicit policy for those.
 
 ## Affected-image manifest
 
@@ -146,8 +199,11 @@ Text-only edits without browser observations make no live-image claim.
 
 ## Focused verification
 
-`pnpm test:authoring` includes mocked gateway/database preservation contracts and synthetic PNG proof cases.
-They cover draft/published Material policy, drift before writes, missing identity, Task policy derivation and binding,
-database scope/cleanup, correct/wrong variants, title collisions, and incomplete focus/human review.
-These fixtures do not inspect the live stand. Complete Platform delivery with the
+`pnpm test:authoring` covers the entrypoint against an in-memory production receiver and a temporary Content
+repository: missing journal, explicit adoption, preview, apply, post-apply verification, context links from the
+target, the history guard in delivery and in the full release, and refusals before any request. It also covers
+the contract handshake, the Node pin, fake DNS detection, read retries, draft/published Material policy, drift
+before writes, Task policy and placement, and the synthetic PNG proof cases. `pnpm test:tooling` covers the
+gateway identity probe. The backend integration tests cover the contract and state reads.
+These fixtures do not inspect the live stand or production. Complete Platform delivery with the
 [verification evidence policy](../agents/release-evidence.md) and independent review.

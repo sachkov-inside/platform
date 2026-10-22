@@ -25,6 +25,8 @@ const sourceSchema = z
     path: z.string().min(1),
     revision: z.hash("sha256"),
     showInFeed: z.boolean(),
+    // Sent back unchanged, so a retirement keeps the Content commit the target recorded (#1672).
+    commit: z.hash("sha1").nullable().optional(),
   })
   .strict();
 const snapshotSchema = z

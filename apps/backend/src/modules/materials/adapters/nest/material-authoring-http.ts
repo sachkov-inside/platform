@@ -1,4 +1,4 @@
-import { authoringSourceSchema } from "../../domain/authoring-source.js";
+import { recordedAuthoringSourceSchema } from "../../domain/authoring-source.js";
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
 import {
@@ -66,7 +66,7 @@ export const materialMutationReceiptSchema = z
 
 export const materialSchema = z
   .object({
-    source: authoringSourceSchema.optional(),
+    source: recordedAuthoringSourceSchema.optional(),
     notifyTelegram: z.boolean().nullable(),
     materialId: materialIdSchema,
     contentVersion: contentVersionSchema,

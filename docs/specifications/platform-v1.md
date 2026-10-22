@@ -1644,7 +1644,21 @@ checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 
 The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
 `loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
-`task-c-v2`, `github-anchors-v1`, `image-variants-v1`, `collapsible-callouts-v1` and `quiz-v1`; unknown features are refused by name.
+`material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
+`collapsible-callouts-v1` and `bounded-content-v1`; unknown features are refused by name.
+
+Import contract (#1672). `GET /authoring/import/materials/environment` returns the runtime `mode` and
+`contract: { version, packageFeatures }`, owned by
+`apps/backend/src/modules/materials/domain/authoring-import-contract.ts`. The client refuses before any write
+when the version differs from its own or a package feature is missing on either side. Contract `1` adds
+`GET /authoring/import/materials/state?namespace=NS` and `GET /authoring/import/tasks/state?namespace=NS`
+(`materials:manage`): every source-owned Material of the namespace with identity, slug, version, access,
+publication, source path/revision/commit and Product memberships, and every Task with identity, code,
+Product, chapter, position, placement, revision, access, publication and the provenance commit of its current
+version. An imported Material source may name `commit`, the Content commit it came from; the receiver stores it
+and an import without it clears it. `bounded-content-v1` (`selection.contentOnly`) writes only the selected
+existing Materials and Tasks and keeps target policy; [content-only delivery](../runbooks/authoring-preservation.md)
+owns the procedure.
 Quiz integration (#1283, #940) imports Content `readerBlocks`, including the full explanations,
 while the search extraction includes only the question. The Reader never renders the raw key section.
 

@@ -39,6 +39,26 @@ const storedPatSchema = z.object({
   value: z.string().min(1),
 });
 
+/** The gateway answers here about itself, so a client can tell it from another process on the port. */
+export const gatewayIdentityPath = "/__local-api/gateway";
+export const gatewayService = "inside-authoring-stand-gateway";
+
+/**
+ * The identity a running gateway reports; `protocol` changes when a client must not reuse it.
+ *
+ * @param {{ owner: string; api: string }} options
+ */
+export function gatewayIdentity({ owner, api }) {
+  return {
+    service: gatewayService,
+    protocol: 1,
+    owner,
+    api,
+    pid: process.pid,
+    root,
+  };
+}
+
 /**
  * Only authoring API paths reach the stand, and only from non-browser clients on this machine.
  * Any local process can act as the stand owner through this gateway; it never serves another host.
@@ -259,7 +279,22 @@ async function main() {
   )
     throw new Error("The authoring gateway serves only a development stand");
 
+  const identity = JSON.stringify(
+    gatewayIdentity({ owner: email, api: apiOrigin }),
+  );
   const server = createServer(async (request, response) => {
+    if (
+      request.method === "GET" &&
+      request.url === gatewayIdentityPath &&
+      request.headers.host === gateway.host &&
+      request.headers.origin === undefined &&
+      request.headers["sec-fetch-site"] === undefined
+    ) {
+      response
+        .writeHead(200, { "content-type": "application/json" })
+        .end(identity);
+      return;
+    }
     const path = forwardedPath(
       request.headers.host,
       request.url ?? "",

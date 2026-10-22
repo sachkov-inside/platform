@@ -92,6 +92,41 @@ export class ProductTaskAuthoringService {
     });
   }
   /**
+   * Read every source-owned Product Task of one source namespace with the commit of its current version
+   * @returns any
+   * @throws ApiError
+   */
+  public readSourceTaskState({
+    namespace,
+  }: {
+    namespace: string,
+  }): CancelablePromise<{
+    namespace: string;
+    tasks: Array<{
+      access: 'free' | 'closed';
+      afterMaterialSourceId: string | null;
+      chapterId: string;
+      code: string;
+      embeddedMaterialId: string | null;
+      position: number;
+      productId: string;
+      programmeVisibility: 'standalone' | 'embedded' | 'legacy';
+      publicationState: 'published' | 'unpublished';
+      revision: number;
+      sourceCommit: string;
+      sourceId: string;
+      taskId: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/import/tasks/state',
+      query: {
+        'namespace': namespace,
+      },
+    });
+  }
+  /**
    * Validate an authored Product Task and read its current revision without writes
    * @returns any
    * @throws ApiError

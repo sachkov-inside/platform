@@ -1056,7 +1056,9 @@ the defaults:
 |---|---|---|
 | `EDITOR_LOCAL_GATEWAY_PORT` | `4396` | Browser gateway |
 | `EDITOR_LOCAL_API_PORT` | `4397` | API |
-| `EDITOR_LOCAL_WEB_PORT` | `4398` | Internal Next.js |
+| `EDITOR_LOCAL_WEB_PORT` | `4399` | Internal Next.js |
+
+Port `4398` is reserved for the [stand authoring gateway](#local-obsidian-authoring-preview-468); the launcher refuses it.
 
 ```bash
 EDITOR_LOCAL_GATEWAY_PORT=4496 EDITOR_LOCAL_API_PORT=4497 EDITOR_LOCAL_WEB_PORT=4498 pnpm editor:local
@@ -1262,7 +1264,7 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 - `pnpm local:stand` links a worktree's `.identity-proof` to the primary checkout, so the stand keeps
   one set of sign-in keys whatever branch starts it.
 - `pnpm local:product [--owner-email EMAIL]` transfers the committed AI Engineering originals from the
-  `~/Work/Materials/engineering-content` checkout (override with `--content PATH`) and features that product on Home. It starts the authoring
+  `~/Work/Materials/content-studio` checkout (override with `--content PATH`) and features that product on Home. It starts the authoring
   gateway for the run when none is running and repeats safely at any time. This local reader view
   approves the publication of every transferred original, as `--publish-all` does; see the publication
   policy below.
@@ -1363,16 +1365,17 @@ The former volume stays until the owner decides to delete it; the transfer does 
 
 ### Local Obsidian authoring preview (#468)
 
-For content-only updates that must preserve existing stand access/publication and prove affected images,
-use [the preservation and image-evidence procedure](authoring-preservation.md).
+For content-only updates of existing Materials and Tasks on the stand or in production, Content Studio calls
+`pnpm authoring:deliver` under [the content-only delivery procedure](authoring-preservation.md). It owns the stand
+gateway for its run, preserves target access, publication, membership and placement, and proves affected images.
 
-Originals from Engineering Content reach a local Platform through a one-shot import of one Git commit.
+Originals from Content Studio reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:
 
 | Target | Runtime | Gateway |
 |---|---|---|
 | `editor` (default) | `pnpm editor:local` with a synthetic owner | the editor runtime itself on `127.0.0.1:4396` |
-| `stand` | `pnpm local:stand` with sign-in, purchases and mail | `pnpm authoring:stand-gateway --owner-email EMAIL` on `127.0.0.1:4398` |
+| `stand` | `pnpm local:stand` with sign-in, purchases and mail | `pnpm authoring:stand-gateway --owner-email EMAIL` on `127.0.0.1:4398`, or started for one run by `authoring:deliver` and `local:product` |
 
 For the stand, normal launch prepares the local owner with full permissions (see
 [local accounts](#local-account-boundary-and-recovery-1641)); the authoring gateway reuses that email. The stand bootstrap registers the
@@ -1381,6 +1384,8 @@ owner's stand personal access token in `.identity-proof/authoring-owner-pat.json
 for short API tokens, renewing the stored token once when the stand's sign-in database was
 recreated. It forwards only canonical `/authoring/` API paths from non-browser clients; any process
 on this machine can act as the stand owner while it runs, so stop it after the transfer.
+It answers `GET /__local-api/gateway` with its identity (service, protocol, owner, API origin, PID and checkout);
+clients reuse a running gateway only after that answer, never after an arbitrary HTTP response on the port.
 Run the stand from a worktree only as [Local product view](#local-product-view) describes: a fresh
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
@@ -1476,8 +1481,9 @@ so `apply` publishes exactly what was reviewed. A Material missing from this sta
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.
 Course package v2 declares `requiredFeatures`; unsupported features stop before writes or asset
-uploads. This importer supports `task-c-v2`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1` and `quiz-v1`. Content quiz `readerBlocks` take precedence over raw Markdown;
+uploads. This importer supports `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`,
+`github-anchors-v1`, `image-variants-v1`, `collapsible-callouts-v1` and `bounded-content-v1`; the receiver
+reports the same list in its import contract (`supportedPackageFeatures` in `tools/authoring/package.mjs`). Content quiz `readerBlocks` take precedence over raw Markdown;
 quiz shape and narrative review anchors are validated before asset uploads. A Task with `access: null` is a preview conflict
 until `--task-access CODE=free|closed` records an explicit choice. Repeat the option for each Task;
 unknown codes or conflicting choices are refused. Apply reads the saved preview choice, so it takes

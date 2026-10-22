@@ -20,6 +20,7 @@ import { ProductArtifactReadController } from "./features/deliver-product-artifa
 import { DeliverMaterialAssetController } from "./features/deliver-material-asset/deliver-material-asset.controller.js";
 import { ImportSourceProductController } from "./features/import-source-product/import-source-product.controller.js";
 import { ImportSourceMaterialController } from "./features/import-source-material/import-source-material.controller.js";
+import { ReadSourceMaterialStateController } from "./features/read-source-material-state/read-source-material-state.controller.js";
 import { ListAuthoringReferencesController } from "./features/list-authoring-references/list-authoring-references.controller.js";
 import { ListContentCollectionsController } from "./features/list-content-collections/list-content-collections.controller.js";
 import { ListMaterialsController } from "./features/list-materials/list-materials.controller.js";
@@ -54,6 +55,7 @@ import { MaterialsModule } from "./materials.module.js";
     LoadSeriesOrderController,
     SaveMaterialController,
     ImportSourceMaterialController,
+    ReadSourceMaterialStateController,
     ImportSourceProductController,
     TransitionMaterialPublicationController,
     DeleteDraftController,

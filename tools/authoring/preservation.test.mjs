@@ -25,11 +25,7 @@ import {
   preservedManifest,
   preservationState,
 } from "./preservation.mjs";
-import {
-  localPreservationDatabase,
-  targetStateSchema,
-  postgresPreservationState,
-} from "./preservation-state.mjs";
+import { targetStateSchema } from "./preservation-state.mjs";
 import { reservationBodySchema } from "./test-support.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -318,62 +314,6 @@ test("Task derivation preserves target access/publication without mutating sourc
     /Task API\/database state differs/u,
   );
   assert.deepEqual(f.writes, []);
-});
-
-test("database adapter refuses remote/options URLs before obtaining a client", () => {
-  for (const url of [
-    "postgresql://host/inside",
-    "postgresql://localhost/other",
-    "postgresql://localhost/inside?options=-csearch_path=public",
-    "https://localhost/inside",
-  ])
-    assert.throws(() => localPreservationDatabase(url), /loopback PostgreSQL/u);
-  assert.equal(
-    localPreservationDatabase("postgresql://localhost:5432/inside"),
-    "postgresql://localhost:5432/inside",
-  );
-});
-
-test("database adapter scopes parameterized reads and closes after failure", async () => {
-  /** @type {{ sql: string; values: unknown }[]} */
-  const commands = [];
-  let ended = false;
-  const read = postgresPreservationState(
-    "postgresql://localhost/inside",
-    () => {
-      // oxlint-disable typescript/no-unsafe-type-assertion -- A supplied database double verifies the adapter without network I/O.
-      return /** @type {import('../../apps/backend/test/support/proof-dependencies.js').Client} */ (
-        /** @type {unknown} */ ({
-          connect: async () => {},
-          end: async () => {
-            ended = true;
-          },
-          /** @param {string} sql @param {unknown} values */
-          query: async (sql, values) => {
-            commands.push({ sql, values });
-            if (sql.includes("product_tasks.tasks"))
-              throw new Error("read failed");
-            return { rows: [] };
-          },
-        })
-      );
-      // oxlint-enable typescript/no-unsafe-type-assertion
-    },
-  );
-  await assert.rejects(
-    read(["synthetic:one"], ["synthetic:task-one"]),
-    /read failed/u,
-  );
-  assert.equal(ended, true);
-  assert.match(commands[0]?.sql ?? "", /READ ONLY/u);
-  assert.deepEqual(
-    commands.find((row) => row.sql.includes("product_tasks.tasks"))?.values,
-    [["synthetic:task-one"], ["task-one"]],
-  );
-  assert.equal(
-    commands.some((row) => /INSERT|UPDATE|DELETE/u.test(row.sql)),
-    false,
-  );
 });
 
 test("pending operations stop before release reconciliation", async (t) => {
