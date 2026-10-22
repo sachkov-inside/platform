@@ -87,9 +87,29 @@ const updateSchema = z
   .passthrough();
 
 /**
+ * Platform's product_chapter_not_continuous rule: each chapter's Materials form one uninterrupted run.
+ *
+ * @param {Item[]} items
+ */
+function interruptedRuns(items) {
+  /** @type {Set<string>} */
+  const finished = new Set();
+  /** @type {string | null} */
+  let previous = null;
+  return items.flatMap(({ chapterId }, index) => {
+    const restarted =
+      chapterId !== previous && chapterId !== null && finished.has(chapterId);
+    if (chapterId !== previous && previous !== null) finished.add(previous);
+    previous = chapterId;
+    return restarted ? [index] : [];
+  });
+}
+
+/**
  * A loopback double that keeps a Product's order and chapters like Platform: omitted assignments keep
- * retained Materials in their chapters, and an unchanged composition writes nothing. Any request
- * outside the Product shell routes fails the test, so a Material write cannot pass unnoticed.
+ * retained Materials in their chapters, an interrupted chapter run is refused, and an unchanged
+ * composition writes nothing. Any request outside the Product shell routes fails the test, so a
+ * Material write cannot pass unnoticed.
  *
  * @param {{ stored?: boolean }} [options]
  */
@@ -117,6 +137,21 @@ function platform({ stored = true } = {}) {
     items: [
       { materialId: uuid(1), chapterId: preparation },
       { materialId: uuid(2), chapterId: null },
+    ],
+    /** @type {{ id: string; materialId: string; chapterId: string | null; stepGroup: null }[]} */
+    programmePlacements: [
+      {
+        id: uuid(10),
+        materialId: uuid(1),
+        chapterId: preparation,
+        stepGroup: null,
+      },
+      {
+        id: uuid(11),
+        materialId: uuid(1),
+        chapterId: preparation,
+        stepGroup: null,
+      },
     ],
     compositions: 0,
   };
@@ -164,20 +199,7 @@ function platform({ stored = true } = {}) {
           orderVersion: version(),
           items: structuredClone(state.items),
           chapters: structuredClone(state.chapters),
-          programmePlacements: [
-            {
-              id: uuid(10),
-              materialId: uuid(1),
-              chapterId: preparation,
-              stepGroup: null,
-            },
-            {
-              id: uuid(11),
-              materialId: uuid(1),
-              chapterId: preparation,
-              stepGroup: null,
-            },
-          ],
+          programmePlacements: structuredClone(state.programmePlacements),
         };
       if (path === "/authoring/import/products/composition") {
         const command = compositionSchema.parse(body);
@@ -204,6 +226,14 @@ function platform({ stored = true } = {}) {
         });
         const next = checksum(canonical({ items, chapters }));
         if (next === version()) return { orderVersion: next };
+        const interrupted = interruptedRuns(items);
+        if (interrupted.length > 0)
+          throw Object.assign(
+            new Error(
+              `product_chapter_not_continuous at ${interrupted.map((index) => `/orderedMaterialIds/${String(index)}`).join(",")}`,
+            ),
+            { status: 422 },
+          );
         if (command.expectedOrderVersion !== version())
           throw Object.assign(new Error("stale_series_order"), { status: 409 });
         Object.assign(state, { items, chapters });
@@ -402,6 +432,64 @@ test("a shell release moves page and chapters and leaves every Material alone", 
       .length,
     0,
   );
+});
+
+test("a shell release gathers an interrupted chapter run in programme order", async (t) => {
+  const setup = await fixture(t);
+  await journalWithLesson(setup.state);
+  const api = platform();
+  const [first, second] = [
+    sourceChapterId("chapter-0"),
+    sourceChapterId("chapter-1"),
+  ];
+  // The target's order as observed: a chapter-1 Material sits after chapter 2, unchaptered
+  // Materials sit inside the chapter-2 run, and the programme orders chapter 2 differently.
+  api.state.chapters.push({ id: second, name: "Вторая", summary: "" });
+  api.state.items = [
+    { materialId: uuid(1), chapterId: first },
+    { materialId: uuid(3), chapterId: second },
+    { materialId: uuid(2), chapterId: null },
+    { materialId: uuid(4), chapterId: second },
+    { materialId: uuid(5), chapterId: first },
+    { materialId: uuid(6), chapterId: second },
+    { materialId: uuid(7), chapterId: null },
+  ];
+  api.state.programmePlacements = [
+    [uuid(1), first],
+    [uuid(5), first],
+    [uuid(4), second],
+    [uuid(3), second],
+    [uuid(4), second],
+  ].map(([materialId, chapterId], index) => ({
+    id: uuid(20 + index),
+    materialId: String(materialId),
+    chapterId: String(chapterId),
+    stepGroup: null,
+  }));
+
+  const { preview } = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    request: api.request,
+  });
+  assert.equal(itemAt(preview.products, 0).reorderedOrRegrouped, true);
+  await sync(setup, api);
+
+  // Each chapter follows its programme placements, then its unplaced Materials in their current
+  // order; unchaptered Materials follow the chapters, and every Material keeps its chapter.
+  assert.deepEqual(api.state.items, [
+    { materialId: uuid(1), chapterId: first },
+    { materialId: uuid(5), chapterId: first },
+    { materialId: uuid(4), chapterId: second },
+    { materialId: uuid(3), chapterId: second },
+    { materialId: uuid(6), chapterId: second },
+    { materialId: uuid(2), chapterId: null },
+    { materialId: uuid(7), chapterId: null },
+  ]);
+  const again = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    request: api.request,
+  });
+  assert.equal(itemAt(again.preview.products, 0).change, "unchanged");
 });
 
 test("a shell release creates a new product with an empty programme", async (t) => {

@@ -463,7 +463,7 @@ export async function previewRelease(
       ]),
     );
     const currentOrder = order.items.map((item) => item.materialId);
-    // A Product shell keeps the Materials the target holds, in their order and chapters.
+    // A Product shell keeps the Materials the target holds in their chapters, each chapter one run.
     const shellComposition = shell
       ? productShellComposition(manifest, product, order)
       : undefined;
