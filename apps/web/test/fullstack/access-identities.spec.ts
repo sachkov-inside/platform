@@ -11,6 +11,7 @@ import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
   fullStackBaseUrl,
+  fullStackBrowserJsonRequest,
   fullStackBrowserRequest,
   signInFullStack,
   type FullStackRole,
@@ -152,11 +153,11 @@ async function billing(
   operation: string,
   input: Record<string, unknown>,
 ): Promise<unknown> {
-  const response = await fullStackBrowserRequest(
+  const response = await fullStackBrowserJsonRequest(
     page,
     `/api/authoring/billing/${operation}`,
     "POST",
-    { input: JSON.stringify({ operationId: crypto.randomUUID(), ...input }) },
+    { operationId: crypto.randomUUID(), ...input },
   );
   expect(response.status()).toBe(200);
   return response.json();

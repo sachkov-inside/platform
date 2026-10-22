@@ -12,6 +12,7 @@ import {
 
 import {
   fullStackBaseUrl,
+  fullStackBrowserJsonRequest,
   fullStackBrowserRequest,
   fullStackPageRequest,
   signInFullStack,
@@ -140,48 +141,44 @@ for (const access of ["public", "closed"] as const) {
       // The member's bridge already opens every product; this all-products tier keeps the scenario independent
       // of the short bridge evidence lifetime. It does not prove the tier path on its own.
       const tierId = crypto.randomUUID();
-      const saved = await fullStackBrowserRequest(
+      const saved = await fullStackBrowserJsonRequest(
         page,
         "/api/authoring/billing/offers/save",
         "POST",
         {
-          input: JSON.stringify({
-            operationId: crypto.randomUUID(),
-            value: {
-              id: tierId,
-              name: `Media acceptance ${suffix}`,
-              benefits: ["materials"],
-              availableForAssignment: true,
-              coverage: {
-                productIds: [],
-                materialIds: [],
-                wholePlatform: true,
-              },
+          operationId: crypto.randomUUID(),
+          value: {
+            id: tierId,
+            name: `Media acceptance ${suffix}`,
+            benefits: ["materials"],
+            availableForAssignment: true,
+            coverage: {
+              productIds: [],
+              materialIds: [],
+              wholePlatform: true,
             },
-          }),
+          },
         },
       );
       expect(await saved.json()).toMatchObject({ ok: true });
-      const assigned = await fullStackBrowserRequest(
+      const assigned = await fullStackBrowserJsonRequest(
         page,
         "/api/authoring/billing/enrollments/assign",
         "POST",
         {
-          input: JSON.stringify({
-            operationId: crypto.randomUUID(),
-            accountId: recipientAccountId,
-            origin: "manual",
-            sourceRef: `media-proof-${suffix}`,
-            tierId,
-            tierRevision: 1,
-            terms: {
-              startsAt: await backendFixtureInstant(request),
-              endsAt: null,
-              endPolicy: "fixed",
-            },
-            billingRef: null,
-            reason: "Synthetic scoped media acceptance",
-          }),
+          operationId: crypto.randomUUID(),
+          accountId: recipientAccountId,
+          origin: "manual",
+          sourceRef: `media-proof-${suffix}`,
+          tierId,
+          tierRevision: 1,
+          terms: {
+            startsAt: await backendFixtureInstant(request),
+            endsAt: null,
+            endPolicy: "fixed",
+          },
+          billingRef: null,
+          reason: "Synthetic scoped media acceptance",
         },
       );
       expect(await assigned.json()).toMatchObject({ ok: true });

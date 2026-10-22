@@ -8,7 +8,7 @@ import { z } from "zod";
 import { catalogOutcomeSchema } from "@/features/billing-admin/model/admin-operations";
 
 import {
-  fullStackBrowserRequest,
+  fullStackBrowserJsonRequest,
   signInFullStack,
 } from "../support/full-stack-session";
 
@@ -16,37 +16,33 @@ import {
 async function createTariff(page: Page) {
   const id = randomUUID();
   const name = `Допуск synthetic ${id}`;
-  const saved = await fullStackBrowserRequest(
+  const saved = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/offers/save",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        value: {
-          id,
-          name,
-          benefits: [`product:${randomUUID()}`],
-        },
-      }),
+      operationId: randomUUID(),
+      value: {
+        id,
+        name,
+        benefits: [`product:${randomUUID()}`],
+      },
     },
   );
   expect(await saved.json()).toMatchObject({ ok: true });
-  const priced = await fullStackBrowserRequest(
+  const priced = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-options/save",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        value: {
-          id: randomUUID(),
-          offerId: id,
-          mode: "one_time",
-          months: 1,
-          priceKopecks: 10_000,
-        },
-      }),
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        offerId: id,
+        mode: "one_time",
+        months: 1,
+        priceKopecks: 10_000,
+      },
     },
   );
   expect(await priced.json()).toMatchObject({ ok: true });
@@ -72,13 +68,7 @@ async function interceptSale(page: Page) {
       `**/api/authoring/billing/offers/${operation}`,
       async (route) => {
         const request = route.request();
-        const form = await new Response(request.postData(), {
-          headers: { "content-type": request.headers()["content-type"] ?? "" },
-        }).formData();
-        const raw = form.get("input");
-        if (typeof raw !== "string")
-          throw new Error("Sale command is missing its input");
-        const input = saleCommandSchema.parse(JSON.parse(raw));
+        const input = saleCommandSchema.parse(request.postDataJSON());
         commands.push({
           id: input.id,
           expectedRevision: input.expectedRevision,
@@ -169,21 +159,19 @@ test("current runtime refuses a subscription option through the real API", async
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/access");
   const tariff = await createTariff(page);
-  const response = await fullStackBrowserRequest(
+  const response = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-options/save",
     "POST",
     {
-      input: JSON.stringify({
-        operationId: randomUUID(),
-        value: {
-          id: randomUUID(),
-          offerId: tariff.id,
-          mode: "subscription",
-          months: 1,
-          priceKopecks: 10_000,
-        },
-      }),
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        offerId: tariff.id,
+        mode: "subscription",
+        months: 1,
+        priceKopecks: 10_000,
+      },
     },
   );
   expect(await response.json()).toMatchObject({

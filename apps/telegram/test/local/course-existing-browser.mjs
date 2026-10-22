@@ -128,7 +128,7 @@ async function purchase() {
       await (
         await page.request.post(origin + "/api/account/billing/contact/start", {
           headers: { origin },
-          form: { operationId: randomUUID(), expectedRevision: "0", email },
+          data: { operationId: randomUUID(), expectedRevision: 0, email },
         })
       ).json(),
     );
@@ -159,7 +159,7 @@ async function purchase() {
           origin + "/api/account/billing/contact/confirm",
           {
             headers: { origin },
-            form: {
+            data: {
               operationId: randomUUID(),
               challengeRef: challenge.challengeRef,
               code,

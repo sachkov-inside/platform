@@ -96,11 +96,14 @@ export {
 } from "./model/legal-documents";
 export { acceptBillingConsents } from "./api/billing-consents.browser";
 export {
-  billingCommandPayload,
-  billingCommandResult,
   readBillingEndpoint,
   type BillingCommandResult,
 } from "./api/billing-result.browser";
+export {
+  billingCommandResultSchema,
+  billingTransportFailure,
+  type BillingOperationResult,
+} from "./api/billing-operation";
 export { AcceptanceNote } from "./ui/acceptance-note";
 export {
   checkoutButtonLabel,

@@ -9,16 +9,19 @@ import {
 } from "@/shared/api/backend/index.server";
 import {
   handleAuthenticatedRead,
-  handleAuthenticatedMutation,
+  handleMutationOperation,
 } from "@/shared/auth/index.server";
 import {
   readContactSchema,
-  startContactInputSchema,
-  confirmContactInputSchema,
   startContactResultSchema,
   confirmContactResultSchema,
   contactFailureCodeSchema,
 } from "../model/billing-contact";
+
+import {
+  confirmBillingContactOperation,
+  startBillingContactOperation,
+} from "./billing-contact.operation";
 
 function mapResult(result: BackendTransportResult): unknown {
   if (result.ok) return result.body;
@@ -65,39 +68,38 @@ export async function handleReadBillingContact(): Promise<Response> {
   });
 }
 export function handleStartBillingContact(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = startContactInputSchema.safeParse({
-      ...Object.fromEntries(form),
-      expectedRevision: form.has("expectedRevision")
-        ? Number(form.get("expectedRevision"))
-        : undefined,
-    });
-    if (!parsed.success) return { ok: false, code: "invalid_input" };
-    try {
-      const result = startContactResultSchema.safeParse(
-        mapResult(await requestStartBillingContact(parsed.data, token)),
-      );
-      return result.success ? result.data : { ok: false, code: "unavailable" };
-    } catch {
-      return { ok: false, code: "unavailable" };
-    }
+  return handleMutationOperation(request, startBillingContactOperation, {
+    invalidInput: () => ({ ok: false, code: "invalid_input" }) as const,
+    execute: async (input, token) => {
+      try {
+        const result = startContactResultSchema.safeParse(
+          mapResult(await requestStartBillingContact(input, token)),
+        );
+        return result.success
+          ? result.data
+          : ({ ok: false, code: "unavailable" } as const);
+      } catch {
+        return { ok: false, code: "unavailable" } as const;
+      }
+    },
   });
 }
 export function handleConfirmBillingContact(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, async (form, token) => {
-    const parsed = confirmContactInputSchema.safeParse(
-      Object.fromEntries(form),
-    );
-    if (!parsed.success) return { ok: false, code: "invalid_input" };
-    try {
-      const result = confirmContactResultSchema.safeParse(
-        mapResult(await requestConfirmBillingContact(parsed.data, token)),
-      );
-      return result.success ? result.data : { ok: false, code: "unavailable" };
-    } catch {
-      return { ok: false, code: "unavailable" };
-    }
+  return handleMutationOperation(request, confirmBillingContactOperation, {
+    invalidInput: () => ({ ok: false, code: "invalid_input" }) as const,
+    execute: async (input, token) => {
+      try {
+        const result = confirmContactResultSchema.safeParse(
+          mapResult(await requestConfirmBillingContact(input, token)),
+        );
+        return result.success
+          ? result.data
+          : ({ ok: false, code: "unavailable" } as const);
+      } catch {
+        return { ok: false, code: "unavailable" } as const;
+      }
+    },
   });
 }

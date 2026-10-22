@@ -1,21 +1,20 @@
 import "server-only";
+import { acceptBillingConsentsOperation } from "./billing-consents.operation";
 
 import { requestBillingConsents } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
+import { consentsValueSchema } from "../model/legal-documents";
 import {
-  consentsInputSchema,
-  consentsValueSchema,
-} from "../model/legal-documents";
-import { executeBillingCommand } from "./billing-command.server";
+  billingInvalidInput,
+  executeBillingOperation,
+} from "./billing-command.server";
 
 export function handleBillingConsents(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      consentsInputSchema,
-      consentsValueSchema,
-      (input) =>
+  return handleMutationOperation(request, acceptBillingConsentsOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(command, consentsValueSchema, (input) =>
         requestBillingConsents(
           {
             operationId: input.operationId,
@@ -32,6 +31,6 @@ export function handleBillingConsents(request: Request): Promise<Response> {
           },
           accessToken,
         ),
-    ),
-  );
+      ),
+  });
 }

@@ -27,14 +27,16 @@ import {
 const operationId = "20000000-0000-4000-8000-000000000001";
 const challengeRef = "30000000-0000-4000-8000-000000000001";
 function request(
-  input: Record<string, string>,
+  input: Record<string, unknown>,
   origin = "https://inside.example.test",
 ) {
-  const body = new FormData();
-  for (const [key, value] of Object.entries(input)) body.set(key, value);
   return new Request(
     "https://inside.example.test/api/account/billing/contact/start",
-    { method: "POST", headers: { origin }, body },
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", origin },
+      body: JSON.stringify(input),
+    },
   );
 }
 beforeEach(() => {
@@ -79,7 +81,7 @@ it("preserves command identity, validates results and uses the authenticated tok
     request({
       operationId,
       email: "buyer@example.test",
-      expectedRevision: "0",
+      expectedRevision: 0,
     }),
   );
   expect(await response.json()).toEqual(result);
@@ -116,7 +118,7 @@ it("rejects cross-origin mutations and injected Account IDs before backend calls
         request({
           operationId,
           email: "buyer@example.test",
-          expectedRevision: "0",
+          expectedRevision: 0,
           accountId: operationId,
         }),
       )
@@ -152,7 +154,7 @@ it("never maps malformed or failed provider responses to confirmation", async ()
         request({
           operationId,
           email: "buyer@example.test",
-          expectedRevision: "0",
+          expectedRevision: 0,
         }),
       )
     ).json(),
@@ -186,7 +188,7 @@ it("maps an unknown backend code to the bounded unavailable outcome", async () =
         request({
           operationId,
           email: "buyer@example.test",
-          expectedRevision: "0",
+          expectedRevision: 0,
         }),
       )
     ).json(),

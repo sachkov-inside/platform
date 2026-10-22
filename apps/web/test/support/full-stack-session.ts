@@ -191,11 +191,16 @@ export async function fullStackBrowserJsonRequest(
         headers: { "content-type": "application/json" },
         method,
       });
-      return { status: response.status, body: await response.text() };
+      return {
+        ok: response.ok,
+        status: response.status,
+        body: await response.text(),
+      };
     },
     { path, method, body: JSON.stringify(input) },
   );
   return {
+    ok: () => result.ok,
     status: () => result.status,
     json: (): Promise<unknown> =>
       Promise.resolve(JSON.parse(result.body) as unknown),

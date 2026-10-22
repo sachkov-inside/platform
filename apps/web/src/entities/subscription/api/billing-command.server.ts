@@ -79,33 +79,29 @@ export async function readBillingResource(
     : billingFailureResponse("unavailable", 502);
 }
 
+/** Input outside a billing operation's schema: the same closed code the browser already knows. */
+export function billingInvalidInput(): {
+  readonly ok: false;
+  readonly code: BillingFailureCode;
+} {
+  return { ok: false, code: "invalid_request" };
+}
+
 /**
- * Одна billing-команда: разбор собственного входа, вызов её use case и закрытый исход.
+ * Одна billing-команда: вызов её use case и закрытый исход. Вход уже разобран схемой операции.
  * Повтор с прежним `operationId` безопасен, потому что решение принимает сервер.
  */
-export async function executeBillingCommand<
-  Input extends z.ZodType,
-  Value extends z.ZodType,
->(
-  form: FormData,
-  inputSchema: Input,
+export async function executeBillingOperation<Input, Value extends z.ZodType>(
+  input: Input,
   valueSchema: Value,
-  execute: (input: z.infer<Input>) => Promise<BackendTransportResult>,
+  execute: (input: Input) => Promise<BackendTransportResult>,
 ): Promise<
   | { readonly ok: true; readonly value: z.infer<Value> }
   | { readonly ok: false; readonly code: BillingFailureCode }
 > {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(z.string().parse(form.get("input")));
-  } catch {
-    return { ok: false, code: "invalid_request" };
-  }
-  const input = inputSchema.safeParse(raw);
-  if (!input.success) return { ok: false, code: "invalid_request" };
   let result: BackendTransportResult;
   try {
-    result = await execute(input.data);
+    result = await execute(input);
   } catch {
     return { ok: false, code: "unavailable" };
   }

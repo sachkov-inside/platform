@@ -1,9 +1,14 @@
 import "server-only";
+import {
+  createBillingQuoteOperation,
+  startBillingPurchaseOperation,
+} from "./billing-checkout.operation";
 
 import {
   billingFailureResponse,
-  executeBillingCommand,
   readAuthenticatedBilling,
+  billingInvalidInput,
+  executeBillingOperation,
 } from "@/entities/subscription.server";
 import { purchaseStatusSchema, quoteSchema } from "@/entities/subscription";
 import {
@@ -12,42 +17,38 @@ import {
   requestBillingPurchaseStatus,
   requestBillingQuote,
 } from "@/shared/api/backend/index.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 
-import {
-  purchaseInputSchema,
-  purchaseRefSchema,
-  quoteInputSchema,
-} from "../model/checkout";
+import { purchaseRefSchema } from "../model/checkout";
 
 export function handleBillingQuote(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(form, quoteInputSchema, quoteSchema, (input) =>
-      requestBillingQuote(
-        {
-          operationId: input.operationId,
-          paymentOptionId: input.paymentOptionId,
-          optionRevision: input.optionRevision,
-          ...(input.paymentLinkId === undefined
-            ? {}
-            : { paymentLinkId: input.paymentLinkId }),
-          ...(input.promoCode === undefined
-            ? {}
-            : { promoCode: input.promoCode }),
-        },
-        accessToken,
+  return handleMutationOperation(request, createBillingQuoteOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(command, quoteSchema, (input) =>
+        requestBillingQuote(
+          {
+            operationId: input.operationId,
+            paymentOptionId: input.paymentOptionId,
+            optionRevision: input.optionRevision,
+            ...(input.paymentLinkId === undefined
+              ? {}
+              : { paymentLinkId: input.paymentLinkId }),
+            ...(input.promoCode === undefined
+              ? {}
+              : { promoCode: input.promoCode }),
+          },
+          accessToken,
+        ),
       ),
-    ),
-  );
+  });
 }
 
 export function handleBillingPurchase(request: Request): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(
-      form,
-      purchaseInputSchema,
-      purchaseStatusSchema,
-      (input) =>
+  return handleMutationOperation(request, startBillingPurchaseOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(command, purchaseStatusSchema, (input) =>
         requestBillingPurchase(
           {
             operationId: input.operationId,
@@ -61,8 +62,8 @@ export function handleBillingPurchase(request: Request): Promise<Response> {
           },
           accessToken,
         ),
-    ),
-  );
+      ),
+  });
 }
 
 /** Возврат из банка не является подтверждением: состояние читается у сервера по ссылке покупки. */

@@ -1,8 +1,10 @@
 import "server-only";
 import {
-  accessSummaryInputSchema,
+  listPeopleOperation,
+  readAccessSummaryOperation,
+} from "./access.operation";
+import {
   accessSummaryOutcomeSchema,
-  listPeopleInputSchema,
   peopleOutcomeSchema,
 } from "../model/access-operations";
 import { ownerCommand } from "./billing-admin.server";
@@ -10,7 +12,7 @@ import { ownerCommand } from "./billing-admin.server";
 export function handleListPeople(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    listPeopleInputSchema,
+    listPeopleOperation,
     peopleOutcomeSchema,
     (input) => ({
       operation: "people.list",
@@ -27,7 +29,7 @@ export function handleListPeople(request: Request): Promise<Response> {
 export function handleAccessSummary(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    accessSummaryInputSchema,
+    readAccessSummaryOperation,
     accessSummaryOutcomeSchema,
     (input) => ({
       operation: "access.summary",

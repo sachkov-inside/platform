@@ -1,14 +1,43 @@
 import "server-only";
+import {
+  readBillingPaymentOperation,
+  applyAccessGrantBatchOperation,
+  archiveBillingOfferOperation,
+  archiveBillingPaymentOptionOperation,
+  archiveBillingPromotionOperation,
+  cancelOwnerSubscriptionOperation,
+  classifyAccountOperation,
+  extendAccessGrantOperation,
+  listBillingPaymentsOperation,
+  previewAccessGrantBatchOperation,
+  publishBillingOfferOperation,
+  readAccessGrantsOperation,
+  readAccountClassificationOperation,
+  readBillingRefundsOperation,
+  reconcileBillingPaymentOperation,
+  revokeAccessGrantOperation,
+  saveBillingCohortOperation,
+  saveBillingOfferOperation,
+  saveBillingPaymentOptionOperation,
+  saveBillingPromotionOperation,
+  unpublishBillingOfferOperation,
+  decideBillingRefundOperation,
+  executeBillingRefundOperation,
+} from "./billing-admin.operation";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
+
+import type { MutationOperation } from "@/shared/api/mutation-operation";
 
 import {
   billingFailureCode,
   billingFailureResponse,
-  executeBillingCommand,
+  billingInvalidInput,
+  executeBillingOperation,
 } from "@/entities/subscription.server";
 import type {
   BillingFailureCode,
+  BillingOperationResult,
   PriceSnapshot,
 } from "@/entities/subscription";
 import {
@@ -18,61 +47,45 @@ import {
 import {
   readAuthenticatedSession,
   handleAuthenticatedRead,
-  handleAuthenticatedMutation,
+  handleMutationOperation,
 } from "@/shared/auth/index.server";
 
 import {
-  applyBatchInputSchema,
-  archiveInputSchema,
-  cancelSubscriptionInputSchema,
   catalogOffersOutcomeSchema,
   catalogOutcomeSchema,
   classificationOutcomeSchema,
-  classifyAccountInputSchema,
-  decideRefundInputSchema,
-  executeRefundInputSchema,
-  extendGrantInputSchema,
   grantBatchOutcomeSchema,
   grantOutcomeSchema,
   grantPreviewOutcomeSchema,
   grantsOutcomeSchema,
-  listPaymentsInputSchema,
   paymentOutcomeSchema,
   paymentsOutcomeSchema,
-  previewBatchInputSchema,
-  purchaseInputSchema,
-  readPaymentInputSchema,
-  readClassificationInputSchema,
-  readGrantsInputSchema,
   reconciledOutcomeSchema,
   refundsOutcomeSchema,
-  revokeGrantInputSchema,
-  savePaymentOptionInputSchema,
-  saveOfferInputSchema,
-  savePromotionInputSchema,
-  saveCohortInputSchema,
   subscriptionOutcomeSchema,
 } from "../model/admin-operations";
 
 /** Одна владельческая операция за маршрут: дискриминатор не становится общим прокси браузера. */
 export function ownerCommand<Input extends z.ZodType>(
   request: Request,
-  inputSchema: Input,
+  operation: MutationOperation<Input, BillingOperationResult>,
   valueSchema: z.ZodType,
-  toCommand: (input: z.infer<Input>) => ManageBillingCommand,
+  toCommand: (input: z.output<Input>) => ManageBillingCommand,
   options: { readonly bankCommand?: boolean } = {},
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, accessToken) =>
-    executeBillingCommand(form, inputSchema, valueSchema, (input) =>
-      requestManageBilling(toCommand(input), accessToken, options),
-    ),
-  );
+  return handleMutationOperation(request, operation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, accessToken) =>
+      executeBillingOperation(command, valueSchema, (input) =>
+        requestManageBilling(toCommand(input), accessToken, options),
+      ),
+  });
 }
 
 export function handleSaveOffer(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    saveOfferInputSchema,
+    saveBillingOfferOperation,
     catalogOutcomeSchema,
     (input) => ({
       operation: "offers.save",
@@ -104,7 +117,7 @@ export function handleSaveOffer(request: Request): Promise<Response> {
 export function handleArchiveOffer(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    archiveInputSchema,
+    archiveBillingOfferOperation,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "offers.archive" }),
   );
@@ -113,7 +126,7 @@ export function handleArchiveOffer(request: Request): Promise<Response> {
 export function handlePublishOffer(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    archiveInputSchema,
+    publishBillingOfferOperation,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "offers.publish" }),
   );
@@ -122,7 +135,7 @@ export function handlePublishOffer(request: Request): Promise<Response> {
 export function handleUnpublishOffer(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    archiveInputSchema,
+    unpublishBillingOfferOperation,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "offers.unpublish" }),
   );
@@ -131,7 +144,7 @@ export function handleUnpublishOffer(request: Request): Promise<Response> {
 export function handleSavePaymentOption(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    savePaymentOptionInputSchema,
+    saveBillingPaymentOptionOperation,
     catalogOutcomeSchema,
     (input) => ({
       operation: "paymentOptions.save",
@@ -155,7 +168,7 @@ export function handleArchivePaymentOption(
 ): Promise<Response> {
   return ownerCommand(
     request,
-    archiveInputSchema,
+    archiveBillingPaymentOptionOperation,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "paymentOptions.archive" }),
   );
@@ -164,7 +177,7 @@ export function handleArchivePaymentOption(
 export function handleSavePromotion(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    savePromotionInputSchema,
+    saveBillingPromotionOperation,
     catalogOutcomeSchema,
     (input) => ({
       operation: "promotions.save",
@@ -185,7 +198,7 @@ export function handleSavePromotion(request: Request): Promise<Response> {
 export function handleSaveCohort(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    saveCohortInputSchema,
+    saveBillingCohortOperation,
     catalogOutcomeSchema,
     (input) => ({
       operation: "cohorts.save",
@@ -201,7 +214,7 @@ export function handleSaveCohort(request: Request): Promise<Response> {
 export function handleArchivePromotion(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    archiveInputSchema,
+    archiveBillingPromotionOperation,
     catalogOutcomeSchema,
     (input) => ({ ...input, operation: "promotions.archive" }),
   );
@@ -210,7 +223,7 @@ export function handleArchivePromotion(request: Request): Promise<Response> {
 export function handleListPayments(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    listPaymentsInputSchema,
+    listBillingPaymentsOperation,
     paymentsOutcomeSchema,
     (input) => ({
       operation: "payments.list",
@@ -227,7 +240,7 @@ export function handleListPayments(request: Request): Promise<Response> {
 export function handleReadPayment(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    readPaymentInputSchema,
+    readBillingPaymentOperation,
     paymentOutcomeSchema,
     (input) => ({
       operation: "payments.read",
@@ -243,7 +256,7 @@ export function handleReadPayment(request: Request): Promise<Response> {
 export function handleReconcilePayment(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    purchaseInputSchema,
+    reconcileBillingPaymentOperation,
     reconciledOutcomeSchema,
     (input) => ({ ...input, operation: "payments.reconcile" }),
     { bankCommand: true },
@@ -255,48 +268,36 @@ export function handleCancelOwnerSubscription(
 ): Promise<Response> {
   return ownerCommand(
     request,
-    cancelSubscriptionInputSchema,
+    cancelOwnerSubscriptionOperation,
     subscriptionOutcomeSchema,
     (input) => ({ ...input, operation: "subscriptions.cancel" }),
   );
 }
 
 /** Исторические маршруты сохраняют проверку сессии и Origin, но больше не обращаются к backend. */
-function disabledRefund(
+function disabledRefund<Input extends z.ZodType>(
   request: Request,
-  schema: z.ZodType,
+  operation: MutationOperation<Input, BillingOperationResult>,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form) => {
-    let input: unknown;
-    try {
-      const text = form.get("input");
-      if (typeof text !== "string")
-        return Promise.resolve({ ok: false, code: "invalid_request" });
-      input = JSON.parse(text);
-    } catch {
-      return Promise.resolve({ ok: false, code: "invalid_request" });
-    }
-    return Promise.resolve({
-      ok: false,
-      code: schema.safeParse(input).success
-        ? "method_unavailable"
-        : "invalid_request",
-    });
+  return handleMutationOperation(request, operation, {
+    invalidInput: billingInvalidInput,
+    execute: () =>
+      Promise.resolve({ ok: false, code: "method_unavailable" } as const),
   });
 }
 
 export function handleDecideRefund(request: Request): Promise<Response> {
-  return disabledRefund(request, decideRefundInputSchema);
+  return disabledRefund(request, decideBillingRefundOperation);
 }
 
 export function handleExecuteRefund(request: Request): Promise<Response> {
-  return disabledRefund(request, executeRefundInputSchema);
+  return disabledRefund(request, executeBillingRefundOperation);
 }
 
 export function handleReadRefunds(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    purchaseInputSchema,
+    readBillingRefundsOperation,
     refundsOutcomeSchema,
     (input) => ({ ...input, operation: "refunds.read" }),
   );
@@ -305,7 +306,7 @@ export function handleReadRefunds(request: Request): Promise<Response> {
 export function handleReadGrants(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    readGrantsInputSchema,
+    readAccessGrantsOperation,
     grantsOutcomeSchema,
     (input) => ({ ...input, operation: "grants.read" }),
   );
@@ -316,7 +317,7 @@ export function handleReadAccountClassification(
 ): Promise<Response> {
   return ownerCommand(
     request,
-    readClassificationInputSchema,
+    readAccountClassificationOperation,
     classificationOutcomeSchema,
     (input) => ({ ...input, operation: "grants.readClassification" }),
   );
@@ -325,7 +326,7 @@ export function handleReadAccountClassification(
 export function handleClassifyAccount(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    classifyAccountInputSchema,
+    classifyAccountOperation,
     classificationOutcomeSchema,
     (input) => ({ ...input, operation: "grants.classify" }),
   );
@@ -334,7 +335,7 @@ export function handleClassifyAccount(request: Request): Promise<Response> {
 export function handlePreviewGrantBatch(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    previewBatchInputSchema,
+    previewAccessGrantBatchOperation,
     grantPreviewOutcomeSchema,
     (input) => ({
       operation: "grants.previewBatch",
@@ -358,7 +359,7 @@ export function handlePreviewGrantBatch(request: Request): Promise<Response> {
 export function handleApplyGrantBatch(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    applyBatchInputSchema,
+    applyAccessGrantBatchOperation,
     grantBatchOutcomeSchema,
     (input) => ({
       operation: "grants.applyBatch",
@@ -373,7 +374,7 @@ export function handleApplyGrantBatch(request: Request): Promise<Response> {
 export function handleExtendGrant(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    extendGrantInputSchema,
+    extendAccessGrantOperation,
     grantOutcomeSchema,
     (input) => ({ ...input, operation: "grants.extend" }),
   );
@@ -382,7 +383,7 @@ export function handleExtendGrant(request: Request): Promise<Response> {
 export function handleRevokeGrant(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    revokeGrantInputSchema,
+    revokeAccessGrantOperation,
     grantOutcomeSchema,
     (input) => ({ ...input, operation: "grants.revoke" }),
   );

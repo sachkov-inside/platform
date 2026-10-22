@@ -1,10 +1,12 @@
 import "server-only";
+import { configureProductCommunityOperation } from "./configuration.operation";
 import {
   billingFailureResponse,
-  executeBillingCommand,
   readAuthenticatedBilling,
+  billingInvalidInput,
+  executeBillingOperation,
 } from "@/entities/subscription.server";
-import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
+import { handleMutationOperation } from "@/shared/auth/index.server";
 import {
   requestReadProductCommunityConfiguration,
   requestConfigureProductCommunity,
@@ -30,17 +32,18 @@ export function handleReadProductCommunityConfiguration(
 export function handleConfigureProductCommunity(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, (form, token) =>
-    executeBillingCommand(
-      form,
-      productCommunityConfigurationSchema,
-      configuredProductCommunitySchema,
-      (input) =>
-        requestConfigureProductCommunity(
-          input.productId,
-          { groupRef: input.groupRef },
-          token,
-        ),
-    ),
-  );
+  return handleMutationOperation(request, configureProductCommunityOperation, {
+    invalidInput: billingInvalidInput,
+    execute: (command, token) =>
+      executeBillingOperation(
+        command,
+        configuredProductCommunitySchema,
+        (input) =>
+          requestConfigureProductCommunity(
+            input.productId,
+            { groupRef: input.groupRef },
+            token,
+          ),
+      ),
+  });
 }

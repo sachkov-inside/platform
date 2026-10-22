@@ -1,195 +1,63 @@
 import {
-  billingCommandPayload,
+  readBillingPaymentOperation,
+  saveBillingOfferOperation,
+  archiveBillingOfferOperation,
+  publishBillingOfferOperation,
+  unpublishBillingOfferOperation,
+  saveBillingPaymentOptionOperation,
+  archiveBillingPaymentOptionOperation,
+  saveBillingPromotionOperation,
+  saveBillingCohortOperation,
+  archiveBillingPromotionOperation,
+  listBillingPaymentsOperation,
+  reconcileBillingPaymentOperation,
+  cancelOwnerSubscriptionOperation,
+  readBillingRefundsOperation,
+  readAccessGrantsOperation,
+  readAccountClassificationOperation,
+  classifyAccountOperation,
+  previewAccessGrantBatchOperation,
+  applyAccessGrantBatchOperation,
+  extendAccessGrantOperation,
+  revokeAccessGrantOperation,
+} from "./billing-admin.operation";
+import {
   readBillingEndpoint,
   type PriceSnapshot,
-  billingCommandResult,
   type BillingCommandResult,
 } from "@/entities/subscription";
-import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
-  catalogOutcomeSchema,
   ownerCatalogSchema,
-  classificationOutcomeSchema,
-  grantBatchOutcomeSchema,
-  grantOutcomeSchema,
-  grantPreviewOutcomeSchema,
-  grantsOutcomeSchema,
-  paymentOutcomeSchema,
-  paymentsOutcomeSchema,
-  reconciledOutcomeSchema,
-  refundsOutcomeSchema,
-  subscriptionOutcomeSchema,
-  type CatalogOutcome,
-  type ClassificationOutcome,
-  type GrantBatchOutcome,
-  type GrantOutcome,
-  type GrantPreviewOutcome,
-  type GrantsOutcome,
   type PaymentOutcome,
-  type PaymentsOutcome,
-  type ReconciledOutcome,
-  type RefundsOutcome,
-  type SubscriptionOutcome,
-  type ApplyBatchInput,
-  type ArchiveInput,
-  type CancelSubscriptionInput,
-  type ClassifyAccountInput,
-  type ExtendGrantInput,
-  type ListPaymentsInput,
-  type PreviewBatchInput,
-  type PurchaseCommandInput,
   type ReadPaymentInput,
-  type ReadClassificationInput,
-  type ReadGrantsInput,
-  type RevokeGrantInput,
-  type SaveOfferInput,
-  type SavePaymentOptionInput,
-  type SavePromotionInput,
-  type SaveCohortInput,
 } from "../model/admin-operations";
 
-export async function saveBillingOffer(
-  input: SaveOfferInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/offers/save",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const saveBillingOffer = saveBillingOfferOperation.send;
 
-export async function archiveBillingOffer(
-  input: ArchiveInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/offers/archive",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const archiveBillingOffer = archiveBillingOfferOperation.send;
 
-export async function publishBillingOffer(
-  input: ArchiveInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/offers/publish",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const publishBillingOffer = publishBillingOfferOperation.send;
 
-export async function unpublishBillingOffer(
-  input: ArchiveInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/offers/unpublish",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const unpublishBillingOffer = unpublishBillingOfferOperation.send;
 
-export async function saveBillingPaymentOption(
-  input: SavePaymentOptionInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/payment-options/save",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const saveBillingPaymentOption = saveBillingPaymentOptionOperation.send;
 
-export async function archiveBillingPaymentOption(
-  input: ArchiveInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/payment-options/archive",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const archiveBillingPaymentOption =
+  archiveBillingPaymentOptionOperation.send;
 
-export async function saveBillingPromotion(
-  input: SavePromotionInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/promotions/save",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const saveBillingPromotion = saveBillingPromotionOperation.send;
 
-export async function saveBillingCohort(
-  input: SaveCohortInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/cohorts/save",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const saveBillingCohort = saveBillingCohortOperation.send;
 
-export async function archiveBillingPromotion(
-  input: ArchiveInput,
-): Promise<BillingCommandResult<CatalogOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/promotions/archive",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    catalogOutcomeSchema,
-  );
-}
+export const archiveBillingPromotion = archiveBillingPromotionOperation.send;
 
-export async function listBillingPayments(
-  input: ListPaymentsInput,
-): Promise<BillingCommandResult<PaymentsOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/payments/list",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    paymentsOutcomeSchema,
-  );
-}
+export const listBillingPayments = listBillingPaymentsOperation.send;
 
 export async function readBillingPayment(
   input: ReadPaymentInput,
 ): Promise<BillingCommandResult<PaymentOutcome>> {
-  const read = async (command: ReadPaymentInput) =>
-    billingCommandResult(
-      await requestSameOriginMutation(
-        "/api/authoring/billing/payments/read",
-        "POST",
-        billingCommandPayload(command),
-      ),
-      paymentOutcomeSchema,
-    );
+  const read = (command: ReadPaymentInput) =>
+    readBillingPaymentOperation.send(command);
   const first = await read(input);
   if (!first.ok) return first;
   const audit = [...first.value.result.audit];
@@ -218,135 +86,26 @@ export async function readBillingPayment(
   };
 }
 
-export async function reconcileBillingPayment(
-  input: PurchaseCommandInput,
-): Promise<BillingCommandResult<ReconciledOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/payments/reconcile",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    reconciledOutcomeSchema,
-  );
-}
+export const reconcileBillingPayment = reconcileBillingPaymentOperation.send;
 
-export async function cancelOwnerSubscription(
-  input: CancelSubscriptionInput,
-): Promise<BillingCommandResult<SubscriptionOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/subscriptions/cancel",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    subscriptionOutcomeSchema,
-  );
-}
+export const cancelOwnerSubscription = cancelOwnerSubscriptionOperation.send;
 
-export async function readBillingRefunds(
-  input: PurchaseCommandInput,
-): Promise<BillingCommandResult<RefundsOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/refunds/read",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    refundsOutcomeSchema,
-  );
-}
+export const readBillingRefunds = readBillingRefundsOperation.send;
 
-export async function readAccessGrants(
-  input: ReadGrantsInput,
-): Promise<BillingCommandResult<GrantsOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/read",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    grantsOutcomeSchema,
-  );
-}
+export const readAccessGrants = readAccessGrantsOperation.send;
 
-export async function readAccountClassification(
-  input: ReadClassificationInput,
-): Promise<BillingCommandResult<ClassificationOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/read-classification",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    classificationOutcomeSchema,
-  );
-}
+export const readAccountClassification =
+  readAccountClassificationOperation.send;
 
-export async function classifyAccount(
-  input: ClassifyAccountInput,
-): Promise<BillingCommandResult<ClassificationOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/classify",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    classificationOutcomeSchema,
-  );
-}
+export const classifyAccount = classifyAccountOperation.send;
 
-export async function previewAccessGrantBatch(
-  input: PreviewBatchInput,
-): Promise<BillingCommandResult<GrantPreviewOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/preview-batch",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    grantPreviewOutcomeSchema,
-  );
-}
+export const previewAccessGrantBatch = previewAccessGrantBatchOperation.send;
 
-export async function applyAccessGrantBatch(
-  input: ApplyBatchInput,
-): Promise<BillingCommandResult<GrantBatchOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/apply-batch",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    grantBatchOutcomeSchema,
-  );
-}
+export const applyAccessGrantBatch = applyAccessGrantBatchOperation.send;
 
-export async function extendAccessGrant(
-  input: ExtendGrantInput,
-): Promise<BillingCommandResult<GrantOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/extend",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    grantOutcomeSchema,
-  );
-}
+export const extendAccessGrant = extendAccessGrantOperation.send;
 
-export async function revokeAccessGrant(
-  input: RevokeGrantInput,
-): Promise<BillingCommandResult<GrantOutcome>> {
-  return billingCommandResult(
-    await requestSameOriginMutation(
-      "/api/authoring/billing/grants/revoke",
-      "POST",
-      billingCommandPayload(input),
-    ),
-    grantOutcomeSchema,
-  );
-}
+export const revokeAccessGrant = revokeAccessGrantOperation.send;
 
 /** Re-read canonical prices and revisions after an acknowledged catalogue write. */
 export function readOwnerBillingCatalog(): Promise<

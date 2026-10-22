@@ -1,10 +1,12 @@
 import "server-only";
 import {
+  issueInvitationOperation,
+  listInvitationsOperation,
+  revokeInvitationOperation,
+} from "./invitations.operation";
+import {
   invitationOutcomeSchema,
   invitationsOutcomeSchema,
-  issueInvitationInputSchema,
-  listInvitationsInputSchema,
-  revokeInvitationInputSchema,
   revokedInvitationOutcomeSchema,
 } from "../model/invitation-operations";
 import { ownerCommand } from "./billing-admin.server";
@@ -12,7 +14,7 @@ import { ownerCommand } from "./billing-admin.server";
 export function handleIssueInvitation(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    issueInvitationInputSchema,
+    issueInvitationOperation,
     invitationOutcomeSchema,
     (input) => {
       const note = input.note?.trim() ?? "";
@@ -30,7 +32,7 @@ export function handleIssueInvitation(request: Request): Promise<Response> {
 export function handleRevokeInvitation(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    revokeInvitationInputSchema,
+    revokeInvitationOperation,
     revokedInvitationOutcomeSchema,
     (input) => ({ ...input, operation: "invitations.revoke" }),
   );
@@ -39,7 +41,7 @@ export function handleRevokeInvitation(request: Request): Promise<Response> {
 export function handleListInvitations(request: Request): Promise<Response> {
   return ownerCommand(
     request,
-    listInvitationsInputSchema,
+    listInvitationsOperation,
     invitationsOutcomeSchema,
     (input) => ({
       operation: "invitations.list",
