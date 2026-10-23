@@ -9,10 +9,6 @@ import {
   SavedReadingAction,
 } from "@/features/reading-progress";
 import { BookmarksPageQuery } from "@/_pages/bookmarks";
-import { PeoplePanel } from "@/features/billing-admin/ui/people-panel.client";
-import { InvitationsPanel } from "@/features/billing-admin/ui/invitations-panel.client";
-import { AccessSummaryPanel } from "@/features/billing-admin/ui/access-summary-panel.client";
-import { materialsOffer } from "@/storybook/billing.fixtures";
 
 // The main surface has the production query cache. Secondary surfaces use an independent
 // recipient cache to prove window announcements without the writer's local invalidation.
@@ -51,28 +47,10 @@ function BrowserFacts() {
         <section aria-label="Bookmark list">
           <BookmarksPageQuery />
         </section>
-        <section aria-label="People">
-          <PeoplePanel offers={[materialsOffer]} />
-        </section>
-        <section aria-label="Invitations">
-          <InvitationsPanel offers={[materialsOffer]} />
-        </section>
-        <section aria-label="Summary">
-          <AccessSummaryPanel />
-        </section>
         {new URLSearchParams(window.location.search).has("secondary") ? (
           <QueryClientProvider client={secondaryClient}>
             <section aria-label="Secondary bookmark list">
               <BookmarksPageQuery />
-            </section>
-            <section aria-label="Secondary People">
-              <PeoplePanel offers={[materialsOffer]} />
-            </section>
-            <section aria-label="Secondary Invitations">
-              <InvitationsPanel offers={[materialsOffer]} />
-            </section>
-            <section aria-label="Secondary Summary">
-              <AccessSummaryPanel />
             </section>
           </QueryClientProvider>
         ) : null}

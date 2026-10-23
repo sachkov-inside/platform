@@ -42,6 +42,7 @@ export {
   type AccessSource,
   type CurrentBilling,
   type OwnPayment,
+  type OwnedProduct,
   type NoticeKind,
   type NoticeView,
   type OffersPage,
@@ -76,7 +77,6 @@ export {
   type BenefitTerm,
 } from "./model/presentation";
 export { billingActionClass } from "./ui/billing-action-class";
-export { OfferCard, type OfferCardProps } from "./ui/offer-card";
 export {
   acceptedDocumentSchema,
   consentsInputSchema,
@@ -85,7 +85,6 @@ export {
   legalDocumentLabel,
   legalDocumentSchema,
   purchaseConsentPolicy,
-  resumeConsentKinds,
   shownRenewalTermsSchema,
   type AcceptedDocument,
   type ShownRenewalTerms,
@@ -110,10 +109,6 @@ export {
   checkoutButtonLabel,
   checkoutActionName,
   moscowDay,
-  renewalTermsAtCheckout,
-  renewalTermsLine,
-  renewalTermsOnResume,
-  resumeRenewalButtonLabel,
   underageNotice,
 } from "./model/acceptance";
 
@@ -125,8 +120,6 @@ export {
   enrollmentStateLabels,
   type Enrollment,
 } from "./model/enrollment";
-
-export { EnrollmentList } from "./ui/enrollment-list";
 
 export {
   announceEnrollmentChange,

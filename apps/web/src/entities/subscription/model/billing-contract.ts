@@ -66,6 +66,14 @@ export const promotionSnapshotSchema = z.object({
   percent: z.number().int().min(1).max(100),
 });
 export const priceSnapshotSchema = z.object({
+  product: z
+    .object({
+      id: z.uuid(),
+      name: z.string().min(1),
+      priceRevision: z.int().positive(),
+    })
+    .optional(),
+  supportMonths: z.literal(3).optional(),
   communityPolicy: z.literal("explicit").optional(),
   offer: offerSchema,
   paymentOption: paymentOptionSchema,
@@ -235,12 +243,24 @@ export const ownPaymentSchema = z.object({
   refundedKopecks: z.number().int().nonnegative(),
   refundedAt: z.iso.datetime().nullable(),
 });
+export const ownedProductSchema = z.object({
+  id: z.uuid(),
+  slug: z.string().nullable(),
+  name: z.string(),
+  materials: z.object({
+    state: z.enum(["available", "expired", "revoked", "unavailable"]),
+  }),
+  community: z.object({
+    state: z.enum(["available", "expired", "revoked", "unavailable"]),
+  }),
+});
 export const currentBillingSchema = z.object({
-  subscription: subscriptionViewSchema.nullable(),
+  products: z.array(ownedProductSchema),
+  access: z.object({ grounds: z.array(accessGroundSchema) }),
   notices: z.array(noticeViewSchema),
-  grounds: z.array(accessGroundSchema),
   payments: z.array(ownPaymentSchema),
 });
+export type OwnedProduct = z.infer<typeof ownedProductSchema>;
 
 export const purchaseStatusSchema = z.object({
   purchaseRef: z.uuid(),
@@ -257,7 +277,10 @@ export const quoteSchema = z.object({
   quoteRef: z.uuid(),
   createdAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
-  snapshot: priceSnapshotSchema,
+  snapshot: priceSnapshotSchema.refine(
+    (snapshot) =>
+      snapshot.product !== undefined && snapshot.supportMonths === 3,
+  ),
 });
 export const changePlanSchema = z.discriminatedUnion("kind", [
   z.object({

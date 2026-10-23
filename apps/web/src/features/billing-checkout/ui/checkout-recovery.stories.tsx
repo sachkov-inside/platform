@@ -5,13 +5,13 @@ import { z } from "zod";
 
 import {
   productOnlyOffer,
-  productWithSupportOffer,
+  productWithSupportOffer as baseProductB,
   productQuote,
   supportOffer,
   verifiedContact,
   legalDocuments,
   pendingPurchase,
-  productWithSupportQuote,
+  productWithSupportQuote as baseProductQuoteB,
   savedQuote,
 } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
@@ -20,6 +20,18 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 import { purchaseInputSchema } from "../model/checkout";
 import { CheckoutFlow, type CheckoutFlowProps } from "./checkout-flow.client";
 
+const productWithSupportOffer = {
+  ...baseProductB,
+  product: {
+    id: "00000000-0000-4000-8000-000000000f03",
+    name: "Другой продукт",
+    priceRevision: 1,
+  },
+};
+const productWithSupportQuote = {
+  ...baseProductQuoteB,
+  snapshot: productWithSupportOffer,
+};
 const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 function SelectionScenario(args: CheckoutFlowProps) {
@@ -48,13 +60,17 @@ function SelectionScenario(args: CheckoutFlowProps) {
             setSnapshot(supportOffer);
           }}
         >
-          Подписка
+          Другой продукт
         </button>
         <button
           onClick={() => {
             setSnapshot({
               ...snapshot,
-              paymentOption: { ...snapshot.paymentOption, revision: 2 },
+              product: {
+                id: "00000000-0000-4000-8000-000000000f01",
+                name: "Создание Platform Inside",
+                priceRevision: 2,
+              },
             });
           }}
         >
@@ -100,8 +116,8 @@ const purchaseRequest = fn();
 const consentRequest = fn();
 const releaseLateQuote = fn<() => void>();
 const commandSchema = z.object({
-  paymentOptionId: z.uuid(),
-  optionRevision: z.number(),
+  productId: z.uuid(),
+  priceRevision: z.number(),
   promoCode: z.string().optional(),
 });
 
@@ -139,11 +155,11 @@ const failedReplacement = fetchBeforeRender((input, init) => {
   quoteRequest(command);
   return Promise.resolve(
     Response.json(
-      command.paymentOptionId === productOnlyOffer.paymentOption.id &&
-        command.optionRevision === 1 &&
+      command.productId === productOnlyOffer.product?.id &&
+        command.priceRevision === 1 &&
         command.promoCode === undefined
         ? { ok: true, value: productQuote }
-        : { ok: false, code: "option_changed" },
+        : { ok: false, code: "quote_changed" },
     ),
   );
 });
@@ -172,49 +188,6 @@ export const FailedReplacementCannotPayOldQuote: Story = {
   },
 };
 
-export const SubscriptionRequiresItsOwnQuote: Story = {
-  beforeEach: failedReplacement,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await waitFor(() =>
-      expect(
-        canvas.getByRole("button", {
-          name: /^(?:Оплатить |Оформить подписку и оплатить )/u,
-        }),
-      ).toBeEnabled(),
-    );
-    await userEvent.click(canvas.getByRole("button", { name: /^Подписка$/u }));
-    await expect(
-      canvas.getByRole("heading", { name: "Оформление подписки" }),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: "Рассчитать условия" }),
-    ).toBeEnabled();
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Рассчитать условия" }),
-    );
-    await canvas.findByRole("alert");
-    await expect(quoteRequest).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        paymentOptionId: supportOffer.paymentOption.id,
-      }),
-    );
-    await expect(
-      canvas.queryByRole("button", {
-        name: /^(?:Оплатить |Оформить подписку и оплатить )/u,
-      }),
-    ).not.toBeInTheDocument();
-    await userEvent.click(canvas.getByRole("button", { name: "Вариант A" }));
-    await waitFor(() =>
-      expect(
-        canvas.getByRole("button", {
-          name: /^(?:Оплатить |Оформить подписку и оплатить )/u,
-        }),
-      ).toBeEnabled(),
-    );
-  },
-};
-
 function lostPurchaseResponse(
   state: "pending" | "unknown" = "pending",
   unavailableRetry:
@@ -232,9 +205,9 @@ function lostPurchaseResponse(
     if (path === "/api/account/billing/quote") {
       const command = commandSchema.parse(body);
       const quoted =
-        command.paymentOptionId === supportOffer.paymentOption.id
+        command.productId === supportOffer.product?.id
           ? savedQuote
-          : command.paymentOptionId === productWithSupportOffer.paymentOption.id
+          : command.productId === productWithSupportOffer.product.id
             ? productWithSupportQuote
             : productQuote;
       quotedSnapshot = quoted.snapshot;
@@ -345,7 +318,7 @@ function replacementTest(change: "Новая редакция" | "Новый п�
       await expect(quoteRequest).toHaveBeenLastCalledWith(
         expect.objectContaining(
           change === "Новая редакция"
-            ? { optionRevision: 2 }
+            ? { priceRevision: 2 }
             : { promoCode: "another-code" },
         ),
       );
@@ -393,7 +366,7 @@ function retryChangedConditions(
       await waitFor(() =>
         expect(quoteRequest).toHaveBeenLastCalledWith(
           expect.objectContaining({
-            paymentOptionId: productWithSupportOffer.paymentOption.id,
+            productId: productWithSupportOffer.product.id,
             promoCode: "another-code",
           }),
         ),
@@ -473,10 +446,6 @@ export const OneTimeRecoversPendingAfterSelectionChange: Story =
   retryChangedConditions(false, "pending");
 export const OneTimeRecoversUnknownAfterSelectionChange: Story =
   retryChangedConditions(false, "unknown");
-export const SubscriptionRecoversPendingAfterSelectionChange: Story =
-  retryChangedConditions(true, "pending");
-export const SubscriptionRecoversUnknownAfterSelectionChange: Story =
-  retryChangedConditions(true, "unknown");
 
 export const LateQuoteCannotRestorePreviousSelection: Story = {
   args: { snapshot: supportOffer },
@@ -501,7 +470,7 @@ export const LateQuoteCannotRestorePreviousSelection: Story = {
         );
       const command = commandSchema.parse(commandBody(init));
       quoteRequest(command);
-      if (command.paymentOptionId === supportOffer.paymentOption.id) {
+      if (command.productId === supportOffer.product?.id) {
         return new Promise<Response>((resolve) => {
           deliverA = () => {
             const response = Response.json({ ok: true, value: savedQuote });
@@ -518,21 +487,18 @@ export const LateQuoteCannotRestorePreviousSelection: Story = {
       if (rejectFirstB) {
         rejectFirstB = false;
         return Promise.resolve(
-          Response.json({ ok: false, code: "option_changed" }),
+          Response.json({ ok: false, code: "quote_changed" }),
         );
       }
       // Следующий отказ B доставляется после чтения позднего A, чтобы финальная ошибка
       // стала наблюдаемой границей этого сценария, а не ожиданием по времени.
       return aConsumed.then(() =>
-        Response.json({ ok: false, code: "option_changed" }),
+        Response.json({ ok: false, code: "quote_changed" }),
       );
     })();
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Рассчитать условия" }),
-    );
     await waitFor(() => expect(quoteRequest).toHaveBeenCalledTimes(1));
     await userEvent.click(canvas.getByRole("button", { name: "Вариант B" }));
     await canvas.findByRole("alert");

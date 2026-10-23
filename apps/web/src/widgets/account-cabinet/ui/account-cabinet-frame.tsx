@@ -8,7 +8,7 @@ export function AccountCabinetFrame({
   readonly children: React.ReactNode;
 }) {
   return (
-    <AccountCabinet options={[]}>
+    <AccountCabinet>
       {/* Documents are available inline in the cabinet. */}
       <HidePublicFooter />
       {children}

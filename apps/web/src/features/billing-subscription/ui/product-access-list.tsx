@@ -4,9 +4,7 @@ import { Button } from "@/shared/ui/button";
 import { ArrowUpRight } from "lucide-react";
 import {
   accessSourceLabel,
-  enrollmentStateLabels,
-  enrollmentSourceLabels,
-  type Enrollment,
+  type OwnedProduct,
   attemptStateLabel,
   capabilityLabel,
   formatBillingDate,
@@ -26,11 +24,11 @@ import { BillingDisclosure } from "./billing-disclosure.client";
 function accessLabel(
   access: OwnPayment["access"],
   payment: OwnPayment | undefined,
-  retainedState: Enrollment["state"] | undefined,
+  retainedState: OwnedProduct["materials"]["state"] | undefined,
 ) {
   if (access === "ready") return "Доступ открыт";
   if (payment === undefined && retainedState !== undefined)
-    return enrollmentStateLabels[retainedState];
+    return retainedState === "revoked" ? "Доступ отозван" : "Доступ неактивен";
   if (access === "preparing") return "Подготавливаем доступ";
   if (access === "unavailable" || payment === undefined)
     return "Доступ неактивен";
@@ -42,14 +40,14 @@ export function ProductAccessList({
   grounds,
   payments,
   renderCommunityAction,
-  enrollments = [],
+  products: owned = [],
 }: {
   readonly grounds: readonly AccessGround[];
   readonly payments: readonly OwnPayment[];
-  readonly enrollments?: readonly Enrollment[];
+  readonly products?: readonly OwnedProduct[];
   readonly renderCommunityAction?: (productId: string) => ReactNode;
 }) {
-  const products = accountProducts(grounds, payments, enrollments);
+  const products = accountProducts(grounds, payments, owned);
   if (products.length === 0) return null;
   return (
     <section aria-labelledby="current-products">
@@ -58,15 +56,7 @@ export function ProductAccessList({
       </h2>
       <ul className="mt-4 grid gap-4">
         {products.map(
-          ({
-            product,
-            bases,
-            assignments,
-            retainedState,
-            history,
-            payment,
-            access,
-          }) => (
+          ({ product, bases, ownership, history, payment, access }) => (
             <li
               key={product.id}
               className="rounded-2xl border border-border/70 bg-card p-5 text-foreground sm:p-6"
@@ -95,7 +85,7 @@ export function ProductAccessList({
                 )}
               </div>
               <p className="mt-3 text-sm text-muted-foreground">
-                {accessLabel(access, payment, retainedState)}
+                {accessLabel(access, payment, ownership?.materials.state)}
               </p>
               {(payment?.refundedKopecks ?? 0) > 0 ? (
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -149,17 +139,6 @@ export function ProductAccessList({
                     </li>
                   ))}
                 </ul>
-                {assignments.map((assignment) => (
-                  <p
-                    key={assignment.id}
-                    className="mt-2 text-sm text-muted-foreground"
-                  >
-                    {assignment.tier.name} ·{" "}
-                    {enrollmentStateLabels[assignment.state]} ·{" "}
-                    {enrollmentSourceLabels[assignment.origin]} ·{" "}
-                    {formatBillingDate(assignment.startsAt)}
-                  </p>
-                ))}
                 {history.map((purchase) => (
                   <div
                     key={purchase.purchaseRef}

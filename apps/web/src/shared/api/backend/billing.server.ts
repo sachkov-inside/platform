@@ -18,11 +18,15 @@ type BillingRequest<
 const bankCommandTimeoutMs = 30_000;
 
 export function requestBillingOffers(
-  query: BillingRequest<"billingOffers">,
+  query: {
+    readonly productId?: string;
+    readonly cursor?: string;
+    readonly limit?: number;
+  },
   accessToken?: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).billingOffers(query),
+    (request) => new BillingService(request).productPrices(query),
     200,
     accessToken === undefined ? {} : { accessToken },
   );
@@ -41,7 +45,7 @@ export function requestProductCohorts(productId?: string, cursor?: string) {
 }
 export function requestCurrentBilling(accessToken: string) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).currentBilling(),
+    (request) => new BillingService(request).readOwnBilling(),
     200,
     { accessToken },
   );
@@ -71,12 +75,11 @@ export function requestBillingConsents(
   );
 }
 export function requestBillingPurchase(
-  requestBody: BillingRequest<"purchaseBillingSubscription">["requestBody"],
+  requestBody: BillingRequest<"purchaseProduct">["requestBody"],
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).purchaseBillingSubscription({ requestBody }),
+    (request) => new BillingService(request).purchaseProduct({ requestBody }),
     200,
     { accessToken, timeoutMs: bankCommandTimeoutMs },
   );
@@ -107,83 +110,6 @@ export function requestRestoreProductPurchase(
     { accessToken },
   );
 }
-export function requestCancelBillingRenewal(
-  requestBody: BillingRequest<"cancelBillingRenewal">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).cancelBillingRenewal({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-export function requestResumeBillingRenewal(
-  requestBody: BillingRequest<"resumeBillingRenewal">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).resumeBillingRenewal({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-export function requestBillingChangeQuote(
-  requestBody: BillingRequest<"quoteBillingChange">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).quoteBillingChange({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-export function requestBillingChange(
-  requestBody: BillingRequest<"changeBillingOption">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).changeBillingOption({ requestBody }),
-    200,
-    { accessToken, timeoutMs: bankCommandTimeoutMs },
-  );
-}
-export function requestCancelBillingChange(
-  requestBody: BillingRequest<"cancelBillingChange">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).cancelBillingChange({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-export function requestChangeBillingMethod(
-  requestBody: BillingRequest<"changeBillingMethod">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).changeBillingMethod({ requestBody }),
-    200,
-    { accessToken, timeoutMs: bankCommandTimeoutMs },
-  );
-}
-export function requestRevokeBillingMethod(
-  requestBody: BillingRequest<"revokeBillingMethod">["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).revokeBillingMethod({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
 export type ManageBillingCommand =
   BillingRequest<"manageBilling">["requestBody"];
 
@@ -202,14 +128,6 @@ export function requestManageBilling(
     options.bankCommand === true
       ? { accessToken, timeoutMs: bankCommandTimeoutMs }
       : { accessToken },
-  );
-}
-
-export function requestCurrentEnrollments(accessToken: string) {
-  return executeGeneratedRequest(
-    (request) => new BillingService(request).currentEnrollments(),
-    200,
-    { accessToken },
   );
 }
 
@@ -316,5 +234,54 @@ export function requestBillingPaymentLink(id: string) {
     (request) => new BillingService(request).readBillingPaymentLink({ id }),
     200,
     {},
+  );
+}
+
+export function requestListProductAccess(
+  requestBody: Parameters<AccessService["listProductAccess"]>[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) => new AccessService(request).listProductAccess({ requestBody }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestReadProductAccess(
+  requestBody: Parameters<AccessService["readProductAccess"]>[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) => new AccessService(request).readProductAccess({ requestBody }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestIssueProductAccess(
+  requestBody: Parameters<
+    AccessService["issueProductAccess"]
+  >[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) => new AccessService(request).issueProductAccess({ requestBody }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestRestoreProductAccess(
+  requestBody: Parameters<
+    AccessService["restoreProductAccess"]
+  >[0]["requestBody"],
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new AccessService(request).restoreProductAccess({ requestBody }),
+    200,
+    { accessToken },
   );
 }

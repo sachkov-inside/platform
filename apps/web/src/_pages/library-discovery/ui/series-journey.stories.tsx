@@ -257,21 +257,16 @@ export const Guest: Story = {
     ).toBeVisible();
   },
 };
-export const LockedSeriesOffersSubscription: Story = {
+export const LockedSeriesHasNoSubscriptionFallback: Story = {
   args: {
     result: lockedResult,
     learning: { kind: "guest" },
     subscriptionOffered: true,
   },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    // Витрина возвращает человека в программу, откуда он ушёл, а не на страницу продукта.
     await expect(
-      canvas.getByRole("link", { name: "Посмотреть тарифы" }),
-    ).toHaveAttribute(
-      "href",
-      "/payment/checkout?from=%2Fproducts%2Fplatform-inside%2Fprogramme",
-    );
+      within(canvasElement).queryByRole("link", { name: "Посмотреть тарифы" }),
+    ).not.toBeInTheDocument();
   },
 };
 export const LockedSeriesInvitesPayment: Story = {

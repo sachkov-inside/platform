@@ -19,7 +19,6 @@ function runningBrowser(): Browser {
 }
 const accountA = "00000000-0000-4000-8000-000000000001";
 const materialId = "10000000-0000-4000-8000-000000000001";
-const operationRef = "00000000-0000-4000-8000-000000000010";
 const material = {
   materialId,
   access: "free",
@@ -35,7 +34,6 @@ const material = {
   topic: "Архитектура",
   topicSlug: "architecture",
 };
-const ok = (result: unknown) => ({ ok: true, value: { operationRef, result } });
 
 function readingFixture() {
   const state = { isRead: false, version: 0 };
@@ -210,11 +208,6 @@ function fixture(billing?: (page: Page) => Promise<void>) {
         });
       },
     );
-    await page.route("**/api/authoring/billing/**", (route) =>
-      route.fulfill({
-        json: ok({ outcome: "people", items: [], nextCursor: null }),
-      }),
-    );
     await billing?.(page);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -355,248 +348,6 @@ test("without BroadcastChannel bookmark writes update the list in the same docum
     await context.close();
   }
 }, 30_000);
-
-function accessFixture() {
-  const state = { assigned: false, invitation: "absent" };
-  const tier = {
-    id: "00000000-0000-4000-8000-000000000101",
-    revision: 3,
-    name: "Assigned tariff",
-    benefits: ["materials"],
-    coverage: { productIds: [], materialIds: [] },
-  };
-  const issued = () => ({
-    id: "00000000-0000-4000-8000-000000000020",
-    code: "Synthetic",
-    startParameter: "i_Synthetic",
-    offerId: tier.id,
-    offerRevision: 3,
-    mode: "purchase",
-    state: state.invitation,
-    issuedAt: "2030-01-01T00:00:00.000Z",
-    expiresAt: "2030-02-01T00:00:00.000Z",
-    claimedAt: null,
-    redeemedAt: null,
-    revokedAt:
-      state.invitation === "revoked" ? "2030-01-02T00:00:00.000Z" : null,
-    accountId: null,
-    revision: 1,
-    link: null,
-  });
-  const attach = fixture(async (page) => {
-    await page.route("**/api/authoring/billing/**", async (route) => {
-      const path = new URL(route.request().url()).pathname;
-      let result: unknown;
-      if (path.endsWith("/enrollments/assign")) {
-        state.assigned = true;
-        result = {
-          outcome: "enrollment",
-          value: {
-            id: operationRef,
-            accountId: accountA,
-            tier,
-            origin: "manual",
-            startsAt: "2030-01-01T00:00:00.000Z",
-            endsAt: null,
-            endPolicy: "fixed",
-            revision: 1,
-            state: "active",
-            renewal: "not_applicable",
-          },
-        };
-      } else if (path.endsWith("/people/list")) {
-        result = {
-          outcome: "people",
-          items: [
-            {
-              accountId: accountA,
-              telegramIdentityRef: null,
-              grounds: state.assigned
-                ? [
-                    {
-                      kind: "enrollment",
-                      id: operationRef,
-                      revision: 1,
-                      source: "manual",
-                      offer: { id: tier.id, name: tier.name },
-                      capabilities: ["materials"],
-                      purchaseRef: null,
-                      startsAt: "2030-01-01T00:00:00.000Z",
-                      endsAt: null,
-                      revokedAt: null,
-                      endPolicy: "fixed",
-                      state: "active",
-                    },
-                  ]
-                : [],
-            },
-          ],
-          nextCursor: null,
-        };
-      } else if (path.endsWith("/tiers/list")) {
-        result = {
-          outcome: "tiers",
-          items: [
-            {
-              tier,
-              availableForAssignment: true,
-              published: false,
-              archived: false,
-            },
-          ],
-          nextCursor: null,
-        };
-      } else if (path.endsWith("/access-summary")) {
-        result = {
-          outcome: "accessSummary",
-          value: {
-            asOf: "2030-01-01T00:00:00.000Z",
-            active: state.assigned
-              ? [
-                  {
-                    offerId: tier.id,
-                    name: tier.name,
-                    paid: 0,
-                    gift: 1,
-                    course: 0,
-                  },
-                ]
-              : [],
-            invitations: {
-              issued: state.invitation === "issued" ? 1 : 0,
-              opened: 0,
-              purchaseOpened: 0,
-              paid: 0,
-              expired: 0,
-              revoked: state.invitation === "revoked" ? 1 : 0,
-            },
-            attention: [],
-            revenue: [],
-          },
-        };
-      } else {
-        if (path.endsWith("/invitations/issue")) state.invitation = "issued";
-        if (path.endsWith("/invitations/revoke")) state.invitation = "revoked";
-        result = path.endsWith("/invitations/list")
-          ? {
-              outcome: "invitations",
-              items: state.invitation === "absent" ? [] : [issued()],
-              nextCursor: null,
-            }
-          : { outcome: "invitation", value: issued() };
-      }
-      await route.fulfill({ json: ok(result) });
-    });
-  }).attach;
-  return { attach };
-}
-
-test("People and Summary observe an assignment from another open document", async () => {
-  const context = await runningBrowser().newContext();
-  try {
-    const { attach } = accessFixture();
-    const writer = await context.newPage();
-    const reader = await context.newPage();
-    await attach(writer);
-    await attach(reader);
-    const people = writer.getByRole("region", { name: "People", exact: true });
-    await browserExpect(
-      reader.getByText("Действующего доступа пока нет."),
-    ).toBeVisible();
-    await people.locator("summary").click();
-    await people
-      .getByLabel("Тариф для назначения")
-      .selectOption({ label: "Assigned tariff" });
-    await people.getByLabel("Причина назначения").fill("Contract test");
-    await people.getByRole("button", { name: "Назначить без оплаты" }).click();
-    await browserExpect(
-      people.getByText("Тариф назначен. Платёж и списания не создавались."),
-    ).toBeVisible();
-    await browserExpect(
-      reader
-        .getByRole("region", { name: "People", exact: true })
-        .locator("summary")
-        .getByText("Assigned tariff", { exact: true }),
-    ).toBeVisible();
-    await browserExpect(
-      reader
-        .getByRole("region", { name: "Summary", exact: true })
-        .getByText("Assigned tariff", { exact: true }),
-    ).toBeVisible();
-  } finally {
-    await context.close();
-  }
-}, 30_000);
-
-for (const channel of ["BroadcastChannel", "window fallback"] as const) {
-  test(`Invitations and Summary observe issue and revoke through ${channel}`, async () => {
-    const context = await runningBrowser().newContext();
-    try {
-      if (channel === "window fallback")
-        await context.addInitScript(() => {
-          Reflect.deleteProperty(globalThis, "BroadcastChannel");
-        });
-      const { attach } = accessFixture();
-      const writer = await context.newPage();
-      await attach(writer, { secondary: channel === "window fallback" });
-      const reader =
-        channel === "window fallback" ? writer : await context.newPage();
-      if (reader !== writer) await attach(reader);
-      const summary = reader.getByRole("region", {
-        name: channel === "window fallback" ? "Secondary Summary" : "Summary",
-        exact: true,
-      });
-      const issuedCount = summary
-        .locator("dl > div")
-        .filter({ has: reader.getByText("Выдано", { exact: true }) })
-        .locator("dd");
-      const revokedCount = summary
-        .locator("dl > div")
-        .filter({ has: reader.getByText("Отозвано", { exact: true }) })
-        .locator("dd");
-      await browserExpect(issuedCount).toHaveText("0");
-      const invitations = writer.getByRole("region", {
-        name: "Invitations",
-        exact: true,
-      });
-      await invitations
-        .getByLabel("Предложение", { exact: true })
-        .selectOption({ label: "Материалы" });
-      await invitations
-        .getByRole("button", { name: "Создать приглашение" })
-        .click();
-      await browserExpect(
-        invitations.locator("[data-issued-invitation]"),
-      ).toBeVisible();
-      const readerInvitations = reader.getByRole("region", {
-        name:
-          channel === "window fallback"
-            ? "Secondary Invitations"
-            : "Invitations",
-        exact: true,
-      });
-      await browserExpect(readerInvitations.getByRole("listitem")).toHaveCount(
-        1,
-      );
-      await browserExpect(issuedCount).toHaveText("1");
-      await invitations
-        .getByRole("button", { name: "Отозвать", exact: true })
-        .click();
-      await browserExpect(
-        invitations.getByText("Приглашение отозвано.", { exact: true }),
-      ).toBeVisible();
-      await browserExpect(
-        readerInvitations
-          .getByRole("listitem")
-          .getByText("Отозвано", { exact: true }),
-      ).toBeVisible();
-      await browserExpect(revokedCount).toHaveText("1");
-      await browserExpect(issuedCount).toHaveText("0");
-    } finally {
-      await context.close();
-    }
-  }, 30_000);
-}
 
 test("a write supersedes an initial bookmark read that captured the old answer", async () => {
   const context = await runningBrowser().newContext();

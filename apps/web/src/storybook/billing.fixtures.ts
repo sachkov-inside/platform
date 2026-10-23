@@ -6,7 +6,6 @@ import type {
   BillingFailureCode,
   BillingQuote,
   ChangeQuote,
-  CurrentBilling,
   Enrollment,
   LegalDocument,
   NoticeView,
@@ -21,6 +20,8 @@ const uuid = (value: string) =>
   `00000000-0000-4000-8000-${value.padStart(12, "0")}`;
 
 export const materialsOffer: PriceSnapshot = {
+  product: { id: uuid("f01"), name: "Материалы", priceRevision: 2 },
+  supportMonths: 3,
   offer: {
     id: uuid("101"),
     revision: 3,
@@ -46,6 +47,8 @@ export const materialsOffer: PriceSnapshot = {
 };
 
 export const supportOffer: PriceSnapshot = {
+  product: { id: uuid("f02"), name: "Инженерная практика", priceRevision: 5 },
+  supportMonths: 3,
   offer: {
     id: uuid("102"),
     revision: 4,
@@ -73,6 +76,12 @@ export const supportOffer: PriceSnapshot = {
 
 /** Руководство, которому владелец завёл цену: покупается один раз, право выдаётся без даты окончания. */
 export const productOnlyOffer: PriceSnapshot = {
+  product: {
+    id: uuid("f01"),
+    name: "Создание Platform Inside",
+    priceRevision: 1,
+  },
+  supportMonths: 3,
   offer: {
     id: uuid("103"),
     revision: 1,
@@ -102,6 +111,12 @@ export const productOnlyOffer: PriceSnapshot = {
 
 /** Второй разовый вариант того же руководства: он и даёт странице оплаты выбор. */
 export const productWithSupportOffer: PriceSnapshot = {
+  product: {
+    id: uuid("f01"),
+    name: "Создание Platform Inside",
+    priceRevision: 1,
+  },
+  supportMonths: 3,
   offer: {
     id: uuid("104"),
     revision: 1,
@@ -183,15 +198,6 @@ export const legalDocuments: readonly LegalDocument[] = [
     text: "",
   },
   {
-    kind: "recurring",
-    appliesTo: ["subscription"],
-    documentId: "recurring-consent",
-    version: "1",
-    digest: "b".repeat(64),
-    url: "https://inside.example.test/legal/recurring-consent",
-    text: "",
-  },
-  {
     kind: "personal_data",
     appliesTo: ["one_time", "subscription"],
     documentId: "personal-data",
@@ -253,7 +259,7 @@ export const activeSubscription: SubscriptionView = {
 
 /** Ответ собственного BFF о состоянии billing: конверт принадлежит фикстурам, а не сторис. */
 export function currentBillingResponse(
-  subscription: SubscriptionView | null,
+  _subscription: SubscriptionView | null,
   {
     grounds = [],
     notices = [],
@@ -264,10 +270,10 @@ export function currentBillingResponse(
     readonly payments?: readonly OwnPayment[];
   } = {},
 ): Response {
-  const value: CurrentBilling = {
-    subscription,
+  const value = {
+    products: [],
     notices: [...notices],
-    grounds: [...grounds],
+    access: { grounds: [...grounds] },
     payments: [...payments],
   };
   return Response.json({ ok: true, value });

@@ -54,7 +54,7 @@ export function PaymentLinksView({
   const [expiration, setExpiration] = useState("");
   const [localError, setLocalError] = useState("");
   const selected =
-    offers.find((offer) => offer.paymentOption.id === optionId) ?? offers[0];
+    offers.find((offer) => offer.product?.id === optionId) ?? offers[0];
   const numeric = /^\d+(?:[.,]\d{1,2})?$/.test(text)
     ? Number(text.replace(",", "."))
     : NaN;
@@ -97,8 +97,8 @@ export function PaymentLinksView({
       return;
     }
     onCreate({
-      paymentOptionId: selected.paymentOption.id,
-      optionRevision: selected.paymentOption.revision,
+      productId: selected.product?.id ?? "",
+      priceRevision: selected.product?.priceRevision ?? 0,
       price:
         mode === "discount"
           ? { kind: "discount", percent: numeric }
@@ -123,8 +123,7 @@ export function PaymentLinksView({
       </header>
       {offers.length === 0 ? (
         <p role="status">
-          Для ссылки нужен продукт с разовым вариантом оплаты. Добавьте его в
-          каталог выше.
+          Для ссылки нужна цена продукта. Добавьте её в каталог выше.
         </p>
       ) : (
         <div className={styles["workspace"]}>
@@ -138,18 +137,15 @@ export function PaymentLinksView({
             <label htmlFor={`${prefix}-product`}>Продукт</label>
             <select
               id={`${prefix}-product`}
-              value={selected?.paymentOption.id ?? ""}
+              value={selected?.product?.id ?? ""}
               onChange={(event) => {
                 setOptionId(event.target.value);
               }}
               disabled={pending}
             >
               {offers.map((offer) => (
-                <option
-                  key={offer.paymentOption.id}
-                  value={offer.paymentOption.id}
-                >
-                  {titleFor(offer)} · {offer.offer.name} ·{" "}
+                <option key={offer.product?.id} value={offer.product?.id}>
+                  {titleFor(offer)} ·{" "}
                   {formatKopecks(offer.paymentOption.priceKopecks)}
                 </option>
               ))}
