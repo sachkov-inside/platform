@@ -138,8 +138,8 @@ It applies only to a buyer with current paid access to that Product and its comm
 _Avoid_: Global community setup, payment confirmation
 
 **ProductAccessRevocation**:
-An operator's withdrawal of one Account's access to a selected Product across its existing grounds.
-It preserves other Products, financial history and learning progress.
+The owner's explicit withdrawal of one Account's Product Access, separate from closing sales or
+refunding a Payment. It preserves other Products, financial history and learning progress.
 _Avoid_: Refund, selecting one grant source, Account ban
 
 **Product Page Description**:
@@ -147,7 +147,7 @@ The author-written description of a Product, kept in its Engineering Content ori
 Platform as an ordered list of typed blocks — a lead, cards, plain text, numbered steps, a short
 list, an invitation to the free lessons — plus an optional Home-card caption. The Product's own
 `presentation` field names which set of page and Home-card components draws the description; access
-terms stay substitutions the site fills from the current Tariff.
+terms belong to the Product.
 _Avoid_: Product introduction, landing copy in code, presentation chosen by address
 
 **Product Chapter**:
@@ -369,7 +369,7 @@ A private `Account ↔ Material` relation recording that the Account saved the M
 later. It is the presence of the relation, not access: it never grants the right to read a body or
 its linked resources, survives the loss of Account Rights and adds no public field. In Russian product
 language: «Закладка».
-_Avoid_: AccessGrant, ReadingState, collection, favorite
+_Avoid_: Product Access, ReadingState, collection, favorite
 
 ## Product purchases and access
 
@@ -423,11 +423,11 @@ The owner's decision, following a personal request, about the amount and basis o
 The owner performs the refund through the bank and withdraws Product access separately.
 _Avoid_: Refund attempt, access revocation, dispute
 
-**AccessGrant**:
-One recorded issuance of lifetime access to one Product for one Account, with its origin and agreed
-conditions. Purchase, verified course activation, and an owner's decision produce the same kind of
-access; in Russian product language: «выдача доступа».
-_Avoid_: Telegram presence, single global paid flag
+**Product Access**:
+One Account's lifetime access to one Product, including its evolving published Materials and
+community, with a history of receipt, withdrawal and restoration. Purchase, verified course
+activation and owner issuance establish the same access; receiving it again does not restart Support.
+_Avoid_: Tariff Assignment, Direct Right, Lifetime Access Grant, independent grants for the same Product
 
 **CommunityEntitlement**:
 An Account's effective right to participate in a Product's configured community, distinct from
@@ -490,8 +490,9 @@ _Avoid_: UTM, campaign, attribution model, referrer
 ## Shared Inside terms
 
 **Support**:
-The right to ask the author for help within a stated term; in Russian, «Сопровождение».
-_Avoid_: Personal mentoring, guaranteed answer, community participation
+The author's help with a Product promised for a stated term, independent of lifetime Product Access.
+In Russian product language: «Сопровождение».
+_Avoid_: Lifetime personal support, separately purchased renewal, community participation
 
 **TelegramIdentity**:
 The provider-verified Telegram identity from which bot updates originate; it may be linked to an
@@ -533,7 +534,7 @@ These names refer to the same concept; they do not introduce another right or pr
 
 | Compatibility name | Canonical term |
 |---|---|
-| Access Grant | AccessGrant |
+| Access Grant | Product Access |
 | Community Entitlement | CommunityEntitlement |
 | Admission Restriction | AdmissionRestriction |
 | Product Purchase | OneTimePurchase |
