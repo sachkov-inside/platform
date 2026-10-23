@@ -26,7 +26,6 @@ import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import {
   attemptKindSchema,
   isQuotedPurchase,
-  type AttemptKind,
 } from "../../domain/payment-attempt.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import {
@@ -50,7 +49,6 @@ import {
   bankTimeoutMs,
   validatedPaymentUrl,
   type BankPayment,
-  type PaymentInitiator,
   type Tbank,
 } from "../../infrastructure/tbank/tbank.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
@@ -66,12 +64,6 @@ const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
 const inFlightAnswerPollMilliseconds = 200;
 // Первая покупка сохраняет привязку, повышение инициирует покупатель, продление — merchant recurring.
 // Разовая покупка не просит банк сохранять привязку: инициатор без card-on-file.
-const paymentInitiators: Record<AttemptKind, PaymentInitiator> = {
-  initial: "1",
-  one_time: "0",
-  upgrade: "2",
-  renewal: "R",
-};
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
@@ -786,7 +778,6 @@ export class BillingPayments {
         where: { id: purchaseRef },
       });
       if (!row) return paymentFailure("not_found");
-      const kind = attemptKindSchema.parse(row.kind);
       if (
         row.environment !== bank.config.environment ||
         row.terminalRef !== bank.config.terminalKey
@@ -1008,7 +999,6 @@ export class BillingPayments {
         });
       return { status: "prepared", row, kind } as const;
     });
-    if (prepared?.status === "configuration_idle") return "configuration_idle";
     if (prepared?.status === "retired") return "skipped";
     if (!prepared) return "skipped";
     const { row, kind } = prepared;

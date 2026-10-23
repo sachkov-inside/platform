@@ -14,7 +14,7 @@ export { BillingPayments } from "./facets/billing-payments/billing-payments.js";
 // тем же алгоритмом, иначе приложение не приняло бы их своим обычным путём.
 export { tbankToken } from "./infrastructure/tbank/tbank.js";
 
-export { SubscriptionActivation } from "./facets/subscription-activation/subscription-activation.js";
+export { CourseActivation } from "./facets/course-activation/course-activation.js";
 
 export { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 export { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";

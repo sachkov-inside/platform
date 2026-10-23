@@ -1,4 +1,3 @@
-import { scheduledRenewalsWhere } from "../../shared/renewal-schedule.js";
 import type { BillingPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
   ENDING_SOON_WINDOW_MS,
@@ -185,7 +184,7 @@ async function renewingAccounts(
   if (accounts.length === 0) return new Set();
   const rows = await prisma.billingSubscription.findMany({
     where: {
-      ...scheduledRenewalsWhere,
+      id: { in: [] },
       accountId: { in: [...new Set(accounts)] },
     },
     select: { accountId: true },

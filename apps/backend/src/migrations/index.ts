@@ -1,8 +1,4 @@
 import {
-  name as lifetimeProductAccessName,
-  statement as lifetimeProductAccessStatement,
-} from "../modules/account-rights/infrastructure/postgres/migrations/0106-lifetime-product-access.js";
-import {
   runMigrationsToLatest,
   type MigrationOutcome,
 } from "../infrastructure/postgres/migrate-to-latest.js";
@@ -46,6 +42,14 @@ import {
   name as historicalCommunityCoverageName,
   statement as historicalCommunityCoverageStatement,
 } from "../modules/account-rights/infrastructure/postgres/migrations/0095-historical-community-coverage.js";
+import {
+  name as lifetimeProductAccessName,
+  statement as lifetimeProductAccessStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0106-lifetime-product-access.js";
+import {
+  name as courseActivationName,
+  statement as courseActivationStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0107-course-activation-products.js";
 import {
   name as accountsMigrationName,
   statement as accountsMigrationStatement,
@@ -694,6 +698,7 @@ export const platformMigrations = [
     name: lifetimeProductAccessName,
     statement: lifetimeProductAccessStatement,
   },
+  { name: courseActivationName, statement: courseActivationStatement },
   { name: productPricesName, statement: productPricesStatement },
 ] as const;
 

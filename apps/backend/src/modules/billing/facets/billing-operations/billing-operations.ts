@@ -1,11 +1,9 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
-  lockBillingPricing,
   Prisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { type AccessGrants } from "../../../account-rights/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import {
@@ -38,12 +36,6 @@ import {
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
-import {
-  isProductOffer,
-  offerGrantsWithheld,
-  productSupportTermMissing,
-  tierLacksComposition,
-} from "../../shared/tier-composition.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
 
@@ -294,43 +286,14 @@ export class BillingOperations {
       }
       case "activationRules.save": {
         const { operation: _operation, ...input } = command;
-        return prisma.$transaction(async (tx) => {
-          await lockBillingPricing(tx);
-          const row = await tx.billingOffer.findUnique({
-            where: { id: command.value.tierId },
-          });
-          if (
-            command.value.published &&
-            (row === null || row.archived || !row.availableForAssignment)
-          )
-            return ownerFailure("not_found");
-          if (
-            command.value.published &&
-            row !== null &&
-            (!isProductOffer(row) ||
-              tierLacksComposition(row) ||
-              offerGrantsWithheld(row) ||
-              productSupportTermMissing(row))
-          )
-            return ownerFailure("state_conflict");
-          if (
-            command.value.published &&
-            row?.revision !== command.value.tierRevision
-          )
-            return ownerFailure("revision_conflict");
-          const result = await grants.manageActivationRule(
-            actorId,
-            input,
-            transactionHandle(tx),
-          );
-          return result.ok
-            ? {
-                ok: true,
-                operationRef,
-                result: { outcome: "activationRule", value: result.value },
-              }
-            : ownerAccessFailure(result.error.code);
-        });
+        const result = await grants.manageActivationRule(actorId, input);
+        return result.ok
+          ? {
+              ok: true,
+              operationRef,
+              result: { outcome: "activationRule", value: result.value },
+            }
+          : ownerAccessFailure(result.error.code);
       }
       case "productPrices.save":
       case "productPrices.archive":
@@ -494,4 +457,10 @@ function targetOf(command: OwnerOperation, _outcome: OwnerOutcome): string {
   if ("productId" in command) return command.productId;
   if ("id" in command) return command.id;
   return command.operationId;
+}
+
+function reasonOf(command: OwnerOperation, _outcome: OwnerOutcome): string {
+  return "reason" in command && typeof command.reason === "string"
+    ? command.reason
+    : command.operation;
 }
