@@ -1,3 +1,4 @@
+import { issueProductAccessSchema } from "../../domain/product-access.js";
 import {
   Body,
   Controller,
@@ -33,6 +34,7 @@ import {
 import { ACCESS_GRANTS } from "../../account-rights.tokens.js";
 import type { AccessGrants } from "../../facets/access-grants/assemble-access-grants.js";
 import {
+  productAccessChangeResultSchema,
   productRevocationCommandSchema,
   productRevocationPreviewSchema,
   productRevocationResultSchema,
@@ -111,6 +113,55 @@ export class RevokeProductAccessController {
     @Body() input: unknown,
   ) {
     const result = await this.grants.revokeProductAccess(
+      actor.accountId,
+      input,
+    );
+    if (!result.ok) fail(result.error.code);
+    return result;
+  }
+  @Post("issue")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "issueProductAccess",
+    summary: "Issue one lifetime Product Access explicitly as owner",
+  })
+  @ApiBody({ schema: toOpenApiSchema(issueProductAccessSchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      z.strictObject({
+        ok: z.literal(true),
+        outcome: z.enum(["issued", "already_active", "revoked"]),
+        value: productAccessChangeResultSchema.shape.value,
+      }),
+    ),
+  })
+  async issue(
+    @CurrentAccount() actor: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
+    const parsed = issueProductAccessSchema.safeParse(input);
+    if (!parsed.success) fail("invalid_input");
+    const result = await this.grants.issueProductAccess(
+      { source: "manual", actorId: actor.accountId },
+      parsed.data,
+    );
+    if (!result.ok) fail(result.error.code);
+    return result;
+  }
+
+  @Post("restore")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "restoreProductAccess",
+    summary: "Explicit owner restoration of lifetime Product Access",
+  })
+  @ApiBody({ schema: toOpenApiSchema(productRevocationCommandSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(productAccessChangeResultSchema) })
+  async restore(
+    @CurrentAccount() actor: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
+    const result = await this.grants.restoreProductAccess(
       actor.accountId,
       input,
     );

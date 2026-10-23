@@ -2032,3 +2032,40 @@ model ProductWaitlistConfirmation {
  @@map("product_waitlist_confirmations")
  @@schema("sales_funnel")
 }
+
+// One durable lifetime decision per Account and Product. Legacy grants remain passive history.
+model ProductAccess {
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  firstIssuedAt DateTime @map("first_issued_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  revision Int
+  @@id([accountId, productId])
+  @@map("product_access")
+  @@schema("account_rights")
+}
+model ProductAccessSource {
+  source String @db.VarChar(40)
+  sourceRef String @map("source_ref") @db.VarChar(256)
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  issuedAt DateTime @map("issued_at") @db.Timestamptz
+  reason String @db.VarChar(1000)
+  @@id([source, sourceRef])
+  @@index([accountId, productId])
+  @@map("product_access_sources")
+  @@schema("account_rights")
+}
+model ProductAccessAction {
+  id String @id @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  productId String @map("product_id") @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  kind String @db.VarChar(40)
+  reason String @db.VarChar(1000)
+  recordedAt DateTime @map("recorded_at") @db.Timestamptz
+  revision Int
+  @@index([accountId, productId, revision])
+  @@map("product_access_actions")
+  @@schema("account_rights")
+}
