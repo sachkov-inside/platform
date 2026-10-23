@@ -146,7 +146,7 @@ export async function changeProductAccess(
     value: {
       ...target,
       revision,
-      firstIssuedAt: updated.firstIssuedAt.toISOString(),
+      firstIssuedAt: updated.firstIssuedAt?.toISOString() ?? null,
       access: updated.revokedAt === null ? "active" : "revoked",
     },
   });

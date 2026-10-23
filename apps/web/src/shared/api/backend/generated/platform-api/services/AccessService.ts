@@ -26,7 +26,7 @@ export class AccessService {
     value: {
       access: 'active' | 'revoked';
       accountId: string;
-      firstIssuedAt: string;
+      firstIssuedAt: string | null;
       productId: string;
       revision: number;
     };
@@ -58,7 +58,7 @@ export class AccessService {
     value: Array<{
       access: 'active' | 'revoked';
       accountId: string;
-      firstIssuedAt: string;
+      firstIssuedAt: string | null;
       productId: string;
       revision: number;
     }>;
@@ -127,7 +127,7 @@ export class AccessService {
         recordedAt: string;
         revision: number;
       }>;
-      firstIssuedAt: string;
+      firstIssuedAt: string | null;
       productId: string;
       revision: number;
       sources: Array<{
@@ -165,7 +165,7 @@ export class AccessService {
     value: {
       access: 'active' | 'revoked';
       accountId: string;
-      firstIssuedAt: string;
+      firstIssuedAt: string | null;
       productId: string;
       revision: number;
     };
@@ -197,7 +197,7 @@ export class AccessService {
     value: {
       access: 'revoked';
       accountId: string;
-      firstIssuedAt: string;
+      firstIssuedAt: string | null;
       productId: string;
       revision: number;
     };

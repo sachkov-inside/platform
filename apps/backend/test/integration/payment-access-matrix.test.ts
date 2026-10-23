@@ -872,7 +872,7 @@ describe("оплата, выдача прав и доступ к материа�
       where: { accountId: account, productId: productA },
     });
     expect(granted).toHaveLength(1);
-    expect(granted[0]?.firstIssuedAt.toISOString()).toBe(
+    expect(granted[0]?.firstIssuedAt?.toISOString()).toBe(
       "2030-01-31T10:00:00.000Z",
     );
 

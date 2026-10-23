@@ -161,7 +161,10 @@ export function ProductAccessPanel() {
             </p>
             <p>
               {row.access === "active" ? "Доступ открыт" : "Доступ отозван"} ·
-              первая выдача {formatBillingDate(row.firstIssuedAt)}
+              первая выдача{" "}
+              {row.firstIssuedAt === null
+                ? "дата неизвестна"
+                : formatBillingDate(row.firstIssuedAt)}
             </p>
             <Button
               className="min-h-11"
@@ -205,7 +208,10 @@ export function ProductAccessPanel() {
             {detail.access === "active"
               ? "Бессрочный доступ открыт"
               : "Доступ отозван"}
-            . Первая выдача {formatBillingDate(detail.firstIssuedAt)}
+            . Первая выдача{" "}
+            {detail.firstIssuedAt === null
+              ? "дата неизвестна"
+              : formatBillingDate(detail.firstIssuedAt)}
           </p>
           <ul>
             {detail.sources.map((source) => (

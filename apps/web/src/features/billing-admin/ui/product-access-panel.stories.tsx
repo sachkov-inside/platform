@@ -12,7 +12,7 @@ const record = {
   revision: 2,
   access: "revoked" as const,
 };
-function replies() {
+function replies(firstIssuedAt: string | null = record.firstIssuedAt) {
   let restored = false;
   return fetchBeforeRender((input) => {
     const path = new URL(
@@ -21,6 +21,7 @@ function replies() {
     ).pathname;
     const value = {
       ...record,
+      firstIssuedAt,
       access: restored ? "active" : "revoked",
       revision: restored ? 3 : 2,
     };
@@ -111,7 +112,7 @@ const meta = {
   ...environment,
   title: "Components/Authoring/Product access",
   component: ProductAccessPanel,
-  beforeEach: [environment.beforeEach, replies],
+  beforeEach: [environment.beforeEach, () => replies()],
 } satisfies Meta<typeof ProductAccessPanel>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -148,4 +149,25 @@ export const ExplicitRestore: Story = {
 };
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const UnknownHistoricalIssuance: Story = {
+  beforeEach: [environment.beforeEach, () => replies(null)],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Показать права" }),
+    );
+    await expect(
+      await canvas.findByText("Доступ отозван · первая выдача дата неизвестна"),
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "История права" }),
+    );
+    await expect(
+      await canvas.findByText("Доступ отозван. Первая выдача дата неизвестна", {
+        exact: false,
+      }),
+    ).toBeVisible();
+  },
 };

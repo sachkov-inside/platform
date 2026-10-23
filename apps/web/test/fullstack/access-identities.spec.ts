@@ -64,7 +64,7 @@ const accessSchema = z.object({
   productId: z.uuid(),
   access: z.enum(["active", "revoked"]),
   revision: z.int(),
-  firstIssuedAt: z.iso.datetime(),
+  firstIssuedAt: z.iso.datetime().nullable(),
 });
 const accessResult = z.object({
   ok: z.literal(true),
