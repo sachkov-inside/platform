@@ -35,6 +35,33 @@ export class ProductDiscovery {
     };
   }
 
+  metadata(query?: {
+    readonly ids: readonly string[];
+    readonly includeActive: boolean;
+  }) {
+    return this.prisma.product.findMany({
+      ...(query === undefined
+        ? {}
+        : {
+            where: {
+              OR: [
+                { id: { in: [...query.ids] } },
+                ...(query.includeActive ? [{ archivedAt: null }] : []),
+              ],
+            },
+          }),
+      select: {
+        id: true,
+        createdAt: true,
+        name: true,
+        slug: true,
+        summary: true,
+        archivedAt: true,
+        coverId: true,
+      },
+    });
+  }
+
   snapshot(handle?: TransactionHandle) {
     return handle === undefined
       ? this.prisma.$transaction((tx) => this.read(tx))

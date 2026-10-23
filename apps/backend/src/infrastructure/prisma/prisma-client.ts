@@ -72,7 +72,7 @@ export type AccountsPrisma = Pick<
 export type AccountsPrismaClient = AccountsPrisma &
   TransactionClient<AccountsPrisma>;
 
-export type MemberProfilesPrisma = Pick<
+export type AccountProfilesPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "memberProfile"
@@ -80,8 +80,8 @@ export type MemberProfilesPrisma = Pick<
   | "profileAvatar"
   | "profileAvatarRendition"
 >;
-export type MemberProfilesPrismaClient = MemberProfilesPrisma &
-  TransactionClient<MemberProfilesPrisma>;
+export type AccountProfilesPrismaClient = AccountProfilesPrisma &
+  TransactionClient<AccountProfilesPrisma>;
 
 export type TelegramMembershipPrisma = Pick<
   PlatformPrisma,

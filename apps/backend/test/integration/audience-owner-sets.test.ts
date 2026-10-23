@@ -1,3 +1,4 @@
+import { composeMaterialAccessFacts } from "../../src/entrypoints/composition/material-access-facts.js";
 import { ProductCatalogue } from "../../src/modules/products/index.js";
 import {
   afterAll,
@@ -308,11 +309,13 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
       });
       const access = assembleContentAccess({
         materialResourceFacts: assembleMaterialResourceFacts(
-          assembleMaterialContent({
-            prisma: observer.prisma,
-            productCatalogue: new ProductCatalogue(observer.prisma),
-            materialBodyOperations,
-          }),
+          composeMaterialAccessFacts(
+            assembleMaterialContent({
+              prisma: observer.prisma,
+              materialBodyOperations,
+            }),
+            new ProductCatalogue(observer.prisma),
+          ),
         ),
         accountPermissions: assembleCurrentAccountPermissions(accounts),
         accountRights: assembleAccountRights({
@@ -532,11 +535,13 @@ describe("25-recipient Material expansion owner cost", () => {
     });
     const access = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
-        assembleMaterialContent({
-          prisma: observer.prisma,
-          productCatalogue: new ProductCatalogue(observer.prisma),
-          materialBodyOperations,
-        }),
+        composeMaterialAccessFacts(
+          assembleMaterialContent({
+            prisma: observer.prisma,
+            materialBodyOperations,
+          }),
+          new ProductCatalogue(observer.prisma),
+        ),
       ),
       accountPermissions: assembleCurrentAccountPermissions(accounts),
       accountRights: assembleAccountRights({
@@ -1048,11 +1053,13 @@ describe("Account-set empty, missing and unavailable contracts", () => {
     });
     const access = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
-        assembleMaterialContent({
-          prisma: observer.prisma,
-          productCatalogue: new ProductCatalogue(observer.prisma),
-          materialBodyOperations,
-        }),
+        composeMaterialAccessFacts(
+          assembleMaterialContent({
+            prisma: observer.prisma,
+            materialBodyOperations,
+          }),
+          new ProductCatalogue(observer.prisma),
+        ),
       ),
       accountPermissions: assembleCurrentAccountPermissions(accounts),
       accountRights: rights,

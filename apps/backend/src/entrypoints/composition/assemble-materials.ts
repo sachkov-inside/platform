@@ -1,3 +1,4 @@
+import { composeMaterialAccessFacts } from "./material-access-facts.js";
 import { ProductMemberships } from "../../modules/products/index.js";
 import { assembleProductAuthoring } from "../../modules/products/index.js";
 import { assembleProductMaterials } from "../../modules/materials/index.js";
@@ -53,11 +54,13 @@ export function assembleMaterials(dependencies: {
     | "loadPresentation"
   >;
 }): Materials {
-  const materialContent = assembleMaterialContent({
-    prisma: dependencies.prisma,
-    materialBodyOperations,
-    productCatalogue: new ProductCatalogue(dependencies.prisma),
-  });
+  const materialContent = composeMaterialAccessFacts(
+    assembleMaterialContent({
+      prisma: dependencies.prisma,
+      materialBodyOperations,
+    }),
+    new ProductCatalogue(dependencies.prisma),
+  );
   const contentAccess =
     dependencies.contentAccess ??
     assembleContentAccess({

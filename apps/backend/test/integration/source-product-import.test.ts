@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import {
   assembleContentCovers,
@@ -585,7 +586,10 @@ describe("authoring source Product completion", () => {
 
   test("imports artifacts only into the Product owned by the declared source", async () => {
     const artifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(database.prisma),
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -712,7 +716,10 @@ describe("authoring source Product completion", () => {
   });
   test("artifact import rolls back the entire batch and uses the same locks as editor refusals", async () => {
     const artifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(database.prisma),
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -793,7 +800,10 @@ describe("authoring source Product completion", () => {
       "staged-race",
     );
     const artifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(database.prisma),
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -847,7 +857,10 @@ describe("authoring source Product completion", () => {
       },
     };
     const racingArtifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(database.prisma),
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage: racingStorage,
       prisma: database.prisma,

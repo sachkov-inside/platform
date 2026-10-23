@@ -1,8 +1,4 @@
-import {
-  ProductCatalogue,
-  ProductDiscovery,
-  ProductsModule,
-} from "../products/index.js";
+import { ProductDiscovery, ProductsModule } from "../products/index.js";
 import { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";
 import { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
 import { ProductDirectory } from "./features/read-product-directory/read-product-directory.js";
@@ -18,7 +14,7 @@ import {
 } from "../../infrastructure/prisma/index.js";
 import {
   assembleMaterialContent,
-  MATERIAL_CONTENT,
+  MATERIAL_PUBLICATION,
   type MaterialContent,
 } from "./facets/material-content/material-content.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
@@ -68,17 +64,10 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
         new PublicContentTargets(prisma, products),
     },
     {
-      provide: MATERIAL_CONTENT,
-      inject: [PrismaClientProvider, ProductCatalogue],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        productCatalogue: ProductCatalogue,
-      ): MaterialContent =>
-        assembleMaterialContent({
-          prisma,
-          productCatalogue,
-          materialBodyOperations,
-        }),
+      provide: MATERIAL_PUBLICATION,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider): MaterialContent =>
+        assembleMaterialContent({ prisma, materialBodyOperations }),
     },
   ],
   exports: [
@@ -86,7 +75,7 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
     CoverageCatalog,
     ProductDirectory,
     ProductOutlines,
-    MATERIAL_CONTENT,
+    MATERIAL_PUBLICATION,
     PublicContentTargets,
     PublishedSeriesComposition,
     PublishedMaterialSelection,

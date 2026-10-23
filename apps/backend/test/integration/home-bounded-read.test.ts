@@ -167,6 +167,7 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
   const items: Prisma.MaterialCreateManyInput[] = [];
   const publications: Prisma.PublishedMaterialCreateManyInput[] = [];
   const memberships: Prisma.ProductMembershipCreateManyInput[] = [];
+  const placements: Prisma.ProductProgrammePlacementCreateManyInput[] = [];
   const publishedMemberships: Prisma.PublishedMaterialProductMembershipCreateManyInput[] =
     [];
   const videos: Prisma.VideoCreateManyInput[] = [];
@@ -218,8 +219,14 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
       [seriesId, (n % 9) + 1],
       [product, n + 1],
     ] as const) {
-      memberships.push({ materialId, seriesId: groupId, ordinal });
-      publishedMemberships.push({ materialId, seriesId: groupId, ordinal });
+      memberships.push({ materialId, seriesId: groupId });
+      placements.push({
+        id: id(400000 + n * 2 + (groupId === product ? 1 : 0)),
+        materialId,
+        productId: groupId,
+        ordinal,
+      });
+      publishedMemberships.push({ materialId, seriesId: groupId });
     }
     if (formatId === "video")
       videos.push({
@@ -253,6 +260,9 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
     });
   }
   for (let offset = 0; offset < memberships.length; offset += 300) {
+    await prisma.productProgrammePlacement.createMany({
+      data: placements.slice(offset, offset + 300),
+    });
     await prisma.productMembership.createMany({
       data: memberships.slice(offset, offset + 300),
     });

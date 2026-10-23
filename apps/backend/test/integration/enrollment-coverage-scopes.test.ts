@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
@@ -73,7 +74,7 @@ describe("Enrollment metadata preserves independent whole-platform and archived 
         };
       }),
     });
-    catalog = new CoverageCatalog(db.prisma);
+    catalog = new CoverageCatalog(db.prisma, new ProductDiscovery(db.prisma));
     const accounts = assembleAccounts({
       prisma: db.prisma,
       emailFingerprintKey: "coverage-scope-fixture-fingerprint-key",

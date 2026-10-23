@@ -32,7 +32,10 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly videos?: Pick<Videos, "loadPresentation">;
 }): PublishedMaterialReader {
   return Object.freeze({
-    listSiteMaterials: assembleListPublishedSiteMaterials(dependencies.prisma),
+    listSiteMaterials: assembleListPublishedSiteMaterials(
+      dependencies.prisma,
+      dependencies.products,
+    ),
     readPractice: assembleReadPublishedPractice(dependencies),
     listPractices: assembleListPublishedPractices(dependencies),
     readHomeProjections: () => readHomeProjections(dependencies),

@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
@@ -319,7 +320,10 @@ describe("оплата, выдача прав и доступ к материа�
     });
 
     const productArtifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(db.prisma),
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },

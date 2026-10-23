@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -38,7 +39,7 @@ beforeAll(async () => {
     queries += 1;
     if (event.query.includes("product_communities")) mappingReads += 1;
   });
-  catalog = new CoverageCatalog(prisma);
+  catalog = new CoverageCatalog(prisma, new ProductDiscovery(prisma));
   await prisma.product.createMany({
     data: [
       { id: active, name: "Active", slug: "active" },
