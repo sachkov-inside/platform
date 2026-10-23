@@ -1,7 +1,6 @@
-import { WebTelemetry } from "../modules/web-telemetry/index.js";
-import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { PgBoss } from "pg-boss";
+import "reflect-metadata";
 import {
   PLATFORM_CONFIG,
   type PlatformConfig,
@@ -16,32 +15,23 @@ import {
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
-  TributeConvergence,
-  BillingNotices,
   BillingOperations,
   BillingPayments,
   BillingPricing,
-  BillingSubscriptions,
 } from "../modules/billing/index.js";
 import {
   COMMUNITY_RECONCILIATION_INTERVAL_MS,
   CommunityEntitlements,
 } from "../modules/telegram-membership/index.js";
+import { WebTelemetry } from "../modules/web-telemetry/index.js";
 import { BillingWorkerModule } from "./billing-worker/billing-worker.module.js";
 
-import {
-  runRenewalJob,
-  runRecoveryJob,
-  runNoticeJob,
-} from "./billing-worker/jobs.js";
+import { runRecoveryJob } from "./billing-worker/jobs.js";
 
 const telemetryCleanupQueue = "web-telemetry.retention";
 // The watchdog reads completion over 26 hours; keep receipts across two daily runs.
 const telemetryReceiptRetentionSeconds = 172_800;
 const recoveryQueue = "billing.payment-recovery";
-const renewalQueue = "billing.subscription-renewal";
-const noticeQueue = "billing.subscription-notices";
-const tributeQueue = "tribute.source-reconciliation";
 const communityQueue = "community.entitlement-delivery";
 const communityBatchSize = 50;
 const communityIntervalSeconds = COMMUNITY_RECONCILIATION_INTERVAL_MS / 1_000;
@@ -65,10 +55,7 @@ async function bootstrap(): Promise<void> {
     throw error;
   }
   const telemetry = application.get(WebTelemetry);
-  const tribute = application.get(TributeConvergence);
   const payments = application.get(BillingPayments);
-  const subscriptions = application.get(BillingSubscriptions);
-  const notices = application.get(BillingNotices);
   const operations = application.get(BillingOperations);
   const community = application.get(CommunityEntitlements);
   const jobs = new PgBoss({
@@ -126,64 +113,6 @@ async function bootstrap(): Promise<void> {
         recoveryQueue,
         observeJob("billing-worker", recoveryQueue, async () => {
           return runRecoveryJob(payments, operations);
-        }),
-      );
-      await jobs.createQueue(renewalQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(renewalQueue, "* * * * *", {});
-      await jobs.send(
-        renewalQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        renewalQueue,
-        observeJob("billing-worker", renewalQueue, async () => {
-          return runRenewalJob(payments, subscriptions);
-        }),
-      );
-      await jobs.createQueue(noticeQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(noticeQueue, "* * * * *", {});
-      await jobs.send(
-        noticeQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        noticeQueue,
-        observeJob("billing-worker", noticeQueue, async () => {
-          // Календарь напоминаний живёт отдельно от списаний: сбой одного не останавливает другое.
-          return runNoticeJob(notices);
-        }),
-      );
-      // Community delivery only runs where the provider direction is actually configured.
-      await jobs.createQueue(tributeQueue, {
-        deleteAfterSeconds: jobRetentionSeconds,
-        expireInSeconds: jobTimeoutSeconds,
-        retryLimit: 0,
-      });
-      await jobs.schedule(tributeQueue, "* * * * *", {});
-      await jobs.send(
-        tributeQueue,
-        {},
-        { singletonSeconds: jobIntervalSeconds },
-      );
-      await jobs.work(
-        tributeQueue,
-        observeJob("billing-worker", tributeQueue, async () => {
-          const report = await tribute.sweep(50);
-          if (report.pending > 0)
-            writeLog("warn", "queue_attention", {
-              status: "operator_attention",
-              pending: report.pending,
-            });
         }),
       );
       if (!config.communityEntitlements) return;

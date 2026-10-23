@@ -6,10 +6,10 @@ import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
-import type { ListOffersOptions } from "../list-offers/list-offers.js";
-import { paymentAdmission } from "../../shared/payment-admission.js";
 import { noPurchaseGrounds } from "../../shared/offer-eligibility.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
 import { selectPricesForOptions } from "../../shared/select-price.js";
+import type { ListOffersOptions } from "../list-offers/list-offers.js";
 
 export const productSaleAvailabilityQuerySchema = z.strictObject({
   productIds: z.array(idSchema).max(100),
@@ -35,32 +35,13 @@ export async function readProductSaleAvailability(
   const productIds = [...new Set(parsed.data.productIds)];
   if (productIds.length === 0) return { ok: true, value: { items: [] } };
   try {
-    const rows = await prisma.billingPaymentOption.findMany({
+    const rows = await prisma.billingProductPrice.findMany({
       where: {
+        productId: { in: productIds },
         archived: false,
-        offer: {
-          archived: false,
-          published: true,
-          OR: [
-            {
-              benefits: {
-                hasSome: productIds.map((id) => productCapability(id)),
-              },
-            },
-            {
-              benefits: { has: "materials" },
-              OR: [
-                { coverage: { path: ["wholePlatform"], equals: true } },
-                ...productIds.map((id) => ({
-                  coverage: { path: ["productIds"], array_contains: [id] },
-                })),
-              ],
-            },
-          ],
-        },
+        published: true,
       },
-      include: { offer: true },
-      orderBy: { id: "asc" },
+      orderBy: { productId: "asc" },
     });
     const sold = new Set<string>();
     const now = clock();

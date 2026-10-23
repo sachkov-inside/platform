@@ -152,6 +152,7 @@ export type BillingPrisma = Pick<
   | "$executeRaw"
   | "$queryRaw"
   | "billingNotificationOutbox"
+  | "billingProductPrice"
   | "billingOffer"
   | "billingPaymentOption"
   | "billingPromotion"

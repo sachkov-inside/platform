@@ -23,8 +23,6 @@ export function registerBillingTools(
 ): void {
   for (const option of ownerOperationSchema.options) {
     const operation = option.shape.operation.value;
-    if (operation === "refunds.decide" || operation === "refunds.execute")
-      continue;
     // Инструмент называет операцию собой: сам дискриминатор не входит в аргументы модели.
     const inputSchema = withoutOperation(option.shape);
     server.registerTool(
@@ -66,7 +64,7 @@ function withoutOperation(shape: z.ZodRawShape): z.ZodObject<z.ZodRawShape> {
 function description(operation: string): string {
   switch (operation) {
     case "paymentLinks.create":
-      return "Create a transferable single-use payment link for a one-time Product using a final RUB amount in kopecks or an integer discount percentage and optional expiration. Public sales may stay closed. Preserves catalog and existing purchases; sends no message and starts no payment. Zero-price access uses manual grants.";
+      return "Create a transferable single-use payment link for a one-time Product using a final RUB amount in kopecks or an integer discount percentage and optional expiration. Closing Product sales also blocks payment through this link. Preserves catalog and existing purchases; sends no message and starts no payment. Zero-price access uses manual grants.";
     case "paymentLinks.revoke":
       return "Revoke an individual payment link before payment starts, with expectedRevision. A reserved or uncertain payment blocks revocation; successful purchases remain intact.";
     case "paymentLinks.list":

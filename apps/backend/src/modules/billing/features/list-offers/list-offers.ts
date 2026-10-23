@@ -1,26 +1,25 @@
-import { z } from "zod";
 import { productIdFromCapability } from "@inside/access-capabilities";
+import { z } from "zod";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { accessCapabilitySchema } from "../../../account-rights/index.js";
 import {
   failure,
   idSchema,
-  paymentModeSchema,
   priceSnapshotSchema,
   type PricingResult,
 } from "../../domain/pricing.js";
-import { selectPricesForOptions } from "../../shared/select-price.js";
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import { type PurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
-import type { SaleCapability } from "../../domain/sale-capability.js";
-import { hasText } from "../../../../infrastructure/contracts/text.js";
+import { selectPricesForOptions } from "../../shared/select-price.js";
 
 export const listOffersSchema = z.strictObject({
   cursor: idSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   /** Витрина подписки и витрина руководства спрашивают разные способы оплаты одного каталога. */
-  mode: paymentModeSchema.optional(),
+  mode: z.literal("one_time").optional(),
   /** Что именно открывает предложение: страница руководства спрашивает своё право. */
   capability: accessCapabilitySchema.optional(),
 });
@@ -56,40 +55,15 @@ export async function listOffers(
     const { cursor, limit, mode, capability } = parsed.data;
     const productId =
       capability === undefined ? null : productIdFromCapability(capability);
-    const rows = await prisma.billingPaymentOption.findMany({
+    const rows = await prisma.billingProductPrice.findMany({
       where: {
         archived: false,
-        offer: {
-          archived: false,
-          ...(options.publishedOnly === true ? { published: true } : {}),
-          ...(capability === undefined
-            ? {}
-            : productId !== null
-              ? {
-                  OR: [
-                    { benefits: { has: capability } },
-                    {
-                      benefits: { has: "materials" },
-                      OR: [
-                        {
-                          coverage: {
-                            path: ["productIds"],
-                            array_contains: [productId],
-                          },
-                        },
-                        { coverage: { path: ["wholePlatform"], equals: true } },
-                      ],
-                    },
-                  ],
-                }
-              : { benefits: { has: capability } }),
-        },
-        ...(mode === undefined ? {} : { mode }),
-        ...(hasText(cursor) ? { id: { gt: cursor } } : {}),
+        ...(options.publishedOnly === true ? { published: true } : {}),
+        ...(productId === null ? {} : { productId }),
+        ...(hasText(cursor) ? { productId: { gt: cursor } } : {}),
       },
-      orderBy: { id: "asc" },
+      orderBy: { productId: "asc" },
       take: limit + 1,
-      include: { offer: true },
     });
     const page = rows.slice(0, limit);
     const items = [];
@@ -98,7 +72,7 @@ export async function listOffers(
       allowUnpublished: options.publishedOnly !== true,
     });
     for (const row of page) {
-      const price = prices.get(row.id);
+      const price = prices.get(row.productId);
       if (price === undefined) continue;
       if (
         price.ok &&
@@ -117,7 +91,8 @@ export async function listOffers(
       ok: true,
       value: {
         items,
-        nextCursor: rows.length > limit ? (page.at(-1)?.id ?? null) : null,
+        nextCursor:
+          rows.length > limit ? (page.at(-1)?.productId ?? null) : null,
       },
     };
   } catch (error) {

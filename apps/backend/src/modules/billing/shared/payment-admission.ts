@@ -1,6 +1,6 @@
 import { paymentMode, type PriceSnapshot } from "../domain/pricing.js";
 import type { SaleCapability } from "../domain/sale-capability.js";
-import { offerAdmits, type PurchaseGrounds } from "./offer-eligibility.js";
+import { type PurchaseGrounds } from "./offer-eligibility.js";
 
 export type PaymentContext =
   "storefront" | "quote" | "purchase" | "resume" | "change" | "renewal";
@@ -35,23 +35,7 @@ export function paymentAdmission(input: {
   ): PaymentAdmission => ({ ok: false, error: { code } });
   const recurring =
     paymentMode(input.snapshot.paymentOption) === "subscription";
-  if (!input.sale.payments || (recurring && !input.sale.subscriptions))
-    return deny("method_unavailable");
-  const continuation =
-    input.context === "resume" || input.context === "renewal";
-  // Оплаченный договор продолжает жить по принятому снимку, независимо от новой витрины и приглашения.
-  if (
-    !continuation &&
-    (recurring || input.snapshot.individualPayment === undefined) &&
-    (!offerAdmits(input.snapshot.offer, input.grounds) ||
-      (recurring &&
-        !input.grounds.invitedOfferIds.includes(input.snapshot.offer.id)))
-  )
-    return deny("not_eligible");
-  if (recurring && !input.recurringAllowed)
-    return deny("legacy_review_required");
-  if (recurring && input.bindingAvailable === false)
-    return deny("method_unavailable");
+  if (!input.sale.payments || recurring) return deny("method_unavailable");
   const amounts =
     input.chargeKopecks === undefined
       ? recurring

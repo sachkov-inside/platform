@@ -41,8 +41,7 @@ export function saleCapability(
     payments,
     // Product commerce currently supports one-time purchases only. Bank capabilities
     // cannot enable the separate, future subscription product.
-    subscriptions:
-      payments && subscriptionsAllowed && subscriptionSaleConfirmed(terminal),
+    subscriptions: false,
     ...(terminal?.minimumKopecks === undefined ||
     terminal.maximumKopecks === undefined
       ? {}

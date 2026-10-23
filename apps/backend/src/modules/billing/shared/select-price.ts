@@ -1,40 +1,28 @@
+import { productCapability } from "@inside/access-capabilities";
 import type { BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import {
   applicablePromotion,
   discountedPrice,
   failure,
-  offerSchema,
-  optionSchema,
   promotionSchema,
   type PriceSnapshot,
-  type Promotion,
   type PricingResult,
 } from "../domain/pricing.js";
-import {
-  offerGrantsWithheld,
-  productOfferUnsellable,
-  tierLacksComposition,
-} from "./tier-composition.js";
-import { hasText } from "../../../infrastructure/contracts/text.js";
-
 export interface SelectPriceOptions {
-  /** Владельческий каталог читает и выключенные из продажи предложения; покупка их не видит. */
   readonly allowUnpublished?: boolean;
 }
-
+type ProductPriceRow = Awaited<
+  ReturnType<BillingPrisma["billingProductPrice"]["findMany"]>
+>[number];
 export async function selectPrice(
   tx: BillingPrisma,
-  optionId: string,
+  productId: string,
   now: Date,
   promoCode?: string,
   options: SelectPriceOptions = {},
 ): Promise<PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">> {
-  const row = await tx.billingPaymentOption.findUnique({
-    where: { id: optionId },
-    include: { offer: true },
-  });
-  if (row === null || !priceOptionAvailable(row, options))
-    return failure("not_found");
+  const row = await tx.billingProductPrice.findUnique({ where: { productId } });
+  if (row === null) return failure("not_found");
   const prices = await selectPricesForOptions(
     tx,
     [row],
@@ -42,176 +30,116 @@ export async function selectPrice(
     promoCode,
     options,
   );
-  return prices.get(optionId) ?? failure("not_found");
+  return prices.get(productId) ?? failure("not_found");
 }
-
-type PriceOptionRow = Awaited<
-  ReturnType<BillingPrisma["billingPaymentOption"]["findMany"]>
->[number] & {
-  offer: Awaited<ReturnType<BillingPrisma["billingOffer"]["findMany"]>>[number];
-};
-
-/** Shared owner pricing projection; authoritative purchase callers retain their transaction. */
+/** Historical snapshot field names are decoded passively. New commerce has exactly one Product Price. */
 export async function selectPricesForOptions(
   tx: BillingPrisma,
-  rows: readonly PriceOptionRow[],
+  rows: readonly ProductPriceRow[],
   now: Date,
   promoCode?: string,
   options: SelectPriceOptions = {},
 ) {
-  if (rows.length === 0)
-    return new Map<
-      string,
-      PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">
-    >();
-  const promotionRows = await tx.billingPromotion.findMany({
-    where: {
-      archived: false,
-      startsAt: { lte: now },
-      endsAt: { gt: now },
-      AND: [
-        {
-          OR: [
-            { code: null },
-            ...(hasText(promoCode) ? [{ code: promoCode }] : []),
-          ],
-        },
-        {
-          OR: [
-            { offerIds: { isEmpty: true } },
-            {
-              offerIds: {
-                hasSome: [...new Set(rows.map((row) => row.offerId))],
-              },
-            },
-          ],
-        },
-        {
-          OR: [
-            { paymentOptionIds: { isEmpty: true } },
-            { paymentOptionIds: { hasSome: rows.map((row) => row.id) } },
-          ],
-        },
-      ],
-    },
-  });
-  const promotions = promotionRows.map((row) =>
+  const result = new Map<
+    string,
+    PricingResult<PriceSnapshot, "not_found" | "unsupported_amount">
+  >();
+  if (rows.length === 0) return result;
+  const promotions = (
+    await tx.billingPromotion.findMany({
+      where: {
+        archived: false,
+        startsAt: { lte: now },
+        endsAt: { gt: now },
+        OR: [
+          { code: null },
+          ...(promoCode === undefined ? [] : [{ code: promoCode }]),
+        ],
+      },
+    })
+  ).map((row) =>
     promotionSchema.parse({
       ...row,
       startsAt: row.startsAt.toISOString(),
       endsAt: row.endsAt.toISOString(),
     }),
   );
-  const limitedIds = promotions
-    .filter((promotion) => promotion.usageLimit !== null)
-    .map((promotion) => promotion.id);
-  const counts =
-    limitedIds.length === 0
-      ? []
-      : await tx.billingPromoReservation.groupBy({
-          by: ["promotionId"],
-          where: { promotionId: { in: limitedIds }, state: { not: "failed" } },
-          _count: { _all: true },
-        });
+  const counts = await tx.billingPromoReservation.groupBy({
+    by: ["promotionId"],
+    where: {
+      promotionId: {
+        in: promotions.filter((p) => p.usageLimit !== null).map((p) => p.id),
+      },
+      state: { not: "failed" },
+    },
+    _count: { _all: true },
+  });
   const usage = new Map(
     counts.map((row) => [row.promotionId, row._count._all]),
   );
-  return new Map(
-    rows.map((row) => [
-      row.id,
-      projectPrice(row, now, promoCode, options, promotions, usage),
-    ]),
-  );
-}
-
-function projectPrice(
-  row: PriceOptionRow,
-  now: Date,
-  promoCode: string | undefined,
-  options: SelectPriceOptions,
-  promotions: readonly Promotion[],
-  usage: ReadonlyMap<string | null, number>,
-): PricingResult<PriceSnapshot, "not_found" | "unsupported_amount"> {
-  if (!priceOptionAvailable(row, options)) return failure("not_found");
-  const offer = offerSchema.parse({
-    id: row.offer.id,
-    name: row.offer.name,
-    revision: row.offer.revision,
-    benefits: row.offer.benefits,
-    archived: row.offer.archived,
-    published: row.offer.published,
-    availableForAssignment: row.offer.availableForAssignment,
-    coverage: row.offer.coverage,
-    eligibility: row.offer.eligibility,
-    ...(Array.isArray(row.offer.benefitPeriods) &&
-    row.offer.benefitPeriods.length > 0
-      ? { benefitPeriods: row.offer.benefitPeriods }
-      : {}),
-  });
-  const option = optionSchema.parse({
-    id: row.id,
-    offerId: row.offerId,
-    revision: row.revision,
-    months: row.months,
-    mode: row.mode,
-    priceKopecks: Number(row.priceKopecks),
-    archived: row.archived,
-  });
-  const available = [];
-  for (const promotion of promotions) {
-    if (!applicablePromotion(promotion, option, now, promoCode)) continue;
-    const used = usage.get(promotion.id) ?? 0;
-    if (promotion.usageLimit === null || used < promotion.usageLimit)
-      available.push(promotion);
+  for (const row of rows) {
+    if (row.archived || (!row.published && options.allowUnpublished !== true)) {
+      result.set(row.productId, failure("not_found"));
+      continue;
+    }
+    const option = {
+      id: row.productId,
+      offerId: row.productId,
+      revision: row.revision,
+      mode: "one_time" as const,
+      months: 3,
+      priceKopecks: Number(row.priceKopecks),
+      archived: false,
+    };
+    const best = promotions
+      .filter(
+        (p) =>
+          applicablePromotion(p, option, now, promoCode) &&
+          (p.usageLimit === null || (usage.get(p.id) ?? 0) < p.usageLimit),
+      )
+      .sort((a, b) => b.percent - a.percent || a.id.localeCompare(b.id))[0];
+    const firstPriceKopecks = discountedPrice(
+      option.priceKopecks,
+      best?.percent ?? 0,
+    );
+    if (firstPriceKopecks <= 0) {
+      result.set(row.productId, failure("unsupported_amount"));
+      continue;
+    }
+    result.set(row.productId, {
+      ok: true,
+      value: {
+        product: {
+          id: row.productId,
+          name: row.name,
+          priceRevision: row.revision,
+        },
+        supportMonths: 3,
+        offer: {
+          id: row.productId,
+          revision: row.revision,
+          name: row.name,
+          benefits: [productCapability(row.productId)],
+          coverage: { productIds: [row.productId], materialIds: [] },
+          archived: false,
+          published: row.published,
+        },
+        paymentOption: option,
+        promotion: best
+          ? {
+              id: best.id,
+              revision: best.revision,
+              name: best.name,
+              percent: best.percent,
+            }
+          : null,
+        communityPolicy: "explicit",
+        currency: "RUB",
+        timezone: "Europe/Moscow",
+        firstPriceKopecks,
+        renewalPriceKopecks: option.priceKopecks,
+      },
+    });
   }
-  available.sort((a, b) =>
-    b.percent !== a.percent ? b.percent - a.percent : a.id.localeCompare(b.id),
-  );
-  const best = available[0];
-  const firstPriceKopecks = discountedPrice(
-    option.priceKopecks,
-    best?.percent ?? 0,
-  );
-  if (firstPriceKopecks <= 0) return failure("unsupported_amount");
-  return {
-    ok: true,
-    value: {
-      offer,
-      paymentOption: option,
-      promotion: best
-        ? {
-            id: best.id,
-            revision: best.revision,
-            name: best.name,
-            percent: best.percent,
-          }
-        : null,
-      communityPolicy: "explicit",
-      currency: "RUB",
-      timezone: "Europe/Moscow",
-      firstPriceKopecks,
-      renewalPriceKopecks: option.priceKopecks,
-    },
-  };
-}
-
-function priceOptionAvailable(
-  row: PriceOptionRow,
-  options: SelectPriceOptions,
-): boolean {
-  if (
-    row.archived ||
-    row.offer.archived ||
-    (options.allowUnpublished !== true && !row.offer.published)
-  )
-    return false;
-  // Catalog rows cannot sell an empty composition or withheld benefits through another read path.
-  return (
-    options.allowUnpublished === true ||
-    !(
-      tierLacksComposition(row.offer) ||
-      productOfferUnsellable(row.offer) ||
-      offerGrantsWithheld(row.offer)
-    )
-  );
+  return result;
 }

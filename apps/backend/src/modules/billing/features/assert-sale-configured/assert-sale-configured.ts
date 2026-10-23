@@ -22,16 +22,10 @@ export async function assertSaleConfigured(
   prisma: BillingPrismaClient,
   configuration: SalePaymentConfiguration,
 ): Promise<void> {
-  const modes = await prisma.billingPaymentOption.findMany({
-    where: {
-      mode: "one_time",
-      archived: false,
-      offer: { archived: false, published: true },
-    },
-    select: { mode: true },
-    distinct: ["mode"],
+  const active = await prisma.billingProductPrice.count({
+    where: { archived: false, published: true },
   });
-  if (modes.length === 0) return;
+  if (active === 0) return;
   if (configuration.tbank === undefined)
     throw new SaleConfigurationError(
       "Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured",
