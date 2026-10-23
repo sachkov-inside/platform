@@ -264,6 +264,11 @@ The reader-facing collection of published Material, Topic and Product presentati
 discovery, including Home and the Library. It does not own another copy of the content.
 _Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
+**Product Reader State**:
+The current position of a visitor or Account relative to one Product: learning, available to buy,
+waiting, being checked or unavailable. It presents existing facts rather than creating Product Access.
+_Avoid_: Product Sales State, Product Progress, stored enrollment
+
 **MaterialAsset**:
 An immutable non-video image or downloadable file belonging to one Material and referenced from
 its body. Its availability follows the Material publication and access rules.
