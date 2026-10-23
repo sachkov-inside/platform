@@ -1,7 +1,8 @@
 # Рефакторинг доменной модели Platform
 
 Статус: утверждено владельцем 23.10.2026. [Спецификация с задачами](https://github.com/sachkov-inside/platform/issues/1693).
-[Приёмка плана и уровней проверки](https://github.com/sachkov-inside/platform/issues/1666#issuecomment-6369265004).
+[Первоначальная приёмка требований и уровней проверки](https://github.com/sachkov-inside/platform/issues/1666#issuecomment-6369265004).
+[Укрупнение до пяти задач](https://github.com/sachkov-inside/platform/issues/1693#issuecomment-6370308854).
 Источник: [карта доменной модели](https://github.com/sachkov-inside/platform/issues/1644),
 её итоговые комментарии и [карта контекстов](../product/domain-context-map.md).
 Это поручение на будущую реализацию, не сообщение о выполненном изменении кода.
@@ -217,31 +218,31 @@ check и обязательный текущий CI/merge queue по WORKFLOW. U
 визуальную приёмку; новое видимое поведение проходит frontend delivery gate. Публикация legal,
 production migration, реальные payments, сообщения и release требуют своей действующей authority.
 
-## План задач
+## План исполнения
 
-Номера ниже являются порядком зависимостей, а названия ведут к опубликованным GitHub задачам.
-Крупные механические переносы явно выделены как expand/contract. Блокировки также заданы нативно.
+Владелец 23.10.2026 объединил первоначальные 14 tickets в пять крупных задач. Все 85 критериев
+сохранены внутри них как упорядоченные чеклисты. Прежние tickets закрыты как заменённые,
+а не реализованные, и не входят в активные sub-issues. Это изменение гранулярности, не сокращение
+функционала, проверок или требований миграции.
 
-| № | Задача и наблюдаемый результат | Блокируется |
+| № | Задача и рабочий результат | Блокируется |
 | --- | --- | --- |
-| 1 | [Ввести opaque transaction handle на одном рабочем пути и доказать общий rollback](https://github.com/sachkov-inside/platform/issues/1694) | Нет |
-| 2 | [Перенести остальные handoffs, убрать prepare/apply и чужие delegates](https://github.com/sachkov-inside/platform/issues/1695) | 1 |
-| 3 | [Выделить Products и общий Content Covers interface, сохранив authoring и reader](https://github.com/sachkov-inside/platform/issues/1696) | 2 |
-| 4 | [Единый Product Access, ручная выдача, отзыв и явное восстановление](https://github.com/sachkov-inside/platform/issues/1697) | 3 |
-| 5 | [Прямая покупка Product, восстановление оплаты, ручной возврат и три месяца в новых условиях](https://github.com/sachkov-inside/platform/issues/1698) | 4 |
-| 6 | [Активация прежнего курса прямо в Product Access и совместимый путь Telegram](https://github.com/sachkov-inside/platform/issues/1699) | 4 |
-| 7 | [Удалить тарифы, подписки, Tribute, invitations и entitlement bridge](https://github.com/sachkov-inside/platform/issues/1700) | 5, 6 |
-| 8 | [Единый Product Reader State, состояние продажи и постоянный Intake](https://github.com/sachkov-inside/platform/issues/1701) | 5 |
-| 9 | [Один Product Task механизм и сохранение отдельных фактов обучения](https://github.com/sachkov-inside/platform/issues/1702) | 3 |
-| 10 | [Account Profile и чистые границы identity/contact/legal history](https://github.com/sachkov-inside/platform/issues/1703) | 2 |
-| 11 | [Исполнять сообщество от Product Access, сохраняя ограничения и recovery](https://github.com/sachkov-inside/platform/issues/1704) | 6, 7 |
-| 12 | [Communication Sequence, сообщения после старта и независимые уведомления](https://github.com/sachkov-inside/platform/issues/1705) | 7 |
-| 13 | [Перенести оставшихся consumers, удалить временные имена и compatibility adapters](https://github.com/sachkov-inside/platform/issues/1706) | 8, 9, 10, 11, 12 |
-| 14 | [Проверить upgrade/recovery всей модели и завершить интеграцию](https://github.com/sachkov-inside/platform/issues/1707) | 13 |
+| 1 | [Структура Platform](https://github.com/sachkov-inside/platform/issues/1708): транзакции, Products, ContentAccess и Account Profile | Нет |
+| 2 | [Покупка и Product Access](https://github.com/sachkov-inside/platform/issues/1709): единое право, оплата, активация, удаление тарифов и подписок | 1 |
+| 3 | [Чтение и обучение](https://github.com/sachkov-inside/platform/issues/1710): Home, reader, Intake, задания и история | 2 |
+| 4 | [Telegram и сообщения](https://github.com/sachkov-inside/platform/issues/1711): сообщество, ограничения, цепочки и уведомления | 2 |
+| 5 | [Финальная миграция и проверка](https://github.com/sachkov-inside/platform/issues/1712): удаление совместимости, upgrade/restore и полная интеграция | 3, 4 |
 
-Задачи 1, 2, 3, 4 и 13 включают механический expand/migrate/contract, а не только переименование
-файлов. Остальные являются узкими сквозными сценариями с schema, interface, вызывающим UI/ботом
-и проверкой результата там, где эти слои участвуют. Граф допускает параллельные независимые ветви.
+Пять нативных blocking edges задают порядок 1 → 2 → (3 и 4 параллельно) → 5. Технические
+expand/migrate/contract и проверяемые commit batches выполняются внутри соответствующей задачи.
+Связи с прежними tickets сохранены в новых задачах для проверки полноты. Новые мелкие tracker
+задачи нужны для настоящих внешних blockers, а не для повторного дробления этого плана.
+
+[Поручение на полную реализацию через implement-spec](../runbooks/domain-model-refactoring-handoff.md)
+содержит контекст для принимающего агента: реализовать все пять задач, production code,
+migrations, contracts, UI/бот и tests, собрать integration branch и закончить предусмотренную
+WORKFLOW проверку и доставку. Документы или создание задач не являются результатом реализации.
+Сам handoff не запускает её без явного поручения владельца принимающему агенту.
 
 ## Вне объёма
 
