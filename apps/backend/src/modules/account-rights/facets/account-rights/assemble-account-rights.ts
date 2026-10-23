@@ -18,6 +18,8 @@ import type {
 } from "./account-rights.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
 
+import { accountRightsTransaction } from "../../infrastructure/prisma.js";
+
 export interface AccountRightsDependencies {
   readonly prisma: AccountRightsPrismaClient;
   readonly clock?: () => Date;
@@ -42,7 +44,9 @@ export function assembleAccountRights(
           clock(),
           productIds,
           materialId,
-          transaction,
+          transaction === undefined
+            ? undefined
+            : accountRightsTransaction(transaction),
         );
       } catch (error) {
         return dependencyFailure(
@@ -63,9 +67,12 @@ export function assembleAccountRights(
           dependencies.prisma,
           command,
           clock(),
-          transaction,
+          transaction === undefined
+            ? undefined
+            : accountRightsTransaction(transaction),
         );
       } catch (error) {
+        if (transaction !== undefined) throw error;
         return dependencyFailure(
           { module: "account-rights", operation: "bindPrincipal" },
           error,
@@ -107,7 +114,7 @@ export function assembleAccountRights(
     ): Promise<MembershipAccessState> {
       try {
         return await resolveMembershipForAccessUnderEntitlementLock(
-          transaction,
+          accountRightsTransaction(transaction),
           accountId,
           clock(),
         );

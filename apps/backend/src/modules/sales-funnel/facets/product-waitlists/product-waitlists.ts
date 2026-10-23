@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -83,7 +84,7 @@ export class ProductWaitlists {
       accountIds.map(checkedAccountId),
       [productId],
       undefined,
-      transaction,
+      transaction === undefined ? undefined : transactionHandle(transaction),
     );
     const eligible = new Set<string>();
     for (const id of accountIds) {
@@ -260,7 +261,7 @@ export class ProductWaitlists {
         }
         const binding = await this.dependencies.links.readBinding(
           { accountId },
-          tx,
+          transactionHandle(tx),
         );
         if (!binding.ok) return fail("dependency_unavailable");
         if (
@@ -440,7 +441,7 @@ export class ProductWaitlists {
           return "suppressed";
         const binding = await this.dependencies.links.readBinding(
           { accountId: row.accountId },
-          tx,
+          transactionHandle(tx),
         );
         if (!binding.ok) return "unavailable";
         return membership?.active === true &&

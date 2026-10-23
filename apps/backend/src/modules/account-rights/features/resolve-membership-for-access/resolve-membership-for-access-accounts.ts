@@ -4,7 +4,7 @@ import { productCapability } from "@inside/access-capabilities";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
   AccountRightsPrismaClient,
-  MembershipAccessPrisma,
+  AccountRightsPrisma,
 } from "../../infrastructure/prisma.js";
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
 import { currentMembershipReceipts } from "../../infrastructure/current-membership-receipts.js";
@@ -18,7 +18,7 @@ export async function resolveMembershipForAccessAccounts(
   now: Date,
   productIds?: readonly string[],
   materialId?: string,
-  transaction?: MembershipAccessPrisma,
+  transaction?: AccountRightsPrisma,
 ): Promise<ReadonlyMap<string, MembershipAccessState>> {
   const requested = z.array(z.uuid()).parse(accountIds);
   const ids = [...new Set(requested.map((id) => id.toLowerCase()))];
@@ -27,7 +27,7 @@ export async function resolveMembershipForAccessAccounts(
     productIds === undefined && materialId === undefined
       ? undefined
       : { productIds: productIds ?? [], materialId };
-  const resolve = async (tx: MembershipAccessPrisma) => {
+  const resolve = async (tx: AccountRightsPrisma) => {
     const results = new Map<string, MembershipAccessState>();
     for (let offset = 0; offset < ids.length; offset += 500) {
       const chunk = ids.slice(offset, offset + 500);

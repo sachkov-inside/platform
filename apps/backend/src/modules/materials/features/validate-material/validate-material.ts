@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { z } from "zod";
 
 import type {
@@ -90,7 +91,7 @@ export function assembleValidateMaterial(
         if (dependencies.materialAssets !== undefined) {
           const assetIssues =
             await dependencies.materialAssets.inspectReferences(
-              transaction,
+              transactionHandle(transaction),
               parsed.value.materialId,
               extraction.value.resources.map((resource) => ({
                 assetId: resource.assetId,

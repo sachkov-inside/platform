@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
@@ -133,7 +134,7 @@ export async function previewGrantBatch(
     if (preview === null) {
       const identities = await accounts.readIdentitiesForLink(
         parsed.data.rows.map((row) => row.accountId),
-        transaction,
+        transactionHandle(transaction),
       );
       const rows = parsed.data.rows.map((row) => {
         const identity = identities.get(row.accountId);

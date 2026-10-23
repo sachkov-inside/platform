@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
@@ -1062,7 +1063,10 @@ describe("one-time product purchase (real PostgreSQL and real facets; synthetic 
     await s.buy();
     const otherProduct = randomUUID();
     const holders = await db.prisma.$transaction((tx) =>
-      grants.countProductHolders(tx, [s.productId, otherProduct]),
+      grants.countProductHolders(transactionHandle(tx), [
+        s.productId,
+        otherProduct,
+      ]),
     );
     expect(holders.get(s.productId)).toBe(1);
     expect(holders.get(otherProduct)).toBe(0);

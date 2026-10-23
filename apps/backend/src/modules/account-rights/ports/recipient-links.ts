@@ -1,4 +1,4 @@
-import type { AccountRightsPrisma } from "../infrastructure/prisma.js";
+import type { TransactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
 
 /**
  * Confirmed links between an Account and an external Telegram identity. Telegram Membership owns
@@ -8,7 +8,7 @@ export interface RecipientLinks {
   /** Exact current verified identity only; historical links and usernames are never recipients. */
   findCurrentByIdentity(
     identityRef: string,
-    transaction?: Pick<AccountRightsPrisma, "telegramAccountLinkState">,
+    transaction?: TransactionHandle,
   ): Promise<
     | { readonly ok: false }
     | { readonly ok: true; readonly state: "ambiguous" }
@@ -44,10 +44,7 @@ export interface RecipientLinks {
       readonly accountId: string;
       readonly revision?: number;
     },
-    transaction?: Pick<
-      AccountRightsPrisma,
-      "telegramAccountLinkState" | "telegramAccountLinkHistory"
-    >,
+    transaction?: TransactionHandle,
   ): Promise<
     | { readonly ok: false }
     | {

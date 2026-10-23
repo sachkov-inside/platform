@@ -1761,29 +1761,30 @@ describe("владельческие операции billing: платежи, �
           ...db.prisma,
           $transaction: (operation) =>
             db.prisma.$transaction((transaction) =>
-              operation({
-                ...transaction,
-                accessReceipt: new Proxy(transaction.accessReceipt, {
-                  get(target, property, receiver): unknown {
-                    if (property === "create")
-                      return async (
-                        ...args: Parameters<typeof target.create>
-                      ) => {
-                        await target.create(...args);
-                        // A JavaScript failure leaves SQL valid: swallowing it would commit partial writes.
-                        throw new Error(
-                          "Synthetic failure after assignment receipt write",
-                        );
-                      };
-                    const value: unknown = Reflect.get(
-                      target,
-                      property,
-                      receiver,
-                    );
-                    return value;
-                  },
+              operation(
+                Object.assign({}, transaction, {
+                  accessReceipt: new Proxy(transaction.accessReceipt, {
+                    get(target, property, receiver): unknown {
+                      if (property === "create")
+                        return async (
+                          ...args: Parameters<typeof target.create>
+                        ) => {
+                          await target.create(...args);
+                          // A JavaScript failure leaves SQL valid: swallowing it would commit partial writes.
+                          throw new Error(
+                            "Synthetic failure after assignment receipt write",
+                          );
+                        };
+                      const value: unknown = Reflect.get(
+                        target,
+                        property,
+                        receiver,
+                      );
+                      return value;
+                    },
+                  }),
                 }),
-              }),
+              ),
             ),
         },
       });

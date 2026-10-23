@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -546,7 +547,7 @@ export class BillingNotices {
   ): Promise<EnrollmentEnding | null> {
     const read = await this.dependencies.enrollments.readEnrollmentEnding(
       enrollmentId,
-      transaction,
+      transaction === undefined ? undefined : transactionHandle(transaction),
     );
     if (!read.ok) throw new Error(read.error.code);
     return read.value;

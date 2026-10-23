@@ -1,6 +1,6 @@
-export const PRODUCT_ACCESS_HOLDERS = Symbol("PRODUCT_ACCESS_HOLDERS");
+import type { TransactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
 
-import type { MaterialsPrisma } from "../../../infrastructure/prisma/index.js";
+export const PRODUCT_ACCESS_HOLDERS = Symbol("PRODUCT_ACCESS_HOLDERS");
 
 /**
  * Сколько людей сейчас держат действующее право на руководство: купили его или получили тариф, в
@@ -10,7 +10,7 @@ import type { MaterialsPrisma } from "../../../infrastructure/prisma/index.js";
 export interface ProductAccessHolders {
   /** Читает в транзакции вызывающего: снятие держит блокировки Materials и второго соединения не ждёт. */
   countProductHolders(
-    transaction: Pick<MaterialsPrisma, "$queryRaw">,
+    transaction: TransactionHandle,
     productIds: readonly string[],
   ): Promise<ReadonlyMap<string, number>>;
 }

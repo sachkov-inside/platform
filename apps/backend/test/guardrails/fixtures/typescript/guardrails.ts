@@ -71,3 +71,8 @@ const driftedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discrimi
   ],
 );
 describe("drifted material resource", () => driftedResourceSchema);
+
+import type { TransactionHandle } from "../../../../src/infrastructure/prisma/transaction-handle.js";
+declare const opaqueTransaction: TransactionHandle;
+opaqueTransaction.account.findMany();
+opaqueTransaction.accessGrant.create({ data: {} });
