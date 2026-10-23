@@ -106,6 +106,7 @@ export function BillingAdminPanel({
         description="Одна разовая цена продукта. Закрытие продаж и архив не отзывают купленный доступ."
       >
         <Button
+          className="min-h-11"
           variant="outline"
           disabled={command.isPending}
           onClick={() => {
@@ -179,12 +180,14 @@ export function BillingAdminPanel({
               </label>
               <div className="flex flex-wrap gap-3">
                 <Button
+                  className="min-h-11"
                   disabled={command.isPending || snapshot.offer.archived}
                   type="submit"
                 >
                   Сохранить цену
                 </Button>
                 <Button
+                  className="min-h-11"
                   variant="outline"
                   disabled={command.isPending || snapshot.offer.archived}
                   onClick={() => {
@@ -254,7 +257,11 @@ export function BillingAdminPanel({
             step={1}
             required
           />
-          <Button type="submit" disabled={command.isPending}>
+          <Button
+            className="min-h-11"
+            type="submit"
+            disabled={command.isPending}
+          >
             Сохранить без открытия продаж
           </Button>
         </form>

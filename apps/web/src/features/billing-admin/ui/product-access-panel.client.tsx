@@ -123,7 +123,7 @@ export function ProductAccessPanel() {
           }}
         />
       </div>
-      <Button disabled={busy} onClick={refresh}>
+      <Button className="min-h-11" disabled={busy} onClick={refresh}>
         Показать права
       </Button>
       {error !== undefined || lost ? (
@@ -146,6 +146,7 @@ export function ProductAccessPanel() {
               первая выдача {formatBillingDate(row.firstIssuedAt)}
             </p>
             <Button
+              className="min-h-11"
               variant="outline"
               disabled={busy}
               onClick={() => {
@@ -164,6 +165,7 @@ export function ProductAccessPanel() {
       </ul>
       {cursor !== null ? (
         <Button
+          className="min-h-11"
           variant="outline"
           disabled={busy}
           onClick={() => {
@@ -227,7 +229,7 @@ export function ProductAccessPanel() {
                 required
                 maxLength={1000}
               />
-              <Button disabled={busy} type="submit">
+              <Button className="min-h-11" disabled={busy} type="submit">
                 Явно восстановить доступ
               </Button>
             </form>
@@ -261,6 +263,7 @@ export function ProductAccessPanel() {
           maxLength={1000}
         />
         <Button
+          className="min-h-11"
           disabled={busy || accountId.length === 0 || productId.length === 0}
           type="submit"
         >

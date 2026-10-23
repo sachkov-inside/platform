@@ -167,7 +167,7 @@ export function ProductPromotionsPanel({
           min={1}
           step={1}
         />
-        <Button disabled={busy} type="submit">
+        <Button className="min-h-11" disabled={busy} type="submit">
           Сохранить скидку
         </Button>
       </form>
@@ -204,7 +204,12 @@ export function ProductPromotionsPanel({
           step={1}
           required
         />
-        <Button disabled={busy} type="submit" variant="outline">
+        <Button
+          className="min-h-11"
+          disabled={busy}
+          type="submit"
+          variant="outline"
+        >
           Архивировать скидку
         </Button>
       </form>

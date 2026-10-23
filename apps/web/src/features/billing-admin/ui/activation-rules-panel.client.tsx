@@ -73,6 +73,7 @@ export function ActivationRulesPanel({
               ?.name ?? rule.productId}
           </p>
           <Button
+            className="min-h-11"
             variant="outline"
             disabled={save.isPending}
             onClick={() => {
@@ -141,7 +142,7 @@ export function ActivationRulesPanel({
           <input type="checkbox" name="published" />
           Опубликовать правило
         </label>
-        <Button type="submit" disabled={save.isPending}>
+        <Button className="min-h-11" type="submit" disabled={save.isPending}>
           Создать правило
         </Button>
       </form>

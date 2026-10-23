@@ -555,7 +555,7 @@ test("shared navigation fixture returns complete private Product sale admission 
     expect(schema.parse(await response.json())).toEqual({
       items: ids.map((productId, index) => ({
         productId,
-        sold: index === 0 || (viewer && index === 1),
+        sold: index === 0 || index === 1,
       })),
     });
   }

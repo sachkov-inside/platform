@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { productOnlyOffer } from "@/storybook/billing.fixtures";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 import { billingBeforeRender, billingOk } from "./billing-bff.fixtures";
+import { BillingAdminLoading } from "./billing-admin-frame";
 import { BillingAdminPanel } from "./billing-admin-panel.client";
 const environment = authoringPageEnvironment("/authoring/billing");
 const meta = {
@@ -34,3 +35,5 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const ProductPrices: Story = {};
 export const Empty: Story = { args: { offers: [] } };
+
+export const Loading: Story = { render: () => <BillingAdminLoading /> };
