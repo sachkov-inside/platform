@@ -34,7 +34,7 @@ permission inside each Materials authoring operation. Communications tools indep
 access, and the adapter has no service identity or provider secret.
 
 Owner billing tools `billing_<operation>` are described in
-[owner billing operations](local-acceptance-sale.md#owner-billing-operations); they check `billing:manage`, not
+[owner billing operations](local-acceptance-sale.md#owner-operations-and-historical-facts); they check `billing:manage`, not
 `materials:manage`.
 
 The complete exposed tool set is the generated snapshot `apps/backend/mcp/tool-surface.json`;

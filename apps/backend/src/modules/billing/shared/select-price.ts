@@ -59,7 +59,14 @@ export async function selectPricesForOptions(
     })
   ).map((row) =>
     promotionSchema.parse({
-      ...row,
+      id: row.id,
+      revision: row.revision,
+      name: row.name,
+      percent: row.percent,
+      code: row.code,
+      productIds: row.productIds,
+      usageLimit: row.usageLimit,
+      archived: row.archived,
       startsAt: row.startsAt.toISOString(),
       endsAt: row.endsAt.toISOString(),
     }),

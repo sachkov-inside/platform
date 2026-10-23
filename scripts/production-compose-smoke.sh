@@ -868,7 +868,7 @@ if [[ "$retired_library_status" != "404" ]]; then
   echo "Retired Library route should return 404, got $retired_library_status" >&2
   exit 1
 fi
-assert_public_status POST /integrations/telegram/v1/membership-evidence 401
+assert_public_status POST /integrations/telegram/v1/membership-evidence 404
 assert_public_status POST /integrations/telegram/v1/sign-in/linked-identity 401
 assert_public_status GET /integrations/telegram/v1/sign-in/linked-identity 404
 assert_public_status POST /integrations/telegram/v1/sign-in/complete 404
@@ -904,9 +904,10 @@ if grep -q '"probe":"production_verify"' <<<"$api_probe_logs"; then
   echo "Caddy forwarded an external production verification marker" >&2
   exit 1
 fi
-assert_public_status POST /integrations/tribute/v1/webhook 401
+assert_public_status POST /integrations/tribute/v1/webhook 404
+assert_public_status POST /integrations/telegram/v1/course-activation/binding 401
 assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
-assert_public_status POST /integrations/telegram/v1/invitations/redeem 401
+assert_public_status POST /integrations/telegram/v1/invitations/redeem 404
 assert_public_status POST /internal/billing-dispatch/authorize 401
 assert_public_status POST /internal/notifications/dispatch/authorize 401
 assert_public_status POST /integrations/telegram/v1/communications/authorize 401

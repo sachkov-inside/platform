@@ -16,9 +16,6 @@ sachkov.dev, inside.sachkov.dev {
 		@private_health path /health /health/* /_health/*
 		respond @private_health 404
 
-		@telegram_evidence path /integrations/telegram/v1/membership-evidence
-		reverse_proxy @telegram_evidence {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
-
 		@telegram_sign_in {
 			method POST
 			path /integrations/telegram/v1/sign-in/linked-identity
@@ -45,18 +42,10 @@ sachkov.dev, inside.sachkov.dev {
 		}
 		reverse_proxy @billing_cohorts {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
-		# Событие Tribute; подлинность проверяет HMAC исходного тела.
-		@tribute_webhook {
-			method POST
-			path /integrations/tribute/v1/webhook
-		}
-		reverse_proxy @tribute_webhook {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
-
-		# Активация подписки ботом Telegram: ровно пять операций протокола, включая погашение личного
-		# приглашения; отдельный bearer активации.
+		# Course Activation keeps exactly five operations under canonical and receipt-compatible paths.
 		@telegram_activation {
 			method POST
-			path /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence /integrations/telegram/v1/subscription-activation/announcement /integrations/telegram/v1/invitations/redeem
+			path /integrations/telegram/v1/course-activation/binding /integrations/telegram/v1/course-activation/own-access /integrations/telegram/v1/course-activation/attempts /integrations/telegram/v1/course-activation/evidence /integrations/telegram/v1/course-activation/announcement /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence /integrations/telegram/v1/subscription-activation/announcement
 		}
 		reverse_proxy @telegram_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 

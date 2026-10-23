@@ -137,7 +137,7 @@ their exact provider-side settings during the credentialed acceptance run.
 
 The bank contour follows the same shape. `TBANK_PROVIDER_MODE` is `real` by default everywhere and
 selects the terminal from `TBANK_CONFIG_JSON`; `test` replaces it with the local stand double
-described in the [local development runbook](local-acceptance-sale.md#local-sale-bank-double-and-mail-capture)
+described in the [local development runbook](local-acceptance-sale.md#purchase-and-recovery)
 and refuses to read a terminal beside it. Only the `local` contour accepts addresses without HTTPS,
 production mode rejects that contour outright, and
 `scripts/production-runtime-contract.test.mjs` keeps the stand services and their variables out of
@@ -250,13 +250,15 @@ The pinned root was compared with the chain the bank serves and matches: SHA-256
 Verified terminal and cash-register capabilities are recorded in
 [issue-402 terminal capability](../verification/issue-402-tbank-terminal-capability.md).
 
-## Tribute source ingress
+## Retired commerce configuration
 
-Optional `TRIBUTE_API_KEY` and `TRIBUTE_SIGNATURE_ENCODING` (`hex` or `base64`) configure only the
-signed Tribute inbox. Both absent means disabled; one without the other fails configuration.
-Encoding requires a credentialed provider fixture before rollout. The key never reaches the web
-application. Billing worker reconciles pending verified sources in bounded batches independently of
-community dispatch. See [Tribute operations](tribute-access-convergence.md) for scope and gates.
+Tribute ingress, its keys and signature configuration have been removed. The Billing worker has
+no Tribute, renewal or saved-card jobs. `TBANK_CONFIG_JSON` contains only the direct-payment
+terminal and receipt configuration; `recurringCardConfirmed`, `cardOnlyHostedConfirmed` and
+`cardBinding` are no longer accepted. Before a separately authorized deployment, remove those
+retired fields from the runtime files while preserving the terminal identity and encryption key
+needed for already sent operations and historical Order Email. See
+[local Product purchase acceptance](local-acceptance-sale.md) for the retained recovery behavior.
 
 ## Participant learning MCP
 

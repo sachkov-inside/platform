@@ -54,12 +54,11 @@ sudo env \
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
 | `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `api.env` | `PLATFORM_ACTIVATION_SECRET` |
-| `TELEGRAM_BOT_START_URL` — без него в `mcp.env` инструменты приглашений отдают только start-параметр (#908) | `api.env`, `mcp.env` | — |
+| `TELEGRAM_BOT_START_URL` (база ссылки в бот) | `api.env`, `mcp.env` | нет |
 | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` — необязателен; без него вход событий воронки закрыт | `api.env` | секрет воронки на стороне бота ([inside-telegram#118](https://github.com/sachkov-inside/inside-telegram/issues/118)) |
 | `TELEGRAM_LINKING_SECRET` | `api.env` | `PLATFORM_INTEGRATION_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_SECRET` — своё значение, не равное `TELEGRAM_LINKING_SECRET` | `api.env`, `mcp.env` | `PLATFORM_COMMUNICATIONS_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_ENDPOINT`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY`, `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_TRACKING_ORIGIN` | `api.env`, `mcp.env` | `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` |
-| `TRIBUTE_API_KEY`, `TRIBUTE_SIGNATURE_ENCODING` | `api.env` | — |
 | `NOTIFICATIONS_BROKER_URLS` | `notifications-worker.env` | свой `NOTIFICATION_AMQP_URL` |
 
 ## Broker
@@ -159,8 +158,7 @@ AMQPS на `5671`. Топологию он читает из определен�
 |---|---|---|
 | `environment` | `production` | рабочий терминал |
 | `terminalKey`, `password` | рабочего терминала | только из кабинета, по процедуре секретов |
-| `bindingEncryptionKey` | 32 случайных байта в base64, свои для окружения | нужен и для будущей подписки |
-| `recurringCardConfirmed`, `cardOnlyHostedConfirmed` | `false` | на форме все способы: карта, T-Pay, Mir Pay, SberPay, Долями (решение 15.09.2026) |
+| `bindingEncryptionKey` | 32 случайных байта в base64, свои для окружения | сохраняет чтение исторического Order Email |
 | `minimumKopecks` | `100` | нижняя граница приложения, у банка её нет |
 | `maximumKopecks` | `30000000` | разовая операция 300 000 ₽; Долями банк сам показывает только в пределах 4–200 000 ₽ |
 | `returnUrl` | `https://sachkov.dev/payment/return` | текущая страница Web; старый hostname перенаправляет браузер |
@@ -177,30 +175,20 @@ URLs и принятые суммы вычисляются из текущего
 
 Правила продажи:
 
-- до включения оплаты `TBANK_CONFIG_JSON` может отсутствовать у всех трёх процессов: это допустимо,
-  пока каталог ничего не продаёт. Сначала подготовьте терминал и контакт для чека, затем разрешённую
-  продажу; наличие опубликованного контента само по себе терминал не требует;
-- разовая покупка не зависит от подтверждений «только карта» и работает с `false`;
-- продажа подписки требует обоих подтверждений: без них каталог не включает предложение с вариантом
-  подписки и не добавляет такой вариант к продаваемому предложению (`method_unavailable`), а покупка
-  подписки отвечает `method_unavailable` до обращения к банку. Публичная продажа подписки в этом
-  выпуске выключена;
-- каталог не включает в продажу ничего, пока у процесса нет терминала и адреса для чека;
-- `api` и `billing-worker` не запускаются, пока каталог продаёт, а настроек нет. `mcp` не продаёт и
-  при запуске не проверяется: возврат без терминала сразу отвечает владельцу `method_unavailable`.
-  Текст отказа в логе (`"status":"operator_attention"`):
-  - `Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured`;
-  - `Sale is enabled in the billing catalog, but BILLING_CONTACT_* is not configured`;
-  - `Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed`;
-- задание `billing.subscription-renewal` без терминала или подтверждённого recurring сообщает
-  успешный отчёт со статусом `configuration_idle`. Активное расписание с пригодной привязкой
-  сохраняется. Отменённые истёкшие сроки и сроки без пригодной привязки закрываются отдельной
-  выборкой, если нет незавершённой оплаты. Ошибки банка и базы дают `job_failed`; неизвестная
-  попытка оплаты остаётся для сверки. Правило расписания описано в
-  [механике подписки](../product/subscription-billing-v1.md#жизнь-подписки).
-
-Проверка выполняется только при запуске. Продажу включают после проверок выпуска, и снимают её
-(«выключить из продажи») раньше, чем убирают настройки оплаты.
+- Для новых платежей нужны терминал, контакт для чека и утверждённая редакция с условиями Product,
+  сообщества и трёх календарных месяцев сопровождения. Условия редакции 6 не заменяются меткой
+  задним числом. Пока #1464 не завершена отдельной публикацией, новый платёж недоступен.
+- В `TBANK_CONFIG_JSON` удалены `recurringCardConfirmed`, `cardOnlyHostedConfirmed` и `cardBinding`.
+  Перед отдельно разрешённым выпуском удалите эти поля из четырёх файлов, сохранив идентификаторы
+  терминала и ключ чтения существующих покупок. Примеры репозитория уже используют новую схему.
+- Цена относится прямо к Product. Закрытие продажи и архив запрещают новый платёж, в том числе
+  через Payment Link. Уже отправленная попытка сверяется по сохранённым условиям без нового Init.
+- `billing.payment-recovery` сохраняет сверку банка и выдачу подтверждённого Product Access.
+  Заданий продления, смены карты, Tribute и календарного отключения доступа нет.
+- Возврат выполняется вручную в банке. Его подтверждение сохраняется финансовым фактом;
+  отзыв Product Access является отдельным действием владельца.
+- При включённой цене отсутствие терминала или контакта для чека останавливает запуск `api` и
+  `billing-worker`. Сначала закрывайте продажи, затем убирайте настройки оплаты.
 
 ### Подготовка разовой покупки курса
 
@@ -247,18 +235,20 @@ edge описано в
 
 | Метод | Путь | Кто вызывает | Credential | Без него |
 |---|---|---|---|---|
-| любой | `/integrations/telegram/v1/membership-evidence` | Telegram | bearer `TELEGRAM_EVIDENCE_INGRESS_SECRET` | `401` |
 | POST | `/integrations/telegram/v1/sign-in/linked-identity` | коннектор Logto | bearer `TELEGRAM_SIGN_IN_INTEGRATION_SECRET` | `401` |
 | любой | `/integrations/kinescope/v1/webhook` | Kinescope | Basic `KINESCOPE_WEBHOOK_USERNAME` и `KINESCOPE_WEBHOOK_PASSWORD` | `401 invalid_basic_credentials` |
 | любой | `/integrations/kinescope/v1/authorize` | Kinescope DRM | Basic `KINESCOPE_CALLBACK_USERNAME` и `KINESCOPE_CALLBACK_PASSWORD` | `401 invalid_basic_credentials` |
 | POST | `/billing/tbank/notification` | банк | подпись `Token` паролем терминала | `400 invalid_notification` |
-| POST | `/integrations/tribute/v1/webhook` | Tribute | HMAC тела в `trbt-signature` | `401 invalid_signature` (без настроек — `503`) |
+| POST | `/integrations/telegram/v1/course-activation/binding` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/binding` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/course-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/course-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/course-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/course-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/invitations/redeem` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | GET | `/billing/cohorts` | бот Telegram: дата старта потока | нет: публичный факт | `200` |
 | POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
@@ -334,17 +324,9 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
 Постоянную продажу разового продукта владелец включает после шага 12; приёмка реальными платежами —
 Workspace #184.
 
-Подписку продают только по приглашению владельца
-([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Продажа ждёт подтверждения банком
-регулярных списаний и новой редакции оферты подписки. До включения продажи подписки владелец
-открывает `/authoring/access` → «Тарифы», в поле «Кому продаётся» выбирает «Только по приглашению»
-и нажимает «Сохранить допуск» (`eligibility: invitation_only`). После сохранения проверяет, что
-гость не видит подписку на `/subscription`. Допуск «Всем», в том числе старое предложение без
-поля допуска, не ограничивает продажу приглашением.
-
-При включении продажи с сохранённым допуском «Всем» и действующим вариантом подписки форма просит
-отдельное подтверждение. Отмена оставляет продажу выключенной. Это подтверждение не заменяет
-решение владельца об открытии продаж, проверку банка и принятую редакцию оферты.
+Тарифы, подписки, приглашения к их покупке и классификации допуска удалены. Исторические записи
+не являются правом открыть новую оплату. Course Activation сохраняет старые пути протокола только
+для согласованного перехода приложений и восстановления receipts, без подписочного поведения.
 
 ## Checks after rollout
 
@@ -455,12 +437,12 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
 ```
 
 **Бот достаёт до Platform.** Неподписанные запросы доходят до API. Если маршрута в Caddy нет,
-`invitations/redeem` отвечает пустым `404`, а `billing/cohorts` — страницей web с `404`. Обе команды
+`course-activation/binding` отвечает пустым `404`, а `billing/cohorts` возвращает страницу web с `404`. Обе команды
 печатают тело и код одного ответа:
 
 ```bash
 curl --silent --request POST --write-out '\n%{http_code}\n' \
-  https://inside.sachkov.dev/integrations/telegram/v1/invitations/redeem
+  https://inside.sachkov.dev/integrations/telegram/v1/course-activation/binding
 # тело с "code":"unauthorized", затем 401
 curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/cohorts
 # JSON с "items", затем 200
