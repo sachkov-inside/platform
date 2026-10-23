@@ -107,8 +107,9 @@ and sale: holders keep reading its programme and Materials, and others get «not
 _Avoid_: Subscription, «руководство» as the product name, using course as the universal category
 
 **Product Intake**:
-A particular upcoming admission to a Product, with an identity that remains stable when its
-presentation or dates change. A later admission is a different intake.
+A particular admission round for one Product, with an identity that remains stable when its
+presentation or dates change. A later round is a different intake, without automatic transfer
+of the earlier waitlist.
 In Russian product language: «набор».
 _Avoid_: Product, ProductCohort revision, sales opening date
 
@@ -122,7 +123,7 @@ _Avoid_: Bot start, marketing consent, reservation, purchase
 **ProductProgramme**:
 The reader-facing surface that carries a Product's Materials, their chapters, access states and
 progress, and the Product's own price. It is separate from the product page, which explains the
-Product and does not sell it by itself; only a Product with a Cohort names the stage and, when it is
+Product and does not sell it by itself; a Product's sales state names the stage and, when it is
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
@@ -379,13 +380,11 @@ _Avoid_: Product Access, ReadingState, collection, favorite
 
 ## Product purchases and access
 
-**Cohort**:
-The current sales run of a Product: a name, a sales stage (announcement, preorder, running, between
-cohorts), a calendar start date and the next event. The owner switches it in the catalogue. The stage
-decides what the product page promises; money is taken only while the Product is on sale.
-A new price does not change access already received. In
-Russian product language: «Поток».
-_Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel period, prior participants
+**Product Sales State**:
+The current sales presentation of one Product: its name, stage, announced start date and next event.
+The owner changes it explicitly; neither a date nor a presentation stage by itself opens payments,
+changes the price or creates a new Product Intake.
+_Avoid_: Product Intake, learner group, Subscription period, funnel period
 
 **Product Removal**:
 The confirmed withdrawal of a published Material from a Product whose holders still have access. The author confirms each such Product explicitly, and the removal is journaled with the
@@ -514,7 +513,7 @@ towards buying one Product: entered, gave marketing consent, opened the chosen c
 checkout, paid. The period chooses the cohort; later steps count who of it has reached them so far.
 Bot steps count bot contacts, the later steps count Accounts. In Russian product language:
 «Воронка продаж».
-_Avoid_: Events of the period, conversion of one person, the Product's Cohort
+_Avoid_: Events of the period, conversion of one person, Product Intake, Product Sales State
 
 **Source Label**:
 The label of the bot link a person first entered the bot through, such as `m_survey`. An Account
@@ -576,3 +575,4 @@ These names refer to the same concept; they do not introduce another right or pr
 | Lesson Difficulty | Material Difficulty |
 | Lesson Outcomes | Material Outcomes |
 | Member Profile | Account Profile |
+| ProductCohort | Product Sales State |
