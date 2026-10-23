@@ -1,3 +1,4 @@
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -142,7 +143,7 @@ describe("Series order", () => {
     const catalogue = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!catalogue.ok) throw new Error(catalogue.error.code);
     expect(catalogue.value.programmePlacements).toEqual([]);
-    const programme = await authoring.reorderSeries({
+    const programme = await authorProductProgramme(authoring, {
       actor,
       seriesId,
       expectedOrderVersion: catalogue.value.orderVersion,
@@ -178,7 +179,7 @@ describe("Series order", () => {
     });
     expect(loaded.value.orderVersion).toMatch(/^[a-f0-9]{64}$/u);
     const reversed = [...materialIds].reverse();
-    const reordered = await authoring.reorderSeries({
+    const reordered = await authorProductProgramme(authoring, {
       actor,
       seriesId,
       expectedOrderVersion: loaded.value.orderVersion,
@@ -215,7 +216,7 @@ describe("Series order", () => {
     );
 
     await expect(
-      authoring.reorderSeries({
+      authorProductProgramme(authoring, {
         actor,
         seriesId,
         expectedOrderVersion: loaded.value.orderVersion,
@@ -240,7 +241,7 @@ describe("Series order", () => {
       throw new Error("Expected at least two playlist Materials");
     }
     const moved = [secondMaterialId, firstMaterialId, ...currentIds.slice(2)];
-    const first = await authoring.reorderSeries({
+    const first = await authorProductProgramme(authoring, {
       actor,
       seriesId,
       expectedOrderVersion: initial.value.orderVersion,
@@ -249,7 +250,7 @@ describe("Series order", () => {
     if (!first.ok) throw new Error(first.error.code);
 
     await expect(
-      authoring.reorderSeries({
+      authorProductProgramme(authoring, {
         actor,
         seriesId,
         expectedOrderVersion: initial.value.orderVersion,
@@ -275,7 +276,7 @@ describe("Series order", () => {
     expect(
       afterAppend.value.items.map(({ materialId }) => materialId),
     ).toContain(appended.value.materialId);
-    const changed = await authoring.reorderSeries({
+    const changed = await authorProductProgramme(authoring, {
       actor,
       seriesId,
       expectedOrderVersion: afterAppend.value.orderVersion,
@@ -370,13 +371,13 @@ describe("Series order", () => {
     const secondOrder = rotateLeft(firstOrder);
 
     const results = await Promise.all([
-      authoring.reorderSeries({
+      authorProductProgramme(authoring, {
         actor,
         seriesId,
         expectedOrderVersion: initial.value.orderVersion,
         orderedMaterialIds: firstOrder,
       }),
-      authoring.reorderSeries({
+      authorProductProgramme(authoring, {
         actor,
         seriesId,
         expectedOrderVersion: initial.value.orderVersion,
@@ -581,7 +582,7 @@ describe("Series order", () => {
       seriesId: selectedSeriesId,
     });
     if (!initial.ok) throw new Error(initial.error.code);
-    const grouped = await authoring.reorderSeries({
+    const grouped = await authorProductProgramme(authoring, {
       actor,
       seriesId: selectedSeriesId,
       expectedOrderVersion: initial.value.orderVersion,
@@ -627,7 +628,7 @@ describe("Series order", () => {
         ({ series }) => series.id === selectedSeriesId,
       )?.stepGroup,
     ).toBe("Release");
-    const stale = await authoring.reorderSeries({
+    const stale = await authorProductProgramme(authoring, {
       actor,
       seriesId: selectedSeriesId,
       expectedOrderVersion: initial.value.orderVersion,
@@ -653,7 +654,7 @@ describe("Series order", () => {
       body: representativeDocument("Edited body"),
     });
     if (!resaved.ok) throw new Error(resaved.error.code);
-    const legacy = await authoring.reorderSeries({
+    const legacy = await authorProductProgramme(authoring, {
       actor,
       seriesId: selectedSeriesId,
       expectedOrderVersion: grouped.value.orderVersion,
@@ -680,7 +681,7 @@ describe("Series order", () => {
       { [first]: "x".repeat(121) },
     ]) {
       expect(
-        await authoring.reorderSeries({
+        await authorProductProgramme(authoring, {
           actor,
           seriesId: selectedSeriesId,
           expectedOrderVersion: legacy.value.orderVersion,
@@ -689,7 +690,7 @@ describe("Series order", () => {
         }),
       ).toMatchObject({ ok: false, error: { code: "invalid_content" } });
     }
-    const cleared = await authoring.reorderSeries({
+    const cleared = await authorProductProgramme(authoring, {
       actor,
       seriesId: selectedSeriesId,
       expectedOrderVersion: legacy.value.orderVersion,

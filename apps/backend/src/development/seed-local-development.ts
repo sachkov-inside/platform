@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
@@ -802,7 +803,7 @@ async function ensureDevelopmentSeriesOrder(
   );
   if (
     isDeepStrictEqual(
-      current.value.items.map(({ materialId }) => materialId),
+      current.value.programmePlacements.map(({ materialId }) => materialId),
       [...orderedMaterialIds],
     ) &&
     (stepGroups === undefined ||
@@ -814,6 +815,20 @@ async function ensureDevelopmentSeriesOrder(
     actor,
     expectedOrderVersion: current.value.orderVersion,
     orderedMaterialIds,
+    programmePlacements: orderedMaterialIds.map((materialId) => {
+      const previous = current.value.programmePlacements.find(
+        (entry) => entry.materialId === materialId,
+      );
+      return {
+        id: previous?.id ?? randomUUID(),
+        materialId,
+        chapterId: null,
+        stepGroup:
+          stepGroups === undefined
+            ? (previous?.stepGroup ?? null)
+            : (stepGroups[materialId] ?? null),
+      };
+    }),
     stepGroups,
     seriesId: seriesIdValue,
   });

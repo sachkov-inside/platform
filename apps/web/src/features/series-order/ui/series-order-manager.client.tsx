@@ -1,5 +1,6 @@
 "use client";
 
+import { editCatalogueProgramme } from "../model/catalogue-programme-edit";
 import { ProgrammePlacementsEditor } from "./programme-placements-editor.client";
 import { CONTENT_SOURCE_MISMATCH_MESSAGE } from "@/shared/lib/content-source-message";
 import type { ReactNode } from "react";
@@ -79,6 +80,7 @@ export function SeriesOrderManager({
   const [chapters, setChapters] = useState(presentation.chapters);
   const [items, setItems] = useState(presentation.items);
   const version = useRef(presentation.orderVersion);
+  const programme = useRef(presentation.programmePlacements ?? []);
   const mutation = useMutation({ mutationFn: reorderSeries });
   const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
   // Снятие опубликованных материалов из купленного продукта ждёт ответа автора в диалоге.
@@ -100,6 +102,11 @@ export function SeriesOrderManager({
       ),
     save: async (snapshot) => {
       const input = attempted.current ?? {
+        programmePlacements: editCatalogueProgramme(
+          programme.current,
+          snapshot.entries,
+          snapshot.chapters.map(({ id }) => id),
+        ),
         chapters: snapshot.chapters,
         chapterAssignments: Object.fromEntries(
           snapshot.entries.flatMap(({ chapterId, materialId }) =>
@@ -135,6 +142,7 @@ export function SeriesOrderManager({
       }
       if (next.kind !== "saved") return "failed";
       version.current = next.orderVersion;
+      programme.current = input.programmePlacements ?? programme.current;
       attempted.current = null;
       confirmedRemovals.current = [];
       return "saved";

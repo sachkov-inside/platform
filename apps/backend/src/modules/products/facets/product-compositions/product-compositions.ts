@@ -181,11 +181,12 @@ export class ProductCompositions {
             hasModeVariants: fact?.hasModeVariants ?? false,
           };
         })
-        .sort(
-          (left, right) =>
-            left.ordinal - right.ordinal ||
-            left.materialId.localeCompare(right.materialId),
-        );
+        .sort((left, right) => {
+          const ordinal = left.ordinal - right.ordinal;
+          return ordinal === 0
+            ? left.materialId.localeCompare(right.materialId)
+            : ordinal;
+        });
       const row = compositionSchema.parse({
         ...product,
         placements,

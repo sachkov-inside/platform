@@ -11,6 +11,7 @@ import type { SeriesNotFoundError } from "../load-series-order/load-series-order
 import type { Result } from "../../../../infrastructure/content-authoring/result.js";
 
 export interface ReorderSeriesCommand {
+  /** The complete programme. Omitted preserves retained occurrences and their identities. */
   readonly programmePlacements?:
     readonly ProductProgrammePlacement[] | undefined;
   readonly actor: string;
@@ -19,6 +20,7 @@ export interface ReorderSeriesCommand {
   /** Material to chapter placement; omitted keeps the placement of retained Materials. */
   readonly chapterAssignments?: Readonly<Record<string, string>> | undefined;
   readonly expectedOrderVersion: string;
+  /** Complete catalogue membership; its order does not create or reorder programme positions. */
   readonly orderedMaterialIds: readonly string[];
   readonly stepGroups?: Readonly<Record<string, string>> | undefined;
   readonly seriesId: string;

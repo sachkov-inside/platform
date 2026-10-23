@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -654,6 +655,12 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
     seriesId: careerSeriesId,
     expectedOrderVersion: current.value.orderVersion,
     orderedMaterialIds: programmeMaterialIds,
+    programmePlacements: programmeMaterialIds.map((materialId) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId: null,
+      stepGroup: null,
+    })),
   });
   if (!reordered.ok)
     throw new Error(`Search fixture programme failed: ${reordered.error.code}`);
