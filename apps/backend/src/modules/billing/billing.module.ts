@@ -1,3 +1,4 @@
+import { ReadOwnBillingController } from "./features/read-own-billing/read-own-billing.controller.js";
 import { Module } from "@nestjs/common";
 import {
   configuredTelegramBotStartUrl,
@@ -45,6 +46,7 @@ const BILLING_BANK = Symbol("BillingBank");
 @Module({
   imports: [PrismaModule, AccountsModule, AccountRightsModule],
   controllers: [
+    ReadOwnBillingController,
     PurchaseProductController,
     AcceptTbankNotificationController,
     ManageBillingController,

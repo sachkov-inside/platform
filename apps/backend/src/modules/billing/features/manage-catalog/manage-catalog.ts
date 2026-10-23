@@ -1,3 +1,5 @@
+import type { CoverageCatalog } from "../../../account-rights/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -36,6 +38,7 @@ export async function manageCatalog(
     prisma: BillingPrismaClient;
     accounts: Pick<Accounts, "checkPermission">;
     sale: SaleCapability;
+    contentCatalog?: CoverageCatalog | undefined;
   },
   actor: string,
   input: unknown,
@@ -44,16 +47,15 @@ export async function manageCatalog(
   const identity = idSchema.safeParse(actor);
   if (!parsed.success || !identity.success) return failure("invalid_request");
   try {
-    // Каталог — часть billing:manage; platform:admin владельца включает это право.
-    const permission = await dependencies.accounts.checkPermission({
-      accountId: identity.data,
-      permission: "billing:manage",
-    });
-    if (!permission.ok) return failure("dependency_unavailable");
-    if (!permission.allowed) return failure("forbidden");
     return await dependencies.prisma.$transaction(
       async (tx): Promise<ManageCatalogResult> => {
         await lockBillingPricing(tx);
+        const permission = await dependencies.accounts.checkPermission(
+          { accountId: identity.data, permission: "billing:manage" },
+          transactionHandle(tx),
+        );
+        if (!permission.ok) return failure("dependency_unavailable");
+        if (!permission.allowed) return failure("forbidden");
         const command =
           parsed.data.operation === "promotions.save"
             ? {
@@ -74,7 +76,12 @@ export async function manageCatalog(
           return fingerprint.recognizes(receipt.fingerprint)
             ? { ok: true, value: catalogOutcomeSchema.parse(receipt.outcome) }
             : failure("operation_conflict");
-        const result = await changeCatalog(tx, command, dependencies.sale);
+        const result = await changeCatalog(
+          tx,
+          command,
+          dependencies.sale,
+          dependencies.contentCatalog,
+        );
         if (result.ok)
           await tx.billingPricingCommand.create({
             data: {
@@ -99,6 +106,7 @@ async function changeCatalog(
   tx: BillingPrisma,
   command: ManageCatalogCommand,
   sale: SaleCapability,
+  contentCatalog?: CoverageCatalog,
 ): Promise<ManageCatalogResult> {
   if (command.operation === "cohorts.save") return saveCohort(tx, command);
   const id =
@@ -118,6 +126,15 @@ async function changeCatalog(
   const archived = !("value" in command);
   switch (command.operation) {
     case "productPrices.save": {
+      if (contentCatalog?.hasProduct === undefined)
+        return failure("dependency_unavailable");
+      if (
+        !(await contentCatalog.hasProduct(
+          command.value.productId,
+          transactionHandle(tx),
+        ))
+      )
+        return failure("not_found");
       if (current?.archived === true) return failure("not_found");
       if (command.value.published && !sale.payments)
         return failure("method_unavailable");
@@ -160,11 +177,8 @@ async function changeCatalog(
         return failure("operation_conflict");
       if (
         (await tx.billingProductPrice.count({
-          where: { productId: { in: value.offerIds } },
-        })) !== new Set(value.offerIds).size ||
-        (await tx.billingProductPrice.count({
-          where: { productId: { in: value.paymentOptionIds } },
-        })) !== new Set(value.paymentOptionIds).size
+          where: { productId: { in: value.productIds } },
+        })) !== new Set(value.productIds).size
       )
         return failure("not_found");
       const committed = await tx.billingPromoReservation.count({
@@ -200,7 +214,7 @@ async function changeCatalog(
  * Поток продукта меняется на месте: страница и бот читают текущую запись, а купленные права от неё
  * не зависят. Цена после старта у потока только показывается зачёркнутой рядом с ценой
  * предзаказа; списание берёт цену варианта оплаты. При неизменном составе прав владелец меняет
- * цену через paymentOptions.save (ADR 0033), а снимки прежних покупок сохраняются.
+ * цену через productPrices.save, а снимки прежних покупок сохраняются.
  */
 async function saveCohort(
   tx: BillingPrisma,

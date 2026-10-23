@@ -241,3 +241,56 @@ test("a definitive failed purchase admits a new quote and a new attempt", async 
   expect(retry.purchaseRef).not.toBe(first.purchaseRef);
   expect(s.initCalls()).toBe(2);
 });
+
+test("an archived Product blocks a new accepted quote while preserving existing holders", async () => {
+  const s = await scenario();
+  await db.prisma.product.update({
+    where: { id: s.productId },
+    data: { archivedAt: new Date("2030-01-31T10:00:00Z") },
+  });
+  expect(await s.payments.purchase(s.buyer, s.command)).toMatchObject({
+    ok: false,
+    error: { code: "not_found" },
+  });
+  expect(s.initCalls()).toBe(0);
+});
+test("a holder cannot buy the Product again even by acknowledging existing access", async () => {
+  const s = await scenario();
+  value(await s.payments.purchase(s.buyer, s.command));
+  await s.notify("CONFIRMED");
+  await s.payments.recover();
+  const quote = value(
+    await s.pricing.quote(s.buyer, {
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+    }),
+  );
+  const consent = await s.contact.acceptConsents(
+    s.buyer,
+    pressedPaymentButton({
+      operationId: randomUUID(),
+      contextRef: quote.quoteRef,
+      documents: [
+        {
+          kind: "terms",
+          documentId: s.document.documentId,
+          version: s.document.version,
+          digest: s.document.digest,
+          accepted: true,
+        },
+      ],
+    }),
+  );
+  if (!consent.ok) throw new Error(consent.error.code);
+  expect(
+    await s.payments.purchase(s.buyer, {
+      ...s.command,
+      operationId: randomUUID(),
+      quoteRef: quote.quoteRef,
+      consentEvidenceRefs: consent.evidenceRefs,
+      acknowledgeExistingAccess: true,
+    }),
+  ).toMatchObject({ ok: false, error: { code: "existing_access" } });
+  expect(s.initCalls()).toBe(1);
+});

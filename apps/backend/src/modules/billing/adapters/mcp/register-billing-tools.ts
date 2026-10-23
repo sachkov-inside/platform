@@ -8,7 +8,7 @@ import type { BillingOperations } from "../../facets/billing-operations/billing-
 
 export type BillingOwnerTools = Pick<BillingOperations, "execute">;
 // Предпросмотр партии пишет только свою строку предпросмотра и ничего не выдаёт.
-const nonDestructiveWrites = ["grants.previewBatch"];
+const nonDestructiveWrites: readonly string[] = [];
 
 /**
  * Владельческие billing-инструменты MCP. Каждый инструмент — та же операция, что и в admin
@@ -76,38 +76,12 @@ function description(operation: string): string {
     case "payments.list":
     case "payments.read":
       return "Read stored payments, their bank state, paid conditions, access readiness and owner audit. Sends nothing; card bindings and receipt contacts are not exposed.";
-    case "subscriptions.cancel":
-      return "Stop future charges for one Account's subscription with expectedRevision. The paid term is preserved and an already sent charge is reconciled separately.";
-    case "grants.read":
-      return "Read one Account's access grants with source, term and change history. Sends nothing.";
-    case "grants.readClassification":
-      return "Read whether one Account is a confirmed new buyer, a confirmed legacy buyer or still unknown, with its revision and whether recurring charges are allowed. Sends nothing.";
-    case "grants.classify":
-      return "Record the owner's decision about one Account with expectedRevision: a confirmed new buyer may subscribe, unknown keeps recurring charges refused. Only a confirmed legacy buyer carries the Tribute bridge and stop flags. Reuse operationId on retry.";
-    case "grants.previewBatch":
-      return "Check a batch of manual grants and account classifications against confirmed identities before writing anything. Grants no access and classifies nobody.";
-    case "grants.applyBatch":
-      return "Apply the confirmed rows of a previously previewed batch with previewRef and expectedRevision. A classification row whose Account moved to another revision cancels the whole batch; changed identity mapping makes the preview stale instead of guessing.";
-    case "grants.extend":
-      return "Extend one manual or legacy grant to a later end or explicit lifetime with expectedRevision. Paid periods belong to billing and are not editable here.";
-    case "grants.revoke":
-      return "Revoke one manual or legacy grant with expectedRevision. Other valid grounds of the same Account stay in force.";
     case "respondents.import":
       return "Add Telegram usernames from the survey column to the private respondent list. Accepts @nick, nick and t.me links one per line; duplicates collapse and unrecognized lines are only counted. Never removes names. The owner audit stores counts, not names.";
     case "respondents.issue":
       return "Issue one survey respondent a personal one-time promo code copied from an archived, unexpired template promotion. A username gets at most one code; a repeat returns the issued one. Returns the product slug when the template sells one product; the payment page is /products/<slug>/buy?promo=<code>. Grants no access and sends nothing.";
     case "respondents.status":
       return "Read the survey respondent list: its size, issued personal links and purchases confirmed by them. Sends nothing.";
-    case "invitations.issue":
-      return "Issue one personal one-time invitation to an Offer: mode purchase lets the person buy that Offer. It grants no access. Returns the bot link t.me/<bot>?start=i_<code> (link is null when this process has no bot address; build it from startParameter). The first Telegram account that opens it owns it; an unopened link expires in 14 days. The note stays out of the owner audit. Sends nothing. Reuse operationId on retry.";
-    case "invitations.revoke":
-      return "Revoke one issued or opened invitation with expectedRevision so its link stops working. A redeemed invitation cannot be revoked. Sends nothing.";
-    case "invitations.list":
-      return "Read invitations newest first with state issued, claimed, redeemed, expired or revoked, optional state and Offer filters, cursor and limit. Sends nothing.";
-    case "people.list":
-      return "Read people with current or recently ended access (ended within 30 days), ordered by Account: each person lists every ground with source platform_payment, invitation, course, manual, tribute or one_time_purchase, its Offer, term, state and the current Telegram identity. Filters offerId, source and state (active, expiring within 7 days, ended) match when one ground passes all of them. Cursor and limit 1..100. Sends nothing.";
-    case "access.summary":
-      return "Read the access summary: people with current access per Offer split into paid, assigned and course; the invitation funnel; grounds ending within 7 days and failed charges of the last 7 days; confirmed revenue and refunds per Moscow month and Offer for 12 months. Sends nothing.";
     default:
       return `Change the billing catalog through ${operation} with expectedRevision. Purchased conditions, existing subscriptions and issued grants are never rewritten. Reuse operationId on retry.`;
   }
