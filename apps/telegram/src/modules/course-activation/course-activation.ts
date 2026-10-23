@@ -834,7 +834,7 @@ export class CourseActivation {
     const productId = result.ok
       ? (result.value.rule?.product?.id ?? attempt.source_proof?.product?.id)
       : undefined;
-    if (confirmed && hasText(productId)) {
+    if (confirmed) {
       const lookup = await this.platform.binding(attempt.identity_ref);
       const access =
         lookup?.ok === true && lookup.value.state === "linked"
@@ -872,6 +872,9 @@ export class CourseActivation {
             ...currentScreen,
             text: `${product.name}\n\n${admission.kind === "member" ? "Курс доступен. Вы уже в группе курса." : "Курс доступен. Открывайте материалы и присоединяйтесь к группе курса."}`,
           };
+      } else if (!hasText(productId) && access?.ok === true) {
+        // A historical receipt proves an earlier write; current Products determine navigation.
+        currentScreen = productList(access.value.products ?? [], false);
       } else
         currentScreen = {
           text: "Не удалось проверить доступ. Попробуйте ещё раз.",
