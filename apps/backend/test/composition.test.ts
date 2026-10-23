@@ -162,7 +162,7 @@ describe("backend process composition", () => {
     expect(api.get(CommunityEntitlements)).toBeDefined();
   });
 
-  it("registers Materials controllers with Materials, only in the API", async () => {
+  it("registers content controllers with their owners, only in the API", async () => {
     const api = await createApiApplication(config, {
       logger: false,
       abortOnError: false,
@@ -177,13 +177,24 @@ describe("backend process composition", () => {
         "UploadMaterialAssetController",
         "VideoPlaybackController",
         "KinescopeVideoAuthorizationController",
+      ]),
+    );
+    const artifactControllers =
+      apiControllers.get("ProductArtifactsHttpModule") ?? [];
+    expect(artifactControllers).toEqual(
+      expect.arrayContaining([
+        "ProductArtifactAuthoringController",
         "ProductArtifactReadController",
       ]),
     );
+    const contentControllers = [
+      ...materialsControllers,
+      ...artifactControllers,
+    ];
     expect(
       apiControllers
         .get("ApiModule")
-        ?.filter((name) => materialsControllers.includes(name)),
+        ?.filter((name) => contentControllers.includes(name)),
     ).toEqual([]);
 
     const mcp = await createMcpApplication(config, {
@@ -193,7 +204,7 @@ describe("backend process composition", () => {
     application = mcp;
     const mcpControllers = [...registeredControllers(mcp).values()].flat();
     expect(
-      mcpControllers.filter((name) => materialsControllers.includes(name)),
+      mcpControllers.filter((name) => contentControllers.includes(name)),
     ).toEqual([]);
   });
 

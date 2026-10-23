@@ -1,3 +1,4 @@
+import type { ProductDiscovery } from "../../../products/index.js";
 import { z } from "zod";
 import {
   COVERAGE_CATALOG_ENTRY_LIMIT as maximumCatalogEntries,
@@ -7,53 +8,69 @@ import {
   coverageEntrySchema,
   coverageSchema,
 } from "@inside/access-capabilities";
-import {
-  Prisma,
-  type MaterialsPrismaClient,
-} from "../../../../infrastructure/prisma/index.js";
+import { type MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 
 const entriesSchema = z.array(coverageEntrySchema);
 /** Metadata only. Knowing a title never authorizes its body, media or artifacts. */
 export class CoverageCatalog {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    private readonly prisma: MaterialsPrismaClient,
+    private readonly products: Pick<ProductDiscovery, "metadata">,
+  ) {}
   async resolveWholePlatformProducts(
     periods: readonly { startsAt: Date; endsAt: Date }[],
   ) {
     if (periods.length > COVERAGE_CATALOG_SCOPE_LIMIT)
       throw new Error("Historical Product periods exceed supported size");
     if (periods.length === 0) return [];
+    const products = await this.products.metadata();
     const rows = entriesSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-      SELECT 'product' AS kind, product.id, product.name AS title,
-        CASE WHEN product.archived_at IS NULL THEN product.slug ELSE NULL END AS slug,
-        product.archived_at IS NULL AS available
-      FROM products.series AS product
-      WHERE ${Prisma.join(
-        periods.map(
-          (period) => Prisma.sql`(
-        product.created_at < ${period.endsAt}
-        AND (product.archived_at IS NULL OR product.archived_at > ${period.startsAt})
-      )`,
-        ),
-        " OR ",
-      )}
-      ORDER BY product.name, product.id LIMIT ${maximumCatalogEntries + 1}
-    `),
+      products
+        .filter((product) =>
+          periods.some(
+            (period) =>
+              product.createdAt < period.endsAt &&
+              (product.archivedAt === null ||
+                product.archivedAt > period.startsAt),
+          ),
+        )
+        .map((product) => ({
+          kind: "product",
+          id: product.id,
+          title: product.name,
+          slug: product.archivedAt === null ? product.slug : null,
+          available: product.archivedAt === null,
+        }))
+        .sort(compareEntries),
     );
     if (rows.length > maximumCatalogEntries)
       throw new Error("Historical Product catalog exceeds supported size");
     return rows;
   }
   async list() {
+    const products = await this.products.metadata();
+    const materials = await this.prisma.material.findMany({
+      select: { id: true, title: true, publicationState: true, slug: true },
+      take: maximumCatalogEntries + 1,
+    });
     const rows = entriesSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-      SELECT 'product' AS kind, id, name AS title, slug, archived_at IS NULL AS available FROM products.series
-      UNION ALL
-      SELECT 'material' AS kind, id, coalesce(title, 'Материал без названия') AS title,
-        CASE WHEN publication_state = 'published' THEN slug ELSE NULL END AS slug,
-        publication_state = 'published' AS available FROM materials.materials
-      ORDER BY kind, title, id LIMIT ${maximumCatalogEntries + 1}
-    `),
+      [
+        ...products.map((product) => ({
+          kind: "product",
+          id: product.id,
+          title: product.name,
+          slug: product.slug,
+          available: product.archivedAt === null,
+        })),
+        ...materials.map((material) => ({
+          kind: "material",
+          id: material.id,
+          title: material.title ?? "Материал без названия",
+          slug:
+            material.publicationState === "published" ? material.slug : null,
+          available: material.publicationState === "published",
+        })),
+      ].sort(compareEntries),
     );
     if (rows.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
@@ -87,16 +104,46 @@ export class CoverageCatalog {
     if (productIds.length + materialIds.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
     const wholePlatform = scopes.some((scope) => scope.wholePlatform === true);
+    const products = await this.products.metadata({
+      ids: productIds,
+      includeActive: wholePlatform,
+    });
+    const materials =
+      materialIds.length === 0
+        ? []
+        : await this.prisma.material.findMany({
+            where: { id: { in: materialIds } },
+            select: {
+              id: true,
+              title: true,
+              publicationState: true,
+              slug: true,
+            },
+          });
     const rows = entriesSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-      SELECT 'product' AS kind, id, name AS title, CASE WHEN archived_at IS NULL THEN slug ELSE NULL END AS slug, archived_at IS NULL AS available
-        FROM products.series WHERE (${wholePlatform}::boolean AND archived_at IS NULL) OR id = ANY(${productIds}::uuid[])
-      UNION ALL
-      SELECT 'material' AS kind, id, coalesce(title, 'Материал без названия') AS title,
-        CASE WHEN publication_state = 'published' THEN slug ELSE NULL END AS slug, publication_state = 'published' AS available
-        FROM materials.materials WHERE id = ANY(${materialIds}::uuid[])
-      ORDER BY kind, title, id LIMIT ${maximumCatalogEntries + 1}
-    `),
+      [
+        ...products
+          .filter(
+            (product) =>
+              (wholePlatform && product.archivedAt === null) ||
+              productIds.includes(product.id),
+          )
+          .map((product) => ({
+            kind: "product",
+            id: product.id,
+            title: product.name,
+            slug: product.archivedAt === null ? product.slug : null,
+            available: product.archivedAt === null,
+          })),
+        ...materials.map((material) => ({
+          kind: "material",
+          id: material.id,
+          title: material.title ?? "Материал без названия",
+          slug:
+            material.publicationState === "published" ? material.slug : null,
+          available: material.publicationState === "published",
+        })),
+      ].sort(compareEntries),
     );
     if (rows.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
@@ -135,4 +182,15 @@ export class CoverageCatalog {
       );
     });
   }
+}
+
+function compareEntries(
+  a: { kind: string; title: string; id: string },
+  b: { kind: string; title: string; id: string },
+) {
+  return (
+    a.kind.localeCompare(b.kind) ||
+    a.title.localeCompare(b.title) ||
+    a.id.localeCompare(b.id)
+  );
 }

@@ -22,7 +22,7 @@ import type { Videos } from "../../../videos/index.js";
 
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
-  readonly products: Pick<ProductDiscovery, "snapshot">;
+  readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
   readonly contentAccess: ContentAccess;
   readonly materialContent: MaterialContent;
   readonly materialBodyOperations: MaterialBodyOperations;
@@ -32,11 +32,14 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly videos?: Pick<Videos, "loadPresentation">;
 }): PublishedMaterialReader {
   return Object.freeze({
-    listSiteMaterials: assembleListPublishedSiteMaterials(dependencies.prisma),
+    listSiteMaterials: assembleListPublishedSiteMaterials(
+      dependencies.prisma,
+      dependencies.products,
+    ),
     readPractice: assembleReadPublishedPractice(dependencies),
     listPractices: assembleListPublishedPractices(dependencies),
     readHomeProjections: () => readHomeProjections(dependencies),
-    readHomePinnedSeries: () => readHomePinnedSeries(dependencies.prisma),
+    readHomePinnedSeries: () => readHomePinnedSeries(dependencies.products),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
       discoverPublishedMaterialProjections(
         dependencies,

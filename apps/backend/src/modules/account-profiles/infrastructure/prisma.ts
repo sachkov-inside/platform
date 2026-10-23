@@ -1,7 +1,7 @@
 import type {
-  MemberProfilesPrisma,
-  MemberProfilesPrismaClient,
+  AccountProfilesPrisma,
+  AccountProfilesPrismaClient,
 } from "../../../infrastructure/prisma/index.js";
 
-export type AccountProfilePersistence = MemberProfilesPrisma;
-export type AccountProfilePersistenceClient = MemberProfilesPrismaClient;
+export type AccountProfilePersistence = AccountProfilesPrisma;
+export type AccountProfilePersistenceClient = AccountProfilesPrismaClient;

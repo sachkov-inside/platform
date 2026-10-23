@@ -127,6 +127,7 @@ export function assembleUpdateContentCollection(
           command.kind === "topic"
             ? { kind: "topic", topicId: command.collectionId }
             : { kind: "series", seriesId: command.collectionId },
+          dependencies.discovery,
         );
         const collection = await persistence.load(command.collectionId);
         return collection ?? rollback({ code: "content_collection_not_found" });

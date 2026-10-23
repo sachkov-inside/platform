@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
@@ -32,7 +33,10 @@ test("Product authoring preserves repeated programme identities separately from 
       contentVersion: 1n,
     },
   });
-  const materials = assembleProductMaterials(database.prisma);
+  const materials = assembleProductMaterials(
+    database.prisma,
+    new ProductDiscovery(database.prisma),
+  );
   const authoring = assembleProductAuthoring({
     prisma: database.prisma,
     authorPolicy: { canManage: () => true },
@@ -140,7 +144,10 @@ test("Product writes authorize through the same transaction handle as persistenc
   const authoring = assembleProductAuthoring({
     prisma: database.prisma,
     authorPolicy: { canManage: (_accountId, handle) => handle !== undefined },
-    materials: assembleProductMaterials(database.prisma),
+    materials: assembleProductMaterials(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
     loadCovers: async () => new Map(),
   });
   const product = await authoring.createContentCollection({

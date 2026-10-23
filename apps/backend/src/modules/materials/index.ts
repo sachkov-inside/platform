@@ -41,13 +41,7 @@ export {
   publishedMaterialProblemHttpSchema,
   publishedMaterialProjectionHttpSchema,
 } from "./adapters/nest/published-material-http.js";
-export { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
-export { type ProductArtifacts } from "./facets/product-artifacts/product-artifacts.js";
-export {
-  assembleProductArtifactDelivery,
-  type ProductArtifactDelivery,
-} from "./features/deliver-product-artifact/deliver-product-artifact.js";
-export { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
+
 export {
   MATERIAL_ASSET_MAINTENANCE,
   type MaterialAssetMaintenance,
@@ -82,9 +76,18 @@ export { PublicMaterialAnnouncements } from "./facets/public-material-announceme
 
 export { PRODUCT_ACCESS_HOLDERS } from "./ports/product-access-holders.js";
 export { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js";
-export { PRODUCT_ARTIFACTS } from "./facets/product-artifacts/product-artifacts.js";
+
 export { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
 export { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 
 export { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
 export { assembleProductMaterials } from "./adapters/products/product-materials.js";
+
+export { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
+export { assembleMaterialContent } from "./facets/material-content/material-content.js";
+export { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
+
+export type { AuthorPolicy } from "./ports/author-policy.js";
+export type { ProductAccessHolders } from "./ports/product-access-holders.js";
+
+export { MATERIAL_PUBLICATION } from "./facets/material-content/material-content.js";

@@ -9,7 +9,7 @@ export async function readHomeProjections(
   prisma: MaterialDiscoveryContext,
 ): ReturnType<ReadHomeProjectionsOperation> {
   try {
-    const pin = await loadHomePinnedSeries(prisma.prisma);
+    const pin = await loadHomePinnedSeries(prisma.products);
     return {
       ok: true,
       value: await selectHomeMaterialProjections(prisma, pin),

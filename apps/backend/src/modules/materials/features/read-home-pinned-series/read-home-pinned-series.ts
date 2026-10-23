@@ -1,11 +1,9 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { ProductDiscovery } from "../../../products/index.js";
 import {
-  productPageHero,
   type ProductPageCard,
   type ProductPageHero,
 } from "../../domain/product-page.js";
-import { readProductPage } from "../../shared/product-page-reader.js";
 import type { SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -24,10 +22,10 @@ export type ReadHomePinnedSeriesOperation = () => Promise<
 >;
 
 export async function readHomePinnedSeries(
-  prisma: MaterialsPrisma,
+  products: Pick<ProductDiscovery, "homePin">,
 ): ReturnType<ReadHomePinnedSeriesOperation> {
   try {
-    return { ok: true, value: await loadHomePinnedSeries(prisma) };
+    return { ok: true, value: await loadHomePinnedSeries(products) };
   } catch (error) {
     return {
       ok: false,
@@ -40,28 +38,8 @@ export async function readHomePinnedSeries(
   }
 }
 
-/** Shared persistence read; each public operation records its own dependency failure. */
-export async function loadHomePinnedSeries(
-  prisma: MaterialsPrisma,
+export function loadHomePinnedSeries(
+  products: Pick<ProductDiscovery, "homePin">,
 ): Promise<HomePinnedSeries | null> {
-  const pin = await prisma.homeSeriesPin.findUniqueOrThrow({
-    where: { id: 1 },
-    select: { seriesId: true },
-  });
-  if (pin.seriesId === null) return null;
-  const product = await prisma.product.findUnique({
-    where: { id: pin.seriesId },
-    select: { page: true, presentation: true, slug: true },
-  });
-  if (product === null) return null;
-  const page = readProductPage(
-    product.page,
-    `Home pinned Product ${product.slug}`,
-  );
-  return {
-    id: pin.seriesId,
-    presentation: product.presentation,
-    card: page?.card ?? null,
-    hero: productPageHero(page),
-  };
+  return products.homePin();
 }

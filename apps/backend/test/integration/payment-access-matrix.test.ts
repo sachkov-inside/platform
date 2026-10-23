@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -25,11 +27,13 @@ import type {
 } from "../../src/modules/billing/domain/owner-operations.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleProductArtifactDelivery,
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
+} from "../../src/modules/products/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import {
   assembleMaterialResourceFacts,
   materialId as checkedMaterialId,
   type MaterialId,
@@ -316,6 +320,10 @@ describe("оплата, выдача прав и доступ к материа�
     });
 
     const productArtifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },

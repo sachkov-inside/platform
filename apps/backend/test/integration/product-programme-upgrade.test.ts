@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
@@ -62,7 +63,10 @@ test("upgrade makes automatic programmes explicit before dropping duplicate cata
   `),
   ).toEqual([]);
   const owner = new ProductCompositions(database.prisma);
-  const materials = assembleProductMaterials(database.prisma);
+  const materials = assembleProductMaterials(
+    database.prisma,
+    new ProductDiscovery(database.prisma),
+  );
   const results = await owner.load({ ids: [auto, explicit] }, 2, {
     async load(ids) {
       return (await materials.load(ids)).map((row) => ({

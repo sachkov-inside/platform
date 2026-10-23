@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import {
@@ -137,7 +138,10 @@ describe.each([1, 10, 100])(
         prisma: measured.prisma,
         accounts,
         clock: () => now,
-        contentCatalog: new CoverageCatalog(measured.prisma),
+        contentCatalog: new CoverageCatalog(
+          measured.prisma,
+          new ProductDiscovery(measured.prisma),
+        ),
       });
     });
     afterAll(async () => {

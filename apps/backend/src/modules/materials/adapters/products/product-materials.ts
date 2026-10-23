@@ -1,4 +1,7 @@
-import type { ProductMaterials } from "../../../products/index.js";
+import type {
+  ProductMaterials,
+  ProductDiscovery,
+} from "../../../products/index.js";
 import {
   lockMaterialReferenceChanges,
   type MaterialsPrismaClient,
@@ -12,6 +15,7 @@ const publicationState = z.enum(["draft", "published", "unpublished"]);
 const access = z.enum(["free", "closed"]);
 export function assembleProductMaterials(
   prisma: MaterialsPrismaClient,
+  discovery: Pick<ProductDiscovery, "snapshot">,
 ): ProductMaterials {
   return {
     async load(ids: readonly string[], handle?: TransactionHandle) {
@@ -50,9 +54,13 @@ export function assembleProductMaterials(
     lockReferences: (ids, handle) =>
       lockMaterialReferenceChanges(materialsTransaction(handle), ids),
     refreshSearch: (ids, handle) =>
-      refreshPublishedMaterialSearchProjections(materialsTransaction(handle), {
-        kind: "materials",
-        materialIds: ids,
-      }),
+      refreshPublishedMaterialSearchProjections(
+        materialsTransaction(handle),
+        {
+          kind: "materials",
+          materialIds: ids,
+        },
+        discovery,
+      ),
   };
 }

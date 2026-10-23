@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import {
   assembleContentCovers,
   routeContentCoverSelection,
@@ -10,8 +12,8 @@ import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
+import { assembleProductArtifacts } from "../../src/modules/products/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import { assembleProductArtifacts } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -584,6 +586,10 @@ describe("authoring source Product completion", () => {
 
   test("imports artifacts only into the Product owned by the declared source", async () => {
     const artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -710,6 +716,10 @@ describe("authoring source Product completion", () => {
   });
   test("artifact import rolls back the entire batch and uses the same locks as editor refusals", async () => {
     const artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -790,6 +800,10 @@ describe("authoring source Product completion", () => {
       "staged-race",
     );
     const artifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage,
       prisma: database.prisma,
@@ -843,6 +857,10 @@ describe("authoring source Product completion", () => {
       },
     };
     const racingArtifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       authorPolicy,
       objectStorage: racingStorage,
       prisma: database.prisma,

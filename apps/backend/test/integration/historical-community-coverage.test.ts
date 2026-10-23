@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -63,7 +64,10 @@ beforeEach(async () => {
   rights = assembleAccessGrants({
     prisma: db.prisma,
     accounts,
-    contentCatalog: new CoverageCatalog(db.prisma),
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
     clock: () => now,
   });
 });

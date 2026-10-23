@@ -1,3 +1,5 @@
+import { readProductPage } from "../../shared/product-page-reader.js";
+import { productPageHero } from "../../domain/product-page.js";
 import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
 import type {
   ProductsPrisma,
@@ -10,6 +12,56 @@ import { productsTransaction } from "../../infrastructure/transaction.js";
 export class ProductDiscovery {
   constructor(private readonly prisma: ProductsPrismaClient) {}
 
+  async homePin() {
+    const pin = await this.prisma.homeSeriesPin.findUniqueOrThrow({
+      where: { id: 1 },
+      select: { seriesId: true },
+    });
+    if (pin.seriesId === null) return null;
+    const product = await this.prisma.product.findUnique({
+      where: { id: pin.seriesId },
+      select: { page: true, presentation: true, slug: true },
+    });
+    if (product === null) return null;
+    const page = readProductPage(
+      product.page,
+      `Home pinned Product ${product.slug}`,
+    );
+    return {
+      id: pin.seriesId,
+      presentation: product.presentation,
+      card: page?.card ?? null,
+      hero: productPageHero(page),
+    };
+  }
+
+  metadata(query?: {
+    readonly ids: readonly string[];
+    readonly includeActive: boolean;
+  }) {
+    return this.prisma.product.findMany({
+      ...(query === undefined
+        ? {}
+        : {
+            where: {
+              OR: [
+                { id: { in: [...query.ids] } },
+                ...(query.includeActive ? [{ archivedAt: null }] : []),
+              ],
+            },
+          }),
+      select: {
+        id: true,
+        createdAt: true,
+        name: true,
+        slug: true,
+        summary: true,
+        archivedAt: true,
+        coverId: true,
+      },
+    });
+  }
+
   snapshot(handle?: TransactionHandle) {
     return handle === undefined
       ? this.prisma.$transaction((tx) => this.read(tx))
@@ -21,6 +73,7 @@ export class ProductDiscovery {
       prisma.product.findMany({
         select: {
           id: true,
+          createdAt: true,
           name: true,
           slug: true,
           summary: true,
@@ -33,17 +86,19 @@ export class ProductDiscovery {
         select: { seriesId: true, materialId: true },
       }),
     ]);
+    const ordinalByPair = new Map(
+      memberships.map((entry) => [
+        `${entry.seriesId}/${entry.materialId}`,
+        entry.ordinal,
+      ]),
+    );
     return {
       products,
       memberships,
       publishedMemberships: publishedMemberships.map((entry) => ({
         ...entry,
         ordinal:
-          memberships.find(
-            (membership) =>
-              membership.seriesId === entry.seriesId &&
-              membership.materialId === entry.materialId,
-          )?.ordinal ?? 1,
+          ordinalByPair.get(`${entry.seriesId}/${entry.materialId}`) ?? 1,
       })),
     };
   }

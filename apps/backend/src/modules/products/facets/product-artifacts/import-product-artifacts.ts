@@ -1,13 +1,14 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import {
   Prisma,
-  type MaterialsPrismaTransaction,
+  type ProductsPrisma,
 } from "../../../../infrastructure/prisma/index.js";
 import {
   checkContentWrite,
   type ContentWriteTarget,
   type ContentWriter,
-} from "../../domain/content-write-policy.js";
+} from "../../../../infrastructure/content-authoring/content-write-policy.js";
 import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { executeAuthoringTransaction } from "../../shared/application-result.js";
 import {
@@ -85,6 +86,11 @@ export async function applyAuthoringImport(
     >(
       context.prisma,
       async (transaction, rollback) => {
+        const forbidden = await context.authorize(
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (forbidden !== null) return rollback(forbidden);
         // All artifact writers take Artifact locks before Product locks.
         if (sourceIds.length > 0)
           await transaction.$executeRaw(
@@ -211,7 +217,7 @@ export async function applyAuthoringImport(
     return result;
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "applyAuthoringImport" },
+      { module: "products", operation: "applyAuthoringImport" },
       error,
       { ok: false, error: { code: "dependency_unavailable", retryable: true } },
     );
@@ -247,7 +253,7 @@ function outcome(
 }
 
 async function createFromSource(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ProductsPrisma,
   command: AuthoringImportCommand,
   item: PreparedArtifact,
 ): Promise<void> {
@@ -284,7 +290,7 @@ async function createFromSource(
 }
 
 async function updateFromSource(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ProductsPrisma,
   command: AuthoringImportCommand,
   existing: ArtifactRow,
   item: PreparedArtifact,

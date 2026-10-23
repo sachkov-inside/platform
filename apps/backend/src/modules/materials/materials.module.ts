@@ -83,16 +83,6 @@ import {
   type ContentCovers,
 } from "../content-covers/index.js";
 import { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-import { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
-import {
-  PRODUCT_ARTIFACTS,
-  type ProductArtifacts,
-} from "./facets/product-artifacts/product-artifacts.js";
-import {
-  assembleProductArtifactDelivery,
-  PRODUCT_ARTIFACT_DELIVERY,
-  type ProductArtifactDelivery,
-} from "./features/deliver-product-artifact/deliver-product-artifact.js";
 
 @Module({
   imports: [
@@ -110,6 +100,7 @@ import {
       inject: [
         PrismaClientProvider,
         PRODUCT_AUTHORING,
+        ProductDiscovery,
         PRODUCT_MEMBERSHIPS,
         ACCOUNTS,
         CONTENT_ACCESS,
@@ -120,6 +111,7 @@ import {
       useFactory: (
         prisma: PrismaClientProvider,
         products: ProductAuthoring,
+        discovery: ProductDiscovery,
         memberships: ProductMemberships,
         accounts: Accounts,
         contentAccess: ContentAccess,
@@ -135,6 +127,7 @@ import {
         return assembleMaterialAuthoring({
           prisma,
           products,
+          discovery,
           memberships,
           authorPolicy,
           contentAccess,
@@ -190,48 +183,6 @@ import {
           },
         });
       },
-    },
-    {
-      provide: PRODUCT_ARTIFACTS,
-      inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
-      useFactory: (
-        prisma: PrismaClientProvider,
-        accounts: Accounts,
-        objectStorage: ObjectStorage,
-      ): ProductArtifacts => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
-        return assembleProductArtifacts({
-          authorPolicy: {
-            canManage: (accountId) =>
-              accountPermissions.hasMaterialsManage(
-                checkedAccountId(accountId),
-              ),
-          },
-          objectStorage,
-          prisma,
-        });
-      },
-    },
-    {
-      provide: PRODUCT_ARTIFACT_DELIVERY,
-      inject: [
-        PRODUCT_ARTIFACTS,
-        CONTENT_ACCESS,
-        OBJECT_STORAGE,
-        PLATFORM_CONFIG,
-      ],
-      useFactory: (
-        artifacts: ProductArtifacts,
-        contentAccess: ContentAccess,
-        objectStorage: ObjectStorage,
-        config: PlatformConfig,
-      ): ProductArtifactDelivery =>
-        assembleProductArtifactDelivery({
-          artifacts,
-          contentAccess,
-          objectStorage,
-          signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
-        }),
     },
     {
       provide: MATERIAL_ASSET_AUTHORING,
@@ -316,8 +267,6 @@ import {
   exports: [
     CONTENT_COVERS,
     MaterialAnnouncements,
-    PRODUCT_ARTIFACTS,
-    PRODUCT_ARTIFACT_DELIVERY,
     MATERIAL_AUTHORING,
     MATERIAL_ASSET_AUTHORING,
     MATERIAL_ASSET_DELIVERY,

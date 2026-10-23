@@ -53,7 +53,7 @@ export async function listProductArtifacts(
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "listForProduct" },
+      { module: "products", operation: "listForProduct" },
       error,
       dependencyUnavailable(),
     );
@@ -89,7 +89,7 @@ export async function listReusableProductArtifacts(
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "listReusable" },
+      { module: "products", operation: "listReusable" },
       error,
       dependencyUnavailable(),
     );
@@ -134,7 +134,7 @@ export async function loadReaderProductArtifacts(
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "loadForReader" },
+      { module: "products", operation: "loadForReader" },
       error,
       dependencyUnavailable(),
     );
@@ -187,7 +187,7 @@ export async function loadProductArtifactFileDelivery(
     };
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "loadFileDelivery" },
+      { module: "products", operation: "loadFileDelivery" },
       error,
       dependencyUnavailable(),
     );

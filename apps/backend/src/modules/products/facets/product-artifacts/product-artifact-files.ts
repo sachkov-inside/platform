@@ -56,7 +56,7 @@ export function assembleProductArtifactFiles(
       return result.ok ? { ok: true, value: null } : dependencyUnavailable();
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "putObject" },
+        { module: "products", operation: "putObject" },
         error,
         dependencyUnavailable(),
       );
@@ -73,7 +73,7 @@ export function assembleProductArtifactFiles(
       // Quarantine and abandoned objects are immutable and unreferenced; a
       // failed cleanup never blocks the author-visible outcome.
       reportDependencyFailure(
-        { module: "materials", operation: "forgetObject" },
+        { module: "products", operation: "forgetObject" },
         error,
       );
     }

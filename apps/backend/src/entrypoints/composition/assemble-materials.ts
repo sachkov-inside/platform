@@ -1,3 +1,4 @@
+import { composeMaterialAccessFacts } from "./material-access-facts.js";
 import { ProductMemberships } from "../../modules/products/index.js";
 import { assembleProductAuthoring } from "../../modules/products/index.js";
 import { assembleProductMaterials } from "../../modules/materials/index.js";
@@ -14,19 +15,19 @@ import {
   assembleDeterministicAccountRights,
   type ContentAccess,
 } from "../../modules/content-access/index.js";
-import { assembleMaterialResourceFacts } from "../../modules/materials/adapters/content-access/material-resource-facts.js";
-import { assembleMaterialAuthoring } from "../../modules/materials/facets/material-authoring/assemble-material-authoring.js";
-import type { MaterialAuthoring } from "../../modules/materials/facets/material-authoring/material-authoring.js";
+import { assembleMaterialResourceFacts } from "../../modules/materials/index.js";
+import { assembleMaterialAuthoring } from "../../modules/materials/index.js";
+import type { MaterialAuthoring } from "../../modules/materials/index.js";
 import {
   assembleMaterialContent,
   type MaterialContent,
-} from "../../modules/materials/facets/material-content/material-content.js";
-import { assemblePublishedMaterialReader } from "../../modules/materials/facets/published-material-reader/assemble-published-material-reader.js";
-import type { PublishedMaterialReader } from "../../modules/materials/facets/published-material-reader/published-material-reader.js";
-import type { AuthorPolicy } from "../../modules/materials/ports/author-policy.js";
-import type { ProductAccessHolders } from "../../modules/materials/ports/product-access-holders.js";
+} from "../../modules/materials/index.js";
+import { assemblePublishedMaterialReader } from "../../modules/materials/index.js";
+import type { PublishedMaterialReader } from "../../modules/materials/index.js";
+import type { AuthorPolicy } from "../../modules/materials/index.js";
+import type { ProductAccessHolders } from "../../modules/materials/index.js";
 import type { Videos } from "../../modules/videos/index.js";
-import { materialBodyOperations } from "../../modules/materials/infrastructure/tiptap/index.js";
+import { materialBodyOperations } from "../../modules/materials/index.js";
 
 export interface Materials {
   readonly authoring: MaterialAuthoring;
@@ -53,11 +54,13 @@ export function assembleMaterials(dependencies: {
     | "loadPresentation"
   >;
 }): Materials {
-  const materialContent = assembleMaterialContent({
-    prisma: dependencies.prisma,
-    materialBodyOperations,
-    productCatalogue: new ProductCatalogue(dependencies.prisma),
-  });
+  const materialContent = composeMaterialAccessFacts(
+    assembleMaterialContent({
+      prisma: dependencies.prisma,
+      materialBodyOperations,
+    }),
+    new ProductCatalogue(dependencies.prisma),
+  );
   const contentAccess =
     dependencies.contentAccess ??
     assembleContentAccess({
@@ -69,12 +72,16 @@ export function assembleMaterials(dependencies: {
       accountRights: assembleDeterministicAccountRights(),
     });
   const shared = {
+    discovery: new ProductDiscovery(dependencies.prisma),
     memberships: new ProductMemberships(dependencies.prisma),
     prisma: dependencies.prisma,
     products: assembleProductAuthoring({
       prisma: dependencies.prisma,
       authorPolicy: dependencies.authorPolicy,
-      materials: assembleProductMaterials(dependencies.prisma),
+      materials: assembleProductMaterials(
+        dependencies.prisma,
+        new ProductDiscovery(dependencies.prisma),
+      ),
       ...(dependencies.productAccessHolders === undefined
         ? {}
         : { productAccessHolders: dependencies.productAccessHolders }),
