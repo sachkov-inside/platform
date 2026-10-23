@@ -1,3 +1,7 @@
+import { assembleProductAuthoring } from "../../modules/products/index.js";
+import { assembleProductMaterials } from "../../modules/materials/index.js";
+import { loadContentCoverProjections } from "../../modules/content-covers/index.js";
+import { transactionHandle } from "../../infrastructure/prisma/index.js";
 import {
   ProductCatalogue,
   ProductDiscovery,
@@ -65,6 +69,19 @@ export function assembleMaterials(dependencies: {
     });
   const shared = {
     prisma: dependencies.prisma,
+    products: assembleProductAuthoring({
+      prisma: dependencies.prisma,
+      authorPolicy: dependencies.authorPolicy,
+      materials: assembleProductMaterials(dependencies.prisma),
+      ...(dependencies.productAccessHolders === undefined
+        ? {}
+        : { productAccessHolders: dependencies.productAccessHolders }),
+      loadCovers: (ids, handle) =>
+        loadContentCoverProjections(
+          handle ?? transactionHandle(dependencies.prisma),
+          ids,
+        ),
+    }),
     authorPolicy: dependencies.authorPolicy,
     contentAccess,
     materialBodyOperations,

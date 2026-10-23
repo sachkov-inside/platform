@@ -1272,28 +1272,8 @@ function projectionQueries(snapshot: DiscoverySnapshot) {
   function coverProjectionSql(
     coverId: Prisma.Sql = Prisma.sql`publication.cover_id`,
   ): Prisma.Sql {
-    return Prisma.sql`
-    (
-      select jsonb_build_object(
-        'coverId', cover.id,
-        'renditions', coalesce(
-          (
-            select jsonb_agg(
-              jsonb_build_object('width', rendition.width, 'height', rendition.height)
-              order by rendition.width
-            )
-            from content_covers.content_cover_renditions as rendition
-            where rendition.cover_id = cover.id
-          ),
-          '[]'::jsonb
-        )
-      )
-      from content_covers.content_covers as cover
-      where cover.id = ${coverId}
-        and cover.state = 'ready'
-        and cover.currently_referenced
-    )
-  `;
+    // The pointer belongs to the content owner; lifecycle facts are hydrated through Content Covers.
+    return Prisma.sql`case when ${coverId} is null then null else jsonb_build_object('coverId', ${coverId}, 'renditions', '[]'::jsonb) end`;
   }
 
   function toProjection(
@@ -1406,7 +1386,13 @@ export async function selectPublishedMaterialProjectionPage(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionPage"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionPage(context.prisma, ...args);
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionPage(
+      context.prisma,
+      ...args,
+    ),
+    context.prisma,
+  );
 }
 
 export async function selectHomeMaterialProjections(
@@ -1414,7 +1400,10 @@ export async function selectHomeMaterialProjections(
   ...args: Tail<Parameters<ProjectionQueries["selectHomeMaterialProjections"]>>
 ): ReturnType<ProjectionQueries["selectHomeMaterialProjections"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectHomeMaterialProjections(context.prisma, ...args);
+  return hydrateProjectionCovers(
+    await queries.selectHomeMaterialProjections(context.prisma, ...args),
+    context.prisma,
+  );
 }
 
 export async function selectPublishedMaterialProjectionsByIds(
@@ -1467,4 +1456,33 @@ export async function selectRelatedPublishedMaterialProjections(
     context.prisma,
     ...args,
   );
+}
+
+async function hydrateProjectionCovers<Value>(
+  value: Value,
+  prisma: MaterialsPrisma,
+): Promise<Value> {
+  const ids = new Set<string>();
+  function collect(current: unknown): void {
+    if (current === null || typeof current !== "object") return;
+    if ("coverId" in current && typeof current.coverId === "string") {
+      ids.add(current.coverId);
+      return;
+    }
+    for (const child of Object.values(current)) collect(child);
+  }
+  collect(value);
+  const covers = await loadContentCoverProjections(transactionHandle(prisma), [
+    ...ids,
+  ]);
+  function hydrate(current: unknown): unknown {
+    if (current === null || typeof current !== "object") return current;
+    if ("coverId" in current && typeof current.coverId === "string")
+      return covers.get(current.coverId) ?? null;
+    if (Array.isArray(current)) return current.map(hydrate);
+    return Object.fromEntries(
+      Object.entries(current).map(([key, child]) => [key, hydrate(child)]),
+    );
+  }
+  return hydrate(value) as Value;
 }

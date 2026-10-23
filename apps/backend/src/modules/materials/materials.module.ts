@@ -1,3 +1,4 @@
+import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
 import {
   ProductDiscovery,
   ProductsModule,
@@ -104,6 +105,7 @@ import {
       provide: MATERIAL_AUTHORING,
       inject: [
         PrismaClientProvider,
+        PRODUCT_AUTHORING,
         ACCOUNTS,
         CONTENT_ACCESS,
         MATERIAL_ASSETS,
@@ -112,6 +114,7 @@ import {
       ],
       useFactory: (
         prisma: PrismaClientProvider,
+        products: ProductAuthoring,
         accounts: Accounts,
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
@@ -125,6 +128,7 @@ import {
         };
         return assembleMaterialAuthoring({
           prisma,
+          products,
           authorPolicy,
           contentAccess,
           materialAssets,

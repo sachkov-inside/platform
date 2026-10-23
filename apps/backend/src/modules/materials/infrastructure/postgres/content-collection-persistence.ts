@@ -1,19 +1,16 @@
-import {
-  Prisma,
-  type MaterialsPrisma,
-} from "../../../../infrastructure/prisma/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/index.js";
+import { type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type {
   ProductPage,
   ProductSourceFields,
 } from "../../domain/product-page.js";
-import { readProductPageState } from "../../shared/product-page-reader.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
   ProductIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
-import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
-import { loadContentCoverProjections } from "./content-cover-projections.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
+import { loadContentCoverProjections } from "../../../content-covers/index.js";
 
 interface ContentCollectionRecord {
   readonly archivedAt: Date | null;
@@ -24,13 +21,6 @@ interface ContentCollectionRecord {
   readonly version: number;
   readonly coverId: string | null;
 }
-
-type ProductRecord = ContentCollectionRecord &
-  ProductIntroductionDto & {
-    readonly page: unknown;
-    readonly presentation: string;
-    readonly sourceId: string | null;
-  };
 
 interface ContentCollectionPersistence {
   readonly create: (data: {
@@ -77,7 +67,7 @@ function topicPersistence(
     const [materialCount, covers] = await Promise.all([
       prisma.material.count({ where: { topicId: record.id } }),
       loadContentCoverProjections(
-        prisma,
+        transactionHandle(prisma),
         record.coverId === null ? [] : [record.coverId],
       ),
     ]);
@@ -112,7 +102,7 @@ function topicPersistence(
         ),
       );
       const covers = await loadContentCoverProjections(
-        prisma,
+        transactionHandle(prisma),
         records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
       );
       return records.map((record) =>

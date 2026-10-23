@@ -1,8 +1,3 @@
-import {
-  checkContentWrite,
-  contentWriter,
-} from "../../domain/content-write-policy.js";
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -26,10 +21,7 @@ import { contentCollectionPersistence } from "../../infrastructure/postgres/cont
 import {
   productPageSchema,
   productPresentationSchema,
-  type ProductSourceFields,
 } from "../../domain/product-page.js";
-import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
-import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import {
   PRODUCT_INTRODUCTION_FIELD_MAX,
   type ProductIntroductionDto,

@@ -1,6 +1,10 @@
+import type { TransactionHandle } from "../prisma/transaction-handle.js";
 import { dependencyFailure } from "../observability/index.js";
 export interface AuthorPolicy {
-  canManage(accountId: string): boolean | Promise<boolean>;
+  canManage(
+    accountId: string,
+    handle?: TransactionHandle,
+  ): boolean | Promise<boolean>;
 }
 
 export type AuthorAuthorization =
@@ -15,9 +19,10 @@ export type AuthorAuthorization =
 export async function authorizeManager(
   policy: AuthorPolicy,
   accountId: string,
+  handle?: TransactionHandle,
 ): Promise<AuthorAuthorization> {
   try {
-    return (await policy.canManage(accountId))
+    return (await policy.canManage(accountId, handle))
       ? { ok: true }
       : { ok: false, error: { code: "forbidden" } };
   } catch (error) {
