@@ -61,17 +61,39 @@ beforeEach(async () => {
     prisma: db.prisma,
     emailFingerprintKey: "historical-community-fixture-fingerprint-key",
   });
-  rights = assembleAccessGrants({
-    prisma: db.prisma,
-    accounts,
-    contentCatalog: new CoverageCatalog(
-      db.prisma,
-      new ProductDiscovery(db.prisma),
-    ),
-    clock: () => now,
-  });
+  rights = withCatalogue(historicalProducts);
 });
 afterEach(async () => db.dispose());
+
+/** The pre-0104 metadata seam reads its historical schema, while rights use real persistence. */
+const historicalProducts: Pick<ProductDiscovery, "metadata"> = {
+  metadata(query) {
+    const where =
+      query === undefined
+        ? Prisma.empty
+        : Prisma.sql`where id = any(${[...query.ids]}::uuid[]) or (${query.includeActive} and archived_at is null)`;
+    return db.prisma.$queryRaw<
+      Awaited<ReturnType<ProductDiscovery["metadata"]>>
+    >(Prisma.sql`
+      select id, created_at as "createdAt", name, slug, summary, archived_at as "archivedAt", cover_id as "coverId"
+      from materials.series ${where}
+    `);
+  },
+};
+function withCatalogue(
+  products: Pick<ProductDiscovery, "metadata">,
+): AccessGrants {
+  return assembleAccessGrants({
+    prisma: db.prisma,
+    accounts,
+    contentCatalog: new CoverageCatalog(db.prisma, products),
+    clock: () => now,
+  });
+}
+async function upgradeAndUseCurrentCatalogue() {
+  await upgradeToLatest(db);
+  rights = withCatalogue(new ProductDiscovery(db.prisma));
+}
 
 async function historicalGrant(
   capabilities: string[],
@@ -133,7 +155,7 @@ test("repairs a historical Product grant at the public own-Product and scoped ca
       },
     ],
   });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(await rights.readOwnProducts(account)).toMatchObject({
     ok: true,
     value: [
@@ -260,7 +282,7 @@ test("preserves a historical unscoped support community term across Product excl
     before.ok &&
       before.capabilities.some(({ capability }) => capability === "community"),
   ).toBe(false);
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -306,7 +328,7 @@ test("does not extend a completed historical community term", async () => {
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({ ...original, coverage: null });
@@ -376,7 +398,7 @@ test("leaves explicit scopes, unjournaled grants, new backdated grants and later
     where: { id: { in: ids } },
     orderBy: { id: "asc" },
   });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findMany({
       where: { id: { in: ids } },
@@ -420,7 +442,7 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
   const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseId },
   });
-  await upgradeToLatest(db);
+  await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
   ).toEqual({

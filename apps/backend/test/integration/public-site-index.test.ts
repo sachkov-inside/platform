@@ -72,12 +72,43 @@ beforeAll(async () => {
       publicSearchText: "Index fixture",
     })),
   });
-  await database.prisma.publishedMaterialProductMembership.createMany({
+  await database.prisma.productMembership.createMany({
     data: [
-      { materialId: id(1), seriesId: id(2001), ordinal: 1 },
-      { materialId: id(2), seriesId: id(2003), ordinal: 1 },
+      { materialId: id(1), seriesId: id(2001) },
+      { materialId: id(2), seriesId: id(2003) },
     ],
   });
+  const authoring = assembleMaterials({
+    prisma: database.prisma,
+    authorPolicy: { canManage: () => true },
+  }).authoring;
+  for (const [seriesId, materialId] of [
+    [id(2001), id(1)],
+    [id(2003), id(2)],
+  ] as const) {
+    const order = await authoring.loadSeriesOrder({
+      actor: id(3001),
+      seriesId,
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await authoring.reorderSeries({
+      actor: id(3001),
+      seriesId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [materialId],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
+  }
+  await expect(
+    database.prisma.publishedMaterialProductMembership.findMany({
+      orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
+      select: { materialId: true, seriesId: true },
+    }),
+  ).resolves.toEqual([
+    { materialId: id(1), seriesId: id(2001) },
+    { materialId: id(2), seriesId: id(2003) },
+  ]);
+
   measured = createQueryEventClient(database.url);
 });
 afterAll(async () => {
@@ -276,7 +307,7 @@ test("unpublishing is visible on the next traversal and collection metadata", as
       data: { ...publication, outcomes: [] },
     });
     await database.prisma.publishedMaterialProductMembership.create({
-      data: { materialId: id(1), seriesId: id(2001), ordinal: 1 },
+      data: { materialId: id(1), seriesId: id(2001) },
     });
   }
 });
