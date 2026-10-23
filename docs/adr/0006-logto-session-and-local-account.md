@@ -4,6 +4,11 @@ status: accepted
 
 # Let Logto own authentication sessions and model one local Account
 
+The owner-approved [2026-10-20 Account profile and first-email contract](../specifications/account-profile-v1.md)
+supersedes the first-email-attachment exclusion below: a verified first email can be attached to
+the existing provider user without changing or merging the local Account. Historical permission
+and Membership names below do not override the current Accounts and Product Access contracts.
+
 Platform keeps the official `@logto/next` BFF cookie as its only authentication session and maps a
 verified Logto `(issuer, subject)` directly to one local human `Account`. Platform owns business
 permissions and Membership facts, but does not mirror provider sessions, model a generic

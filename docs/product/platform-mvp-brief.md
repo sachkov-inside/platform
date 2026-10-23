@@ -226,7 +226,7 @@ legacy-группы. Юридические тексты/реквизиты и �
 - создаёт или открывает Account кодом из почты либо подтверждением в Telegram-боте,
   без отдельной формы регистрации и ссылок «Ещё не зарегистрированы?» / «Создать аккаунт»;
   Telegram-вход доступен при серверном включении функции;
-- управляет private Account и отдельным Member Profile;
+- управляет private Account и отдельным Account Profile;
 - enters an editable email before one-time or subscription payment, without an obligatory confirmation code;
 - optionally confirms a Billing Contact in «Покупки» for future service messages and subscription receipts;
   confirmation adds no sign-in method and merges no Account. The [purchase email policy](subscription-billing-v1.md#purchase-email--1401) owns recipient precedence. Контракт контакта,
@@ -244,7 +244,7 @@ legacy-группы. Юридические тексты/реквизиты и �
   а без входа — кнопку «Войти»;
 - получает доступ из объединения действующих paid/manual/legacy оснований Account;
 - открывает закрытые материалы по возможности `materials`; тарифный checkout поставляется отдельно;
-- после окончания всех оснований доступа сохраняет Account, Member Profile, историю и статусы
+- после окончания всех оснований доступа сохраняет Account, Account Profile, историю и статусы
   прочтения, но до появления действующего права теряет доступ к закрытым материалам.
 
 Экран Telegram-входа содержит кнопку «Открыть бота» и короткий статус. Бот спрашивает
@@ -269,9 +269,11 @@ timestamps, evidence, provider identity и internal identifiers не показ�
 Membership state и acquisition action остаются только в Account и на закрытых материалах. Истёкшую обычную попытку
 можно начать заново, а conflict или recovery с риском silent
 transfer ведут только к owner/support handoff; URL поддержки является optional runtime setting и
-при его отсутствии заменяется безопасным текстом без неработающей ссылки. Member Profile виден только владельцу
-(решение владельца 15.09.2026, Workspace #185; #658): проекции для других участников, гостей и
-поисковых роботов нет; profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
+при его отсутствии заменяется безопасным текстом без неработающей ссылки. Account Profile является приватным:
+его биография и аватар доступны только владельцу аккаунта. Автор при работе со сдачами получает
+только имя активного профиля, как описано в [контракте авторской проверки](../specifications/platform-v1.md).
+По решению владельца 15.09.2026 (Workspace #185; #658) проекции профиля для других участников,
+гостей и поисковых роботов нет; profile не индексируется и никогда не содержит email, Platform или Telegram internal identifiers,
 Telegram username, linking/evidence, security или audit data. Exact поля, avatar, discoverability
 и visibility policy утверждены владельцем в Platform #51 и уточнены в Platform #189: Profile содержит
 обязательное изменяемое non-unique display name и optional bio. Profile не является глобальным gate:
@@ -760,7 +762,7 @@ migration pipeline в Platform нет.
 - публичные карточки закрытых материалов и полностью бесплатные материалы;
 - полнотекстовый поиск и фильтры;
 - вход по почте и через Telegram, private Account и связь с Telegram Membership;
-- Member Profile, видимый только владельцу;
+- Приватный Account Profile с ограниченной авторской проекцией имени для сдач;
 - экран первого входа с принятием условий кнопкой, журнал принятия и уведомление о хранении в
   браузере;
 - чтение закрытого контента участником;
@@ -835,7 +837,7 @@ production включается после публикации политики
   UI laboratory и production frontend integration; application specification владеет delivery
   order и provenance отменённых pre-production gates.
 - [Platform #48](https://github.com/sachkov-inside/platform/issues/48) — root Specification для
-  Identity, Account, Member Profile, authorization и Membership delivery.
+  Identity, Account, Account Profile, authorization и Membership delivery.
 - [Workspace #65](https://github.com/sachkov-inside/workspace/issues/65) и завершённая
   [#66](https://github.com/sachkov-inside/workspace/issues/66) — cross-repository authority и
   provenance для Platform/Telegram contract; Platform build и runtime от Workspace не зависят.

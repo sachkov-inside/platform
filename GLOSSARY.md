@@ -296,6 +296,16 @@ Platform's stable private identity for one authenticated human. It owns Platform
 is independent of profile presentation and Account Rights.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
+**Sign-in Identity**:
+The authentication provider's verified identity that establishes or resolves one Account.
+Email and Telegram sign-in are ways to prove it, separate from profile presentation and Product Access.
+_Avoid_: Username, Billing Contact, Order Email, public profile
+
+**Sign-in Email**:
+A verified email accepted by the authentication provider as a way to sign in to an Account.
+It is independent of Billing Contact and Order Email.
+_Avoid_: Receipt contact, unverified purchase email, profile identity
+
 **Billing Contact**:
 An optional Account-owned verified email for service notifications, independent of its sign-in identity.
 A pending replacement becomes the contact only after verification.
@@ -307,9 +317,8 @@ It is the fallback for purchase messages when the Account has no Billing Contact
 _Avoid_: Billing Contact, login email, verified identity
 
 **Legal Edition**:
-One published version of a legal document, identified by its document key, version number,
-effective date and the SHA-256 of its exact text. A published edition never changes: a correction
-is the next version, and the earlier text stays readable at its own address.
+One published, unchangeable version of a legal document, with its own identity and effective date.
+Acceptance refers to its exact text; a correction is a new edition, while the earlier one remains readable.
 _Avoid_: draft, current page content, document without a version
 
 **Legal Acceptance**:
@@ -319,14 +328,14 @@ does not stand in for acceptance of purchase conditions.
 _Avoid_: consent checkbox, current legal text, payment permission, preselected checkbox
 
 **Platform Administrator**:
-An Account explicitly granted all known Platform operations through `platform:admin`.
-Its authority is read from current Account grants, never inferred from author access or provider roles.
+An Account explicitly authorized for all known Platform operations. Its current authority is not
+inferred from author access or authentication-provider roles.
 _Avoid_: author, member, Telegram administrator
 
-**Member Profile**:
-The owner's own presentation of an Account: display name, bio and avatar visible only to that
-Account. It is never shown to other members or visitors and never grants identity, Account Rights or
-content access.
+**Account Profile**:
+The Account holder's private presentation: display name, biography and avatar, separate from
+sign-in identity and access. An authorized author may read its active display name for Task
+submissions, without a public profile, biography or avatar projection.
 _Avoid_: Account, public internet profile, identity record
 
 **MembershipEvidence**:
@@ -539,3 +548,4 @@ These names refer to the same concept; they do not introduce another right or pr
 | Lesson Block | Material Block |
 | Lesson Difficulty | Material Difficulty |
 | Lesson Outcomes | Material Outcomes |
+| Member Profile | Account Profile |

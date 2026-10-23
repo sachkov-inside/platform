@@ -22,6 +22,11 @@ A short-lived, single-use invitation from an authenticated Account flow to prove
 one PlatformLink through the bot.
 _Avoid_: Referral, auth session, permanent link token
 
+**SignInRequest**:
+A short-lived, single-use request to prove a Telegram identity for sign-in, bound to the initiating
+browser and explicit approval in the bot. It neither creates Product Access nor joins a community.
+_Avoid_: LinkTransaction, PlatformLink, access grant, Telegram membership
+
 **MembershipEvidence**:
 A finite, normalized statement derived from a MembershipObservation and delivered to Platform.
 It contains opaque references rather than Telegram provider data. A delivered or rejected
