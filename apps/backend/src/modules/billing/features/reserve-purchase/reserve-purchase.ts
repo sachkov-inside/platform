@@ -1,4 +1,3 @@
-import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 import { z } from "zod";
 import { canonicalJson } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -17,6 +16,7 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
+import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 
 const reserveSchema = z.strictObject({
   accountId: idSchema,
@@ -88,15 +88,7 @@ export async function reservePurchaseInTransaction(
     return failure("not_found");
   if (
     await tx.billingPromoReservation.findFirst({
-      where: {
-        OR: [
-          { quoteRef: command.quoteRef },
-          {
-            accountId: command.accountId,
-            state: { in: ["reserved", "sent", "unknown"] },
-          },
-        ],
-      },
+      where: { quoteRef: command.quoteRef, state: { not: "failed" } },
     })
   )
     return failure("reservation_conflict");

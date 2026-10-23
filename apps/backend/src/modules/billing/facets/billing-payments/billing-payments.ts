@@ -126,52 +126,6 @@ export class BillingPayments {
       });
       if (!quote) return paymentFailure("not_found");
       const snapshot = priceSnapshotSchema.parse(quote.snapshot);
-      const blocking = await this.dependencies.prisma.billingPurchase.findFirst(
-        {
-          where: {
-            accountId,
-            kind: { in: ["initial", "one_time"] },
-            state: { in: inFlightStates },
-          },
-        },
-      );
-      if (
-        blocking !== null &&
-        priceSnapshotSchema.parse(blocking.snapshot).paymentOption.id !==
-          snapshot.paymentOption.id
-      ) {
-        await this.awaitBankAnswer(blocking.id);
-        const reconciled = await this.reconcile(blocking.id);
-        if (!reconciled.ok) return reconciled;
-        const current = await this.status(accountId, blocking.id);
-        if (!current.ok) return current;
-        if (current.value.state === "confirmed") {
-          const confirmedRef = current.value.purchaseRef;
-          const resumed = await this.dependencies.prisma.$transaction(
-            async (tx): Promise<PaymentResult<string>> => {
-              await lockBillingPricing(tx);
-              const key = { accountId, operationId: command.operationId };
-              const receipt = await tx.billingPurchaseCommand.findUnique({
-                where: { accountId_operationId: key },
-              });
-              if (receipt)
-                return fingerprint.recognizes(receipt.fingerprint)
-                  ? { ok: true, value: receipt.purchaseRef }
-                  : paymentFailure("operation_conflict");
-              await tx.billingPurchaseCommand.create({
-                data: {
-                  ...key,
-                  fingerprint: fingerprint.digest,
-                  purchaseRef: confirmedRef,
-                },
-              });
-              return { ok: true, value: confirmedRef };
-            },
-          );
-          if (!resumed.ok) return resumed;
-          return await this.continuePurchase(accountId, resumed.value);
-        }
-      }
       const mode = paymentMode(snapshot.paymentOption);
       if (mode !== "one_time") return paymentFailure("method_unavailable");
       const recurring = false;
@@ -261,10 +215,25 @@ export class BillingPayments {
             let continuingPurchase = await tx.billingPurchase.findFirst({
               where: {
                 accountId,
-                kind: { in: ["initial", "one_time"] },
+                kind: "one_time",
+                state: { in: inFlightStates },
                 OR: [
-                  { quoteRef: command.quoteRef },
-                  { state: { in: inFlightStates } },
+                  {
+                    snapshot: {
+                      path: ["product", "id"],
+                      equals: snapshot.product?.id ?? snapshot.paymentOption.id,
+                    },
+                  },
+                  {
+                    snapshot: {
+                      path: ["offer", "benefits"],
+                      array_contains: [
+                        productCapability(
+                          snapshot.product?.id ?? snapshot.paymentOption.id,
+                        ),
+                      ],
+                    },
+                  },
                 ],
               },
               orderBy: { createdAt: "desc" },
@@ -275,10 +244,25 @@ export class BillingPayments {
                   accountId,
                   kind: "one_time",
                   state: "confirmed",
-                  snapshot: {
-                    path: ["paymentOption", "id"],
-                    equals: snapshot.paymentOption.id,
-                  },
+                  OR: [
+                    {
+                      snapshot: {
+                        path: ["product", "id"],
+                        equals:
+                          snapshot.product?.id ?? snapshot.paymentOption.id,
+                      },
+                    },
+                    {
+                      snapshot: {
+                        path: ["offer", "benefits"],
+                        array_contains: [
+                          productCapability(
+                            snapshot.product?.id ?? snapshot.paymentOption.id,
+                          ),
+                        ],
+                      },
+                    },
+                  ],
                 },
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               });
@@ -295,11 +279,6 @@ export class BillingPayments {
               }
             }
             if (continuingPurchase) {
-              const previous = priceSnapshotSchema.parse(
-                continuingPurchase.snapshot,
-              );
-              if (previous.paymentOption.id !== snapshot.paymentOption.id)
-                return paymentFailure("payment_in_progress");
               await tx.billingPurchaseCommand.create({
                 data: {
                   ...key,
@@ -1034,7 +1013,6 @@ export class BillingPayments {
         amount: Number(row.amountKopecks),
         name: snapshot.offer.name,
         email,
-        initiator: "0",
         ...(snapshot.individualPayment !== undefined
           ? {
               returnPath: `/payment/links/${snapshot.individualPayment.linkId}`,

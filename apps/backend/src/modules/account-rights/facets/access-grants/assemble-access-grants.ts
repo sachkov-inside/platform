@@ -1,60 +1,60 @@
 import { z } from "zod";
 import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
+import {
   transactionHandle,
   type TransactionHandle,
 } from "../../../../infrastructure/prisma/transaction-handle.js";
-import {
-  reportDependencyFailure,
-  dependencyFailure,
-} from "../../../../infrastructure/observability/index.js";
-import {
-  accountRightsTransaction,
-  type AccountRightsPrisma,
-  type AccountRightsPrismaClient,
-} from "../../infrastructure/prisma.js";
 import type { Accounts, PlatformPermission } from "../../../accounts/index.js";
 import { accountId } from "../../../accounts/index.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
   activationRuleSchema,
   type ActivationBindings,
-} from "../../domain/subscription-activation.js";
-import type { RecipientLinks } from "../../ports/recipient-links.js";
-import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
-import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
+} from "../../domain/course-activation.js";
 import type {
   IssueProductAccessCommand,
   ProductAccessContext,
 } from "../../domain/product-access.js";
 import {
-  previewProductRevocation,
-  changeProductAccess,
-} from "../../features/revoke-product-access/revoke-product-access.js";
-import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
-import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
+  productAccessListQuerySchema,
+  productAccessTargetSchema,
+  productAccessViewSchema,
+} from "../../domain/product-access.js";
 import {
+  activateCourse,
   beginActivation,
-  activateSubscription,
   readActivationReceipt,
-} from "../../features/activate-subscription/activate-subscription.js";
+} from "../../features/activate-course/activate-course.js";
 import {
   readActivationContinuation,
   readActivationIntent,
-} from "../../features/activate-subscription/read-activation-continuation.js";
-import {
-  resolveAccessCapabilities,
-  resolveAccessCapabilitiesForAccounts,
-  readAccessCapabilityFacts,
-  projectAccessCapabilities,
-} from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
+} from "../../features/activate-course/read-activation-continuation.js";
+import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
+import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
+import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
+import {
+  projectAccessCapabilities,
+  readAccessCapabilityFacts,
+  resolveAccessCapabilities,
+  resolveAccessCapabilitiesForAccounts,
+} from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
+import {
+  changeProductAccess,
+  previewProductRevocation,
+} from "../../features/revoke-product-access/revoke-product-access.js";
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
 import {
-  productAccessViewSchema,
-  productAccessListQuerySchema,
-  productAccessTargetSchema,
-} from "../../domain/product-access.js";
+  accountRightsTransaction,
+  type AccountRightsPrisma,
+  type AccountRightsPrismaClient,
+} from "../../infrastructure/prisma.js";
+import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
+import type { RecipientLinks } from "../../ports/recipient-links.js";
 export interface AccessGrantsDependencies {
   readonly prisma: AccountRightsPrismaClient;
   readonly accounts: Pick<
@@ -256,7 +256,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       input: unknown,
       tier: unknown,
     ) =>
-      activateSubscription(
+      activateCourse(
         accountRightsTransaction(handle),
         bindings,
         linked,

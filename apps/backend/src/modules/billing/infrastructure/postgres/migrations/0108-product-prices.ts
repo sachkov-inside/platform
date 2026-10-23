@@ -1,5 +1,16 @@
 export const name = "0108_product_prices";
 export const statement = `
+-- Financial refund and Product withdrawal are independent. Preserve every existing stored fact.
+alter table billing.refund_decisions drop constraint billing_refund_decisions_basis_check;
+alter table billing.refund_decisions add constraint billing_refund_decisions_basis_check
+ check (basis in ('withdrawal','compensation') and access in ('keep','revoke'));
+
+alter table billing.refund_decisions drop constraint billing_refund_origin_check;
+alter table billing.refund_decisions add constraint billing_refund_origin_check check (
+ (actor_id is not null and operation_id is not null)
+ or (actor_id is null and operation_id is null and state='executed' and basis='withdrawal' and access in ('keep','revoke'))
+);
+
 create table billing.product_prices (
  product_id uuid primary key,
  revision integer not null check(revision > 0),

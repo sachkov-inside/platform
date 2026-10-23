@@ -1,17 +1,20 @@
-import { assembleProductMaterialReading } from "../modules/materials/index.js";
-import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 import { randomUUID } from "node:crypto";
-import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
-import { PublishedSeriesComposition } from "../modules/products/index.js";
-import { assembleMaterialResourceFacts } from "../modules/materials/index.js";
-import { assembleContentAccess } from "../modules/content-access/index.js";
-import { ReadingActivity } from "../modules/reading-activity/index.js";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
+import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
-import { accountId } from "../modules/accounts/index.js";
-import { assembleAccountRights } from "../modules/account-rights/index.js";
-
-const FULL_STACK_MEMBERSHIP_LIFETIME_MS = minutesInMilliseconds(5);
+import {
+  assembleAccessGrants,
+  assembleAccountRights,
+} from "../modules/account-rights/index.js";
+import { assembleAccounts } from "../modules/accounts/index.js";
+import { assembleContentAccess } from "../modules/content-access/index.js";
+import {
+  assembleMaterialResourceFacts,
+  assembleProductMaterialReading,
+} from "../modules/materials/index.js";
+import { PublishedSeriesComposition } from "../modules/products/index.js";
+import { ReadingActivity } from "../modules/reading-activity/index.js";
+import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 
 async function main(): Promise<void> {
   const config = loadPlatformConfig();
@@ -39,33 +42,29 @@ async function main(): Promise<void> {
     if (member === null)
       throw new Error("Full-stack member Account must be established first");
     await enrollPriorParticipantsFixture(prisma, member.id);
-    const checkedAt = new Date();
-    const validUntil = new Date(
-      checkedAt.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS,
-    );
-    const result = await assembleAccountRights({
-      prisma,
-    }).acceptEvidence({
-      accountId: accountId(member.id),
-      deliveryId: `full-stack-${checkedAt.toISOString()}`,
-      evidence: {
-        checkedAt: checkedAt.toISOString(),
-        contractVersion: "inside.membership-evidence.v1",
-        decision: "member",
-        evidenceRef: "full-stack-evidence",
-        evidenceVersion: checkedAt.getTime(),
-        principalRef: "full-stack-principal",
-        reasonCode: "chat_member",
-        telegramIdentityRef: "full-stack-telegram-identity",
-        validUntil: validUntil.toISOString(),
+    const owner = await prisma.account.upsert({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "fullstack-fixture-owner",
+        },
       },
-      source: "link_time",
+      create: {
+        id: randomUUID(),
+        logtoIssuer: issuer,
+        logtoSubject: "fullstack-fixture-owner",
+      },
+      update: {},
     });
-    if (!result.ok || result.outcome !== "applied") {
-      throw new Error(
-        `Full-stack Membership fixture failed: ${JSON.stringify(result)}`,
-      );
-    }
+    await prisma.accountPermission.createMany({
+      data: { accountId: owner.id, permission: "platform:admin" },
+      skipDuplicates: true,
+    });
+    const accounts = assembleAccounts({
+      prisma,
+      emailFingerprintKey: "fullstack-isolated-product-fixture-key",
+    });
+    const grants = assembleAccessGrants({ prisma, accounts });
     for (const state of ["expired", "stale"] as const) {
       const fixtureSubject =
         process.env[
@@ -88,29 +87,6 @@ async function main(): Promise<void> {
         const membership = assembleAccountRights({
           prisma,
         });
-        const prior = new Date(checkedAt.getTime() - 1);
-        const granted = await membership.acceptEvidence({
-          accountId: accountId(fixtureMember.id),
-          deliveryId: `full-stack-expired-before-${checkedAt.toISOString()}`,
-          source: "link_time",
-          evidence: {
-            checkedAt: prior.toISOString(),
-            contractVersion: "inside.membership-evidence.v1",
-            decision: "member",
-            evidenceRef: "full-stack-expired-before",
-            evidenceVersion: prior.getTime(),
-            principalRef: "full-stack-expired-principal",
-            reasonCode: "chat_member",
-            telegramIdentityRef: "full-stack-expired-telegram-identity",
-            validUntil: new Date(
-              prior.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS,
-            ).toISOString(),
-          },
-        });
-        if (!granted.ok || granted.outcome !== "applied")
-          throw new Error(
-            `Prior active Membership fixture failed: ${JSON.stringify(granted)}`,
-          );
         const materials = assembleMaterials({
           prisma,
           authorPolicy: { canManage: () => false },
@@ -152,53 +128,29 @@ async function main(): Promise<void> {
         if (!marked.ok)
           throw new Error(`Prior reading mark failed: ${marked.error.code}`);
       }
-      // Distinguish confirmed loss of Membership from an observation whose validity elapsed.
-      const observedAt =
-        state === "expired"
-          ? checkedAt
-          : new Date(
-              checkedAt.getTime() - 2 * FULL_STACK_MEMBERSHIP_LIFETIME_MS,
-            );
-      const deniedResult = await assembleAccountRights({
-        prisma,
-
-        clock: () => observedAt,
-      }).acceptEvidence({
-        accountId: accountId(fixtureMember.id),
-        deliveryId: `full-stack-${state}-${checkedAt.toISOString()}`,
-        evidence: {
-          checkedAt: observedAt.toISOString(),
-          contractVersion: "inside.membership-evidence.v1",
-          decision: state === "expired" ? "not_member" : "member",
-          evidenceRef: `full-stack-${state}-evidence`,
-          evidenceVersion: observedAt.getTime(),
-          principalRef: `full-stack-${state}-principal`,
-          reasonCode: state === "expired" ? "chat_not_member" : "chat_member",
-          telegramIdentityRef: `full-stack-${state}-telegram-identity`,
-          validUntil: new Date(
-            observedAt.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS,
-          ).toISOString(),
-        },
-        source: "link_time",
+      const products = await prisma.product.findMany({
+        where: { archivedAt: null },
+        select: { id: true },
       });
-      if (!deniedResult.ok || deniedResult.outcome !== "applied") {
-        throw new Error(
-          `${state} Membership fixture failed: ${JSON.stringify(deniedResult)}`,
-        );
+      for (const product of products) {
+        const current = await grants.readProductAccess(owner.id, {
+          accountId: fixtureMember.id,
+          productId: product.id,
+        });
+        if (!current.ok) throw new Error("Synthetic Product access must exist");
+        const revoked = await grants.revokeProductAccess(owner.id, {
+          operationId: randomUUID(),
+          accountId: fixtureMember.id,
+          productId: product.id,
+          expectedRevision: current.value.revision,
+          reason: "Synthetic explicit Product withdrawal",
+        });
+        if (!revoked.ok) throw new Error("Synthetic Product withdrawal failed");
       }
-      const resolved = await assembleAccountRights({
-        prisma,
-      }).resolveForAccess(accountId(fixtureMember.id));
-      if (resolved.kind !== state)
-        throw new Error(`Membership fixture must resolve as ${state}`);
     }
   } finally {
     await prisma.$disconnect();
   }
-}
-
-function minutesInMilliseconds(minutes: number): number {
-  return minutes * 60 * 1_000;
 }
 
 function requiredValue(

@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
+import { assembleAccessGrants } from "../modules/account-rights/index.js";
 import {
   assembleAccounts,
   bootstrapOwnerAccount,
 } from "../modules/accounts/index.js";
-import { assembleAccessGrants } from "../modules/account-rights/index.js";
 
 /** Development CLI fixture only. Existing Accounts, content and learning data are never reset. */
 export async function seedLocalStandAccounts(
@@ -41,53 +41,30 @@ export async function seedLocalStandAccounts(
   }
   const plain = await learner(subjects.learner);
   const withAccess = await learner(subjects.learnerWithAccess);
-  const tier = {
-    id: "16410000-0000-4000-8000-000000000001",
-    revision: 1,
-    name: "Локальная проверка доступа",
-    benefits: ["materials"],
-    coverage: { wholePlatform: true, productIds: [], materialIds: [] },
-  };
   const accounts = assembleAccounts({
     prisma,
     emailFingerprintKey: "local-stand-fixture-does-not-establish-email",
   });
   const grants = assembleAccessGrants({ prisma, accounts, clock });
-  // Author permission opens drafts; Product/course access deliberately uses Account Rights.
-  // Keep the two sources separate and grant each local profile its own durable enrollment.
-  for (const [target, operationId, sourceRef] of [
-    [
-      withAccess,
-      "16410000-0000-4000-8000-000000000002",
-      "local-stand-learner-with-access",
-    ],
-    [
-      owner.accountId,
-      "16410000-0000-4000-8000-000000000003",
-      "local-stand-owner-full-access",
-    ],
-  ] as const) {
-    const result = await grants.assignEnrollment(
-      owner.accountId,
-      {
-        operationId,
-        accountId: target,
-        origin: "manual",
-        sourceRef,
-        tierId: tier.id,
-        tierRevision: tier.revision,
-        terms: {
-          startsAt: "2026-01-01T00:00:00.000Z",
-          endsAt: null,
-          endPolicy: "fixed",
+  const products = await prisma.product.findMany({
+    select: { id: true },
+    where: { archivedAt: null },
+  });
+  for (const target of [withAccess, owner.accountId])
+    for (const product of products) {
+      const result = await grants.issueProductAccess(
+        { source: "manual", actorId: owner.accountId },
+        {
+          accountId: target,
+          productId: product.id,
+          sourceRef: `local-stand:${target}:${product.id}`,
+          issuedAt: "2026-01-01T00:00:00.000Z",
+          reason: "Development-only local stand Product access",
         },
-        billingRef: null,
-        reason: "Development-only local stand access fixture",
-      },
-      tier,
-    );
-    if (!result.ok) throw new Error("Local stand access fixture failed");
-  }
+      );
+      if (!result.ok)
+        throw new Error("Local stand Product access fixture failed");
+    }
   return {
     owner: owner.accountId,
     learner: plain,

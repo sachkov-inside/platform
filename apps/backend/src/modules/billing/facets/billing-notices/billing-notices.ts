@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { type BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import type { AccessGrants } from "../../../account-rights/index.js";
 import {
   cabinetNoticeKindSchema,
   ENROLLMENT_NOTICE_PREFIX,

@@ -1,4 +1,3 @@
-import type { AccessGrants } from "../../account-rights/index.js";
 import type { OfferEligibility } from "../domain/pricing.js";
 
 /** Основания Account, по которым Offer допускает к покупке. У гостя оснований нет. */
