@@ -1,8 +1,7 @@
 # Inside and Platform
 
 Platform sells access to Inside Products and shows free Materials to everyone in the Public Feed.
-The
-[current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
+The [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
 between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
 [Telegram application terms](apps/telegram/GLOSSARY.md) owns only the bot-specific language.
 [The shared brief](docs/product/README.md) owns overall product scope;
@@ -89,7 +88,7 @@ _Avoid_: Free-form keyword, hashtag
 **Public Feed**:
 The stream of free published Materials that every visitor, signed in or not, can read. Closed
 Materials are not in it; their locked cards appear in a Product's programme, search and Topic
-pages. A free Material of a Product appears both in the Public Feed and in the Product's programme. In Russian
+pages. A free programme Material appears both in the Public Feed and in that programme. In Russian
 product language: «лента».
 _Avoid_: Library subscription, Product, closed Material
 
@@ -159,11 +158,9 @@ refunding a Payment. It preserves other Products, financial history and learning
 _Avoid_: Refund, selecting one grant source, Account ban
 
 **Product Page Description**:
-The author-written description of a Product, kept in its Engineering Content original and transferred to
-Platform as an ordered list of typed blocks — a lead, cards, plain text, numbered steps, a short
-list, an invitation to the free lessons — plus an optional Home-card caption. The Product's own
-`presentation` field names which set of page and Home-card components draws the description; access
-terms belong to the Product.
+The author's explanation of a Product on its public page, with an optional short Home caption and
+an explicitly chosen presentation. Its editorial original is separate from the published page;
+neither the description nor the address determines access conditions.
 _Avoid_: Product introduction, landing copy in code, presentation chosen by address
 
 **Product Chapter**:
@@ -172,9 +169,8 @@ _Avoid_: Video chapter, Material, separately purchased Product
 
 **Product Introduction**:
 The author's own answer, on the Product, to what a reader will be able to do, who the Product is
-written for, what they need beforehand and what it leaves outside. Its four fields carry the
-authoring base wording unchanged, an unwritten field is absent rather than empty, and none of it
-is an access decision. In Russian product language: «О продукте».
+written for, what they need beforehand and what it leaves outside. It is separate from access
+conditions and the marketing description; in Russian product language: «О продукте».
 _Avoid_: Summary, marketing page, access condition, price
 
 **Product Artifact**:
@@ -209,11 +205,9 @@ gaps. It is neither a Platform verdict nor author acceptance; in Russian product
 _Avoid_: Grade, verdict, test result, Platform check
 
 **Self-check Attempt**:
-A saved Review Report of one learner on one Product Task. A new saved report adds the next attempt,
-including an unsuccessful report. The first successful attempt confirms every required criterion of
-its Task Version. A submission without a Review Report and a repeat of the same saved submission
-add no attempt. The result describes the learner agent's self-check, never acceptance by the author.
-In Russian product language: «Попытка самопроверки».
+A learner agent's saved Review Report on one Product Task, numbered across Task Versions and
+evaluated against the required criteria of its own version. It records a self-check, including
+an unsuccessful one, rather than author acceptance; in Russian: «Попытка самопроверки».
 _Avoid_: Agent session, grade, author acceptance
 
 **Author Feedback**:
@@ -229,7 +223,7 @@ _Avoid_: Product Progress, author review, Task Submission
 
 **Product Mode**:
 One of the two ways a reader goes through a Product: on the worked example the author prepared, or
-on the reader's own project. It belongs to the reader, not to a Material: one stored choice covers
+on the reader's own project. It belongs to the reader, not to a Material: one choice covers
 every Product, and it changes only what a Variant Step shows, never access, order or progress. In
 Russian product language: «Режим прохождения», with «Учебный проект» and «Свой проект».
 _Avoid_: Difficulty, access class, Product Step Sequence, separate Product copy
@@ -505,9 +499,9 @@ _Avoid_: Current chat roster, all new members, Cohort
 ## Notifications
 
 **Notification**:
-Сообщение для одного Account по определённому событию продукта. Оно имеет назначение и может
-доставляться по нескольким каналам независимо.
-_Avoid_: Событие продукта, рассылка, попытка отправки
+A message for one Account about a specific product event, with a stated purpose and independent
+delivery through eligible channels.
+_Avoid_: Product event, Broadcast, delivery attempt
 
 **Notification Delivery**:
 Delivery of one Notification through one channel to an eligible recipient: a verified channel contact or the Order Email for purchase messages.
@@ -515,20 +509,28 @@ One channel result neither determines another channel result nor proves that the
 _Avoid_: Notification, broker acknowledgement, прочтение
 
 **Publication Announcement**:
-Повод сообщить читателям о материале: он возникает один раз, когда Material публикуется впервые,
-и принадлежит самому материалу, а не его месту в продукте. Повторная публикация,
-переименование, перестановка и включение в другой продукт его не создают. В русском языке
-продукта: «анонс первой публикации».
-_Avoid_: Publication event, рассылка, повторный анонс
+The once-only occasion to tell readers about a Material's first publication, independent of its
+Product placements. Republishing, renaming and moving it create no second occasion; in Russian:
+«Анонс первой публикации».
+_Avoid_: Publication event, Broadcast, repeated announcement
+
+**Broadcast**:
+One explicitly launched communication to a selected audience, with its own message snapshot and
+delivery history. It is distinct from a reusable Communication Sequence and an individual service notification.
+_Avoid_: Sales Funnel, Publication Announcement, Notification
+
+**Tracking Hit**:
+An observed opening of a communication's tracked link, distinct from reading its destination,
+proving a human visit or identifying an Account. It is not proof that the message caused a purchase.
+_Avoid_: Product Progress, ReadingActivity, conversion, human click
 
 ## Sales funnel
 
 **Sales Funnel**:
-The owner's aggregated view of how far the people who first entered the bot in a period have got
-towards buying one Product: entered, gave marketing consent, opened the chosen chapter, reached
-checkout, paid. The period chooses the cohort; later steps count who of it has reached them so far.
-Bot steps count bot contacts, the later steps count Accounts. In Russian product language:
-«Воронка продаж».
+The owner's aggregated view of how far people who first entered the bot in a chosen period have
+got towards buying one Product: entry, consent, chosen chapter, checkout and payment.
+The entry period selects the people, whose later progress is counted through the present;
+in Russian product language: «Воронка продаж».
 _Avoid_: Events of the period, conversion of one person, Product Intake, Product Sales State
 
 **Source Label**:

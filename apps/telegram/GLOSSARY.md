@@ -32,11 +32,21 @@ The current ability to deliver bot messages to a BotContact through Telegram. Bl
 changes Contactability without deleting the BotContact, PlatformLink, or community history.
 _Avoid_: Consent, Membership, active subscription
 
-**Marketing consent**:
-A BotContact's explicit choice about marketing messages: the consent button or `/resume` grants
-it and turns marketing on, `/stop` withdraws it and turns marketing off. Marketing enabled by
-default is not Marketing consent. Each choice is reported to Platform's sales funnel.
-_Avoid_: Contactability, opt-in by `/start`
+**Marketing Preference**:
+A BotContact's current choice about bot marketing: messages are allowed after starting the bot,
+`/stop` turns them off and `/resume` enables future messages without a missed-message backlog.
+Separate consent is not a prerequisite, and starting or unblocking the bot does not erase an explicit stop.
+_Avoid_: Contactability, Product Access, mandatory opt-in
+
+**Communication Sequence**:
+An authored series of messages and waits that one BotContact can enter and progress through.
+Its published message snapshots are independent of later template edits and of the Sales Funnel report.
+_Avoid_: Funnel, Sales Funnel, Broadcast
+
+**Sequence Participation**:
+One BotContact's entry and progress in a Communication Sequence, separate from Product Access,
+Product Waitlist membership and Marketing Preference.
+_Avoid_: Enrollment, Product Intake, purchase
 
 **CommunicationTemplate**:
 An author's saved message snapshot that can be reused in communication steps and broadcasts.
