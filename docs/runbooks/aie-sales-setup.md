@@ -4,6 +4,11 @@ This is a prepared configuration for the existing #854 production writer. It is 
 The owner's [12 October decision](https://github.com/sachkov-inside/platform/issues/1359)
 authorizes preparation alongside #1358. Production application remains serialized through #854.
 
+The [23 October access decision](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+changes the target Support term. The historical payloads in the preparation directory still contain
+six months and must be revised and verified before applying this preparation. The planning PR
+changes no catalogue data; the previous payload is not the configuration of the new target terms.
+
 ## Target and conditions
 
 Use Product `625a0cca-c8ff-4a65-9125-17194dd3b769`, slug `ai-engineering`.
@@ -18,12 +23,12 @@ Subsequent editorial changes require their own authorized package.
 | Questionnaire discount before start | 10%; 26 910 ₽ with a personal code |
 | From start | 39 900 ₽; questionnaire discount ends |
 | Materials and common chat | No expiry |
-| Support | Six months from purchase; no SLA or promised live-session schedule |
+| Support | The current term from the access model above, counted from purchase; no SLA or promised live-session schedule |
 | Author's code review | Not included |
 
 The catalogue payloads in [the preparation directory](../evidence/issue-1359/) contain integer kopecks.
 They retain one Offer and one PaymentOption when the price changes, as [ADR 0033](../adr/0033-product-tariff-payment-model.md) requires.
-The option's `months: 1` does not override the explicit lifetime Material/community periods or six-month support period.
+The option's `months: 1` does not override the explicit lifetime Material/community periods or the Support term.
 The prepared Offer does not enable tariff assignments or a subscription.
 
 ## Apply preparation through #854

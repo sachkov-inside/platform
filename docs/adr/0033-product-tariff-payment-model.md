@@ -7,6 +7,10 @@ status: accepted
 Current subscription commerce and course terms follow [ADR 0037](0037-products-without-subscriptions.md)
 (owner decision 2026-10-20). Its explicit supersessions take precedence over the historical decisions below.
 
+The [owner's 2026-10-23 access decision](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+also supersedes the separation of purchase and free assignment, the always-lifetime free-assignment
+rule, and the six-month Support term below. Historical decisions and snapshots remain recorded.
+
 
 Владелец 07.10.2026 назвал модель продукта путаной и принял решение в grilling-сессии
 [#1056](https://github.com/sachkov-inside/platform/issues/1056). До решения Platform одновременно

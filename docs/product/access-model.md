@@ -11,8 +11,14 @@
 
 Бесплатная выдача сохраняет весь состав выбранного тарифа и срок каждого его права. Например,
 активация тарифа Inside AI Engineering даёт материалы и сообщество бессрочно, сопровождение
-на шесть месяцев. Это явно заменяет прежнее правило «бесплатное назначение всегда бессрочно»:
-отсутствие оплаты само по себе не продлевает права. Остальные правила этого вопроса ещё обсуждаются.
+на три месяца. Это явно заменяет прежнее правило «бесплатное назначение всегда бессрочно»:
+отсутствие оплаты само по себе не продлевает права.
+
+Владелец изменил срок сопровождения с шести на три календарных месяца. Для покупки срок
+считается с подтверждения оплаты, а не с начала потока. Это заменяет шестимесячный срок
+текущего тарифа курса в прежних описаниях, включая ADR 0033 и ADR 0037, и предыдущий пример
+в обсуждении этого вопроса. Точка начала срока бесплатной выдачи и применение изменения к уже
+выданным правам ещё обсуждаются. Исторические редакции и снимки не переписываются этой работой.
 
 ## Current product commerce (owner decision 2026-10-20)
 
@@ -24,7 +30,8 @@ retained for reconciliation and audit, not advertised as current functionality.
 A Product uses its explicitly associated Telegram group; multiple Products may share that group.
 The current provider serves `primary` only. Different real groups require provider-contract work.
 The first Inside AI Engineering cohort includes perpetual Materials and community access and
-six calendar months of Support. The account presents access by Product, not as a Subscription.
+Support for the term defined by the current decision above. The account presents access by Product,
+not as a Subscription.
 
 
 Статус: **каноническая модель доступа**, 15.09.2026, [Workspace #192](https://github.com/sachkov-inside/workspace/issues/192);
@@ -117,7 +124,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 
 - **Срок — свойство предложения.** Предложение продукта хранит срок каждого права: материалов
   продукта (`product:<id>`), участия в сообществе и `support` — число месяцев или без срока.
-  Сопровождение на 6 месяцев — значение предложения, а не общее правило.
+  Срок сопровождения задаёт тариф; текущий срок курса определён решением 23.10.2026 выше.
 - **Сообщество по умолчанию следует за продуктом.** Community Entitlement по-прежнему выводится из
   живых прав. Бессрочное право на продукт даёт бессрочное участие, если предложение не задаёт
   сообществу иного срока.
@@ -125,7 +132,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
   предложения выданные права не меняет. Покупки на редакциях 3 и 4 оферты сохраняют свои условия:
   право на продукт и чат без даты окончания при гарантии договора 2 года, сопровождение 6 месяцев.
 - **Предложение курса Inside AI Engineering:** Lifetime Access Grant на продукт, бессрочное участие
-  в сообществе и `support` на 6 месяцев. По [решению владельца от 07.10.2026](https://github.com/sachkov-inside/platform/issues/855#issuecomment-6032563996)
+  в сообществе и `support` на 3 месяца. По [решению владельца от 07.10.2026](https://github.com/sachkov-inside/platform/issues/855#issuecomment-6032563996)
   предзаказ стоит 29 900 ₽, после старта — 39 900 ₽. Респондент анкеты получает скидку 10 %
   до даты старта: 26 910 ₽. Дату старта владелец назначает в конце подготовки; публикация предложения
   требует отдельного разрешения открыть продажу (#855, production-проходы — #854).
@@ -282,7 +289,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 Каждая клетка — сценарий `<строка>/<столбец>` в таблице сценариев Platform
 [#648](https://github.com/sachkov-inside/platform/issues/648), например `product-material/one-time-purchase`.
 Покупку Offer таблица проверяет отдельными сценариями ([#775](https://github.com/sachkov-inside/platform/issues/775)):
-`course-offer-terms` (материалы и группа без срока, сопровождение 6 месяцев),
+`course-offer-terms` (материалы и группа без срока, сопровождение на срок текущего тарифа),
 `offer-own-terms` (другие сроки Offer), `offer-terms-change-keeps-earlier-purchase`
 (изменение Offer не меняет прежние покупки), `subscription-offer-without-tribute-ground` и
 `subscription-offer-with-tribute-ground` (допуск к подписке).
@@ -327,7 +334,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
     покупки прекращает только её основание. Окончание сопровождения не закрывает продукт и чат,
     который открыт правом на X.
 13. Сопровождение действует, если `support` есть в правах тарифа, на срок из тарифа; у тарифа
-    курса — 6 месяцев.
+    курса срок определён решением 23.10.2026 выше.
 14. Запрет право не отзывает; как оказывается сопровождение — раздел «Что входит в доступ».
 15. Открыто то, что названо в правах, на их срок: `product:<id>` — как `one-time-purchase`, но без
     сопровождения; `community` и `support` — соответствующие строки, `support` открывает и чат.
@@ -355,7 +362,7 @@ A bank refund instead revokes only the rights produced by the refunded purchase.
 
 | Тариф | Продаётся | Новые назначения | Действует |
 |---|---|---|---|
-| Тариф курса Inside AI Engineering: продукт и участие в сообществе без срока, `support` на 6 месяцев, вариант `one_time` | Да, когда владелец опубликовал | Да, с теми же сроками прав: прежние участники курса через бота, решение владельца | Да, по покупкам и назначениям |
+| Тариф курса Inside AI Engineering: продукт и участие в сообществе без срока, `support` на 3 месяца, вариант `one_time` | Да, когда владелец опубликовал | Да, с теми же сроками прав: прежние участники курса через бота, решение владельца | Да, по покупкам и назначениям |
 | «Подписка Inside»: охват «вся платформа», вариант `subscription` | Не продаётся ([ADR 0037](../adr/0037-products-without-subscriptions.md)) | — | Да, по оплатам |
 
 По ADR 0033 активация назначает тариф курса. До задачи переключения код ещё назначает прежний

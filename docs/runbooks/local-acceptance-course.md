@@ -25,7 +25,10 @@ refresh the browser. It is a one-shot committed sync, not a watcher for unsaved 
 Open `/products/ai-engineering` and `/products/ai-engineering/programme`. The programme
 includes closed lessons. Use a fresh test email to see the unpaid view; sign-in codes and receipt
 confirmation messages stay in Mailpit. The local test offer created for #796 costs 30 RUB and uses
-the bank double. Its saved product grant is perpetual and support is six months. Existing checkout
+the bank double. Its saved product grant is perpetual and the historical fixture sets support to six months.
+The [23 October decision](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+changes the target course term; the local fixture and saved stand data require explicit alignment in
+the refactoring work. This runbook records the existing fixture, not proof of the new configuration. Existing checkout
 and legal wording still needs the separately tracked offer review; this is no approval of public
 course terms or price. The offer and account progress persist in the stand volume.
 
