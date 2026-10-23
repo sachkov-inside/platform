@@ -1,7 +1,7 @@
 # Telegram application terms
 
 [Root GLOSSARY](../../GLOSSARY.md) owns all shared Inside meanings, including Product,
-TelegramIdentity, Invitation, MembershipObservation, Canonical Membership Chat,
+TelegramIdentity, Product Access and MembershipObservation,
 Notification Delivery, CommunityEntitlement and AdmissionRestriction.
 This glossary owns only the Telegram application's local terms.
 
@@ -9,12 +9,12 @@ This glossary owns only the Telegram application's local terms.
 
 **BotContact**:
 A Telegram person who has started the Sachkov Inside bot and can receive bot messages while
-Telegram permits delivery. A BotContact may be unlinked and may have no Membership.
+Telegram permits delivery. A BotContact may exist without an Account link or Product Access.
 _Avoid_: Subscriber, member, lead
 
 **PlatformLink**:
 The historical association between one TelegramIdentity and one opaque Account reference.
-It does not grant Membership or content access.
+It grants neither Product Access nor community admission.
 _Avoid_: Login, Membership link, Account merge
 
 **LinkTransaction**:
@@ -26,13 +26,6 @@ _Avoid_: Referral, auth session, permanent link token
 A short-lived, single-use request to prove a Telegram identity for sign-in, bound to the initiating
 browser and explicit approval in the bot. It neither creates Product Access nor joins a community.
 _Avoid_: LinkTransaction, PlatformLink, access grant, Telegram membership
-
-**MembershipEvidence**:
-A finite, normalized statement derived from a MembershipObservation and delivered to Platform.
-It contains opaque references rather than Telegram provider data. A delivered or rejected
-MembershipEvidence and its check result are kept for the configured period, 90 days by default;
-the latest one of each linked identity is kept. Membership event audit is kept without a deadline.
-_Avoid_: AccountRights, ChatMember, access token
 
 **Contactability**:
 The current ability to deliver bot messages to a BotContact through Telegram. Blocking the bot
@@ -87,10 +80,10 @@ _Avoid_: Broadcast, mailing, grant
 
 **Activation Review Request**:
 The owner's queue entry for a person whose owner link confirmed no ground. It records the outcomes;
-the owner's decision is a Platform Direct Right, never a Telegram grant.
+the owner's decision establishes Product Access in Platform, never a Telegram-owned right.
 _Avoid_: Support ticket, rejection, pending_review
 
 **Activation Source**:
-An owner-configured course group and participant policy, addressed by an opaque sourceRef. Its
-bounded proof is separate from the Canonical Membership Chat and MembershipEvidence.
-_Avoid_: Canonical Membership Chat, entitlement
+An owner-configured prior-course group and participant policy used to verify eligibility for course
+activation. It is separate from the community a Product opens and does not itself grant Product Access.
+_Avoid_: Community group, subscription source, Product Access

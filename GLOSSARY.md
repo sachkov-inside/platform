@@ -338,10 +338,6 @@ sign-in identity and access. An authorized author may read its active display na
 submissions, without a public profile, biography or avatar projection.
 _Avoid_: Account, public internet profile, identity record
 
-**MembershipEvidence**:
-A time-limited statement about an Account's Membership in the canonical closed Telegram chat.
-_Avoid_: Account Rights, Tribute subscription
-
 **Account Rights**:
 Platform's current conclusion about which Products an Account holds and the participation in
 community that comes with those Products.
