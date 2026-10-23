@@ -3,7 +3,6 @@ import {
   checkContentWrite,
   contentWriter,
 } from "../../../../infrastructure/content-authoring/content-write-policy.js";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { type ProductsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
@@ -169,24 +168,13 @@ export function assembleReorderSeries(
             ({ stepGroup }) => stepGroup,
             command.orderedMaterialIds,
           );
-        const nextAssignments = Object.fromEntries(
-          Object.entries(
-            command.chapterAssignments ??
-              keptPlacement(
-                snapshot.items,
-                ({ chapterId }) => chapterId,
-                command.orderedMaterialIds,
-              ),
-          ).filter(([, chapterId]) => chapterIds.has(chapterId)),
-        );
         const nextProgramme =
           command.programmePlacements ??
-          legacyProgrammePlacements(
+          retainedProgrammePlacements(
             snapshot.programmePlacements,
-            snapshot.items.map((item) => item.materialId),
             command.orderedMaterialIds,
-            nextAssignments,
-            nextGroups,
+            command.chapterAssignments,
+            command.stepGroups,
             nextChapters.map((chapter) => chapter.id),
           );
         const programmeAssignments = Object.fromEntries(
@@ -364,13 +352,6 @@ export function assembleReorderSeries(
             command.chapters,
           )),
           ...unknownChapterIssues(command.chapterAssignments, chapterIds),
-          ...(command.programmePlacements === undefined
-            ? productChapterPlacementIssues(
-                command.orderedMaterialIds,
-                nextAssignments,
-                nextChapters.map(({ id }) => id),
-              )
-            : []),
         ];
         if (chapterIssues.length > 0) {
           return rollback({ code: "invalid_reference", issues: chapterIssues });
@@ -494,72 +475,33 @@ async function claimedChapterIssues(
   );
 }
 
-/** Legacy commands replace primary slots while keeping repeat slots in their authored positions. */
-function legacyProgrammePlacements(
+/** Catalogue changes retain authored occurrences; only an explicit programme can add slots. */
+function retainedProgrammePlacements(
   current: readonly ProductProgrammePlacement[],
-  currentMaterialIds: readonly string[],
   materialIds: readonly string[],
-  assignments: Readonly<Record<string, string>>,
-  groups: Readonly<Record<string, string>>,
+  assignments: Readonly<Record<string, string>> | undefined,
+  groups: Readonly<Record<string, string>> | undefined,
   chapterIds: readonly string[],
 ): readonly ProductProgrammePlacement[] {
-  const primary = new Map<string, ProductProgrammePlacement>();
-  for (const entry of current) {
-    if (!primary.has(entry.materialId)) primary.set(entry.materialId, entry);
-  }
-  const main = materialIds.flatMap((materialId) => {
-    const chapterId = assignments[materialId] ?? null;
-    if (chapterIds.length > 0 && chapterId === null) return [];
-    return [
-      {
-        id: primary.get(materialId)?.id ?? randomUUID(),
-        materialId,
-        chapterId,
-        stepGroup: groups[materialId] ?? null,
-      },
-    ];
-  });
-  const catalogueUnchanged =
-    materialIds.length === currentMaterialIds.length &&
-    materialIds.every((id, index) => id === currentMaterialIds[index]);
-  const primaryUnchanged =
-    main.length === primary.size &&
-    main.every((entry) => {
-      const previous = primary.get(entry.materialId);
-      return (
-        previous?.chapterId === entry.chapterId &&
-        previous.stepGroup === entry.stepGroup
-      );
-    });
-  if (catalogueUnchanged && primaryUnchanged) {
-    return [...current]
-      .filter((entry) =>
+  const retained = new Set(materialIds);
+  return current
+    .filter((entry) => retained.has(entry.materialId))
+    .map((entry) => ({
+      ...entry,
+      chapterId:
         chapterIds.length === 0
-          ? entry.chapterId === null
-          : chapterIds.includes(entry.chapterId ?? ""),
-      )
-      .sort(
-        (left, right) =>
-          chapterIds.indexOf(left.chapterId ?? "") -
-          chapterIds.indexOf(right.chapterId ?? ""),
-      );
-  }
-  const retainedMembers = new Set(materialIds);
-  const chapters: readonly (string | null)[] =
-    chapterIds.length === 0 ? [null] : chapterIds;
-  return chapters.flatMap((chapterId) => {
-    const desiredPrimary = main.filter(
-      (entry) => entry.chapterId === chapterId,
+          ? null
+          : assignments === undefined
+            ? entry.chapterId
+            : (assignments[entry.materialId] ?? null),
+      stepGroup:
+        groups === undefined
+          ? entry.stepGroup
+          : (groups[entry.materialId] ?? null),
+    }))
+    .sort(
+      (left, right) =>
+        chapterIds.indexOf(left.chapterId ?? "") -
+        chapterIds.indexOf(right.chapterId ?? ""),
     );
-    let primaryIndex = 0;
-    const entries = current.flatMap((entry) => {
-      if (entry.chapterId !== chapterId) return [];
-      if (entry.id === primary.get(entry.materialId)?.id) {
-        const replacement = desiredPrimary[primaryIndex++];
-        return replacement === undefined ? [] : [replacement];
-      }
-      return retainedMembers.has(entry.materialId) ? [entry] : [];
-    });
-    return [...entries, ...desiredPrimary.slice(primaryIndex)];
-  });
 }
