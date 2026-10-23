@@ -1,12 +1,13 @@
-import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
+import { coverPersistence } from "../prisma.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 
 export async function loadContentCoverProjections(
-  prisma: MaterialsPrisma,
+  transaction: TransactionHandle,
   coverIds: readonly string[],
 ): Promise<ReadonlyMap<string, ContentCoverProjection>> {
   if (coverIds.length === 0) return new Map();
-  const covers = await prisma.contentCover.findMany({
+  const covers = await coverPersistence(transaction).contentCover.findMany({
     where: {
       id: { in: [...new Set(coverIds)] },
       currentlyReferenced: true,

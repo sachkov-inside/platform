@@ -36,7 +36,7 @@ export interface ContentCollectionDto {
   readonly version: number;
   readonly cover: ContentCoverProjection | null;
 }
-import type { ContentCoverProjection } from "../content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type { ProductPage } from "../../domain/product-page.js";
 
 /** Оформление и описание страницы Product из авторского оригинала (ADR 0026). */

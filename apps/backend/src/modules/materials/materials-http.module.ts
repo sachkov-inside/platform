@@ -11,7 +11,7 @@ import {
   AuthoringContentCoverController,
   ContentCoverDeliveryController,
   ImportContentCoverController,
-} from "./facets/content-covers/content-covers.controller.js";
+} from "./adapters/nest/content-covers.controller.js";
 import { ProductArtifactAuthoringController } from "./facets/product-artifacts/product-artifacts.controller.js";
 import { CreateContentCollectionController } from "./features/create-content-collection/create-content-collection.controller.js";
 import { CreateDraftController } from "./features/create-draft/create-draft.controller.js";

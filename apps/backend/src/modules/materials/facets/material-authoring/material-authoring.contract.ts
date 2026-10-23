@@ -10,7 +10,7 @@ import type {
   ValidationIssue,
 } from "../../domain/material-body/material-body.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
-import type { ContentCoverProjection } from "../content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 
 export interface ProductMembershipInput {
   readonly seriesId: string;

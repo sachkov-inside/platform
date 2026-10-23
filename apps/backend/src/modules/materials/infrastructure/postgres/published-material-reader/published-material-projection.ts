@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../../infrastructure/prisma/transaction-handle.js";
 import type { HomeProjections } from "../../../features/read-home-projections/read-home-projections.contract.js";
 import type { HomePinnedSeries } from "../../../features/read-home-pinned-series/read-home-pinned-series.js";
 import {
@@ -21,12 +22,12 @@ import { materialFormatSchema } from "../../../domain/material-format.js";
 import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
-import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../../content-covers/index.js";
 import type {
   ProductIntroductionDto,
   ProductLandingPageDto,
 } from "../../../facets/material-authoring/content-collection.contract.js";
-import { loadContentCoverProjections } from "../content-cover-projections.js";
+import { loadContentCoverProjections } from "../../../../content-covers/index.js";
 import { readProductPage } from "../../../shared/product-page-reader.js";
 import type {
   PublishedMaterialProjectionCursor,
@@ -923,7 +924,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
   const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
   const relatedSeries = relatedSeriesRowSchema.array().parse(rawRelatedSeries);
   const covers = await loadContentCoverProjections(
-    prisma,
+    transactionHandle(prisma),
     [
       reference.coverId,
       ...relatedSeries.map(({ cover_id }) => cover_id),
@@ -1019,7 +1020,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       ),
   );
   const covers = await loadContentCoverProjections(
-    prisma,
+    transactionHandle(prisma),
     [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
       (coverId) => (coverId === null ? [] : [coverId]),
     ),

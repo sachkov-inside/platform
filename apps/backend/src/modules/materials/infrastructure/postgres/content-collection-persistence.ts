@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   Prisma,
   type MaterialsPrisma,
@@ -12,8 +13,8 @@ import type {
   ContentCollectionKind,
   ProductIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
-import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
-import { loadContentCoverProjections } from "./content-cover-projections.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
+import { loadContentCoverProjections } from "../../../content-covers/index.js";
 
 interface ContentCollectionRecord {
   readonly archivedAt: Date | null;
@@ -77,7 +78,7 @@ function topicPersistence(
     const [materialCount, covers] = await Promise.all([
       prisma.material.count({ where: { topicId: record.id } }),
       loadContentCoverProjections(
-        prisma,
+        transactionHandle(prisma),
         record.coverId === null ? [] : [record.coverId],
       ),
     ]);
@@ -112,7 +113,7 @@ function topicPersistence(
         ),
       );
       const covers = await loadContentCoverProjections(
-        prisma,
+        transactionHandle(prisma),
         records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
       );
       return records.map((record) =>
@@ -166,7 +167,7 @@ function productPersistence(
     const [materialCount, covers] = await Promise.all([
       prisma.productMembership.count({ where: { seriesId: record.id } }),
       loadContentCoverProjections(
-        prisma,
+        transactionHandle(prisma),
         record.coverId === null ? [] : [record.coverId],
       ),
     ]);
@@ -205,7 +206,7 @@ function productPersistence(
         counts.map(({ seriesId, _count }) => [seriesId, _count._all]),
       );
       const covers = await loadContentCoverProjections(
-        prisma,
+        transactionHandle(prisma),
         records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
       );
       return records.map((record) =>

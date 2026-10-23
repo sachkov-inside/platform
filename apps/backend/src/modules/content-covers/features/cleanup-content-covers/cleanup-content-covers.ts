@@ -1,8 +1,8 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import type { ContentCoversPersistenceClient } from "../../infrastructure/prisma.js";
+import type { ContentCoverSelection } from "../../facets/content-covers/cover-selection.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import {
-  lockContentCoverOwner,
-  type MaterialsPrismaClient,
-} from "../../../../infrastructure/prisma/index.js";
+import { lockContentCoverOwner } from "../../../../infrastructure/prisma/index.js";
 
 const CLEANUP_CLAIM = "cleanup_claimed";
 const CLEANUP_BATCH_SIZE = 100;
@@ -14,7 +14,8 @@ export interface ContentCoverMaintenance {
 }
 
 export function assembleContentCoverMaintenance(dependencies: {
-  readonly prisma: MaterialsPrismaClient;
+  readonly prisma: ContentCoversPersistenceClient;
+  readonly selection: ContentCoverSelection;
   readonly objectStorage: Pick<ObjectStorage, "delete">;
 }): ContentCoverMaintenance {
   const { prisma, objectStorage } = dependencies;
@@ -61,19 +62,12 @@ export function assembleContentCoverMaintenance(dependencies: {
             (cover.orphanedAt > cutoff || cover.updatedAt > cutoff)
           )
             return null;
-          const references = await Promise.all([
-            transaction.material.count({ where: { coverId: cover.id } }),
-            transaction.topic.count({ where: { coverId: cover.id } }),
-            transaction.product.count({ where: { coverId: cover.id } }),
-            transaction.publishedMaterial.count({
-              where: { coverId: cover.id },
-            }),
-          ]);
-          if (
-            references.some((count) => count > 0) ||
-            cover.currentlyReferenced
-          ) {
-            const referenced = references.some((count) => count > 0);
+          const referenced = await dependencies.selection.references(
+            owner,
+            cover.id,
+            transactionHandle(transaction),
+          );
+          if (referenced || cover.currentlyReferenced) {
             await transaction.contentCover.update({
               where: candidate,
               data: {

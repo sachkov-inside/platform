@@ -1,9 +1,3 @@
-import {
-  checkContentWrite,
-  contentWriter,
-} from "../../domain/content-write-policy.js";
-import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
-import { materialId } from "../../domain/material-identifiers.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -13,14 +7,24 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
-import {
-  lockContentCoverOwner,
-  type MaterialsPrismaClient,
-  type MaterialsPrismaTransaction,
-} from "../../../../infrastructure/prisma/index.js";
+import { lockContentCoverOwner } from "../../../../infrastructure/prisma/index.js";
 import { processMaterialAssetBytes } from "../../../assets/index.js";
-import type { AuthorPolicy } from "../../ports/author-policy.js";
-import { authorizeManager } from "../../ports/author-policy.js";
+import type { ContentCoverSelection } from "./cover-selection.js";
+import {
+  type ContentCoversPersistenceClient,
+  type ContentCoversPersistence,
+} from "../../infrastructure/prisma.js";
+import {
+  transactionHandle,
+  type TransactionHandle,
+} from "../../../../infrastructure/prisma/transaction-handle.js";
+import { loadContentCoverProjections } from "../../infrastructure/postgres/content-cover-projections.js";
+interface AuthorPolicy {
+  canManage(
+    actor: string,
+    transaction?: TransactionHandle,
+  ): boolean | Promise<boolean>;
+}
 
 export const contentCoverOwnerKindSchema = z.enum([
   "material",
@@ -98,6 +102,10 @@ export interface ContentCovers {
     command: ChangeContentCoverCommand,
     sourceId: string,
   ) => Promise<ChangeContentCoverResult>;
+  readonly loadProjections: (
+    coverIds: readonly string[],
+    transaction?: TransactionHandle,
+  ) => Promise<ReadonlyMap<string, ContentCoverProjection>>;
   readonly deliver: (input: {
     readonly coverId: string;
     readonly width: number;
@@ -131,7 +139,8 @@ const deliverySchema = z
 export function assembleContentCovers(dependencies: {
   readonly authorPolicy: AuthorPolicy;
   readonly objectStorage: ObjectStorage;
-  readonly prisma: MaterialsPrismaClient;
+  readonly prisma: ContentCoversPersistenceClient;
+  readonly selection: ContentCoverSelection;
 }): ContentCovers {
   async function change(
     input: ChangeContentCoverCommand,
@@ -139,15 +148,20 @@ export function assembleContentCovers(dependencies: {
   ): Promise<ChangeContentCoverResult> {
     const parsed = commandSchema.safeParse(input);
     if (!parsed.success) return failure("invalid_cover");
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      parsed.data.actor,
-    );
-    if (!authorization.ok) return { ok: false, error: authorization.error };
+    try {
+      if (!(await dependencies.authorPolicy.canManage(parsed.data.actor)))
+        return failure("forbidden");
+    } catch (error) {
+      return dependencyFailure(
+        { module: "content-covers", operation: "authorizeManager" },
+        error,
+        dependencyUnavailable(),
+      );
+    }
     try {
       if (parsed.data.kind === "remove") {
         return await changeCurrentCover(
-          dependencies.prisma,
+          dependencies,
           parsed.data,
           null,
           sourceId,
@@ -214,7 +228,7 @@ export function assembleContentCovers(dependencies: {
         });
       } catch (error) {
         reportDependencyFailure(
-          { module: "materials", operation: "change" },
+          { module: "content-covers", operation: "change" },
           error,
         );
         await dependencies.prisma.contentCover.updateMany({
@@ -228,14 +242,14 @@ export function assembleContentCovers(dependencies: {
         return dependencyUnavailable();
       }
       return await changeCurrentCover(
-        dependencies.prisma,
+        dependencies,
         parsed.data,
         coverId,
         sourceId,
       );
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "change" },
+        { module: "content-covers", operation: "change" },
         error,
         dependencyUnavailable(),
       );
@@ -244,6 +258,11 @@ export function assembleContentCovers(dependencies: {
   return {
     change: (input) => change(input, null),
     changeImported: (input, sourceId) => change(input, sourceId),
+    loadProjections: (ids, handle) =>
+      loadContentCoverProjections(
+        handle ?? transactionHandle(dependencies.prisma),
+        ids,
+      ),
     async deliver(input) {
       const parsed = deliverySchema.safeParse(input);
       if (!parsed.success) return notFound();
@@ -282,7 +301,7 @@ export function assembleContentCovers(dependencies: {
             };
       } catch (error) {
         return dependencyFailure(
-          { module: "materials", operation: "deliver" },
+          { module: "content-covers", operation: "deliver" },
           error,
           { ok: false, error: { code: "dependency_unavailable" } },
         );
@@ -292,26 +311,31 @@ export function assembleContentCovers(dependencies: {
 }
 
 async function changeCurrentCover(
-  prisma: MaterialsPrismaClient,
+  dependencies: {
+    readonly prisma: ContentCoversPersistenceClient;
+    readonly selection: ContentCoverSelection;
+    readonly authorPolicy: AuthorPolicy;
+  },
   command: z.infer<typeof commandSchema>,
   nextCoverId: string | null,
   sourceId: string | null,
 ): Promise<ChangeContentCoverResult> {
-  return prisma.$transaction(async (transaction) => {
-    await lockContentCoverOwner(transaction, command.owner);
-    // Imported owners change only through their own source; an import never touches other owners.
-    const ownerSourceId = await readOwnerSourceId(transaction, command.owner);
-    if (
-      ownerSourceId !== undefined &&
-      checkContentWrite(contentWriter(sourceId), [
-        { kind: "cover", sourceId: ownerSourceId, path: "/owner" },
-      ]) !== null
-    ) {
+  return dependencies.prisma.$transaction(async (transaction) => {
+    const handle = transactionHandle(transaction);
+    if (!(await dependencies.authorPolicy.canManage(command.actor, handle))) {
       if (nextCoverId !== null)
         await abandonCover(transaction, nextCoverId, "forbidden");
       return failure("forbidden");
     }
-    const currentCoverId = await readCurrentCoverId(transaction, command.owner);
+    await lockContentCoverOwner(transaction, command.owner);
+    // Imported owners change only through their own source; an import never touches other owners.
+    const selected = await dependencies.selection.read(command.owner, handle);
+    if (selected !== undefined && selected.sourceId !== sourceId) {
+      if (nextCoverId !== null)
+        await abandonCover(transaction, nextCoverId, "forbidden");
+      return failure("forbidden");
+    }
+    const currentCoverId = selected?.coverId;
     if (currentCoverId === undefined) {
       if (nextCoverId !== null)
         await abandonCover(transaction, nextCoverId, "owner_not_found");
@@ -331,11 +355,19 @@ async function changeCurrentCover(
       });
       // An expired upload may already have been claimed by storage cleanup.
       // Never attach or revive its immutable keys after that claim commits.
-      if (pending?.state !== "processing" || pending.failureCode !== null) {
+      const expectedOwner = ownerColumns(command.owner);
+      if (
+        pending?.state !== "processing" ||
+        pending.failureCode !== null ||
+        !pending.uploadConfirmed ||
+        pending.materialId !== expectedOwner.materialId ||
+        pending.seriesId !== expectedOwner.seriesId ||
+        pending.topicId !== expectedOwner.topicId
+      ) {
         return dependencyUnavailable();
       }
     }
-    await writeCurrentCoverId(transaction, command.owner, nextCoverId);
+    await dependencies.selection.write(command.owner, nextCoverId, handle);
     const now = new Date();
     if (nextCoverId !== null) {
       await transaction.contentCover.update({
@@ -371,93 +403,8 @@ async function changeCurrentCover(
   });
 }
 
-async function readCurrentCoverId(
-  transaction: MaterialsPrismaTransaction,
-  owner: ContentCoverOwner,
-): Promise<string | null | undefined> {
-  switch (owner.kind) {
-    case "material":
-      return (
-        await transaction.material.findUnique({
-          where: { id: owner.id },
-          select: { coverId: true },
-        })
-      )?.coverId;
-    case "topic":
-      return (
-        await transaction.topic.findUnique({
-          where: { id: owner.id },
-          select: { coverId: true },
-        })
-      )?.coverId;
-    case "series":
-      return (
-        await transaction.product.findUnique({
-          where: { id: owner.id },
-          select: { coverId: true },
-        })
-      )?.coverId;
-  }
-}
-
-async function readOwnerSourceId(
-  transaction: MaterialsPrismaTransaction,
-  owner: ContentCoverOwner,
-): Promise<string | null | undefined> {
-  switch (owner.kind) {
-    case "material":
-      return (
-        await lockMaterialForLifecycleChange(transaction, materialId(owner.id))
-      )?.sourceId;
-    case "series":
-      return (
-        await transaction.product.findUnique({
-          where: { id: owner.id },
-          select: { sourceId: true },
-        })
-      )?.sourceId;
-    case "topic":
-      return (await transaction.topic.findUnique({
-        where: { id: owner.id },
-        select: { id: true },
-      })) === null
-        ? undefined
-        : null;
-  }
-}
-
-async function writeCurrentCoverId(
-  transaction: MaterialsPrismaTransaction,
-  owner: ContentCoverOwner,
-  coverId: string | null,
-): Promise<void> {
-  switch (owner.kind) {
-    case "material":
-      await transaction.material.update({
-        data: { coverId, updatedAt: new Date() },
-        where: { id: owner.id },
-      });
-      await transaction.publishedMaterial.updateMany({
-        data: { coverId },
-        where: { materialId: owner.id },
-      });
-      return;
-    case "topic":
-      await transaction.topic.update({
-        data: { coverId, updatedAt: new Date() },
-        where: { id: owner.id },
-      });
-      return;
-    case "series":
-      await transaction.product.update({
-        data: { coverId, updatedAt: new Date() },
-        where: { id: owner.id },
-      });
-  }
-}
-
 async function projectCover(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ContentCoversPersistence,
   coverId: string,
 ): Promise<ContentCoverProjection> {
   const cover = await transaction.contentCover.findUniqueOrThrow({
@@ -474,7 +421,7 @@ async function projectCover(
 }
 
 async function abandonCover(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ContentCoversPersistence,
   coverId: string,
   failureCode: string,
 ): Promise<void> {
