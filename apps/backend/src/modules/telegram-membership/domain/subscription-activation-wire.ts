@@ -1,3 +1,4 @@
+import { historicalInvitationOutcomeSchema } from "./historical-invitation-codec.js";
 import {
   botEnrollmentSchema,
   botActivationOutcomeSchema,
@@ -7,7 +8,6 @@ import { z } from "zod";
 import {
   bindingSnapshotSchema,
   ACTIVATION_CONTRACT_VERSION,
-  invitationRedemptionOutcomeSchema,
   ownProductSchema,
 } from "../../account-rights/index.js";
 import { ownAdmissionSchema } from "./community-entitlement.js";
@@ -71,7 +71,7 @@ export const ownSubscriptionAccessResponseSchema = z.union([
 export const invitationRedeemResponseSchema = z.union([
   z.strictObject({
     ok: z.literal(true),
-    value: invitationRedemptionOutcomeSchema,
+    value: historicalInvitationOutcomeSchema,
   }),
   z.strictObject({
     ok: z.literal(false),
