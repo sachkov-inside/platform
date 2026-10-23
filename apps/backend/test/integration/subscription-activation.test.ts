@@ -31,10 +31,10 @@ import {
   assembleAccessGrants,
   courseSourceRef,
 } from "../../src/modules/account-rights/index.js";
-import { SubscriptionActivation } from "../../src/modules/billing/index.js";
+import { CourseActivation } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
-import { TelegramActivationIntentController } from "../../src/modules/telegram-membership/features/activate-subscription/telegram-activation-continuation.controller.js";
-import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
+import { TelegramActivationIntentController } from "../../src/modules/telegram-membership/features/activate-course/telegram-activation-continuation.controller.js";
+import { CourseActivationController } from "../../src/modules/telegram-membership/features/activate-course/course-activation.controller.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import {
   createMigratedTestDatabase,
@@ -80,7 +80,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       recipientLinks: new TelegramAccountLinks(db.prisma),
       clock: () => now,
     });
-    const service = new SubscriptionActivation({
+    const service = new CourseActivation({
       sale: { subscriptions: true },
       prisma: db.prisma,
       grants,
@@ -102,13 +102,13 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     });
     @Module({
       controllers: [
-        SubscriptionActivationController,
+        CourseActivationController,
         TelegramActivationIntentController,
       ],
       providers: [
         { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
-        { provide: SubscriptionActivation, useValue: service },
+        { provide: CourseActivation, useValue: service },
         {
           provide: PLATFORM_CONFIG,
           useValue: parsePlatformConfig({
@@ -675,7 +675,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
           throw new Error("Injected Billing rollback after activation");
         }),
     };
-    const rollbackActivation = new SubscriptionActivation({
+    const rollbackActivation = new CourseActivation({
       sale: { subscriptions: true },
       prisma: rollbackPrisma,
       grants,

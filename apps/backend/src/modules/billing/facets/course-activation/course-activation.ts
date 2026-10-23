@@ -1,14 +1,8 @@
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
-import type { SaleCapability } from "../../domain/sale-capability.js";
-import {
-  accessCapabilitySchema,
-  productIdFromCapability,
-} from "@inside/access-capabilities";
 import type { CoverageCatalog } from "../../../account-rights/index.js";
 import { readActivationAnnouncement } from "./read-activation-announcement.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
-  lockBillingPricing,
   lockTelegramAccountBinding,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -20,26 +14,12 @@ import {
   type RecipientLinks,
 } from "../../../account-rights/index.js";
 import {
-  ACTIVATION_CONTRACT_VERSION,
-  invitationRedemptionOutcomeSchema,
-  redeemInvitationSchema,
-  type InvitationOffer,
-  type InvitationRedemptionOutcome,
-} from "../../../account-rights/index.js";
-import { offerCheckoutPath } from "../../domain/offer-checkout.js";
-import {
-  isProductOffer,
-  subscriptionOfferForInvitation,
-  tierOpenForAssignment,
-} from "../../shared/tier-composition.js";
-import {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,
 } from "../../../account-rights/index.js";
-export class SubscriptionActivation {
+export class CourseActivation {
   constructor(
     private readonly dependencies: {
-      sale?: Pick<SaleCapability, "subscriptions">;
       prisma: BillingPrismaClient;
       grants: AccessGrants;
       bindings: ActivationBindings &
@@ -111,16 +91,12 @@ export class SubscriptionActivation {
   private async activationProduct(ruleId: string) {
     const rule = await this.dependencies.grants.readActivationRule(ruleId);
     if (rule === null) return null;
-    const offer = await this.dependencies.prisma.billingOffer.findUnique({
-      where: { id: rule.tierId },
-    });
-    if (offer === null || this.dependencies.contentCatalog === undefined)
+    if (
+      rule.productId === null ||
+      this.dependencies.contentCatalog === undefined
+    )
       return null;
-    const productIds = offer.benefits.flatMap((value) => {
-      const parsed = accessCapabilitySchema.safeParse(value);
-      const id = parsed.success ? productIdFromCapability(parsed.data) : null;
-      return id === null ? [] : [id];
-    });
+    const productIds = [rule.productId];
     const products = await this.dependencies.contentCatalog.resolve({
       productIds,
       materialIds: [],
@@ -308,103 +284,6 @@ export class SubscriptionActivation {
       };
     });
   }
-  /**
-   * Погашение приглашения ботом. Platform сама находит Account по текущей привязке identity и
-   * читает Offer до транзакции прав; права закрепляют и допускают в одной транзакции.
-   */
-  async redeemInvitation(input: unknown) {
-    const unavailable = {
-      ok: false as const,
-      error: { code: "unavailable" as const },
-    };
-    const parsed = redeemInvitationSchema.safeParse(input);
-    if (!parsed.success)
-      return { ok: false as const, error: { code: "invalid_input" as const } };
-    if (this.dependencies.sale?.subscriptions !== true)
-      return {
-        ok: true as const,
-        value: {
-          contractVersion: ACTIVATION_CONTRACT_VERSION,
-          state: "unavailable" as const,
-        },
-      };
-    const { siteOrigin, grants, bindings } = this.dependencies;
-    try {
-      const linked = await bindings.findCurrentByIdentity(
-        parsed.data.identityRef,
-      );
-      if (!linked.ok) return unavailable;
-      if (linked.state === "ambiguous")
-        return {
-          ok: false as const,
-          error: { code: "identity_conflict" as const },
-        };
-      const target = await grants.readInvitationTarget(parsed.data.code);
-      const row =
-        target === null
-          ? null
-          : await this.dependencies.prisma.billingOffer.findUnique({
-              where: { id: target.offerId },
-              include: {
-                options: {
-                  where: { archived: false, mode: "subscription" },
-                  select: { id: true },
-                },
-              },
-            });
-      const offer: InvitationOffer | null =
-        row === null
-          ? null
-          : {
-              id: row.id,
-              purchasable:
-                !row.archived &&
-                row.published &&
-                row.options.length > 0 &&
-                subscriptionOfferForInvitation(row),
-            };
-      const result = await grants.redeemInvitation(parsed.data, {
-        accountId: linked.state === "found" ? linked.recipient.accountId : null,
-        offer,
-      });
-      if (!result.ok) {
-        // Запрос уже прошёл схему, а идентичность — проверку выше: другой отказ назначения —
-        // нарушенный инвариант прав, и его причина записывается как сбой зависимости.
-        throw new Error(
-          `Invitation redemption refused with ${result.error.code}`,
-        );
-      }
-      const redemption = result.value;
-      const contractVersion = ACTIVATION_CONTRACT_VERSION;
-      let value: InvitationRedemptionOutcome;
-      if (!("mode" in redemption))
-        value = { contractVersion, state: redemption.state };
-      else if (row === null)
-        throw new Error("Redeemed invitation lost its Offer");
-      else {
-        if (siteOrigin === undefined)
-          throw new Error("Invitation checkout needs the public site origin");
-        const checkoutUrl = new URL(offerCheckoutPath(row.id), siteOrigin);
-        value = {
-          contractVersion,
-          state: redemption.state,
-          mode: "purchase",
-          offerName: row.name,
-          checkoutUrl: checkoutUrl.toString(),
-        };
-      }
-      return {
-        ok: true as const,
-        value: invitationRedemptionOutcomeSchema.parse(value),
-      };
-    } catch (error) {
-      return dependencyFailure(
-        { module: "billing", operation: "redeemInvitation" },
-        error,
-        unavailable,
-      );
-    }
-  }
   async begin(input: unknown) {
     try {
       const result = await this.dependencies.grants.beginActivation(input);
@@ -464,30 +343,15 @@ export class SubscriptionActivation {
       accountRef: parsed.data.accountRef,
     });
     return this.dependencies.prisma.$transaction(async (tx) => {
-      await lockBillingPricing(tx);
-      const row = await tx.billingOffer.findUnique({
-        where: { id: rule.tierId },
-      });
-      if (row === null || !isProductOffer(row) || !tierOpenForAssignment(row))
+      const product = await this.activationProduct(rule.id);
+      if (product === null)
         return { ok: false as const, error: { code: "not_found" as const } };
-      if (row.revision !== rule.tierRevision)
-        return {
-          ok: false as const,
-          error: { code: "revision_conflict" as const },
-        };
       return this.dependencies.grants.activateSubscription(
         transactionHandle(tx),
         this.dependencies.bindings,
         linked,
         parsed.data,
-        {
-          id: row.id,
-          revision: row.revision,
-          name: row.name,
-          benefits: row.benefits,
-          benefitPeriods: row.benefitPeriods,
-          coverage: row.coverage ?? { productIds: [], materialIds: [] },
-        },
+        { id: product.id },
       );
     });
   }

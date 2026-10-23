@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   registerSourceSchema,
   sourceEntitlementViewSchema,
-} from "../../domain/subscription-activation.js";
+} from "../../domain/course-activation.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import {

@@ -25,9 +25,9 @@ import {
   assembleAccountRights,
   TributeSources,
 } from "../../src/modules/account-rights/index.js";
-import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
+import { CourseActivationController } from "../../src/modules/telegram-membership/features/activate-course/course-activation.controller.js";
 import {
-  SubscriptionActivation,
+  CourseActivation,
   TributeConvergence,
 } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
@@ -102,12 +102,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       clock: () => now,
     });
     @Module({
-      controllers: [ReceiveTributeController, SubscriptionActivationController],
+      controllers: [ReceiveTributeController, CourseActivationController],
       providers: [
         { provide: TributeConvergence, useValue: convergence },
         {
-          provide: SubscriptionActivation,
-          useValue: new SubscriptionActivation({
+          provide: CourseActivation,
+          useValue: new CourseActivation({
             sale: { subscriptions: true },
             prisma: db.prisma,
             grants,

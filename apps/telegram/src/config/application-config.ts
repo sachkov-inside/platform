@@ -197,7 +197,8 @@ export function loadApplicationConfig(
     assertServiceEndpoint(signInReturnUrl, "TELEGRAM_SIGN_IN_RETURN_URL");
 
   const membershipMode = environment["TELEGRAM_MEMBERSHIP_MODE"] ?? "disabled";
-  assertExternalMode(membershipMode, "TELEGRAM_MEMBERSHIP_MODE");
+  if (membershipMode !== "disabled")
+    throw new Error("TELEGRAM_MEMBERSHIP_MODE is retired");
   const membershipReconciliationCadenceMilliseconds = parseBoundedInteger(
     environment["TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS"],
     240_000,
@@ -226,13 +227,11 @@ export function loadApplicationConfig(
 
   const evidenceDeliveryMode =
     environment["PLATFORM_EVIDENCE_DELIVERY_MODE"] ?? "disabled";
-  assertExternalMode(evidenceDeliveryMode, "PLATFORM_EVIDENCE_DELIVERY_MODE");
+  if (evidenceDeliveryMode !== "disabled")
+    throw new Error("PLATFORM_EVIDENCE_DELIVERY_MODE is retired");
 
   const botToken = environment["TELEGRAM_BOT_TOKEN"];
-  if (
-    (deliveryMode === "live" || membershipMode === "live") &&
-    !hasText(botToken)
-  ) {
+  if (deliveryMode === "live" && !hasText(botToken)) {
     throw new Error("TELEGRAM_BOT_TOKEN is required for live delivery");
   }
 
@@ -353,24 +352,6 @@ export function loadApplicationConfig(
 
   let platformEvidenceDeliveryUrl: string | undefined;
   let platformEvidenceDeliverySecret: string | undefined;
-  if (evidenceDeliveryMode === "live") {
-    platformEvidenceDeliveryUrl = required(
-      environment,
-      "PLATFORM_EVIDENCE_DELIVERY_URL",
-    );
-    assertServiceEndpoint(
-      platformEvidenceDeliveryUrl,
-      "PLATFORM_EVIDENCE_DELIVERY_URL",
-    );
-    platformEvidenceDeliverySecret = required(
-      environment,
-      "PLATFORM_EVIDENCE_DELIVERY_SECRET",
-    );
-    assertServiceSecret(
-      platformEvidenceDeliverySecret,
-      "PLATFORM_EVIDENCE_DELIVERY_SECRET",
-    );
-  }
 
   const platformAuthorAuthorizationUrl =
     environment["PLATFORM_AUTHOR_AUTHORIZATION_URL"];

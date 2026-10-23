@@ -49,7 +49,6 @@ import type {
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
-import { MembershipEvidenceProvider } from "../../src/modules/membership-evidence/membership-evidence-provider.js";
 import { CommunityProvider } from "../../src/modules/community/community-provider.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
@@ -800,7 +799,6 @@ describe("bot sign-in provider", () => {
         application.get(BotContacts),
         application.get(IdentityLinking),
         new RuntimeMetrics(),
-        application.get(MembershipEvidenceProvider),
         signIn,
         {
           answer() {
@@ -814,7 +812,6 @@ describe("bot sign-in provider", () => {
         application.get(CommunityProvider),
         application.get(StartResponseDeliveryQueue),
         new GrammyUpdateAdapter(),
-        { start: () => Promise.resolve(), retry: () => Promise.resolve() },
       );
       expect(await processor.processAvailable()).toBe(2);
       expect(claim.mock.calls[0]?.[0]).toEqual(current);

@@ -2,7 +2,7 @@ import type { MaterialAnnouncement } from "@inside/contracts/material-announceme
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
 import type { TransportTables } from "../modules/outbound/transport-storage.js";
 import type { IdentityTables } from "../modules/identity-linking/identity-storage.js";
-import type { ActivationTables } from "../modules/subscription-activation/activation-storage.js";
+import type { ActivationTables } from "../modules/course-activation/activation-storage.js";
 import type { TelegramButton } from "../modules/outbound/telegram-messages.js";
 import type { SalesFunnelTables } from "../modules/sales-funnel/sales-funnel-storage.js";
 import type { CommunityTables } from "../modules/community/community-storage.js";

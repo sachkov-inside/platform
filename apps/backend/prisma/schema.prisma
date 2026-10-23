@@ -1707,8 +1707,9 @@ model ActivationRule {
  code String @unique @db.VarChar(40)
  name String @db.VarChar(200)
  revision Int
- tierId String @map("tier_id") @db.Uuid
- tierRevision Int @map("tier_revision")
+ productId String? @map("product_id") @db.Uuid
+ legacyTierId String? @map("tier_id") @db.Uuid
+ legacyTierRevision Int? @map("tier_revision")
  sourceRef String @map("source_ref") @db.VarChar(256)
  published Boolean @default(false)
  startsAt DateTime @map("starts_at") @db.Timestamptz
