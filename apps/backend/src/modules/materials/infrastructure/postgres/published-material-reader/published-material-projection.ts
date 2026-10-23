@@ -27,12 +27,12 @@ import { materialFormatSchema } from "../../../domain/material-format.js";
 import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
-import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../../content-covers/index.js";
 import type {
   ProductIntroductionDto,
   ProductLandingPageDto,
 } from "../../../facets/material-authoring/content-collection.contract.js";
-import { loadContentCoverProjections } from "../content-cover-projections.js";
+import { loadContentCoverProjections } from "../../../../content-covers/index.js";
 import { readProductPage } from "../../../shared/product-page-reader.js";
 import type {
   PublishedMaterialProjectionCursor,
