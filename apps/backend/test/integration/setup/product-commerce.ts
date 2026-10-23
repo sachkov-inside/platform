@@ -180,12 +180,12 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       ErrorCode: "0",
       ...extra,
     });
-    const bank = new Tbank(config, async (url, init) => {
+    const bank = new Tbank(config, (url, init) => {
       const body = z
         .object({ OrderId: z.string().optional() })
         .loose()
-        .parse(JSON.parse(String(init.body)));
-      if (String(url).endsWith("/Init")) {
+        .parse(JSON.parse(init.body));
+      if (url.endsWith("/Init")) {
         initCalls++;
         orderId = z.string().parse(body.OrderId);
         expect(body).toMatchObject({
@@ -193,29 +193,33 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         });
         expect(body).not.toHaveProperty("Recurrent");
         if (timeout) throw new Error("Synthetic lost Init answer");
-        return Response.json({
-          ...event(),
-          PaymentURL: "https://securepay.tinkoff.ru/test",
-        });
+        return Promise.resolve(
+          Response.json({
+            ...event(),
+            PaymentURL: "https://securepay.tinkoff.ru/test",
+          }),
+        );
       }
       if (String(url).endsWith("/CheckOrder"))
-        return Response.json({
-          Success: true,
-          ErrorCode: "0",
-          TerminalKey: config.terminalKey,
-          OrderId: body.OrderId,
-          Payments: [
-            {
-              PaymentId: paymentId,
-              Status: status,
-              Success: true,
-              ErrorCode: 0,
-            },
-          ],
-        });
+        return Promise.resolve(
+          Response.json({
+            Success: true,
+            ErrorCode: "0",
+            TerminalKey: config.terminalKey,
+            OrderId: body.OrderId,
+            Payments: [
+              {
+                PaymentId: paymentId,
+                Status: status,
+                Success: true,
+                ErrorCode: 0,
+              },
+            ],
+          }),
+        );
       if (String(url).endsWith("/GetState")) {
         stateCalls++;
-        return Response.json(event());
+        return Promise.resolve(Response.json(event()));
       }
       throw new Error("Recurring or unsupported bank operation");
     });
