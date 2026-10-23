@@ -54,7 +54,7 @@ export async function listOffers(
         archived: false,
         ...(options.publishedOnly === true ? { published: true } : {}),
         ...(productId === null ? {} : { productId }),
-        ...(hasText(cursor) ? { productId: { gt: cursor } } : {}),
+        ...(hasText(cursor) ? { AND: [{ productId: { gt: cursor } }] } : {}),
       },
       orderBy: { productId: "asc" },
       take: limit + 1,
