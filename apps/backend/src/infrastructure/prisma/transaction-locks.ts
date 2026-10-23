@@ -60,6 +60,17 @@ export async function lockPracticeImport(
   await lockTransactionKey(transaction, `practice-import:${practiceId}`);
 }
 
+/** Serializes first reservations of one Product source across its source and slug constraints. */
+export async function lockProductSourceReservation(
+  transaction: AdvisoryLockTransaction,
+  sourceId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `product-source-reservation:${sourceId}`,
+  );
+}
+
 /** Serializes creation and every import of one Product Task code. */
 export async function lockProductTaskImport(
   transaction: AdvisoryLockTransaction,

@@ -181,19 +181,132 @@ test("concurrent Product source reservation returns one stable identity", async 
     ),
     loadCovers: () => Promise.resolve(new Map()),
   });
+  // Each round reserves a fresh source, exercising competing first inserts rather than replay.
+  for (let round = 0; round < 200; round++) {
+    const command = {
+      actor: randomUUID(),
+      sourceId: `concurrent-product-source:${round}`,
+      slug: `concurrent-source-${round}`,
+      name: "Concurrent source",
+      summary: "One Product",
+    };
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => authoring.reserveSourceProduct(command)),
+    );
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(
+      new Set(
+        results.flatMap((result) => (result.ok ? [result.value.id] : [])),
+      ),
+    ).toHaveLength(1);
+  }
+});
+
+test("Product source replay preserves its original identity and metadata", async () => {
+  const authoring = assembleProductAuthoring({
+    prisma: database.prisma,
+    authorPolicy: { canManage: (_accountId, handle) => handle !== undefined },
+    materials: assembleProductMaterials(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
+    loadCovers: () => Promise.resolve(new Map()),
+  });
   const command = {
     actor: randomUUID(),
-    sourceId: "concurrent-product-source",
-    slug: "concurrent-source",
-    name: "Concurrent source",
-    summary: "One Product",
+    sourceId: "stable-product-source",
+    slug: "original-source-slug",
+    name: "Original source",
+    summary: "Original description",
+  };
+  const original = await authoring.reserveSourceProduct(command);
+  expect(original.ok).toBe(true);
+  const replay = await authoring.reserveSourceProduct({
+    ...command,
+    slug: "ignored-replay-slug",
+    name: "Ignored replay name",
+    summary: "Ignored replay description",
+  });
+  expect(replay).toEqual(original);
+});
+
+test("different Product sources competing for one slug retain a real conflict", async () => {
+  const authoring = assembleProductAuthoring({
+    prisma: database.prisma,
+    authorPolicy: { canManage: (_accountId, handle) => handle !== undefined },
+    materials: assembleProductMaterials(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
+    loadCovers: () => Promise.resolve(new Map()),
+  });
+  const command = {
+    actor: randomUUID(),
+    slug: "competing-source-slug",
+    name: "Competing source",
+    summary: "One slug has one owner",
   };
   const results = await Promise.all([
-    authoring.reserveSourceProduct(command),
-    authoring.reserveSourceProduct(command),
+    authoring.reserveSourceProduct({
+      ...command,
+      sourceId: "competing-source-a",
+    }),
+    authoring.reserveSourceProduct({
+      ...command,
+      sourceId: "competing-source-b",
+    }),
   ]);
-  expect(results.every((result) => result.ok)).toBe(true);
+  expect(results.filter((result) => result.ok)).toHaveLength(1);
+  expect(results.filter((result) => !result.ok)).toEqual([
+    { ok: false, error: { code: "content_collection_slug_conflict" } },
+  ]);
+  for (const sourceId of ["competing-source-a", "competing-source-b"]) {
+    const replay = await authoring.reserveSourceProduct({
+      ...command,
+      sourceId,
+    });
+    const original = results.find(
+      (result) => result.ok && result.value.sourceId === sourceId,
+    );
+    expect(replay).toEqual(
+      original ?? {
+        ok: false,
+        error: { code: "content_collection_slug_conflict" },
+      },
+    );
+  }
+});
+
+test("a forbidden Product reservation cannot claim a source or slug", async () => {
+  const actor = randomUUID();
+  const manager = randomUUID();
+  const authoring = assembleProductAuthoring({
+    prisma: database.prisma,
+    authorPolicy: {
+      canManage: (accountId, handle) =>
+        accountId === manager && handle !== undefined,
+    },
+    materials: assembleProductMaterials(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
+    loadCovers: () => Promise.resolve(new Map()),
+  });
+  const command = {
+    sourceId: "permission-product-source",
+    slug: "permission-source-slug",
+    name: "Unauthorized source",
+    summary: "Cannot reserve",
+  };
+  expect(await authoring.reserveSourceProduct({ ...command, actor })).toEqual({
+    ok: false,
+    error: { code: "forbidden" },
+  });
   expect(
-    new Set(results.flatMap((result) => (result.ok ? [result.value.id] : []))),
-  ).toHaveLength(1);
+    await authoring.reserveSourceProduct({
+      ...command,
+      actor: manager,
+      name: "Authorized source",
+    }),
+  ).toMatchObject({ ok: true, value: { name: "Authorized source" } });
 });
