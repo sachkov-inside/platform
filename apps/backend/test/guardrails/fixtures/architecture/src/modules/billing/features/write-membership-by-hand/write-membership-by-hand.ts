@@ -1,4 +1,4 @@
-import { unwrapTransaction, type TransactionHandle } from "../../../../../../infrastructure/prisma/transaction-handle.js";
+import { unwrapTransaction, type TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 // A caller cannot expose foreign delegates or unwrap the shared transaction itself.
 export async function writeMembershipByHand(transaction: {
   accessReceipt: { create(input: unknown): Promise<unknown> };
