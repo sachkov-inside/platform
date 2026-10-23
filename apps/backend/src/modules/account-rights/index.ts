@@ -27,8 +27,6 @@ export { ownProductSchema } from "./features/read-own-products/read-own-products
 export {
   accessCapabilitySchema,
   capabilitiesSchema,
-  legacyClassificationViewSchema,
-  recurringAllowedFor,
 } from "./domain/access-grant.js";
 
 export {
@@ -66,47 +64,6 @@ export {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,
 } from "./domain/course-activation.js";
-
-export {
-  saveTributePolicySchema,
-  previewTributeImportSchema,
-  applyTributeImportSchema,
-  reconcileTributeSchema,
-  retryTributeInboxSchema,
-  tributePolicySchema,
-  tributePreviewSchema,
-  tributeApplyResultSchema,
-  tributeSourceViewSchema,
-  tributeInboxViewSchema,
-  tributeOperationsViewSchema,
-} from "./domain/tribute-source.js";
-
-export { tributeWebhookSchema } from "./domain/tribute-webhook.js";
-
-export {
-  tributeImportReviewSchema,
-  dismissTributeImportSchema,
-} from "./domain/tribute-source.js";
-
-export {
-  invitationRedemptionOutcomeSchema,
-  type InvitationRedemptionOutcome,
-  invitationViewSchema,
-  issueInvitationSchema,
-  listInvitationsSchema,
-  redeemInvitationSchema,
-  revokeInvitationSchema,
-  type InvitationOffer,
-} from "./domain/invitation.js";
-export {
-  accessHolderSchema,
-  accessSourceSchema,
-  invitationFunnelSchema,
-  listAccessHoldersSchema,
-  ENDING_SOON_WINDOW_MS,
-  type AccessGround,
-  type AccessSource,
-} from "./domain/access-roster.js";
 
 export { announcementQuerySchema } from "./domain/activation-announcement.js";
 

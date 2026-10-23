@@ -10,23 +10,11 @@ export type AccountRightsPrisma = Pick<
   | "productAccess"
   | "productAccessSource"
   | "productAccessAction"
-  | "accessGrant"
-  | "productAccessExclusion"
-  | "tariffAssignment"
   | "activationRule"
   | "activationAttempt"
-  | "invitation"
   | "sourceEntitlement"
-  | "tributePolicy"
-  | "tributeInbox"
-  | "tributeImportReview"
   | "accessReceipt"
-  | "accessBatchPreview"
   | "accessChange"
-  | "legacyClassification"
-  | "membershipBinding"
-  | "membershipEvidenceReceipt"
-  | "membershipProjection"
 >;
 
 export type AccountRightsPrismaTransaction = AccountRightsPrisma;
