@@ -135,8 +135,17 @@ describe("communications promised public targets against Materials PostgreSQL", 
       await targets.check({ kind: "series", slug: "test-series" }),
     ).toEqual({ targetId: seriesId, reason: "incomplete" });
     await database.prisma.productMembership.create({
-      data: { seriesId, materialId, ordinal: 1 },
+      data: { seriesId, materialId },
     });
+    const order = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await authoring.reorderSeries({
+      actor,
+      seriesId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [materialId],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     expect(
       (await targets.check({ kind: "series", slug: "test-series" })).reason,
     ).toBe("incomplete");

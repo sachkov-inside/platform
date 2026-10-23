@@ -461,8 +461,17 @@ describe("local development seed after a demo content change", () => {
         orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
         select: {
           materialId: true,
-          ordinal: true,
           seriesId: true,
+        },
+      }),
+      programme: await testDatabase.prisma.productProgrammePlacement.findMany({
+        orderBy: [{ productId: "asc" }, { ordinal: "asc" }],
+        select: {
+          id: true,
+          materialId: true,
+          productId: true,
+          chapterId: true,
+          ordinal: true,
           stepGroup: true,
         },
       }),

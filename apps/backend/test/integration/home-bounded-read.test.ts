@@ -260,11 +260,11 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
     });
   }
   for (let offset = 0; offset < memberships.length; offset += 300) {
-    await prisma.productProgrammePlacement.createMany({
-      data: placements.slice(offset, offset + 300),
-    });
     await prisma.productMembership.createMany({
       data: memberships.slice(offset, offset + 300),
+    });
+    await prisma.productProgrammePlacement.createMany({
+      data: placements.slice(offset, offset + 300),
     });
     await prisma.publishedMaterialProductMembership.createMany({
       data: publishedMemberships.slice(offset, offset + 300),
@@ -435,18 +435,30 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         },
       ],
     });
-    await prisma.publishedMaterialProductMembership.update({
-      where: {
-        materialId_seriesId: { materialId: id(46), seriesId: id(200005) },
-      },
-      data: { ordinal: 100 },
+    const authoring = assembleMaterials({
+      prisma,
+      authorPolicy: { canManage: () => true },
+    }).authoring;
+    const order = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: id(200005),
     });
-    await prisma.publishedMaterialProductMembership.update({
-      where: {
-        materialId_seriesId: { materialId: id(52), seriesId: id(200005) },
-      },
-      data: { ordinal: 1 },
+    if (!order.ok) throw new Error(order.error.code);
+    const reordered = await authoring.reorderSeries({
+      actor,
+      seriesId: id(200005),
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [
+        id(52),
+        ...order.value.items
+          .map((item) => item.materialId)
+          .filter(
+            (materialId) => materialId !== id(46) && materialId !== id(52),
+          ),
+        id(46),
+      ],
     });
+    if (!reordered.ok) throw new Error(reordered.error.code);
     await prisma.material.update({
       where: { id: id(52) },
       data: { publishedAt: new Date("2026-01-03") },
