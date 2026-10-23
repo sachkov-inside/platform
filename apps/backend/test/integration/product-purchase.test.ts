@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { z } from "zod";
@@ -57,6 +59,10 @@ function setupFacets() {
     clock: () => now,
   });
   const pricing = new BillingPricing({
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
     prisma: db.prisma,
     accounts,
     sale: { payments: true },
@@ -102,6 +108,10 @@ async function scenario(
       logtoSubject: buyer,
     },
   });
+  if (options.productId === undefined)
+    await db.prisma.product.create({
+      data: { id: productId, name: "Курс", slug: productId },
+    });
   const facets = setupFacets();
   if (options.productId === undefined)
     value(
@@ -213,6 +223,10 @@ async function scenario(
     throw new Error("Recurring or unsupported bank operation");
   });
   const payments = new BillingPayments({
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
     prisma: db.prisma,
     bank,
     contact: facets.contact,

@@ -43,6 +43,15 @@ export async function readProductSaleAvailability(
       },
       orderBy: { productId: "asc" },
     });
+    const entries = await options.contentCatalog?.resolve({
+      productIds,
+      materialIds: [],
+    });
+    const available = new Set(
+      entries
+        ?.filter((entry) => entry.kind === "product" && entry.available)
+        .map((entry) => entry.id),
+    );
     const sold = new Set<string>();
     const now = clock();
     for (let offset = 0; offset < rows.length; offset += 100) {
@@ -65,15 +74,16 @@ export async function readProductSaleAvailability(
           continue;
         for (const id of productIds)
           if (
-            price.value.offer.benefits.includes(productCapability(id)) ||
-            (price.value.offer.benefits.includes("materials") &&
-              scopeIncludesProduct(
-                price.value.offer.coverage ?? {
-                  productIds: [],
-                  materialIds: [],
-                },
-                id,
-              ))
+            available.has(id) &&
+            (price.value.offer.benefits.includes(productCapability(id)) ||
+              (price.value.offer.benefits.includes("materials") &&
+                scopeIncludesProduct(
+                  price.value.offer.coverage ?? {
+                    productIds: [],
+                    materialIds: [],
+                  },
+                  id,
+                )))
           )
             sold.add(id);
       }

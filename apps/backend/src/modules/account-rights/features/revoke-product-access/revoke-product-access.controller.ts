@@ -1,3 +1,9 @@
+import {
+  productAccessListQuerySchema,
+  productAccessListSchema,
+  productAccessTargetSchema,
+  productAccessRecordsSchema,
+} from "../../domain/product-access.js";
 import { issueManualProductAccessSchema } from "../../domain/product-access.js";
 import {
   Body,
@@ -73,6 +79,49 @@ import {
 export class RevokeProductAccessController {
   constructor(@Inject(ACCESS_GRANTS) private readonly grants: AccessGrants) {}
 
+  @Post("list")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "listProductAccess",
+    summary: "Read the bounded owner Product Access inventory",
+  })
+  @ApiBody({ schema: toOpenApiSchema(productAccessListQuerySchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      productAccessListSchema.extend({ ok: z.literal(true) }),
+    ),
+  })
+  async list(
+    @CurrentAccount() actor: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
+    const result = await this.grants.listProductAccess(actor.accountId, input);
+    if (!result.ok) fail(result.error.code);
+    return result;
+  }
+  @Post("read")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "readProductAccess",
+    summary: "Read one Product Access with immutable source and action history",
+  })
+  @ApiBody({ schema: toOpenApiSchema(productAccessTargetSchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      z.strictObject({
+        ok: z.literal(true),
+        value: productAccessRecordsSchema,
+      }),
+    ),
+  })
+  async read(
+    @CurrentAccount() actor: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
+    const result = await this.grants.readProductAccess(actor.accountId, input);
+    if (!result.ok) fail(result.error.code);
+    return result;
+  }
   @Post("preview-revoke")
   @HttpCode(200)
   @ApiOperation({

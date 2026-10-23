@@ -53,6 +53,7 @@ export class BillingPricing {
   offers(input: unknown, _accountId?: string) {
     return listOffers(this.dependencies.prisma, input, this.clock, {
       publishedOnly: true,
+      contentCatalog: this.dependencies.contentCatalog,
       sale: this.dependencies.sale,
     });
   }
@@ -61,7 +62,10 @@ export class BillingPricing {
       this.dependencies.prisma,
       input,
       this.clock,
-      { sale: this.dependencies.sale },
+      {
+        sale: this.dependencies.sale,
+        contentCatalog: this.dependencies.contentCatalog,
+      },
     );
   }
   cohorts(productId?: string, cursor?: string) {
@@ -84,6 +88,7 @@ export class BillingPricing {
       { formerTributeSubscriber: false, invitedOfferIds: [] },
       this.dependencies.sale,
       false,
+      this.dependencies.contentCatalog,
     );
   }
   managePaymentLink(actor: string, input: unknown) {
@@ -136,7 +141,12 @@ export class BillingPricing {
     }
   }
   reserve(input: ReservePurchase) {
-    return reservePurchase(this.dependencies.prisma, input, this.clock);
+    return reservePurchase(
+      this.dependencies.prisma,
+      input,
+      this.clock,
+      this.dependencies.contentCatalog,
+    );
   }
   settle(input: SettleReservation) {
     return settleReservation(this.dependencies.prisma, input);

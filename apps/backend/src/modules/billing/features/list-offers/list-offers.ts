@@ -1,3 +1,4 @@
+import type { CoverageCatalog } from "../../../account-rights/index.js";
 import { productIdFromCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
@@ -28,6 +29,7 @@ export const offersPageSchema = z.strictObject({
   nextCursor: idSchema.nullable(),
 });
 export interface ListOffersOptions {
+  readonly contentCatalog?: CoverageCatalog | undefined;
   /** Публичная витрина видит только предложения, включённые в продажу; владелец — весь непустой каталог. */
   readonly publishedOnly?: boolean;
   /**
@@ -71,7 +73,23 @@ export async function listOffers(
     const prices = await selectPricesForOptions(prisma, page, now, undefined, {
       allowUnpublished: options.publishedOnly !== true,
     });
-    for (const row of page) {
+    const metadata =
+      options.publishedOnly !== true
+        ? undefined
+        : await options.contentCatalog?.resolveMany(
+            page.map((row) => ({
+              productIds: [row.productId],
+              materialIds: [],
+            })),
+          );
+    for (const [index, row] of page.entries()) {
+      if (
+        options.publishedOnly === true &&
+        metadata?.[index]?.some(
+          (entry) => entry.kind === "product" && entry.available,
+        ) !== true
+      )
+        continue;
       const price = prices.get(row.productId);
       if (price === undefined) continue;
       if (

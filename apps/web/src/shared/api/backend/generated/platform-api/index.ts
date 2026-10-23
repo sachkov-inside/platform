@@ -22,6 +22,7 @@ export { CommunicationsService } from './services/CommunicationsService';
 export { CommunicationsTrackingService } from './services/CommunicationsTrackingService';
 export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
+export { CourseActivationIntegrationService } from './services/CourseActivationIntegrationService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
@@ -38,10 +39,7 @@ export { PublishedMaterialsService } from './services/PublishedMaterialsService'
 export { ReadingActivityService } from './services/ReadingActivityService';
 export { SalesFunnelService } from './services/SalesFunnelService';
 export { SalesFunnelIntegrationService } from './services/SalesFunnelIntegrationService';
-export { SubscriptionActivationIntegrationService } from './services/SubscriptionActivationIntegrationService';
 export { TelegramCommunityService } from './services/TelegramCommunityService';
 export { TelegramMembershipService } from './services/TelegramMembershipService';
-export { TelegramMembershipIntegrationService } from './services/TelegramMembershipIntegrationService';
 export { TelegramSignInService } from './services/TelegramSignInService';
-export { TributeIntegrationService } from './services/TributeIntegrationService';
 export { VideoPlaybackService } from './services/VideoPlaybackService';

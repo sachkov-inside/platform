@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import { assembleAccessGrants } from "../modules/account-rights/index.js";
@@ -45,7 +47,12 @@ export async function seedLocalStandAccounts(
     prisma,
     emailFingerprintKey: "local-stand-fixture-does-not-establish-email",
   });
-  const grants = assembleAccessGrants({ prisma, accounts, clock });
+  const grants = assembleAccessGrants({
+    prisma,
+    accounts,
+    clock,
+    contentCatalog: new CoverageCatalog(prisma, new ProductDiscovery(prisma)),
+  });
   const products = await prisma.product.findMany({
     select: { id: true },
     where: { archivedAt: null },

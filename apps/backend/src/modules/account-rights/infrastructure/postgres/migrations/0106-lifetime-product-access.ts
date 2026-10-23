@@ -27,10 +27,12 @@ INSERT INTO account_rights.product_access_migration_inventory
 SELECT 'grant',g.id,g.account_id,array(
  SELECT DISTINCT p.id FROM products.series p WHERE
   g.capabilities @> ARRAY['product:'||p.id::text]::text[]
-  OR coalesce(g.coverage->'productIds','[]'::jsonb) @> to_jsonb(ARRAY[p.id::text])
-  OR (coalesce((g.coverage->>'wholePlatform')::boolean,false) AND p.created_at<=coalesce(g.revoked_at,g.valid_until,now()))
-  OR EXISTS (SELECT 1 FROM products.series_memberships m WHERE m.series_id=p.id AND coalesce(g.coverage->'materialIds','[]'::jsonb) @> to_jsonb(ARRAY[m.material_id::text]))
-),CASE WHEN g.starts_at>now() THEN 'future_history' ELSE 'mapped_or_unscoped_history' END
+  OR (g.capabilities @> ARRAY['materials']::text[] AND coalesce(g.coverage->'productIds','[]'::jsonb) @> to_jsonb(ARRAY[p.id::text]))
+),CASE
+ WHEN g.starts_at>now() THEN 'future_history'
+ WHEN g.revoked_at IS NOT NULL THEN 'withdrawn_product_or_unscoped_history'
+ WHEN g.valid_until IS NOT NULL AND g.valid_until<=now() THEN 'expired_history'
+ ELSE 'explicit_product_or_unscoped_review' END
 FROM account_rights.access_grants g;
 INSERT INTO account_rights.product_access(account_id,product_id,first_issued_at,revoked_at,revision)
 SELECT i.account_id,mapped.product_id,min(g.starts_at),
@@ -39,36 +41,18 @@ SELECT i.account_id,mapped.product_id,min(g.starts_at),
 FROM account_rights.product_access_migration_inventory i JOIN account_rights.access_grants g ON i.legacy_kind='grant' AND i.legacy_id=g.id
 CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id)
 LEFT JOIN account_rights.product_access_exclusions e ON e.account_id=i.account_id AND e.product_id=mapped.product_id
-WHERE g.starts_at<=now()
+WHERE g.starts_at<=now() AND (g.revoked_at IS NOT NULL OR g.valid_until IS NULL OR g.valid_until>now())
 GROUP BY i.account_id,mapped.product_id;
 INSERT INTO account_rights.product_access_sources(source,source_ref,account_id,product_id,issued_at,reason)
 SELECT 'migration_grant',g.id::text||':'||product_id::text,i.account_id,product_id,g.starts_at,g.reason
 FROM account_rights.product_access_migration_inventory i JOIN account_rights.access_grants g ON i.legacy_kind='grant' AND i.legacy_id=g.id
-CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id) WHERE g.starts_at<=now();
--- Current verified bridge holders are frozen once into explicit Products, never refreshed from events.
+CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id) WHERE g.starts_at<=now() AND (g.revoked_at IS NOT NULL OR g.valid_until IS NULL OR g.valid_until>now());
+-- Legacy bridge projections identify membership, not an accepted acquisition of a named Product.
+-- Keep every record passive and inventoried for explicit review; never broaden whole-platform or
+-- Material-only history into a Product purchase, course activation or owner issuance.
 INSERT INTO account_rights.product_access_migration_inventory
-SELECT 'bridge',c.account_id,c.account_id,array(
- SELECT DISTINCT p.id FROM products.series p WHERE
- coalesce(c.bridge_coverage->'productIds','[]'::jsonb) @> to_jsonb(ARRAY[p.id::text])
- OR (coalesce((c.bridge_coverage->>'wholePlatform')::boolean,false) AND p.created_at<=now())
- OR EXISTS (SELECT 1 FROM products.series_memberships m WHERE m.series_id=p.id AND coalesce(c.bridge_coverage->'materialIds','[]'::jsonb) @> to_jsonb(ARRAY[m.material_id::text]))
-),'bridge_history' FROM account_rights.legacy_classifications c;
-INSERT INTO account_rights.product_access(account_id,product_id,first_issued_at,revoked_at,revision)
-SELECT c.account_id,mapped.product_id,c.verified_at,e.revoked_at,1
-FROM account_rights.legacy_classifications c
-JOIN account_rights.current_projections p ON p.account_id=c.account_id
-JOIN account_rights.product_access_migration_inventory i ON i.legacy_kind='bridge' AND i.legacy_id=c.account_id
-CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id)
-LEFT JOIN account_rights.product_access_exclusions e ON e.account_id=c.account_id AND e.product_id=mapped.product_id
-WHERE c.bridge_enabled AND p.decision='member' AND p.valid_until>now()
-ON CONFLICT(account_id,product_id) DO NOTHING;
-INSERT INTO account_rights.product_access_sources(source,source_ref,account_id,product_id,issued_at,reason)
-SELECT 'migration_bridge',c.account_id::text||':'||mapped.product_id::text,c.account_id,mapped.product_id,c.verified_at,c.reason
-FROM account_rights.legacy_classifications c
-JOIN account_rights.current_projections p ON p.account_id=c.account_id
-JOIN account_rights.product_access_migration_inventory i ON i.legacy_kind='bridge' AND i.legacy_id=c.account_id
-CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id)
-WHERE c.bridge_enabled AND p.decision='member' AND p.valid_until>now();
+SELECT 'bridge',c.account_id,c.account_id,'{}'::uuid[],'passive_bridge_review'
+FROM account_rights.legacy_classifications c;
 -- An explicit prior Product withdrawal remains a latch even if its old grant is missing/unscoped.
 INSERT INTO account_rights.product_access(account_id,product_id,first_issued_at,revoked_at,revision)
 SELECT account_id,product_id,revoked_at,revoked_at,1 FROM account_rights.product_access_exclusions

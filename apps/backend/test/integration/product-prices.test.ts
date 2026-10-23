@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { BillingPricing } from "../../src/modules/billing/index.js";
@@ -22,7 +24,14 @@ beforeAll(async () => {
   await db.prisma.accountPermission.create({
     data: { accountId: owner, permission: "platform:admin" },
   });
+  await db.prisma.product.create({
+    data: { id: productId, name: "Курс", slug: productId },
+  });
   pricing = new BillingPricing({
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
     prisma: db.prisma,
     accounts: assembleAccounts({
       prisma: db.prisma,

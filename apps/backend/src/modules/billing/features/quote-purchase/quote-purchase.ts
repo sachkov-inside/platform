@@ -1,3 +1,6 @@
+import type { CoverageCatalog } from "../../../account-rights/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { productSaleAvailable } from "../../shared/product-sale-available.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -57,6 +60,7 @@ export async function quotePurchase(
   grounds: PurchaseGrounds,
   sale: SaleCapability,
   recurringAllowed: boolean,
+  contentCatalog?: Pick<CoverageCatalog, "resolve">,
 ): Promise<QuotePurchaseResult> {
   const parsed = quotePurchaseSchema.safeParse(input);
   const identity = idSchema.safeParse(accountId);
@@ -97,6 +101,14 @@ export async function quotePurchase(
                 now,
               );
         if (!price.ok) return price;
+        if (
+          !(await productSaleAvailable(
+            contentCatalog,
+            price.value,
+            transactionHandle(tx),
+          ))
+        )
+          return failure("not_found");
         if (price.value.paymentOption.revision !== command.priceRevision)
           return failure("quote_changed");
         const admission = paymentAdmission({

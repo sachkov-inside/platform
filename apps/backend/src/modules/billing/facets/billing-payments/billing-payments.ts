@@ -1,3 +1,5 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { productSaleAvailable } from "../../shared/product-sale-available.js";
 import {
   accessCapabilitySchema,
   isProductCapability,
@@ -300,6 +302,7 @@ export class BillingPayments {
                 },
               },
               now,
+              this.dependencies.contentCatalog,
             );
             if (!reservation.ok)
               return paymentFailure(
@@ -963,6 +966,41 @@ export class BillingPayments {
             where: { purchaseRef: attemptRef },
             data: { state: "failed" },
           });
+        return { status: "retired" } as const;
+      }
+      const snapshot = priceSnapshotSchema.parse(row.snapshot);
+      const productId =
+        snapshot.product?.id ??
+        snapshot.offer.benefits
+          .filter(isProductCapability)
+          .map(productIdFromCapability)[0];
+      const current =
+        typeof productId === "string"
+          ? await tx.billingProductPrice.findUnique({ where: { productId } })
+          : null;
+      if (
+        current === null ||
+        current.archived ||
+        !current.published ||
+        !(await productSaleAvailable(
+          this.dependencies.contentCatalog,
+          snapshot,
+          transactionHandle(tx),
+        ))
+      ) {
+        await tx.billingPurchase.update({
+          where: { id: attemptRef },
+          data: {
+            state: "failed",
+            lifecycleActive: false,
+            paymentUrl: null,
+            updatedAt: this.clock(),
+          },
+        });
+        await tx.billingPromoReservation.updateMany({
+          where: { purchaseRef: attemptRef },
+          data: { state: "failed" },
+        });
         return { status: "retired" } as const;
       }
       const now = this.clock();

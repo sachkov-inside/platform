@@ -1,3 +1,4 @@
+import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { readProductPage } from "../../shared/product-page-reader.js";
@@ -60,6 +61,8 @@ export class ProductDiscovery {
   ): Promise<ProductMetadataFact[]> {
     const prisma =
       handle === undefined ? this.prisma : productsTransaction(handle);
+    if (handle !== undefined && query?.ids !== undefined)
+      await lockSeries(prisma, query.ids);
     return prisma.product.findMany({
       ...(query === undefined
         ? {}

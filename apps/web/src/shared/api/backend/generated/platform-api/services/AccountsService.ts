@@ -51,16 +51,11 @@ export class AccountsService {
         accepted: boolean;
         digest: string;
         documentId: string;
-        kind: 'terms' | 'recurring' | 'personal_data' | 'marketing';
+        kind: 'terms' | 'personal_data' | 'marketing';
         version: string;
       }>;
       operationId: string;
-      screen: 'checkout' | 'subscription-resume';
-      shownTerms?: {
-        amountKopecks: number;
-        nextChargeOn: string;
-        periodMonths: number;
-      };
+      screen: 'checkout';
     },
   }): CancelablePromise<({
     evidenceRefs: Array<string>;
