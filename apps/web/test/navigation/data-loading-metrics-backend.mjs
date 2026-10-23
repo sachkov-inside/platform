@@ -159,11 +159,11 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
         ],
       },
     };
-  } else if (url.pathname === "/billing/offers") {
+  } else if (url.pathname === "/billing/product-prices") {
     const base = envelope.parse(
       owners.baseRoute(
         request.method,
-        new URL("/billing/offers", url),
+        new URL("/billing/product-prices", url),
         entitled,
       ),
     );
@@ -173,6 +173,12 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
       value: {
         items: value.items.slice(0, 1).map((item) => ({
           ...item,
+          product: {
+            id: metricsProductId,
+            name: "Проверочный курс",
+            priceRevision: cohortRevision,
+          },
+          supportMonths: 3,
           firstPriceKopecks: priceKopecks - (role === "non-owner" ? 100000 : 0),
           renewalPriceKopecks:
             priceKopecks - (role === "non-owner" ? 100000 : 0),

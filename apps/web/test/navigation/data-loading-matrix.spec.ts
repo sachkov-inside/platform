@@ -824,7 +824,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
   }
 }
 
-test("FLOW04 cold and warm closed guest eligibility stays fresh while public projection is reused", async ({
+test("FLOW04 a retired subscription hint cannot introduce checkout while public projection is reused", async ({
   page,
   request,
 }, info) => {
@@ -849,11 +849,7 @@ test("FLOW04 cold and warm closed guest eligibility stays fresh while public pro
       name: "Получить доступ",
       exact: true,
     });
-    await expect(invitation).toBeVisible();
-    await expect(invitation).toHaveAttribute(
-      "href",
-      `/payment/checkout?from=${encodeURIComponent(`${path}?from=%2F`)}`,
-    );
+    await expect(invitation).toHaveCount(0);
     const warm = (await backendRecords(request)).filter(
       (record) => record.path === path,
     );
@@ -867,7 +863,7 @@ test("FLOW04 cold and warm closed guest eligibility stays fresh while public pro
       cold,
       warm,
       falseHadInvitation: false,
-      trueHasInvitation: true,
+      trueHasInvitation: false,
       protectedImages: 0,
     });
   } finally {

@@ -532,8 +532,8 @@ function route(method, url, entitled) {
         )
           return { productId: id, sold: false };
         // The thin fixture uses the same offered-price admission as the existing full sale.
-        const offersUrl = new URL("/billing/offers", url);
-        offersUrl.searchParams.set("capability", "product:" + id);
+        const offersUrl = new URL("/billing/product-prices", url);
+        offersUrl.searchParams.set("productId", id);
         const offers = route("GET", offersUrl, entitled);
         if (
           offers === undefined ||
@@ -822,9 +822,28 @@ function route(method, url, entitled) {
       renewalPriceKopecks: 990_000,
       timezone: "Europe/Moscow",
     };
+    const modesPrice = {
+      ...publicPrice,
+      product: {
+        id: modesProductId,
+        name: "Продукт с режимами",
+        priceRevision: 1,
+      },
+      offer: {
+        ...publicPrice.offer,
+        id: modesProductId,
+        name: "Продукт с режимами",
+        benefits: [`product:${modesProductId}`],
+        benefitPeriods: [
+          { capability: `product:${modesProductId}`, months: null },
+        ],
+      },
+    };
     const selected = url.searchParams.get("productId");
     return json({
-      items: selected === null || selected === productId ? [publicPrice] : [],
+      items: [publicPrice, modesPrice].filter(
+        (item) => selected === null || item.product.id === selected,
+      ),
       nextCursor: null,
     });
   }
