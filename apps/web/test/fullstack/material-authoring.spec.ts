@@ -1875,9 +1875,35 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await picker.getByRole("button", { name: "Закрыть выбор материала" }).click();
   await expect(picker).toBeHidden();
 
+  // The Catalogue is unordered. This journey explicitly owns Programme occurrences before editing their order/group.
+  const productId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+  await expect
+    .poll(async () => (await readProductOrder(page, productId)).items.length)
+    .toBe(3);
+  const catalogue = await readProductOrder(page, productId);
+  const programme = await fullStackBrowserJsonRequest(
+    page,
+    "/api/authoring/series/order",
+    "PUT",
+    {
+      seriesId: productId,
+      expectedOrderVersion: catalogue.orderVersion,
+      orderedMaterialIds: catalogue.items.map((item) => item.materialId),
+      programmePlacements: catalogue.items.map((item) => ({
+        id: randomUUID(),
+        materialId: item.materialId,
+        chapterId: null,
+        stepGroup: null,
+      })),
+    },
+  );
+  expect(await programme.json()).toMatchObject({ kind: "saved" });
+  await page.reload();
+
   const items = page
     .getByRole("list", { name: "Материалы продукта" })
     .getByRole("listitem");
+  await expect(items).toHaveCount(catalogue.items.length);
   const countAfterAdd = await items.count();
   expect(countAfterAdd).toBeGreaterThan(2);
   const firstTitle = await items.first().locator("p").first().innerText();
