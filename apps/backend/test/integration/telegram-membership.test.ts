@@ -544,25 +544,6 @@ class MutableClock {
   }
 }
 
-function evidence(
-  principalRef: string,
-  decision: "member" | "not_member",
-  evidenceVersion: number,
-  checkedAt: Date,
-) {
-  return {
-    contractVersion: "inside.membership-evidence.v1",
-    principalRef,
-    decision,
-    reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-    checkedAt: checkedAt.toISOString(),
-    validUntil: new Date(checkedAt.getTime() + 5 * 60_000).toISOString(),
-    telegramIdentityRef: "telegram-identity-ref-a",
-    evidenceRef: `evidence-${String(evidenceVersion)}`,
-    evidenceVersion,
-  };
-}
-
 function deferred<T>(): {
   readonly promise: Promise<T>;
   readonly resolve: (value: T) => void;

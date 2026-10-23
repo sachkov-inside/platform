@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import {
   contractDigest,
@@ -244,6 +246,10 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       clock: () => now,
     });
     const payments = new BillingPayments({
+      contentCatalog: new CoverageCatalog(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       sale: { payments: true },
       prisma: database.prisma,
       grants,
@@ -449,8 +455,6 @@ test("replays and accepts an unexpired change quote saved before the rename", as
         terminalKey: "SYNTHETICMIGRATION",
         password: "synthetic-test-password",
         bindingEncryptionKey: Buffer.alloc(32, 51).toString("base64"),
-        recurringCardConfirmed: true,
-        cardOnlyHostedConfirmed: true,
         cardBinding: { confirmed: true, checkType: "3DS" },
         minimumKopecks: 100,
         maximumKopecks: 10000000,

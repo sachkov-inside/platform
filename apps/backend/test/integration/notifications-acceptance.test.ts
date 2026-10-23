@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import {
@@ -84,8 +86,6 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETICACCEPT",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 65).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   cardBinding: { confirmed: true, checkType: "3DS" },
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
@@ -233,6 +233,10 @@ describe("приёмка обоих источников Notifications (реал
     bank = new BankFixture(config);
     const client = bank.client();
     payments = new BillingPayments({
+      contentCatalog: new CoverageCatalog(
+        platform.prisma,
+        new ProductDiscovery(platform.prisma),
+      ),
       sale: { payments: true },
       prisma: platform.prisma,
       bank: client,

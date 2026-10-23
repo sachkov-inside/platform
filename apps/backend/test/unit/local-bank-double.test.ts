@@ -72,8 +72,8 @@ describe("local bank double", () => {
       Success: true,
       ErrorCode: "0",
     });
-    // Привязка выдана: покупка просила сохранить карту.
-    expect(accepted?.RebillId).toMatch(/^\d+$/u);
+    // One-time Product payment never stores a recurring card binding.
+    expect(accepted?.RebillId).toBeUndefined();
     expect(await bank.state(started.PaymentId)).toMatchObject({
       Status: "CONFIRMED",
     });

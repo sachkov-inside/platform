@@ -18,7 +18,7 @@ describe("Billing pricing rules", () => {
     expect(toOpenApiSchema(quotePurchaseSchema)).toMatchObject({
       properties: {
         operationId: { type: "string", format: "uuid" },
-        paymentOptionId: { type: "string", format: "uuid" },
+        productId: { type: "string", format: "uuid" },
       },
     });
     expect(toOpenApiSchema(priceQuoteSchema)).toMatchObject({
@@ -77,8 +77,7 @@ describe("Billing pricing rules", () => {
       code: "CODE",
       startsAt: "2026-09-08T15:00:00+03:00",
       endsAt: "2026-09-08T16:00:00+03:00",
-      offerIds: [option.offerId],
-      paymentOptionIds: [option.id],
+      productIds: [option.offerId],
       usageLimit: null,
       archived: false,
     };

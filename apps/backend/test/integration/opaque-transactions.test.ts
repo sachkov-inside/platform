@@ -2,12 +2,9 @@ import { assembleMaterials } from "../../src/entrypoints/composition/assemble-ma
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import {
-  assembleAccounts,
-  accountId,
-} from "../../src/modules/accounts/index.js";
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
+
 import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import {
   createMigratedTestDatabase,

@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
@@ -40,8 +42,6 @@ const terminal = syntheticTbankConfig({
   terminalKey: "SYNTHETICPURCHASES",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1_000_000,
   returnUrl: "https://inside.example.test/account",
@@ -328,6 +328,10 @@ describe("Billing purchases HTTP", () => {
     );
     if (!consent.ok) throw new Error(consent.error.code);
     const payments = new BillingPayments({
+      contentCatalog: new CoverageCatalog(
+        database.prisma,
+        new ProductDiscovery(database.prisma),
+      ),
       sale: { payments: true },
       prisma: database.prisma,
       bank: new BankFixture(terminal).client(),

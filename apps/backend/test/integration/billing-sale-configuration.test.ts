@@ -14,14 +14,8 @@ function value<T>(
   if (!result.ok) throw new Error(result.error.code);
   return result.value;
 }
-const allMethods = {
-  recurringCardConfirmed: false,
-  cardOnlyHostedConfirmed: false,
-};
-const cardOnly = {
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
-};
+const allMethods = {};
+const cardOnly = {};
 const contact = {
   encryptionKey: Buffer.alloc(32, 7).toString("base64"),
   smtpHost: "127.0.0.1",

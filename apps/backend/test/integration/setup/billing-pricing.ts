@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../../src/modules/products/index.js";
 import { BillingPricing } from "../../../src/modules/billing/index.js";
 import type { Accounts } from "../../../src/modules/accounts/index.js";
 import { assembleAccessGrants } from "../../../src/modules/account-rights/index.js";
@@ -11,6 +13,10 @@ export function assembleTestBillingPricing(
   > & { prisma: PlatformPrisma; accounts: Accounts },
 ): BillingPricing {
   return new BillingPricing({
+    contentCatalog: new CoverageCatalog(
+      dependencies.prisma,
+      new ProductDiscovery(dependencies.prisma),
+    ),
     ...dependencies,
     grants: dependencies.grants ?? assembleAccessGrants(dependencies),
   });

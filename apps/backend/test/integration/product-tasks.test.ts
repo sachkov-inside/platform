@@ -143,7 +143,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
   let db: TestDatabase;
   const owner = randomUUID();
   const topicId = randomUUID();
-  let grants: ReturnType<typeof assembleAccessGrants>;
+
   let contentAccess: ContentAccess;
   let directory: ProductDirectory;
   let materials: ReturnType<typeof assembleMaterials>;
@@ -189,7 +189,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       prisma: db.prisma,
       emailFingerprintKey: "product-tasks-email-fingerprint-key",
     });
-    grants = assembleAccessGrants({ prisma: db.prisma, accounts });
+
     const membership = assembleAccountRights({
       prisma: db.prisma,
     });

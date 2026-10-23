@@ -2,10 +2,7 @@ import { grantProductFixture, revokeProductFixture } from "./product-access.js";
 import { randomUUID } from "node:crypto";
 
 import { assembleAccounts } from "../../../src/modules/accounts/index.js";
-import {
-  assembleAccessGrants,
-  type AccessCapability,
-} from "../../../src/modules/account-rights/index.js";
+import { assembleAccessGrants } from "../../../src/modules/account-rights/index.js";
 import { assembleMaterials } from "../../../src/entrypoints/composition/assemble-materials.js";
 import type { TestDatabase } from "./test-database.js";
 
@@ -68,14 +65,7 @@ export async function createScopedProductsWorld(
   });
   // deterministic-test-allow wall-clock: Callers registerFixedClock; fixture and in-process consumers share virtual Date.
   let now = (): Date => new Date();
-  const grants = assembleAccessGrants({
-    prisma: database.prisma,
-    accounts: assembleAccounts({
-      prisma: database.prisma,
-      emailFingerprintKey: "scoped-products-email-fingerprint-key",
-    }),
-    clock: () => now(),
-  });
+
   const materials = assembleMaterials({
     prisma: database.prisma,
     authorPolicy: { canManage: (id) => id === owner },
