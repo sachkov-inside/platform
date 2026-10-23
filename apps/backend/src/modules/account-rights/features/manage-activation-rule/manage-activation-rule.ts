@@ -39,7 +39,9 @@ export async function manageActivationRule(
   // Source identity is durable; editing a rule cannot reclassify a previously issued course.
   if (
     current !== null &&
-    (current.code !== command.value.code ||
+    ((current.productId !== null &&
+      current.productId !== command.value.productId) ||
+      current.code !== command.value.code ||
       current.sourceRef !== command.value.sourceRef ||
       current.verificationMode !==
         (command.value.verificationMode ?? "course_membership"))

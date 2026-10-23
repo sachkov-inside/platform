@@ -43,7 +43,7 @@ export class CourseActivation {
         admissionRestriction: "none" | "moderation" | "external_unknown" | null;
         state: "checking" | "no_access" | "moderation_blocked" | "ready";
       }>;
-      /** Origin сайта: страница оформления Offer по приглашению лежит на нём. */
+      /** Public origin for Product programme navigation. */
       siteOrigin?: string;
       contentCatalog?: Pick<CoverageCatalog, "resolve">;
     },
@@ -91,11 +91,7 @@ export class CourseActivation {
   private async activationProduct(ruleId: string) {
     const rule = await this.dependencies.grants.readActivationRule(ruleId);
     if (rule === null) return null;
-    if (
-      rule.productId === null ||
-      this.dependencies.contentCatalog === undefined
-    )
-      return null;
+    if (this.dependencies.contentCatalog === undefined) return null;
     const productIds = [rule.productId];
     const products = await this.dependencies.contentCatalog.resolve({
       productIds,
@@ -342,10 +338,10 @@ export class CourseActivation {
     const linked = await this.dependencies.bindings.find({
       accountRef: parsed.data.accountRef,
     });
+    const product = await this.activationProduct(rule.id);
+    if (product === null)
+      return { ok: false as const, error: { code: "not_found" as const } };
     return this.dependencies.prisma.$transaction(async (tx) => {
-      const product = await this.activationProduct(rule.id);
-      if (product === null)
-        return { ok: false as const, error: { code: "not_found" as const } };
       return this.dependencies.grants.activateSubscription(
         transactionHandle(tx),
         this.dependencies.bindings,

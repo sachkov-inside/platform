@@ -380,8 +380,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               code: row.code,
               name: row.name,
               revision: row.revision,
-              tierId: row.tierId,
-              tierRevision: row.tierRevision,
+              productId: row.productId,
               sourceRef: row.sourceRef,
               verificationMode: row.verificationMode,
               published: row.published,
@@ -407,8 +406,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         id: rule.id,
         revision: rule.revision,
         sourceRef: rule.sourceRef,
-        tierId: rule.tierId,
-        tierRevision: rule.tierRevision,
+        productId: rule.productId,
       };
     },
     async readActivationRule(ruleId: string) {
@@ -423,8 +421,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             code: row.code,
             name: row.name,
             revision: row.revision,
-            tierId: row.tierId,
-            tierRevision: row.tierRevision,
+            productId: row.productId,
             sourceRef: row.sourceRef,
             verificationMode: row.verificationMode,
             published: row.published,
@@ -508,6 +505,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         input,
         tier,
         clock(),
+        (context, command, shared) =>
+          inTransaction(shared, (tx) =>
+            issueProductAccess(tx, accounts, context, command, clock()),
+          ),
       ),
     async readOwnEnrollments(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)

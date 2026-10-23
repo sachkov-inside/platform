@@ -1,4 +1,8 @@
 import {
+  name as courseProductsName,
+  statement as courseProductsStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0107-course-activation-products.js";
+import {
   name as lifetimeProductAccessName,
   statement as lifetimeProductAccessStatement,
 } from "../modules/account-rights/infrastructure/postgres/migrations/0106-lifetime-product-access.js";
@@ -690,6 +694,7 @@ export const platformMigrations = [
     name: lifetimeProductAccessName,
     statement: lifetimeProductAccessStatement,
   },
+  { name: courseProductsName, statement: courseProductsStatement },
 ] as const;
 
 export function migrateToLatest(

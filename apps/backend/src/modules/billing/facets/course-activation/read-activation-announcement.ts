@@ -1,13 +1,18 @@
 import {
   announcementQuerySchema,
   type AccessGrants,
+  type CoverageCatalog,
 } from "../../../account-rights/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /** Published rule metadata only; this operation never grants rights or reserves an identity. */
 export async function readActivationAnnouncement(
-  dependencies: { grants: AccessGrants; prisma: BillingPrismaClient },
+  dependencies: {
+    grants: AccessGrants;
+    prisma: BillingPrismaClient;
+    contentCatalog?: Pick<CoverageCatalog, "resolve">;
+  },
   input: unknown,
 ) {
   const parsed = announcementQuerySchema.safeParse(input);
@@ -23,7 +28,18 @@ export async function readActivationAnnouncement(
     );
     if (rule === null) return unavailable;
     const productId = rule.productId;
-    if (productId === null) return unavailable;
+    if (productId === null || dependencies.contentCatalog === undefined)
+      return unavailable;
+    const products = await dependencies.contentCatalog.resolve({
+      productIds: [productId],
+      materialIds: [],
+    });
+    if (
+      products.length !== 1 ||
+      products[0]?.id !== productId ||
+      !products[0].available
+    )
+      return unavailable;
     return {
       ok: true as const,
       value: {

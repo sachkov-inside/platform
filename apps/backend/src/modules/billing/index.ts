@@ -15,7 +15,7 @@ export {
 // тем же алгоритмом, иначе приложение не приняло бы их своим обычным путём.
 export { tbankToken } from "./infrastructure/tbank/tbank.js";
 
-export { SubscriptionActivation } from "./facets/subscription-activation/subscription-activation.js";
+export { CourseActivation } from "./facets/course-activation/course-activation.js";
 
 export { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 
