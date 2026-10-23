@@ -1,7 +1,7 @@
 # Inside and Platform
 
-Platform sells access to Inside Products and shows free Materials to everyone in the Public Feed
-([ADR 0033](docs/adr/0033-product-tariff-payment-model.md)). The
+Platform sells access to Inside Products and shows free Materials to everyone in the Public Feed.
+The
 [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
 between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
 [Telegram application terms](apps/telegram/GLOSSARY.md) owns only the bot-specific language.
@@ -150,7 +150,7 @@ _Avoid_: Mandatory step, additional chapter, copied Material
 
 **ProductOnboarding**:
 The Product's initial learner path through Telegram linking, community joining and starting learning.
-It applies only to a buyer with current paid access to that Product and its community.
+It applies to a holder of current Product Access, independently of how they received it.
 _Avoid_: Global community setup, payment confirmation
 
 **ProductAccessRevocation**:
@@ -476,6 +476,16 @@ An Account's effective right to participate in a Product's configured community,
 actual Telegram membership. Several Products can share one group; their valid community rights combine.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
+**Community Group**:
+The Telegram group in which Product holders participate. Several Products may use the same group;
+its actual roster neither creates Product Access nor proves a purchase.
+_Avoid_: Subscription, Canonical Membership Chat, activation source
+
+**Product Community**:
+The association between one Product and the Community Group it opens to its holders.
+It identifies the destination, separately from an Account's right or actual presence there.
+_Avoid_: Configurable tariff benefit, CommunityEntitlement, Activation Source
+
 **CommunityDelivery**:
 One attempt to make a CommunityEntitlement real in Telegram. Its desired state, the provider's
 acceptance and the observed membership are separate facts.
@@ -541,17 +551,10 @@ The provider-verified Telegram identity from which bot updates originate; it may
 Account through the Telegram application. It is independent of an Account, BotContact and username.
 _Avoid_: Username, BotContact, Account
 
-**Membership Signal**:
-The current presence of a linked TelegramIdentity in the Canonical Membership Chat.
-_Avoid_: Tribute subscription, payment status
-
 **MembershipObservation**:
-A Telegram-owned observation of a Membership Signal at a specific time.
-_Avoid_: Permanent member flag, entitlement
-
-**Canonical Membership Chat**:
-The single closed Telegram chat whose current roster is the Membership Signal for Inside.
-_Avoid_: Community directory, Tribute roster, audience segment
+A Telegram-owned observation of a person's presence or absence in a particular group at a specific
+time, including an unknown result. It is neither Product Access nor a verified prior-course basis.
+_Avoid_: Permanent member flag, entitlement, Membership Signal, payment proof
 
 **Subject**:
 The anonymous visitor or authenticated Account whose access is being decided.

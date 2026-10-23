@@ -29,7 +29,7 @@ _Avoid_: LinkTransaction, PlatformLink, access grant, Telegram membership
 
 **Contactability**:
 The current ability to deliver bot messages to a BotContact through Telegram. Blocking the bot
-changes Contactability without deleting the BotContact, PlatformLink, or Membership history.
+changes Contactability without deleting the BotContact, PlatformLink, or community history.
 _Avoid_: Consent, Membership, active subscription
 
 **Marketing consent**:
@@ -49,12 +49,12 @@ as a CommunicationTemplate.
 _Avoid_: Marketing subscription, publication, Account permission
 
 **CommunityDesiredState**:
-The one CommunityEntitlement per Account this application is currently trying to make true in the
-canonical chat, together with what it last observed there.
+The latest Platform instruction this application is trying to make true for a linked Account in
+the Community Group. It is separate from both the right and observed membership.
 _Avoid_: Membership, roster entry, cached status
 
 **CommunityEffect**:
-One intended change in the canonical chat for one desired state: opening admission, approving a
+One intended change in the Community Group for one desired state: opening admission, approving a
 join, or ensuring absence. It records attempts; it never issues a right.
 _Avoid_: Job, task, command
 
