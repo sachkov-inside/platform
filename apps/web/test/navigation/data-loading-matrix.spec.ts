@@ -348,9 +348,13 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
             page.locator(".aie-status-lead .aie-status-default"),
           ).toBeHidden();
         } else {
-          await expect(page.locator(".aie-cohort-status")).toBeVisible();
           await expect(
-            page.locator(".aie-cohort-status-countdown"),
+            page.locator(".aie-cohort-status").filter({ visible: true }),
+          ).toBeVisible();
+          await expect(
+            page
+              .locator(".aie-cohort-status-countdown")
+              .filter({ visible: true }),
           ).toContainText("до старта");
         }
         await expect(

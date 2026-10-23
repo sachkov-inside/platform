@@ -24,6 +24,27 @@ function replies() {
       access: restored ? "active" : "revoked",
       revision: restored ? 3 : 2,
     };
+    if (path.endsWith("content/list"))
+      return Promise.resolve(
+        Response.json({
+          ok: true,
+          value: {
+            operationRef: accountId,
+            result: {
+              outcome: "content",
+              items: [
+                {
+                  kind: "product",
+                  id: productId,
+                  title: "Проверочный продукт",
+                  slug: "platform-inside",
+                  available: true,
+                },
+              ],
+            },
+          },
+        }),
+      );
     if (path.endsWith("/list"))
       return Promise.resolve(
         Response.json({
@@ -119,6 +140,9 @@ export const ExplicitRestore: Story = {
     ).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "Явно восстановить доступ" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText(/^Доступ отозван · первая выдача/u),
     ).not.toBeInTheDocument();
   },
 };
