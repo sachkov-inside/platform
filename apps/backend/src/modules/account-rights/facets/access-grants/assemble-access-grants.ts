@@ -50,7 +50,11 @@ import {
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
-import { productAccessViewSchema } from "../../domain/product-access.js";
+import {
+  productAccessViewSchema,
+  productAccessListQuerySchema,
+  productAccessTargetSchema,
+} from "../../domain/product-access.js";
 export interface AccessGrantsDependencies {
   readonly prisma: AccountRightsPrismaClient;
   readonly accounts: Pick<
@@ -171,21 +175,22 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         });
         return {
           ok: true as const,
-          value: rows.map((row) =>
-            activationRuleSchema.parse({
-              id: row.id,
-              code: row.code,
-              name: row.name,
-              revision: row.revision,
-              tierId: row.tierId,
-              tierRevision: row.tierRevision,
-              sourceRef: row.sourceRef,
-              verificationMode: row.verificationMode,
-              published: row.published,
-              startsAt: row.startsAt.toISOString(),
-              endsAt: row.endsAt?.toISOString() ?? null,
-            }),
-          ),
+          value: rows
+            .filter((row) => row.productId !== null)
+            .map((row) =>
+              activationRuleSchema.parse({
+                id: row.id,
+                code: row.code,
+                name: row.name,
+                revision: row.revision,
+                productId: row.productId,
+                sourceRef: row.sourceRef,
+                verificationMode: row.verificationMode,
+                published: row.published,
+                startsAt: row.startsAt.toISOString(),
+                endsAt: row.endsAt?.toISOString() ?? null,
+              }),
+            ),
         };
       }),
     /** Read-only metadata for an owner sample; never creates an activation attempt. */
@@ -194,6 +199,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const rule = await prisma.activationRule.findUnique({ where: { code } });
       if (
         rule === null ||
+        rule.productId === null ||
         !rule.published ||
         rule.verificationMode !== "course_membership" ||
         rule.startsAt > now ||
@@ -204,8 +210,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         id: rule.id,
         revision: rule.revision,
         sourceRef: rule.sourceRef,
-        tierId: rule.tierId,
-        tierRevision: rule.tierRevision,
+        productId: rule.productId,
       };
     },
     async readActivationRule(ruleId: string) {
@@ -213,15 +218,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const row = await prisma.activationRule.findUnique({
         where: { id: ruleId },
       });
-      return row === null
+      return row === null || row.productId === null
         ? null
         : activationRuleSchema.parse({
             id: row.id,
             code: row.code,
             name: row.name,
             revision: row.revision,
-            tierId: row.tierId,
-            tierRevision: row.tierRevision,
+            productId: row.productId,
             sourceRef: row.sourceRef,
             verificationMode: row.verificationMode,
             published: row.published,
@@ -259,6 +263,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         input,
         tier,
         clock(),
+        (context, command, issuerHandle) =>
+          inTransaction(issuerHandle, (tx) =>
+            issueProductAccess(tx, accounts, context, command, clock()),
+          ),
       ),
 
     readActivationReceipt: (input: unknown) =>
@@ -302,17 +310,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     },
     listProductAccess: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", async () => {
-        const query = z
-          .strictObject({
-            accountId: z.uuid().optional(),
-            productId: z.uuid().optional(),
-            cursor: z
-              .string()
-              .regex(/^[0-9a-f-]{36}:[0-9a-f-]{36}$/i)
-              .optional(),
-            limit: z.int().min(1).max(100).default(50),
-          })
-          .safeParse(input);
+        const query = productAccessListQuerySchema.safeParse(input);
         if (!query.success) return accessFailure("invalid_input");
         const rows = await prisma.productAccess.findMany({
           where: {
@@ -358,9 +356,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       }),
     readProductAccess: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", async () => {
-        const target = z
-          .strictObject({ accountId: z.uuid(), productId: z.uuid() })
-          .safeParse(input);
+        const target = productAccessTargetSchema.safeParse(input);
         if (!target.success) return accessFailure("invalid_input");
         return prisma.$transaction(async (tx) => {
           await setAccessSnapshotIsolation(tx);

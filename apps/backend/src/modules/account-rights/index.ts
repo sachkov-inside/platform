@@ -114,3 +114,12 @@ export type {
   IssueProductAccessCommand,
   ProductAccessContext,
 } from "./domain/product-access.js";
+export {
+  issueProductAccessSchema,
+  productAccessViewSchema,
+  productAccessChangeSchema,
+  productAccessTargetSchema,
+  productAccessListQuerySchema,
+  productAccessListSchema,
+  productAccessRecordsSchema,
+} from "./domain/product-access.js";
