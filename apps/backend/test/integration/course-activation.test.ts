@@ -260,6 +260,108 @@ test("manual revocation latches across new course proof and only explicit owner 
     await rights.resolveForAccess(accountId(f.account), [f.product]),
   ).toEqual({ kind: "active", validUntil: null });
 });
+test("browser continuation follows current withdrawal and explicit restore while accepted receipt remains immutable", async () => {
+  const f = await setup();
+  const accepted = await activation.accept(f.evidence);
+  expect(
+    await activation.readContinuation(f.account, f.evidence.attemptId),
+  ).toMatchObject({ state: "active", product: { id: f.product } });
+  await grants.revokeProductAccess(owner, {
+    accountId: f.account,
+    productId: f.product,
+    operationId: randomUUID(),
+    expectedRevision: 1,
+    reason: "Owner withdraws current access",
+  });
+  expect(await activation.accept(f.evidence)).toEqual(accepted);
+  expect(
+    await activation.readContinuation(f.account, f.evidence.attemptId),
+  ).toMatchObject({ state: "pending", product: { id: f.product } });
+  await grants.restoreProductAccess(owner, {
+    accountId: f.account,
+    productId: f.product,
+    operationId: randomUUID(),
+    expectedRevision: 2,
+    reason: "Owner explicitly restores access",
+  });
+  expect(
+    await activation.readContinuation(f.account, f.evidence.attemptId),
+  ).toMatchObject({ state: "active", product: { id: f.product } });
+  expect(await activation.accept(f.evidence)).toEqual(accepted);
+  expect(
+    await grants.readProductAccess(owner, {
+      accountId: f.account,
+      productId: f.product,
+    }),
+  ).toMatchObject({
+    ok: true,
+    value: { firstIssuedAt: "2030-01-31T10:00:00.000Z" },
+  });
+});
+test("browser continuation does not follow a replacement Product or edited rule revision", async () => {
+  const f = await setup();
+  const accepted = await activation.accept(f.evidence);
+  const otherProduct = randomUUID();
+  await db.prisma.product.create({
+    data: { id: otherProduct, name: "Replacement", slug: otherProduct },
+  });
+  expect(
+    await grants.manageActivationRule(owner, {
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      value: {
+        ...f.rule,
+        productId: otherProduct,
+        sourceRef: `course:${randomUUID()}`,
+      },
+      reason: "Try replacing immutable source and Product",
+    }),
+  ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+  expect(
+    await grants.manageActivationRule(owner, {
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      value: { ...f.rule, name: "Updated Course rule" },
+      reason: "Owner updates rule revision",
+    }),
+  ).toMatchObject({ ok: true, value: { revision: 2 } });
+  expect(
+    await activation.readContinuation(f.account, f.evidence.attemptId),
+  ).toEqual({ state: "unavailable" });
+  expect(await activation.readIntent(f.evidence.attemptId)).toEqual({
+    state: "unavailable",
+  });
+  expect(await activation.accept(f.evidence)).toEqual(accepted);
+  expect(
+    await rights.resolveForAccess(accountId(f.account), [otherProduct]),
+  ).toEqual({ kind: "required" });
+});
+test("browser continuation requires the exact accepted binding and isolates a foreign Account", async () => {
+  const f = await setup();
+  const accepted = await activation.accept(f.evidence);
+  expect(
+    await activation.readContinuation(owner, f.evidence.attemptId),
+  ).toEqual({
+    state: "link_required",
+    product: { id: f.product, slug: f.product, name: "Course" },
+  });
+  await db.prisma.telegramLinkTransaction.updateMany({
+    where: { accountId: f.account },
+    data: { status: "expired" },
+  });
+  await linkTelegramAccount(db.prisma, {
+    accountId: f.account,
+    identityRef: f.identityRef,
+    now,
+  });
+  expect(
+    await activation.readContinuation(f.account, f.evidence.attemptId),
+  ).toEqual({ state: "identity_conflict" });
+  expect(await activation.accept(f.evidence)).toEqual(accepted);
+  expect(
+    await rights.resolveForAccess(accountId(f.account), [f.product]),
+  ).toEqual({ kind: "active", validUntil: null });
+});
 test("code possession, negative proof, wrong source, stale binding and wrong Account cannot activate", async () => {
   const f = await setup();
   for (const patch of [
@@ -321,10 +423,7 @@ test("lost accepted response replays after expiry, paused rule and unlink withou
   ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
   expect(
     await activation.readContinuation(f.account, f.evidence.attemptId),
-  ).toEqual({
-    state: "link_required",
-    product: { id: f.product, slug: f.product, name: "Course" },
-  });
+  ).toEqual({ state: "unavailable" });
 });
 test("activation, source, attempt and receipt roll back with Billing's shared transaction and retry grants once", async () => {
   const f = await setup();
