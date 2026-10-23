@@ -1,3 +1,4 @@
+import { lockProductSourceReservation } from "../../../../infrastructure/prisma/index.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { executeAuthoringTransaction } from "../../shared/application-result.js";
 import { randomUUID } from "node:crypto";
@@ -41,6 +42,7 @@ export function assembleReserveSourceProduct(
           transactionHandle(transaction),
         );
         if (!permission.ok) return rollback(permission.error);
+        await lockProductSourceReservation(transaction, command.sourceId);
         const current = await transaction.product.upsert({
           where: { sourceId: command.sourceId },
           create: {
