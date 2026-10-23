@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
 import {
@@ -44,7 +46,10 @@ describe("trusted private announcement metadata", () => {
       clock: () => now,
     });
     activation = new CourseActivation({
-      sale: { subscriptions: true },
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       grants,
       bindings,
@@ -82,16 +87,8 @@ describe("trusted private announcement metadata", () => {
   });
   async function setup() {
     const productId = randomUUID();
-    const offer = await db.prisma.billingOffer.create({
-      data: {
-        id: randomUUID(),
-        name: "AI Engineering",
-        revision: 1,
-        availableForAssignment: true,
-        benefits: [`product:${productId}`, "support"],
-        benefitPeriods: [{ capability: "support", months: 6 }],
-        coverage: { productIds: [], materialIds: [] },
-      },
+    await db.prisma.product.create({
+      data: { id: productId, name: "Course", slug: productId },
     });
     const rule = await db.prisma.activationRule.create({
       data: {
@@ -101,14 +98,13 @@ describe("trusted private announcement metadata", () => {
         reason: "Owner confirmed course",
         sourceRef: "course",
         revision: 1,
-        tierId: offer.id,
-        tierRevision: 1,
+        productId,
         verificationMode: "course_membership",
         published: true,
         startsAt: now,
       },
     });
-    return { rule, offer, productId };
+    return { rule, productId };
   }
   test("resolves only a current published rule and its exact Product without creating a learner attempt", async () => {
     const { rule, productId } = await setup();
@@ -128,8 +124,8 @@ describe("trusted private announcement metadata", () => {
       await db.prisma.activationAttempt.count({ where: { ruleId: rule.id } }),
     ).toBe(0);
   });
-  test("refuses unpublished, expired and mismatched Offer revisions", async () => {
-    const { rule, offer } = await setup();
+  test("refuses unpublished, expired and archived Products", async () => {
+    const { rule, productId } = await setup();
     const query = { contractVersion: version, code: rule.code };
     await db.prisma.activationRule.update({
       where: { id: rule.id },
@@ -155,9 +151,9 @@ describe("trusted private announcement metadata", () => {
       where: { id: rule.id },
       data: { endsAt: null },
     });
-    await db.prisma.billingOffer.update({
-      where: { id: offer.id },
-      data: { revision: 2 },
+    await db.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: now },
     });
     expect(await activation.announcement(query)).toEqual({
       ok: false,

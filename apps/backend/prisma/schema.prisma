@@ -1719,6 +1719,7 @@ model ActivationRule {
  @@schema("account_rights")
 }
 model SourceEntitlement {
+ firstIssuedAt DateTime? @map("first_issued_at") @db.Timestamptz
  tributeState Json? @map("tribute_state")
  reconcileAt DateTime? @map("reconcile_at") @db.Timestamptz
  id String @id @db.Uuid

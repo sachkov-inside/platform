@@ -10,12 +10,13 @@ with resolved as (
  from account_rights.activation_rules rule
  join billing.offers offer on offer.id=rule.tier_id
  cross join lateral unnest(offer.benefits) benefit
- where benefit ~ '^product:[0-9a-fA-F-]{36}$'
+ where benefit ~ '^product:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
  group by rule.id
  having count(*)=1
 )
 update account_rights.activation_rules rule set product_id=resolved.product_id
 from resolved where resolved.id=rule.id;
 update account_rights.activation_rules set published=false where product_id is null;
+alter table account_rights.source_entitlements add column first_issued_at timestamptz;
 -- Source receipts, attempts, enrollment references and financial/legal snapshots are immutable.
 `;

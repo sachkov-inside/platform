@@ -1,3 +1,4 @@
+import type { TransactionHandle } from "../../../../infrastructure/transaction-handle.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { courseSourceRef } from "../../domain/source-identity.js";
 import { randomUUID } from "node:crypto";
@@ -35,7 +36,7 @@ export type CourseAccessIssuer = (
     issuedAt: string;
     reason: string;
   },
-  handle: import("../../../../infrastructure/transaction-handle.js").TransactionHandle,
+  handle: TransactionHandle,
 ) => Promise<
   | { ok: true; outcome: "issued" | "already_active" | "revoked" }
   | {
@@ -73,8 +74,9 @@ export async function beginActivation(
     const rule = await tx.activationRule.findUnique({
       where: { code: command.code },
     });
+    if (rule === null) return accessFailure("policy_paused");
     if (
-      rule === null ||
+      rule.productId === null ||
       !rule.published ||
       rule.verificationMode !== "course_membership" ||
       rule.startsAt > now ||
@@ -235,13 +237,24 @@ export async function activateCourse(
   };
   if (evidence.decision === "member") {
     const sourceRef = courseSourceRef(rule.sourceRef, evidence.identityRef);
+    await lockAccountAccess(tx, `course-source:${sourceRef}`);
+    const source = await tx.sourceEntitlement.findUnique({
+      where: { origin_sourceRef: { origin: "course", sourceRef } },
+    });
+    if (
+      source?.accountId !== null &&
+      source?.accountId !== undefined &&
+      source.accountId !== accountId
+    )
+      return accessFailure("identity_conflict");
+    const issuedAt = source?.firstIssuedAt ?? now;
     const result = await issueProductAccess(
       { source: "course_activation" },
       {
         accountId,
         productId: product.data.id,
         sourceRef,
-        issuedAt: now.toISOString(),
+        issuedAt: issuedAt.toISOString(),
         reason: "Verified course source activation",
       },
       transactionHandle(tx),
@@ -258,15 +271,6 @@ export async function activateCourse(
             : "active",
       enrollment: null,
     };
-    const source = await tx.sourceEntitlement.findUnique({
-      where: { origin_sourceRef: { origin: "course", sourceRef } },
-    });
-    if (
-      source !== null &&
-      source.accountId !== null &&
-      source.accountId !== accountId
-    )
-      throw new Error("Source identity changed during activation");
     await tx.sourceEntitlement.upsert({
       where: { origin_sourceRef: { origin: "course", sourceRef } },
       create: {
@@ -276,12 +280,14 @@ export async function activateCourse(
         sourcePolicyRef: rule.sourceRef,
         identityRef: evidence.identityRef,
         accountId,
+        firstIssuedAt: issuedAt,
         revision: 1,
         evidence,
         checkedAt,
       },
       update: {
         accountId,
+        firstIssuedAt: issuedAt,
         evidence,
         checkedAt,
       },

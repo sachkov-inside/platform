@@ -129,7 +129,7 @@ export interface ActivationBindings {
 export const registerSourceSchema = z
   .strictObject({
     operationId: z.uuid(),
-    origin: z.enum(["course", "tribute"]),
+    origin: z.literal("course"),
     sourcePolicyRef: sourceRefSchema,
     identityRef: sourceRefSchema,
     checkedAt: instantSchema,
@@ -137,11 +137,7 @@ export const registerSourceSchema = z
     endsAt: instantSchema.nullable(),
     reason: reasonSchema,
   })
-  .refine((value) =>
-    value.origin === "course"
-      ? value.endsAt === null
-      : value.endsAt !== null && value.endsAt > value.startsAt,
-  );
+  .refine((value) => value.endsAt === null);
 export const sourceEntitlementViewSchema = z.strictObject({
   id: z.uuid(),
   origin: z.enum(["course", "tribute"]),

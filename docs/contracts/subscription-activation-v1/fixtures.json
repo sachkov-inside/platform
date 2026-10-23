@@ -1126,5 +1126,33 @@
       }
     },
     "valid": false
+  },
+  {
+    "name": "course-product-access-active-without-enrollment",
+    "definition": "activationResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "attemptId": "00000000-0000-4000-8000-000000000001",
+        "state": "active",
+        "enrollment": null
+      }
+    }
+  },
+  {
+    "name": "course-product-access-revoked-owner-review",
+    "definition": "activationResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "attemptId": "00000000-0000-4000-8000-000000000001",
+        "state": "pending_review",
+        "enrollment": null
+      }
+    }
   }
 ]

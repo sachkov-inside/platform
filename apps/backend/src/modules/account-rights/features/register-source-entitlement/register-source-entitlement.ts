@@ -36,7 +36,6 @@ export async function registerSourceEntitlement(
             value: sourceEntitlementViewSchema.parse(receipt.result),
           }
         : accessFailure("operation_conflict");
-    if (command.origin === "tribute") return accessFailure("invalid_input");
     await lockAccountAccess(tx, `enrollment:${command.origin}:${sourceRef}`);
     const existing = await tx.sourceEntitlement.findUnique({
       where: { origin_sourceRef: { origin: command.origin, sourceRef } },
