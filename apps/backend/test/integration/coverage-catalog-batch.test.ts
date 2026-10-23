@@ -258,26 +258,50 @@ test("the Account access view resolves lifetime Product states in one metadata r
     slug: `owned-${buyer}-${index}`,
   }));
   await prisma.product.createMany({ data: products });
-  for (const product of products)
+  for (const product of products.slice(0, 1))
     await grantProductFixture(prisma, buyer, product.id);
   const accounts = assembleAccounts({
     prisma,
     emailFingerprintKey: "synthetic-fingerprint-key-000000000000",
   });
+  let metadataReads = 0;
+  const discovery = new ProductDiscovery(prisma);
+  const measuredCatalog = new CoverageCatalog(prisma, {
+    metadata: (...args: Parameters<ProductDiscovery["metadata"]>) => {
+      metadataReads += 1;
+      return discovery.metadata(...args);
+    },
+  });
   const grants = assembleAccessGrants({
     prisma,
     accounts,
-    contentCatalog: catalog,
+    contentCatalog: measuredCatalog,
     clock: () => new Date("2030-01-01T00:00:00Z"),
   });
-  queries = 0;
-  const result = await grants.readOwnAccess(buyer);
-  expect(result.ok).toBe(true);
-  if (!result.ok) throw new Error(result.error.code);
-  expect(
-    result.value.grounds.map((ground) => ground.content?.[0]?.id).sort(),
-  ).toEqual(products.map((product) => product.id).sort());
-  expect(queries).toBe(2);
+  for (const count of [1, 10]) {
+    if (count === 10)
+      for (const product of products.slice(1))
+        await grantProductFixture(prisma, buyer, product.id);
+    queries = 0;
+    metadataReads = 0;
+    const result = await grants.readOwnAccess(buyer);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.code);
+    expect(
+      result.value.grounds.map((ground) => ground.content?.[0]?.id).sort(),
+    ).toEqual(
+      products
+        .slice(0, count)
+        .map((product) => product.id)
+        .sort(),
+    );
+    expect(result.value.grounds.map((ground) => ground.source)).toEqual(
+      Array.from({ length: count }, () => "manual"),
+    );
+    // One lifetime-state read, one bounded factual-origin read, one metadata read.
+    expect(queries).toBe(3);
+    expect(metadataReads).toBe(1);
+  }
 });
 
 test("catalog overflow refuses the composition instead of returning a partial scope", async () => {
