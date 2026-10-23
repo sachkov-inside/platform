@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -6,10 +7,10 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
@@ -99,7 +100,10 @@ describe("Personal Home on PostgreSQL", () => {
       prisma: database.prisma,
       materialContent: materials.materialContent,
       contentAccess,
-      composition: new PublishedSeriesComposition(database.prisma),
+      composition: new PublishedSeriesComposition(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
     });
   });
   afterAll(async () => {
@@ -110,7 +114,10 @@ describe("Personal Home on PostgreSQL", () => {
     overrides: Partial<ConstructorParameters<typeof PersonalHome>[0]> = {},
   ) {
     return new PersonalHome({
-      composition: new PublishedSeriesComposition(database.prisma),
+      composition: new PublishedSeriesComposition(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       reader: materials.publishedMaterialReader,
       prisma: database.prisma,
       materialContent: materials.materialContent,
@@ -262,7 +269,10 @@ describe("Personal Home on PostgreSQL", () => {
     const second = createPrismaClient(database.url);
     try {
       const other = new PersonalHome({
-        composition: new PublishedSeriesComposition(database.prisma),
+        composition: new PublishedSeriesComposition(
+          database.prisma,
+          assembleProductMaterialReading(database.prisma),
+        ),
         reader: materials.publishedMaterialReader,
         prisma: second,
         materialContent: materials.materialContent,

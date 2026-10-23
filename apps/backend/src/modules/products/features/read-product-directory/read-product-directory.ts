@@ -1,14 +1,14 @@
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { productsTransaction } from "../../infrastructure/transaction.js";
+import type { ProductMaterialReading } from "../../ports/product-material-reading.js";
+import { ProductCompositionsReading } from "../../facets/product-compositions-reading/product-compositions-reading.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { z } from "zod";
-import {
-  loadProductCompositions,
-  MAX_PRODUCT_MATERIALS,
-} from "../../shared/product-composition.js";
+import { MAX_PRODUCT_MATERIALS } from "../../facets/product-compositions/product-compositions.js";
 import {
   Prisma,
-  type MaterialsPrismaClient,
-  type MaterialsPrisma,
+  type ProductsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 
 // One Product Task request names at most a page of Products or related Materials.
@@ -29,15 +29,6 @@ const productRowsSchema = z.array(
     ),
   }),
 );
-const materialRowsSchema = z.array(
-  z.object({
-    source_id: z.string(),
-    material_id: z.uuid(),
-    slug: z.string().nullable(),
-    title: z.string().nullable(),
-  }),
-);
-
 export type DirectoryProduct = z.infer<typeof productRowsSchema>[number];
 
 /** Where a Material named by its source stands in one Product: its chapter, if the author set one. */
@@ -58,10 +49,17 @@ export interface DirectoryMaterial {
 
 /**
  * Products with their chapters, and Materials by source ID: the Product structure that Product Tasks
- * place themselves in (#946). Reads only; the Product programme and its order stay in Materials.
+ * place themselves in (#946). Reads only; Products owns the catalogue and programme, while Materials owns publication facts.
  */
 export class ProductDirectory {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    private readonly prisma: ProductsPrismaClient,
+    private readonly materials: ProductMaterialReading,
+    private readonly compositions = new ProductCompositionsReading(
+      prisma,
+      materials,
+    ),
+  ) {}
 
   /** Reader visibility without chapter/material payloads; uses the programme's archive and bound policy. */
   async readerVisibleIds(
@@ -148,7 +146,7 @@ export class ProductDirectory {
       return { ok: true, value: ids.filter((id) => visible.has(id)) };
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "readerVisibleIds" },
+        { module: "products", operation: "readerVisibleIds" },
         error,
         { ok: false, error: { code: "dependency_unavailable" } } as const,
       );
@@ -165,11 +163,7 @@ export class ProductDirectory {
     if (values.length === 0) return [];
     if (values.length > MAX_LOOKUP)
       throw new RangeError("Product lookup exceeds its bound");
-    const products = await loadProductCompositions(
-      this.prisma,
-      filter,
-      MAX_LOOKUP,
-    );
+    const products = await this.compositions.load(filter, MAX_LOOKUP);
     return productRowsSchema.parse(
       products.map(({ id, slug, name, archived, chapters }) => ({
         id,
@@ -196,11 +190,7 @@ export class ProductDirectory {
     if (sourceIds.length === 0) return [];
     if (sourceIds.length > MAX_LOOKUP)
       throw new RangeError("Material lookup exceeds its bound");
-    const [product] = await loadProductCompositions(
-      this.prisma,
-      { ids: [productId] },
-      1,
-    );
+    const [product] = await this.compositions.load({ ids: [productId] }, 1);
     if (
       product !== undefined &&
       product.placements.length > MAX_PRODUCT_MATERIALS
@@ -230,89 +220,70 @@ export class ProductDirectory {
 
   /** Serialize a Task binding with Product composition edits, using the caller's transaction. */
   async lockPrimaryPlacement(
-    transaction: Pick<MaterialsPrisma, "$queryRaw">,
+    handle: TransactionHandle,
     productId: string,
     sourceId: string,
   ): Promise<DirectoryPlacement | null> {
+    const transaction = productsTransaction(handle);
     await transaction.$queryRaw(
       Prisma.sql`select id from products.series where id = ${productId}::uuid for update`,
     );
-    const rows = z
-      .array(
-        z.object({
-          material_id: z.uuid(),
-          chapter_id: z.uuid().nullable(),
-          published: z.boolean(),
-        }),
-      )
-      .parse(
-        await transaction.$queryRaw(Prisma.sql`
-        select membership.material_id, membership.chapter_id, material.publication_state = 'published' as published
-        from products.series_memberships membership
-        join materials.materials material on material.id = membership.material_id
-        where membership.series_id = ${productId}::uuid and material.source_id = ${sourceId}
-      `),
-      );
-    const row = rows[0];
-    return row === undefined
-      ? null
-      : {
-          sourceId,
-          materialId: row.material_id,
-          chapterId: row.chapter_id,
-          published: row.published,
-        };
+    const [product] = await this.compositions.load(
+      { ids: [productId] },
+      1,
+      handle,
+    );
+    if (product === undefined) return null;
+    if (product.placements.length > MAX_PRODUCT_MATERIALS)
+      throw new RangeError("Product composition exceeds its bound");
+    const membership = product.placements.find(
+      (placement) => placement.sourceId === sourceId,
+    );
+    if (membership === undefined) return null;
+    const primary = product.programmePlacements.find(
+      (placement) => placement.materialId === membership.materialId,
+    );
+    return {
+      sourceId,
+      materialId: membership.materialId,
+      chapterId: primary?.chapterId ?? null,
+      published: membership.published,
+    };
   }
 
   /** Published identity lookup for internal Task practice context; does not grant access. */
   async materialsByIds(
     ids: readonly string[],
   ): Promise<readonly DirectoryMaterial[]> {
-    if (ids.length === 0) return [];
-    if (ids.length > MAX_LOOKUP)
-      throw new RangeError("Material lookup exceeds its bound");
-    const rows = materialRowsSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-      select material.source_id, material.id as material_id, published.slug, published.title
-      from materials.materials material
-      left join materials.published_materials published on published.material_id = material.id and material.publication_state = 'published'
-      where material.id = any(${[...ids]}::uuid[]) and material.source_id is not null
-    `),
-    );
-    return rows.map((row) => ({
-      sourceId: row.source_id,
-      materialId: row.material_id,
-      published:
-        row.slug === null || row.title === null
-          ? null
-          : { slug: row.slug, title: row.title },
-    }));
+    return this.readMaterials({ ids });
   }
 
-  /** Materials by their authoring source ID; an unknown source is absent from the answer. */
+  /** Materials by exact authoring source ID, with no identity for an unpublished draft. */
   async materialsBySource(
     sourceIds: readonly string[],
   ): Promise<readonly DirectoryMaterial[]> {
-    if (sourceIds.length === 0) return [];
-    if (sourceIds.length > MAX_LOOKUP)
+    return this.readMaterials({ sourceIds });
+  }
+
+  private async readMaterials(
+    filter:
+      | { readonly ids: readonly string[] }
+      | { readonly sourceIds: readonly string[] },
+  ): Promise<readonly DirectoryMaterial[]> {
+    const values = "ids" in filter ? filter.ids : filter.sourceIds;
+    if (values.length === 0) return [];
+    if (values.length > MAX_LOOKUP)
       throw new RangeError("Material lookup exceeds its bound");
-    const rows = materialRowsSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-        select material.source_id, material.id as material_id, published.slug, published.title
-        from materials.materials as material
-        left join materials.published_materials as published
-          on published.material_id = material.id
-         and material.publication_state = 'published'
-        where material.source_id = any(${[...sourceIds]}::text[])
-      `),
+    return (await this.materials.read(filter)).flatMap((row) =>
+      row.sourceId === null
+        ? []
+        : [
+            {
+              sourceId: row.sourceId,
+              materialId: row.id,
+              published: row.published,
+            },
+          ],
     );
-    return rows.map((row) => ({
-      sourceId: row.source_id,
-      materialId: row.material_id,
-      published:
-        row.slug === null || row.title === null
-          ? null
-          : { slug: row.slug, title: row.title },
-    }));
   }
 }

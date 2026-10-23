@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { createLearningStartedRead } from "../../src/modules/reading-activity/shared/learning-started.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
@@ -12,10 +13,10 @@ import {
   assembleCurrentAccountPermissions,
 } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters/content-access/video-resource-facts.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
@@ -133,7 +134,10 @@ async function prepare() {
     products: new ProductDiscovery(observer.prisma),
   });
   const selectionRead = vi.fn(selectionOwner.read.bind(selectionOwner));
-  const compositionOwner = new PublishedSeriesComposition(observer.prisma);
+  const compositionOwner = new PublishedSeriesComposition(
+    observer.prisma,
+    assembleProductMaterialReading(observer.prisma),
+  );
   const compositionRead = vi.fn(compositionOwner.read.bind(compositionOwner));
   const discoveryRead = vi.fn(
     materials.publishedMaterialReader.discoverProjections.bind(

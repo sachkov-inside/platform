@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import {
@@ -15,10 +16,10 @@ import {
 } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterialResourceFacts,
   ProductDirectory,
   PublishedSeriesComposition,
-} from "../../src/modules/materials/index.js";
+} from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { readProductSaleAvailability } from "../../src/modules/content-library/features/read-product-sale-availability/read-product-sale-availability.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
@@ -122,7 +123,10 @@ async function fixture(size: number) {
       clock,
     });
     const dependencies = {
-      directory: new ProductDirectory(measured.prisma),
+      directory: new ProductDirectory(
+        measured.prisma,
+        assembleProductMaterialReading(measured.prisma),
+      ),
       pricing: assembleTestBillingPricing({
         prisma: measured.prisma,
         accounts,
@@ -172,7 +176,10 @@ describe.each([1, 10, 100])(
         },
         contentAccess: corpus.dependencies.contentAccess,
       };
-      const original = new PublishedSeriesComposition(corpus.measured.prisma);
+      const original = new PublishedSeriesComposition(
+        corpus.measured.prisma,
+        assembleProductMaterialReading(corpus.measured.prisma),
+      );
       const originalRead = await corpus.measured.measure(() =>
         Promise.all(
           corpus.archivedProducts.map((id) => original.read(id, reader)),
@@ -386,7 +393,10 @@ describe("reader archive gate with current Product exclusions", () => {
     await corpus.dispose();
   });
   test("matches the original programme gate for archive, missing and empty Products after an Account-scoped exclusion", async () => {
-    const original = new PublishedSeriesComposition(corpus.measured.prisma);
+    const original = new PublishedSeriesComposition(
+      corpus.measured.prisma,
+      assembleProductMaterialReading(corpus.measured.prisma),
+    );
     const ids = [
       ...corpus.products,
       ...corpus.archivedProducts,

@@ -1,12 +1,13 @@
+import type { ProductMaterialReading } from "../../ports/product-material-reading.js";
+import { ProductCompositionsReading } from "../../facets/product-compositions-reading/product-compositions-reading.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { ProductsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import {
-  loadProductCompositions,
   readProductCompositionAccess,
   MAX_PRODUCT_MATERIALS,
-} from "../../shared/product-composition.js";
+} from "../../facets/product-compositions/product-compositions.js";
 
 export type PublishedSeriesCompositionResult =
   | { readonly ok: true; readonly value: readonly string[] }
@@ -20,7 +21,14 @@ export type PublishedSeriesCompositionResult =
     };
 
 export class PublishedSeriesComposition {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    prisma: ProductsPrismaClient,
+    materials: ProductMaterialReading,
+    private readonly compositions = new ProductCompositionsReading(
+      prisma,
+      materials,
+    ),
+  ) {}
 
   async read(
     seriesId: string,
@@ -32,11 +40,7 @@ export class PublishedSeriesComposition {
     if (!z.uuid().safeParse(seriesId).success)
       return { ok: false, error: { code: "invalid_request" } };
     try {
-      const [product] = await loadProductCompositions(
-        this.prisma,
-        { ids: [seriesId] },
-        1,
-      );
+      const [product] = await this.compositions.load({ ids: [seriesId] }, 1);
       if (product === undefined)
         return { ok: false, error: { code: "series_not_found" } };
       const access = await readProductCompositionAccess(product, reader);
@@ -56,7 +60,7 @@ export class PublishedSeriesComposition {
       };
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "read" },
+        { module: "products", operation: "read" },
         error,
         { ok: false, error: { code: "dependency_unavailable" } },
       );

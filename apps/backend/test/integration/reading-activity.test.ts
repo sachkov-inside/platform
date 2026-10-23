@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -12,11 +13,11 @@ import {
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   materialId,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
@@ -64,7 +65,10 @@ describe("ReadingActivity on PostgreSQL", () => {
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => membershipNow ?? new Date(),
     });
-    composition = new PublishedSeriesComposition(database.prisma);
+    composition = new PublishedSeriesComposition(
+      database.prisma,
+      assembleProductMaterialReading(database.prisma),
+    );
     reading = assembleReading(database.prisma);
   });
   afterAll(async () => {
@@ -836,7 +840,10 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
           reader: pooled.publishedMaterialReader,
           selection: new PublishedMaterialSelection({
             prisma: prisma,
@@ -853,7 +860,10 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
         });
         return [
           await home.recordOpen({

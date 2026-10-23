@@ -8,10 +8,8 @@ import {
   addPublishedCatalogDurations,
   type PublishedMaterialCatalogFacetDto,
 } from "../../../content-library/index.js";
-import type {
-  PublishedMaterialReader,
-  PublishedSeriesComposition,
-} from "../../../materials/index.js";
+import type { PublishedSeriesComposition } from "../../../products/index.js";
+import type { PublishedMaterialReader } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { ContinueMaterial } from "../get-continue-materials/get-continue-materials.js";
 import { loadMaterialResumes } from "../../shared/load-material-resumes.js";

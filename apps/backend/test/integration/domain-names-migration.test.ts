@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import {
   contractDigest,
   commandDigest,
@@ -11,7 +12,7 @@ import {
   BillingPayments,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
-import { ProductDirectory } from "../../src/modules/materials/index.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
 import { assembleApplySourceTask } from "../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
 import { BankFixture } from "./setup/bank.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
@@ -631,7 +632,10 @@ test("replays an imported pre-upgrade task under its renamed operation and field
     const current = { ...unchanged, productId: guideId, access: "closed" };
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: () => true },
     });
     expect(await apply(current, { actor, idempotencyKey })).toEqual({

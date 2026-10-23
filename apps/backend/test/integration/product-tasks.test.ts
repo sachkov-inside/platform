@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import sharp from "sharp";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { deliverTaskAsset } from "../../src/modules/product-tasks/features/deliver-task-asset/deliver-task-asset.js";
@@ -42,10 +43,8 @@ import {
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import {
-  assembleMaterialResourceFacts,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";
 import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -191,7 +190,10 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       prisma: db.prisma,
     });
     materials = assembleMaterials({ prisma: db.prisma, authorPolicy });
-    directory = new ProductDirectory(db.prisma);
+    directory = new ProductDirectory(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    );
     contentAccess = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
@@ -2417,7 +2419,10 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
   test("import and submission finish on a one-connection pool: no transaction waits for another connection", async () => {
     const subject = await learner();
     await withExhaustedPool(db, async (prisma) => {
-      const poolDirectory = new ProductDirectory(prisma);
+      const poolDirectory = new ProductDirectory(
+        prisma,
+        assembleProductMaterialReading(prisma),
+      );
       const body = source();
       expect(
         await assembleApplySourceTask({

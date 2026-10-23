@@ -1,3 +1,4 @@
+import { ProductReadingModule } from "../products/index.js";
 import {
   ACCOUNT_RIGHTS,
   AccountRightsModule,
@@ -17,7 +18,8 @@ import {
   BillingModule,
   BillingSurveyRespondentSales,
 } from "../billing/index.js";
-import { ProductOutlines, MaterialContentModule } from "../materials/index.js";
+import { ProductOutlines } from "../products/index.js";
+import { MaterialContentModule } from "../materials/index.js";
 import {
   MaterialFirstOpens,
   ReadingActivityModule,
@@ -32,6 +34,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
 
 @Module({
   imports: [
+    ProductReadingModule,
     PrismaModule,
     AccountsModule,
     BillingModule,
