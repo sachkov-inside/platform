@@ -286,6 +286,13 @@ describe("local development offer catalog", () => {
   }
 
   test("keeps subscriptions hidden and one product purchase on sale without a second set", async () => {
+    const historicalOffers = await testDatabase.prisma.billingOffer.findMany({
+      orderBy: { id: "asc" },
+    });
+    const historicalOptions =
+      await testDatabase.prisma.billingPaymentOption.findMany({
+        orderBy: { id: "asc" },
+      });
     await seedLocalDevelopment(testDatabase.prisma);
 
     expect(
@@ -309,10 +316,14 @@ describe("local development offer catalog", () => {
     await expect(testDatabase.prisma.billingProductPrice.count()).resolves.toBe(
       1,
     );
-    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(0);
     await expect(
-      testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(0);
+      testDatabase.prisma.billingOffer.findMany({ orderBy: { id: "asc" } }),
+    ).resolves.toEqual(historicalOffers);
+    await expect(
+      testDatabase.prisma.billingPaymentOption.findMany({
+        orderBy: { id: "asc" },
+      }),
+    ).resolves.toEqual(historicalOptions);
   });
 
   test("leaves an offer the owner took off sale off the storefront", async () => {
