@@ -63,28 +63,14 @@ async function fixture(size: number) {
         })),
       ],
     });
-    const offerProducts = [...products, archived].map((productId) => ({
-      productId,
-      offerId: randomUUID(),
-    }));
-    await database.prisma.billingOffer.createMany({
-      data: offerProducts.map(({ productId, offerId }) => ({
-        id: offerId,
+    await database.prisma.billingProductPrice.createMany({
+      data: [...products, archived].map((productId) => ({
+        productId,
         revision: 1,
         name: "Admitted sale",
-        benefits: [`product:${productId}`, "support"],
-        benefitPeriods: [{ capability: "support", months: 1 }],
-        published: true,
-      })),
-    });
-    await database.prisma.billingPaymentOption.createMany({
-      data: offerProducts.map(({ offerId }) => ({
-        id: randomUUID(),
-        offerId,
-        revision: 1,
-        months: 1,
-        mode: "one_time",
         priceKopecks: 10000n,
+        published: true,
+        updatedAt: instant,
       })),
     });
     const accounts = assembleAccounts({
@@ -96,20 +82,19 @@ async function fixture(size: number) {
       accounts,
       clock,
     });
-    const applied = await grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: holder,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: archivedProducts.map((id) => `product:${id}` as const),
-        startsAt: instant.toISOString(),
-        validUntil: "2030-02-01T00:00:00.000Z",
-        reason: "Paid archived Product fixture",
-      },
-    });
-    if (!applied.ok) throw new Error(applied.error.code);
+    for (const productId of archivedProducts) {
+      const issued = await grants.issueProductAccess(
+        { source: "purchase" },
+        {
+          accountId: holder,
+          productId,
+          sourceRef: randomUUID(),
+          issuedAt: instant.toISOString(),
+          reason: "Archived holder fixture",
+        },
+      );
+      if (!issued.ok) throw new Error(issued.error.code);
+    }
     const materialOwner = assembleMaterials({
       prisma: measured.prisma,
       authorPolicy: { canManage: () => false },
@@ -378,19 +363,16 @@ describe("reader archive gate with current Product exclusions", () => {
       reason: "Exclude one archived Product for this Account only",
     });
     if (!revoked.ok) throw new Error(revoked.error.code);
-    const otherGrant = await corpus.grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: corpus.other,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: [`product:${corpus.archived}`],
-        startsAt: instant.toISOString(),
-        validUntil: "2030-02-01T00:00:00.000Z",
-        reason: "Independent holder of the same archived Product",
+    const otherGrant = await corpus.grants.issueProductAccess(
+      { source: "purchase" },
+      {
+        accountId: corpus.other,
+        productId: corpus.archived,
+        sourceRef: randomUUID(),
+        issuedAt: instant.toISOString(),
+        reason: "Independent archived holder",
       },
-    });
+    );
     if (!otherGrant.ok) throw new Error(otherGrant.error.code);
   });
   afterAll(async () => {

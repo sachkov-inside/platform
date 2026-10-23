@@ -1,6 +1,6 @@
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
-import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { pressedPaymentButton } from "./setup/consent-documents.js";
@@ -53,14 +53,20 @@ const config = syntheticTbankConfig({
 });
 const productPrice = 290_000;
 /** Каталог до и после ввода новой редакции оферты разовой покупки: меняется только она. */
-const previousOffer = syntheticConsentDocument("terms", {
-  version: "purchase-v1",
-  appliesTo: ["one_time"],
-});
-const currentOffer = syntheticConsentDocument("terms", {
-  version: "purchase-v3",
-  appliesTo: ["one_time"],
-});
+const previousOffer = {
+  ...syntheticConsentDocument("terms", {
+    version: "purchase-v1",
+    appliesTo: ["one_time"],
+  }),
+  commercialModel: "product-lifetime-v1" as const,
+};
+const currentOffer = {
+  ...syntheticConsentDocument("terms", {
+    version: "purchase-v3",
+    appliesTo: ["one_time"],
+  }),
+  commercialModel: "product-lifetime-v1" as const,
+};
 const acceptanceSchema = z.object({
   evidence: z.array(z.object({ document: z.object({ version: z.string() }) })),
 });
@@ -152,43 +158,20 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       ).ok
     )
       throw new Error("contact");
-    const capability = `product:${randomUUID()}`;
-    const offerId = randomUUID(),
-      optionId = randomUUID();
+    const productId = randomUUID();
+    await db.prisma.product.create({
+      data: { id: productId, slug: productId, name: "Edition Product" },
+    });
     value(
       await pricing.manage(owner, {
+        operation: "productPrices.save",
         operationId: randomUUID(),
-        operation: "offers.save",
         value: {
-          id: offerId,
-          name: "Руководство «Синтетика»",
-          benefits: [capability, "support"],
-          benefitPeriods: [
-            { capability, months: null },
-            { capability: "support", months: 6 },
-          ],
-        },
-      }),
-    );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "paymentOptions.save",
-        value: {
-          id: optionId,
-          offerId,
-          mode: "one_time",
-          months: 1,
+          productId,
+          name: "Edition Product",
           priceKopecks: productPrice,
+          published: true,
         },
-      }),
-    );
-    value(
-      await pricing.manage(owner, {
-        operationId: randomUUID(),
-        operation: "offers.publish",
-        expectedRevision: 1,
-        id: offerId,
       }),
     );
 
@@ -241,14 +224,11 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     };
     const quote = async () =>
       value(
-        await pricing.quote(
-          buyer,
-          await prepareInvitedQuote(db.prisma, buyer, {
-            operationId: randomUUID(),
-            paymentOptionId: optionId,
-            optionRevision: 1,
-          }),
-        ),
+        await pricing.quote(buyer, {
+          operationId: randomUUID(),
+          productId,
+          priceRevision: 1,
+        }),
       ).quoteRef;
     const accept = (
       contact: BillingContact,
@@ -293,7 +273,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
         .evidence.map((item) => item.document.version);
     return {
       buyer,
-      capability,
+      productId,
       before,
       after,
       paymentsOn,
@@ -369,11 +349,11 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     expect(await s.acceptedVersions(purchase.purchaseRef)).toEqual([
       "purchase-v1",
     ]);
-    const granted = await db.prisma.accessGrant.findMany({
-      where: { accountId: s.buyer, capabilities: { has: s.capability } },
-    });
-    expect(granted.map((grant) => grant.capabilities)).toEqual([
-      [s.capability],
-    ]);
+    expect(
+      await grants.readProductAccess(owner, {
+        accountId: s.buyer,
+        productId: s.productId,
+      }),
+    ).toMatchObject({ ok: true, value: { access: "active" } });
   });
 });

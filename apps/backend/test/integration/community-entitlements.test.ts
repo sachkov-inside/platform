@@ -220,7 +220,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
   async function grantCommunity(
     accountId: string,
-    validUntil: string | null,
+    _validUntil: string | null,
   ): Promise<{ grantRef: string; revision: number }> {
     return communityGrant(database, accountId, true);
   }
@@ -268,7 +268,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       clock,
     });
     const localLinks = new TelegramAccountLinks(isolated.prisma);
-    async function enroll(subject: string, validUntil: string | null = null) {
+    async function enroll(subject: string, _validUntil: string | null = null) {
       const established = await localAccounts.establishAccount({
         identity: verifiedAccountSignIn({
           issuer,
@@ -414,156 +414,141 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     }
   });
 
-  test.each(["link", "expiry"] as const)(
-    "a persistent Account failure cannot crowd out a later %s change without an access audit event",
-    async (source) => {
-      const isolated = await createMigratedTestDatabase();
-      try {
-        let now = new Date(start);
-        const { localAccounts, localOwner, localGrants, localLinks, enroll } =
-          await streamFixture(isolated, () => now);
-        const provider = new ProviderDouble();
-        let failing: string | null = null;
-        const app = new CommunityEntitlements({
-          accounts: localAccounts,
-          botStartUrl: "https://t.me/inside_test_bot",
-          clock: () => now,
-          grants: {
-            resolveCapabilitiesForAccounts: (ids) =>
-              localGrants.resolveCapabilitiesForAccounts(ids),
-            readChangedAccounts: (query) =>
-              localGrants.readChangedAccounts(query),
-            resolveCapabilities: (accountId) =>
-              accountId === failing
-                ? Promise.resolve({
-                    ok: false as const,
-                    error: { code: "unavailable" as const },
-                  })
-                : localGrants.resolveCapabilities(accountId),
-          },
-          links: localLinks,
-          prisma: isolated.prisma,
-          provider,
+  test("a persistent Account failure cannot crowd out a later link change without an access audit event", async () => {
+    const isolated = await createMigratedTestDatabase();
+    try {
+      let now = new Date(start);
+      const { localAccounts, localOwner, localGrants, localLinks, enroll } =
+        await streamFixture(isolated, () => now);
+      const provider = new ProviderDouble();
+      let failing: string | null = null;
+      const app = new CommunityEntitlements({
+        accounts: localAccounts,
+        botStartUrl: "https://t.me/inside_test_bot",
+        clock: () => now,
+        grants: {
+          resolveCapabilitiesForAccounts: (ids) =>
+            localGrants.resolveCapabilitiesForAccounts(ids),
+          readChangedAccounts: (query) =>
+            localGrants.readChangedAccounts(query),
+          resolveCapabilities: (accountId) =>
+            accountId === failing
+              ? Promise.resolve({
+                  ok: false as const,
+                  error: { code: "unavailable" as const },
+                })
+              : localGrants.resolveCapabilities(accountId),
+        },
+        links: localLinks,
+        prisma: isolated.prisma,
+        provider,
+      });
+      const broken = await enroll("lane-broken", null);
+      const healthy = await enroll("lane-healthy", null);
+      await app.sweep();
+      const original = provider.sent.find(
+        (command) =>
+          command.binding.telegramIdentityRef === "identity-lane-broken",
+      );
+      if (original === undefined)
+        throw new Error("Original admission fixture failed");
+      const cursor =
+        await isolated.prisma.telegramCommunityProjectionCursor.findUnique({
+          where: { id: 1 },
         });
-        const broken = await enroll(
-          "lane-broken",
-          source === "expiry" ? "2030-01-01T00:01:00.000Z" : null,
-        );
-        const healthy = await enroll(
-          "lane-healthy",
-          source === "expiry" ? "2030-01-01T00:01:01.000Z" : null,
-        );
-        await app.sweep();
-        const original = provider.sent.find(
-          (command) =>
-            command.binding.telegramIdentityRef === "identity-lane-broken",
-        );
-        if (original === undefined)
-          throw new Error("Original admission fixture failed");
-        const cursor =
-          await isolated.prisma.telegramCommunityProjectionCursor.findUnique({
-            where: { id: 1 },
-          });
-        if (cursor === null) throw new Error("Cursor fixture failed");
-        async function relink(accountId: string, identityRef: string) {
-          await isolated.prisma.telegramLinkTransaction.updateMany({
-            where: { accountId, status: "linked" },
-            data: { status: "expired", updatedAt: now },
-          });
-          await linkTelegramAccount(isolated.prisma, {
-            accountId,
-            identityRef,
-            now,
-          });
-          // The database trigger uses clock_timestamp(); pin scan order to this case's clock.
-          await isolated.prisma.telegramAccountLinkState.update({
-            where: { accountId },
-            data: { updatedAt: now },
-          });
-        }
-        if (source === "link") {
-          now = new Date("2030-01-01T00:01:00.000Z");
-          await relink(broken.accountId, "identity-lane-broken-new");
-          now = new Date("2030-01-01T00:01:01.000Z");
-          await relink(healthy.accountId, "identity-lane-healthy-new");
-        }
-        expect(
-          await localGrants.readChangedAccounts({
-            afterRevision: cursor.accessRevision,
-            limit: 1,
-          }),
-        ).toMatchObject({
-          ok: true,
-          accountIds: [],
-          cursor: cursor.accessRevision,
+      if (cursor === null) throw new Error("Cursor fixture failed");
+      async function relink(accountId: string, identityRef: string) {
+        await isolated.prisma.telegramLinkTransaction.updateMany({
+          where: { accountId, status: "linked" },
+          data: { status: "expired", updatedAt: now },
         });
-        failing = broken.accountId;
-        now = new Date("2030-01-01T00:01:02.000Z");
-        expect(await app.sweep(1)).toMatchObject({ failed: 1 });
-        now = new Date("2030-01-01T00:02:03.000Z");
-        expect(await app.sweep(1)).toMatchObject({ failed: 1 });
-        expect(
-          await app.readDelivery(localOwner, healthy.accountId),
-        ).toMatchObject({
-          ok: true,
-          value: {
-            desired:
-              source === "link"
-                ? {
-                    telegramIdentityRef: "identity-lane-healthy-new",
-                    entitlementRevision: 3,
-                  }
-                : { access: { kind: "denied" }, entitlementRevision: 2 },
-          },
+        await linkTelegramAccount(isolated.prisma, {
+          accountId,
+          identityRef,
+          now,
         });
-        expect(
-          await isolated.prisma.telegramCommunityProjectionRetry.findUnique({
-            where: { accountId: broken.accountId },
-          }),
-        ).toMatchObject({ errorCode: "unavailable" });
-        expect(
-          await isolated.prisma.telegramCommunityProjectionCursor.findUnique({
-            where: { id: 1 },
-          }),
-        ).toMatchObject({ accessRevision: cursor.accessRevision });
-        // Let the healthy relink's second command leave the bounded delivery lane.
-        now = new Date("2030-01-01T00:03:04.000Z");
-        await app.sweep(1);
-        failing = null;
-        now = new Date("2030-01-01T00:04:05.000Z");
-        await app.sweep(1);
-        await app.sweep(1);
-        await app.sweep(1);
-        expect(
-          provider.sent.filter(
-            (command) =>
-              command.binding.accountRef === original.binding.accountRef &&
-              command.access.kind === "denied",
-          ),
-        ).toHaveLength(1);
-        expect(
-          await isolated.prisma.telegramCommunityProjectionRetry.findUnique({
-            where: { accountId: broken.accountId },
-          }),
-        ).toBeNull();
-        const restored = await app.readDelivery(localOwner, broken.accountId);
-        expect(restored).toMatchObject({
-          ok: true,
-          value: {
-            desired:
-              source === "link"
-                ? {
-                    telegramIdentityRef: "identity-lane-broken-new",
-                    entitlementRevision: 3,
-                  }
-                : { access: { kind: "denied" }, entitlementRevision: 2 },
-          },
+        // The database trigger uses clock_timestamp(); pin scan order to this case's clock.
+        await isolated.prisma.telegramAccountLinkState.update({
+          where: { accountId },
+          data: { updatedAt: now },
         });
-      } finally {
-        await isolated.dispose();
       }
-    },
-  );
+      {
+        now = new Date("2030-01-01T00:01:00.000Z");
+        await relink(broken.accountId, "identity-lane-broken-new");
+        now = new Date("2030-01-01T00:01:01.000Z");
+        await relink(healthy.accountId, "identity-lane-healthy-new");
+      }
+      expect(
+        await localGrants.readChangedAccounts({
+          afterRevision: cursor.accessRevision,
+          limit: 1,
+        }),
+      ).toMatchObject({
+        ok: true,
+        accountIds: [],
+        cursor: cursor.accessRevision,
+      });
+      failing = broken.accountId;
+      now = new Date("2030-01-01T00:01:02.000Z");
+      expect(await app.sweep(1)).toMatchObject({ failed: 1 });
+      now = new Date("2030-01-01T00:02:03.000Z");
+      expect(await app.sweep(1)).toMatchObject({ failed: 1 });
+      expect(
+        await app.readDelivery(localOwner, healthy.accountId),
+      ).toMatchObject({
+        ok: true,
+        value: {
+          desired: {
+            telegramIdentityRef: "identity-lane-healthy-new",
+            entitlementRevision: 3,
+          },
+        },
+      });
+      expect(
+        await isolated.prisma.telegramCommunityProjectionRetry.findUnique({
+          where: { accountId: broken.accountId },
+        }),
+      ).toMatchObject({ errorCode: "unavailable" });
+      expect(
+        await isolated.prisma.telegramCommunityProjectionCursor.findUnique({
+          where: { id: 1 },
+        }),
+      ).toMatchObject({ accessRevision: cursor.accessRevision });
+      // Let the healthy relink's second command leave the bounded delivery lane.
+      now = new Date("2030-01-01T00:03:04.000Z");
+      await app.sweep(1);
+      failing = null;
+      now = new Date("2030-01-01T00:04:05.000Z");
+      await app.sweep(1);
+      await app.sweep(1);
+      await app.sweep(1);
+      expect(
+        provider.sent.filter(
+          (command) =>
+            command.binding.accountRef === original.binding.accountRef &&
+            command.access.kind === "denied",
+        ),
+      ).toHaveLength(1);
+      expect(
+        await isolated.prisma.telegramCommunityProjectionRetry.findUnique({
+          where: { accountId: broken.accountId },
+        }),
+      ).toBeNull();
+      const restored = await app.readDelivery(localOwner, broken.accountId);
+      expect(restored).toMatchObject({
+        ok: true,
+        value: {
+          desired: {
+            telegramIdentityRef: "identity-lane-broken-new",
+            entitlementRevision: 3,
+          },
+        },
+      });
+    } finally {
+      await isolated.dispose();
+    }
+  });
 
   test.each([false, true])(
     "a corrupted accepted command becomes operator work without starving a valid poll (newer command: %s)",
@@ -656,6 +641,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
   test("Product entry requires its configured group and its own community right", async () => {
     const account = await member();
     const productId = randomUUID();
+    await database.prisma.product.create({
+      data: { id: productId, name: "Product entry", slug: productId },
+    });
     const app = community(new ProviderDouble());
     expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
       kind: "none",
@@ -818,7 +806,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     // The right itself never waits for the community provider.
     expect(await grants.resolveCapabilities(account)).toMatchObject({
       ok: true,
-      capabilities: [{ capability: "community", validUntil: null }],
+      capabilities: expect.arrayContaining([
+        { capability: "community", validUntil: null },
+      ]),
     });
   });
 
@@ -884,7 +874,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     // Removing a chat member never touches the right that was granted.
     expect(await grants.resolveCapabilities(account)).toMatchObject({
       ok: true,
-      capabilities: [{ capability: "community", validUntil: null }],
+      capabilities: expect.arrayContaining([
+        { capability: "community", validUntil: null },
+      ]),
     });
 
     const other = await member();
@@ -928,11 +920,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(rows[1]?.accountRef).not.toBe(rows[2]?.accountRef);
   });
 
-  test("an expired command is refused, and an expired reason cannot remove a live member", async () => {
+  test("an old paid-period boundary cannot expire lifetime access; explicit withdrawal supersedes admission", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
-    await grantCommunity(account, finish);
+    const { grantRef } = await grantCommunity(account, null);
     const provider = new ProviderDouble();
     const app = community(provider);
     await app.sweep();
@@ -947,9 +939,19 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
           "community.ensure_admission",
         ),
       ),
+    ).toMatchObject({ ok: true, result: { decision: { status: "allowed" } } });
+    await revokeProductFixture(database.prisma, grantRef);
+    expect(
+      await app.authorizeDispatch(
+        authorization(
+          finite?.operationId ?? "",
+          finite?.payloadDigest ?? "",
+          "community.ensure_admission",
+        ),
+      ),
     ).toMatchObject({
       ok: true,
-      result: { decision: { reason: "expired", status: "denied" } },
+      result: { decision: { reason: "superseded", status: "denied" } },
     });
 
     // A second independent reason keeps the member in place.
@@ -1251,7 +1253,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       value: { items: [], truncated: false },
     });
 
-    // Two finite rights end. Removals stay disabled, so Telegram keeps reporting one of them in the chat.
+    // Two owner withdrawals leave independently observed membership to reconcile.
+    for (const account of [stays, left])
+      for (const target of await grantsOf(account))
+        await revokeProductFixture(database.prisma, target);
     now = new Date(finish);
     await app.sweep();
     const [, staysDenied] = await operations(stays);
@@ -1476,7 +1481,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     const account = await member();
     const identity = `stable-${account}`;
     await link(account, identity);
-    const { grantRef, revision } = await grantCommunity(account, null);
+    const { grantRef } = await grantCommunity(account, null);
     const provider = new ProviderDouble();
     const app = community(provider);
     await app.sweep();
@@ -1645,14 +1650,16 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(await operations(account)).toHaveLength(0);
     expect(await grants.resolveCapabilities(account)).toMatchObject({
       ok: true,
-      capabilities: [{ capability: "community", validUntil: null }],
+      capabilities: expect.arrayContaining([
+        { capability: "community", validUntil: null },
+      ]),
     });
   });
 
   /** One bought Product is a reason of its own: the chat right follows that right's own term. */
   async function grantProduct(
     accountId: string,
-    validUntil: string | null,
+    _validUntil: string | null,
     includeCommunity = true,
   ): Promise<{ grantRef: string; revision: number }> {
     return communityGrant(database, accountId, includeCommunity);
@@ -1805,7 +1812,7 @@ describe.each([1, 100, 1000, 1001])(
     if (size === 1001)
       test("a failed Account-set dependency never reports a partial success", async () => {
         await isolated.prisma
-          .$executeRaw`alter table account_rights.access_grants rename to failed_report_grants`;
+          .$executeRaw`alter table account_rights.product_access rename to failed_report_grants`;
         try {
           expect(await app.listMembersWithoutRight(owner)).toEqual({
             ok: false,
@@ -1813,7 +1820,7 @@ describe.each([1, 100, 1000, 1001])(
           });
         } finally {
           await isolated.prisma
-            .$executeRaw`alter table account_rights.failed_report_grants rename to access_grants`;
+            .$executeRaw`alter table account_rights.failed_report_grants rename to product_access`;
         }
       });
     test("reports observed members with bounded owner facts", async () => {
@@ -1828,7 +1835,7 @@ describe.each([1, 100, 1000, 1001])(
         (sql) => sql.startsWith("SELECT") && sql.includes('"account_rights"'),
       );
       expect(rightsReads.length).toBe(
-        4 * Math.ceil(Math.min(size, 1000) / 500),
+        2 * Math.ceil(Math.min(size, 1000) / 500),
       );
     });
   },
@@ -1844,11 +1851,16 @@ async function communityGrant(
     data: { id: productId, slug: productId, name: "Community Product" },
   });
   if (community) {
-    const owner = await database.prisma.account.findFirstOrThrow({
-      where: { permissions: { some: { permission: "platform:admin" } } },
-    });
+    const permission = await database.prisma.accountPermission.findFirstOrThrow(
+      { where: { permission: "platform:admin" } },
+    );
     await database.prisma.productCommunity.create({
-      data: { productId, groupRef: "primary", updatedBy: owner.id },
+      data: {
+        productId,
+        groupRef: "primary",
+        updatedBy: permission.accountId,
+        updatedAt: new Date(start),
+      },
     });
   }
   const grantRef = await grantProductFixture(

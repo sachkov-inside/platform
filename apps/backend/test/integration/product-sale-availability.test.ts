@@ -22,25 +22,17 @@ describe.each([1, 10, 100])(
       measured = createQueryEventClient(db.url);
       productIds = Array.from({ length: size }, () => randomUUID());
       absent = randomUUID();
-      const offerIds = Array.from({ length: size }, () => randomUUID());
-      await db.prisma.billingOffer.createMany({
-        data: offerIds.map((id, index) => ({
-          id,
-          revision: 1,
-          name: "Sold product",
-          benefits: [`product:${productIds[index]}`, "support"],
-          benefitPeriods: [{ capability: "support", months: 1 }],
-          published: true,
-        })),
+      await db.prisma.product.createMany({
+        data: productIds.map((id) => ({ id, slug: id, name: "Sold Product" })),
       });
-      await db.prisma.billingPaymentOption.createMany({
-        data: offerIds.map((offerId) => ({
-          id: randomUUID(),
-          offerId,
+      await db.prisma.billingProductPrice.createMany({
+        data: productIds.map((productId) => ({
+          productId,
           revision: 1,
-          months: 1,
-          mode: "one_time",
+          name: "Sold Product",
           priceKopecks: 10000n,
+          published: true,
+          updatedAt: new Date("2030-01-01T00:00:00Z"),
         })),
       });
       const accounts = assembleAccounts({

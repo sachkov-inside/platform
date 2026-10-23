@@ -234,7 +234,7 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     signedIn.identity.telegram?.requestRef,
   );
   expect(
-    await database.prisma.membershipBinding.count({
+    await database.prisma.telegramAccountLinkState.count({
       where: { accountId: first.account.accountId },
     }),
   ).toBe(0);
@@ -367,7 +367,7 @@ test.each(["identity", "correlation"] as const)(
       error: { code: "identity_conflict" },
     });
     expect(
-      await database.prisma.membershipBinding.count({
+      await database.prisma.telegramAccountLinkState.count({
         where: { accountId: first.account.accountId },
       }),
     ).toBe(0);
@@ -483,7 +483,7 @@ test.each([
       });
     }
     expect(
-      await database.prisma.membershipBinding.count({
+      await database.prisma.telegramAccountLinkState.count({
         where: { accountId: first.account.accountId },
       }),
     ).toBe(outcome.includes("mismatch") ? 0 : 1);
@@ -655,7 +655,7 @@ test.each(["resume", "confirm"] as const)(
           error: { code: "unavailable" },
         });
         expect(
-          await prisma.membershipBinding.count({
+          await prisma.telegramAccountLinkState.count({
             where: { accountId: first.account.accountId },
           }),
         ).toBe(0);
@@ -664,7 +664,7 @@ test.each(["resume", "confirm"] as const)(
         );
         await expect(finalize()).resolves.toMatchObject({ ok: true });
         expect(
-          await prisma.membershipBinding.count({
+          await prisma.telegramAccountLinkState.count({
             where: { accountId: first.account.accountId },
           }),
         ).toBe(1);

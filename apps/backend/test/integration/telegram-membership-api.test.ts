@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { enrollPriorParticipantsFixture } from "./setup/prior-participants.js";
@@ -11,7 +12,7 @@ import {
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -114,7 +115,7 @@ describe("Telegram Membership API", () => {
       link: { kind: "unlinked" },
       contact: { state: "not_linked", displayName: null, username: null },
       // По умолчанию ни один вариант подписки не продаётся, поэтому продающего предложения нет.
-      membership: { kind: "notOffered" },
+      membership: { kind: "inactive" },
     });
 
     const unauthenticated = await declaredServer(
@@ -144,7 +145,7 @@ describe("Telegram Membership API", () => {
     );
     expect(linkingPresentation.json()).toMatchObject({
       link: { kind: "linking", linkRef: pending.linkRef },
-      membership: { kind: "notOffered" },
+      membership: { kind: "inactive" },
     });
     expect(provider.registrations[0]?.authorization).toBe(
       `Bearer ${linkingSecret}`,
@@ -183,150 +184,38 @@ describe("Telegram Membership API", () => {
     expect(linkedPresentation.json()).toEqual({
       link: { kind: "linked" },
       contact: { state: "unavailable", displayName: null, username: null },
-      membership: { kind: "unavailable" },
+      membership: { kind: "inactive" },
     });
     expect(JSON.stringify(linkedPresentation.json())).not.toMatch(
       /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|validUntil/iu,
     );
   });
 
-  test("authenticates durable evidence ingestion and applies no business state on rejection", async () => {
-    const ownerToken = await signToken("telegram-evidence-owner");
-    await establish(ownerToken);
-    const begun = await authenticated(
-      "POST",
-      "/accounts/current/telegram-link",
-      ownerToken,
-    );
-    const pending = readPendingLink(begun.json<unknown>());
-    const principalRef = provider.registrations.at(-1)?.body["accountRef"];
-    if (typeof principalRef !== "string") {
-      throw new TypeError("Provider registration has no principalRef");
-    }
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-    const checkedAt = new Date();
-    const memberEvidence = evidence(principalRef, checkedAt);
+  test("retired membership evidence ingress stays absent even with the previously valid service secret", async () => {
     const receiptsBefore =
       await database.prisma.membershipEvidenceReceipt.count();
-
-    const unauthenticated = await deliver(memberEvidence, {
-      authorization: "Bearer wrong-secret",
-      deliveryId: "api-evidence-unauthenticated",
-      source: "link_time",
-    });
-    expect(unauthenticated.statusCode).toBe(401);
-    await expect(
-      database.prisma.membershipEvidenceReceipt.count(),
-    ).resolves.toBe(receiptsBefore);
-
-    const beforeConfirmation = await deliver(memberEvidence, {
-      authorization: `Bearer ${evidenceSecret}`,
-      deliveryId: "api-evidence-member-v1",
-      source: "link_time",
-    });
-    expect(beforeConfirmation.statusCode).toBe(503);
-    await expect(
-      database.prisma.membershipEvidenceReceipt.count(),
-    ).resolves.toBe(receiptsBefore);
-
-    await authenticated(
-      "POST",
-      `/accounts/current/telegram-link/${pending.linkRef}/confirm`,
-      ownerToken,
+    const body = evidence(
+      "historical-principal",
+      new Date("2030-01-01T00:00:00Z"),
     );
-    const accepted = await deliver(memberEvidence, {
-      authorization: `Bearer ${evidenceSecret}`,
-      deliveryId: "api-evidence-member-v1",
-      source: "link_time",
-    });
-    expect(accepted.statusCode).toBe(200);
-    expect(accepted.headers["cache-control"]).toBe("private, no-store");
-    expect(accepted.json()).toMatchObject({
-      ok: true,
-      outcome: "applied",
-      state: "active",
-    });
-    const duplicate = await deliver(memberEvidence, {
-      authorization: `Bearer ${evidenceSecret}`,
-      deliveryId: "api-evidence-member-v1",
-      source: "link_time",
-    });
-    expect(duplicate.statusCode).toBe(200);
-
-    const unsupported = await deliver(
-      { ...memberEvidence, contractVersion: "inside.membership-evidence.v2" },
-      {
-        authorization: `Bearer ${evidenceSecret}`,
-        deliveryId: "api-evidence-unsupported",
-        source: "reconciliation",
-      },
-    );
-    expect(unsupported.statusCode).toBe(400);
-    expect(unsupported.json()).toMatchObject({ code: "unsupported_contract" });
-    const projection = await database.prisma.membershipProjection.findFirst();
-    expect(projection?.evidenceVersion).toBe(1n);
-
-    const providerModelLeak = await deliver(
-      { ...memberEvidence, telegramUserId: "42" },
-      {
-        authorization: `Bearer ${evidenceSecret}`,
-        deliveryId: "api-evidence-provider-model",
-        source: "member_status_event",
-      },
-    );
-    expect(providerModelLeak.statusCode).toBe(400);
-    const serializedReceipts = JSON.stringify(
-      await database.prisma.membershipEvidenceReceipt.findMany(),
-      (_key, value: unknown) =>
-        typeof value === "bigint" ? value.toString() : value,
-    );
-    expect(serializedReceipts).not.toContain("telegramUserId");
-  });
-
-  test("returns terminal 410 for an expired registration, including fresh observations", async () => {
-    const ownerToken = await signToken("abandoned-link-owner");
-    await establish(ownerToken);
-    const begun = await authenticated(
-      "POST",
-      "/accounts/current/telegram-link",
-      ownerToken,
-    );
-    const pending = readPendingLink(begun.json<unknown>());
-    const registration = provider.registrations.at(-1)?.body["accountRef"];
-    if (typeof registration !== "string") throw new Error("Missing principal");
-    await database.prisma.telegramLinkTransaction.update({
-      where: { linkRef: pending.linkRef },
-      data: {
-        status: "registering",
-        providerIdentityRef: "telegram-abandoned-identity",
-      },
-    });
-    const headers = {
-      authorization: `Bearer ${evidenceSecret}`,
-      deliveryId: "abandoned-api-evidence",
-      source: "reconciliation",
-    };
-    // deterministic-test-allow wall-clock: registerFixedClock owns Date for this case.
-    const now = new Date();
-    expect(
-      (await deliver(evidence(registration, now), headers)).statusCode,
-    ).toBe(503);
-    vi.setSystemTime(new Date(now.getTime() + 300000));
-    for (const deliveryId of [
-      headers.deliveryId,
-      "fresh-abandoned-api-evidence",
+    for (const authorization of [
+      "Bearer wrong-secret",
+      `Bearer ${evidenceSecret}`,
     ]) {
-      const response = await deliver(
-        evidence(registration, new Date(now.getTime() + 300000)),
-        {
-          ...headers,
-          deliveryId,
-        },
-      );
-      expect(response.statusCode).toBe(410);
-      expect(response.json()).toMatchObject({ code: "link_expired" });
-      expect(response.headers["cache-control"]).toBe("private, no-store");
+      expect(
+        (
+          await deliver(body, {
+            authorization,
+            deliveryId: randomUUID(),
+            source: "link_time",
+          })
+        ).statusCode,
+      ).toBe(404);
     }
+    expect(await database.prisma.membershipEvidenceReceipt.count()).toBe(
+      receiptsBefore,
+    );
+    expect(await database.prisma.membershipBinding.count()).toBe(0);
   });
 
   function authenticated(method: "GET" | "POST", url: string, token: string) {
@@ -337,7 +226,6 @@ describe("Telegram Membership API", () => {
     });
   }
 
-  /** Establishes the Account and passes the first sign-in screen: the bot link opens only after it. */
   async function establish(token: string) {
     const established = await authenticated("POST", "/accounts", token);
     await acceptCurrentTerms(
