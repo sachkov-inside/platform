@@ -294,13 +294,20 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       attemptId: string,
       accountId: string,
       identityRef: string | null,
+      binding?: {
+        accountRef: string | null;
+        linkRef: string;
+        linkRevision: number;
+      },
+      handle?: TransactionHandle,
     ) =>
       readActivationContinuation(
-        prisma,
+        handle === undefined ? prisma : accountRightsTransaction(handle),
         attemptId,
         accountId,
         identityRef,
         clock(),
+        binding,
       ),
     beginActivation: (input: unknown) =>
       beginActivation(prisma, input, clock()),

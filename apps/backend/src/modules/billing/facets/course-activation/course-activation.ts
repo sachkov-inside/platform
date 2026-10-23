@@ -53,7 +53,10 @@ export class CourseActivation {
       const intent =
         await this.dependencies.grants.readActivationIntent(attemptId);
       if (intent === null) return { state: "unavailable" } as const;
-      const product = await this.activationProduct(intent.ruleId);
+      const product = await this.activationProduct(
+        intent.ruleId,
+        intent.ruleRevision,
+      );
       return product === null
         ? ({ state: "unavailable" } as const)
         : { state: intent.state, product };
@@ -67,17 +70,27 @@ export class CourseActivation {
   }
   async readContinuation(accountId: string, attemptId: string) {
     try {
-      const binding = await this.dependencies.bindings.readBinding({
-        accountId,
+      const result = await this.dependencies.prisma.$transaction(async (tx) => {
+        await lockTelegramAccountBinding(tx, accountId);
+        const handle = transactionHandle(tx);
+        const binding = await this.dependencies.bindings.readBinding(
+          { accountId },
+          handle,
+        );
+        if (!binding.ok) return { state: "unavailable" } as const;
+        return this.dependencies.grants.readActivationContinuation(
+          attemptId,
+          accountId,
+          binding.binding?.telegramIdentityRef ?? null,
+          binding.binding ?? undefined,
+          handle,
+        );
       });
-      if (!binding.ok) return { state: "unavailable" } as const;
-      const result = await this.dependencies.grants.readActivationContinuation(
-        attemptId,
-        accountId,
-        binding.binding?.telegramIdentityRef ?? null,
-      );
       if (!("ruleId" in result)) return result;
-      const product = await this.activationProduct(result.ruleId);
+      const product = await this.activationProduct(
+        result.ruleId,
+        result.ruleRevision,
+      );
       if (product === null) return { state: "unavailable" } as const;
       return { state: result.state, product };
     } catch (error) {
@@ -88,9 +101,13 @@ export class CourseActivation {
       );
     }
   }
-  private async activationProduct(ruleId: string) {
+  private async activationProduct(ruleId: string, expectedRevision?: number) {
     const rule = await this.dependencies.grants.readActivationRule(ruleId);
-    if (rule === null) return null;
+    if (
+      rule === null ||
+      (expectedRevision !== undefined && rule.revision !== expectedRevision)
+    )
+      return null;
     if (this.dependencies.contentCatalog === undefined) return null;
     const productIds = [rule.productId];
     const products = await this.dependencies.contentCatalog.resolve({

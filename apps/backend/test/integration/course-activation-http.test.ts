@@ -329,7 +329,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     });
     expect(
       await grants.readActivationContinuation(attemptId, f.id, null),
-    ).toEqual({ state: "link_required", ruleId: f.rule.id });
+    ).toEqual({ state: "link_required", ruleId: f.rule.id, ruleRevision: 1 });
     expect(
       await grants.readActivationContinuation(
         attemptId,
@@ -340,6 +340,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     expect(await grants.readActivationIntent(attemptId)).toEqual({
       state: "ready",
       ruleId: f.rule.id,
+      ruleRevision: 1,
     });
     now = new Date("2030-02-02T00:00:00.000Z");
     expect(
