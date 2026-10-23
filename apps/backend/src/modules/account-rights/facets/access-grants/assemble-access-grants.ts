@@ -461,6 +461,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
                 reason: source.reason,
               })),
               actions: actions.map((action) => ({
+                id: action.id,
                 kind: action.kind,
                 actorId: action.actorId,
                 reason: action.reason,

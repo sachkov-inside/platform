@@ -122,6 +122,7 @@ export class AccessService {
       accountId: string;
       actions: Array<{
         actorId: string | null;
+        id: string;
         kind: string;
         reason: string;
         recordedAt: string;

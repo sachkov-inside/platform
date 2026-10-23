@@ -62,6 +62,7 @@ export const productAccessSourceSchema = z.strictObject({
   reason: z.string(),
 });
 export const productAccessActionSchema = z.strictObject({
+  id: z.uuid(),
   kind: z.string(),
   actorId: z.uuid().nullable(),
   reason: z.string(),

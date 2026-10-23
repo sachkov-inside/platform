@@ -271,6 +271,17 @@ test("owner history keeps both sources while paginating multiple Products of one
     "issue",
     "source_recorded",
   ]);
+  const actionIds = record.value.actions.map((action) => action.id);
+  expect(actionIds).toHaveLength(2);
+  expect(new Set(actionIds).size).toBe(2);
+  for (const id of actionIds) expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f-]{27}$/);
+  expect(record.value.actions.map((action) => action.revision)).toEqual([1, 1]);
+  const replayedHistory = await grants.readProductAccess(owner, {
+    accountId: target,
+    productId: product,
+  });
+  if (!replayedHistory.ok) throw new Error(replayedHistory.error.code);
+  expect(replayedHistory.value.actions).toEqual(record.value.actions);
   const first = await grants.listProductAccess(owner, {
     accountId: target,
     limit: 1,

@@ -12,6 +12,7 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
 import { selectPricesForOptions } from "../../shared/select-price.js";
 
 export const listOffersSchema = z.strictObject({
@@ -84,7 +85,15 @@ export async function listOffers(
         continue;
       const price = prices.get(row.productId);
       if (price === undefined) continue;
-      if (price.ok) items.push(price.value);
+      if (
+        price.ok &&
+        (options.publishedOnly !== true ||
+          paymentAdmission({
+            snapshot: price.value,
+            sale: options.sale ?? { payments: false },
+          }).ok)
+      )
+        items.push(price.value);
     }
     return {
       ok: true,

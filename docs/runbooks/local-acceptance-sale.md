@@ -9,6 +9,10 @@ terms. The ordinary stand therefore reports new payments unavailable until the s
 edition is published through #1464. Positive automated checks use an explicit synthetic legal
 provider at the public buyer seam; they do not register a prospective edition in the runtime catalog.
 The steps below describe that approved-fixture path and the later authorized operational path.
+`pnpm smoke:buyer-journey` intentionally exercises the unchanged published-v6 path: Telegram sign-in,
+free/protected Materials and unavailable new sales, without commerce writes. Its backend uses the
+real direct Product seed, not retired tariff operations. Positive approved-model payment and
+recovery proof remains on the explicit synthetic legal-provider composition.
 
 ## Purchase and recovery
 
