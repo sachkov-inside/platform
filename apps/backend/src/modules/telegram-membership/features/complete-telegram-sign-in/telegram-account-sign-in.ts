@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -184,7 +185,7 @@ export class TelegramAccountSignIn {
           accountId: accountId(account.accountId),
           principalRef: link.principalRef,
         },
-        transaction,
+        transactionHandle(transaction),
       );
       if (!principal.ok)
         return { ok: false, error: { code: "unavailable" } } as const;

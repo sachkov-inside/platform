@@ -8,7 +8,7 @@ import { z } from "zod";
 import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
 import type {
   AccountRightsPrismaClient,
-  MembershipEnrollmentPreviewPrisma,
+  AccountRightsPrisma,
 } from "../../infrastructure/prisma.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
@@ -48,7 +48,7 @@ function includesPrevious(
   );
 }
 export async function previewEnrollmentExpansion(
-  tx: MembershipEnrollmentPreviewPrisma,
+  tx: AccountRightsPrisma,
   actorId: string,
   input: unknown,
   tierInput: unknown,

@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { HttpException } from "@nestjs/common";
 import { ImportSourceProductController } from "../../src/modules/materials/features/import-source-product/import-source-product.controller.js";
@@ -490,7 +491,10 @@ describe("снятие материала из купленного руково
       { ...command, confirmedProductRemovals: [bought] },
     );
     expect(await publishedProducts(removed.materialId)).toEqual([]);
-    const held = await grants.countProductHolders(db.prisma, [bought]);
+    const held = await grants.countProductHolders(
+      transactionHandle(db.prisma),
+      [bought],
+    );
     expect(held.get(bought)).toBe(1);
     const loaded = await materials.authoring.loadMaterial({
       actor: owner,
@@ -582,9 +586,9 @@ describe("снятие материала из купленного руково
     });
     const item = await publish([lapsed]);
     now = new Date("2030-01-03T00:00:00Z");
-    expect(await grants.countProductHolders(db.prisma, [lapsed])).toEqual(
-      new Map([[lapsed, 0]]),
-    );
+    expect(
+      await grants.countProductHolders(transactionHandle(db.prisma), [lapsed]),
+    ).toEqual(new Map([[lapsed, 0]]));
     expect(await save(item, { publicationState: "unpublished" })).toMatchObject(
       { ok: true },
     );

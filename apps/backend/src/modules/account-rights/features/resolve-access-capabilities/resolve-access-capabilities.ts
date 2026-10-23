@@ -7,7 +7,7 @@ import {
 } from "@inside/access-capabilities";
 import type { MembershipAccessState } from "../../facets/account-rights/account-rights.interface.js";
 import type { AccountId } from "../../../accounts/index.js";
-import type { MembershipAccessPrisma } from "../../infrastructure/prisma.js";
+import type { AccountRightsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessCapabilitySchema,
   capabilitiesOpenedBy,
@@ -24,7 +24,7 @@ export type AccessCapabilities = Readonly<{
   nextBoundary: string | null;
 }>;
 export async function resolveAccessCapabilities(
-  prisma: MembershipAccessPrisma,
+  prisma: AccountRightsPrisma,
   accountId: AccountId,
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string | undefined },
@@ -40,29 +40,27 @@ export async function resolveAccessCapabilities(
   );
 }
 type CapabilityFacts = {
-  grants: Awaited<
-    ReturnType<MembershipAccessPrisma["accessGrant"]["findMany"]>
-  >;
+  grants: Awaited<ReturnType<AccountRightsPrisma["accessGrant"]["findMany"]>>;
   exclusions: Awaited<
-    ReturnType<MembershipAccessPrisma["productAccessExclusion"]["findMany"]>
+    ReturnType<AccountRightsPrisma["productAccessExclusion"]["findMany"]>
   >;
   classification: Awaited<
-    ReturnType<MembershipAccessPrisma["legacyClassification"]["findUnique"]>
+    ReturnType<AccountRightsPrisma["legacyClassification"]["findUnique"]>
   >;
   projection: Awaited<
-    ReturnType<MembershipAccessPrisma["membershipProjection"]["findUnique"]>
+    ReturnType<AccountRightsPrisma["membershipProjection"]["findUnique"]>
   >;
   revision: { revision: number } | null;
   historicalMaterials: {
     coverage: Awaited<
-      ReturnType<MembershipAccessPrisma["accessGrant"]["findMany"]>
+      ReturnType<AccountRightsPrisma["accessGrant"]["findMany"]>
     >[number]["coverage"];
   }[];
   binding: { accountId: string } | null;
   last: { decision: string | null } | null;
 };
 export async function readAccessCapabilityFacts(
-  prisma: MembershipAccessPrisma,
+  prisma: AccountRightsPrisma,
   accountId: AccountId,
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string | undefined },
@@ -325,7 +323,7 @@ export function projectAccessCapabilities(
 
 /** Account-set projection: one caller-owned snapshot, no per-Account history reads. */
 export async function resolveAccessCapabilitiesForAccounts(
-  prisma: MembershipAccessPrisma,
+  prisma: AccountRightsPrisma,
   accountIds: readonly string[],
   now: Date,
   resource?: { productIds: readonly string[]; materialId?: string },

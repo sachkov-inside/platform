@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
   contentWriter,
@@ -280,7 +281,7 @@ export function assembleSaveMaterial(
                   materialId: command.materialId,
                   videoId: command.primaryVideoId,
                 },
-                transaction,
+                transactionHandle(transaction),
               );
               if (!video.ok)
                 return rollback({
@@ -371,7 +372,7 @@ export function assembleSaveMaterial(
             if (dependencies.materialAssets !== undefined) {
               const assetIssues =
                 await dependencies.materialAssets.inspectReferences(
-                  transaction,
+                  transactionHandle(transaction),
                   command.materialId,
                   assetReferences,
                 );
@@ -394,11 +395,14 @@ export function assembleSaveMaterial(
                 });
               }
               const videoReference =
-                await dependencies.videos.inspectPrimaryReference(transaction, {
-                  access: materializedMetadata.access,
-                  materialId: command.materialId,
-                  videoId: command.primaryVideoId,
-                });
+                await dependencies.videos.inspectPrimaryReference(
+                  transactionHandle(transaction),
+                  {
+                    access: materializedMetadata.access,
+                    materialId: command.materialId,
+                    videoId: command.primaryVideoId,
+                  },
+                );
               if (!videoReference.ok) {
                 if (videoReference.error.code === "dependency_unavailable") {
                   return rollback(videoReference.error);
@@ -560,16 +564,19 @@ export function assembleSaveMaterial(
               });
             }
             if (publication === undefined)
-              await markUnreferencedMaterialAssets(transaction, {
-                materialId: command.materialId,
-                orphanedAt: savedAt,
-                referencedAssetIds: assetReferences.map(
-                  ({ assetId }) => assetId,
-                ),
-              });
+              await markUnreferencedMaterialAssets(
+                transactionHandle(transaction),
+                {
+                  materialId: command.materialId,
+                  orphanedAt: savedAt,
+                  referencedAssetIds: assetReferences.map(
+                    ({ assetId }) => assetId,
+                  ),
+                },
+              );
             if (command.deleteVideoId !== null) {
               const deletion = await requestVideoDeletion(
-                transaction,
+                transactionHandle(transaction),
                 {
                   actor: command.actor,
                   materialId: command.materialId,
@@ -585,7 +592,7 @@ export function assembleSaveMaterial(
               }
             }
             const detachment = await recordVideoDetachment(
-              transaction,
+              transactionHandle(transaction),
               {
                 materialId: command.materialId,
                 videoIds: command.detachVideoIds,

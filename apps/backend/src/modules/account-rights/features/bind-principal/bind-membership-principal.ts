@@ -3,14 +3,14 @@ import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipPrincipalBinding } from "../../facets/account-rights/account-rights.interface.js";
 import type {
   AccountRightsPrismaClient,
-  MembershipPrincipalBindingPrisma,
+  AccountRightsPrisma,
 } from "../../infrastructure/prisma.js";
 
 export async function bindMembershipPrincipal(
   prisma: AccountRightsPrismaClient,
   command: { readonly accountId: AccountId; readonly principalRef: string },
   now: Date,
-  transaction?: MembershipPrincipalBindingPrisma,
+  transaction?: AccountRightsPrisma,
 ): Promise<MembershipPrincipalBinding> {
   if (
     command.principalRef.length < 1 ||
@@ -20,7 +20,7 @@ export async function bindMembershipPrincipal(
     return { ok: false, error: { code: "invalid_input" } };
   }
   const bind = async (
-    transaction: MembershipPrincipalBindingPrisma,
+    transaction: AccountRightsPrisma,
   ): Promise<MembershipPrincipalBinding> => {
     const inserted = await transaction.$executeRaw(Prisma.sql`
       insert into account_rights.account_bindings (

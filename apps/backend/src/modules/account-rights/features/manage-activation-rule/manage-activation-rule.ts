@@ -4,13 +4,13 @@ import {
   activationRuleSchema,
   manageActivationRuleSchema,
 } from "../../domain/subscription-activation.js";
-import type { MembershipActivationRulePrisma } from "../../infrastructure/prisma.js";
+import type { AccountRightsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
 export async function manageActivationRule(
-  tx: MembershipActivationRulePrisma,
+  tx: AccountRightsPrisma,
   actorId: string,
   input: unknown,
   now: Date,

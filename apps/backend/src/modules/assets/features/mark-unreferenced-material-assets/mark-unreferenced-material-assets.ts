@@ -1,10 +1,9 @@
 import { z } from "zod";
 
-import type { AssetsPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { assetsTransaction } from "../../infrastructure/transaction.js";
 
 const uuidSchema = z.uuid();
-
-type MaterialAssetReferencePrisma = Pick<AssetsPrisma, "materialAsset">;
 
 /**
  * Records which ready Assets the saved Material body still references. It runs in the caller's
@@ -12,13 +11,14 @@ type MaterialAssetReferencePrisma = Pick<AssetsPrisma, "materialAsset">;
  * were and orphan cleanup never sees a reference change that did not commit.
  */
 export async function markUnreferencedMaterialAssets(
-  prisma: MaterialAssetReferencePrisma,
+  handle: TransactionHandle,
   input: {
     readonly materialId: string;
     readonly orphanedAt: Date;
     readonly referencedAssetIds: readonly string[];
   },
 ): Promise<void> {
+  const prisma = assetsTransaction(handle);
   const referencedAssetIds = [...new Set(input.referencedAssetIds)];
   if (
     !uuidSchema.safeParse(input.materialId).success ||

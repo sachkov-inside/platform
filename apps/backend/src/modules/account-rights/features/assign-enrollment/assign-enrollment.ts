@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { subscriptionPeriodEnd } from "@inside/access-capabilities";
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import { enrollmentView } from "../../shared/enrollment-view.js";
@@ -8,10 +9,7 @@ import {
   lockAccountEntitlementChanges,
   lockAccountAccess,
 } from "../../../../infrastructure/prisma/index.js";
-import type {
-  MembershipEnrollmentPrisma,
-  AccountRightsPrisma,
-} from "../../infrastructure/prisma.js";
+import type { AccountRightsPrisma } from "../../infrastructure/prisma.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
   assignEnrollmentSchema,
@@ -26,7 +24,7 @@ import {
 
 /** Caller holds catalog eligibility stable until this transaction commits. */
 export async function assignEnrollment(
-  tx: MembershipEnrollmentPrisma,
+  tx: AccountRightsPrisma,
   actorId: string,
   input: unknown,
   tierInput: unknown,
@@ -61,7 +59,7 @@ export async function assignEnrollment(
     await lockTelegramAccountBinding(tx, command.accountId);
     const current = await bindings?.readBinding(
       { accountId: command.accountId },
-      tx,
+      transactionHandle(tx),
     );
     if (current === undefined || !current.ok)
       return accessFailure("unavailable");

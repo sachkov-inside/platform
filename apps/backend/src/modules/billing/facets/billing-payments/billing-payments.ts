@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { accessCapabilitySchema } from "@inside/access-capabilities";
 import { productIdFromCapability } from "@inside/access-capabilities";
 import { productCapability } from "@inside/access-capabilities";
@@ -1638,7 +1639,9 @@ export class BillingPayments {
           });
           const scope =
             snapshot.offer.coverage ??
-            (await this.dependencies.grants.readCompatibilityCoverage(tx));
+            (await this.dependencies.grants.readCompatibilityCoverage(
+              transactionHandle(tx),
+            ));
           const enrollment =
             period.subscriptionRef !== null &&
             paidUntil !== null &&

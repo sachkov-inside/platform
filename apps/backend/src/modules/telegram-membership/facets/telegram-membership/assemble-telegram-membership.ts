@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -459,7 +460,7 @@ async function confirmLink(
           accountId: accountId(transaction.accountId),
           principalRef: transaction.principalRef,
         },
-        prisma,
+        transactionHandle(prisma),
       );
       if (!binding.ok) {
         const state =
