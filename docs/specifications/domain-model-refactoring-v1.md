@@ -1,6 +1,7 @@
 # Рефакторинг доменной модели Platform
 
-Статус: подготовленная спецификация, разбиение и проверяемые сценарии ожидают согласования.
+Статус: утверждено владельцем 23.10.2026. [Спецификация с задачами](https://github.com/sachkov-inside/platform/issues/1693).
+[Приёмка плана и уровней проверки](https://github.com/sachkov-inside/platform/issues/1666#issuecomment-6369265004).
 Источник: [карта доменной модели](https://github.com/sachkov-inside/platform/issues/1644),
 её итоговые комментарии и [карта контекстов](../product/domain-context-map.md).
 Это поручение на будущую реализацию, не сообщение о выполненном изменении кода.
@@ -218,25 +219,25 @@ production migration, реальные payments, сообщения и release �
 
 ## План задач
 
-Номера ниже являются порядком зависимостей, а не номерами GitHub. До публикации tasks это
-проверяемый проект разбиения. Крупные механические переносы явно выделены как expand/contract.
+Номера ниже являются порядком зависимостей, а названия ведут к опубликованным GitHub задачам.
+Крупные механические переносы явно выделены как expand/contract. Блокировки также заданы нативно.
 
 | № | Задача и наблюдаемый результат | Блокируется |
 | --- | --- | --- |
-| 1 | Ввести opaque transaction handle на одном рабочем пути и доказать общий rollback | Нет |
-| 2 | Перенести остальные handoffs, убрать prepare/apply и чужие delegates | 1 |
-| 3 | Выделить Products и общий Content Covers interface, сохранив authoring и reader | 2 |
-| 4 | Единый Product Access, ручная выдача, отзыв и явное восстановление | 3 |
-| 5 | Прямая покупка Product, восстановление оплаты, ручной возврат и три месяца в новых условиях | 4 |
-| 6 | Активация прежнего курса прямо в Product Access и совместимый путь Telegram | 4 |
-| 7 | Удалить тарифы, подписки, Tribute, invitations и entitlement bridge | 5, 6 |
-| 8 | Единый Product Reader State, состояние продажи и постоянный Intake | 5 |
-| 9 | Один Product Task механизм и сохранение отдельных фактов обучения | 3 |
-| 10 | Account Profile и чистые границы identity/contact/legal history | 2 |
-| 11 | Исполнять сообщество от Product Access, сохраняя ограничения и recovery | 6, 7 |
-| 12 | Communication Sequence, сообщения после старта и независимые уведомления | 7 |
-| 13 | Перенести оставшихся consumers, удалить временные имена и compatibility adapters | 8, 9, 10, 11, 12 |
-| 14 | Проверить upgrade/recovery всей модели и завершить интеграцию | 13 |
+| 1 | [Ввести opaque transaction handle на одном рабочем пути и доказать общий rollback](https://github.com/sachkov-inside/platform/issues/1694) | Нет |
+| 2 | [Перенести остальные handoffs, убрать prepare/apply и чужие delegates](https://github.com/sachkov-inside/platform/issues/1695) | 1 |
+| 3 | [Выделить Products и общий Content Covers interface, сохранив authoring и reader](https://github.com/sachkov-inside/platform/issues/1696) | 2 |
+| 4 | [Единый Product Access, ручная выдача, отзыв и явное восстановление](https://github.com/sachkov-inside/platform/issues/1697) | 3 |
+| 5 | [Прямая покупка Product, восстановление оплаты, ручной возврат и три месяца в новых условиях](https://github.com/sachkov-inside/platform/issues/1698) | 4 |
+| 6 | [Активация прежнего курса прямо в Product Access и совместимый путь Telegram](https://github.com/sachkov-inside/platform/issues/1699) | 4 |
+| 7 | [Удалить тарифы, подписки, Tribute, invitations и entitlement bridge](https://github.com/sachkov-inside/platform/issues/1700) | 5, 6 |
+| 8 | [Единый Product Reader State, состояние продажи и постоянный Intake](https://github.com/sachkov-inside/platform/issues/1701) | 5 |
+| 9 | [Один Product Task механизм и сохранение отдельных фактов обучения](https://github.com/sachkov-inside/platform/issues/1702) | 3 |
+| 10 | [Account Profile и чистые границы identity/contact/legal history](https://github.com/sachkov-inside/platform/issues/1703) | 2 |
+| 11 | [Исполнять сообщество от Product Access, сохраняя ограничения и recovery](https://github.com/sachkov-inside/platform/issues/1704) | 6, 7 |
+| 12 | [Communication Sequence, сообщения после старта и независимые уведомления](https://github.com/sachkov-inside/platform/issues/1705) | 7 |
+| 13 | [Перенести оставшихся consumers, удалить временные имена и compatibility adapters](https://github.com/sachkov-inside/platform/issues/1706) | 8, 9, 10, 11, 12 |
+| 14 | [Проверить upgrade/recovery всей модели и завершить интеграцию](https://github.com/sachkov-inside/platform/issues/1707) | 13 |
 
 Задачи 1, 2, 3, 4 и 13 включают механический expand/migrate/contract, а не только переименование
 файлов. Остальные являются узкими сквозными сценариями с schema, interface, вызывающим UI/ботом
