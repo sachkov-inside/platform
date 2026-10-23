@@ -85,15 +85,17 @@ export function assembleUpdateContentCollection(
     const parsed = parseCommand(updateContentCollectionCommandSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      command.actor,
-    );
-    if (!authorization.ok) return failure(authorization.error);
 
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
+        const permission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!permission.ok) return rollback(permission.error);
+
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
           const currentSource = await transaction.product.findUnique({

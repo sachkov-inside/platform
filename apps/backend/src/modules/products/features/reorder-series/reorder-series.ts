@@ -99,13 +99,6 @@ export function assembleReorderSeries(
       return failure(parsed.error);
     }
     const command = parsed.value;
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      command.actor,
-    );
-    if (!authorization.ok) {
-      return failure(authorization.error);
-    }
 
     return executeAuthoringTransaction<
       ReorderSeriesReceiptDto,
@@ -113,6 +106,13 @@ export function assembleReorderSeries(
     >(
       dependencies.prisma,
       async (transaction, rollback) => {
+        const permission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!permission.ok) return rollback(permission.error);
+
         await lockSeries(transaction, [command.seriesId]);
         const source = await transaction.product.findUnique({
           where: { id: command.seriesId },
@@ -181,7 +181,10 @@ export function assembleReorderSeries(
         );
         const nextProgramme =
           command.programmePlacements ??
-          (snapshot.programmeExplicit && nextChapters.length === 0
+          (nextChapters.length === 0 &&
+          command.chapters === undefined &&
+          command.stepGroups === undefined &&
+          command.chapterAssignments === undefined
             ? snapshot.programmePlacements
                 .filter((entry) =>
                   command.orderedMaterialIds.includes(entry.materialId),
@@ -205,11 +208,31 @@ export function assembleReorderSeries(
                 : [[entry.materialId, entry.chapterId]],
             ),
         );
-        const nextEntries = command.orderedMaterialIds.map((materialId) => ({
-          chapterId: programmeAssignments[materialId] ?? null,
-          materialId,
-          stepGroup: nextGroups[materialId] ?? null,
-        }));
+        const catalogueOrder = [...command.orderedMaterialIds].sort(
+          (left, right) => {
+            const a = nextProgramme.findIndex(
+                (entry) => entry.materialId === left,
+              ),
+              b = nextProgramme.findIndex(
+                (entry) => entry.materialId === right,
+              );
+            return (
+              (a < 0 ? Number.MAX_SAFE_INTEGER : a) -
+                (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
+              left.localeCompare(right)
+            );
+          },
+        );
+        const nextEntries = catalogueOrder.map((materialId) => {
+          const primary = nextProgramme.find(
+            (entry) => entry.materialId === materialId,
+          );
+          return {
+            materialId,
+            chapterId: primary?.chapterId ?? null,
+            stepGroup: primary?.stepGroup ?? null,
+          };
+        });
         const currentOrderVersion = productOrderVersion(
           snapshot.items,
           snapshot.chapters,
@@ -221,15 +244,6 @@ export function assembleReorderSeries(
           nextProgramme,
         );
         if (currentOrderVersion === nextOrderVersion) {
-          if (
-            command.programmePlacements !== undefined &&
-            !snapshot.programmeExplicit
-          ) {
-            await transaction.product.update({
-              where: { id: command.seriesId },
-              data: { programmeExplicit: true },
-            });
-          }
           return {
             seriesId: command.seriesId,
             orderVersion: currentOrderVersion,
@@ -397,15 +411,6 @@ export function assembleReorderSeries(
           return rollback({
             code: "product_removal_confirmation_required",
             products: unconfirmed,
-          });
-        }
-        if (
-          command.programmePlacements !== undefined &&
-          !snapshot.programmeExplicit
-        ) {
-          await transaction.product.update({
-            where: { id: command.seriesId },
-            data: { programmeExplicit: true },
           });
         }
         await replaceProductComposition(transaction, dependencies.materials, {

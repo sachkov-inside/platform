@@ -200,7 +200,6 @@ model Tag {
 }
 
 model Product {
-  programmeExplicit Boolean @default(false) @map("programme_explicit")
   sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
   slug          String    @unique(map: "series_slug_unique")
@@ -393,14 +392,10 @@ model MaterialTag {
 }
 
 model ProductMembership {
-  stepGroup  String? @map("step_group")
-  chapterId  String? @map("chapter_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
-  ordinal    Int
 
   @@id([seriesId, materialId], map: "series_memberships_primary")
-  @@unique([seriesId, ordinal], map: "series_memberships_ordinal_unique")
   @@map("series_memberships")
   @@schema("products")
 }
@@ -495,10 +490,8 @@ model PublishedMaterialTag {
 model PublishedMaterialProductMembership {
   materialId String @map("material_id") @db.Uuid
   seriesId   String @map("series_id") @db.Uuid
-  ordinal    Int
 
   @@id([materialId, seriesId], map: "published_material_series_primary")
-  @@unique([seriesId, ordinal], map: "published_material_series_ordinal_unique")
   @@map("published_material_series_memberships")
   @@schema("products")
 }

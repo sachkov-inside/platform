@@ -1,3 +1,4 @@
+import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
 import type {
   ProductsPrisma,
   ProductsPrismaClient,
@@ -27,19 +28,23 @@ export class ProductDiscovery {
           coverId: true,
         },
       }),
-      prisma.productMembership.findMany({
-        select: {
-          seriesId: true,
-          materialId: true,
-          ordinal: true,
-          chapterId: true,
-          stepGroup: true,
-        },
-      }),
+      loadCatalogueMemberships(prisma),
       prisma.publishedMaterialProductMembership.findMany({
-        select: { seriesId: true, materialId: true, ordinal: true },
+        select: { seriesId: true, materialId: true },
       }),
     ]);
-    return { products, memberships, publishedMemberships };
+    return {
+      products,
+      memberships,
+      publishedMemberships: publishedMemberships.map((entry) => ({
+        ...entry,
+        ordinal:
+          memberships.find(
+            (membership) =>
+              membership.seriesId === entry.seriesId &&
+              membership.materialId === entry.materialId,
+          )?.ordinal ?? 1,
+      })),
+    };
   }
 }

@@ -1,3 +1,4 @@
+import { loadCatalogueMemberships } from "./catalogue-memberships.js";
 import {
   Prisma,
   type ProductsPrisma,
@@ -25,7 +26,6 @@ export interface ProductChapterSnapshot {
 }
 
 export interface SeriesOrderSnapshot {
-  readonly programmeExplicit: boolean;
   readonly programmePlacements: readonly ProductProgrammePlacement[];
   readonly archived: boolean;
   readonly chapters: readonly ProductChapterSnapshot[];
@@ -53,19 +53,9 @@ export async function loadSeriesOrderSnapshot(
         archivedAt: true,
         id: true,
         name: true,
-        programmeExplicit: true,
       },
     }),
-    prisma.productMembership.findMany({
-      where: { seriesId },
-      orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
-      select: {
-        chapterId: true,
-        materialId: true,
-        ordinal: true,
-        stepGroup: true,
-      },
-    }),
+    loadCatalogueMemberships(prisma, { productIds: [seriesId] }),
     prisma.productChapter.findMany({
       where: { productId: seriesId },
       orderBy: [{ ordinal: "asc" }, { id: "asc" }],
@@ -91,7 +81,6 @@ export async function loadSeriesOrderSnapshot(
     { where: { productId: seriesId }, orderBy: { ordinal: "asc" } },
   );
   return {
-    programmeExplicit: series.programmeExplicit,
     programmePlacements,
     archived: series.archivedAt !== null,
     chapters: chapters.map((chapter) => {
@@ -102,22 +91,31 @@ export async function loadSeriesOrderSnapshot(
         ? chapter
         : { ...chapter, supplementaryMaterialIds: ids };
     }),
-    items: memberships.map(({ chapterId, materialId, ordinal, stepGroup }) => {
-      const material = materialById.get(materialId);
-      if (material === undefined) {
-        throw new TypeError("Product membership references a missing Material");
-      }
-      return {
-        chapterId,
-        materialId,
-        ordinal,
-        stepGroup,
-        publicationState: publicationStateSchema.parse(
-          material.publicationState,
-        ),
-        title: material.title,
-      };
-    }),
+    items: memberships
+      .slice()
+      .sort(
+        (left, right) =>
+          left.ordinal - right.ordinal ||
+          left.materialId.localeCompare(right.materialId),
+      )
+      .map(({ chapterId, materialId, ordinal, stepGroup }) => {
+        const material = materialById.get(materialId);
+        if (material === undefined) {
+          throw new TypeError(
+            "Product membership references a missing Material",
+          );
+        }
+        return {
+          chapterId,
+          materialId,
+          ordinal,
+          stepGroup,
+          publicationState: publicationStateSchema.parse(
+            material.publicationState,
+          ),
+          title: material.title,
+        };
+      }),
     name: series.name,
     seriesId: series.id,
   };
@@ -139,28 +137,27 @@ export async function appendSelectedSeriesMemberships(
     ]),
   ]);
 
-  const currentMemberships = await transaction.productMembership.findMany({
-    where: { materialId },
-    select: { seriesId: true, ordinal: true },
+  const currentMemberships = await loadCatalogueMemberships(transaction, {
+    materialId,
   });
   const currentBySeries = new Map(
     currentMemberships.map((membership) => [membership.seriesId, membership]),
   );
-  const newSeriesIds = selectedSeriesIds.filter(
-    (seriesId) => !currentBySeries.has(seriesId),
-  );
-  const maxima =
-    newSeriesIds.length === 0
-      ? []
-      : await transaction.productMembership.groupBy({
-          by: ["seriesId"],
-          where: { seriesId: { in: newSeriesIds } },
-          _max: { ordinal: true },
-        });
+  const programme = await transaction.productProgrammePlacement.findMany({
+    where: { productId: { in: [...selectedSeriesIds] } },
+    select: { productId: true, ordinal: true },
+  });
   const maximumBySeries = new Map(
-    maxima.map(({ seriesId, _max }) => [seriesId, _max.ordinal ?? 0]),
+    selectedSeriesIds.map((seriesId) => [
+      seriesId,
+      Math.max(
+        0,
+        ...programme
+          .filter((entry) => entry.productId === seriesId)
+          .map((entry) => entry.ordinal),
+      ),
+    ]),
   );
-
   return selectedSeriesIds.map((seriesId) => {
     const current = currentBySeries.get(seriesId);
     return (
@@ -211,11 +208,9 @@ export async function replaceProductComposition(
   transaction: ProductsPrismaTransaction,
   materialsOwner: ProductMaterials,
   {
-    chapterAssignments,
     chapters,
     productId,
     orderedMaterialIds,
-    stepGroups,
     programmePlacements,
   }: {
     readonly chapterAssignments: Readonly<Record<string, string>>;
@@ -236,11 +231,8 @@ export async function replaceProductComposition(
   await replaceProductChapters(transaction, productId, chapters);
   if (orderedMaterialIds.length > 0) {
     await transaction.productMembership.createMany({
-      data: orderedMaterialIds.map((materialId, index) => ({
-        chapterId: chapterAssignments[materialId] ?? null,
+      data: orderedMaterialIds.map((materialId) => ({
         materialId,
-        ordinal: index + 1,
-        stepGroup: stepGroups[materialId] ?? null,
         seriesId: productId,
       })),
     });
@@ -284,11 +276,8 @@ export async function replaceProductComposition(
     )
   ).filter((material) => material.publicationState === "published");
   const publishedIds = new Set(published.map(({ id }) => id));
-  const publishedMemberships = orderedMaterialIds.flatMap(
-    (materialId, index) =>
-      publishedIds.has(materialId)
-        ? [{ materialId, ordinal: index + 1, seriesId: productId }]
-        : [],
+  const publishedMemberships = orderedMaterialIds.flatMap((materialId) =>
+    publishedIds.has(materialId) ? [{ materialId, seriesId: productId }] : [],
   );
   if (publishedMemberships.length > 0) {
     await transaction.publishedMaterialProductMembership.createMany({

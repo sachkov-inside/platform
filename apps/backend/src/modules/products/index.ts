@@ -59,7 +59,6 @@ export {
 export {
   PRODUCT_MATERIALS,
   type ProductMaterials,
-  type ProductMaterialFacts,
 } from "./ports/product-materials.js";
 export type {
   CreateContentCollectionCommand,
@@ -94,7 +93,6 @@ export type {
   LoadSeriesOrderResult,
   LoadSeriesOrderOperation,
 } from "./features/load-series-order/load-series-order.contract.js";
-export { assembleLoadSeriesOrder } from "./features/load-series-order/load-series-order.js";
 export type {
   ReorderSeriesCommand,
   ReorderSeriesReceiptDto,
@@ -104,10 +102,7 @@ export type {
   ReorderSeriesOperation,
 } from "./features/reorder-series/reorder-series.contract.js";
 export { productChapterPlacementIssues } from "./features/reorder-series/product-chapter-placement.js";
-export {
-  reorderSeriesCommandSchema,
-  assembleReorderSeries,
-} from "./features/reorder-series/reorder-series.js";
+export { reorderSeriesCommandSchema } from "./features/reorder-series/reorder-series.js";
 export {
   reserveSourceProductBodySchema,
   updateSourceProductBodySchema,
@@ -120,16 +115,7 @@ export type {
   UpdateSourceProductOperation,
   ReorderSourceProductOperation,
 } from "./features/import-source-product/import-source-product.contract.js";
-export {
-  assembleReserveSourceProduct,
-  assembleValidateSourceProduct,
-  assembleUpdateSourceProduct,
-  assembleReorderSourceProduct,
-} from "./features/import-source-product/import-source-product.js";
-export {
-  chapterAttachmentsBodySchema,
-  assembleUpdateChapterAttachments,
-} from "./features/update-chapter-attachments/update-chapter-attachments.js";
+export { chapterAttachmentsBodySchema } from "./features/update-chapter-attachments/update-chapter-attachments.js";
 export type { UpdateChapterAttachmentsOperation } from "./features/update-chapter-attachments/update-chapter-attachments.js";
 export { PRODUCT_INTRODUCTION_FIELD_MAX } from "./facets/product-authoring/content-collection.contract.js";
 export type {
@@ -155,24 +141,12 @@ export {
   recordProductRemovals,
 } from "./shared/product-removal-confirmation.js";
 export {
-  contentCollectionInputSchema,
-  assembleCreateContentCollection,
-} from "./features/create-content-collection/create-content-collection.js";
-export {
-  updateContentCollectionCommandSchema,
-  assembleUpdateContentCollection,
-} from "./features/update-content-collection/update-content-collection.js";
-export { assembleSetContentCollectionArchive } from "./features/set-content-collection-archive/set-content-collection-archive.js";
-export { assembleListContentCollections } from "./features/list-content-collections/list-content-collections.js";
-export {
   assembleProductAuthoring,
   PRODUCT_AUTHORING,
   type ProductAuthoring,
 } from "./facets/product-authoring/product-authoring.js";
-export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
 
 export {
   ProductMemberships,
   PRODUCT_MEMBERSHIPS,
-  type MaterialMembership,
 } from "./facets/product-memberships/product-memberships.js";
