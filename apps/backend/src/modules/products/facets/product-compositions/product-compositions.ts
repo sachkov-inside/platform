@@ -1,6 +1,8 @@
-import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
 import { z } from "zod";
-import { type ProductsPrisma } from "../../../../infrastructure/prisma/index.js";
+import {
+  Prisma,
+  type ProductsPrisma,
+} from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 
 export const MAX_PRODUCT_MATERIALS = 10_000;
@@ -62,9 +64,27 @@ export interface ProductMaterialFacts {
   >;
 }
 
-/** One owner snapshot preserves catalogue membership separately from repeated programme IDs. */
+const MAX_PRODUCT_CHAPTERS = 200;
+const MAX_PRODUCT_PROGRAMME_PLACEMENTS = 20_000;
+const MAX_CHAPTER_ATTACHMENTS = 200;
+const snapshotSchema = compositionSchema
+  .omit({ placements: true, programmePlacements: true })
+  .extend({
+    catalogue: z.array(z.uuid()),
+    programmePlacements: z.array(programmeSchema.omit({ published: true })),
+  });
+
+/** A complete Product cannot be represented by a silently truncated catalogue or programme. */
+export class ProductCompositionLimitError extends RangeError {
+  constructor() {
+    super("Product composition exceeds its bound");
+    this.name = "ProductCompositionLimitError";
+  }
+}
+
+/** One statement owns metadata and every bounded structural prerequisite before Material enrichment. */
 export class ProductCompositions {
-  constructor(private readonly prisma: ProductsPrisma) {}
+  constructor(private readonly prisma: Pick<ProductsPrisma, "$queryRaw">) {}
 
   async load(
     filter:
@@ -74,89 +94,118 @@ export class ProductCompositions {
     limit: number,
     materialFacts: ProductMaterialFacts,
   ): Promise<readonly ProductComposition[]> {
-    const products = await this.prisma.product.findMany({
-      where:
-        "ids" in filter
-          ? { id: { in: [...filter.ids] } }
-          : "slugs" in filter
-            ? { slug: { in: [...filter.slugs] } }
-            : { archivedAt: null },
-      orderBy: [{ name: "asc" }, { id: "asc" }],
-      take: limit,
-    });
-    const ids = products.map((product) => product.id);
-    if (ids.length === 0) return [];
-    const [memberships, chapters, programme, supplements] = await Promise.all([
-      loadCatalogueMemberships(this.prisma, { productIds: ids }),
-      this.prisma.productChapter.findMany({
-        where: { productId: { in: ids } },
-        orderBy: [{ ordinal: "asc" }, { id: "asc" }],
-      }),
-      this.prisma.productProgrammePlacement.findMany({
-        where: { productId: { in: ids } },
-        orderBy: { ordinal: "asc" },
-      }),
-      this.prisma.productChapterSupplementaryMaterial.findMany({
-        where: { productId: { in: ids } },
-        orderBy: { ordinal: "asc" },
-      }),
-    ]);
+    const condition =
+      "ids" in filter
+        ? Prisma.sql`product.id=any(${[...filter.ids]}::uuid[])`
+        : "slugs" in filter
+          ? Prisma.sql`product.slug=any(${[...filter.slugs]}::text[])`
+          : Prisma.sql`product.archived_at is null`;
+    // PostgreSQL assigns one MVCC snapshot to this statement, including every correlated subquery.
+    // No transaction remains open when standalone enrichment consults the Material owner.
+    const products = snapshotSchema.array().parse(
+      await this.prisma.$queryRaw(Prisma.sql`
+      select product.id,product.slug,product.name,product.summary,
+        product.archived_at is not null as archived,
+        product.audience,product.outcome,product.prerequisites,product.scope,
+        product.presentation,product.page,product.cover_id as "coverId",
+        coalesce((select jsonb_agg(member.material_id order by member.material_id) from (
+          select material_id from products.series_memberships where series_id=product.id
+          order by material_id limit ${MAX_PRODUCT_MATERIALS + 1}
+        ) member),'[]'::jsonb) as catalogue,
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'id',placement.id,'materialId',placement.material_id,'chapterId',placement.chapter_id,
+          'ordinal',placement.ordinal,'stepGroup',placement.step_group
+        ) order by placement.ordinal) from (
+          select id,material_id,chapter_id,ordinal,step_group from products.product_programme_placements
+          where product_id=product.id order by ordinal limit ${MAX_PRODUCT_PROGRAMME_PLACEMENTS + 1}
+        ) placement),'[]'::jsonb) as "programmePlacements",
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'id',chapter.id,'name',chapter.name,'summary',chapter.summary,'ordinal',chapter.ordinal,
+          'supplementaryMaterialIds',coalesce((select jsonb_agg(attachment.material_id order by attachment.ordinal) from (
+            select material_id,ordinal from products.product_chapter_supplementary_materials
+            where chapter_id=chapter.id order by ordinal limit ${MAX_CHAPTER_ATTACHMENTS + 1}
+          ) attachment),'[]'::jsonb)
+        ) order by chapter.ordinal,chapter.id) from (
+          select id,name,summary,ordinal from products.product_chapters where product_id=product.id
+          order by ordinal,id limit ${MAX_PRODUCT_CHAPTERS + 1}
+        ) chapter),'[]'::jsonb) as chapters
+      from products.series product where ${condition}
+      order by product.name,product.id limit ${limit}
+    `),
+    );
+    if (
+      products.some(
+        (product) =>
+          product.catalogue.length > MAX_PRODUCT_MATERIALS ||
+          product.programmePlacements.length >
+            MAX_PRODUCT_PROGRAMME_PLACEMENTS ||
+          product.chapters.length > MAX_PRODUCT_CHAPTERS ||
+          product.chapters.some(
+            (chapter) =>
+              chapter.supplementaryMaterialIds.length > MAX_CHAPTER_ATTACHMENTS,
+          ),
+      )
+    )
+      throw new ProductCompositionLimitError();
+    if (products.length === 0) return [];
     const facts = new Map(
       (
         await materialFacts.load([
-          ...new Set(memberships.map((entry) => entry.materialId)),
+          ...new Set(products.flatMap((product) => product.catalogue)),
         ])
       ).map((fact) => [fact.id, fact]),
     );
     return products.map((product) => {
-      const productProgramme = programme
-        .filter((entry) => entry.productId === product.id)
-        .map((entry) => ({
-          ...entry,
-          published: facts.get(entry.materialId)?.published === true,
-        }));
-      const placements = memberships
-        .filter((entry) => entry.seriesId === product.id)
-        .sort((left, right) =>
-          left.ordinal !== right.ordinal
-            ? left.ordinal - right.ordinal
-            : left.materialId.localeCompare(right.materialId),
-        )
-        .slice(0, MAX_PRODUCT_MATERIALS + 1)
-        .map((entry) => ({
-          materialId: entry.materialId,
-          sourceId: facts.get(entry.materialId)?.sourceId ?? null,
-          chapterId: entry.chapterId,
-          ordinal: entry.ordinal,
-          published: facts.get(entry.materialId)?.published === true,
-          topicId: facts.get(entry.materialId)?.topicId ?? null,
-          hasModeVariants:
-            facts.get(entry.materialId)?.hasModeVariants ?? false,
-        }));
+      const primary = new Map<
+        string,
+        (typeof product.programmePlacements)[number]
+      >();
+      let maximumOrdinal = 0;
+      for (const placement of product.programmePlacements) {
+        if (!primary.has(placement.materialId))
+          primary.set(placement.materialId, placement);
+        maximumOrdinal = Math.max(maximumOrdinal, placement.ordinal);
+      }
+      let supplementaryOrdinal = maximumOrdinal;
+      const placements = product.catalogue
+        .map((materialId) => {
+          const placement = primary.get(materialId),
+            fact = facts.get(materialId);
+          return {
+            materialId,
+            sourceId: fact?.sourceId ?? null,
+            chapterId: placement?.chapterId ?? null,
+            ordinal: placement?.ordinal ?? ++supplementaryOrdinal,
+            published: fact?.published === true,
+            topicId: fact?.topicId ?? null,
+            hasModeVariants: fact?.hasModeVariants ?? false,
+          };
+        })
+        .sort(
+          (left, right) =>
+            left.ordinal - right.ordinal ||
+            left.materialId.localeCompare(right.materialId),
+        );
       const row = compositionSchema.parse({
         ...product,
-        archived: product.archivedAt !== null,
-        programmePlacements: productProgramme,
         placements,
-        chapters: chapters
-          .filter((chapter) => chapter.productId === product.id)
-          .map((chapter) => ({
-            ...chapter,
-            supplementaryMaterialIds: supplements
-              .filter(
-                (entry) =>
-                  entry.chapterId === chapter.id &&
-                  facts.get(entry.materialId)?.published === true,
-              )
-              .map((entry) => entry.materialId),
-          })),
+        programmePlacements: product.programmePlacements.map((placement) => ({
+          ...placement,
+          published: facts.get(placement.materialId)?.published === true,
+        })),
+        chapters: product.chapters.map((chapter) => ({
+          ...chapter,
+          supplementaryMaterialIds: chapter.supplementaryMaterialIds.filter(
+            (materialId) => facts.get(materialId)?.published === true,
+          ),
+        })),
       });
       return {
         ...row,
         publishedProgramme: row.programmePlacements.filter(
-          (entry) => entry.published,
+          (placement) => placement.published,
         ),
-        materials: row.placements.filter((entry) => entry.published),
+        materials: row.placements.filter((placement) => placement.published),
       };
     });
   }
@@ -189,55 +238,4 @@ export function productCompositionChapters(product: ProductComposition) {
       .filter((material) => material.chapterId === chapter.id)
       .map((material) => material.materialId),
   }));
-}
-
-/** Resource authorization uses the same Product archive facts for body, Assets and Video. */
-export async function loadMaterialProductAccessFacts(
-  prisma: Pick<
-    ProductsPrisma,
-    "product" | "publishedMaterialProductMembership"
-  >,
-  materialIds: readonly string[],
-): Promise<
-  ReadonlyMap<
-    string,
-    { readonly productIds: readonly string[]; readonly archivedOnly?: true }
-  >
-> {
-  const memberships = await prisma.publishedMaterialProductMembership.findMany({
-    where: { materialId: { in: [...materialIds] } },
-    select: { materialId: true, seriesId: true },
-  });
-  const products = await prisma.product.findMany({
-    where: {
-      id: {
-        in: [...new Set(memberships.map((membership) => membership.seriesId))],
-      },
-    },
-    select: { id: true, archivedAt: true },
-  });
-  const archived = new Set(
-    products
-      .filter((product) => product.archivedAt !== null)
-      .map((product) => product.id),
-  );
-  return new Map(
-    materialIds.flatMap((id) => {
-      const productIds = memberships
-        .filter((membership) => membership.materialId === id)
-        .map((membership) => membership.seriesId);
-      if (productIds.length === 0) return [];
-      return [
-        [
-          id,
-          {
-            productIds,
-            ...(productIds.every((productId) => archived.has(productId))
-              ? { archivedOnly: true as const }
-              : {}),
-          },
-        ] as const,
-      ];
-    }),
-  );
 }
