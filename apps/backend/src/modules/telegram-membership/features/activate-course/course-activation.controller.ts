@@ -46,19 +46,22 @@ import {
   beginActivationSchema,
   activationEvidenceSchema,
 } from "../../../account-rights/index.js";
-import { SubscriptionActivation } from "../../../billing/index.js";
-@ApiTags("Subscription activation integration")
+import { CourseActivation } from "../../../billing/index.js";
+@ApiTags("Course Activation integration")
 @ApiBearerAuth("subscription-activation")
 @PrivateNoStore()
 @ApiResponse({
   status: 401,
   content: problemDetailsContent(problemDetailsSchema(401, ["unauthorized"])),
 })
-@Controller("integrations/telegram/v1/subscription-activation")
-export class SubscriptionActivationController {
+@Controller([
+  "integrations/telegram/v1/course-activation",
+  "integrations/telegram/v1/subscription-activation",
+])
+export class CourseActivationController {
   constructor(
-    @Inject(SubscriptionActivation)
-    private readonly activation: SubscriptionActivation,
+    @Inject(CourseActivation)
+    private readonly activation: CourseActivation,
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
   ) {}
   private authenticate(authorization: string | undefined) {
@@ -92,7 +95,7 @@ export class SubscriptionActivationController {
   @Post("binding")
   @HttpCode(200)
   @ApiOperation({
-    operationId: "readSubscriptionActivationBinding",
+    operationId: "readCourseActivationBinding",
     summary:
       "Read the exact current Platform binding for a verified source-authority identity",
   })
@@ -127,7 +130,7 @@ export class SubscriptionActivationController {
   @Post("attempts")
   @HttpCode(200)
   @ApiOperation({
-    operationId: "beginSubscriptionActivation",
+    operationId: "beginCourseActivation",
     summary:
       "Persist an activation attempt for a verified private bot identity",
   })
@@ -144,7 +147,7 @@ export class SubscriptionActivationController {
   @Post("evidence")
   @HttpCode(200)
   @ApiOperation({
-    operationId: "acceptSubscriptionActivationEvidence",
+    operationId: "acceptCourseActivationEvidence",
     summary:
       "Apply bounded source proof to the exact current Account binding and rule revision",
   })

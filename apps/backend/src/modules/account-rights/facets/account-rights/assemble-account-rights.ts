@@ -1,6 +1,6 @@
 import { resolveMembershipForAccessAccounts } from "../../features/resolve-membership-for-access/resolve-membership-for-access-accounts.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { ActivationBindings } from "../../domain/subscription-activation.js";
+import type { ActivationBindings } from "../../domain/course-activation.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import { acceptMembershipEvidence } from "../../features/accept-evidence/accept-evidence.js";
 import { bindMembershipPrincipal } from "../../features/bind-principal/bind-membership-principal.js";

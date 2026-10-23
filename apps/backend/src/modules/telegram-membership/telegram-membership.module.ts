@@ -1,7 +1,6 @@
 import { CommunityEntitlementsModule } from "./community-entitlements.module.js";
 import { CommunityEntitlements } from "./facets/community-entitlements/community-entitlements.js";
-import { SubscriptionActivationController } from "./features/activate-subscription/subscription-activation.controller.js";
-import { InvitationRedemptionController } from "./features/redeem-invitation/invitation-redemption.controller.js";
+import { CourseActivationController } from "./features/activate-course/course-activation.controller.js";
 import { TelegramAccountLinks } from "./facets/telegram-account-links/telegram-account-links.js";
 import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 import { TelegramAccountSignIn } from "./features/complete-telegram-sign-in/telegram-account-sign-in.js";
@@ -11,7 +10,7 @@ import { ResumeTelegramAccountSignInController } from "./features/complete-teleg
 import {
   TelegramActivationContinuationController,
   TelegramActivationIntentController,
-} from "./features/activate-subscription/telegram-activation-continuation.controller.js";
+} from "./features/activate-course/telegram-activation-continuation.controller.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -28,11 +27,7 @@ import {
   LegalAcceptances,
   type Accounts,
 } from "../accounts/index.js";
-import {
-  BillingModule,
-  BillingPricing,
-  SubscriptionActivation,
-} from "../billing/index.js";
+import { BillingModule, CourseActivation } from "../billing/index.js";
 import {
   COVERAGE_CATALOG,
   type CoverageCatalog,
@@ -42,7 +37,6 @@ import {
   AccountRightsModule,
   type AccountRights,
 } from "../account-rights/index.js";
-import { TelegramEvidenceController } from "./adapters/nest/telegram-evidence.controller.js";
 import { AccountTelegramMembershipController } from "./adapters/nest/account-telegram-membership.controller.js";
 import { TelegramLinkController } from "./adapters/nest/telegram-link.controller.js";
 import { PendingLinkConfirmationPump } from "./adapters/nest/pending-link-confirmation.pump.js";
@@ -65,20 +59,18 @@ import {
     CommunityEntitlementsModule,
   ],
   controllers: [
-    SubscriptionActivationController,
+    CourseActivationController,
     TelegramActivationContinuationController,
     TelegramActivationIntentController,
-    InvitationRedemptionController,
     TelegramAccountSignInController,
     ResumeTelegramAccountSignInController,
     AccountTelegramMembershipController,
     TelegramLinkController,
-    TelegramEvidenceController,
   ],
   providers: [
     PendingLinkConfirmationPump,
     {
-      provide: SubscriptionActivation,
+      provide: CourseActivation,
       inject: [
         PrismaClientProvider,
         ACCESS_GRANTS,
@@ -95,7 +87,7 @@ import {
         config: PlatformConfig,
         contentCatalog: CoverageCatalog,
       ) =>
-        new SubscriptionActivation({
+        new CourseActivation({
           prisma,
           contentCatalog,
           grants,
@@ -152,20 +144,16 @@ import {
         ACCOUNT_RIGHTS,
         TELEGRAM_LINK_PROVIDER,
         PLATFORM_CONFIG,
-        BillingPricing,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         accountRights: AccountRights,
         provider: TelegramLinkProvider,
         config: PlatformConfig,
-        pricing: BillingPricing,
       ): TelegramMembership =>
         assembleTelegramMembership({
           botStartUrl: config.telegramMembership.botStartUrl,
           linkLifetimeMs: config.telegramMembership.linkLifetimeMs,
-          subscriptionForSale: (accountId) =>
-            pricing.hasOffersForSale(accountId),
           accountRights,
           ...(config.telegramMembership.supportUrl === undefined
             ? {}

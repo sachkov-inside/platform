@@ -4,11 +4,11 @@ import {
   activationMenu,
   activationMessage,
   accountPrompt,
-} from "../../src/modules/subscription-activation/activation-view.js";
+} from "../../src/modules/course-activation/activation-view.js";
 import type {
   ActivationResponse,
   ActivationResult,
-} from "../../src/modules/subscription-activation/activation-contract.js";
+} from "../../src/modules/course-activation/activation-contract.js";
 
 const accountUrl = "https://platform.example/account";
 const active: ActivationResult<ActivationResponse> = {

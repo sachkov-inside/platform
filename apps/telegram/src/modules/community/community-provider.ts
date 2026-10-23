@@ -5,7 +5,7 @@ import {
   currentPlatformContactLink,
   findPlatformLink,
 } from "../identity-linking/platform-links.js";
-import type { DurableMembershipEnvelope } from "../membership-evidence/membership-evidence-provider.js";
+import type { DurableMembershipEnvelope } from "../community/membership-event.js";
 import { randomUUID } from "node:crypto";
 
 import { sql } from "kysely";

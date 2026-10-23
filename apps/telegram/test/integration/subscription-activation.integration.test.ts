@@ -33,11 +33,11 @@ import {
 import { DATABASE, type Database } from "../../src/database/database.js";
 import { CLOCK } from "../../src/shared/clock.js";
 import { IdentityLinking } from "../../src/modules/identity-linking/identity-linking.js";
-import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
+import { SourceGroupProof } from "../../src/modules/course-activation/source-group-proof.js";
 import {
   ACTIVATION_PLATFORM,
   type ActivationPlatform,
-} from "../../src/modules/subscription-activation/activation-ports.js";
+} from "../../src/modules/course-activation/activation-ports.js";
 import {
   ACTIVATION_VERSION,
   type OwnAccess,
@@ -45,8 +45,8 @@ import {
   type ActivationEvidence,
   type ActivationResponse,
   type ActivationResult,
-} from "../../src/modules/subscription-activation/activation-contract.js";
-import { SubscriptionActivation } from "../../src/modules/subscription-activation/subscription-activation.js";
+} from "../../src/modules/course-activation/activation-contract.js";
+import { CourseActivation } from "../../src/modules/course-activation/course-activation.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
@@ -141,7 +141,6 @@ async function createFixture() {
     },
   };
   const platform: ActivationPlatform = {
-    redeem: () => Promise.resolve(undefined),
     binding(identityRef) {
       return Promise.resolve(
         state.bindingUnavailable
@@ -342,7 +341,7 @@ async function createFixture() {
     throw error;
   }
   const db = app.get<Database>(DATABASE);
-  const worker = app.get(SubscriptionActivation);
+  const worker = app.get(CourseActivation);
   let updateId = 300000;
   async function ingress(user: number, text: string) {
     const response = await app.inject({
@@ -988,7 +987,7 @@ describe("durable activation ingress, identity and continuation", () => {
     const first = required(proofs.at(-1));
     expect(first.identityRef).toBe(await identity(70002));
     clock.value = new Date(clock.now().getTime() + 31 * 24 * 60 * 60_000);
-    const restarted = new SubscriptionActivation(
+    const restarted = new CourseActivation(
       db,
       config,
       clock,

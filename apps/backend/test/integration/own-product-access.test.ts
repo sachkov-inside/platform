@@ -7,7 +7,7 @@ import {
   type AccessGrants,
 } from "../../src/modules/account-rights/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
-import { SubscriptionActivation } from "../../src/modules/billing/index.js";
+import { CourseActivation } from "../../src/modules/billing/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -414,7 +414,7 @@ test("a stale own-access callback cannot start synchronous community preparation
   if (!binding.ok || binding.binding === null)
     throw new Error("Missing binding");
   const preparations: boolean[] = [];
-  const activation = new SubscriptionActivation({
+  const activation = new CourseActivation({
     sale: { subscriptions: true },
     prisma: db.prisma,
     grants,
@@ -476,7 +476,7 @@ test("own-access explicitly requests Product navigation and preserves the previo
   const binding = await links.readBinding({ accountId });
   if (!binding.ok || binding.binding === null)
     throw new Error("Missing binding");
-  const activation = new SubscriptionActivation({
+  const activation = new CourseActivation({
     sale: { subscriptions: true },
     prisma: db.prisma,
     grants,
@@ -581,7 +581,7 @@ test("only configured Products expose community access and several Products shar
     },
   });
   let rejectOwnerBoundary = false;
-  const activation = new SubscriptionActivation({
+  const activation = new CourseActivation({
     sale: { subscriptions: true },
     prisma: db.prisma,
     grants,

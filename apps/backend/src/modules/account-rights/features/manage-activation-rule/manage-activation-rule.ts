@@ -3,7 +3,7 @@ import { accessFailure } from "../../domain/access-grant.js";
 import {
   activationRuleSchema,
   manageActivationRuleSchema,
-} from "../../domain/subscription-activation.js";
+} from "../../domain/course-activation.js";
 import type { AccountRightsPrisma } from "../../infrastructure/prisma.js";
 import {
   accessFingerprint,

@@ -76,9 +76,9 @@ function runGuardrail(root?: string) {
 }
 
 const currentTableOwners = {
-  activation_announcement_deliveries: "subscription-activation",
-  activation_attempts: "subscription-activation",
-  activation_review_requests: "subscription-activation",
+  activation_announcement_deliveries: "course-activation",
+  activation_attempts: "course-activation",
+  activation_review_requests: "course-activation",
   bot_contact_events: "bot-contacts",
   bot_contacts: "bot-contacts",
   communication_author_compositions: "communications",
@@ -115,7 +115,7 @@ const currentTableOwners = {
   community_restriction_decisions: "community",
   identity_link_events: "identity-linking",
   identity_link_recoveries: "identity-linking",
-  invitation_redemptions: "subscription-activation",
+  invitation_redemptions: "course-activation",
   link_transactions: "identity-linking",
   membership_check_results: "membership-evidence",
   membership_checks: "membership-evidence",
@@ -213,7 +213,7 @@ const formerLegacyAccess: readonly (readonly [
   ],
   // Legacy schema declaration; identity-linking owns identity reservation.
   [
-    "modules/subscription-activation/activation-storage.ts",
+    "modules/course-activation/activation-storage.ts",
     ["telegram_identity_reservations"],
   ],
   // Operator readiness counts; no product writes.
@@ -278,7 +278,7 @@ it.each([
   "modules/notifications/notification-storage.ts",
   "modules/outbound/start-response-delivery-queue.ts",
   "modules/sales-funnel/sales-funnel-events.ts",
-  "modules/subscription-activation/activation-storage.ts",
+  "modules/course-activation/activation-storage.ts",
   "operations/check-readiness.ts",
   "operations/credentialed-proof.ts",
   "operations/group-report-candidates.ts",
@@ -287,9 +287,9 @@ it.each([
     "test/architecture/fixtures/legacy-access-forbidden/src",
   );
   expect(result.stdout.split("\n")).toContain(
-    file.startsWith("modules/subscription-activation/")
+    file.startsWith("modules/course-activation/")
       ? `${file}: bot_contact_events is owned by modules/bot-contacts`
-      : `${file}: invitation_redemptions is owned by modules/subscription-activation`,
+      : `${file}: invitation_redemptions is owned by modules/course-activation`,
   );
   expect(result.status).toBe(1);
 });

@@ -61,20 +61,20 @@ export {
   activationEvidenceSchema,
   activationOutcomeSchema,
   type ActivationBindings,
-} from "./domain/subscription-activation.js";
+} from "./domain/course-activation.js";
 
 export { courseSourceRef } from "./domain/source-identity.js";
 
 export {
   registerSourceSchema,
   sourceEntitlementViewSchema,
-} from "./domain/subscription-activation.js";
+} from "./domain/course-activation.js";
 
-export { ownSubscriptionAccessQuerySchema } from "./domain/subscription-activation.js";
+export { ownSubscriptionAccessQuerySchema } from "./domain/course-activation.js";
 export {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,
-} from "./domain/subscription-activation.js";
+} from "./domain/course-activation.js";
 
 export { TributeSources } from "./facets/tribute-sources/tribute-sources.js";
 export {

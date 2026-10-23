@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivationConfig } from "../../src/config/activation-config.js";
-import { announceActivation } from "../../src/modules/subscription-activation/activation-announcement.js";
+import { announceActivation } from "../../src/modules/course-activation/activation-announcement.js";
 import type { TelegramTextMessage } from "../../src/modules/outbound/telegram-messages.js";
 
 const activation: ActivationConfig = {

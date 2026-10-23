@@ -1,4 +1,4 @@
-import { validAnnouncementResponse } from "../../modules/subscription-activation/announcement-contract.js";
+import { validAnnouncementResponse } from "../../modules/course-activation/announcement-contract.js";
 import { readBoundedJson } from "./read-bounded-json.js";
 import {
   validBindingResponse,
@@ -6,17 +6,14 @@ import {
   ACTIVATION_VERSION,
   validActivationResponse,
   validOwnAccessResponse,
-  validInvitationRedeemResponse,
   type ActivationBegin,
   type ActivationBinding,
   type ActivationEvidence,
   type ActivationResponse,
   type ActivationResult,
-  type InvitationRedeem,
-  type InvitationRedeemResponse,
   type OwnAccess,
-} from "../../modules/subscription-activation/activation-contract.js";
-import type { ActivationPlatform } from "../../modules/subscription-activation/activation-ports.js";
+} from "../../modules/course-activation/activation-contract.js";
+import type { ActivationPlatform } from "../../modules/course-activation/activation-ports.js";
 import type { ValidateFunction } from "ajv";
 import { reportFailure } from "../../shared/failure-diagnostics.js";
 
@@ -73,16 +70,6 @@ export class HttpActivationPlatform implements ActivationPlatform {
         prepareCommunity,
       },
       validOwnAccessResponse,
-    );
-  }
-  /** A sibling of the activation operations: `<base>/subscription-activation` → `<base>/invitations/redeem`. */
-  redeem(
-    input: InvitationRedeem,
-  ): Promise<InvitationRedeemResponse | undefined> {
-    return this.post(
-      "../invitations/redeem",
-      input,
-      validInvitationRedeemResponse,
     );
   }
   private async post<T>(

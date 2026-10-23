@@ -19,7 +19,7 @@ import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import {
   BillingOperations,
   BillingPricing,
-  SubscriptionActivation,
+  CourseActivation,
 } from "../../src/modules/billing/index.js";
 import type {
   OwnerOutcome,
@@ -74,7 +74,7 @@ describe("приглашения: выдача владельцем и пога�
   let http: NestFastifyApplication;
   let operations: BillingOperations;
   let currentOperations: BillingOperations;
-  let currentActivation: SubscriptionActivation;
+  let currentActivation: CourseActivation;
   let grants: ReturnType<typeof assembleAccessGrants>;
   let now = new Date("2030-01-01T00:00:00.000Z");
   const owner = randomUUID();
@@ -140,17 +140,17 @@ describe("приглашения: выдача владельцем и пога�
         }),
       siteOrigin: "https://inside.example.test",
     };
-    const activation = new SubscriptionActivation({
+    const activation = new CourseActivation({
       ...activationDependencies,
       sale: { subscriptions: true },
     });
-    currentActivation = new SubscriptionActivation(activationDependencies);
+    currentActivation = new CourseActivation(activationDependencies);
     @Module({
       controllers: [InvitationRedemptionController],
       providers: [
         { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
-        { provide: SubscriptionActivation, useValue: activation },
+        { provide: CourseActivation, useValue: activation },
         {
           provide: PLATFORM_CONFIG,
           useValue: parsePlatformConfig({

@@ -1,6 +1,6 @@
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { subscriptionPeriodEnd } from "@inside/access-capabilities";
-import type { ActivationBindings } from "../../domain/subscription-activation.js";
+import type { ActivationBindings } from "../../domain/course-activation.js";
 import { enrollmentView } from "../../shared/enrollment-view.js";
 import type { z } from "zod";
 import { randomUUID } from "node:crypto";

@@ -1,5 +1,5 @@
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
-import type { ActivationBindings } from "../../domain/subscription-activation.js";
+import type { ActivationBindings } from "../../domain/course-activation.js";
 import { observeTemporaryTribute } from "../manage-tribute/observe-temporary-tribute.js";
 import { createHash, randomUUID } from "node:crypto";
 

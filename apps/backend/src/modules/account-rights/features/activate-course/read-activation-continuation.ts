@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
-import { activationOutcomeSchema } from "../../domain/subscription-activation.js";
+import { activationOutcomeSchema } from "../../domain/course-activation.js";
 
 /** A URL selects an attempt; only the current binding can authorize its Account-scoped result. */
 export async function readActivationContinuation(
