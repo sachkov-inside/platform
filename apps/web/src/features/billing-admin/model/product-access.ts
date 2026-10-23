@@ -3,7 +3,7 @@ export const productAccessSchema = z.object({
   accountId: z.uuid(),
   productId: z.uuid(),
   access: z.enum(["active", "revoked"]),
-  firstIssuedAt: z.iso.datetime(),
+  firstIssuedAt: z.iso.datetime().nullable(),
   revision: z.int().positive(),
 });
 export const accessPairSchema = z.strictObject({

@@ -1,3 +1,4 @@
+import { concurrentAccessCommands } from "./setup/hold-access-command.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
@@ -364,4 +365,144 @@ test("manual Product validation reads an uncommitted owning Product on the exact
       issuedAt: "2000-01-01T00:00:00.000Z",
     }),
   ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+});
+
+test("concurrent identical owner commands replay one receipt while changed payload and stale revisions remain conflicts", async () => {
+  const target = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: target,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: target,
+    },
+  });
+  const issued = await grants.issueManualProductAccess(owner, {
+    accountId: target,
+    productId: product,
+    sourceRef: randomUUID(),
+    reason: "Concurrent command fixture",
+  });
+  if (!issued.ok) throw new Error(issued.error.code);
+  for (const [action, revision] of [
+    ["revoke", issued.value.revision],
+    ["restore", issued.value.revision + 1],
+  ] as const) {
+    const command = {
+      accountId: target,
+      productId: product,
+      operationId: randomUUID(),
+      expectedRevision: revision,
+      reason: "Concurrent owner command",
+    };
+    const invoke =
+      action === "revoke"
+        ? grants.revokeProductAccess
+        : grants.restoreProductAccess;
+    const results = await concurrentAccessCommands(
+      db,
+      { accountId: target },
+      () => invoke(owner, command),
+    );
+    expect(results[0]).toMatchObject({
+      ok: true,
+      value: { revision: revision + 1 },
+    });
+    for (const result of results) expect(result).toEqual(results[0]);
+    expect(
+      await invoke(owner, { ...command, reason: "Changed payload" }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+    expect(
+      await invoke(owner, { ...command, operationId: randomUUID() }),
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+  }
+  const detail = await grants.readProductAccess(owner, {
+    accountId: target,
+    productId: product,
+  });
+  if (!detail.ok) throw new Error(detail.error.code);
+  expect(detail.value.actions.map((action) => action.kind).sort()).toEqual([
+    "issue",
+    "restore",
+    "revoke",
+  ]);
+  expect(detail.value.sources).toHaveLength(1);
+  await grants.issueManualProductAccess(owner, {
+    accountId: target,
+    productId: second,
+    sourceRef: randomUUID(),
+    reason: "Cross-target receipt fixture",
+  });
+  const operationId = randomUUID();
+  const outcomes = await Promise.all([
+    grants.revokeProductAccess(owner, {
+      accountId: target,
+      productId: product,
+      operationId,
+      expectedRevision: 3,
+      reason: "One operation identity",
+    }),
+    grants.revokeProductAccess(owner, {
+      accountId: target,
+      productId: second,
+      operationId,
+      expectedRevision: 1,
+      reason: "One operation identity",
+    }),
+  ]);
+  expect(outcomes.filter((result) => result.ok)).toHaveLength(1);
+  expect(outcomes.find((result) => !result.ok)).toMatchObject({
+    ok: false,
+    error: { code: "operation_conflict" },
+  });
+});
+test("Product-scoped capabilities see an uncommitted issuance only through the caller handle and roll back with it", async () => {
+  const target = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: target,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: target,
+    },
+  });
+  await expect(
+    db.prisma.$transaction(async (tx) => {
+      const handle = transactionHandle(tx);
+      expect(
+        await grants.issueManualProductAccess(
+          owner,
+          {
+            accountId: target,
+            productId: product,
+            sourceRef: randomUUID(),
+            reason: "Atomic holder check",
+          },
+          handle,
+        ),
+      ).toMatchObject({ ok: true });
+      const matching = await grants.resolveCapabilities(
+        target,
+        { productIds: [product] },
+        handle,
+      );
+      if (!matching.ok) throw new Error(matching.error.code);
+      expect(matching.capabilities).toContainEqual({
+        capability: `product:${product}`,
+        validUntil: null,
+      });
+      expect(
+        await grants.resolveCapabilities(
+          target,
+          { productIds: [second] },
+          handle,
+        ),
+      ).toMatchObject({
+        ok: true,
+        capabilities: [{ capability: `product:${product}`, validUntil: null }],
+      });
+      throw new Error("Rollback holder check");
+    }),
+  ).rejects.toThrow("Rollback holder check");
+  expect(
+    await grants.resolveCapabilities(target, { productIds: [product] }),
+  ).toMatchObject({ ok: true, capabilities: [] });
 });

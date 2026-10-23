@@ -14,7 +14,7 @@ export const ownAccessGroundSchema = z.object({
   source: z.enum(["paid", "manual", "legacy"]),
   content: z.array(coverageEntrySchema).optional(),
   capabilities: z.array(accessCapabilitySchema),
-  startsAt: z.iso.datetime(),
+  startsAt: z.iso.datetime().nullable(),
   validUntil: z.iso.datetime().nullable(),
   /** Действует ли основание сейчас: началось и не истекло. */
   active: z.boolean(),
@@ -58,7 +58,7 @@ export async function readOwnAccess(
           "materials",
           "community",
         ],
-        startsAt: row.firstIssuedAt.toISOString(),
+        startsAt: row.firstIssuedAt?.toISOString() ?? null,
         validUntil: null,
         active: true,
       })),

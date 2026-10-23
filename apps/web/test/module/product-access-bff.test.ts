@@ -107,3 +107,26 @@ it("keeps authentication, Origin and backend owner permission on the actual acce
   expect(response.status).toBe(401);
   expect(fakes.read).toHaveBeenCalledTimes(1);
 });
+it("preserves an unknown historical issuance date through the owner read boundary", async () => {
+  fakes.read.mockResolvedValue({
+    ok: true,
+    body: {
+      ok: true,
+      value: {
+        accountId,
+        productId,
+        access: "revoked",
+        firstIssuedAt: null,
+        revision: 1,
+        sources: [],
+        actions: [],
+      },
+    },
+    response: new Response(),
+  });
+  expect(
+    await (
+      await handleReadProductAccess(command({ accountId, productId }))
+    ).json(),
+  ).toMatchObject({ ok: true, value: { value: { firstIssuedAt: null } } });
+});

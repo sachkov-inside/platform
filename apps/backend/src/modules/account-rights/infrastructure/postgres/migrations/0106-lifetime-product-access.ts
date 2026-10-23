@@ -1,7 +1,7 @@
 export const name = "0106_lifetime_product_access";
 export const statement = `
 CREATE TABLE account_rights.product_access (
- account_id uuid NOT NULL, product_id uuid NOT NULL, first_issued_at timestamptz NOT NULL,
+ account_id uuid NOT NULL, product_id uuid NOT NULL, first_issued_at timestamptz,
  revoked_at timestamptz, revision integer NOT NULL CHECK(revision>0), PRIMARY KEY(account_id,product_id)
 );
 CREATE TABLE account_rights.product_access_sources (
@@ -55,9 +55,9 @@ SELECT 'bridge',c.account_id,c.account_id,'{}'::uuid[],'passive_bridge_review'
 FROM account_rights.legacy_classifications c;
 -- An explicit prior Product withdrawal remains a latch even if its old grant is missing/unscoped.
 INSERT INTO account_rights.product_access(account_id,product_id,first_issued_at,revoked_at,revision)
-SELECT account_id,product_id,revoked_at,revoked_at,1 FROM account_rights.product_access_exclusions
+SELECT account_id,product_id,NULL,revoked_at,1 FROM account_rights.product_access_exclusions
 ON CONFLICT(account_id,product_id) DO UPDATE SET revoked_at=excluded.revoked_at;
 INSERT INTO account_rights.product_access_actions(id,account_id,product_id,kind,reason,recorded_at,revision)
-SELECT gen_random_uuid(),account_id,product_id,'migrate','Preserved legacy Product Access; original facts retained',first_issued_at,1 FROM account_rights.product_access;
+SELECT gen_random_uuid(),account_id,product_id,'migrate','Preserved legacy Product Access; original facts retained',coalesce(first_issued_at,revoked_at),1 FROM account_rights.product_access;
 -- No bridge or provider evidence is consulted by runtime readers after this migration.
 `;

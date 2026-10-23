@@ -22,7 +22,7 @@ export type ProductAccessContext = z.infer<typeof productAccessContextSchema>;
 export const productAccessViewSchema = z.strictObject({
   accountId: z.uuid(),
   productId: z.uuid(),
-  firstIssuedAt: z.iso.datetime(),
+  firstIssuedAt: z.iso.datetime().nullable(),
   access: z.enum(["active", "revoked"]),
   revision: z.int().positive(),
 });

@@ -107,7 +107,7 @@ export interface OwnAccess {
   readonly grounds: readonly {
     readonly source: string;
     readonly capabilities: readonly string[];
-    readonly startsAt: string;
+    readonly startsAt: string | null;
     readonly validUntil: string | null;
     readonly active: boolean;
   }[];

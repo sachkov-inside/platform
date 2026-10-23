@@ -24,7 +24,7 @@ export class BillingService {
           title: string;
         }>;
         source: 'paid' | 'manual' | 'legacy';
-        startsAt: string;
+        startsAt: string | null;
         validUntil: string | null;
       }>;
     };

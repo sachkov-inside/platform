@@ -380,7 +380,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               accountId: row.accountId,
               productId: row.productId,
               revision: row.revision,
-              firstIssuedAt: row.firstIssuedAt.toISOString(),
+              firstIssuedAt: row.firstIssuedAt?.toISOString() ?? null,
               access: row.revokedAt === null ? "active" : "revoked",
             }),
           ),
@@ -421,7 +421,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
                 accountId: row.accountId,
                 productId: row.productId,
                 revision: row.revision,
-                firstIssuedAt: row.firstIssuedAt.toISOString(),
+                firstIssuedAt: row.firstIssuedAt?.toISOString() ?? null,
                 access: row.revokedAt === null ? "active" : "revoked",
               }),
               sources: sources.map((source) => ({
@@ -564,12 +564,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     async resolveCapabilities(
       targetAccountId: string,
       resource?: { productIds: readonly string[]; materialId?: string },
+      handle?: TransactionHandle,
     ) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
       try {
-        return await prisma.$transaction(async (transaction) => {
-          await setAccessSnapshotIsolation(transaction);
+        const resolve = async (transaction: AccountRightsPrisma) => {
           const { capabilities, revision, nextBoundary } =
             await resolveAccessCapabilities(
               transaction,
@@ -579,6 +579,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
               { includeRevision: true },
             );
           return { ok: true as const, capabilities, revision, nextBoundary };
+        };
+        if (handle !== undefined)
+          return await resolve(accountRightsTransaction(handle));
+        return await prisma.$transaction(async (transaction) => {
+          await setAccessSnapshotIsolation(transaction);
+          return resolve(transaction);
         });
       } catch (error) {
         return dependencyFailure(

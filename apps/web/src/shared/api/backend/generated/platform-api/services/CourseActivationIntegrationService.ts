@@ -517,7 +517,7 @@ export class CourseActivationIntegrationService {
           title: string;
         }>;
         source: 'paid' | 'manual' | 'legacy';
-        startsAt: string;
+        startsAt: string | null;
         validUntil: string | null;
       }>;
       products?: Array<{
@@ -1057,7 +1057,7 @@ export class CourseActivationIntegrationService {
           title: string;
         }>;
         source: 'paid' | 'manual' | 'legacy';
-        startsAt: string;
+        startsAt: string | null;
         validUntil: string | null;
       }>;
       products?: Array<{

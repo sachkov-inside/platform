@@ -2050,7 +2050,7 @@ model ProductWaitlistConfirmation {
 model ProductAccess {
   accountId String @map("account_id") @db.Uuid
   productId String @map("product_id") @db.Uuid
-  firstIssuedAt DateTime @map("first_issued_at") @db.Timestamptz
+  firstIssuedAt DateTime? @map("first_issued_at") @db.Timestamptz
   revokedAt DateTime? @map("revoked_at") @db.Timestamptz
   revision Int
   @@id([accountId, productId])

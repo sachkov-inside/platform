@@ -187,3 +187,32 @@ it("keeps admission restriction and cabinet guidance visible with maximum-length
     "Срок каждого отдельного права, полный состав и история — в кабинете.",
   );
 });
+
+it("accepts an honest unknown historical acquisition date in own Product grounds", () => {
+  const access: OwnAccess = {
+    contractVersion: "inside.subscription-activation.v1",
+    enrollments: [],
+    grounds: [
+      {
+        source: "manual",
+        capabilities: ["materials"],
+        startsAt: null,
+        validUntil: null,
+        active: true,
+      },
+    ],
+    admission: { state: "checking", admissionRestriction: null },
+  };
+  const valid = activationValidator("ownAccessResponse");
+  expect(valid({ ok: true, value: access })).toBe(true);
+  expect(
+    valid({
+      ok: true,
+      value: {
+        ...access,
+        grounds: [{ ...access.grounds[0], startsAt: "not-a-date" }],
+      },
+    }),
+  ).toBe(false);
+  expect(ownAccessText(access)).toContain("кабинете");
+});

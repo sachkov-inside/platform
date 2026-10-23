@@ -83,6 +83,28 @@ export async function issueProductAccess(
       data: { ...key, firstIssuedAt: new Date(command.issuedAt), revision: 1 },
     });
   }
+  if (row.revokedAt !== null && context.data.source !== "purchase") {
+    // Refused free activation is an attempt, not an actual acquisition. Its
+    // evidence receipt may be retained, but it cannot start the support promise.
+    return {
+      ok: true as const,
+      outcome: "revoked" as const,
+      value: productAccessViewSchema.parse({
+        ...key,
+        firstIssuedAt: row.firstIssuedAt?.toISOString() ?? null,
+        access: "revoked",
+        revision: row.revision,
+      }),
+    };
+  }
+  // A withdrawal without an acquisition fact has no support anchor. Only a real
+  // issuance establishes it; restoring the refusal latch cannot invent that date.
+  if (row.firstIssuedAt === null) {
+    row = await tx.productAccess.update({
+      where: { accountId_productId: key },
+      data: { firstIssuedAt: new Date(command.issuedAt) },
+    });
+  }
   if (existingSource === null) {
     await tx.productAccessSource.create({
       data: {
@@ -126,7 +148,7 @@ export async function issueProductAccess(
           : ("already_active" as const),
     value: productAccessViewSchema.parse({
       ...key,
-      firstIssuedAt: row.firstIssuedAt.toISOString(),
+      firstIssuedAt: row.firstIssuedAt?.toISOString() ?? null,
       access: row.revokedAt === null ? "active" : "revoked",
       revision: row.revision,
     }),

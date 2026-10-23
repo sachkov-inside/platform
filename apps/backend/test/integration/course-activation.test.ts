@@ -1,3 +1,4 @@
+import { concurrentAccessCommands } from "./setup/hold-access-command.js";
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
@@ -147,10 +148,11 @@ test("verified separate course source grants one lifetime Product Access at actu
     checkedAt: now.toISOString(),
     validUntil: new Date(now.getTime() + 240_000).toISOString(),
   };
-  const [first, replay] = await Promise.all([
-    activation.accept(proof),
-    activation.accept(proof),
-  ]);
+  const [first, replay] = await concurrentAccessCommands(
+    db,
+    { scope: `activation-rule:${f.rule.id}` },
+    () => activation.accept(proof),
+  );
   expect(first).toEqual(replay);
   expect(first).toMatchObject({
     ok: true,
@@ -418,4 +420,70 @@ test("a pre-Product rollout receipt with a legacy Enrollment snapshot and v1 fin
   expect(
     await activation.accept({ ...input, decision: "not_member" }),
   ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+});
+
+test("a refused free Course attempt cannot invent an unknown historical acquisition date", async () => {
+  const f = await setup();
+  await db.prisma.productAccess.create({
+    data: {
+      accountId: f.account,
+      productId: f.product,
+      firstIssuedAt: null,
+      revokedAt: now,
+      revision: 1,
+    },
+  });
+  expect(await activation.accept(f.evidence)).toMatchObject({
+    ok: true,
+    value: { state: "pending_review" },
+  });
+  expect(
+    await grants.readProductAccess(owner, {
+      accountId: f.account,
+      productId: f.product,
+    }),
+  ).toMatchObject({
+    ok: true,
+    value: { firstIssuedAt: null, access: "revoked", sources: [] },
+  });
+  expect(
+    await grants.restoreProductAccess(owner, {
+      accountId: f.account,
+      productId: f.product,
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      reason: "Explicit restore without invented history",
+    }),
+  ).toMatchObject({ ok: true, value: { firstIssuedAt: null } });
+  now = new Date("2030-02-02T10:00:00.000Z");
+  const attemptId = randomUUID();
+  await activation.begin({
+    contractVersion: version,
+    attemptId,
+    identityRef: f.identityRef,
+    code: f.rule.code,
+  });
+  const proof = {
+    ...f.evidence,
+    evidenceRef: randomUUID(),
+    attemptId,
+    checkedAt: now.toISOString(),
+    validUntil: new Date(now.getTime() + 240_000).toISOString(),
+  };
+  expect(await activation.accept(proof)).toMatchObject({
+    ok: true,
+    value: { state: "already_active" },
+  });
+  expect(
+    await grants.readProductAccess(owner, {
+      accountId: f.account,
+      productId: f.product,
+    }),
+  ).toMatchObject({
+    ok: true,
+    value: {
+      firstIssuedAt: "2030-02-02T10:00:00.000Z",
+      sources: [{ issuedAt: "2030-02-02T10:00:00.000Z" }],
+    },
+  });
 });

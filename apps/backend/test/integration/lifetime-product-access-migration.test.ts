@@ -137,7 +137,7 @@ test("upgrade freezes legacy scoped history into one lifetime state, preserves r
       "select to_jsonb(g) as value from account_rights.access_grants g order by id",
     );
     const receipts = await pool.query(
-      "select to_jsonb(r) as value from account_rights.access_receipts r order by scope,operation_id",
+      "select to_jsonb(r) as value from account_rights.access_receipts r where scope='historical' order by scope,operation_id",
     );
     await upgradeToLatest(db);
     const rights = assembleAccountRights({
@@ -190,6 +190,34 @@ test("upgrade freezes legacy scoped history into one lifetime state, preserves r
         access: "active",
       },
     });
+    const orphanTarget = { accountId: orphanWithdrawal, productId: second };
+    expect(await grants.readProductAccess(owner, orphanTarget)).toMatchObject({
+      ok: true,
+      value: { firstIssuedAt: null, access: "revoked", revision: 1 },
+    });
+    expect(
+      await grants.restoreProductAccess(owner, {
+        ...orphanTarget,
+        operationId: randomUUID(),
+        expectedRevision: 1,
+        reason: "Restore without inventing history",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { firstIssuedAt: null, access: "active", revision: 2 },
+    });
+    expect(await grants.readOwnAccess(orphanWithdrawal)).toMatchObject({
+      ok: true,
+      value: { grounds: [{ startsAt: null, active: true }] },
+    });
+    expect(
+      await grants.revokeProductAccess(owner, {
+        ...orphanTarget,
+        operationId: randomUUID(),
+        expectedRevision: 2,
+        reason: "Keep original refusal",
+      }),
+    ).toMatchObject({ ok: true });
     expect(
       await grants.issueProductAccess(
         { source: "course_activation" },
@@ -201,7 +229,36 @@ test("upgrade freezes legacy scoped history into one lifetime state, preserves r
           reason: "Late activation",
         },
       ),
-    ).toMatchObject({ ok: true, outcome: "revoked" });
+    ).toMatchObject({
+      ok: true,
+      outcome: "revoked",
+      value: { firstIssuedAt: null },
+    });
+    const actualSource = {
+      ...orphanTarget,
+      sourceRef: randomUUID(),
+      issuedAt: "2020-05-01T00:00:00.000Z",
+      reason: "Another verified issuance",
+    };
+    for (let replay = 0; replay < 2; replay++)
+      expect(
+        await grants.issueProductAccess({ source: "purchase" }, actualSource),
+      ).toMatchObject({
+        ok: true,
+        outcome: "revoked",
+        value: { firstIssuedAt: "2020-05-01T00:00:00.000Z" },
+      });
+    expect(
+      await grants.restoreProductAccess(owner, {
+        ...orphanTarget,
+        operationId: randomUUID(),
+        expectedRevision: 3,
+        reason: "Restore proven issuance",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { firstIssuedAt: "2020-05-01T00:00:00.000Z", access: "active" },
+    });
     expect(
       (
         await pool.query(
@@ -212,7 +269,7 @@ test("upgrade freezes legacy scoped history into one lifetime state, preserves r
     expect(
       (
         await pool.query(
-          "select to_jsonb(r) as value from account_rights.access_receipts r order by scope,operation_id",
+          "select to_jsonb(r) as value from account_rights.access_receipts r where scope='historical' order by scope,operation_id",
         )
       ).rows,
     ).toEqual(receipts.rows);

@@ -280,14 +280,20 @@ export async function activateCourse(
         sourcePolicyRef: rule.sourceRef,
         identityRef: evidence.identityRef,
         accountId,
-        firstIssuedAt: issuedAt,
+        firstIssuedAt:
+          result.outcome === "revoked"
+            ? (source?.firstIssuedAt ?? null)
+            : issuedAt,
         revision: 1,
         evidence,
         checkedAt,
       },
       update: {
         accountId,
-        firstIssuedAt: issuedAt,
+        firstIssuedAt:
+          result.outcome === "revoked"
+            ? (source?.firstIssuedAt ?? null)
+            : issuedAt,
         evidence,
         checkedAt,
       },

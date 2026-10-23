@@ -168,7 +168,7 @@ export const accessGroundSchema = z.object({
   source: accessSourceSchema,
   content: z.array(coverageEntrySchema).optional(),
   capabilities: z.array(accessCapabilitySchema),
-  startsAt: z.iso.datetime(),
+  startsAt: z.iso.datetime().nullable(),
   validUntil: z.iso.datetime().nullable(),
   active: z.boolean(),
 });

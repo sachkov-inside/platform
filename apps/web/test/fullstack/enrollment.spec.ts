@@ -29,7 +29,7 @@ test("owner issues, withdraws and explicitly restores one Product right through 
       value: z.object({
         access: z.enum(["active", "revoked"]),
         revision: z.int(),
-        firstIssuedAt: z.iso.datetime(),
+        firstIssuedAt: z.iso.datetime().nullable(),
         sources: z.array(z.object({ sourceRef: z.string() })),
         actions: z.array(z.object({ kind: z.string() })),
       }),
