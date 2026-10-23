@@ -1,125 +1,56 @@
+import { z } from "zod";
+import {
+  transactionHandle,
+  type TransactionHandle,
+} from "../../../../infrastructure/prisma/transaction-handle.js";
+import {
+  reportDependencyFailure,
+  dependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
+import {
+  accountRightsTransaction,
+  type AccountRightsPrisma,
+  type AccountRightsPrismaClient,
+} from "../../infrastructure/prisma.js";
+import type { Accounts, PlatformPermission } from "../../../accounts/index.js";
+import { accountId } from "../../../accounts/index.js";
+import { accessFailure } from "../../domain/access-grant.js";
+import {
+  activationRuleSchema,
+  type ActivationBindings,
+} from "../../domain/subscription-activation.js";
+import type { RecipientLinks } from "../../ports/recipient-links.js";
+import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
 import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
 import type {
   IssueProductAccessCommand,
   ProductAccessContext,
 } from "../../domain/product-access.js";
 import {
-  transactionHandle,
-  type TransactionHandle,
-} from "../../../../infrastructure/prisma/transaction-handle.js";
-import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { accountRightsTransaction } from "../../infrastructure/prisma.js";
-import {
-  readActivationContinuation,
-  readActivationIntent,
-} from "../../features/activate-course/read-activation-continuation.js";
-import {
   previewProductRevocation,
   changeProductAccess,
 } from "../../features/revoke-product-access/revoke-product-access.js";
-import { tributeStateSchema } from "../../domain/tribute-source.js";
-import type { RecipientLinks } from "../../ports/recipient-links.js";
-import { coverageSchema, productCapability } from "@inside/access-capabilities";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { Prisma } from "../../../../infrastructure/prisma/index.js";
-import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
-import { assembleEnrollmentViews } from "../../shared/enrollment-views.js";
 import { registerSourceEntitlement } from "../../features/register-source-entitlement/register-source-entitlement.js";
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import {
   beginActivation,
-  activateCourse,
+  activateSubscription,
   readActivationReceipt,
-} from "../../features/activate-course/activate-course.js";
+} from "../../features/activate-subscription/activate-subscription.js";
 import {
-  activationRuleSchema,
-  type ActivationBindings,
-} from "../../domain/course-activation.js";
-import {
-  previewEnrollmentExpansion,
-  applyEnrollmentExpansion,
-} from "../../features/expand-enrollments/expand-enrollments.js";
-import { accessFingerprint } from "../../shared/access-receipts.js";
-import { assignEnrollment } from "../../features/assign-enrollment/assign-enrollment.js";
-import { changeEnrollment } from "../../features/change-enrollment/change-enrollment.js";
-import {
-  assignEnrollmentSchema,
-  enrollmentResultSchema,
-} from "../../domain/tariff-assignment.js";
-import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
-import { z } from "zod";
-import {
-  accountId,
-  type Accounts,
-  type PlatformPermission,
-} from "../../../accounts/index.js";
-import type {
-  AccountRightsPrisma,
-  AccountRightsPrismaClient,
-} from "../../infrastructure/prisma.js";
-import {
-  accessFailure,
-  classificationSchema,
-  recurringAllowedFor,
-} from "../../domain/access-grant.js";
-import {
-  applyPaidPeriod,
-  type ApplyPaidPeriodCommand,
-} from "../../features/apply-paid-period/apply-paid-period.js";
-import {
-  previewGrantBatch,
-  type PreviewGrantBatchCommand,
-} from "../../features/preview-grant-batch/preview-grant-batch.js";
-import {
-  applyGrantBatch,
-  type ApplyGrantBatchCommand,
-} from "../../features/apply-grant-batch/apply-grant-batch.js";
-import {
-  changeAccessGrant,
-  type ChangeAccessGrantCommand,
-} from "../../features/change-access-grant/change-access-grant.js";
-import {
-  classifyLegacyAccount,
-  type ClassifyLegacyAccountCommand,
-} from "../../features/classify-legacy-account/classify-legacy-account.js";
+  readActivationContinuation,
+  readActivationIntent,
+} from "../../features/activate-subscription/read-activation-continuation.js";
 import {
   resolveAccessCapabilities,
   resolveAccessCapabilitiesForAccounts,
   readAccessCapabilityFacts,
   projectAccessCapabilities,
 } from "../../features/resolve-access-capabilities/resolve-access-capabilities.js";
-import {
-  listAccessGrants,
-  type ListAccessGrantsCommand,
-} from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
-import {
-  issueInvitation,
-  listInvitations,
-  readInvitation,
-  revokeInvitation,
-} from "../../features/manage-invitations/manage-invitations.js";
-import {
-  readInvitationTarget,
-  redeemInvitation,
-  type RedeemInvitationContext,
-} from "../../features/redeem-invitation/redeem-invitation.js";
-import {
-  listAccessHolders,
-  type AccessHoldersContext,
-} from "../../features/list-access-holders/list-access-holders.js";
-import { readAccessSummary } from "../../features/read-access-summary/read-access-summary.js";
-import {
-  enrollmentEndingsQuerySchema,
-  listEnrollmentEndings,
-  readEnrollmentEnding,
-  readSubscriptionContinuation,
-  subscriptionContinuationQuerySchema,
-  type EnrollmentEndingsQuery,
-  type SubscriptionContinuationQuery,
-} from "../../features/read-enrollment-endings/read-enrollment-endings.js";
-
+import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
+import { productAccessViewSchema } from "../../domain/product-access.js";
 export interface AccessGrantsDependencies {
   readonly prisma: AccountRightsPrismaClient;
   readonly accounts: Pick<
@@ -130,69 +61,9 @@ export interface AccessGrantsDependencies {
   readonly contentCatalog?: CoverageCatalog;
   readonly clock?: () => Date;
 }
-// Internal capability for billing fulfillment, owner operations (#409), and community projection (#415).
-// Actor comes from the delegated adapter, outside the command payload. Grant operations share the
-// scoped billing:manage permission with the billing admin surface; platform:admin includes it.
 export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
   const { prisma, accounts } = dependencies;
   const clock = dependencies.clock ?? (() => new Date());
-  /**
-   * Классификация Account: состояние, его revision и вывод о допустимости автосписаний.
-   * Отсутствующая запись — это «неизвестно», а не ошибка чтения. Погашённое приглашение — личное
-   * решение владельца о человеке: оно допускает автосписания у неизвестного Account так же, как
-   * подтверждённый новый покупатель. Подтверждённого прежнего подписчика оно не меняет.
-   */
-  async function readClassificationOf(targetAccountId: string) {
-    if (!z.uuid().safeParse(targetAccountId).success)
-      return accessFailure("invalid_input");
-    try {
-      const row = await prisma.legacyClassification.findUnique({
-        where: { accountId: targetAccountId },
-      });
-      const classification = classificationSchema.parse(
-        row?.classification ?? "unknown",
-      );
-      const [externalSources, invitations] = await Promise.all([
-        prisma.sourceEntitlement.findMany({
-          where: { origin: "tribute", accountId: targetAccountId },
-          take: 1001,
-        }),
-        prisma.invitation.count({
-          where: {
-            claimedAccountId: targetAccountId,
-            redeemedAt: { not: null },
-          },
-        }),
-      ]);
-      const oldChargingStopped =
-        externalSources.length <= 1000 &&
-        externalSources.every((source) => {
-          const state = tributeStateSchema.safeParse(source.tributeState);
-          return state.success && state.data.renewal === "stopped";
-        });
-      return {
-        ok: true as const,
-        classification,
-        revision: row?.revision ?? 0,
-        recurringAllowed:
-          oldChargingStopped &&
-          ((classification === "unknown" && invitations > 0) ||
-            recurringAllowedFor({
-              classification,
-              tributeStopped: row?.tributeStopped === true,
-            })),
-      };
-    } catch (error) {
-      return dependencyFailure(
-        {
-          module: "account-rights",
-          operation: "readClassificationOf",
-        },
-        error,
-        accessFailure("unavailable"),
-      );
-    }
-  }
   async function manage<Result>(
     actorId: string,
     permission: PlatformPermission,
@@ -277,80 +148,6 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           return { ok: true as const, state: "not_found" as const };
         return result;
       }),
-    readEnrollmentAssignmentReceipt: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", async () => {
-        const command = assignEnrollmentSchema.safeParse(input);
-        if (!command.success) return accessFailure("invalid_input");
-        const receipt = await prisma.accessReceipt.findUnique({
-          where: {
-            scope_operationId: {
-              scope: actorId,
-              operationId: command.data.operationId,
-            },
-          },
-        });
-        if (receipt === null) return null;
-        return accessFingerprint({
-          action: "assignEnrollment",
-          command: command.data,
-        }).recognizes(receipt.fingerprint)
-          ? enrollmentResultSchema.parse(receipt.result)
-          : accessFailure("operation_conflict");
-      }),
-    readActivationReceipt: (input: unknown) =>
-      readActivationReceipt(prisma, input),
-    previewEnrollmentExpansion: (
-      actorId: string,
-      input: unknown,
-      tier: unknown,
-      handle?: TransactionHandle,
-    ) =>
-      manageTransaction(
-        actorId,
-        "billing:manage",
-        handle,
-        (tx) => previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
-        "previewEnrollmentExpansion",
-      ),
-    applyEnrollmentExpansion: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        applyEnrollmentExpansion(prisma, actorId, input, clock()),
-      ),
-    assignEnrollment: (
-      actorId: string,
-      input: unknown,
-      snapshot: unknown,
-      handle?: TransactionHandle,
-    ) =>
-      manageTransaction(
-        actorId,
-        "billing:manage",
-        handle,
-        async (tx) => {
-          const parsed = assignEnrollmentSchema.safeParse(input);
-          if (!parsed.success) return accessFailure("invalid_input");
-          if (
-            (await accounts.readIdentityForLink(
-              parsed.data.accountId,
-              transactionHandle(tx),
-            )) === undefined
-          )
-            return accessFailure("not_found");
-          return assignEnrollment(
-            tx,
-            actorId,
-            parsed.data,
-            snapshot,
-            clock(),
-            dependencies.recipientLinks,
-          );
-        },
-        "assignEnrollment",
-      ),
-    changeEnrollment: (actorId: string, command: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        changeEnrollment(prisma, actorId, command, clock()),
-      ),
     registerSourceEntitlement: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
         registerSourceEntitlement(prisma, actorId, input, clock()),
@@ -448,52 +245,6 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     beginActivation: (input: unknown) =>
       beginActivation(prisma, input, clock()),
-    /** Billing проверил Offer и режим; выдача пишет приглашение с ревизией этого Offer. */
-    issueInvitation: (
-      actorId: string,
-      input: unknown,
-      offer: { readonly id: string; readonly revision: number },
-    ) =>
-      manage(actorId, "billing:manage", () =>
-        issueInvitation(prisma, actorId, input, offer, clock()),
-      ),
-    revokeInvitation: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        revokeInvitation(prisma, actorId, input, clock()),
-      ),
-    readInvitation: (actorId: string, invitationId: string) =>
-      manage(actorId, "billing:manage", () =>
-        readInvitation(prisma, invitationId, clock()),
-      ),
-    listInvitations: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        listInvitations(prisma, input, clock()),
-      ),
-    /** Люди и основания для владельца; Offer разовых покупок Billing называет платежами. */
-    listAccessHolders: (
-      actorId: string,
-      input: unknown,
-      context: AccessHoldersContext,
-    ) =>
-      manage(actorId, "billing:manage", () =>
-        listAccessHolders(
-          prisma,
-          dependencies.recipientLinks,
-          input,
-          context,
-          clock(),
-        ),
-      ),
-    readAccessSummary: (actorId: string, now: Date) =>
-      manage(actorId, "billing:manage", async () => ({
-        ok: true as const,
-        value: await readAccessSummary(prisma, now),
-      })),
-    /** Чтение для полномочия бота: какой Offer и режим за кодом, без изменения состояния. */
-    readInvitationTarget: (code: string) => readInvitationTarget(prisma, code),
-    /** Погашение по полномочию бота; Account и каталог billing читает до транзакции. */
-    redeemInvitation: (input: unknown, context: RedeemInvitationContext) =>
-      redeemInvitation(prisma, input, context, clock()),
     activateSubscription: (
       handle: TransactionHandle,
       bindings: Pick<ActivationBindings, "readBinding">,
@@ -501,7 +252,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       input: unknown,
       tier: unknown,
     ) =>
-      activateCourse(
+      activateSubscription(
         accountRightsTransaction(handle),
         bindings,
         linked,
@@ -509,99 +260,153 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         tier,
         clock(),
       ),
+
+    readActivationReceipt: (input: unknown) =>
+      readActivationReceipt(prisma, input),
     async readOwnEnrollments(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
-      try {
-        const now = clock();
-        const rows = await prisma.tariffAssignment.findMany({
-          where: { accountId: targetAccountId },
-          orderBy: [{ startsAt: "desc" }, { id: "asc" }],
-        });
-        return {
-          ok: true as const,
-          value: await assembleEnrollmentViews(
-            prisma,
-            rows,
-            now,
-            dependencies.contentCatalog,
-            false,
-          ),
-        };
-      } catch (error) {
-        return dependencyFailure(
-          {
-            module: "account-rights",
-            operation: "readOwnEnrollments",
-          },
-          error,
-          accessFailure("unavailable"),
-        );
-      }
-    },
-    async readCompatibilityCoverage(handle?: TransactionHandle) {
-      const rows = z
-        .array(z.object({ scope: coverageSchema }))
-        .parse(
-          await (handle === undefined
-            ? prisma
-            : accountRightsTransaction(handle)
-          )
-            .$queryRaw`SELECT scope FROM account_rights.coverage_baseline WHERE id = 1`,
-        );
-      const row = rows[0];
-      if (row === undefined)
-        throw new Error("Compatibility scope baseline missing");
-      return row.scope;
+      return { ok: true as const, value: [] };
     },
     readContentCatalog: (actorId: string) =>
+      manage(actorId, "billing:manage", async () =>
+        dependencies.contentCatalog === undefined
+          ? accessFailure("unavailable")
+          : {
+              ok: true as const,
+              value: await dependencies.contentCatalog.list(),
+            },
+      ),
+    async countProductHolders(
+      handle: TransactionHandle,
+      productIds: readonly string[],
+    ): Promise<ReadonlyMap<string, number>> {
+      const ids = z
+        .array(z.uuid())
+        .max(100)
+        .parse([...new Set(productIds)]);
+      const counts = await accountRightsTransaction(
+        handle,
+      ).productAccess.groupBy({
+        by: ["productId"],
+        where: { productId: { in: ids }, revokedAt: null },
+        _count: { accountId: true },
+      });
+      return new Map(
+        ids.map((id) => [
+          id,
+          counts.find((row) => row.productId === id.toLowerCase())?._count
+            .accountId ?? 0,
+        ]),
+      );
+    },
+    listProductAccess: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", async () => {
-        if (dependencies.contentCatalog === undefined)
-          return accessFailure("unavailable");
-        return {
-          ok: true as const,
-          value: await dependencies.contentCatalog.list(),
-        };
-      }),
-    listEnrollments: (actorId: string, targetAccountId: string) =>
-      manage(actorId, "billing:manage", async () => {
-        if (!z.uuid().safeParse(targetAccountId).success)
-          return accessFailure("invalid_input");
-        const now = clock();
-        const rows = await prisma.tariffAssignment.findMany({
-          where: { accountId: targetAccountId },
-          orderBy: { id: "asc" },
+        const query = z
+          .strictObject({
+            accountId: z.uuid().optional(),
+            productId: z.uuid().optional(),
+            cursor: z
+              .string()
+              .regex(/^[0-9a-f-]{36}:[0-9a-f-]{36}$/i)
+              .optional(),
+            limit: z.int().min(1).max(100).default(50),
+          })
+          .safeParse(input);
+        if (!query.success) return accessFailure("invalid_input");
+        const rows = await prisma.productAccess.findMany({
+          where: {
+            ...(query.data.accountId === undefined
+              ? {}
+              : { accountId: query.data.accountId }),
+            ...(query.data.productId === undefined
+              ? {}
+              : { productId: query.data.productId }),
+            ...(query.data.cursor === undefined
+              ? {}
+              : {
+                  OR: [
+                    { accountId: { gt: query.data.cursor.split(":")[0] } },
+                    {
+                      accountId: query.data.cursor.split(":")[0],
+                      productId: { gt: query.data.cursor.split(":")[1] },
+                    },
+                  ],
+                }),
+          },
+          orderBy: [{ accountId: "asc" }, { productId: "asc" }],
+          take: query.data.limit + 1,
         });
         return {
           ok: true as const,
-          value: await assembleEnrollmentViews(
-            prisma,
-            rows,
-            now,
-            dependencies.contentCatalog,
-            true,
+          value: rows.slice(0, query.data.limit).map((row) =>
+            productAccessViewSchema.parse({
+              accountId: row.accountId,
+              productId: row.productId,
+              revision: row.revision,
+              firstIssuedAt: row.firstIssuedAt.toISOString(),
+              access: row.revokedAt === null ? "active" : "revoked",
+            }),
           ),
+          nextCursor:
+            rows.length > query.data.limit
+              ? rows[query.data.limit - 1] === undefined
+                ? null
+                : `${rows[query.data.limit - 1]?.accountId}:${rows[query.data.limit - 1]?.productId}`
+              : null,
         };
       }),
-    async applyPaidPeriod(command: ApplyPaidPeriodCommand) {
-      try {
-        return await applyPaidPeriod(prisma, accounts, command, clock());
-      } catch (error) {
-        return dependencyFailure(
-          { module: "account-rights", operation: "applyPaidPeriod" },
-          error,
-          accessFailure("unavailable"),
-        );
-      }
-    },
-    previewBatch: (actorId: string, command: PreviewGrantBatchCommand) =>
-      manage(actorId, "billing:manage", () =>
-        previewGrantBatch(prisma, accounts, actorId, command, clock()),
-      ),
-    applyBatch: (actorId: string, command: ApplyGrantBatchCommand) =>
-      manage(actorId, "billing:manage", () =>
-        applyGrantBatch(prisma, accounts, actorId, command, clock()),
-      ),
+    readProductAccess: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", async () => {
+        const target = z
+          .strictObject({ accountId: z.uuid(), productId: z.uuid() })
+          .safeParse(input);
+        if (!target.success) return accessFailure("invalid_input");
+        return prisma.$transaction(async (tx) => {
+          await setAccessSnapshotIsolation(tx);
+          const row = await tx.productAccess.findUnique({
+            where: { accountId_productId: target.data },
+          });
+          if (row === null) return accessFailure("not_found");
+          const sources = await tx.productAccessSource.findMany({
+            where: target.data,
+            orderBy: [{ issuedAt: "asc" }, { sourceRef: "asc" }],
+            take: 1001,
+          });
+          const actions = await tx.productAccessAction.findMany({
+            where: target.data,
+            orderBy: [{ revision: "asc" }, { recordedAt: "asc" }],
+            take: 1001,
+          });
+          if (sources.length > 1000 || actions.length > 1000)
+            return accessFailure("unavailable");
+          return {
+            ok: true as const,
+            value: {
+              ...productAccessViewSchema.parse({
+                accountId: row.accountId,
+                productId: row.productId,
+                revision: row.revision,
+                firstIssuedAt: row.firstIssuedAt.toISOString(),
+                access: row.revokedAt === null ? "active" : "revoked",
+              }),
+              sources: sources.map((source) => ({
+                source: source.source,
+                sourceRef: source.sourceRef,
+                issuedAt: source.issuedAt.toISOString(),
+                reason: source.reason,
+              })),
+              actions: actions.map((action) => ({
+                kind: action.kind,
+                actorId: action.actorId,
+                reason: action.reason,
+                recordedAt: action.recordedAt.toISOString(),
+                revision: action.revision,
+              })),
+            },
+          };
+        });
+      }),
     previewProductRevocation: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
         previewProductRevocation(prisma, accounts, input, clock()),
@@ -622,89 +427,6 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       inTransaction(handle, (tx) =>
         changeProductAccess(tx, accounts, actorId, input, clock(), "restore"),
       ),
-    changeGrant: (actorId: string, command: ChangeAccessGrantCommand) =>
-      manage(actorId, "billing:manage", () =>
-        changeAccessGrant(prisma, actorId, command, clock()),
-      ),
-    listGrants: (actorId: string, command: ListAccessGrantsCommand) =>
-      manage(actorId, "billing:manage", () =>
-        listAccessGrants(prisma, command, clock()),
-      ),
-    // Классификация решает, разрешены ли автосписания, поэтому входит в тот же владельческий
-    // набор billing и проверяет то же `billing:manage`, что каталог, платежи и ручные права.
-    classifyLegacy: (actorId: string, command: ClassifyLegacyAccountCommand) =>
-      manage(actorId, "billing:manage", () =>
-        classifyLegacyAccount(prisma, accounts, actorId, command, clock()),
-      ),
-    /** Владельческое чтение: та же проверка `billing:manage`, что у остальных операций набора. */
-    readClassification: (actorId: string, targetAccountId: string) =>
-      manage(actorId, "billing:manage", () =>
-        readClassificationOf(targetAccountId),
-      ),
-    /**
-     * Сколько Account сейчас держат действующее право на каждое руководство: купленное
-     * руководство или право на материалы, в составе которого оно есть. Materials спрашивает об
-     * этом перед снятием опубликованного материала из руководства. Прежний мост членства сюда не
-     * входит: он читает замороженный состав миграции и новых руководств не содержит.
-     */
-    async countProductHolders(
-      handle: TransactionHandle,
-      productIds: readonly string[],
-    ): Promise<ReadonlyMap<string, number>> {
-      const transaction = accountRightsTransaction(handle);
-      const ids = z
-        .array(z.uuid())
-        .max(100)
-        .parse([...new Set(productIds)]);
-      if (ids.length === 0) return new Map();
-      const now = clock();
-      // Действующие гранты, которые открывают хотя бы одно из руководств; держатели по каждому
-      // руководству считаются ниже, по тем же двум признакам.
-      const rows = z
-        .array(
-          z.object({
-            account_id: z.uuid(),
-            capabilities: z.array(z.string()),
-            product_ids: z.array(z.string()).nullable(),
-            all_products: z.boolean().nullable(),
-          }),
-        )
-        .parse(
-          await transaction.$queryRaw(Prisma.sql`
-          select grant_row.account_id,
-                 grant_row.capabilities,
-                 grant_row.coverage -> 'productIds' as product_ids,
-                 grant_row.coverage ->> 'wholePlatform' = 'true' as all_products
-          from account_rights.access_grants as grant_row
-          where grant_row.revoked_at is null
-            and grant_row.starts_at <= ${now}
-            and (grant_row.valid_until is null or grant_row.valid_until > ${now})
-            and (
-              grant_row.capabilities && ${ids.map(productCapability)}::text[]
-              or (
-                grant_row.capabilities @> array['materials']::text[]
-                and (coalesce(grant_row.coverage -> 'productIds', '[]'::jsonb) ?| ${ids}::text[]
-                  or grant_row.coverage ->> 'wholePlatform' = 'true')
-              )
-            )
-        `),
-        );
-      return new Map(
-        ids.map((id) => {
-          const holders = new Set(
-            rows.flatMap((row) =>
-              row.capabilities.includes(productCapability(id)) ||
-              (row.capabilities.includes("materials") &&
-                (row.all_products === true ||
-                  (row.product_ids ?? []).includes(id)))
-                ? [row.account_id]
-                : [],
-            ),
-          );
-          return [id, holders.size];
-        }),
-      );
-    },
     async readOwnProducts(targetAccountId: string) {
       try {
         return await readOwnProducts(
@@ -868,134 +590,6 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           {
             module: "account-rights",
             operation: "readChangedAccounts",
-          },
-          error,
-          accessFailure("unavailable"),
-        );
-      }
-    },
-    /**
-     * Внутреннее чтение billing без полномочия владельца: календарь служебных сообщений находит
-     * границы конечного неоплаченного доступа и перед отправкой сверяет, что граница не сдвинулась.
-     */
-    async listEnrollmentEndings(query: EnrollmentEndingsQuery) {
-      const parsed = enrollmentEndingsQuerySchema.safeParse(query);
-      if (!parsed.success) return accessFailure("invalid_input");
-      try {
-        return {
-          ok: true as const,
-          value: await listEnrollmentEndings(prisma, parsed.data),
-        };
-      } catch (error) {
-        return dependencyFailure(
-          {
-            module: "account-rights",
-            operation: "listEnrollmentEndings",
-          },
-          error,
-          accessFailure("unavailable"),
-        );
-      }
-    },
-    /** Читает границу и продолжение на соединении вызывающего кода, если передана транзакция. */
-    async readEnrollmentEnding(
-      enrollmentId: string,
-      handle?: TransactionHandle,
-    ) {
-      if (!z.uuid().safeParse(enrollmentId).success)
-        return accessFailure("invalid_input");
-      try {
-        return {
-          ok: true as const,
-          value:
-            (await readEnrollmentEnding(
-              handle === undefined ? prisma : accountRightsTransaction(handle),
-              enrollmentId,
-            )) ?? null,
-        };
-      } catch (error) {
-        return dependencyFailure(
-          {
-            module: "account-rights",
-            operation: "readEnrollmentEnding",
-          },
-          error,
-          accessFailure("unavailable"),
-        );
-      }
-    },
-    /**
-     * Внутреннее чтение billing без полномочия владельца: напоминание об окончании оплаченного
-     * срока не приходит, если доступ продолжает Enrollment на тот же тариф.
-     */
-    async readSubscriptionContinuation(query: SubscriptionContinuationQuery) {
-      const parsed = subscriptionContinuationQuerySchema.safeParse(query);
-      if (!parsed.success) return accessFailure("invalid_input");
-      try {
-        return {
-          ok: true as const,
-          value: await readSubscriptionContinuation(prisma, parsed.data),
-        };
-      } catch (error) {
-        return dependencyFailure(
-          {
-            module: "account-rights",
-            operation: "readSubscriptionContinuation",
-          },
-          error,
-          accessFailure("unavailable"),
-        );
-      }
-    },
-    /**
-     * Внутреннее чтение billing без полномочия владельца: покупка проверяет legacy gate
-     * своего же Account. Владельческий путь — `readClassification` выше.
-     */
-    readLegacyClassification: (targetAccountId: string) =>
-      readClassificationOf(targetAccountId),
-    /**
-     * Основания Account, по которым billing допускает к Offer. Прежний подписчик Tribute — Account
-     * с привязанным и не отозванным подтверждённым периодом Tribute; окончание периода основание
-     * не снимает, иначе продлить было бы нечем. Временный источник участника группы периода не
-     * подтверждает и основанием не является. Погашённое приглашение любого режима навсегда
-     * допускает Account к своему Offer.
-     */
-    async readPurchaseGrounds(targetAccountId: string) {
-      if (!z.uuid().safeParse(targetAccountId).success)
-        return accessFailure("invalid_input");
-      try {
-        const [sources, invitations] = await Promise.all([
-          prisma.sourceEntitlement.findMany({
-            where: {
-              origin: "tribute",
-              accountId: targetAccountId,
-              revokedAt: null,
-            },
-            select: { tributeState: true },
-          }),
-          prisma.invitation.findMany({
-            where: {
-              claimedAccountId: targetAccountId,
-              redeemedAt: { not: null },
-            },
-            select: { offerId: true },
-          }),
-        ]);
-        return {
-          ok: true as const,
-          formerTributeSubscriber: sources.some((source) => {
-            const state = tributeStateSchema.safeParse(source.tributeState);
-            return state.success && state.data.mode === "confirmed_period";
-          }),
-          invitedOfferIds: [
-            ...new Set(invitations.map((invitation) => invitation.offerId)),
-          ],
-        };
-      } catch (error) {
-        return dependencyFailure(
-          {
-            module: "account-rights",
-            operation: "readPurchaseGrounds",
           },
           error,
           accessFailure("unavailable"),

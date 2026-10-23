@@ -11,7 +11,6 @@ export {
   RECIPIENT_LINKS,
   type RecipientLinks,
 } from "./ports/recipient-links.js";
-export { membershipEvidenceSchema } from "./features/accept-evidence/validate-membership-evidence.js";
 export type {
   AccountRights,
   MembershipEvidenceAcceptance,
@@ -22,14 +21,8 @@ export {
   type AccessGrants,
 } from "./facets/access-grants/assemble-access-grants.js";
 export type { AccessCapability } from "./domain/access-grant.js";
-export { previewCommandSchema as previewGrantBatchCommandSchema } from "./features/preview-grant-batch/preview-grant-batch.js";
-export { applyGrantBatchCommandSchema } from "./features/apply-grant-batch/apply-grant-batch.js";
-export { changeAccessGrantCommandSchema } from "./features/change-access-grant/change-access-grant.js";
-export { accessGrantsViewSchema } from "./features/list-access-grants/list-access-grants.js";
 export { ownAccessGroundSchema } from "./features/read-own-access/read-own-access.js";
 export { ownProductSchema } from "./features/read-own-products/read-own-products.js";
-export type { EnrollmentEnding } from "./features/read-enrollment-endings/read-enrollment-endings.js";
-export { classifyLegacyAccountCommandSchema } from "./features/classify-legacy-account/classify-legacy-account.js";
 
 export {
   accessCapabilitySchema,
@@ -37,8 +30,6 @@ export {
   legacyClassificationViewSchema,
   recurringAllowedFor,
 } from "./domain/access-grant.js";
-
-export { paidPeriodCommandSchema } from "./features/apply-paid-period/apply-paid-period.js";
 
 export {
   assignEnrollmentSchema,
@@ -76,7 +67,6 @@ export {
   bindingSnapshotSchema,
 } from "./domain/course-activation.js";
 
-export { TributeSources } from "./facets/tribute-sources/tribute-sources.js";
 export {
   saveTributePolicySchema,
   previewTributeImportSchema,

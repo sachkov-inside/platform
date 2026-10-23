@@ -45,6 +45,34 @@ INSERT INTO account_rights.product_access_sources(source,source_ref,account_id,p
 SELECT 'migration_grant',g.id::text||':'||product_id::text,i.account_id,product_id,g.starts_at,g.reason
 FROM account_rights.product_access_migration_inventory i JOIN account_rights.access_grants g ON i.legacy_kind='grant' AND i.legacy_id=g.id
 CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id) WHERE g.starts_at<=now();
+-- Current verified bridge holders are frozen once into explicit Products, never refreshed from events.
+INSERT INTO account_rights.product_access_migration_inventory
+SELECT 'bridge',c.account_id,c.account_id,array(
+ SELECT DISTINCT p.id FROM products.series p WHERE
+ coalesce(c.bridge_coverage->'productIds','[]'::jsonb) @> to_jsonb(ARRAY[p.id::text])
+ OR (coalesce((c.bridge_coverage->>'wholePlatform')::boolean,false) AND p.created_at<=now())
+ OR EXISTS (SELECT 1 FROM products.series_memberships m WHERE m.series_id=p.id AND coalesce(c.bridge_coverage->'materialIds','[]'::jsonb) @> to_jsonb(ARRAY[m.material_id::text]))
+),'bridge_history' FROM account_rights.legacy_classifications c;
+INSERT INTO account_rights.product_access(account_id,product_id,first_issued_at,revoked_at,revision)
+SELECT c.account_id,mapped.product_id,c.verified_at,e.revoked_at,1
+FROM account_rights.legacy_classifications c
+JOIN account_rights.current_projections p ON p.account_id=c.account_id
+JOIN account_rights.product_access_migration_inventory i ON i.legacy_kind='bridge' AND i.legacy_id=c.account_id
+CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id)
+LEFT JOIN account_rights.product_access_exclusions e ON e.account_id=c.account_id AND e.product_id=mapped.product_id
+WHERE c.bridge_enabled AND p.decision='member' AND p.valid_until>now()
+ON CONFLICT(account_id,product_id) DO NOTHING;
+INSERT INTO account_rights.product_access_sources(source,source_ref,account_id,product_id,issued_at,reason)
+SELECT 'migration_bridge',c.account_id::text||':'||mapped.product_id::text,c.account_id,mapped.product_id,c.verified_at,c.reason
+FROM account_rights.legacy_classifications c
+JOIN account_rights.current_projections p ON p.account_id=c.account_id
+JOIN account_rights.product_access_migration_inventory i ON i.legacy_kind='bridge' AND i.legacy_id=c.account_id
+CROSS JOIN LATERAL unnest(i.product_ids) AS mapped(product_id)
+WHERE c.bridge_enabled AND p.decision='member' AND p.valid_until>now();
+-- An explicit prior Product withdrawal remains a latch even if its old grant is missing/unscoped.
+INSERT INTO account_rights.product_access(account_id,product_id,first_issued_at,revoked_at,revision)
+SELECT account_id,product_id,revoked_at,revoked_at,1 FROM account_rights.product_access_exclusions
+ON CONFLICT(account_id,product_id) DO UPDATE SET revoked_at=excluded.revoked_at;
 INSERT INTO account_rights.product_access_actions(id,account_id,product_id,kind,reason,recorded_at,revision)
 SELECT gen_random_uuid(),account_id,product_id,'migrate','Preserved legacy Product Access; original facts retained',first_issued_at,1 FROM account_rights.product_access;
 -- No bridge or provider evidence is consulted by runtime readers after this migration.
