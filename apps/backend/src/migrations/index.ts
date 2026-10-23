@@ -1,4 +1,8 @@
 import {
+  name as explicitProgrammesName,
+  statement as explicitProgrammesStatement,
+} from "../modules/products/infrastructure/postgres/migrations/0105-explicit-product-programmes.js";
+import {
   name as productsOwnershipName,
   statement as productsOwnershipStatement,
 } from "../modules/products/infrastructure/postgres/migrations/0104-products-ownership.js";
@@ -677,6 +681,7 @@ export const platformMigrations = [
     statement: materialSourceCommitStatement,
   },
   { name: productsOwnershipName, statement: productsOwnershipStatement },
+  { name: explicitProgrammesName, statement: explicitProgrammesStatement },
 ] as const;
 
 export function migrateToLatest(

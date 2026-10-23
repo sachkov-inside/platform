@@ -61,7 +61,6 @@ test("Product archive facts track catalogue membership even when content is unpu
     data: {
       seriesId: productId,
       materialId: draft.value.materialId,
-      ordinal: 1,
     },
   });
   const catalogue = new ProductCatalogue(database.prisma);

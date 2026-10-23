@@ -1,10 +1,13 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
 import { authorizeManager } from "../../../../infrastructure/content-authoring/author-policy.js";
-import { failure } from "../../shared/application-result.js";
+import {
+  failure,
+  executeAuthoringTransaction,
+} from "../../shared/application-result.js";
 import {
   accountId,
   collectionSlug,
@@ -34,40 +37,36 @@ export function assembleCreateContentCollection(
     const parsed = parseCommand(contentCollectionInputSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      command.actor,
+    if (command.kind === "topic")
+      return failure({
+        code: "invalid_content",
+        issues: [{ code: "invalid_product_kind", path: "/kind" }],
+      });
+    return executeAuthoringTransaction(
+      dependencies.prisma,
+      async (transaction, rollback) => {
+        const permission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!permission.ok) return rollback(permission.error);
+        return contentCollectionPersistence(
+          transaction,
+          command.kind,
+          dependencies.loadCovers,
+        ).create({
+          id: randomUUID(),
+          name: command.name,
+          slug: command.slug,
+          summary: command.summary,
+        });
+      },
+      (error) =>
+        isPostgresUniqueViolation(error, "series_slug_unique")
+          ? { code: "content_collection_slug_conflict" as const }
+          : mapPostgresReadError(error),
+      "createProduct",
     );
-    if (!authorization.ok) return failure(authorization.error);
-
-    try {
-      const data = {
-        id: randomUUID(),
-        name: command.name,
-        slug: command.slug,
-        summary: command.summary,
-      };
-      const persistence = contentCollectionPersistence(
-        dependencies.prisma,
-        command.kind,
-        dependencies.loadCovers,
-      );
-      return { ok: true, value: await persistence.create(data) };
-    } catch (error) {
-      const constraint = contentCollectionPersistence(
-        dependencies.prisma,
-        command.kind,
-        dependencies.loadCovers,
-      ).slugConstraint;
-      return failure(
-        isPostgresUniqueViolation(error, constraint)
-          ? { code: "content_collection_slug_conflict" }
-          : dependencyFailure(
-              { module: "products", operation: "createContentCollection" },
-              error,
-              mapPostgresReadError(error),
-            ),
-      );
-    }
   };
 }
