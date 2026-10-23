@@ -8,7 +8,7 @@ import { compositionMaterialFacts } from "../../shared/material-reading-facts.js
 /** Complete Product composition over Products structure and Materials-owned publication facts. */
 export class ProductCompositionsReading {
   constructor(
-    private readonly prisma: ProductsPrismaClient,
+    private readonly prisma: Pick<ProductsPrismaClient, "$queryRaw">,
     private readonly materials: ProductMaterialReading,
   ) {}
   load(

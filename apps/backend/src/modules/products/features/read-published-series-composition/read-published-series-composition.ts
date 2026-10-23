@@ -5,6 +5,7 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { ProductsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import {
+  ProductCompositionLimitError,
   readProductCompositionAccess,
   MAX_PRODUCT_MATERIALS,
 } from "../../facets/product-compositions/product-compositions.js";
@@ -59,6 +60,8 @@ export class PublishedSeriesComposition {
         ],
       };
     } catch (error) {
+      if (error instanceof ProductCompositionLimitError)
+        return { ok: false, error: { code: "series_too_large" } };
       return dependencyFailure(
         { module: "products", operation: "read" },
         error,
