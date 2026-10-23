@@ -328,18 +328,18 @@ describe("local stand production build input", () => {
 
   it("rejects a wrong checked-in API mode and an explicit production override (#1539)", () => {
     const service = { environment: {}, env_file: [{ path: publicApiEnvFile }] };
-    expect(() =>
-      assertDevelopmentApi(service, () => "NODE_ENV=production\n"),
-    ).toThrow("development providers");
-    expect(() =>
+    expect(() => {
+      assertDevelopmentApi(service, () => "NODE_ENV=production\n");
+    }).toThrow("development providers");
+    expect(() => {
       assertDevelopmentApi(
         { ...service, environment: { NODE_ENV: "production" } },
         () => "NODE_ENV=development\n",
-      ),
-    ).toThrow("development providers");
-    expect(() =>
-      assertDevelopmentApi({ ...service, environment: { NODE_ENV: null } }),
-    ).toThrow("development providers");
+      );
+    }).toThrow("development providers");
+    expect(() => {
+      assertDevelopmentApi({ ...service, environment: { NODE_ENV: null } });
+    }).toThrow("development providers");
   });
 
   it("reads only checked-in API defaults when Compose leaves private stand env unresolved (#1539)", () => {
@@ -356,12 +356,12 @@ describe("local stand production build input", () => {
       readPublicEnv,
     );
     expect(readPublicEnv).toHaveBeenCalledExactlyOnceWith(publicApiEnvFile);
-    expect(() =>
+    expect(() => {
       assertDevelopmentApi(
         { environment: {}, env_file: [{ path: privateEnv }] },
         readPublicEnv,
-      ),
-    ).toThrow("checked-in environment defaults");
+      );
+    }).toThrow("checked-in environment defaults");
     assertDevelopmentApi({
       environment: { NODE_ENV: "development" },
       env_file: [],
