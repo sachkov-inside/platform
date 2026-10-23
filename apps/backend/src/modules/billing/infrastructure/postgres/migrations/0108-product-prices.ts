@@ -34,6 +34,9 @@ order by substring(benefit from 9)::uuid,offer.published desc,option.id;
 
 -- Promotion scope now names Products directly. Prior price/quote/payment snapshots stay immutable.
 alter table billing.promotions add column product_ids uuid[] not null default '{}';
+-- New Product-only Promotions have no legacy tariff scope. Retained rows keep their provenance.
+alter table billing.promotions alter column offer_ids set default '{}';
+alter table billing.promotions alter column payment_option_ids set default '{}';
 update billing.promotions promotion set product_ids=array(
  select distinct substring(benefit from 9)::uuid
  from billing.offers offer cross join lateral unnest(offer.benefits) benefit
