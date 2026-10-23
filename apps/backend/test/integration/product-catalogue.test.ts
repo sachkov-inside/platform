@@ -76,6 +76,15 @@ test("Product archive facts track catalogue membership even when content is unpu
   expect(await catalogue.materialAccessFacts([draft.value.materialId])).toEqual(
     new Map([[draft.value.materialId, { productIds: [productId] }]]),
   );
+  const upper = draft.value.materialId.toUpperCase();
+  expect(
+    await catalogue.materialAccessFacts([upper, draft.value.materialId]),
+  ).toEqual(
+    new Map([
+      [upper, { productIds: [productId] }],
+      [draft.value.materialId, { productIds: [productId] }],
+    ]),
+  );
   expect(await catalogue.materialAccessFacts([randomUUID()])).toEqual(
     new Map(),
   );
