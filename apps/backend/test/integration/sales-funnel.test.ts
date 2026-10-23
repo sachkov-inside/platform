@@ -1,3 +1,4 @@
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
@@ -131,7 +132,7 @@ describe("Sales funnel report on PostgreSQL", () => {
       seriesId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor: author,
       seriesId: productId,
       expectedOrderVersion: order.value.orderVersion,

@@ -1,3 +1,4 @@
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
@@ -450,7 +451,7 @@ describe("оплата, выдача прав и доступ к материа�
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const id = randomUUID();
-    const saved = await materials.authoring.reorderSeries({
+    const saved = await authorProductProgramme(materials.authoring, {
       actor: owner,
       seriesId: productId,
       expectedOrderVersion: loaded.value.orderVersion,

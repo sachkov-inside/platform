@@ -243,6 +243,12 @@ describe("source-imported draft privacy", () => {
         seriesId: productId,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [draftId, siblingId],
+        programmePlacements: [draftId, siblingId].map((materialId) => ({
+          id: randomUUID(),
+          materialId,
+          chapterId: null,
+          stepGroup: null,
+        })),
       }),
     ).toMatchObject({ ok: true });
 
