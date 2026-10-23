@@ -31,5 +31,6 @@ export const productRevocationResponseSchema = z.strictObject({
   value: productRevocationTargetSchema.extend({
     revision: z.number().int().positive(),
     access: z.literal("revoked"),
+    firstIssuedAt: z.iso.datetime(),
   }),
 });
