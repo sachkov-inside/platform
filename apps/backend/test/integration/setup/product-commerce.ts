@@ -1,3 +1,4 @@
+import type { LegalDocument } from "../../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
 import { CoverageCatalog } from "../../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { ProductDiscovery } from "../../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
@@ -44,7 +45,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     notificationUrl: "https://inside.example.test/billing/tbank/notification",
     receipt: { taxation: "usn_income", tax: "none" },
   });
-  function setupFacets() {
+  function setupFacets(legalDocuments?: readonly LegalDocument[]) {
     const accounts = assembleAccounts({
       prisma: db.prisma,
       emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
@@ -64,15 +65,18 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       sale: { payments: true },
       clock: () => now,
     });
-    const document = syntheticConsentDocument("terms", {
-      appliesTo: ["one_time"],
-    });
+    const document = legalDocuments?.find(
+      (document) => document.kind === "terms",
+    ) ?? {
+      ...syntheticConsentDocument("terms", { appliesTo: ["one_time"] }),
+      commercialModel: "product-lifetime-v1" as const,
+    };
     const contact = new BillingContact({
       prisma: db.prisma,
       protection: billingContactProtection(
         Buffer.alloc(32, 42).toString("base64"),
       ),
-      documents: [document],
+      documents: legalDocuments ?? [document],
       now: () => now,
       sendCode: () => Promise.resolve(),
     });
@@ -83,6 +87,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       productId?: string;
       discount?: number;
       usageLimit?: number;
+      legalDocuments?: readonly LegalDocument[];
     } = {},
   ) {
     const buyer = randomUUID(),
@@ -98,7 +103,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       await db.prisma.product.create({
         data: { id: productId, name: "Курс", slug: productId },
       });
-    const facets = setupFacets();
+    const facets = setupFacets(options.legalDocuments);
     if (options.productId === undefined)
       value(
         await facets.pricing.manage(owner, {

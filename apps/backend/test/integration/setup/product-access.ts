@@ -78,3 +78,26 @@ export async function revokeProductFixture(
   if (!result.ok) throw new Error(result.error.code);
   return result;
 }
+
+/** Explicit owner restoration is different from replaying a purchase or issuance. */
+export async function restoreProductFixture(
+  prisma: PlatformPrisma,
+  target: string,
+) {
+  const [accountId, productId] = target.split(":");
+  const grants = await fixtureGrants(prisma);
+  const current = await grants.readProductAccess(owner, {
+    accountId,
+    productId,
+  });
+  if (!current.ok) throw new Error(current.error.code);
+  const result = await grants.restoreProductAccess(owner, {
+    accountId,
+    productId,
+    operationId: randomUUID(),
+    expectedRevision: current.value.revision,
+    reason: "Synthetic explicit owner restoration",
+  });
+  if (!result.ok) throw new Error(result.error.code);
+  return result;
+}
