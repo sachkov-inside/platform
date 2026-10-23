@@ -14,6 +14,10 @@ import {
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import {
+  ACCOUNT_RIGHTS,
+  type AccountRights,
+} from "../../../account-rights/index.js";
+import {
   accountId,
   accountProblemSchema,
   OptionalAccountEndpoint,
@@ -26,21 +30,14 @@ import {
   type ContentAccess,
 } from "../../../content-access/index.js";
 import {
+  productPageCardSchema,
+  productPageHeroSchema,
   PUBLISHED_MATERIAL_READER,
   publishedMaterialProblemHttpSchema,
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
-import { BillingPricing } from "../../../billing/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
-import {
-  ACCOUNT_RIGHTS,
-  type AccountRights,
-} from "../../../account-rights/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
-import {
-  productPageCardSchema,
-  productPageHeroSchema,
-} from "../../../materials/index.js";
 import {
   publishedCatalogFacetHttpSchema,
   publishedCatalogItemHttpSchema,
@@ -90,8 +87,6 @@ export class ReadHomeContentController {
     private readonly videos: Pick<Videos, "loadReadyDurations">,
     @Inject(ACCOUNT_RIGHTS)
     private readonly accountRights: Pick<AccountRights, "resolveForAccess">,
-    @Inject(BillingPricing)
-    private readonly pricing: BillingPricing,
   ) {}
 
   @Get("home")
@@ -122,7 +117,7 @@ export class ReadHomeContentController {
       this.contentAccess,
       this.videos,
       this.accountRights,
-      await this.pricing.hasOffersForSale(account?.accountId),
+      false,
       account === undefined
         ? anonymousSubject
         : { kind: "account", accountId: accountId(account.accountId) },

@@ -34,7 +34,7 @@ export function subscriptionSaleConfirmed(
 export function saleCapability(
   terminal: (SubscriptionTerminal & Partial<PaymentAmountLimits>) | undefined,
   receiptContactConfigured: boolean,
-  subscriptionsAllowed = false,
+  _subscriptionsAllowed = false,
 ): SaleCapability {
   const payments = terminal !== undefined && receiptContactConfigured;
   return {

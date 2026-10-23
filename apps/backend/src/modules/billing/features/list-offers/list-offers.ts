@@ -52,7 +52,7 @@ export async function listOffers(
   const parsed = listOffersSchema.safeParse(input);
   if (!parsed.success) return failure("invalid_request");
   try {
-    const { cursor, limit, mode, capability } = parsed.data;
+    const { cursor, limit, capability } = parsed.data;
     const productId =
       capability === undefined ? null : productIdFromCapability(capability);
     const rows = await prisma.billingProductPrice.findMany({

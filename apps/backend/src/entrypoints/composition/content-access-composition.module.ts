@@ -1,69 +1,65 @@
-import { PRODUCT_MATERIAL_READING } from "../../modules/products/index.js";
-import { assembleProductMaterialReading } from "../../modules/materials/index.js";
-import { composeMaterialAccessFacts } from "./material-access-facts.js";
-import { MATERIAL_PUBLICATION } from "../../modules/materials/index.js";
-import { ProductCatalogue } from "../../modules/products/index.js";
-import {
-  ProductDiscovery,
-  ProductsModule,
-} from "../../modules/products/index.js";
-import {
-  ProductArtifactsModule,
-  PRODUCT_MATERIALS,
-} from "../../modules/products/index.js";
-import { assembleProductMaterials } from "../../modules/materials/index.js";
-import {
-  PrismaModule,
-  PrismaClientProvider,
-} from "../../infrastructure/prisma/index.js";
 import { Global, Module } from "@nestjs/common";
 import {
-  ACCOUNTS,
-  AccountsModule,
-  type Accounts,
-} from "../../modules/accounts/index.js";
+  PrismaClientProvider,
+  PrismaModule,
+} from "../../infrastructure/prisma/index.js";
 import {
   ACCESS_GRANTS,
   ACCOUNT_RIGHTS,
   AccountRightsModule,
   type AccountRights,
 } from "../../modules/account-rights/index.js";
-import { BillingModule, BillingPricing } from "../../modules/billing/index.js";
 import {
-  MATERIAL_ASSETS,
+  ACCOUNTS,
+  AccountsModule,
+  type Accounts,
+} from "../../modules/accounts/index.js";
+import {
   AssetsModule,
+  MATERIAL_ASSETS,
   type MaterialAssets,
 } from "../../modules/assets/index.js";
+import { BillingModule } from "../../modules/billing/index.js";
+import {
+  CONTENT_ACCESS,
+  PRODUCT_TASK_RESOURCE_FACTS,
+  assembleContentAccess,
+  assembleCurrentAccountPermissions,
+  type ContentAccess,
+  type ProductTaskResourceFactsAdapter,
+} from "../../modules/content-access/index.js";
+import {
+  MATERIAL_CONTENT,
+  MATERIAL_PUBLICATION,
+  MaterialContentModule,
+  MaterialsModule,
+  PRODUCT_ACCESS_HOLDERS,
+  PRODUCT_SALE_AVAILABILITY,
+  assembleAssetResourceFacts,
+  assembleMaterialResourceFacts,
+  assembleProductMaterialReading,
+  assembleProductMaterials,
+  assembleVideoResourceFacts,
+  type MaterialContent,
+} from "../../modules/materials/index.js";
+import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
+import {
+  PRODUCT_ARTIFACTS,
+  PRODUCT_MATERIALS,
+  PRODUCT_MATERIAL_READING,
+  ProductArtifactsModule,
+  ProductCatalogue,
+  ProductDiscovery,
+  ProductsModule,
+  assembleProductArtifactResourceFacts,
+  type ProductArtifacts,
+} from "../../modules/products/index.js";
 import {
   VIDEOS,
   VideosModule,
   type Videos,
 } from "../../modules/videos/index.js";
-import {
-  assembleContentAccess,
-  assembleCurrentAccountPermissions,
-  CONTENT_ACCESS,
-  PRODUCT_TASK_RESOURCE_FACTS,
-  type ContentAccess,
-  type ProductTaskResourceFactsAdapter,
-} from "../../modules/content-access/index.js";
-import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
-import {
-  PRODUCT_ARTIFACTS,
-  assembleProductArtifactResourceFacts,
-  type ProductArtifacts,
-} from "../../modules/products/index.js";
-import {
-  MaterialsModule,
-  MaterialContentModule,
-  MATERIAL_CONTENT,
-  PRODUCT_ACCESS_HOLDERS,
-  PRODUCT_SALE_AVAILABILITY,
-  assembleAssetResourceFacts,
-  assembleVideoResourceFacts,
-  assembleMaterialResourceFacts,
-  type MaterialContent,
-} from "../../modules/materials/index.js";
+import { composeMaterialAccessFacts } from "./material-access-facts.js";
 
 /** Process composition owns access policy wiring above the independent content owners. */
 @Global()
@@ -103,9 +99,7 @@ import {
     { provide: PRODUCT_ACCESS_HOLDERS, useExisting: ACCESS_GRANTS },
     {
       provide: PRODUCT_SALE_AVAILABILITY,
-      inject: [BillingPricing],
-      useFactory: (pricing: BillingPricing) => (accountId?: string) =>
-        pricing.hasOffersForSale(accountId),
+      useValue: () => Promise.resolve(false),
     },
     {
       provide: CONTENT_ACCESS,
