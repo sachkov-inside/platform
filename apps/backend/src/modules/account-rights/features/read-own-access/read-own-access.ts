@@ -1,3 +1,7 @@
+import {
+  productAccessOriginSchema,
+  readProductAccessOrigins,
+} from "../../shared/product-access-origins.js";
 import { z } from "zod";
 import {
   coverageEntrySchema,
@@ -11,7 +15,7 @@ import {
   type AccessFailure,
 } from "../../domain/access-grant.js";
 export const ownAccessGroundSchema = z.object({
-  source: z.enum(["paid", "manual", "legacy"]),
+  source: productAccessOriginSchema,
   content: z.array(coverageEntrySchema).optional(),
   capabilities: z.array(accessCapabilitySchema),
   startsAt: z.iso.datetime().nullable(),
@@ -41,6 +45,11 @@ export async function readOwnAccess(
     orderBy: [{ firstIssuedAt: "asc" }, { productId: "asc" }],
   });
   if (access.length > 1000) return accessFailure("unavailable");
+  const origins = await readProductAccessOrigins(
+    prisma,
+    accountId,
+    access.map((row) => row.productId),
+  );
   const scopes = access.map((row) => ({
     productIds: [row.productId],
     materialIds: [],
@@ -50,18 +59,22 @@ export async function readOwnAccess(
   return {
     ok: true,
     value: ownAccessSchema.parse({
-      grounds: access.map((row, index) => ({
-        source: "manual",
-        ...(contents[index] === undefined ? {} : { content: contents[index] }),
-        capabilities: [
-          productCapability(row.productId),
-          "materials",
-          "community",
-        ],
-        startsAt: row.firstIssuedAt?.toISOString() ?? null,
-        validUntil: null,
-        active: true,
-      })),
+      grounds: access.flatMap((row, index) =>
+        (origins.get(row.productId) ?? ["unknown"]).map((source) => ({
+          source,
+          ...(contents[index] === undefined
+            ? {}
+            : { content: contents[index] }),
+          capabilities: [
+            productCapability(row.productId),
+            "materials",
+            "community",
+          ],
+          startsAt: row.firstIssuedAt?.toISOString() ?? null,
+          validUntil: null,
+          active: true,
+        })),
+      ),
     }),
   };
 }

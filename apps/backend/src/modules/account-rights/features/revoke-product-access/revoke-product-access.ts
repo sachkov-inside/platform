@@ -1,3 +1,7 @@
+import {
+  productAccessOriginSchema,
+  readProductAccessOrigins,
+} from "../../shared/product-access-origins.js";
 import { randomUUID } from "node:crypto";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { productAccessViewSchema } from "../../domain/product-access.js";
@@ -35,7 +39,7 @@ export const productRevocationPreviewSchema =
     affectedCount: z.int().nonnegative(),
     affected: z.array(
       z.strictObject({
-        source: z.enum(["paid", "manual", "legacy"]),
+        source: productAccessOriginSchema,
         capabilities: z.array(accessCapabilitySchema),
         validUntil: z.iso.datetime().nullable(),
       }),
@@ -62,6 +66,10 @@ export async function previewProductRevocation(
     where: { accountId_productId: parsed.data },
   });
   if (row === null) return accessFailure("not_found");
+  const origins =
+    row.revokedAt === null
+      ? await readProductAccessOrigins(prisma, row.accountId, [row.productId])
+      : undefined;
   return {
     ok: true as const,
     value: productRevocationPreviewSchema.parse({
@@ -70,13 +78,13 @@ export async function previewProductRevocation(
       affectedCount: row.revokedAt === null ? 1 : 0,
       affected:
         row.revokedAt === null
-          ? [
-              {
-                source: "manual",
+          ? (origins?.get(row.productId) ?? ["unknown"]).map(
+              (source: string) => ({
+                source,
                 capabilities: [productCapability(row.productId)],
                 validUntil: null,
-              },
-            ]
+              }),
+            )
           : [],
     }),
   };
