@@ -15,7 +15,8 @@ with resolved as (
  having count(*)=1
 )
 update account_rights.activation_rules rule set product_id=resolved.product_id
-from resolved where resolved.id=rule.id;
+from resolved where resolved.id=rule.id
+  and exists(select 1 from products.series product where product.id=resolved.product_id);
 update account_rights.activation_rules set published=false where product_id is null;
 alter table account_rights.source_entitlements add column first_issued_at timestamptz;
 -- Source receipts, attempts, enrollment references and financial/legal snapshots are immutable.

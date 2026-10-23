@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   assembleAccounts,
@@ -353,4 +353,69 @@ test("activation, source, attempt and receipt roll back with Billing's shared tr
     ok: true,
     value: { state: "active" },
   });
+});
+
+test("a pre-Product rollout receipt with a legacy Enrollment snapshot and v1 fingerprint replays passively without issuing access", async () => {
+  const f = await setup();
+  const input = {
+    contractVersion: f.evidence.contractVersion,
+    audience: f.evidence.audience,
+    evidenceRef: f.evidence.evidenceRef,
+    attemptId: f.evidence.attemptId,
+    sourceRef: f.evidence.sourceRef,
+    identityRef: f.evidence.identityRef,
+    accountRef: f.evidence.accountRef,
+    linkRef: f.evidence.linkRef,
+    linkRevision: f.evidence.linkRevision,
+    ruleId: f.evidence.ruleId,
+    ruleRevision: f.evidence.ruleRevision,
+    checkedAt: f.evidence.checkedAt,
+    validUntil: f.evidence.validUntil,
+    decision: f.evidence.decision,
+  };
+  const legacy = {
+    contractVersion: version,
+    attemptId: input.attemptId,
+    state: "active",
+    enrollment: {
+      id: randomUUID(),
+      accountId: f.account,
+      tier: {
+        id: randomUUID(),
+        revision: 1,
+        name: "Historical course",
+        benefits: [`product:${f.product}`],
+        coverage: { productIds: [f.product], materialIds: [] },
+      },
+      origin: "course",
+      startsAt: "2029-08-01T10:00:00.000Z",
+      endsAt: null,
+      endPolicy: "fixed",
+      revision: 1,
+      state: "active",
+      renewal: "not_applicable",
+      nextChargeAt: null,
+    },
+  };
+  // Version 1 persisted the schema-ordered bare JSON digest. This is an independent historical fixture.
+  await db.prisma.accessReceipt.create({
+    data: {
+      scope: "source-evidence",
+      operationId: input.evidenceRef,
+      fingerprint: createHash("sha256")
+        .update(JSON.stringify(input))
+        .digest("hex"),
+      payload: input,
+      result: legacy,
+      createdAt: now,
+    },
+  });
+  now = new Date("2030-02-20T10:00:00.000Z");
+  expect(await activation.accept(input)).toEqual({ ok: true, value: legacy });
+  expect(
+    await rights.resolveForAccess(accountId(f.account), [f.product]),
+  ).toEqual({ kind: "required" });
+  expect(
+    await activation.accept({ ...input, decision: "not_member" }),
+  ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
 });
