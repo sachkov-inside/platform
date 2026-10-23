@@ -869,7 +869,6 @@ describe("Product Artifacts", () => {
         data: {
           seriesId: index === 1 ? productIds[1] : productIds[0],
           materialId: id,
-          ordinal: index + 1,
         },
       });
     }
@@ -962,7 +961,6 @@ describe("Product Artifacts", () => {
       data: {
         seriesId: unplacedProduct,
         materialId: materialIds[0],
-        ordinal: 1,
       },
     });
     const denied = [

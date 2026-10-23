@@ -155,21 +155,21 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
         sourceRevision: "a".repeat(64),
       },
     });
-    await database.prisma.productMembership.update({
-      where: {
-        seriesId_materialId: { seriesId: productId, materialId: anchorId },
-      },
-      data: { chapterId },
+    const order = await materials.authoring.loadSeriesOrder({
+      actor: owner,
+      seriesId: productId,
     });
-    await database.prisma.productProgrammePlacement.create({
-      data: {
-        id: randomUUID(),
-        productId,
-        materialId: anchorId,
-        chapterId,
-        ordinal: 1,
-      },
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await materials.authoring.reorderSeries({
+      actor: owner,
+      seriesId: productId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [anchorId],
+      programmePlacements: [
+        { id: randomUUID(), materialId: anchorId, chapterId, stepGroup: null },
+      ],
     });
+    if (!programme.ok) throw new Error(programme.error.code);
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
       directory: new ProductDirectory(

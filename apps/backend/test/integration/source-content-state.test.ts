@@ -158,10 +158,22 @@ describe("source state reads for authoring delivery (#1672)", () => {
         source: { ...source, commit: firstCommit },
       }),
     ).toMatchObject({ ok: false, error: { code: "idempotency_key_reused" } });
-    await database.prisma.productMembership.update({
-      where: { seriesId_materialId: { seriesId: productId, materialId } },
-      data: { chapterId },
+    const order = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: productId,
     });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await authoring.reorderSourceProduct({
+      actor,
+      sourceId: "inside-content:product",
+      seriesId: productId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [materialId],
+      programmePlacements: [
+        { id: randomUUID(), materialId, chapterId, stepGroup: null },
+      ],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     expect(await read()).toMatchObject({
       ok: true,
       value: {

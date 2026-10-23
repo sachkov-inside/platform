@@ -326,8 +326,12 @@ describe("reader Product composition policy", () => {
         })),
       });
       await corpus.database.prisma.productMembership.createMany({
+        data: chunk.map((materialId) => ({ seriesId: oversized, materialId })),
+      });
+      await corpus.database.prisma.productProgrammePlacement.createMany({
         data: chunk.map((materialId, index) => ({
-          seriesId: oversized,
+          id: randomUUID(),
+          productId: oversized,
           materialId,
           ordinal: start + index + 1,
         })),

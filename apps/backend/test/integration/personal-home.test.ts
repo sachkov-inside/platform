@@ -180,6 +180,31 @@ describe("Personal Home on PostgreSQL", () => {
       publicationState: "published",
     });
     if (!saved.ok) throw new Error(saved.error.code);
+    for (const seriesId of memberships) {
+      const order = await materials.authoring.loadSeriesOrder({
+        actor,
+        seriesId,
+      });
+      if (!order.ok) throw new Error(order.error.code);
+      const programme = await materials.authoring.reorderSeries({
+        actor,
+        seriesId,
+        expectedOrderVersion: order.value.orderVersion,
+        orderedMaterialIds: order.value.items.map(
+          ({ materialId }) => materialId,
+        ),
+        programmePlacements: [
+          ...order.value.programmePlacements,
+          {
+            id: randomUUID(),
+            materialId: saved.value.materialId,
+            chapterId: null,
+            stepGroup: null,
+          },
+        ],
+      });
+      if (!programme.ok) throw new Error(programme.error.code);
+    }
     return {
       materialId: saved.value.materialId,
       contentVersion: saved.value.contentVersion,
@@ -884,6 +909,16 @@ describe("Personal Home on PostgreSQL", () => {
       actor,
       seriesId: collection.id,
       expectedOrderVersion: order.value.orderVersion,
+      programmePlacements: [second.materialId, first.materialId].map(
+        (materialId) => {
+          const placement = order.value.programmePlacements.find(
+            (entry) => entry.materialId === materialId,
+          );
+          if (placement === undefined)
+            throw new Error("Missing authored programme placement");
+          return placement;
+        },
+      ),
       orderedMaterialIds: [second.materialId, first.materialId],
     });
     const result = await home.getSeries(accountId, collection.slug);
@@ -947,6 +982,19 @@ describe("Personal Home on PostgreSQL", () => {
       actor,
       seriesId: collection.id,
       expectedOrderVersion: order.value.orderVersion,
+      programmePlacements: [
+        first.materialId,
+        second.materialId,
+        locked.materialId,
+        last.materialId,
+      ].map((materialId) => {
+        const placement = order.value.programmePlacements.find(
+          (entry) => entry.materialId === materialId,
+        );
+        if (placement === undefined)
+          throw new Error("Missing authored programme placement");
+        return placement;
+      }),
       orderedMaterialIds: [
         first.materialId,
         second.materialId,

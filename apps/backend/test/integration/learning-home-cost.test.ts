@@ -236,6 +236,26 @@ async function prepare() {
       publicationState: "published",
     });
     if (!saved.ok) throw new Error(saved.error.code);
+    const order = await materials.authoring.loadSeriesOrder({
+      actor,
+      seriesId: id(802, index),
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programme = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: id(802, index),
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [saved.value.materialId],
+      programmePlacements: [
+        {
+          id: id(807, index),
+          materialId: saved.value.materialId,
+          chapterId: null,
+          stepGroup: null,
+        },
+      ],
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     items.push({
       materialId: saved.value.materialId,
       contentVersion: saved.value.contentVersion,

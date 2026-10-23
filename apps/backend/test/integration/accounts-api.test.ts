@@ -314,6 +314,34 @@ describe("Accounts API", () => {
     expect(companion.statusCode).toBe(201);
     const companionReceipt = readMaterialReceipt(companion.json<unknown>());
 
+    const fixtureOrder = await server.inject({
+      method: "GET",
+      url: `/authoring/products/${seriesId}/order`,
+      headers: authorization,
+    });
+    const programmePlacements = [
+      initial.materialId,
+      companionReceipt.materialId,
+    ].map((materialId) => ({
+      id: randomUUID(),
+      materialId,
+      chapterId: null,
+      stepGroup: null,
+    }));
+    const programmeFixture = await server.inject({
+      method: "PUT",
+      url: `/authoring/products/${seriesId}/order`,
+      headers: authorization,
+      payload: {
+        expectedOrderVersion: fixtureOrder.json<{ orderVersion: string }>()
+          .orderVersion,
+        orderedMaterialIds: programmePlacements.map(
+          ({ materialId }) => materialId,
+        ),
+        programmePlacements,
+      },
+    });
+    expect(programmeFixture.statusCode).toBe(200);
     const initialOrder = await server.inject({
       method: "GET",
       url: `/authoring/series/${seriesId}/order`,
@@ -351,6 +379,7 @@ describe("Accounts API", () => {
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
         orderedMaterialIds: [companionReceipt.materialId, initial.materialId],
+        programmePlacements: [...programmePlacements].reverse(),
       },
     });
     expect(reordered.statusCode).toBe(200);
@@ -363,6 +392,7 @@ describe("Accounts API", () => {
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
         orderedMaterialIds: [initial.materialId, companionReceipt.materialId],
+        programmePlacements,
       },
     });
     expect(staleOrder.statusCode).toBe(409);

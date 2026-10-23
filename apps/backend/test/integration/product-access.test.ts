@@ -394,6 +394,24 @@ describe("independent product, library, support and shared chat rights", () => {
       authorPolicy: { canManage: () => false },
       contentAccess,
     }).publishedMaterialReader;
+    const order = await materials.authoring.loadSeriesOrder({
+      actor: owner,
+      seriesId: productId,
+    });
+    if (!order.ok) throw new Error(order.error.code);
+    const programmeFixture = await materials.authoring.reorderSeries({
+      actor: owner,
+      seriesId: productId,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: order.value.items.map(({ materialId }) => materialId),
+      programmePlacements: order.value.items.map(({ materialId }) => ({
+        id: randomUUID(),
+        materialId,
+        chapterId: null,
+        stepGroup: null,
+      })),
+    });
+    if (!programmeFixture.ok) throw new Error(programmeFixture.error.code);
     const composition = new PublishedSeriesComposition(
       db.prisma,
       assembleProductMaterialReading(db.prisma),
