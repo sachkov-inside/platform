@@ -200,7 +200,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
           }),
         );
       }
-      if (String(url).endsWith("/CheckOrder"))
+      if (url.endsWith("/CheckOrder"))
         return Promise.resolve(
           Response.json({
             Success: true,
@@ -217,7 +217,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
             ],
           }),
         );
-      if (String(url).endsWith("/GetState")) {
+      if (url.endsWith("/GetState")) {
         stateCalls++;
         return Promise.resolve(Response.json(event()));
       }
