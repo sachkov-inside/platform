@@ -83,11 +83,29 @@ update billing.promotions promotion set product_ids=array(
  order by candidate.product_ids[1]
 ) where cardinality(offer_ids)>0 or cardinality(payment_option_ids)>0;
 
+-- Product scope cannot encode a strict subset of that Product's live old prices.
+-- Price publication is a separate decision and cannot authorize widening a Promotion.
+-- Detect excluded same-Product candidates independently of which draft UUID won.
+update billing.promotion_migration_inventory inventory set disposition='paused_partial_product_scope'
+from billing.promotions promotion
+where promotion.id=inventory.promotion_id
+ and (cardinality(promotion.offer_ids)>0 or cardinality(promotion.payment_option_ids)>0)
+ and exists(select 1 from product_price_candidates candidate
+   where candidate.mode='one_time' and not candidate.offer_archived and not candidate.option_archived
+   and candidate.product_reference_count=1 and cardinality(candidate.product_ids)=1
+   and candidate.product_ids && promotion.product_ids
+   and not (
+     (cardinality(promotion.offer_ids)=0 or candidate.offer_id=any(promotion.offer_ids))
+     and (cardinality(promotion.payment_option_ids)=0 or candidate.payment_option_id=any(promotion.payment_option_ids))
+   ));
+
 -- Unprovable restrictions remain paused, with the exact prior source stored above.
 -- Do not silently drop a missing identity or an unsupported eligible composition.
 update billing.promotions promotion set archived=true,product_ids='{}' where
  (cardinality(offer_ids)>0 or cardinality(payment_option_ids)>0) and (
  cardinality(product_ids)=0
+ or exists(select 1 from billing.promotion_migration_inventory inventory
+   where inventory.promotion_id=promotion.id and inventory.disposition='paused_partial_product_scope')
  or exists(select 1 from unnest(promotion.offer_ids) requested(id) where not exists(
    select 1 from billing.offers offer where offer.id=requested.id and not offer.archived))
  or exists(select 1 from unnest(promotion.payment_option_ids) requested(id) where not exists(
@@ -100,6 +118,7 @@ update billing.promotions promotion set archived=true,product_ids='{}' where
 );
 update billing.promotion_migration_inventory inventory set mapped_product_ids=promotion.product_ids, disposition=
  case when cardinality(promotion.offer_ids)=0 and cardinality(promotion.payment_option_ids)=0 then 'unrestricted'
+ when inventory.disposition='paused_partial_product_scope' then inventory.disposition
  when promotion.archived then 'paused_requires_review' else 'mapped_intersection' end
 from billing.promotions promotion where promotion.id=inventory.promotion_id;
 
