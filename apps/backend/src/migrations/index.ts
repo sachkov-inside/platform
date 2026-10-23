@@ -1,4 +1,8 @@
 import {
+  name as lifetimeProductAccessName,
+  statement as lifetimeProductAccessStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0106-lifetime-product-access.js";
+import {
   runMigrationsToLatest,
   type MigrationOutcome,
 } from "../infrastructure/postgres/migrate-to-latest.js";
@@ -686,6 +690,10 @@ export const platformMigrations = [
   },
   { name: productsOwnershipName, statement: productsOwnershipStatement },
   { name: explicitProgrammesName, statement: explicitProgrammesStatement },
+  {
+    name: lifetimeProductAccessName,
+    statement: lifetimeProductAccessStatement,
+  },
   { name: productPricesName, statement: productPricesStatement },
 ] as const;
 

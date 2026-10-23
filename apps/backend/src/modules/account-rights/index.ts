@@ -119,3 +119,8 @@ export {
 } from "./domain/access-roster.js";
 
 export { announcementQuerySchema } from "./domain/activation-announcement.js";
+
+export type {
+  IssueProductAccessCommand,
+  ProductAccessContext,
+} from "./domain/product-access.js";

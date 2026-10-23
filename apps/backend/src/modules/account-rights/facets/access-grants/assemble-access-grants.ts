@@ -1,3 +1,8 @@
+import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
+import type {
+  IssueProductAccessCommand,
+  ProductAccessContext,
+} from "../../domain/product-access.js";
 import {
   transactionHandle,
   type TransactionHandle,
@@ -10,7 +15,7 @@ import {
 } from "../../features/activate-subscription/read-activation-continuation.js";
 import {
   previewProductRevocation,
-  revokeProductAccess,
+  changeProductAccess,
 } from "../../features/revoke-product-access/revoke-product-access.js";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
@@ -248,6 +253,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     }
   }
   return Object.freeze({
+    issueProductAccess: (
+      context: ProductAccessContext,
+      command: IssueProductAccessCommand,
+      handle?: TransactionHandle,
+    ) =>
+      inTransaction(handle, (tx) =>
+        issueProductAccess(tx, accounts, context, command, clock()),
+      ),
     lookupRecipient: (actorId: string, identityRef: string) =>
       manage(actorId, "billing:manage", async () => {
         if (!z.string().trim().min(1).max(256).safeParse(identityRef).success)
@@ -593,9 +606,21 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         previewProductRevocation(prisma, accounts, input, clock()),
       ),
-    revokeProductAccess: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        revokeProductAccess(prisma, accounts, actorId, input, clock()),
+    revokeProductAccess: (
+      actorId: string,
+      input: unknown,
+      handle?: TransactionHandle,
+    ) =>
+      inTransaction(handle, (tx) =>
+        changeProductAccess(tx, accounts, actorId, input, clock(), "revoke"),
+      ),
+    restoreProductAccess: (
+      actorId: string,
+      input: unknown,
+      handle?: TransactionHandle,
+    ) =>
+      inTransaction(handle, (tx) =>
+        changeProductAccess(tx, accounts, actorId, input, clock(), "restore"),
       ),
     changeGrant: (actorId: string, command: ChangeAccessGrantCommand) =>
       manage(actorId, "billing:manage", () =>
