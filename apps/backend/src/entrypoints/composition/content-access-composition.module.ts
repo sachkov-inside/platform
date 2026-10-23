@@ -1,4 +1,8 @@
 import {
+  ProductDiscovery,
+  ProductsModule,
+} from "../../modules/products/index.js";
+import {
   ProductArtifactsModule,
   PRODUCT_MATERIALS,
 } from "../../modules/products/index.js";
@@ -63,6 +67,7 @@ import {
     PrismaModule,
     ProductArtifactsModule,
     AccountsModule,
+    ProductsModule,
     AccountRightsModule,
     BillingModule,
     AssetsModule,
@@ -74,9 +79,9 @@ import {
   providers: [
     {
       provide: PRODUCT_MATERIALS,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        assembleProductMaterials(prisma),
+      inject: [PrismaClientProvider, ProductDiscovery],
+      useFactory: (prisma: PrismaClientProvider, discovery: ProductDiscovery) =>
+        assembleProductMaterials(prisma, discovery),
     },
     { provide: PRODUCT_ACCESS_HOLDERS, useExisting: ACCESS_GRANTS },
     {
