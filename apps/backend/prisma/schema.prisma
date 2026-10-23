@@ -1001,8 +1001,9 @@ model BillingPromotion {
   code String? @unique
   startsAt DateTime @map("starts_at") @db.Timestamptz
   endsAt DateTime @map("ends_at") @db.Timestamptz
-  offerIds String[] @map("offer_ids") @db.Uuid
-  paymentOptionIds String[] @map("payment_option_ids") @db.Uuid
+  productIds String[] @default([]) @map("product_ids") @db.Uuid
+  legacyOfferIds String[] @map("offer_ids") @db.Uuid
+  legacyPaymentOptionIds String[] @map("payment_option_ids") @db.Uuid
   usageLimit Int? @map("usage_limit")
   archived Boolean @default(false)
   reservations BillingPromoReservation[]

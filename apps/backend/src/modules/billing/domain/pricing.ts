@@ -64,8 +64,7 @@ export const promotionSchema = z.strictObject({
   code: z.string().trim().min(1).max(100).nullable(),
   startsAt: z.iso.datetime({ offset: true }),
   endsAt: z.iso.datetime({ offset: true }),
-  offerIds: z.array(idSchema).max(100),
-  paymentOptionIds: z.array(idSchema).max(100),
+  productIds: z.array(idSchema).max(100),
   usageLimit: revisionSchema.nullable(),
   archived: z.boolean(),
 });
@@ -145,9 +144,7 @@ export function applicablePromotion(
     Date.parse(promotion.startsAt) <= now.getTime() &&
     now.getTime() < Date.parse(promotion.endsAt) &&
     (promotion.code === null || promotion.code === code) &&
-    (promotion.offerIds.length === 0 ||
-      promotion.offerIds.includes(option.offerId)) &&
-    (promotion.paymentOptionIds.length === 0 ||
-      promotion.paymentOptionIds.includes(option.id))
+    (promotion.productIds.length === 0 ||
+      promotion.productIds.includes(option.id))
   );
 }

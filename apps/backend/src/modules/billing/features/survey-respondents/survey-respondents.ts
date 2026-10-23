@@ -1,5 +1,4 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { productCapability } from "@inside/access-capabilities";
 import type { z } from "zod";
 import {
   lockBillingPricing,
@@ -133,8 +132,7 @@ export async function issueRespondentLink(
           code,
           startsAt: template.startsAt,
           endsAt: template.endsAt,
-          offerIds: template.offerIds,
-          paymentOptionIds: template.paymentOptionIds,
+          productIds: template.productIds,
           usageLimit: 1,
           archived: false,
         },
@@ -212,19 +210,11 @@ async function soldProductSlug(
     where: { id: promotionId },
   });
   if (promotion === null) return null;
-  const offers = await dependencies.prisma.billingOffer.findMany({
-    where:
-      promotion.offerIds.length > 0
-        ? { id: { in: promotion.offerIds } }
-        : { options: { some: { id: { in: promotion.paymentOptionIds } } } },
-    select: { benefits: true },
-  });
-  const benefits = new Set(offers.flatMap((offer) => offer.benefits));
+  const productIds = new Set(promotion.productIds);
   const catalog = await dependencies.grants.readContentCatalog(actorId);
   if (!catalog.ok) return null;
   const products = catalog.value.filter(
-    (entry) =>
-      entry.kind === "product" && benefits.has(productCapability(entry.id)),
+    (entry) => entry.kind === "product" && productIds.has(entry.id),
   );
   return products.length === 1 ? (products[0]?.slug ?? null) : null;
 }

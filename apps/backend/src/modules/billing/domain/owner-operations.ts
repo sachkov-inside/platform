@@ -117,22 +117,13 @@ export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 export const ownerReadOperations = [
   "productPrices.list",
   "paymentLinks.list",
-  "tribute.status",
   "recipients.lookup",
   "content.list",
   "activationRules.list",
-  "enrollments.list",
-  "tiers.list",
-  "offers.list",
   "payments.list",
   "payments.read",
   "refunds.read",
-  "grants.read",
-  "grants.readClassification",
   "respondents.status",
-  "invitations.list",
-  "people.list",
-  "access.summary",
 ] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
