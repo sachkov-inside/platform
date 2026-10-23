@@ -413,10 +413,36 @@ _Avoid_: Telegram presence, Account, Tariff Assignment
 A moderation or externally reported restriction on admission to the community, independent of content rights.
 _Avoid_: Expired tariff, revoked materials, failed payment
 
-**OneTimePurchase**:
+**Product Purchase**:
 An Account's purchase of one Product under agreed conditions. Its confirmed Payment and the
 resulting access are distinct facts; it creates no renewal or scheduled charge.
 _Avoid_: Subscription, paid period, renewal
+
+**Product Price**:
+The current one-time price of a Product before any applicable discount. A completed Product
+Purchase keeps its agreed amount independently of later price changes.
+_Avoid_: Tariff, Payment Option, recurring charge
+
+**Promotion**:
+A discount for eligible Product purchases, with an availability period and any code or usage limit.
+Eligible discounts compete for the best single result rather than adding together.
+_Avoid_: Product Access, Tariff, proof of buyer identity
+
+**PriceQuote**:
+An Account's time-limited calculation of the Product, price and applicable discount before purchase.
+It is neither a Payment nor acceptance of legal conditions, and its validity is checked before payment.
+_Avoid_: Product Price, Payment Link, discount reservation, Payment
+
+**Payment Link**:
+An owner-created, transferable link for one successful Product purchase at a saved price, with
+optional expiry or withdrawal. It differs from an ordinary Product checkout address and proves
+neither buyer identity nor payment.
+_Avoid_: Bank return URL, Product Access, Invitation, ordinary promo checkout address
+
+**Survey Respondent**:
+A person in the owner's survey-participant list for whom a personal discount code can be issued.
+The list does not establish an Account's identity or make the resulting code non-transferable.
+_Avoid_: Account, prior buyer classification, marketing consent
 
 **PaymentAttempt**:
 One recorded attempt to obtain a specific payment outcome, including an unresolved outcome after
@@ -432,6 +458,11 @@ _Avoid_: Browser return, grant, subscription
 The owner's decision, following a personal request, about the amount and basis of a Payment refund.
 The owner performs the refund through the bank and withdraws Product access separately.
 _Avoid_: Refund attempt, access revocation, dispute
+
+**Refund**:
+A confirmed bank return of all or part of a Payment. It is distinct from the owner's withdrawal
+of Product Access.
+_Avoid_: Refund request, failed bank operation, automatic access revocation
 
 **Product Access**:
 One Account's lifetime access to one Product, including its evolving published Materials and
@@ -542,7 +573,7 @@ These names refer to the same concept; they do not introduce another right or pr
 | Access Grant | Product Access |
 | Community Entitlement | CommunityEntitlement |
 | Admission Restriction | AdmissionRestriction |
-| Product Purchase | OneTimePurchase |
+| OneTimePurchase | Product Purchase |
 | BillingContact | Billing Contact |
 | Supplementary Material | ChapterAttachment |
 | Lesson Block | Material Block |
