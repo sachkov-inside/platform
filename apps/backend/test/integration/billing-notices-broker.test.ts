@@ -1,6 +1,7 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
-import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { expect, onTestFinished, test } from "vitest";
@@ -48,15 +49,15 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETICBROKER",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 63).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
   returnUrl: `${origin}/account`,
   notificationUrl: `${origin}/billing/tbank/notification`,
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const documents = syntheticConsentDocuments;
+const documents = syntheticConsentDocuments.filter(
+  (document) => document.kind === "terms",
+);
 
 /**
  * Подтверждённая оплата проходит весь путь через настоящий брокер: outbox Billing, очередь
@@ -124,18 +125,6 @@ test("подтверждённая оплата доходит до обоих �
       return Promise.resolve();
     },
   });
-  expect(
-    await grants.classifyLegacy(owner, {
-      operationId: randomUUID(),
-      accountId: buyer,
-      expectedRevision: 0,
-      classification: "confirmed_new",
-      sourceRef: buyer,
-      reason: "Synthetic new buyer",
-      bridgeEnabled: false,
-      tributeStopped: false,
-    }),
-  ).toMatchObject({ ok: true });
   const started = await contact.start(buyer, {
     operationId: randomUUID(),
     email: "broker-proof@example.test",
@@ -150,38 +139,29 @@ test("подтверждённая оплата доходит до обоих �
     }),
   ).toMatchObject({ ok: true });
 
-  const offerId = randomUUID(),
-    optionId = randomUUID();
+  const productId = randomUUID();
+  await database.prisma.product.create({
+    data: { id: productId, slug: productId, name: "Материалы" },
+  });
   value(
     await pricing.manage(owner, {
+      operation: "productPrices.save",
       operationId: randomUUID(),
-      operation: "offers.save",
       value: {
-        id: offerId,
-        name: "Материалы + сопровождение",
-        benefits: ["materials", "support"],
-        coverage: { productIds: [randomUUID()], materialIds: [] },
+        productId,
+        name: "Материалы",
+        priceKopecks: 350_000,
+        published: true,
       },
-    }),
-  );
-  value(
-    await pricing.manage(owner, {
-      operationId: randomUUID(),
-      operation: "paymentOptions.save",
-      value: { id: optionId, offerId, months: 1, priceKopecks: 350_000 },
-    }),
-  );
-  value(
-    await pricing.manage(owner, {
-      operationId: randomUUID(),
-      operation: "offers.publish",
-      expectedRevision: 1,
-      id: offerId,
     }),
   );
 
   const bank = new BankFixture(config);
   const payments = new BillingPayments({
+    contentCatalog: new CoverageCatalog(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
     sale: { payments: true },
     prisma: database.prisma,
     bank: bank.client(),
@@ -189,9 +169,7 @@ test("подтверждённая оплата доходит до обоих �
     grants,
   });
   const notices = new BillingNotices({
-    sale: {},
     prisma: database.prisma,
-    enrollments: grants,
   });
   const contacts = new NotificationAccounts(database.prisma, protection);
   const links = new TelegramAccountLinks(database.prisma);
@@ -246,14 +224,11 @@ test("подтверждённая оплата доходит до обоих �
   });
 
   const quote = value(
-    await pricing.quote(
-      buyer,
-      await prepareInvitedQuote(database.prisma, buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
-    ),
+    await pricing.quote(buyer, {
+      operationId: randomUUID(),
+      productId,
+      priceRevision: 1,
+    }),
   );
   const accepted = await contact.acceptConsents(
     buyer,

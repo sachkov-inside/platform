@@ -1,3 +1,4 @@
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { authorProductProgramme } from "../fixtures/author-product-programme.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
@@ -103,8 +104,6 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETICMATRIX",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   cardBinding: { confirmed: true, checkType: "3DS" },
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
@@ -718,6 +717,10 @@ describe("оплата, выдача прав и доступ к материа�
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       sale: { payments: true },
       prisma: db.prisma,
       bank: client,

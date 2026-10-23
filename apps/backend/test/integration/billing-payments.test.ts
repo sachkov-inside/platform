@@ -71,10 +71,11 @@ test("foreign Account cannot read or restore another buyer's payment, even knowi
     await s.payments.status(other.buyer, purchase.purchaseRef),
   ).toMatchObject({ ok: false, error: { code: "not_found" } });
   expect(
-    await s.payments.restoreProductPurchase(other.buyer, {
-      productId: s.productId,
-      purchaseRef: purchase.purchaseRef,
-    }),
+    await s.payments.restoreProductPurchase(
+      other.buyer,
+      s.productId,
+      purchase.purchaseRef,
+    ),
   ).toMatchObject({ ok: false, error: { code: "not_found" } });
   expect(
     await s.payments.purchaseEmail(other.buyer, purchase.purchaseRef),

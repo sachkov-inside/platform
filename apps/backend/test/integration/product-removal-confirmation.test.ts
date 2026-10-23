@@ -1,3 +1,4 @@
+import { grantProductFixture } from "./setup/product-access.js";
 import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { HttpException } from "@nestjs/common";
@@ -81,34 +82,14 @@ describe("снятие материала из купленного руково
     readonly validUntil: string | null;
     readonly coverage?: { productIds: string[]; materialIds: string[] };
   }) {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "fixture",
-          accountId: buyer,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities: terms.capabilities,
-            ...(terms.coverage === undefined
-              ? {}
-              : { coverage: terms.coverage }),
-            startsAt: "2030-01-01T00:00:00Z",
-            validUntil: terms.validUntil,
-            reason: "Синтетическое право",
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["fixture"],
-    });
-    if (!applied.ok) throw new Error(applied.error.code);
+    const ids = new Set([
+      ...(terms.coverage?.productIds ?? []),
+      ...terms.capabilities
+        .filter((c) => c.startsWith("product:"))
+        .map((c) => c.slice(8)),
+    ]);
+    for (const productId of ids)
+      await grantProductFixture(db.prisma, buyer, productId);
   }
   function metadata(seriesIds: readonly string[]) {
     return {
@@ -520,21 +501,7 @@ describe("снятие материала из купленного руково
     now = new Date("2030-01-01T00:00:00Z");
     const bought = await product();
     // Материалы открывает тариф или оплаченный период с продуктом в составе, а не прямое право.
-    const scoped = await grants.applyPaidPeriod({
-      eventRef: randomUUID(),
-      periodRef: randomUUID(),
-      accountId: buyer,
-      revision: 1,
-      revoked: false,
-      terms: {
-        capabilities: ["materials"],
-        coverage: { productIds: [bought], materialIds: [] },
-        startsAt: "2030-01-01T00:00:00Z",
-        validUntil: null,
-        reason: "Синтетический состав",
-      },
-    });
-    if (!scoped.ok) throw new Error("Scoped period fixture failed");
+    await grantProductFixture(db.prisma, buyer, bought);
     const kept = await publish([bought]);
     const removed = await publish([bought]);
     const order = await materials.authoring.loadSeriesOrder({

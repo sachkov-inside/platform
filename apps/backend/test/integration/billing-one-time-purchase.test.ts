@@ -16,15 +16,14 @@ test("a buyer restores its unfinished Product payment from another device withou
   const s = await world.scenario();
   const first = value(await s.payments.purchase(s.buyer, s.command));
   expect(
-    await s.payments.restoreProductPurchase(s.buyer, {
-      productId: s.productId,
-    }),
+    await s.payments.restoreProductPurchase(s.buyer, s.productId),
   ).toMatchObject({ ok: true, value: { purchaseRef: first.purchaseRef } });
   expect(
-    await s.payments.restoreProductPurchase(s.buyer, {
-      productId: randomUUID(),
-      purchaseRef: first.purchaseRef,
-    }),
+    await s.payments.restoreProductPurchase(
+      s.buyer,
+      randomUUID(),
+      first.purchaseRef,
+    ),
   ).toMatchObject({ ok: false, error: { code: "not_found" } });
   expect(s.initCalls()).toBe(1);
 });

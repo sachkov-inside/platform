@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
   BillingPayments,
@@ -199,6 +201,10 @@ const unused = () =>
   Promise.reject(new Error("Unexpected external boundary in history read"));
 test("recent cabinet windows retain latest 50 payments and 20 notices with Account isolation", async () => {
   const payments = new BillingPayments({
+    contentCatalog: new CoverageCatalog(
+      observer.prisma,
+      new ProductDiscovery(observer.prisma),
+    ),
     sale: { payments: true },
     prisma: observer.prisma,
     bank: undefined,

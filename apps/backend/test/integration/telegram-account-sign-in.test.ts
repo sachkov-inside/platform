@@ -7,7 +7,7 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
@@ -28,13 +28,8 @@ import {
 import { ResumeTelegramAccountSignInController } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/resume-telegram-account-sign-in.controller.js";
 import { declaredServer } from "../support/declared-api.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
-import {
-  Prisma,
-  lockTelegramMembershipLink,
-} from "../../src/infrastructure/prisma/index.js";
-import { z } from "zod";
-import { eventually } from "./setup/eventually.js";
-import { outsideTransaction } from "./setup/transaction-guard.js";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleTelegramMembership } from "../../src/modules/telegram-membership/index.js";

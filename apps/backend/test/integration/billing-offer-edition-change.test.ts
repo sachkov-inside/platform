@@ -1,3 +1,5 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
@@ -43,8 +45,6 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETICDEMO",
   password: "synthetic-test-password",
   bindingEncryptionKey: Buffer.alloc(32, 43).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1_000_000,
   returnUrl: "https://inside.example.test/account",
@@ -224,6 +224,10 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     });
     const paymentsOn = (contact: BillingContact) =>
       new BillingPayments({
+        contentCatalog: new CoverageCatalog(
+          db.prisma,
+          new ProductDiscovery(db.prisma),
+        ),
         sale: { payments: true },
         prisma: db.prisma,
         bank,

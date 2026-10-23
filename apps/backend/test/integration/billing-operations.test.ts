@@ -67,3 +67,29 @@ test.each([
     expect(s.initCalls()).toBe(0);
   },
 );
+
+test("scoped Billing permission admits owner reads while Materials permission stays denied", async () => {
+  const { s, owner } = await operations();
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  for (const permission of ["materials:manage", "billing:manage"] as const) {
+    const actor = randomUUID();
+    await world.db.prisma.account.create({
+      data: {
+        id: actor,
+        logtoIssuer: "https://identity.invalid",
+        logtoSubject: actor,
+      },
+    });
+    await world.db.prisma.accountPermission.create({
+      data: { accountId: actor, permission },
+    });
+    const read = await owner.execute(actor, {
+      operation: "payments.read",
+      operationId: randomUUID(),
+      purchaseRef: purchase.purchaseRef,
+    });
+    expect(read.ok).toBe(permission === "billing:manage");
+    if (permission === "materials:manage")
+      expect(read).toMatchObject({ error: { code: "forbidden" } });
+  }
+});

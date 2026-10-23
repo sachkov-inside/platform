@@ -18,8 +18,6 @@ const config = syntheticTbankConfig({
   terminalKey: "SYNTHETIC",
   password: "synthetic-password",
   bindingEncryptionKey: Buffer.alloc(32, 42).toString("base64"),
-  recurringCardConfirmed: true,
-  cardOnlyHostedConfirmed: true,
   minimumKopecks: 100,
   maximumKopecks: 1000000,
   returnUrl: "https://example.test/account",

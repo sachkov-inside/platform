@@ -1,8 +1,4 @@
-import { accountRightsTransaction } from "../../../src/modules/account-rights/infrastructure/prisma.js";
-import {
-  assembleAccountRights,
-  type AccountRights,
-} from "../../../src/modules/account-rights/index.js";
+import { assembleAccountRights } from "../../../src/modules/account-rights/index.js";
 import type { PlatformPrisma } from "../../../src/infrastructure/prisma/index.js";
 
 export async function enrollPriorParticipantsFixture(

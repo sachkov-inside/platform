@@ -541,7 +541,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "платформа отказывает в решении и запуске возврата даже владельцу и администратору",
+        "scoped Billing permission admits owner reads while Materials permission stays denied",
       ),
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
@@ -557,7 +557,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "владелец читает платежи, условия и остаток к возврату без банковских секретов",
+        "scoped Billing permission admits owner reads while Materials permission stays denied",
       ),
       "nest-http": test(
         billingHttp,
@@ -649,7 +649,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     levels: {
       "facade-postgresql": test(
         billingOperations,
-        "платформа отказывает в решении и запуске возврата даже владельцу и администратору",
+        "scoped Billing permission admits owner reads while Materials permission stays denied",
       ),
       "nest-http": test(
         billingHttp,

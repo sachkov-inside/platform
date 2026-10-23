@@ -1,7 +1,4 @@
-import {
-  grantProductFixture,
-  revokeProductFixture,
-} from "./setup/product-access.js";
+import { grantProductFixture } from "./setup/product-access.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
@@ -64,7 +61,7 @@ describe("Product Artifacts", () => {
   let artifacts: ProductArtifacts;
   let delivery: ProductArtifactDelivery;
   let contentAccess: ContentAccess;
-  let grants: ReturnType<typeof assembleAccessGrants>;
+
   const stored = new Map<string, { body: Uint8Array; contentType: string }>();
   const writes: { key: string; namespace: ObjectStorageNamespace }[] = [];
   const deletes: { key: string; namespace: ObjectStorageNamespace }[] = [];
@@ -138,7 +135,7 @@ describe("Product Artifacts", () => {
       emailFingerprintKey: "synthetic-product-artifact-fingerprint-key",
       prisma: db.prisma,
     });
-    grants = assembleAccessGrants({ accounts, prisma: db.prisma });
+
     const accountRights = assembleAccountRights({
       prisma: db.prisma,
     });

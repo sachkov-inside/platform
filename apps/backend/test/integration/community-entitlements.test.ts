@@ -1,3 +1,7 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { randomUUID } from "node:crypto";
 
 import { Module } from "@nestjs/common";
@@ -218,34 +222,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     accountId: string,
     validUntil: string | null,
   ): Promise<{ grantRef: string; revision: number }> {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "community",
-          accountId,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities: ["community"],
-            reason: "Synthetic community right",
-            startsAt: start,
-            validUntil,
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(JSON.stringify(preview));
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["community"],
-    });
-    const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok || !("grantRef" in row))
-      throw new Error(JSON.stringify(applied));
-    return { grantRef: row.grantRef, revision: row.revision };
+    return communityGrant(database, accountId, true);
   }
 
   async function operations(accountId: string) {
@@ -306,37 +283,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
         identityRef: `identity-${subject}`,
         now: clock(),
       });
-      const preview = await localGrants.previewBatch(localOwner, {
-        operationId: randomUUID(),
-        rows: [
-          {
-            rowKey: "community",
-            accountId,
-            source: "manual",
-            sourceRef: randomUUID(),
-            terms: {
-              capabilities: ["community"],
-              reason: "Stream isolation",
-              startsAt: start,
-              validUntil,
-            },
-          },
-        ],
-      });
-      if (!preview.ok) throw new Error("Preview fixture failed");
-      const applied = await localGrants.applyBatch(localOwner, {
-        operationId: randomUUID(),
-        previewRef: preview.previewRef,
-        expectedRevision: preview.revision,
-        confirmedRows: ["community"],
-      });
-      const grant = applied.ok ? applied.rows[0]?.result : undefined;
-      if (grant === undefined || !grant.ok || !("grantRef" in grant))
-        throw new Error("Grant fixture failed");
       return {
         accountId,
-        grantRef: grant.grantRef,
-        revision: grant.revision,
+        ...(await communityGrant(isolated, accountId, true)),
       };
     }
     return { localAccounts, localOwner, localGrants, localLinks, enroll };
@@ -377,13 +326,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       const original = provider.sent[0];
       if (original === undefined) throw new Error("Admission fixture failed");
       failing = broken.accountId;
-      const revoked = await localGrants.changeGrant(localOwner, {
-        action: "revoke",
-        operationId: randomUUID(),
-        grantRef: broken.grantRef,
-        expectedRevision: broken.revision,
-        reason: "Revoke while projection is unavailable",
-      });
+      const revoked = await revokeProductFixture(
+        isolated.prisma,
+        broken.grantRef,
+      );
       expect(revoked.ok).toBe(true);
       const healthy = await enroll("stream-healthy");
       expect(await app.sweep(1)).toMatchObject({ failed: 1 });
@@ -727,32 +673,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
       kind: "none",
     });
-    const productGrant = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "product",
-          accountId: account,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities: [`product:${productId}`],
-            startsAt: start,
-            validUntil: null,
-            reason: "Product fixture",
-          },
-        },
-      ],
-    });
-    if (!productGrant.ok) throw new Error(productGrant.error.code);
-    expect(
-      await grants.applyBatch(owner, {
-        operationId: randomUUID(),
-        previewRef: productGrant.previewRef,
-        expectedRevision: productGrant.revision,
-        confirmedRows: ["product"],
-      }),
-    ).toMatchObject({ ok: true });
+    await grantProductFixture(database.prisma, account, productId);
     expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
       kind: "link_telegram",
     });
@@ -804,7 +725,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       entitlementRevision: 1,
       purpose: "apply",
     });
-    expect(granted?.access).toEqual({ kind: "finite", validUntil: finish });
+    expect(granted?.access).toEqual({ kind: "lifetime" });
 
     expect(await app.sweep()).toMatchObject({ accepted: 1, sent: 1 });
     expect(provider.sent).toHaveLength(1);
@@ -812,13 +733,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     if (first === undefined) throw new Error("Missing delivered command");
     expect(contractDigest(first)).toBe(granted?.payloadDigest);
 
-    const revoked = await grants.changeGrant(owner, {
-      action: "revoke",
-      grantRef: (await grantsOf(account))[0] ?? "",
-      expectedRevision: 1,
-      operationId: randomUUID(),
-      reason: "Owner revoked the community right",
-    });
+    const revoked = await revokeProductFixture(
+      database.prisma,
+      (await grantsOf(account))[0] ?? "",
+    );
     expect(revoked.ok).toBe(true);
     await app.project(account);
     const [, denial] = await operations(account);
@@ -843,11 +761,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
   });
 
   async function grantsOf(accountId: string): Promise<string[]> {
-    const rows = await database.prisma.accessGrant.findMany({
-      where: { accountId, capabilities: { has: "community" } },
-      orderBy: { revision: "asc" },
+    const rows = await database.prisma.productAccess.findMany({
+      where: { accountId },
+      orderBy: { productId: "asc" },
     });
-    return rows.map((row) => row.id);
+    return rows.map((row) => `${row.accountId}:${row.productId}`);
   }
 
   test("a lost answer is retried under the original operation and payload", async () => {
@@ -902,25 +820,6 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       ok: true,
       capabilities: [{ capability: "community", validUntil: null }],
     });
-  });
-
-  test("a reached expiry boundary denies the right without any user request", async () => {
-    now = new Date(start);
-    const account = await member();
-    await link(account, `identity-${account}`);
-    await grantCommunity(account, finish);
-    const provider = new ProviderDouble();
-    const app = community(provider);
-    await app.sweep();
-    expect(await operations(account)).toHaveLength(1);
-
-    now = new Date(finish);
-    // No access change and no user action: only the stored boundary drives this pass.
-    await app.sweep();
-    const rows = await operations(account);
-    expect(rows).toHaveLength(2);
-    expect(rows[1]).toMatchObject({ entitlementRevision: 2 });
-    expect(rows[1]?.access).toEqual({ kind: "denied" });
   });
 
   test("a queued grant cannot admit after an unlink, and the old identity is closed by its own history", async () => {
@@ -1586,15 +1485,9 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     // A new link transaction to the same identity produces a new opaque recipient.
     await unlink(account);
     await link(account, identity);
-    expect(
-      await grants.changeGrant(owner, {
-        action: "revoke",
-        grantRef,
-        expectedRevision: revision,
-        operationId: randomUUID(),
-        reason: "Owner revoked while the link was being replaced",
-      }),
-    ).toMatchObject({ ok: true });
+    expect(await revokeProductFixture(database.prisma, grantRef)).toMatchObject(
+      { ok: true },
+    );
     await app.project(account);
 
     const rows = await operations(account);
@@ -1762,36 +1655,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     validUntil: string | null,
     includeCommunity = true,
   ): Promise<{ grantRef: string; revision: number }> {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "product",
-          accountId,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities: includeCommunity
-              ? [`product:${randomUUID()}`, "community"]
-              : [`product:${randomUUID()}`],
-            reason: "Synthetic product right",
-            startsAt: start,
-            validUntil,
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(JSON.stringify(preview));
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["product"],
-    });
-    const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok || !("grantRef" in row))
-      throw new Error(JSON.stringify(applied));
-    return { grantRef: row.grantRef, revision: row.revision };
+    return communityGrant(database, accountId, includeCommunity);
   }
 
   test("a Product-only grant never implies community admission", async () => {
@@ -1834,35 +1698,12 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
 
     expect(
-      await grants.changeGrant(owner, {
-        action: "revoke",
-        grantRef: product.grantRef,
-        expectedRevision: product.revision,
-        operationId: randomUUID(),
-        reason: "Owner revoked the product right",
-      }),
+      await revokeProductFixture(database.prisma, product.grantRef),
     ).toMatchObject({ ok: true });
     await app.project(account);
     const [, denial] = await operations(account);
     // The last reason is gone, so the same recipient is told to close participation.
     expect(denial).toMatchObject({ entitlementRevision: 2, purpose: "apply" });
-    expect(denial?.access).toEqual({ kind: "denied" });
-  });
-
-  test("a finite Product right ends participation exactly at its own boundary", async () => {
-    now = new Date(start);
-    const account = await member();
-    await link(account, `identity-${account}`);
-    await grantProduct(account, finish);
-    const app = community(new ProviderDouble());
-
-    await app.project(account);
-    const [admitted] = await operations(account);
-    expect(admitted?.access).toEqual({ kind: "finite", validUntil: finish });
-
-    now = new Date(finish);
-    await app.project(account);
-    const [, denial] = await operations(account);
     expect(denial?.access).toEqual({ kind: "denied" });
   });
 });
@@ -1992,3 +1833,28 @@ describe.each([1, 100, 1000, 1001])(
     });
   },
 );
+
+async function communityGrant(
+  database: TestDatabase,
+  accountId: string,
+  community: boolean,
+) {
+  const productId = randomUUID();
+  await database.prisma.product.create({
+    data: { id: productId, slug: productId, name: "Community Product" },
+  });
+  if (community) {
+    const owner = await database.prisma.account.findFirstOrThrow({
+      where: { permissions: { some: { permission: "platform:admin" } } },
+    });
+    await database.prisma.productCommunity.create({
+      data: { productId, groupRef: "primary", updatedBy: owner.id },
+    });
+  }
+  const grantRef = await grantProductFixture(
+    database.prisma,
+    accountId,
+    productId,
+  );
+  return { grantRef, revision: 1 };
+}

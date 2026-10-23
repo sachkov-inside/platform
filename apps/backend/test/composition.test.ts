@@ -39,8 +39,8 @@ function isAccessGrants(instance: unknown): boolean {
   return (
     typeof instance === "object" &&
     instance !== null &&
-    "applyPaidPeriod" in instance &&
-    typeof instance.applyPaidPeriod === "function" &&
+    "issueProductAccess" in instance &&
+    typeof instance.issueProductAccess === "function" &&
     "resolveCapabilities" in instance &&
     typeof instance.resolveCapabilities === "function"
   );
