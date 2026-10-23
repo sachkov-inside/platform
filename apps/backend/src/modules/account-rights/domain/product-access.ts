@@ -33,3 +33,37 @@ export const productAccessChangeSchema = z.strictObject({
   expectedRevision: z.int().nonnegative(),
   reason: reasonSchema,
 });
+export const productAccessTargetSchema = z.strictObject({
+  accountId: z.uuid(),
+  productId: z.uuid(),
+});
+export const productAccessListQuerySchema = z.strictObject({
+  accountId: z.uuid().optional(),
+  productId: z.uuid().optional(),
+  cursor: z
+    .string()
+    .regex(/^[0-9a-f-]{36}:[0-9a-f-]{36}$/i)
+    .optional(),
+  limit: z.int().min(1).max(100).default(50),
+});
+export const productAccessListSchema = z.strictObject({
+  value: z.array(productAccessViewSchema),
+  nextCursor: z.string().nullable(),
+});
+export const productAccessSourceSchema = z.strictObject({
+  source: z.string(),
+  sourceRef: z.string(),
+  issuedAt: z.iso.datetime(),
+  reason: z.string(),
+});
+export const productAccessActionSchema = z.strictObject({
+  kind: z.string(),
+  actorId: z.uuid().nullable(),
+  reason: z.string(),
+  recordedAt: z.iso.datetime(),
+  revision: z.int().positive(),
+});
+export const productAccessRecordsSchema = productAccessViewSchema.extend({
+  sources: z.array(productAccessSourceSchema),
+  actions: z.array(productAccessActionSchema),
+});
