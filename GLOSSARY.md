@@ -14,7 +14,7 @@ between editorial originals and published application state. This glossary owns 
 A durable, independently discoverable unit of Inside content with one current mutable body,
 metadata, access class and publication state. A Material is either free or closed; a closed
 Material belongs to at least one Product. In Russian product language: «Материал».
-_Avoid_: Post, publication, lesson, публикация
+_Avoid_: Post, publication, публикация
 
 **PublicationState**:
 The current visibility lifecycle of a Material: Draft has never been published, Published is
@@ -124,13 +124,26 @@ Product and does not sell it by itself; only a Product with a Cohort names the s
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
+**Product Catalogue**:
+The distinct Materials included in one Product, whether used in its main programme or as references.
+Including a Material does not by itself choose its position in the programme.
+_Avoid_: Programme, copied Materials, public Product catalogue
+
+**Lesson**:
+A Material used as a step of a Product's learning programme; in Russian product language: «Урок».
+It is the same reusable Material, not another content entity or Format.
+_Avoid_: Material copy, Product Task, separate access unit
+
 **ProgrammePlacement**:
-One position of a Material in a Product's programme. Repeated positions share the same Material and studied mark.
+One ordered occurrence of a Material from a Product Catalogue in that Product's programme,
+optionally within a Product Chapter. Repeated occurrences share the same body and reading state.
 _Avoid_: Material copy, catalogue membership
 
 **ChapterAttachment**:
-An additional Material linked to a Product chapter outside its mandatory programme.
-_Avoid_: Mandatory step, additional chapter
+An ordered reference from a Product Chapter to a Material in the Product Catalogue, independent
+of programme placements. The same Material may be referenced by several chapters and also appear
+in the programme; in Russian product language: «Дополнительный материал главы».
+_Avoid_: Mandatory step, additional chapter, copied Material
 
 **ProductOnboarding**:
 The Product's initial learner path through Telegram linking, community joining and starting learning.
@@ -162,24 +175,15 @@ is an access decision. In Russian product language: «О продукте».
 _Avoid_: Summary, marketing page, access condition, price
 
 **Product Artifact**:
-A standalone practical result a reader takes away — a template, configuration or checklist — with
-a permanent identity, a version history and either stored bytes or one explicitly external
-address. It lives outside every MaterialBody, is reused across Products through separate placements
-rather than copies, and its `origin` says whether the Platform editor or the Engineering Content
-authoring base owns the record. Replacement opens a new version and keeps the identity and the
-placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
+A reusable practical asset, such as a template, configuration or checklist, with its own identity
+and version history, supplied as a file or an explicit external reference. Products include it
+through placements rather than copies; in Russian product language: «Артефакт».
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
 **Product Task**:
-A checkable part of a Product Chapter's result that the learner builds and submits. Its requirements
-include an introduction or situation, required and additional criteria, and the freedom the learner keeps.
-It belongs to exactly one chapter of one Product, has its own order inside that chapter, its own
-access class and a short permanent code. A standalone Task appears after its authored Material
-anchor or at the chapter's start. Embedded practice binds one Task to one main Material of its
-chapter and renders its submission workspace within that Material. Legacy Tasks keep direct access
-and history without a programme row. It is not a Material and not a step of
-the Product's main path, so it carries no lesson number and Product Progress does not count it. In
-Russian product language: «Задание».
+A checkable part of one Product Chapter's result, with versioned requirements, required and
+additional criteria, and learner submissions. It may stand alone or form the practice within one
+Material, independently of reading state and Material progress; in Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task
 
 **Task Version**:
@@ -511,11 +515,6 @@ _Avoid_: Permanent member flag, entitlement
 The single closed Telegram chat whose current roster is the Membership Signal for Inside.
 _Avoid_: Community directory, Tribute roster, audience segment
 
-**Supplementary Material**:
-A Material associated with a Product outside its main reading path, for reference or additional study.
-Its role is specific to that Product and does not change the Material's Format.
-_Avoid_: Product Chapter, copied Material, automatically free content
-
 **Subject**:
 The anonymous visitor or authenticated Account whose access is being decided.
 _Avoid_: Telegram user, authentication context
@@ -539,3 +538,4 @@ These names refer to the same concept; they do not introduce another right or pr
 | Admission Restriction | AdmissionRestriction |
 | Product Purchase | OneTimePurchase |
 | BillingContact | Billing Contact |
+| Supplementary Material | ChapterAttachment |
