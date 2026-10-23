@@ -1,3 +1,8 @@
+import { accountRightsTransaction } from "../../infrastructure/prisma.js";
+import {
+  transactionHandle,
+  type TransactionHandle,
+} from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   tributeImportReviewSchema,
   dismissTributeImportSchema,
@@ -58,11 +63,7 @@ import {
 type TributeTransaction = TributeProjectionPrisma &
   Pick<
     AccountRightsPrisma,
-    | "tributePolicy"
-    | "tributeImportReview"
-    | "accessBatchPreview"
-    | "telegramAccountLinkState"
-    | "telegramAccountLinkHistory"
+    "tributePolicy" | "tributeImportReview" | "accessBatchPreview"
   >;
 
 const importPreviewLifetimeMilliseconds = 10 * 60 * 1_000;
@@ -86,12 +87,15 @@ export class TributeSources {
   constructor(private readonly dependencies: Dependencies) {
     this.clock = dependencies.clock ?? (() => new Date());
   }
-  private async permitted(actorId: string) {
+  private async permitted(actorId: string, handle?: TransactionHandle) {
     if (!z.uuid().safeParse(actorId).success) return false;
-    const decision = await this.dependencies.accounts.checkPermission({
-      accountId: actorId,
-      permission: "billing:manage",
-    });
+    const decision = await this.dependencies.accounts.checkPermission(
+      {
+        accountId: actorId,
+        permission: "billing:manage",
+      },
+      handle,
+    );
     return decision.ok && decision.allowed;
   }
   async policies() {
@@ -111,16 +115,22 @@ export class TributeSources {
       }),
     );
   }
-  /** Authorize before Billing opens its pricing transaction; the writer uses that transaction. */
-  async preparePolicy(actorId: string, input: unknown) {
-    if (!(await this.permitted(actorId))) return accessFailure("forbidden");
+  async savePolicyJoined(
+    actorId: string,
+    input: unknown,
+    tier: unknown,
+    handle: TransactionHandle,
+  ) {
+    if (!(await this.permitted(actorId, handle)))
+      return accessFailure("forbidden");
     const parsed = saveTributePolicySchema.safeParse(input);
     if (!parsed.success) return accessFailure("invalid_input");
-    return {
-      ok: true as const,
-      value: (tx: TributeTransaction, tier: unknown) =>
-        this.savePolicy(tx, actorId, parsed.data, tier),
-    };
+    return this.savePolicy(
+      accountRightsTransaction(handle),
+      actorId,
+      parsed.data,
+      tier,
+    );
   }
   private async savePolicy(
     tx: TributeTransaction,
@@ -236,7 +246,7 @@ export class TributeSources {
         ? null
         : await this.dependencies.links.findCurrentByIdentity(
             row.identityRef,
-            tx,
+            transactionHandle(tx),
           );
     const previousStart = prior?.startsAt ?? enrollment?.startsAt.toISOString();
     const previousEnd = prior?.endsAt ?? enrollment?.endsAt?.toISOString();
@@ -454,18 +464,31 @@ export class TributeSources {
       return { ok: true as const, value };
     });
   }
-  async prepareApply(actorId: string, input: unknown) {
-    if (!(await this.permitted(actorId))) return accessFailure("forbidden");
+  async previewImportTiers(
+    actorId: string,
+    input: unknown,
+    handle: TransactionHandle,
+  ) {
+    if (!(await this.permitted(actorId, handle)))
+      return accessFailure("forbidden");
     const parsed = applyTributeImportSchema.safeParse(input);
     if (!parsed.success) return accessFailure("invalid_input");
-    return {
-      ok: true as const,
-      value: {
-        previewTiers: (tx: TributeTransaction) =>
-          this.previewTiers(tx, actorId, parsed.data),
-        apply: (tx: TributeTransaction) => this.apply(tx, actorId, parsed.data),
-      },
-    };
+    return this.previewTiers(
+      accountRightsTransaction(handle),
+      actorId,
+      parsed.data,
+    );
+  }
+  async applyImport(
+    actorId: string,
+    input: unknown,
+    handle: TransactionHandle,
+  ) {
+    if (!(await this.permitted(actorId, handle)))
+      return accessFailure("forbidden");
+    const parsed = applyTributeImportSchema.safeParse(input);
+    if (!parsed.success) return accessFailure("invalid_input");
+    return this.apply(accountRightsTransaction(handle), actorId, parsed.data);
   }
   /** Billing holds its pricing lock before reading a receipt or checking catalog eligibility. */
   private async previewTiers(
@@ -1005,7 +1028,7 @@ export class TributeSources {
     });
   }
   /** Each candidate commits under its own Billing pricing transaction. */
-  async prepareSweep(limit = 50) {
+  async readSweepCandidates(limit = 50) {
     const now = this.clock();
     const rows = await this.dependencies.prisma.sourceEntitlement.findMany({
       where: {
@@ -1018,87 +1041,92 @@ export class TributeSources {
       ],
       take: Math.min(100, Math.max(1, limit)),
     });
-    return rows.map(
-      (candidate) =>
-        async (tx: TributeTransaction, eligibleTierIds: readonly string[]) => {
-          const state = tributeStateSchema.safeParse(candidate.tributeState);
-          if (!state.success) {
-            await tx.sourceEntitlement.update({
-              where: { id: candidate.id },
-              data: {
-                reconcileAt: new Date(
-                  now.getTime() + reconciliationIntervalMilliseconds,
-                ),
-              },
-            });
-            return { attached: 0, pending: 1 };
-          }
-          const link = await this.dependencies.links.findCurrentByIdentity(
-            candidate.identityRef,
-            tx,
-          );
-          if (link.ok && link.state === "found")
-            await lockTelegramAccountBinding(tx, link.recipient.accountId);
-          await lockAccountAccess(
-            tx,
-            `enrollment:tribute:${candidate.sourceRef}`,
-          );
-          const row = await tx.sourceEntitlement.findUniqueOrThrow({
-            where: { id: candidate.id },
-          });
-          const accountIds = [
-            row.accountId,
-            link.ok && link.state === "found" ? link.recipient.accountId : null,
-          ].filter((id): id is string => id !== null);
-          for (const accountId of [...new Set(accountIds)].sort())
-            await lockAccountEntitlementChanges(tx, accountId);
-          await tx.sourceEntitlement.update({
-            where: { id: row.id },
-            data: {
-              reconcileAt: new Date(
-                now.getTime() + reconciliationIntervalMilliseconds,
-              ),
-            },
-          });
-          if (row.accountId !== null && row.enrollmentId !== null)
-            return { attached: 0, pending: 0 };
-          const policy = await tx.tributePolicy.findUnique({
-            where: { id: row.sourcePolicyRef },
-          });
-          if (
-            !link.ok ||
-            link.state !== "found" ||
-            policy?.enabled !== true ||
-            !eligibleTierIds.includes(state.data.tier.id)
-          )
-            return { attached: 0, pending: 1 };
-          const current = await this.dependencies.links.readBinding(
-            { accountId: link.recipient.accountId },
-            tx,
-          );
-          if (
-            !current.ok ||
-            current.binding?.accountRef !== link.recipient.accountRef ||
-            current.binding.telegramIdentityRef !== row.identityRef ||
-            current.binding.linkRef !== link.recipient.linkRef ||
-            current.binding.linkRevision !== link.recipient.linkRevision
-          )
-            return { attached: 0, pending: 1 };
-          const fresh = tributeStateSchema.parse(row.tributeState);
-          const result = await projectTributeSource(
-            tx,
-            row,
-            fresh,
-            link.recipient.accountId,
-            null,
-            "Сопоставление подтверждённого Tribute после linking",
-            now,
-          );
-          return result.ok
-            ? { attached: 1, pending: 0 }
-            : { attached: 0, pending: 1 };
+    return rows.map((row) => row.id);
+  }
+  async reconcileCandidate(
+    candidateId: string,
+    eligibleTierIds: readonly string[],
+    handle: TransactionHandle,
+  ) {
+    const tx = accountRightsTransaction(handle);
+    const now = this.clock();
+    const candidate = await tx.sourceEntitlement.findUnique({
+      where: { id: candidateId },
+    });
+    if (candidate === null) return { attached: 0, pending: 0 };
+    const state = tributeStateSchema.safeParse(candidate.tributeState);
+    if (!state.success) {
+      await tx.sourceEntitlement.update({
+        where: { id: candidate.id },
+        data: {
+          reconcileAt: new Date(
+            now.getTime() + reconciliationIntervalMilliseconds,
+          ),
         },
+      });
+      return { attached: 0, pending: 1 };
+    }
+    const link = await this.dependencies.links.findCurrentByIdentity(
+      candidate.identityRef,
+      transactionHandle(tx),
     );
+    if (link.ok && link.state === "found")
+      await lockTelegramAccountBinding(tx, link.recipient.accountId);
+    await lockAccountAccess(tx, `enrollment:tribute:${candidate.sourceRef}`);
+    const row = await tx.sourceEntitlement.findUniqueOrThrow({
+      where: { id: candidate.id },
+    });
+    const accountIds = [
+      row.accountId,
+      link.ok && link.state === "found" ? link.recipient.accountId : null,
+    ].filter((id): id is string => id !== null);
+    for (const accountId of [...new Set(accountIds)].sort())
+      await lockAccountEntitlementChanges(tx, accountId);
+    await tx.sourceEntitlement.update({
+      where: { id: row.id },
+      data: {
+        reconcileAt: new Date(
+          now.getTime() + reconciliationIntervalMilliseconds,
+        ),
+      },
+    });
+    if (row.accountId !== null && row.enrollmentId !== null)
+      return { attached: 0, pending: 0 };
+    const policy = await tx.tributePolicy.findUnique({
+      where: { id: row.sourcePolicyRef },
+    });
+    if (
+      !link.ok ||
+      link.state !== "found" ||
+      policy?.enabled !== true ||
+      !eligibleTierIds.includes(state.data.tier.id)
+    )
+      return { attached: 0, pending: 1 };
+    const current = await this.dependencies.links.readBinding(
+      { accountId: link.recipient.accountId },
+      transactionHandle(tx),
+    );
+    if (
+      !current.ok ||
+      current.binding?.accountRef !== link.recipient.accountRef ||
+      current.binding.telegramIdentityRef !== row.identityRef ||
+      current.binding.linkRef !== link.recipient.linkRef ||
+      current.binding.linkRevision !== link.recipient.linkRevision
+    )
+      return { attached: 0, pending: 1 };
+    const fresh = tributeStateSchema.parse(row.tributeState);
+    const result = await projectTributeSource(
+      tx,
+      row,
+      fresh,
+      link.recipient.accountId,
+      null,
+      "Сопоставление подтверждённого Tribute после linking",
+      now,
+    );
+    return result.ok
+      ? { attached: 1, pending: 0 }
+      : { attached: 0, pending: 1 };
   }
 }
 

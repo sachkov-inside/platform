@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
   contentWriter,
@@ -134,7 +135,7 @@ export function assembleDeleteDraft(
             }
             if (command.deleteVideoId !== null) {
               const deletion = await requestVideoDeletion(
-                transaction,
+                transactionHandle(transaction),
                 {
                   actor: command.actor,
                   materialId: command.materialId,

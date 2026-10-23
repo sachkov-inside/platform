@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { createHash, randomUUID } from "node:crypto";
@@ -115,7 +116,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     await expect(assets.upload(input)).resolves.toEqual(uploaded);
     await expect(
-      assets.inspectReferences(database.prisma, materialId, [
+      assets.inspectReferences(transactionHandle(database.prisma), materialId, [
         { assetId: uploaded.value.assetId, kind: "file" },
       ]),
     ).resolves.toEqual({ ok: true, value: [] });

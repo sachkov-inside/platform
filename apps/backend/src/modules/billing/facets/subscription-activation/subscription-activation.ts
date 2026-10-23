@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import {
   accessCapabilitySchema,
@@ -259,7 +260,7 @@ export class SubscriptionActivation {
       await lockTelegramAccountBinding(tx, accountId);
       const current = await this.dependencies.bindings.readBinding(
         { accountId },
-        tx,
+        transactionHandle(tx),
       );
       if (
         !current.ok ||
@@ -475,7 +476,7 @@ export class SubscriptionActivation {
           error: { code: "revision_conflict" as const },
         };
       return this.dependencies.grants.activateSubscription(
-        tx,
+        transactionHandle(tx),
         this.dependencies.bindings,
         linked,
         parsed.data,

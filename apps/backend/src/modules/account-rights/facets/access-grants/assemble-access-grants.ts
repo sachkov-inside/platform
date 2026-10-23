@@ -1,4 +1,10 @@
 import {
+  transactionHandle,
+  type TransactionHandle,
+} from "../../../../infrastructure/prisma/transaction-handle.js";
+import { reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import { accountRightsTransaction } from "../../infrastructure/prisma.js";
+import {
   readActivationContinuation,
   readActivationIntent,
 } from "../../features/activate-subscription/read-activation-continuation.js";
@@ -9,10 +15,7 @@ import {
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
 import { coverageSchema, productCapability } from "@inside/access-capabilities";
-import {
-  dependencyFailure,
-  reportDependencyFailure,
-} from "../../../../infrastructure/observability/index.js";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
 import { assembleEnrollmentViews } from "../../shared/enrollment-views.js";
@@ -22,7 +25,6 @@ import {
   beginActivation,
   activateSubscription,
   readActivationReceipt,
-  type SubscriptionActivationTransaction,
 } from "../../features/activate-subscription/activate-subscription.js";
 import {
   activationRuleSchema,
@@ -49,9 +51,6 @@ import {
 import type {
   AccountRightsPrisma,
   AccountRightsPrismaClient,
-  MembershipEnrollmentPrisma,
-  MembershipEnrollmentPreviewPrisma,
-  MembershipActivationRulePrisma,
 } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
@@ -213,26 +212,40 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       );
     }
   }
-  async function prepareEnrollmentAssignment(actorId: string, input: unknown) {
-    const parsed = assignEnrollmentSchema.safeParse(input);
-    if (!parsed.success) return accessFailure("invalid_input");
-    if (
-      (await accounts.readIdentityForLink(parsed.data.accountId)) === undefined
-    )
-      return accessFailure("not_found");
-    const now = clock();
-    return {
-      ok: true as const,
-      assign: (transaction: MembershipEnrollmentPrisma, snapshot: unknown) =>
-        assignEnrollment(
-          transaction,
-          actorId,
-          parsed.data,
-          snapshot,
-          now,
-          dependencies.recipientLinks,
-        ),
-    };
+  function inTransaction<Result>(
+    handle: TransactionHandle | undefined,
+    operation: (transaction: AccountRightsPrisma) => Promise<Result>,
+  ) {
+    return handle === undefined
+      ? prisma.$transaction(operation)
+      : operation(accountRightsTransaction(handle));
+  }
+  async function manageTransaction<Result>(
+    actorId: string,
+    permission: PlatformPermission,
+    handle: TransactionHandle | undefined,
+    operation: (transaction: AccountRightsPrisma) => Promise<Result>,
+    operationName: string,
+  ) {
+    try {
+      return await inTransaction(handle, async (transaction) => {
+        if (!z.uuid().safeParse(actorId).success)
+          return accessFailure("invalid_input");
+        const decision = await accounts.checkPermission(
+          { accountId: actorId, permission },
+          transactionHandle(transaction),
+        );
+        if (!decision.ok) return accessFailure("unavailable");
+        if (!decision.allowed) return accessFailure("forbidden");
+        return operation(transaction);
+      });
+    } catch (error) {
+      reportDependencyFailure(
+        { module: "account-rights", operation: operationName },
+        error,
+      );
+      throw error;
+    }
   }
   return Object.freeze({
     lookupRecipient: (actorId: string, identityRef: string) =>
@@ -277,91 +290,46 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       actorId: string,
       input: unknown,
       tier: unknown,
+      handle?: TransactionHandle,
     ) =>
-      manage(actorId, "billing:manage", () =>
-        prisma.$transaction((tx) =>
-          previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
-        ),
-      ),
-    prepareEnrollmentExpansion: (actorId: string, input: unknown) =>
-      manage(
+      manageTransaction(
         actorId,
         "billing:manage",
-        () =>
-          Promise.resolve({
-            ok: true as const,
-            preview: async (
-              tx: MembershipEnrollmentPreviewPrisma,
-              tier: unknown,
-            ) => {
-              try {
-                return await previewEnrollmentExpansion(
-                  tx,
-                  actorId,
-                  input,
-                  tier,
-                  clock(),
-                );
-              } catch (error) {
-                reportDependencyFailure(
-                  {
-                    module: "account-rights",
-                    operation: "previewEnrollmentExpansion",
-                  },
-                  error,
-                );
-                // The caller owns the transaction: rethrow to roll back partial writes.
-                throw error;
-              }
-            },
-          }),
-        "prepareEnrollmentExpansion",
+        handle,
+        (tx) => previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
+        "previewEnrollmentExpansion",
       ),
     applyEnrollmentExpansion: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
         applyEnrollmentExpansion(prisma, actorId, input, clock()),
       ),
-    /** Permission and Account reads finish before the caller opens its transaction. */
-    prepareEnrollmentAssignment: (actorId: string, command: unknown) =>
-      manage(
+    assignEnrollment: (
+      actorId: string,
+      input: unknown,
+      snapshot: unknown,
+      handle?: TransactionHandle,
+    ) =>
+      manageTransaction(
         actorId,
         "billing:manage",
-        async () => {
-          const prepared = await prepareEnrollmentAssignment(actorId, command);
-          if (!prepared.ok) return prepared;
-          return {
-            ok: true as const,
-            assign: async (
-              transaction: MembershipEnrollmentPrisma,
-              snapshot: unknown,
-            ) => {
-              try {
-                return await prepared.assign(transaction, snapshot);
-              } catch (error) {
-                reportDependencyFailure(
-                  {
-                    module: "account-rights",
-                    operation: "assignEnrollment",
-                  },
-                  error,
-                );
-                // The caller owns the transaction: rethrow to roll back partial writes.
-                throw error;
-              }
-            },
-          };
-        },
-        "prepareEnrollmentAssignment",
-      ),
-    assignEnrollment: (actorId: string, command: unknown, snapshot: unknown) =>
-      manage(
-        actorId,
-        "billing:manage",
-        async () => {
-          const prepared = await prepareEnrollmentAssignment(actorId, command);
-          if (!prepared.ok) return prepared;
-          return prisma.$transaction((transaction) =>
-            prepared.assign(transaction, snapshot),
+        handle,
+        async (tx) => {
+          const parsed = assignEnrollmentSchema.safeParse(input);
+          if (!parsed.success) return accessFailure("invalid_input");
+          if (
+            (await accounts.readIdentityForLink(
+              parsed.data.accountId,
+              transactionHandle(tx),
+            )) === undefined
+          )
+            return accessFailure("not_found");
+          return assignEnrollment(
+            tx,
+            actorId,
+            parsed.data,
+            snapshot,
+            clock(),
+            dependencies.recipientLinks,
           );
         },
         "assignEnrollment",
@@ -374,36 +342,17 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         registerSourceEntitlement(prisma, actorId, input, clock()),
       ),
-    manageActivationRule: (actorId: string, input: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        prisma.$transaction((tx) =>
-          manageActivationRule(tx, actorId, input, clock()),
-        ),
-      ),
-    prepareActivationRule: (actorId: string, input: unknown) =>
-      manage(
+    manageActivationRule: (
+      actorId: string,
+      input: unknown,
+      handle?: TransactionHandle,
+    ) =>
+      manageTransaction(
         actorId,
         "billing:manage",
-        () =>
-          Promise.resolve({
-            ok: true as const,
-            save: async (tx: MembershipActivationRulePrisma) => {
-              try {
-                return await manageActivationRule(tx, actorId, input, clock());
-              } catch (error) {
-                reportDependencyFailure(
-                  {
-                    module: "account-rights",
-                    operation: "manageActivationRule",
-                  },
-                  error,
-                );
-                // The caller owns the transaction: rethrow to roll back partial writes.
-                throw error;
-              }
-            },
-          }),
-        "prepareActivationRule",
+        handle,
+        (tx) => manageActivationRule(tx, actorId, input, clock()),
+        "manageActivationRule",
       ),
     listActivationRules: (actorId: string) =>
       manage(actorId, "billing:manage", async () => {
@@ -533,12 +482,20 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     redeemInvitation: (input: unknown, context: RedeemInvitationContext) =>
       redeemInvitation(prisma, input, context, clock()),
     activateSubscription: (
-      tx: SubscriptionActivationTransaction,
+      handle: TransactionHandle,
       bindings: Pick<ActivationBindings, "readBinding">,
       linked: Awaited<ReturnType<ActivationBindings["find"]>>,
       input: unknown,
       tier: unknown,
-    ) => activateSubscription(tx, bindings, linked, input, tier, clock()),
+    ) =>
+      activateSubscription(
+        accountRightsTransaction(handle),
+        bindings,
+        linked,
+        input,
+        tier,
+        clock(),
+      ),
     async readOwnEnrollments(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
@@ -569,13 +526,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
-    async readCompatibilityCoverage(
-      tx?: Pick<AccountRightsPrisma, "$queryRaw">,
-    ) {
+    async readCompatibilityCoverage(handle?: TransactionHandle) {
       const rows = z
         .array(z.object({ scope: coverageSchema }))
         .parse(
-          await (tx ?? prisma)
+          await (handle === undefined
+            ? prisma
+            : accountRightsTransaction(handle)
+          )
             .$queryRaw`SELECT scope FROM account_rights.coverage_baseline WHERE id = 1`,
         );
       const row = rows[0];
@@ -665,9 +623,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
      * входит: он читает замороженный состав миграции и новых руководств не содержит.
      */
     async countProductHolders(
-      transaction: Pick<AccountRightsPrisma, "$queryRaw">,
+      handle: TransactionHandle,
       productIds: readonly string[],
     ): Promise<ReadonlyMap<string, number>> {
+      const transaction = accountRightsTransaction(handle);
       const ids = z
         .array(z.uuid())
         .max(100)
@@ -916,7 +875,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     /** Читает границу и продолжение на соединении вызывающего кода, если передана транзакция. */
     async readEnrollmentEnding(
       enrollmentId: string,
-      transaction?: Pick<AccountRightsPrisma, "tariffAssignment">,
+      handle?: TransactionHandle,
     ) {
       if (!z.uuid().safeParse(enrollmentId).success)
         return accessFailure("invalid_input");
@@ -924,8 +883,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         return {
           ok: true as const,
           value:
-            (await readEnrollmentEnding(transaction ?? prisma, enrollmentId)) ??
-            null,
+            (await readEnrollmentEnding(
+              handle === undefined ? prisma : accountRightsTransaction(handle),
+              enrollmentId,
+            )) ?? null,
         };
       } catch (error) {
         return dependencyFailure(

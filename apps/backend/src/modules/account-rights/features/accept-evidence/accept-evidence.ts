@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import { observeTemporaryTribute } from "../manage-tribute/observe-temporary-tribute.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -253,7 +254,7 @@ export async function acceptMembershipEvidence(
     ) {
       const current = await links.readBinding(
         { accountId: command.accountId },
-        transaction,
+        transactionHandle(transaction),
       );
       if (
         current.ok &&

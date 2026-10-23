@@ -1,5 +1,5 @@
+import type { TransactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
 import { z } from "zod";
-import type { AccountRightsPrisma } from "../infrastructure/prisma.js";
 import {
   instantSchema,
   reasonSchema,
@@ -112,10 +112,7 @@ export interface ActivationBindings {
   >;
   readBinding(
     query: { accountId: string },
-    transaction?: Pick<
-      AccountRightsPrisma,
-      "telegramAccountLinkState" | "telegramAccountLinkHistory"
-    >,
+    transaction?: TransactionHandle,
   ): Promise<
     | {
         ok: true;

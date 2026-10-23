@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   lockAccountEntitlementChanges,
   lockAccountAccess,
@@ -118,7 +119,7 @@ export async function applyGrantBatch(
     // Validate every selected mapping before writing any grant.
     const identities = await accounts.readIdentitiesForLink(
       rows.map((row) => row.accountId),
-      transaction,
+      transactionHandle(transaction),
     );
     for (const row of rows) {
       const identity = identities.get(row.accountId);

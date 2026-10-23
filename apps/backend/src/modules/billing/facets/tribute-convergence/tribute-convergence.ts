@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { z } from "zod";
 import {
   lockBillingPricing,
@@ -38,8 +39,6 @@ export class TributeConvergence {
     const parsed = saveTributePolicySchema.safeParse(input);
     if (!parsed.success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
-    const prepared = await this.sources.preparePolicy(actorId, input);
-    if (!prepared.ok) return prepared;
     return this.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const row = await tx.billingOffer.findUnique({
@@ -59,15 +58,22 @@ export class TributeConvergence {
         benefits: row.benefits,
         coverage: row.coverage,
       });
-      return prepared.value(tx, tier);
+      return this.sources.savePolicyJoined(
+        actorId,
+        input,
+        tier,
+        transactionHandle(tx),
+      );
     });
   }
   async apply(actorId: string, input: unknown) {
-    const prepared = await this.sources.prepareApply(actorId, input);
-    if (!prepared.ok) return prepared;
     return this.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
-      const snapshots = await prepared.value.previewTiers(tx);
+      const snapshots = await this.sources.previewImportTiers(
+        actorId,
+        input,
+        transactionHandle(tx),
+      );
       if (!snapshots.ok) return snapshots;
       for (const tier of snapshots.value) {
         const current = await tx.billingOffer.findUnique({
@@ -81,14 +87,14 @@ export class TributeConvergence {
             error: { code: "revision_conflict" as const },
           };
       }
-      return prepared.value.apply(tx);
+      return this.sources.applyImport(actorId, input, transactionHandle(tx));
     });
   }
   async sweep(limit = 50) {
-    const candidates = await this.sources.prepareSweep(limit);
+    const candidates = await this.sources.readSweepCandidates(limit);
     let attached = 0;
     let pending = 0;
-    for (const reconcile of candidates) {
+    for (const candidateId of candidates) {
       const result = await this.prisma.$transaction(async (tx) => {
         await lockBillingPricing(tx);
         const tiers = await tx.billingOffer.findMany({
@@ -102,11 +108,12 @@ export class TributeConvergence {
           },
         });
         // Тариф без состава не назначается: подтверждённый источник ждёт, пока состав задан.
-        return reconcile(
-          tx,
+        return this.sources.reconcileCandidate(
+          candidateId,
           tiers
             .filter(tierOpenForAssignment)
             .map((tier) => z.uuid().parse(tier.id)),
+          transactionHandle(tx),
         );
       });
       attached += result.attached;

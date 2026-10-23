@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 
 export const videoAccessSchema = z.enum(["free", "closed"]);
 export const videoOriginSchema = z.enum([
@@ -179,7 +179,7 @@ export interface Videos {
   }): Promise<AcceptVideoWebhookResult>;
   /** Reads in the caller's transaction, under the Material reference lock it holds. */
   inspectPrimaryReference(
-    transaction: Pick<VideosPrisma, "video">,
+    transaction: TransactionHandle,
     input: {
       readonly access: VideoAccess;
       readonly materialId: string;
@@ -210,7 +210,7 @@ export interface Videos {
       readonly materialId: string;
       readonly videoId: string;
     },
-    transaction?: Pick<VideosPrisma, "video">,
+    transaction?: TransactionHandle,
   ): Promise<
     OperationResult<
       VideoAuthoringPresentation | null,

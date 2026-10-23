@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { courseSourceRef } from "../../domain/source-identity.js";
 import { randomUUID } from "node:crypto";
 import {
@@ -25,20 +26,7 @@ import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
-/** Billing hands its transaction to Membership and Telegram; no pooled client is needed. */
-export type SubscriptionActivationTransaction = Pick<
-  AccountRightsPrisma,
-  | "$executeRaw"
-  | "activationRule"
-  | "activationAttempt"
-  | "accessReceipt"
-  | "tariffAssignment"
-  | "sourceEntitlement"
-  | "accessGrant"
-  | "accessChange"
-  | "telegramAccountLinkState"
-  | "telegramAccountLinkHistory"
->;
+type SubscriptionActivationTransaction = AccountRightsPrisma;
 const sourceProofLifetimeMilliseconds = 5 * 60 * 1000;
 export async function beginActivation(
   prisma: AccountRightsPrismaClient,
@@ -196,7 +184,10 @@ export async function activateSubscription(
   )
     return accessFailure("revision_conflict");
   await lockTelegramAccountBinding(tx, accountId);
-  const binding = await bindings.readBinding({ accountId }, tx);
+  const binding = await bindings.readBinding(
+    { accountId },
+    transactionHandle(tx),
+  );
   if (!binding.ok) return accessFailure("unavailable");
   if (
     binding.binding === null ||

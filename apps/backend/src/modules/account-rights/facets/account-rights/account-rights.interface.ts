@@ -1,8 +1,5 @@
 import type { AccountId } from "../../../accounts/index.js";
-import type {
-  MembershipAccessPrisma,
-  MembershipPrincipalBindingPrisma,
-} from "../../infrastructure/prisma.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 
 export type MembershipAccessState =
   | Readonly<{ kind: "active"; validUntil: string | null }>
@@ -65,7 +62,7 @@ export interface AccountRights {
     accountIds: readonly AccountId[],
     productIds?: readonly string[],
     materialId?: string,
-    transaction?: MembershipAccessPrisma,
+    transaction?: TransactionHandle,
   ): Promise<ReadonlyMap<string, MembershipAccessState>>;
   resolveManyForAccess?(
     accountId: AccountId,
@@ -82,11 +79,11 @@ export interface AccountRights {
   /**
    * Membership of the whole Account in the caller's transaction, which already holds
    * `lockAccountEntitlementChanges` for it, so the facts that open access cannot change under the
-   * reads. The caller's transaction type lists `MembershipAccessPrisma` to hand itself over, and no
+   * reads. The caller's transaction type lists `TransactionHandle` to hand itself over, and no
    * second pooled connection is taken.
    */
   resolveForAccessUnderEntitlementLock(
-    transaction: MembershipAccessPrisma,
+    transaction: TransactionHandle,
     accountId: AccountId,
   ): Promise<MembershipAccessState>;
   /** The optional caller transaction keeps its receipt and the Membership binding atomic. */
@@ -95,7 +92,7 @@ export interface AccountRights {
       readonly accountId: AccountId;
       readonly principalRef: string;
     },
-    transaction?: MembershipPrincipalBindingPrisma,
+    transaction?: TransactionHandle,
   ): Promise<MembershipPrincipalBinding>;
   /**
    * Applies normalized evidence monotonically. Only link-time observed evidence may establish a

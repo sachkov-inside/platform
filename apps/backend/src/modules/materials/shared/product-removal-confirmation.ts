@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 
 import type { MaterialsPrismaTransaction } from "../../../infrastructure/prisma/index.js";
@@ -15,7 +16,10 @@ export async function heldProductRemovals(
 ): Promise<readonly HeldProductRemoval[]> {
   if (holders === undefined || productIds.length === 0) return [];
   const unique = [...new Set(productIds)];
-  const counts = await holders.countProductHolders(transaction, unique);
+  const counts = await holders.countProductHolders(
+    transactionHandle(transaction),
+    unique,
+  );
   const held = unique.filter((productId) => (counts.get(productId) ?? 0) > 0);
   if (held.length === 0) return [];
   const products = await transaction.product.findMany({

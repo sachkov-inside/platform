@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { videosTransaction } from "../../infrastructure/transaction.js";
 import {
   videoIdSchema,
   videoMaterialIdSchema,
@@ -13,8 +14,6 @@ const detachmentInput = z
   })
   .strict();
 
-type VideoDetachmentPrisma = Pick<VideosPrisma, "video">;
-
 export type RecordVideoDetachmentResult =
   | Readonly<{ ok: true }>
   | Readonly<{ ok: false; code: "invalid_request" | "video_not_found" }>;
@@ -26,13 +25,14 @@ export type RecordVideoDetachmentResult =
  * object stays; deleting it remains a separate explicit request.
  */
 export async function recordVideoDetachment(
-  prisma: VideoDetachmentPrisma,
+  handle: TransactionHandle,
   input: {
     readonly materialId: string;
     readonly videoIds: readonly string[];
   },
   detachedAt: Date,
 ): Promise<RecordVideoDetachmentResult> {
+  const prisma = videosTransaction(handle);
   const parsed = detachmentInput.safeParse(input);
   if (!parsed.success) return { code: "invalid_request", ok: false };
   const videoIds = [...new Set(parsed.data.videoIds)];

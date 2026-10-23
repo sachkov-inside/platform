@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { TributeConvergence } from "../tribute-convergence/tribute-convergence.js";
 import { z } from "zod";
@@ -83,12 +84,12 @@ interface Dependencies {
     | "classifyLegacy"
     | "readClassification"
     | "registerSourceEntitlement"
-    | "prepareActivationRule"
+    | "manageActivationRule"
     | "listActivationRules"
-    | "prepareEnrollmentExpansion"
+    | "previewEnrollmentExpansion"
     | "applyEnrollmentExpansion"
     | "readEnrollmentAssignmentReceipt"
-    | "prepareEnrollmentAssignment"
+    | "assignEnrollment"
     | "changeEnrollment"
     | "listEnrollments"
     | "issueInvitation"
@@ -478,8 +479,6 @@ export class BillingOperations {
       }
       case "activationRules.save": {
         const { operation: _operation, ...input } = command;
-        const prepared = await grants.prepareActivationRule(actorId, input);
-        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -504,7 +503,11 @@ export class BillingOperations {
             row?.revision !== command.value.tierRevision
           )
             return ownerFailure("revision_conflict");
-          const result = await prepared.save(tx);
+          const result = await grants.manageActivationRule(
+            actorId,
+            input,
+            transactionHandle(tx),
+          );
           return result.ok
             ? {
                 ok: true,
@@ -516,11 +519,6 @@ export class BillingOperations {
       }
       case "enrollments.previewExpansion": {
         const { operation: _operation, ...input } = command;
-        const prepared = await grants.prepareEnrollmentExpansion(
-          actorId,
-          input,
-        );
-        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -530,17 +528,22 @@ export class BillingOperations {
           if (row.revision !== command.tierRevision)
             return ownerFailure("revision_conflict");
           if (offerGrantsWithheld(row)) return ownerFailure("state_conflict");
-          const result = await prepared.preview(tx, {
-            id: row.id,
-            revision: row.revision,
-            name: row.name,
-            benefits: row.benefits,
-            benefitPeriods: row.benefitPeriods,
-            coverage: row.coverage ?? {
-              productIds: [],
-              materialIds: [],
+          const result = await grants.previewEnrollmentExpansion(
+            actorId,
+            input,
+            {
+              id: row.id,
+              revision: row.revision,
+              name: row.name,
+              benefits: row.benefits,
+              benefitPeriods: row.benefitPeriods,
+              coverage: row.coverage ?? {
+                productIds: [],
+                materialIds: [],
+              },
             },
-          });
+            transactionHandle(tx),
+          );
           return result.ok
             ? {
                 ok: true,
@@ -649,11 +652,6 @@ export class BillingOperations {
                       ? "dependency_unavailable"
                       : receipt.error.code,
               );
-        const prepared = await grants.prepareEnrollmentAssignment(
-          actorId,
-          input,
-        );
-        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async function assignEnrollmentWithTier(tx) {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -679,7 +677,12 @@ export class BillingOperations {
             coverage: row.coverage ?? { productIds: [], materialIds: [] },
           });
           if (!tier.success) return ownerFailure("invalid_request");
-          const result = await prepared.assign(tx, tier.data);
+          const result = await grants.assignEnrollment(
+            actorId,
+            input,
+            tier.data,
+            transactionHandle(tx),
+          );
           return result.ok
             ? {
                 ok: true,
