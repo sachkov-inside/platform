@@ -436,7 +436,7 @@ _Avoid_: Product Price, Payment Link, discount reservation, Payment
 **Payment Link**:
 An owner-created, transferable link for one successful Product purchase at a saved price, with
 optional expiry or withdrawal. It differs from an ordinary Product checkout address and proves
-neither buyer identity nor payment.
+neither buyer identity nor payment; it cannot bypass closed Product sales.
 _Avoid_: Bank return URL, Product Access, Invitation, ordinary promo checkout address
 
 **Survey Respondent**:
