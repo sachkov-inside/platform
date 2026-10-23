@@ -1,7 +1,10 @@
 # Billing contact: хранение, отправка и проверка
 
-[Спецификация](../specifications/subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406)
-владеет поведением и лимитами. Accounts хранит адрес в AES-256-GCM envelope `v1`, со случайным nonce
+[Историческая спецификация](../specifications/subscription-billing-v1.md#подтверждённый-контакт-и-согласия--406)
+описывает подтверждение сохранённого контакта и его лимиты. В модели Product контакт остаётся
+отдельным фактом Account для сохранённых адресов и служебных сообщений. Он не становится
+Sign-in Email и не заменяет неизменяемый Order Email конкретной покупки. Форма подтверждения
+сохранённого контакта в кабинете удалена; checkout принимает Order Email без такой формы. Accounts хранит адрес в AES-256-GCM envelope `v1`, со случайным nonce
 и привязкой ciphertext к Account через AAD; коды и адрес для recipient limit представлены keyed HMAC.
 Открытый адрес возвращается только собственному authenticated Account. В логах нет email, кодов,
 SMTP credentials или accepted document payload. Сохранённые evidence доступны по собственному ID.
@@ -45,10 +48,14 @@ The [purchase email policy](../product/subscription-billing-v1.md#purchase-email
 синтетическую Logto-compatible identity, настоящий API и Next BFF. API и Next берут свободные порты
 из диапазона `scripts/smoke-stand.mjs`; Next, запущенный без нужного маршрута, перезапускается.
 Singleton Compose, существующие БД, credentials и реальные получатели не используются. SMTP
-принимает только `@example.test`. Команда проверяет desktop/mobile ввод,
-получение кода через реальный Nodemailer adapter, подтверждение, reload, no-store, WCAG и отсутствие
-горизонтального overflow; сохраняет screenshots в `docs/evidence/issue-406`. После проверки останавливает
-свои процессы, SMTP и контейнер. Не запускать одновременно с `pnpm check` в том же worktree: Next
+принимает только `@example.test`. На desktop и mobile команда проверяет отсутствие удалённой формы,
+затем выполняет authenticated browser fetch через настоящий BFF: чтение собственного контакта,
+запрос кода через реальный Nodemailer adapter, безопасный повтор операции, неверный код,
+отказ другому Account подтвердить чужой challenge, подтверждение, reload и `private, no-store`.
+Проверка сверяет точный синтетический адрес SMTP и сохранённый адрес собственного Account.
+Это проверка оставшегося API, а не визуальное доказательство удалённой формы: она не заявляет
+WCAG, overflow или новые screenshots контакта. Order Email и его интерфейс проверяются отдельно
+в checkout. После проверки команда останавливает свои процессы, SMTP и контейнер. Не запускать одновременно с `pnpm check` в том же worktree: Next
 использует одну build-директорию.
 
 Это синтетическое доказательство. Подключение реального SMTP, sender/domain authentication,

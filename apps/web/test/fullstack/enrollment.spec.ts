@@ -129,6 +129,15 @@ test("owner issues, withdraws and explicitly restores one Product right through 
   ).toBeVisible();
   expect((await read()).access).toBe("revoked");
   await section
+    .getByRole("button", { name: "Показать права", exact: true })
+    .click();
+  await section
+    .getByRole("button", { name: "История права", exact: true })
+    .click();
+  await expect(
+    section.getByRole("heading", { name: "История права", exact: true }),
+  ).toBeVisible();
+  await section
     .getByLabel("Причина восстановления")
     .fill("Явное синтетическое решение владельца");
   await section
