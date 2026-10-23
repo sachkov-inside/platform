@@ -1,3 +1,4 @@
+import { grantProductFixture } from "./setup/product-access.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   CommunityEntitlements,
@@ -242,9 +243,8 @@ test("a community sweep shares its Product mapping read and refreshes it on the 
   expect(mappingReads).toBe(1);
 });
 
-test("the Account access view resolves all grant scopes in one metadata read", async () => {
+test("the Account access view resolves lifetime Product states in one metadata read", async () => {
   const buyer = randomUUID();
-  const now = new Date("2030-01-01T00:00:00Z");
   await prisma.account.create({
     data: {
       id: buyer,
@@ -252,19 +252,14 @@ test("the Account access view resolves all grant scopes in one metadata read", a
       logtoSubject: buyer,
     },
   });
-  await prisma.accessGrant.createMany({
-    data: Array.from({ length: 10 }, () => ({
-      id: randomUUID(),
-      accountId: buyer,
-      source: "manual",
-      sourceRef: randomUUID(),
-      capabilities: [`product:${active}`],
-      coverage: { productIds: [active], materialIds: [] },
-      startsAt: now,
-      revision: 1,
-      reason: "Synthetic grant",
-    })),
-  });
+  const products = Array.from({ length: 10 }, (_, index) => ({
+    id: randomUUID(),
+    name: `Owned ${index}`,
+    slug: `owned-${buyer}-${index}`,
+  }));
+  await prisma.product.createMany({ data: products });
+  for (const product of products)
+    await grantProductFixture(prisma, buyer, product.id);
   const accounts = assembleAccounts({
     prisma,
     emailFingerprintKey: "synthetic-fingerprint-key-000000000000",
@@ -276,15 +271,13 @@ test("the Account access view resolves all grant scopes in one metadata read", a
     clock: () => new Date("2030-01-01T00:00:00Z"),
   });
   queries = 0;
-  expect(await grants.readOwnAccess(buyer)).toMatchObject({
-    ok: true,
-    value: {
-      grounds: Array.from({ length: 10 }, () => ({
-        content: [{ id: active }],
-      })),
-    },
-  });
-  expect(queries).toBe(3);
+  const result = await grants.readOwnAccess(buyer);
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error(result.error.code);
+  expect(
+    result.value.grounds.map((ground) => ground.content?.[0]?.id).sort(),
+  ).toEqual(products.map((product) => product.id).sort());
+  expect(queries).toBe(2);
 });
 
 test("catalog overflow refuses the composition instead of returning a partial scope", async () => {
@@ -330,7 +323,7 @@ test("catalog overflow refuses the composition instead of returning a partial sc
   expect(queries).toBe(0);
 });
 
-test("a mixed Product resource cannot recover a revoked legacy bridge through another Product", async () => {
+test("passive legacy bridge and exclusions cannot confer Product rights", async () => {
   const buyer = randomUUID();
   const now = new Date("2030-01-01T00:00:00Z");
   await prisma.account.create({
