@@ -1,7 +1,7 @@
 import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
 import { createDatabase } from "../database/create-database.js";
-import { ActivationReviews } from "../modules/subscription-activation/activation-reviews.js";
+import { ActivationReviews } from "../modules/course-activation/activation-reviews.js";
 import { systemClock } from "../shared/clock.js";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

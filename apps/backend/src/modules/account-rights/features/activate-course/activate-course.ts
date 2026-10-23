@@ -11,7 +11,7 @@ import type {
 } from "../../infrastructure/prisma.js";
 
 import { accessFailure } from "../../domain/access-grant.js";
-import { tierSnapshotSchema } from "../../domain/tariff-assignment.js";
+import { z } from "zod";
 import {
   ACTIVATION_ATTEMPT_LIFETIME_MS,
   ACTIVATION_CONTRACT_VERSION,
@@ -20,13 +20,42 @@ import {
   activationOutcomeSchema,
   type ActivationBindings,
   type ActivationOutcome,
-} from "../../domain/subscription-activation.js";
-import { assignEnrollmentInTransaction } from "../assign-enrollment/assign-enrollment.js";
+} from "../../domain/course-activation.js";
+
 import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
-type SubscriptionActivationTransaction = AccountRightsPrisma;
+export type CourseAccessIssuer = (
+  context: { source: "course_activation" },
+  command: {
+    accountId: string;
+    productId: string;
+    sourceRef: string;
+    issuedAt: string;
+    reason: string;
+  },
+  handle: import("../../../../infrastructure/transaction-handle.js").TransactionHandle,
+) => Promise<
+  | { ok: true; outcome: "issued" | "already_active" | "revoked" }
+  | {
+      ok: false;
+      error: {
+        code:
+          | "invalid_input"
+          | "unavailable"
+          | "operation_conflict"
+          | "source_conflict"
+          | "forbidden"
+          | "not_found"
+          | "revision_conflict"
+          | "policy_paused"
+          | "source_not_confirmed"
+          | "identity_conflict";
+      };
+    }
+>;
+type CourseActivationTransaction = AccountRightsPrisma;
 const sourceProofLifetimeMilliseconds = 5 * 60 * 1000;
 export async function beginActivation(
   prisma: AccountRightsPrismaClient,
@@ -111,17 +140,19 @@ export async function readActivationReceipt(
     : accessFailure("operation_conflict");
 }
 /** The caller holds the matching catalog revision; proof is accepted only from the separate source authority. */
-export async function activateSubscription(
-  tx: SubscriptionActivationTransaction,
+export async function activateCourse(
+  tx: CourseActivationTransaction,
   bindings: Pick<ActivationBindings, "readBinding">,
   linked: Awaited<ReturnType<ActivationBindings["find"]>>,
   input: unknown,
-  tierInput: unknown,
+  productInput: unknown,
   now: Date,
+  issueProductAccess: CourseAccessIssuer,
 ) {
   const parsed = activationEvidenceSchema.safeParse(input);
-  const tier = tierSnapshotSchema.safeParse(tierInput);
-  if (!parsed.success || !tier.success) return accessFailure("invalid_input");
+  const product = z.strictObject({ id: z.uuid() }).safeParse(productInput);
+  if (!parsed.success || !product.success)
+    return accessFailure("invalid_input");
   const evidence = parsed.data;
   const checkedAt = new Date(evidence.checkedAt);
   const validUntil = new Date(evidence.validUntil);
@@ -168,8 +199,7 @@ export async function activateSubscription(
   if (
     rule.revision !== evidence.ruleRevision ||
     rule.sourceRef !== evidence.sourceRef ||
-    rule.tierId !== tier.data.id ||
-    rule.tierRevision !== tier.data.revision
+    rule.productId !== product.data.id
   )
     return accessFailure("revision_conflict");
   const attempt = await tx.activationAttempt.findUnique({
@@ -205,38 +235,28 @@ export async function activateSubscription(
   };
   if (evidence.decision === "member") {
     const sourceRef = courseSourceRef(rule.sourceRef, evidence.identityRef);
-    const result = await assignEnrollmentInTransaction(
-      tx,
-      null,
+    const result = await issueProductAccess(
+      { source: "course_activation" },
       {
-        operationId: evidence.evidenceRef,
         accountId,
-        origin: "course",
+        productId: product.data.id,
         sourceRef,
-        tierId: tier.data.id,
-        tierRevision: tier.data.revision,
-        terms: {
-          startsAt: now.toISOString(),
-          endsAt: null,
-          endPolicy: "fixed",
-        },
-        billingRef: null,
+        issuedAt: now.toISOString(),
         reason: "Verified course source activation",
       },
-      tier.data,
-      now,
+      transactionHandle(tx),
     );
     if (!result.ok) return result;
     value = {
       contractVersion: ACTIVATION_CONTRACT_VERSION,
       attemptId: evidence.attemptId,
       state:
-        result.value.state === "revoked"
+        result.outcome === "revoked"
           ? "pending_review"
-          : result.value.revision > 1
+          : result.outcome === "already_active"
             ? "already_active"
             : "active",
-      enrollment: result.value,
+      enrollment: null,
     };
     const source = await tx.sourceEntitlement.findUnique({
       where: { origin_sourceRef: { origin: "course", sourceRef } },
@@ -256,14 +276,12 @@ export async function activateSubscription(
         sourcePolicyRef: rule.sourceRef,
         identityRef: evidence.identityRef,
         accountId,
-        enrollmentId: result.value.id,
         revision: 1,
         evidence,
         checkedAt,
       },
       update: {
         accountId,
-        enrollmentId: result.value.id,
         evidence,
         checkedAt,
       },

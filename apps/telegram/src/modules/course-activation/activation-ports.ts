@@ -5,8 +5,6 @@ import type {
   ActivationEvidence,
   ActivationResponse,
   ActivationResult,
-  InvitationRedeem,
-  InvitationRedeemResponse,
   OwnAccess,
 } from "./activation-contract.js";
 export interface ActivationPlatform {
@@ -21,9 +19,5 @@ export interface ActivationPlatform {
     binding: ActivationBinding,
     prepareCommunity?: boolean,
   ): Promise<ActivationResult<OwnAccess> | undefined>;
-  /** Idempotent by `(code, identityRef)`: a lost answer is retried with the same input. */
-  redeem(
-    input: InvitationRedeem,
-  ): Promise<InvitationRedeemResponse | undefined>;
 }
 export const ACTIVATION_PLATFORM = Symbol("ACTIVATION_PLATFORM");

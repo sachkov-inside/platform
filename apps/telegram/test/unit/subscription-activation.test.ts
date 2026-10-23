@@ -1,13 +1,13 @@
 import { fixedTestInstant } from "../support/fixed-clock.js";
-import { ownAccessText } from "../../src/modules/subscription-activation/activation-view.js";
-import type { OwnAccess } from "../../src/modules/subscription-activation/activation-contract.js";
+import { ownAccessText } from "../../src/modules/course-activation/activation-view.js";
+import type { OwnAccess } from "../../src/modules/course-activation/activation-contract.js";
 import { describe, expect, it } from "vitest";
 import {
   GrammyUpdateAdapter,
   prepareTelegramUpdateForInbox,
 } from "../../src/adapters/telegram/grammy-update.adapter.js";
-import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
-import { activationValidator } from "../../src/modules/subscription-activation/activation-contract.js";
+import { SourceGroupProof } from "../../src/modules/course-activation/source-group-proof.js";
+import { activationValidator } from "../../src/modules/course-activation/activation-contract.js";
 import { loadActivationConfig } from "../../src/config/activation-config.js";
 import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";

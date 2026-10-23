@@ -3,7 +3,7 @@ import { sourceRefSchema } from "./access-grant.js";
 import {
   ACTIVATION_ATTEMPT_LIFETIME_MS,
   ACTIVATION_CONTRACT_VERSION,
-} from "./subscription-activation.js";
+} from "./course-activation.js";
 
 /** Неоткрытое приглашение сгорает через 14 дней после выдачи. */
 export const INVITATION_OPEN_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;

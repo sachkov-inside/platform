@@ -1,4 +1,3 @@
-import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -6,7 +5,6 @@ import {
   type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import {
-  accountId,
   type Accounts,
   type AuthenticatedAccount,
   type LegalAcceptances,
@@ -180,15 +178,6 @@ export class TelegramAccountSignIn {
   ) {
     return this.dependencies.prisma.$transaction(async (transaction) => {
       await lockTelegramMembershipLink(transaction, account.accountId);
-      const principal = await this.dependencies.accountRights.bindPrincipal(
-        {
-          accountId: accountId(account.accountId),
-          principalRef: link.principalRef,
-        },
-        transactionHandle(transaction),
-      );
-      if (!principal.ok)
-        return { ok: false, error: { code: "unavailable" } } as const;
       await transaction.telegramLinkTransaction.update({
         where: { linkRef: link.linkRef },
         data: {

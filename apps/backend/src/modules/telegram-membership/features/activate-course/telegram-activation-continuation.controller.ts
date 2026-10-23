@@ -14,7 +14,7 @@ import {
   CurrentAccount,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
-import { SubscriptionActivation } from "../../../billing/index.js";
+import { CourseActivation } from "../../../billing/index.js";
 
 const continuationSchema = z.union([
   z.strictObject({
@@ -37,8 +37,8 @@ const continuationSchema = z.union([
 @Controller("accounts/current/telegram-activation")
 export class TelegramActivationContinuationController {
   constructor(
-    @Inject(SubscriptionActivation)
-    private readonly activation: SubscriptionActivation,
+    @Inject(CourseActivation)
+    private readonly activation: CourseActivation,
   ) {}
 
   @Get(":attemptId")
@@ -62,8 +62,8 @@ export class TelegramActivationContinuationController {
 @Controller("telegram-activation-intents")
 export class TelegramActivationIntentController {
   constructor(
-    @Inject(SubscriptionActivation)
-    private readonly activation: SubscriptionActivation,
+    @Inject(CourseActivation)
+    private readonly activation: CourseActivation,
   ) {}
   @Get(":attemptId")
   @ApiParam({ name: "attemptId", type: "string", format: "uuid" })

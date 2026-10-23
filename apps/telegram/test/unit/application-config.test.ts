@@ -16,6 +16,17 @@ const validEnvironment = {
 };
 
 describe("application configuration", () => {
+  it("rejects attempts to enable retired membership evidence and entitlement bridge delivery", () => {
+    for (const key of [
+      "TELEGRAM_MEMBERSHIP_MODE",
+      "PLATFORM_EVIDENCE_DELIVERY_MODE",
+    ]) {
+      expect(() =>
+        loadApplicationConfig({ ...validEnvironment, [key]: "live" }),
+      ).toThrow("retired");
+    }
+  });
+
   it("keeps content validation disabled until a secure authenticated endpoint is configured", () => {
     expect(
       loadApplicationConfig(validEnvironment)
@@ -202,23 +213,16 @@ describe("application configuration", () => {
 
   it("refuses an integration secret shorter than 32 characters", () => {
     const short = "s".repeat(31);
-    const evidence = {
-      PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      PLATFORM_EVIDENCE_DELIVERY_URL: "https://platform.test/evidence",
-      PLATFORM_EVIDENCE_DELIVERY_SECRET:
-        "synthetic_evidence_secret_for_tests_only",
-    };
     const author = {
       PLATFORM_AUTHOR_AUTHORIZATION_URL: "https://platform.test/authorize",
       PLATFORM_AUTHOR_AUTHORIZATION_SECRET:
         "synthetic_author_secret_for_tests_only",
     };
     expect(
-      loadApplicationConfig({ ...validEnvironment, ...evidence, ...author }),
+      loadApplicationConfig({ ...validEnvironment, ...author }),
     ).toBeDefined();
     for (const [name, base] of [
       ["PLATFORM_INTEGRATION_SECRET", {}],
-      ["PLATFORM_EVIDENCE_DELIVERY_SECRET", evidence],
       ["PLATFORM_AUTHOR_AUTHORIZATION_SECRET", author],
     ] as const)
       expect(() =>
@@ -256,8 +260,6 @@ describe("application configuration", () => {
       PLATFORM_COMMUNITY_INTEGRATION_SECRET:
         "synthetic_community_inbound_secret",
       PLATFORM_COMMUNITY_DISPATCH_SECRET: "synthetic_community_dispatch_secret",
-      PLATFORM_EVIDENCE_DELIVERY_SECRET:
-        "synthetic_evidence_secret_for_tests_only",
       PLATFORM_AUTHOR_AUTHORIZATION_SECRET:
         "synthetic_author_secret_for_tests_only",
       NOTIFICATION_AUTHORIZE_SECRET: "synthetic_notification_secret_for_tests",
@@ -270,8 +272,6 @@ describe("application configuration", () => {
       TELEGRAM_COMMUNITY_CONTRACT_VERSION: "inside.community-entitlement.v2",
       PLATFORM_COMMUNITY_DISPATCH_URL:
         "https://platform.test/internal/billing-dispatch/authorize",
-      PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      PLATFORM_EVIDENCE_DELIVERY_URL: "https://platform.test/evidence",
       PLATFORM_AUTHOR_AUTHORIZATION_URL: "https://platform.test/authorize",
       TELEGRAM_NOTIFICATIONS_ENABLED: "true",
       NOTIFICATION_AMQP_URL: "amqps://telegram:synthetic@broker.test/inside",
@@ -313,53 +313,6 @@ describe("application configuration", () => {
         TELEGRAM_CANONICAL_CHAT_ID: "9007199254740992",
       }),
     ).toThrow("TELEGRAM_CANONICAL_CHAT_ID");
-  });
-
-  it("requires Telegram and Platform credentials for live Membership Evidence", () => {
-    expect(() =>
-      loadApplicationConfig({
-        ...validEnvironment,
-        TELEGRAM_MEMBERSHIP_MODE: "live",
-      }),
-    ).toThrow("TELEGRAM_BOT_TOKEN is required");
-
-    expect(() =>
-      loadApplicationConfig({
-        ...validEnvironment,
-        PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      }),
-    ).toThrow("PLATFORM_EVIDENCE_DELIVERY_URL is required");
-  });
-
-  it("delivers Membership Evidence only to a plain HTTPS endpoint outside loopback", () => {
-    const evidence = {
-      ...validEnvironment,
-      PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
-      PLATFORM_EVIDENCE_DELIVERY_SECRET:
-        "synthetic_evidence_secret_for_tests_only",
-    };
-    for (const url of [
-      "https://platform.test/integrations/telegram/v1/membership-evidence",
-      "http://127.0.0.1:3001/integrations/telegram/v1/membership-evidence",
-    ])
-      expect(
-        loadApplicationConfig({
-          ...evidence,
-          PLATFORM_EVIDENCE_DELIVERY_URL: url,
-        }).platformEvidenceDeliveryUrl,
-      ).toBe(url);
-    for (const bad of [
-      "http://platform.test/evidence",
-      "https://user:password@platform.test/evidence",
-      "https://platform.test/evidence?token=synthetic",
-      "https://platform.test/evidence#fragment",
-    ])
-      expect(() =>
-        loadApplicationConfig({
-          ...evidence,
-          PLATFORM_EVIDENCE_DELIVERY_URL: bad,
-        }),
-      ).toThrow("PLATFORM_EVIDENCE_DELIVERY_URL requires HTTPS");
   });
 
   it("keeps reconciliation cadence inside the evidence validity bound", () => {

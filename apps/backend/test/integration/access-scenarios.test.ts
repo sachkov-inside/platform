@@ -23,7 +23,7 @@ import {
   BillingPayments,
   BillingPricing,
   BillingSubscriptions,
-  SubscriptionActivation,
+  CourseActivation,
   TributeConvergence,
 } from "../../src/modules/billing/index.js";
 import type {
@@ -150,7 +150,7 @@ describe("таблица сценариев доступа (реальный Pos
   let pricing: BillingPricing;
   let contact: BillingContact;
   let operations: BillingOperations;
-  let activation: SubscriptionActivation;
+  let activation: CourseActivation;
   let payments: BillingPayments;
   let convergence: TributeConvergence;
   let community: CommunityEntitlements;
@@ -331,7 +331,7 @@ describe("таблица сценариев доступа (реальный Pos
       bank: client,
       clock: () => now,
     });
-    activation = new SubscriptionActivation({
+    activation = new CourseActivation({
       sale: { subscriptions: true },
       prisma: db.prisma,
       grants,

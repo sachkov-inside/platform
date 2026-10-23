@@ -18,7 +18,7 @@ import { accessFailure } from "../../domain/access-grant.js";
 import {
   activationRuleSchema,
   type ActivationBindings,
-} from "../../domain/subscription-activation.js";
+} from "../../domain/course-activation.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
 import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
 import { issueProductAccess } from "../../features/issue-product-access/issue-product-access.js";
@@ -34,13 +34,13 @@ import { registerSourceEntitlement } from "../../features/register-source-entitl
 import { manageActivationRule } from "../../features/manage-activation-rule/manage-activation-rule.js";
 import {
   beginActivation,
-  activateSubscription,
+  activateCourse,
   readActivationReceipt,
-} from "../../features/activate-subscription/activate-subscription.js";
+} from "../../features/activate-course/activate-course.js";
 import {
   readActivationContinuation,
   readActivationIntent,
-} from "../../features/activate-subscription/read-activation-continuation.js";
+} from "../../features/activate-course/read-activation-continuation.js";
 import {
   resolveAccessCapabilities,
   resolveAccessCapabilitiesForAccounts,
@@ -252,7 +252,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       input: unknown,
       tier: unknown,
     ) =>
-      activateSubscription(
+      activateCourse(
         accountRightsTransaction(handle),
         bindings,
         linked,

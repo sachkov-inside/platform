@@ -4,12 +4,6 @@ import type { PlatformLink } from "./platform-links.js";
 
 export const LINK_EFFECTS = Symbol("LINK_EFFECTS");
 export interface LinkEffects {
-  initialCheck(
-    tx: Transaction<DatabaseSchema>,
-    source: string,
-    identity: string,
-    now: Date,
-  ): Promise<void>;
   accountLinked(
     tx: Transaction<DatabaseSchema>,
     link: Pick<

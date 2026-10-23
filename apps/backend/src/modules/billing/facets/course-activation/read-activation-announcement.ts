@@ -1,13 +1,8 @@
 import {
-  productIdFromCapability,
-  accessCapabilitySchema,
-} from "@inside/access-capabilities";
-import {
   announcementQuerySchema,
   type AccessGrants,
 } from "../../../account-rights/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { tierOpenForAssignment } from "../../shared/tier-composition.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 
 /** Published rule metadata only; this operation never grants rights or reserves an identity. */
@@ -27,22 +22,8 @@ export async function readActivationAnnouncement(
       parsed.data.code,
     );
     if (rule === null) return unavailable;
-    const offer = await dependencies.prisma.billingOffer.findUnique({
-      where: { id: rule.tierId },
-    });
-    if (
-      offer === null ||
-      offer.revision !== rule.tierRevision ||
-      !tierOpenForAssignment(offer)
-    )
-      return unavailable;
-    const productIds = offer.benefits.flatMap((value) => {
-      const parsed = accessCapabilitySchema.safeParse(value);
-      const id = parsed.success ? productIdFromCapability(parsed.data) : null;
-      return id === null ? [] : [id];
-    });
-    const productId = productIds[0];
-    if (productIds.length !== 1 || productId === undefined) return unavailable;
+    const productId = rule.productId;
+    if (productId === null) return unavailable;
     return {
       ok: true as const,
       value: {

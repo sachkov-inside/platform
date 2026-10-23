@@ -10,14 +10,14 @@ import {
   parsePlatformConfig,
   PLATFORM_CONFIG,
 } from "../../src/config/platform-config.js";
-import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
+import { CourseActivationController } from "../../src/modules/telegram-membership/features/activate-course/course-activation.controller.js";
 import { announcementResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { assertDeclaredResponse } from "../support/declared-api.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
-import { SubscriptionActivation } from "../../src/modules/billing/index.js";
+import { CourseActivation } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   createMigratedTestDatabase,
@@ -27,7 +27,7 @@ const now = new Date("2030-01-01T00:00:00.000Z");
 const version = "inside.subscription-activation.v1";
 describe("trusted private announcement metadata", () => {
   let db: TestDatabase;
-  let activation: SubscriptionActivation;
+  let activation: CourseActivation;
   let http: NestFastifyApplication;
   const secret = "test-announcement-activation-authority";
   beforeAll(async () => {
@@ -43,7 +43,7 @@ describe("trusted private announcement metadata", () => {
       recipientLinks: bindings,
       clock: () => now,
     });
-    activation = new SubscriptionActivation({
+    activation = new CourseActivation({
       sale: { subscriptions: true },
       prisma: db.prisma,
       grants,
@@ -52,9 +52,9 @@ describe("trusted private announcement metadata", () => {
         Promise.resolve({ state: "checking", admissionRestriction: null }),
     });
     @Module({
-      controllers: [SubscriptionActivationController],
+      controllers: [CourseActivationController],
       providers: [
-        { provide: SubscriptionActivation, useValue: activation },
+        { provide: CourseActivation, useValue: activation },
         { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
         { provide: APP_FILTER, useClass: ProblemDetailsFilter },
         {

@@ -80,7 +80,7 @@ export type AccessAction =
 
 /** Durable Telegram continuation; Account and every grant remain Platform-owned. */
 @Injectable()
-export class SubscriptionActivation {
+export class CourseActivation {
   private readonly activeActions = new Set<Promise<void>>();
 
   async onModuleDestroy(): Promise<void> {
