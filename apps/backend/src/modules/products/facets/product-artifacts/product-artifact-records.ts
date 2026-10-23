@@ -1,7 +1,8 @@
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import type { ProductMaterials } from "../../ports/product-materials.js";
 import type {
-  MaterialsPrisma,
-  MaterialsPrismaClient,
-  MaterialsPrismaTransaction,
+  ProductsPrisma,
+  ProductsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type {
@@ -19,9 +20,13 @@ import type {
 /** What every Product Artifact operation works with. */
 export interface ProductArtifactContext {
   /** Null when the actor may manage artifacts, otherwise the refusal. */
-  readonly authorize: (actor: string) => Promise<ProductArtifactError | null>;
+  readonly authorize: (
+    actor: string,
+    transaction?: TransactionHandle,
+  ) => Promise<ProductArtifactError | null>;
   readonly files: ProductArtifactFiles;
-  readonly prisma: MaterialsPrismaClient;
+  readonly prisma: ProductsPrismaClient;
+  readonly materials: ProductMaterials;
 }
 
 export type ArtifactRow = NonNullable<
@@ -29,7 +34,7 @@ export type ArtifactRow = NonNullable<
 >;
 
 export async function loadArtifactRow(
-  prisma: MaterialsPrismaClient,
+  prisma: ProductsPrismaClient,
   artifactId: string,
 ) {
   return prisma.productArtifact.findUnique({
@@ -43,7 +48,7 @@ export async function loadArtifactRow(
 }
 
 export async function loadArtifactsBySource(
-  prisma: MaterialsPrisma,
+  prisma: ProductsPrisma,
   sourceIds: readonly string[],
 ): Promise<readonly ArtifactRow[]> {
   return prisma.productArtifact.findMany({
@@ -57,7 +62,7 @@ export async function loadArtifactsBySource(
 }
 
 export async function loadPlacedArtifacts(
-  prisma: MaterialsPrisma,
+  prisma: ProductsPrisma,
   productId: string,
   options: { readonly state?: "active"; readonly take: number },
 ): Promise<readonly ArtifactRow[]> {
@@ -128,7 +133,7 @@ export function currentContent(
 }
 
 async function projectArtifact(
-  prisma: MaterialsPrismaClient,
+  prisma: ProductsPrismaClient,
   artifactId: string,
 ): Promise<ProductArtifactDto | null> {
   const row = await loadArtifactRow(prisma, artifactId);
@@ -136,7 +141,7 @@ async function projectArtifact(
 }
 
 export async function projectOrFail(
-  prisma: MaterialsPrismaClient,
+  prisma: ProductsPrismaClient,
   artifactId: string,
 ): Promise<ProductArtifactResult<ProductArtifactDto>> {
   try {
@@ -146,7 +151,7 @@ export async function projectOrFail(
       : { ok: true, value: projected };
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "projectOrFail" },
+      { module: "products", operation: "projectOrFail" },
       error,
       dependencyUnavailable(),
     );
@@ -192,7 +197,7 @@ export function versionRow(input: {
  * address valid under the previous access class.
  */
 export async function reopenVersionOnAccessChange(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ProductsPrisma,
   input: {
     readonly actor: string;
     readonly artifactId: string;
@@ -233,7 +238,7 @@ export async function reopenVersionOnAccessChange(
 }
 
 export async function supersedeVersion(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ProductsPrisma,
   artifactId: string,
   version: number,
 ): Promise<void> {

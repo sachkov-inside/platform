@@ -1,10 +1,11 @@
+import type { ProductMaterials } from "../../ports/product-materials.js";
 import { attachImportedProductArtifactMaterials } from "./attach-imported-artifact-materials.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type { ProductsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
   authorizeManager,
   type AuthorPolicy,
-} from "../../ports/author-policy.js";
+} from "../../../../infrastructure/content-authoring/author-policy.js";
 import {
   createProductArtifact,
   removeProductArtifact,
@@ -29,18 +30,21 @@ import {
 export function assembleProductArtifacts(dependencies: {
   readonly authorPolicy: AuthorPolicy;
   readonly objectStorage: ObjectStorage;
-  readonly prisma: MaterialsPrismaClient;
+  readonly prisma: ProductsPrismaClient;
+  readonly materials: ProductMaterials;
 }): ProductArtifacts {
   const context: ProductArtifactContext = {
-    async authorize(actor) {
+    async authorize(actor, transaction) {
       const authorization = await authorizeManager(
         dependencies.authorPolicy,
         actor,
+        transaction,
       );
       return authorization.ok ? null : authorization.error;
     },
     files: assembleProductArtifactFiles(dependencies.objectStorage),
     prisma: dependencies.prisma,
+    materials: dependencies.materials,
   };
   return Object.freeze({
     applyAuthoringImport: (command) => applyAuthoringImport(context, command),

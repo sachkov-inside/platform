@@ -33,11 +33,9 @@ import {
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import { MATERIAL_ASSET_LIMITS } from "../../../assets/index.js";
-import {
-  ApiMaterialAuthoringErrors,
-  MaterialAuthoringEndpoint,
-} from "../../adapters/nest/material-authoring-endpoint.js";
-import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
+import { AuthoringEndpoint } from "../../../accounts/index.js";
+import { ApiAccountErrors } from "../../../accounts/index.js";
+import { authoringSourceIdSchema } from "../../../../infrastructure/content-authoring/authoring-source.js";
 import {
   PRODUCT_ARTIFACTS,
   productArtifactAccessSchema,
@@ -156,7 +154,7 @@ function ApiProductArtifactErrors(...statuses: readonly number[]) {
   );
 }
 
-@MaterialAuthoringEndpoint()
+@AuthoringEndpoint()
 @Controller()
 export class ProductArtifactAuthoringController {
   constructor(
@@ -170,7 +168,7 @@ export class ProductArtifactAuthoringController {
   })
   @ApiParam({ name: "productId", schema: { format: "uuid", type: "string" } })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactListSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(400, 403, 404, 503)
   async list(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -191,7 +189,7 @@ export class ProductArtifactAuthoringController {
       "List every active artifact an author may reuse in another Product",
   })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactListSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 503)
   async listReusable(@CurrentAccount() account: AuthenticatedAccount) {
     const result = await this.artifacts.listReusable({
@@ -229,7 +227,7 @@ export class ProductArtifactAuthoringController {
     },
   })
   @ApiCreatedResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(400, 403, 404, 409, 413, 422, 503)
   async createFromFile(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -268,7 +266,7 @@ export class ProductArtifactAuthoringController {
   })
   @ApiBody({ schema: toOpenApiSchema(createLinkBodySchema) })
   @ApiCreatedResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 422, 503)
   async createFromLink(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -298,7 +296,7 @@ export class ProductArtifactAuthoringController {
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(metadataSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 422, 503)
   async update(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -332,7 +330,7 @@ export class ProductArtifactAuthoringController {
     },
   })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 413, 422, 503)
   async replaceFile(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -365,7 +363,7 @@ export class ProductArtifactAuthoringController {
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(replaceLinkBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 422, 503)
   async replaceLink(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -391,7 +389,7 @@ export class ProductArtifactAuthoringController {
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(archiveBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 422, 503)
   async setArchived(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -416,7 +414,7 @@ export class ProductArtifactAuthoringController {
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(productsBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 422, 503)
   async setProducts(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -441,7 +439,7 @@ export class ProductArtifactAuthoringController {
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(materialsBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 422, 503)
   async setMaterials(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -468,7 +466,7 @@ export class ProductArtifactAuthoringController {
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiBody({ schema: toOpenApiSchema(importedMaterialsBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(productArtifactHttpSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 409, 422, 503)
   async attachImportedMaterials(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -519,7 +517,7 @@ export class ProductArtifactAuthoringController {
     },
   })
   @ApiOkResponse({ schema: toOpenApiSchema(importOutcomeSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(400, 403, 404, 409, 413, 422, 503)
   async importFromSource(
     @CurrentAccount() account: AuthenticatedAccount,
@@ -582,7 +580,7 @@ export class ProductArtifactAuthoringController {
   })
   @ApiParam({ name: "artifactId", schema: { format: "uuid", type: "string" } })
   @ApiOkResponse({ schema: toOpenApiSchema(removedArtifactSchema) })
-  @ApiMaterialAuthoringErrors(401, 500)
+  @ApiAccountErrors(401, 500)
   @ApiProductArtifactErrors(403, 404, 409, 503)
   async remove(
     @CurrentAccount() account: AuthenticatedAccount,

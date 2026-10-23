@@ -47811,7 +47811,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -47819,92 +47819,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -47917,6 +47838,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -48189,7 +48111,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -48197,92 +48119,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -48295,6 +48138,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -48572,7 +48416,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -48580,92 +48424,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -48678,6 +48443,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -48898,7 +48664,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -48906,92 +48672,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -49004,6 +48691,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -67620,7 +67308,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -67628,92 +67316,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -67726,6 +67335,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -67790,7 +67400,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -67798,92 +67408,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -67896,6 +67427,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -68008,7 +67540,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -68016,92 +67548,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -68114,6 +67567,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -68282,7 +67736,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -68290,92 +67744,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -68388,6 +67763,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -68650,7 +68026,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -68658,92 +68034,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -68756,6 +68053,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -68924,7 +68222,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -68932,92 +68230,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -69030,6 +68249,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -69279,7 +68499,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -69287,92 +68507,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -69385,6 +68526,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -69553,7 +68695,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -69561,92 +68703,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -69659,6 +68722,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -69910,7 +68974,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -69918,92 +68982,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -70016,6 +69001,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -70184,7 +69170,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -70192,92 +69178,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -70290,6 +69197,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -70545,7 +69453,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -70553,92 +69461,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -70651,6 +69480,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -70819,7 +69649,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -70827,92 +69657,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -70925,6 +69676,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -71180,7 +69932,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -71188,92 +69940,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -71286,6 +69959,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -71454,7 +70128,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -71462,92 +70136,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -71560,6 +70155,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -71816,7 +70412,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -71824,92 +70420,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -71922,6 +70439,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -72142,7 +70660,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -72150,92 +70668,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -72248,6 +70687,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -72575,7 +71015,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -72583,92 +71023,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -72681,6 +71042,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -72953,7 +71315,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -72961,92 +71323,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -73059,6 +71342,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -73325,7 +71609,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -73333,92 +71617,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -73431,6 +71636,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -73599,7 +71805,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -73607,92 +71813,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -73705,6 +71832,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -75303,7 +73431,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -75311,92 +73439,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -75409,6 +73458,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"
@@ -75525,7 +73575,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "additionalProperties": {},
+                  "additionalProperties": false,
                   "properties": {
                     "code": {
                       "type": "string"
@@ -75533,92 +73583,13 @@
                     "correlationId": {
                       "type": "string"
                     },
-                    "currentContentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "currentOrderVersion": {
-                      "pattern": "^[a-f0-9]{64}$",
+                    "detail": {
                       "type": "string"
-                    },
-                    "currentState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
-                    },
-                    "currentVersion": {
-                      "exclusiveMinimum": true,
-                      "maximum": 9007199254740991,
-                      "minimum": 0,
-                      "type": "integer"
-                    },
-                    "issues": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "code": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "path"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "products": {
-                      "items": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "holders": {
-                            "exclusiveMinimum": true,
-                            "maximum": 9007199254740991,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "productId": {
-                            "format": "uuid",
-                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "productId",
-                          "name",
-                          "holders"
-                        ],
-                        "type": "object"
-                      },
-                      "type": "array"
-                    },
-                    "retryable": {
-                      "type": "boolean"
                     },
                     "status": {
                       "maximum": 9007199254740991,
                       "minimum": -9007199254740991,
                       "type": "integer"
-                    },
-                    "targetState": {
-                      "enum": [
-                        "draft",
-                        "published",
-                        "unpublished"
-                      ],
-                      "type": "string"
                     },
                     "title": {
                       "type": "string"
@@ -75631,6 +73602,7 @@
                     "type",
                     "title",
                     "status",
+                    "detail",
                     "code"
                   ],
                   "type": "object"

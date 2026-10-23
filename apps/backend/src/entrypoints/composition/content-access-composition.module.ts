@@ -1,3 +1,12 @@
+import {
+  ProductArtifactsModule,
+  PRODUCT_MATERIALS,
+} from "../../modules/products/index.js";
+import { assembleProductMaterials } from "../../modules/materials/index.js";
+import {
+  PrismaModule,
+  PrismaClientProvider,
+} from "../../infrastructure/prisma/index.js";
 import { Global, Module } from "@nestjs/common";
 import {
   ACCOUNTS,
@@ -31,24 +40,28 @@ import {
 } from "../../modules/content-access/index.js";
 import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
 import {
+  PRODUCT_ARTIFACTS,
+  assembleProductArtifactResourceFacts,
+  type ProductArtifacts,
+} from "../../modules/products/index.js";
+import {
   MaterialsModule,
   MaterialContentModule,
   MATERIAL_CONTENT,
-  PRODUCT_ARTIFACTS,
   PRODUCT_ACCESS_HOLDERS,
   PRODUCT_SALE_AVAILABILITY,
   assembleAssetResourceFacts,
   assembleVideoResourceFacts,
   assembleMaterialResourceFacts,
-  assembleProductArtifactResourceFacts,
   type MaterialContent,
-  type ProductArtifacts,
 } from "../../modules/materials/index.js";
 
 /** Process composition owns access policy wiring above the independent content owners. */
 @Global()
 @Module({
   imports: [
+    PrismaModule,
+    ProductArtifactsModule,
     AccountsModule,
     AccountRightsModule,
     BillingModule,
@@ -59,6 +72,12 @@ import {
     ProductTaskResourceFactsModule,
   ],
   providers: [
+    {
+      provide: PRODUCT_MATERIALS,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        assembleProductMaterials(prisma),
+    },
     { provide: PRODUCT_ACCESS_HOLDERS, useExisting: ACCESS_GRANTS },
     {
       provide: PRODUCT_SALE_AVAILABILITY,
@@ -98,6 +117,11 @@ import {
         }),
     },
   ],
-  exports: [CONTENT_ACCESS, PRODUCT_ACCESS_HOLDERS, PRODUCT_SALE_AVAILABILITY],
+  exports: [
+    CONTENT_ACCESS,
+    PRODUCT_ACCESS_HOLDERS,
+    PRODUCT_SALE_AVAILABILITY,
+    PRODUCT_MATERIALS,
+  ],
 })
 export class ContentAccessCompositionModule {}

@@ -186,3 +186,16 @@ export type {
   SetHomePinError,
   SetHomePinOperation,
 } from "./features/set-home-pin/set-home-pin.contract.js";
+export { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
+export {
+  PRODUCT_ARTIFACTS,
+  type ProductArtifacts,
+} from "./facets/product-artifacts/product-artifacts.js";
+export {
+  assembleProductArtifactDelivery,
+  type ProductArtifactDelivery,
+} from "./features/deliver-product-artifact/deliver-product-artifact.js";
+export { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
+
+export { ProductArtifactsModule } from "./product-artifacts.module.js";
+export { ProductArtifactsHttpModule } from "./product-artifacts-http.module.js";

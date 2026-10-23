@@ -1,3 +1,4 @@
+import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { z } from "zod";
 import { sourceIdentityRef } from "../../src/modules/account-rights/domain/source-identity.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -35,10 +36,12 @@ import {
   type Resource,
 } from "../../src/modules/content-access/index.js";
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
-import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
+} from "../../src/modules/products/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import {
   assembleMaterialResourceFacts,
   materialId as checkedMaterialId,
   type MaterialId,
@@ -349,6 +352,7 @@ describe("таблица сценариев доступа (реальный Pos
       clock: () => now,
     });
     productArtifacts = assembleProductArtifacts({
+      materials: assembleProductMaterials(db.prisma),
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },

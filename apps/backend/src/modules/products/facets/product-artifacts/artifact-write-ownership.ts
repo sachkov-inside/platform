@@ -1,15 +1,15 @@
-import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
+import type { ProductsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
   checkContentWrite,
   contentWriter,
   type ContentWriteTarget,
-} from "../../domain/content-write-policy.js";
+} from "../../../../infrastructure/content-authoring/content-write-policy.js";
 import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import type { ProductArtifactError } from "./product-artifacts.js";
 
 /** Load ownership inside the mutation transaction, including old and proposed placements. */
 export async function checkArtifactWrite(
-  transaction: MaterialsPrismaTransaction,
+  transaction: ProductsPrisma,
   artifactId: string | null,
   productIds: readonly string[] = [],
 ): Promise<ProductArtifactError | null> {

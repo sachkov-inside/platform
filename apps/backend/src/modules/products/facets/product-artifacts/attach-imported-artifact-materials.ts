@@ -1,9 +1,9 @@
-import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   checkContentWrite,
   contentWriter,
-} from "../../domain/content-write-policy.js";
+} from "../../../../infrastructure/content-authoring/content-write-policy.js";
 import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { importedMaterialsSchema } from "./product-artifact-commands.js";
 import {
@@ -58,11 +58,11 @@ export async function attachImportedProductArtifactMaterials(
           artifact.state !== "active"
         )
           return { code: "source_conflict" };
-        await lockMaterialReferenceChanges(transaction, materialIds);
-        const materials = await transaction.material.findMany({
-          where: { id: { in: materialIds } },
-          select: { id: true, sourceId: true },
-        });
+        const handle = transactionHandle(transaction);
+        const forbidden = await context.authorize(input.actor, handle);
+        if (forbidden !== null) return forbidden;
+        await context.materials.lockReferences(materialIds, handle);
+        const materials = await context.materials.load(materialIds, handle);
         if (materials.length !== materialIds.length)
           return { code: "material_not_found" };
         const sourceError = checkContentWrite(
@@ -107,7 +107,7 @@ export async function attachImportedProductArtifactMaterials(
     return await projectOrFail(context.prisma, input.artifactId);
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "attachImportedArtifactMaterials" },
+      { module: "products", operation: "attachImportedArtifactMaterials" },
       error,
       dependencyUnavailable(),
     );

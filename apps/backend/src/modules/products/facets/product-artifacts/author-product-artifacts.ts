@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { checkArtifactWrite } from "./artifact-write-ownership.js";
 import { randomUUID } from "node:crypto";
 
@@ -56,7 +57,7 @@ export async function createProductArtifact(
     if (product === null) return failure({ code: "product_not_found" });
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "create" },
+      { module: "products", operation: "create" },
       error,
       dependencyUnavailable(),
     );
@@ -71,6 +72,11 @@ export async function createProductArtifact(
   }
   try {
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(transaction, null, [
         parsed.data.productId,
       ]);
@@ -108,10 +114,7 @@ export async function createProductArtifact(
       return failure(sourceError);
     }
   } catch (error) {
-    reportDependencyFailure(
-      { module: "materials", operation: "create" },
-      error,
-    );
+    reportDependencyFailure({ module: "products", operation: "create" }, error);
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
@@ -134,6 +137,11 @@ export async function updateProductArtifact(
     });
     if (current === null) return failure({ code: "artifact_not_found" });
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(
         transaction,
         parsed.data.artifactId,
@@ -165,7 +173,7 @@ export async function updateProductArtifact(
     }
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "update" },
+      { module: "products", operation: "update" },
       error,
       dependencyUnavailable(),
     );
@@ -192,7 +200,7 @@ export async function replaceProductArtifactContent(
     currentVersion = current.currentVersion;
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "replaceContent" },
+      { module: "products", operation: "replaceContent" },
       error,
       dependencyUnavailable(),
     );
@@ -210,6 +218,11 @@ export async function replaceProductArtifactContent(
   const nextVersion = currentVersion + 1;
   try {
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(
         transaction,
         parsed.data.artifactId,
@@ -247,7 +260,7 @@ export async function replaceProductArtifactContent(
     }
   } catch (error) {
     reportDependencyFailure(
-      { module: "materials", operation: "replaceContent" },
+      { module: "products", operation: "replaceContent" },
       error,
     );
     await context.files.discard(stored);
@@ -268,6 +281,11 @@ export async function setProductArtifactArchived(
   if (forbidden !== null) return failure(forbidden);
   try {
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(
         transaction,
         parsed.data.artifactId,
@@ -289,7 +307,7 @@ export async function setProductArtifactArchived(
     if (sourceError !== null) return failure(sourceError);
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "setArchived" },
+      { module: "products", operation: "setArchived" },
       error,
       dependencyUnavailable(),
     );
@@ -321,6 +339,11 @@ export async function setProductArtifactProducts(
       return failure({ code: "product_not_found" });
     }
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(
         transaction,
         parsed.data.artifactId,
@@ -354,7 +377,7 @@ export async function setProductArtifactProducts(
     }
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "setProducts" },
+      { module: "products", operation: "setProducts" },
       error,
       dependencyUnavailable(),
     );
@@ -378,19 +401,22 @@ export async function setProductArtifactMaterials(
       where: { id: parsed.data.artifactId },
     });
     if (artifact === null) return failure({ code: "artifact_not_found" });
-    const known = await prisma.material.findMany({
-      select: { id: true },
-      where: { id: { in: materialIds } },
-    });
-    if (known.length !== materialIds.length) {
-      return failure({ code: "material_not_found" });
-    }
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(
         transaction,
         parsed.data.artifactId,
       );
       if (refusal !== null) return refusal;
+      const handle = transactionHandle(transaction);
+      await context.materials.lockReferences(materialIds, handle);
+      const known = await context.materials.load(materialIds, handle);
+      if (known.length !== materialIds.length)
+        return { code: "material_not_found" as const };
       await transaction.productArtifactMaterialLink.deleteMany({
         where:
           materialIds.length === 0
@@ -418,7 +444,7 @@ export async function setProductArtifactMaterials(
     }
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "setMaterials" },
+      { module: "products", operation: "setMaterials" },
       error,
       dependencyUnavailable(),
     );
@@ -437,6 +463,11 @@ export async function removeProductArtifact(
   if (forbidden !== null) return failure(forbidden);
   try {
     const sourceError = await prisma.$transaction(async (transaction) => {
+      const forbidden = await context.authorize(
+        parsed.data.actor,
+        transactionHandle(transaction),
+      );
+      if (forbidden !== null) return forbidden;
       const refusal = await checkArtifactWrite(
         transaction,
         parsed.data.artifactId,
@@ -461,7 +492,7 @@ export async function removeProductArtifact(
     if (sourceError !== null) return failure(sourceError);
   } catch (error) {
     return dependencyFailure(
-      { module: "materials", operation: "remove" },
+      { module: "products", operation: "remove" },
       error,
       dependencyUnavailable(),
     );

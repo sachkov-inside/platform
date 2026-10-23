@@ -7,7 +7,7 @@ import {
   attachmentDisposition,
   readPublicObject,
   signedDeliveryTtlSeconds,
-} from "../../shared/protected-delivery.js";
+} from "../../../../infrastructure/http/protected-delivery.js";
 import type {
   ProductArtifacts,
   ReaderProductArtifact,
@@ -121,7 +121,7 @@ export function assembleProductArtifactDelivery(dependencies: {
           );
         } catch (error) {
           return dependencyFailure(
-            { module: "materials", operation: "read" },
+            { module: "products", operation: "read" },
             error,
             dependencyUnavailable(),
           );
@@ -154,7 +154,7 @@ export function assembleProductArtifactDelivery(dependencies: {
         });
       } catch (error) {
         return dependencyFailure(
-          { module: "materials", operation: "deliver" },
+          { module: "products", operation: "deliver" },
           error,
           dependencyUnavailable(),
         );
@@ -218,7 +218,7 @@ export function assembleProductArtifactDelivery(dependencies: {
         };
       } catch (error) {
         return dependencyFailure(
-          { module: "materials", operation: "deliver" },
+          { module: "products", operation: "deliver" },
           error,
           dependencyUnavailable(),
         );
