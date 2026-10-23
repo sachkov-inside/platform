@@ -71,8 +71,14 @@ export function assembleDeleteDraft(
       DeleteDraftError
     >(
       dependencies.prisma,
-      (transaction, rollback) =>
-        executeIdempotentMaterialMutation<DeleteDraftEffect>(
+      async (transaction, rollback) => {
+        const currentPermission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!currentPermission.ok) return rollback(currentPermission.error);
+        return executeIdempotentMaterialMutation<DeleteDraftEffect>(
           transaction,
           {
             actor: command.actor,
@@ -160,7 +166,8 @@ export function assembleDeleteDraft(
             });
             return { kind: "deleted", materialId: command.materialId };
           },
-        ),
+        );
+      },
       mapPostgresReadError,
       "deleteDraft",
     );

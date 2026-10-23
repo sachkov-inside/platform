@@ -31,11 +31,7 @@ import {
   AccountsModule,
   type Accounts,
 } from "../accounts/index.js";
-import {
-  assembleCurrentAccountPermissions,
-  CONTENT_ACCESS,
-  type ContentAccess,
-} from "../content-access/index.js";
+import { CONTENT_ACCESS, type ContentAccess } from "../content-access/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -119,10 +115,14 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         videos: Videos,
         grants: ProductAccessHolders,
       ): MaterialAuthoring => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
-          canManage: (accountId) =>
-            accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+          async canManage(accountId, handle) {
+            const decision = await accounts.checkPermission(
+              { accountId, permission: "materials:manage" },
+              handle,
+            );
+            return decision.ok && decision.allowed;
+          },
         };
         return assembleMaterialAuthoring({
           prisma,
