@@ -39,11 +39,7 @@ interface Dependencies {
   readonly clock?: () => Date;
 }
 
-/**
- * Служебные поводы подписки: их запись принадлежит переходам оплаты и расписания, а этот фасет
- * отвечает на вопрос «повод ещё актуален?», ведёт календарные напоминания и показывает историю
- * кабинету. Форма ответа принадлежит Notifications, как и шаблоны, каналы и сама отправка.
- */
+/** Resolves persisted purchase notices against their immutable occurrence and current payment. */
 export class BillingNotices {
   private readonly clock: () => Date;
   constructor(private readonly dependencies: Dependencies) {

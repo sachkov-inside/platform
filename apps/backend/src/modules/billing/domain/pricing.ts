@@ -10,11 +10,7 @@ export const revisionSchema = z.int().positive().max(2_147_483_647);
 export const moneySchema = z.int().positive();
 export const benefitsSchema = capabilitiesSchema;
 export { benefitPeriodsSchema } from "@inside/access-capabilities";
-/**
- * Кому Offer продаётся: всем, только Account с основанием «прежний подписчик Tribute» —
- * подтверждённым периодом Tribute, или только Account с погашённым приглашением на этот Offer.
- * Отсутствующее поле в прежнем снимке читается как `everyone`.
- */
+/** Historical snapshot decoder only; new Product prices do not evaluate eligibility classes. */
 export const offerEligibilitySchema = z.enum([
   "everyone",
   "former_tribute_subscribers",

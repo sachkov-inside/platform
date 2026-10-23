@@ -41,8 +41,6 @@ export class BillingPricing {
       clock?: () => Date;
       sale: SaleCapability;
       contentCatalog?: CoverageCatalog;
-      /** Основания Account для Offer с ограничением допуска; без них такие Offer не продаются. */
-      grants?: unknown;
     },
   ) {
     this.clock = dependencies.clock ?? (() => new Date());
