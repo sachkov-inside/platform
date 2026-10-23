@@ -1,3 +1,4 @@
+import { historicalInvitationRequestSchema } from "../src/modules/telegram-membership/domain/historical-invitation-codec.js";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -7,7 +8,6 @@ import {
   beginActivationSchema,
   activationEvidenceSchema,
   ownSubscriptionAccessQuerySchema,
-  redeemInvitationSchema,
 } from "../src/modules/account-rights/index.js";
 import {
   announcementResponseSchema,
@@ -33,7 +33,7 @@ const definitions = Object.fromEntries(
     ownAccessResponse: ownSubscriptionAccessResponseSchema,
     bindingQuery: bindingLookupQuerySchema,
     bindingResponse: bindingLookupResponseSchema,
-    invitationRedeem: redeemInvitationSchema,
+    invitationRedeem: historicalInvitationRequestSchema,
     invitationRedeemResponse: invitationRedeemResponseSchema,
   }).map(([name, codec]) => [
     name,
