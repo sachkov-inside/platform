@@ -490,8 +490,9 @@ An upgrade inside the paid term is a separate payment, not a scheduled change.
 _Avoid_: Pending payment, price change, promotion
 
 **AccessGrant**:
-One independent reason an Account has specified Inside capabilities for a finite term or for life.
-Payment, an owner's manual decision and a confirmed prior entitlement are distinct sources.
+One independent issuance of access to an Account, with its own origin, preserved agreed conditions,
+and a set of rights, each with its own finite or lifetime term. A purchase, verified course activation,
+and an owner's decision produce the same kind of issuance; in Russian product language: «выдача доступа».
 _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
