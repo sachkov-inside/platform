@@ -1,3 +1,7 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import sharp from "sharp";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
@@ -430,46 +434,12 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     subject: Subject & { kind: "account" },
     capabilities: AccessCapability[],
   ): Promise<string> {
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          rowKey: "task",
-          accountId: subject.accountId,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities,
-            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-            startsAt: new Date(Date.now() - 60_000).toISOString(),
-            validUntil: null,
-            reason: "Product Task fixture (#946)",
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-      expectedRevision: preview.revision,
-      confirmedRows: ["task"],
-    });
-    const row = applied.ok ? applied.rows[0]?.result : undefined;
-    if (row === undefined || !row.ok || !("grantRef" in row))
-      throw new Error("Grant fixture failed");
-    return row.grantRef;
+    const productId = capabilities[0]?.replace("product:", "");
+    if (!productId) throw new Error("Expected Product target");
+    return grantProductFixture(db.prisma, subject.accountId, productId);
   }
-
-  async function revoke(grantRef: string) {
-    const revoked = await grants.changeGrant(owner, {
-      action: "revoke",
-      operationId: randomUUID(),
-      grantRef,
-      expectedRevision: 1,
-      reason: "Product Task fixture revocation (#946)",
-    });
-    if (!revoked.ok) throw new Error(revoked.error.code);
+  async function revoke(target: string) {
+    await revokeProductFixture(db.prisma, target);
   }
 
   function source(

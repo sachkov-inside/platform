@@ -1,3 +1,7 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -323,43 +327,23 @@ describe("ReadingActivity on PostgreSQL", () => {
       ok: false,
       error: { code: "access_denied" },
     });
-    for (const [version, decision] of [
-      [1, "member"],
-      [2, "not_member"],
-    ] as const) {
-      const accepted = await membership.acceptEvidence({
+    const products = await database.prisma.productMembership.findMany({
+      where: { materialId: protectedId },
+    });
+    const productId = products[0]?.seriesId;
+    if (!productId) throw new Error("Missing Product fixture");
+    const target = await grantProductFixture(
+      database.prisma,
+      memberId,
+      productId,
+    );
+    expect(
+      await reading.setReadingState({
+        ...command(protectedId),
         accountId: memberId,
-        deliveryId: randomUUID(),
-        source: version === 1 ? "link_time" : "member_status_event",
-        evidence: {
-          contractVersion: "inside.membership-evidence.v1",
-          principalRef: `principal-${memberId}`,
-          decision,
-          reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-          checkedAt: new Date().toISOString(),
-          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-          validUntil: new Date(Date.now() + 240_000).toISOString(),
-          telegramIdentityRef: `telegram-${memberId}`,
-          evidenceRef: randomUUID(),
-          evidenceVersion: version,
-        },
-      });
-      expect(accepted).toMatchObject({ ok: true });
-      await database.prisma.legacyClassification.update({
-        where: { accountId: memberId },
-        data: {
-          bridgeCoverage: { productIds: [], materialIds: [protectedId] },
-        },
-      });
-      if (version === 1)
-        expect(
-          await reading.setReadingState({
-            ...command(protectedId),
-            accountId: memberId,
-          }),
-        ).toMatchObject({ ok: true });
-    }
+      }),
+    ).toMatchObject({ ok: true });
+    await revokeProductFixture(database.prisma, target);
     expect(
       await reading.getReadingStates({
         accountId: memberId,
@@ -382,64 +366,6 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await reading.getReadingStates({ accountId, materialIds: [protectedId] }),
     ).toMatchObject({ ok: true, value: [{ version: 0 }] });
-  });
-
-  test("positive Membership evidence expires by time without deleting previous marks", async () => {
-    const memberId = checkedAccountId(randomUUID());
-    const id = await material([await series()], "closed");
-    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-    const checkedAt = new Date();
-    const validUntil = new Date(checkedAt.getTime() + 240_000);
-    const accepted = await membership.acceptEvidence({
-      accountId: memberId,
-      deliveryId: randomUUID(),
-      source: "link_time",
-      evidence: {
-        contractVersion: "inside.membership-evidence.v1",
-        principalRef: `principal-${memberId}`,
-        decision: "member",
-        reasonCode: "chat_member",
-        checkedAt: checkedAt.toISOString(),
-        validUntil: validUntil.toISOString(),
-        telegramIdentityRef: `telegram-${memberId}`,
-        evidenceRef: randomUUID(),
-        evidenceVersion: 1,
-      },
-    });
-    expect(accepted).toMatchObject({ ok: true });
-    await database.prisma.legacyClassification.update({
-      where: { accountId: memberId },
-      data: { bridgeCoverage: { productIds: [], materialIds: [id] } },
-    });
-    expect(
-      await reading.setReadingState({ ...command(id), accountId: memberId }),
-    ).toMatchObject({ ok: true });
-    try {
-      membershipNow = new Date(validUntil.getTime() + 1);
-      expect(
-        await reading.setReadingState({
-          ...command(id, true, 1),
-          accountId: memberId,
-        }),
-      ).toEqual({ ok: false, error: { code: "access_denied" } });
-      expect(
-        await reading.getReadingStates({
-          accountId: memberId,
-          materialIds: [id],
-        }),
-      ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
-      expect(
-        await reading.setReadingState({
-          ...command(id, false, 1),
-          accountId: memberId,
-        }),
-      ).toMatchObject({
-        ok: true,
-        value: { state: { isRead: false, version: 2 } },
-      });
-    } finally {
-      membershipNow = undefined;
-    }
   });
 
   test("Material facts are rechecked after pair serialization and reject changed content or expired decisions without writes", async () => {

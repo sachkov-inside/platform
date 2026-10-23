@@ -24,29 +24,5 @@ export async function enrollPriorParticipantsFixture(
   });
 }
 
-/** Existing evidence-v1 corpus describes members of the explicitly selected old cohort. */
-export function assemblePriorParticipantsFixture(
-  dependencies: Parameters<typeof assembleAccountRights>[0],
-): AccountRights {
-  const membership = assembleAccountRights(dependencies);
-  return {
-    ...membership,
-    async bindPrincipal(command, transaction) {
-      // Inside the caller's transaction the fixture writes through it, as the binding does.
-      await enrollPriorParticipantsFixture(
-        transaction !== undefined
-          ? accountRightsTransaction(transaction)
-          : dependencies.prisma,
-        command.accountId,
-      );
-      return membership.bindPrincipal(command, transaction);
-    },
-    async acceptEvidence(command) {
-      await enrollPriorParticipantsFixture(
-        dependencies.prisma,
-        command.accountId,
-      );
-      return membership.acceptEvidence(command);
-    },
-  };
-}
+/** Rights reader only. Legacy evidence does not issue Product Access. */
+export const assemblePriorParticipantsFixture = assembleAccountRights;

@@ -1,3 +1,7 @@
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
@@ -1182,33 +1186,12 @@ describe("Product Artifacts", () => {
   }
 
   async function grant(capabilities: AccessCapability[]): Promise<void> {
-    const rowKey = "artifact-fixture";
-    const preview = await grants.previewBatch(owner, {
-      operationId: randomUUID(),
-      rows: [
-        {
-          accountId: member,
-          rowKey,
-          source: "manual",
-          sourceRef: randomUUID(),
-          terms: {
-            capabilities,
-            reason: "Controlled #466 fixture",
-            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-            startsAt: new Date().toISOString(),
-            validUntil: null,
-          },
-        },
-      ],
-    });
-    if (!preview.ok) throw new Error(preview.error.code);
-    const applied = await grants.applyBatch(owner, {
-      confirmedRows: [rowKey],
-      expectedRevision: preview.revision,
-      operationId: randomUUID(),
-      previewRef: preview.previewRef,
-    });
-    if (!applied.ok) throw new Error("grant fixture failed");
+    for (const capability of capabilities)
+      await grantProductFixture(
+        db.prisma,
+        member,
+        capability.replace("product:", ""),
+      );
   }
 });
 

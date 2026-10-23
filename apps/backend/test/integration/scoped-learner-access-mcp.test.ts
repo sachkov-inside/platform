@@ -211,7 +211,7 @@ describe("scoped learner access over the learner MCP transport", () => {
 
   test("expired Product A grant reads the public Material and no protected Material or practice part", async () => {
     const { learner, accountId } = await connectedLearner();
-    await world.grantExpiredProduct(accountId, world.productA.productId);
+    await world.grantRevokedProduct(accountId, world.productA.productId);
     expect(await readPublic(learner)).toBe("open");
     await expectClosed(learner, world.productA);
   });

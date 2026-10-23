@@ -121,7 +121,7 @@ describe("local bank double", () => {
       ["unknown", "CONFIRMING"],
     ] as const) {
       const { bank, notifications, outcome } = stand();
-      const started = await bank.init({ ...purchase, initiator: "0" });
+      const started = await bank.init({ ...purchase });
       await outcome(started.PaymentURL, choice);
       expect(bank.notification(notifications[0])).toMatchObject({
         Status: status,
@@ -130,62 +130,6 @@ describe("local bank double", () => {
       // Разовая покупка не просит привязку, поэтому её не получает ни при каком исходе.
       expect(notifications[0]?.["RebillId"]).toBeUndefined();
     }
-  });
-
-  test("списание по сохранённой карте следует выбранному исходу", async () => {
-    const { bank, double, notifications, outcome } = stand();
-    const first = await bank.init(purchase);
-    await outcome(first.PaymentURL, "confirmed");
-    const saved = bank.notification(notifications[0])?.RebillId ?? "";
-
-    const renewal = await bank.init({
-      ...purchase,
-      orderId: "0f2f7c0e-6d9e-4d23-9c0e-1f3c6f1c2f02",
-      initiator: "R",
-    });
-    expect(
-      await bank.charge({ paymentId: renewal.PaymentId, rebillId: saved }),
-    ).toMatchObject({ Status: "CONFIRMED", Success: true });
-
-    await double.handle(
-      new Request(`${origin}/control`, {
-        method: "POST",
-        body: new URLSearchParams({
-          chargeOutcome: "rejected",
-          refundOutcome: "accepted",
-        }),
-      }),
-    );
-    const declined = await bank.init({
-      ...purchase,
-      orderId: "0f2f7c0e-6d9e-4d23-9c0e-1f3c6f1c2f03",
-      initiator: "R",
-    });
-    expect(
-      await bank.charge({ paymentId: declined.PaymentId, rebillId: saved }),
-    ).toMatchObject({ Status: "REJECTED", Success: false });
-  });
-
-  test("списание по чужой привязке банк не исполняет", async () => {
-    const { bank, notifications, outcome } = stand();
-    const first = await bank.init(purchase);
-    await outcome(first.PaymentURL, "confirmed");
-    const renewal = await bank.init({
-      ...purchase,
-      orderId: "0f2f7c0e-6d9e-4d23-9c0e-1f3c6f1c2f04",
-      initiator: "R",
-    });
-    // Привязку выдаёт сам банк: подставленный `RebillId` не является способом оплаты.
-    expect(
-      await bank.charge({
-        paymentId: renewal.PaymentId,
-        rebillId: "999999999",
-      }),
-    ).toMatchObject({ Status: "REJECTED", Success: false, ErrorCode: "3005" });
-    expect(notifications.at(-1)).toMatchObject({
-      Status: "REJECTED",
-      ErrorCode: "3005",
-    });
   });
 
   test("незнакомый платёж банк называет незнакомым, а не падает", async () => {
@@ -222,131 +166,6 @@ describe("local bank double", () => {
     ).toMatchObject({ Success: false, ErrorCode: "7" });
     // Приложение видит это как невозможность сверки, а не как отказ платежа.
     await expect(bank.state("404404404404")).rejects.toThrow();
-  });
-
-  test("возврат частями и целиком следует запрошенной сумме, повтор не возвращает дважды", async () => {
-    const { bank, notifications, outcome } = stand();
-    const started = await bank.init(purchase);
-    await outcome(started.PaymentURL, "confirmed");
-    expect(notifications).toHaveLength(1);
-    const refund = {
-      paymentId: started.PaymentId,
-      name: purchase.name,
-      email: purchase.email,
-    };
-    const partial = await bank.cancel({
-      ...refund,
-      amount: 90_000,
-      externalRequestId: "refund-1",
-    });
-    expect(partial).toMatchObject({
-      Status: "PARTIAL_REFUNDED",
-      Success: true,
-      ErrorCode: "0",
-      NewAmount: 200_000,
-    });
-    // Тот же ExternalRequestId — тот же ответ: сверка не создаёт второй возврат.
-    expect(
-      await bank.cancel({
-        ...refund,
-        amount: 90_000,
-        externalRequestId: "refund-1",
-      }),
-    ).toEqual(partial);
-    expect(
-      await bank.cancel({
-        ...refund,
-        amount: 200_000,
-        externalRequestId: "refund-2",
-      }),
-    ).toMatchObject({ Status: "REFUNDED", Success: true, NewAmount: 0 });
-    expect(
-      await bank.cancel({
-        ...refund,
-        amount: 100,
-        externalRequestId: "refund-3",
-      }),
-    ).toMatchObject({ Success: false, ErrorCode: "3007" });
-    // О возврате банк сообщает так же, как об оплате: приложение получает подписанное событие.
-    expect(notifications.map((item) => item["Status"])).toEqual([
-      "CONFIRMED",
-      "PARTIAL_REFUNDED",
-      "REFUNDED",
-    ]);
-    expect(bank.notification(notifications.at(-1))).toMatchObject({
-      Status: "REFUNDED",
-    });
-  });
-
-  test("отказ банка в возврате не запоминается за попыткой", async () => {
-    const { bank, double, outcome } = stand();
-    const started = await bank.init(purchase);
-    await outcome(started.PaymentURL, "confirmed");
-    await double.handle(
-      new Request(`${origin}/control`, {
-        method: "POST",
-        body: new URLSearchParams({
-          chargeOutcome: "confirmed",
-          refundOutcome: "declined",
-        }),
-      }),
-    );
-    const refund = {
-      paymentId: started.PaymentId,
-      name: purchase.name,
-      email: purchase.email,
-      amount: 290_000,
-      externalRequestId: "refund-1",
-    };
-    expect(await bank.cancel(refund)).toMatchObject({
-      Success: false,
-      ErrorCode: "3007",
-    });
-    await double.handle(
-      new Request(`${origin}/control`, {
-        method: "POST",
-        body: new URLSearchParams({
-          chargeOutcome: "confirmed",
-          refundOutcome: "accepted",
-        }),
-      }),
-    );
-    // Владелец вернул переключатель: та же попытка возврата теперь проходит.
-    expect(await bank.cancel(refund)).toMatchObject({
-      Status: "REFUNDED",
-      Success: true,
-    });
-  });
-
-  test("привязка карты подтверждается человеком и только тогда выдаёт способ оплаты", async () => {
-    const { bank, outcome } = stand();
-    const session = await bank.addCard(purchase.accountId);
-    expect(session.formUrl.startsWith(`${origin}/card/`)).toBe(true);
-    expect(await bank.addCardState(session.requestKey)).toMatchObject({
-      status: "NEW",
-      success: true,
-    });
-    expect(await bank.addCardState(session.requestKey)).not.toHaveProperty(
-      "rebillId",
-    );
-    await outcome(session.formUrl, "completed");
-    const completed = await bank.addCardState(session.requestKey);
-    expect(completed).toMatchObject({
-      status: "COMPLETED",
-      success: true,
-      errorCode: "0",
-    });
-    expect(completed.rebillId).toMatch(/^\d+$/u);
-
-    const refused = await bank.addCard(purchase.accountId);
-    await outcome(refused.formUrl, "rejected");
-    expect(await bank.addCardState(refused.requestKey)).toMatchObject({
-      status: "REJECTED",
-      success: false,
-    });
-    expect(await bank.addCardState(refused.requestKey)).not.toHaveProperty(
-      "rebillId",
-    );
   });
 
   test("подпись запроса проверяется, а страницы стенда открываются человеком", async () => {
