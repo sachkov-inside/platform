@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   accessComposition,
   attemptStateLabel,
-  publicSubscriptionOffers,
   benefitLines,
   billingErrorMessage,
   capabilityLabel,
@@ -13,7 +12,6 @@ import {
   noticeLabel,
   offerCompositionLabel,
   promotionLabel,
-  subscriptionStateLabel,
 } from "@/entities/subscription";
 import {
   productOnlyOffer,
@@ -167,31 +165,6 @@ describe("состав доступа", () => {
   });
 });
 
-describe("что можно продать публично", () => {
-  it("оставляет только подписку на каталог", () => {
-    expect(
-      publicSubscriptionOffers([
-        materialsOffer,
-        supportOffer,
-        productOnlyOffer,
-      ]).map((snapshot) => snapshot.offer.name),
-    ).toEqual([materialsOffer.offer.name, supportOffer.offer.name]);
-  });
-
-  it("не выводит вид тарифа из состава прав: подписка на продукт тоже подписка", () => {
-    const productSubscription = {
-      ...productOnlyOffer,
-      paymentOption: {
-        ...productOnlyOffer.paymentOption,
-        mode: "subscription" as const,
-      },
-    };
-    expect(publicSubscriptionOffers([productSubscription])).toEqual([
-      productSubscription,
-    ]);
-  });
-});
-
 describe("состояния и ошибки", () => {
   it("отделяет отказ в праве от завершённой сессии", () => {
     expect(billingErrorMessage("forbidden")).toBe(
@@ -205,7 +178,6 @@ describe("состояния и ошибки", () => {
   it("отделяет банковское состояние попытки от состояния подписки", () => {
     expect(attemptStateLabel("unknown")).toBe("Результат ещё неизвестен");
     expect(attemptStateLabel("confirmed")).toBe("Оплата подтверждена");
-    expect(subscriptionStateLabel("canceled")).toBe("Продление отменено");
     expect(noticeLabel("payment_failed")).toBe("Списание не прошло");
   });
 

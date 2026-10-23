@@ -1,56 +1,17 @@
 import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
 import { z } from "zod";
-import { coverageSchema } from "@inside/access-capabilities";
 
 import {
-  accessCapabilitySchema,
   attemptStateSchema,
   cohortStageSchema,
-  offerEligibilitySchema,
-  paymentModeSchema,
   priceSnapshotSchema,
-  subscriptionViewSchema,
 } from "@/entities/subscription";
 
 const operationId = z.uuid();
 const revision = z.number().int().positive();
-const reason = z.string().trim().min(1).max(1000);
 const money = z.number().int().positive();
 const instant = z.iso.datetime({ offset: true });
 
-export const saveOfferInputSchema = z.strictObject({
-  operationId,
-  expectedRevision: revision.optional(),
-  value: z.strictObject({
-    id: z.uuid(),
-    name: z.string().trim().min(1).max(200),
-    benefits: z.array(accessCapabilitySchema).min(1).max(100),
-    availableForAssignment: z.boolean().optional(),
-    coverage: coverageSchema.nullable().optional(),
-    /** Без поля сервер сохраняет прежний допуск: форма каталога его не называет. */
-    eligibility: offerEligibilitySchema.optional(),
-    benefitPeriods: z
-      .array(
-        z.strictObject({
-          capability: accessCapabilitySchema,
-          months: z.number().int().positive().max(1200).nullable(),
-        }),
-      )
-      .max(100)
-      .optional(),
-  }),
-});
-export const savePaymentOptionInputSchema = z.strictObject({
-  operationId,
-  expectedRevision: revision.optional(),
-  value: z.strictObject({
-    id: z.uuid(),
-    offerId: z.uuid(),
-    mode: paymentModeSchema.optional(),
-    months: z.number().int().positive().max(1200),
-    priceKopecks: money,
-  }),
-});
 export const savePromotionInputSchema = z.strictObject({
   operationId,
   expectedRevision: revision.optional(),
@@ -131,99 +92,6 @@ export const purchaseInputSchema = z.strictObject({
 export const readPaymentInputSchema = purchaseInputSchema.extend({
   auditCursor: paymentAuditCursorSchema.optional(),
 });
-export const cancelSubscriptionInputSchema = z.strictObject({
-  operationId,
-  accountId: z.uuid(),
-  expectedRevision: revision,
-  reason,
-});
-export const decideRefundInputSchema = z.strictObject({
-  operationId,
-  purchaseRef: z.uuid(),
-  amountKopecks: money,
-  basis: z.enum(["withdrawal", "compensation"]),
-  recurring: z.enum(["keep", "cancel"]),
-  reason,
-});
-export const executeRefundInputSchema = z.strictObject({
-  operationId,
-  decisionRef: z.uuid(),
-  expectedRevision: revision,
-});
-export const readGrantsInputSchema = z.strictObject({
-  operationId,
-  accountId: z.uuid(),
-});
-export const grantRowSchema = z.strictObject({
-  rowKey: z.string().min(1).max(100),
-  accountId: z.uuid(),
-  source: z.enum(["manual", "legacy"]),
-  sourceRef: z.string().min(1).max(256),
-  terms: z.strictObject({
-    capabilities: z.array(accessCapabilitySchema).min(1).max(100),
-    startsAt: instant,
-    validUntil: instant.nullable(),
-    reason,
-  }),
-});
-/** Решение владельца о покупателе: «неизвестно» держит автосписания закрытыми. */
-export const accountClassificationSchema = z.enum([
-  "confirmed_legacy",
-  "confirmed_new",
-  "unknown",
-]);
-const classificationTerms = {
-  classification: accountClassificationSchema,
-  sourceRef: z.string().min(1).max(256),
-  reason,
-  bridgeEnabled: z.boolean(),
-  tributeStopped: z.boolean(),
-};
-export const readClassificationInputSchema = z.strictObject({
-  operationId,
-  accountId: z.uuid(),
-});
-export const classifyAccountInputSchema = z.strictObject({
-  operationId,
-  accountId: z.uuid(),
-  expectedRevision: z.number().int().nonnegative(),
-  ...classificationTerms,
-});
-export const classificationRowSchema = z.strictObject({
-  rowKey: z.string().min(1).max(100),
-  accountId: z.uuid(),
-  expectedRevision: z.number().int().nonnegative(),
-  ...classificationTerms,
-});
-/** Одна строка набора либо выдаёт основание, либо классифицирует Account. */
-export const batchRowSchema = z.union([
-  grantRowSchema,
-  classificationRowSchema,
-]);
-export const previewBatchInputSchema = z.strictObject({
-  operationId,
-  rows: z.array(batchRowSchema).min(1).max(100),
-});
-export const applyBatchInputSchema = z.strictObject({
-  operationId,
-  previewRef: z.uuid(),
-  expectedRevision: revision,
-  confirmedRows: z.array(z.string().min(1).max(100)).min(1).max(100),
-});
-export const extendGrantInputSchema = z.strictObject({
-  operationId,
-  grantRef: z.uuid(),
-  expectedRevision: revision,
-  reason,
-  validUntil: instant.nullable(),
-});
-export const revokeGrantInputSchema = z.strictObject({
-  operationId,
-  grantRef: z.uuid(),
-  expectedRevision: revision,
-  reason,
-});
-
 const envelope = <Schema extends z.ZodType>(result: Schema) =>
   z.object({ operationRef: z.uuid(), result });
 
@@ -292,19 +160,6 @@ export const refundDecisionViewSchema = z.object({
     })
     .nullable(),
 });
-export const accessGrantViewSchema = z.object({
-  grantRef: z.uuid(),
-  accountId: z.uuid(),
-  source: z.enum(["paid", "manual", "legacy"]),
-  sourceRef: z.string(),
-  capabilities: z.array(accessCapabilitySchema),
-  startsAt: z.iso.datetime(),
-  validUntil: z.iso.datetime().nullable(),
-  revokedAt: z.iso.datetime().nullable(),
-  revision,
-  reason: z.string(),
-  active: z.boolean(),
-});
 export const paymentsOutcomeSchema = envelope(
   z.object({
     outcome: z.literal("payments"),
@@ -339,18 +194,6 @@ export const paymentOutcomeSchema = envelope(
 export const reconciledOutcomeSchema = envelope(
   z.object({ outcome: z.literal("reconciled"), value: paymentViewSchema }),
 );
-export const subscriptionOutcomeSchema = envelope(
-  z.object({
-    outcome: z.literal("subscription"),
-    value: subscriptionViewSchema,
-  }),
-);
-export const refundDecisionOutcomeSchema = envelope(
-  z.object({
-    outcome: z.literal("refundDecision"),
-    value: refundDecisionViewSchema,
-  }),
-);
 export const refundsOutcomeSchema = envelope(
   z.object({
     outcome: z.literal("refunds"),
@@ -360,118 +203,16 @@ export const refundsOutcomeSchema = envelope(
     decisions: z.array(refundDecisionViewSchema),
   }),
 );
-export const grantsOutcomeSchema = envelope(
-  z.object({
-    outcome: z.literal("grants"),
-    value: z.object({
-      accountId: z.uuid(),
-      grants: z.array(accessGrantViewSchema),
-      history: z.array(
-        z.object({
-          revision,
-          grantRef: z.uuid().nullable(),
-          actorId: z.uuid().nullable(),
-          operationId: z.uuid(),
-          kind: z.string(),
-          reason: z.string(),
-          recordedAt: z.iso.datetime(),
-        }),
-      ),
-    }),
-  }),
-);
-export const classificationOutcomeSchema = envelope(
-  z.object({
-    outcome: z.literal("classification"),
-    value: z.object({
-      accountId: z.uuid(),
-      classification: accountClassificationSchema,
-      revision: z.number().int().nonnegative(),
-      recurringAllowed: z.boolean(),
-    }),
-  }),
-);
-export const grantPreviewOutcomeSchema = envelope(
-  z.object({
-    outcome: z.literal("grantPreview"),
-    previewRef: z.uuid(),
-    revision,
-    expiresAt: z.iso.datetime(),
-    rows: z.array(
-      z.object({
-        rowKey: z.string(),
-        accountId: z.uuid(),
-        status: z.enum(["confirmed", "not_found"]),
-      }),
-    ),
-  }),
-);
-export const grantBatchOutcomeSchema = envelope(
-  z.object({
-    outcome: z.literal("grantBatch"),
-    rows: z.array(
-      z.object({
-        rowKey: z.string(),
-        result: z.union([
-          z.object({ ok: z.literal(true), grantRef: z.uuid(), revision }),
-          z.object({
-            ok: z.literal(true),
-            classification: accountClassificationSchema,
-            revision,
-          }),
-          z.object({
-            ok: z.literal(false),
-            error: z.object({ code: z.literal("operation_conflict") }),
-          }),
-        ]),
-      }),
-    ),
-  }),
-);
-export const grantOutcomeSchema = envelope(
-  z.object({ outcome: z.literal("grant"), grantRef: z.uuid(), revision }),
-);
-
-export type SaveOfferInput = z.infer<typeof saveOfferInputSchema>;
-export type SavePaymentOptionInput = z.infer<
-  typeof savePaymentOptionInputSchema
->;
 export type SavePromotionInput = z.infer<typeof savePromotionInputSchema>;
 export type SaveCohortInput = z.infer<typeof saveCohortInputSchema>;
 export type ArchiveInput = z.infer<typeof archiveInputSchema>;
 export type ListPaymentsInput = z.infer<typeof listPaymentsInputSchema>;
 export type ReadPaymentInput = z.infer<typeof readPaymentInputSchema>;
 export type PurchaseCommandInput = z.infer<typeof purchaseInputSchema>;
-export type CancelSubscriptionInput = z.infer<
-  typeof cancelSubscriptionInputSchema
->;
-export type DecideRefundInput = z.infer<typeof decideRefundInputSchema>;
-export type ExecuteRefundInput = z.infer<typeof executeRefundInputSchema>;
-export type ReadGrantsInput = z.infer<typeof readGrantsInputSchema>;
-export type GrantRow = z.infer<typeof grantRowSchema>;
-export type ClassificationRow = z.infer<typeof classificationRowSchema>;
-export type BatchRow = z.infer<typeof batchRowSchema>;
-export type ReadClassificationInput = z.infer<
-  typeof readClassificationInputSchema
->;
-export type ClassifyAccountInput = z.infer<typeof classifyAccountInputSchema>;
-export type ClassificationOutcome = z.infer<typeof classificationOutcomeSchema>;
-export type AccountClassification = z.infer<typeof accountClassificationSchema>;
-export type PreviewBatchInput = z.infer<typeof previewBatchInputSchema>;
-export type ApplyBatchInput = z.infer<typeof applyBatchInputSchema>;
-export type ExtendGrantInput = z.infer<typeof extendGrantInputSchema>;
-export type RevokeGrantInput = z.infer<typeof revokeGrantInputSchema>;
 export type CatalogOutcome = z.infer<typeof catalogOutcomeSchema>;
 export type PaymentView = z.infer<typeof paymentViewSchema>;
 export type PaymentsOutcome = z.infer<typeof paymentsOutcomeSchema>;
 export type PaymentOutcome = z.infer<typeof paymentOutcomeSchema>;
 export type ReconciledOutcome = z.infer<typeof reconciledOutcomeSchema>;
-export type SubscriptionOutcome = z.infer<typeof subscriptionOutcomeSchema>;
-export type RefundDecisionOutcome = z.infer<typeof refundDecisionOutcomeSchema>;
 export type RefundsOutcome = z.infer<typeof refundsOutcomeSchema>;
-export type GrantsOutcome = z.infer<typeof grantsOutcomeSchema>;
-export type GrantPreviewOutcome = z.infer<typeof grantPreviewOutcomeSchema>;
-export type GrantBatchOutcome = z.infer<typeof grantBatchOutcomeSchema>;
-export type GrantOutcome = z.infer<typeof grantOutcomeSchema>;
-export type AccessGrantView = z.infer<typeof accessGrantViewSchema>;
 export type RefundDecisionView = z.infer<typeof refundDecisionViewSchema>;

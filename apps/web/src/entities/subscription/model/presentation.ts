@@ -13,7 +13,6 @@ import type {
   BillingPaymentOption,
   NoticeKind,
   PriceSnapshot,
-  SubscriptionState,
 } from "./billing-contract";
 
 const moscow = "Europe/Moscow";
@@ -202,17 +201,6 @@ export function accessSourceLabel(source: AccessSource): string {
       return "Выдано вручную";
     case "legacy":
       return "Прежняя подписка";
-  }
-}
-
-export function subscriptionStateLabel(state: SubscriptionState): string {
-  switch (state) {
-    case "active":
-      return "Действует";
-    case "canceled":
-      return "Продление отменено";
-    case "ended":
-      return "Завершена";
   }
 }
 
