@@ -188,7 +188,9 @@ describe.each([1, 10, 100])(
         (sql) =>
           sql.includes('"account_rights"') ||
           sql.includes("account_rights.") ||
-          sql.includes("materials."),
+          sql.includes("materials.") ||
+          sql.includes('"products"') ||
+          sql.includes("products."),
       );
       expect(
         ownerFacts.filter(

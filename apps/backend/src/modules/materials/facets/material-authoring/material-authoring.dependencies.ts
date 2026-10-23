@@ -13,7 +13,7 @@ import type { Videos } from "../../../videos/index.js";
 
 export interface MaterialAuthoringDependencies {
   readonly products: ProductAuthoring;
-  readonly discovery: Pick<ProductDiscovery, "snapshot">;
+  readonly discovery: Pick<ProductDiscovery, "snapshot" | "metadata">;
   readonly memberships: ProductMemberships;
   readonly prisma: MaterialsPrismaClient;
   readonly materialBodyOperations: MaterialBodyOperations;

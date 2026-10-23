@@ -31,8 +31,8 @@ export function assembleListAuthoringReferences(
     try {
       const [series, tags, topics] = await Promise.all([
         dependencies.discovery
-          .snapshot()
-          .then(({ products }) =>
+          .metadata()
+          .then((products) =>
             products
               .sort((a, b) =>
                 a.name === b.name

@@ -36,8 +36,9 @@ export class ProductDiscovery {
   }
 
   metadata(query?: {
-    readonly ids: readonly string[];
-    readonly includeActive: boolean;
+    readonly ids?: readonly string[];
+    readonly slugs?: readonly string[];
+    readonly includeActive?: boolean;
   }) {
     return this.prisma.product.findMany({
       ...(query === undefined
@@ -45,8 +46,13 @@ export class ProductDiscovery {
         : {
             where: {
               OR: [
-                { id: { in: [...query.ids] } },
-                ...(query.includeActive ? [{ archivedAt: null }] : []),
+                ...(query.ids === undefined
+                  ? []
+                  : [{ id: { in: [...query.ids] } }]),
+                ...(query.slugs === undefined
+                  ? []
+                  : [{ slug: { in: [...query.slugs] } }]),
+                ...(query.includeActive === true ? [{ archivedAt: null }] : []),
               ],
             },
           }),
@@ -59,6 +65,13 @@ export class ProductDiscovery {
         archivedAt: true,
         coverId: true,
       },
+    });
+  }
+
+  catalogueMemberships(productIds: readonly string[]) {
+    return this.prisma.productMembership.findMany({
+      where: { seriesId: { in: [...productIds] } },
+      select: { seriesId: true, materialId: true },
     });
   }
 

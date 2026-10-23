@@ -1,3 +1,4 @@
+import { authorizeManager } from "../../ports/author-policy.js";
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -28,6 +29,11 @@ export function assemblePreviewMaterial(
     if (!parsed.ok) {
       return failure(parsed.error);
     }
+    const authorization = await authorizeManager(
+      dependencies.authorPolicy,
+      parsed.value.actor,
+    );
+    if (!authorization.ok) return failure(authorization.error);
     const correlationId = randomUUID();
     const access = await dependencies.contentAccess.authorize({
       subject: {
