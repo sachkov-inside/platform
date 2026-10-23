@@ -66,8 +66,6 @@ export function assembleListPublishedSiteMaterials(
       let topicSlugs: readonly string[] = [];
       if (after === undefined) {
         const candidates = await discovery.siteCandidates();
-        const products = Prisma.sql`jsonb_to_recordset(${JSON.stringify(candidates)}::jsonb)
-          as series(id uuid, slug text, name text, "materialIds" uuid[])`;
         const [taxonomy] = siteTaxonomySchema.parse(
           await prisma.$queryRaw(Prisma.sql`
           select array(
@@ -78,7 +76,8 @@ export function assembleListPublishedSiteMaterials(
               where publication.topic_id = topic.id
             ) order by topic.name, topic.id
           ) as topic_slugs, array(
-            select series.slug from ${products}
+            select series.slug from jsonb_to_recordset(${JSON.stringify(candidates)}::jsonb)
+              as series(id uuid, slug text, name text, "materialIds" uuid[])
             where exists (
               select 1 from materials.published_materials as publication
               join materials.topics as topic on topic.id = publication.topic_id

@@ -1,3 +1,4 @@
+import { authorProductProgramme } from "../fixtures/author-product-programme.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { z } from "zod";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
@@ -91,7 +92,7 @@ beforeAll(async () => {
       seriesId,
     });
     if (!order.ok) throw new Error(order.error.code);
-    const programme = await authoring.reorderSeries({
+    const programme = await authorProductProgramme(authoring, {
       actor: id(3001),
       seriesId,
       expectedOrderVersion: order.value.orderVersion,
