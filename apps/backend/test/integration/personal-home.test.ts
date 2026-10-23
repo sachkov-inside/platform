@@ -1,11 +1,12 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { createPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
   PublishedSeriesComposition,
@@ -113,7 +114,10 @@ describe("Personal Home on PostgreSQL", () => {
       reader: materials.publishedMaterialReader,
       prisma: database.prisma,
       materialContent: materials.materialContent,
-      selection: new PublishedMaterialSelection(database.prisma),
+      selection: new PublishedMaterialSelection({
+        prisma: database.prisma,
+        products: new ProductDiscovery(database.prisma),
+      }),
       contentAccess,
       videos: videoPort,
       ...overrides,
@@ -262,7 +266,10 @@ describe("Personal Home on PostgreSQL", () => {
         reader: materials.publishedMaterialReader,
         prisma: second,
         materialContent: materials.materialContent,
-        selection: new PublishedMaterialSelection(second),
+        selection: new PublishedMaterialSelection({
+          prisma: second,
+          products: new ProductDiscovery(second),
+        }),
         contentAccess,
         videos,
       });

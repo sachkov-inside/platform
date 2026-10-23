@@ -24,8 +24,8 @@ import {
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";

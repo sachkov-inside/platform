@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
@@ -10,8 +11,8 @@ import {
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   materialId,
   PublishedMaterialSelection,
@@ -837,7 +838,10 @@ describe("ReadingActivity on PostgreSQL", () => {
           materialContent: pooled.materialContent,
           composition: new PublishedSeriesComposition(prisma),
           reader: pooled.publishedMaterialReader,
-          selection: new PublishedMaterialSelection(prisma),
+          selection: new PublishedMaterialSelection({
+            prisma: prisma,
+            products: new ProductDiscovery(prisma),
+          }),
           videos: {
             loadProgressMany: () =>
               Promise.reject(new Error("not used by this scenario")),

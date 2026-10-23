@@ -2,10 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import {
-  assembleMaterials,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductDirectory } from "../../src/modules/materials/index.js";
 import { assembleApplySourceTask } from "../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
 import { assembleReadSourceTaskState } from "../../src/modules/product-tasks/features/read-source-task-state/read-source-task-state.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";

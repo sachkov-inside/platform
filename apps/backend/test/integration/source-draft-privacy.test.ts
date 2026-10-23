@@ -21,9 +21,9 @@ import {
   type Subject,
 } from "../../src/modules/content-access/index.js";
 import { assembleAssetResourceFacts } from "../../src/modules/materials/adapters/content-access/asset-resource-facts.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   materialId as checkedMaterialId,
   PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";

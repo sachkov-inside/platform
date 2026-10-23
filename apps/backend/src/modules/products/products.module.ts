@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
 import { Module } from "@nestjs/common";
 import {
   PrismaClientProvider,
@@ -11,12 +12,18 @@ import { ProductCoverSelection } from "./adapters/product-cover-selection.js";
   providers: [
     ProductCoverSelection,
     {
+      provide: ProductDiscovery,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new ProductDiscovery(prisma),
+    },
+    {
       provide: ProductCatalogue,
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider) =>
         new ProductCatalogue(prisma),
     },
   ],
-  exports: [ProductCatalogue, ProductCoverSelection],
+  exports: [ProductCatalogue, ProductCoverSelection, ProductDiscovery],
 })
 export class ProductsModule {}

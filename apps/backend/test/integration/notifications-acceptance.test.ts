@@ -44,9 +44,9 @@ import {
   assembleAccessGrants,
   assembleAccountRights,
 } from "../../src/modules/account-rights/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   MaterialAnnouncements,
   materialId as checkedMaterialId,
   type MaterialId,

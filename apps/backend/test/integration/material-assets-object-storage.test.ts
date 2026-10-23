@@ -19,7 +19,7 @@ import {
 } from "../../src/infrastructure/object-storage/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { objectStorageConformance } from "../support/object-storage-conformance.js";
 import {
   createMigratedTestDatabase,

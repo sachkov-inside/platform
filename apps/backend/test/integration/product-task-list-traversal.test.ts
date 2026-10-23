@@ -5,8 +5,8 @@ import { TelegramAccountLinks } from "../../src/modules/telegram-membership/inde
 import { assembleSubmissionReview } from "../../src/modules/product-tasks/facets/submission-review/submission-review.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { accountId } from "../../src/modules/accounts/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   ProductDirectory,
 } from "../../src/modules/materials/index.js";

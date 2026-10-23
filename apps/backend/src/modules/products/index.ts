@@ -168,3 +168,4 @@ export {
   PRODUCT_AUTHORING,
   type ProductAuthoring,
 } from "./facets/product-authoring/product-authoring.js";
+export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";

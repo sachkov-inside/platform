@@ -41,9 +41,9 @@ import {
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   ProductDirectory,
 } from "../../src/modules/materials/index.js";
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";

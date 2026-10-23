@@ -1,7 +1,7 @@
 import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 import { randomUUID } from "node:crypto";
+import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedSeriesComposition,
 } from "../modules/materials/index.js";

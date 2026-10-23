@@ -18,9 +18,9 @@ import {
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleContentCovers,
-  assembleMaterials,
   type ContentCoverOwner,
 } from "../../src/modules/materials/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";

@@ -7,10 +7,8 @@ import {
   assembleDeterministicAccountRights,
 } from "../../src/modules/content-access/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   createMigratedTestDatabase,

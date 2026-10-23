@@ -4,11 +4,11 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   ProductOutlines,
   ProductDirectory,
   PublishedSeriesComposition,
-  assembleMaterials,
 } from "../../src/modules/materials/index.js";
 import { productChapterPlacementIssues } from "../../src/modules/materials/features/reorder-series/product-chapter-placement.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";

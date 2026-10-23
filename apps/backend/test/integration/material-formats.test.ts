@@ -3,7 +3,7 @@ import { migrateToLatest } from "../../src/migrations/index.js";
 import { migrateBefore, upgradeToLatest } from "./setup/historical-upgrade.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,

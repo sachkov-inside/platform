@@ -1,8 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
+import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   type MaterialBodySnapshot,
   type MaterialMetadataSelectionInput,
 } from "../modules/materials/index.js";

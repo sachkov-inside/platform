@@ -1,3 +1,4 @@
+import type { ProductDiscovery } from "../../../products/index.js";
 import { assembleListPublishedSiteMaterials } from "../../features/list-published-site-materials/list-published-site-materials.js";
 import { readHomeProjections } from "../../features/read-home-projections/read-home-projections.js";
 import {
@@ -21,6 +22,7 @@ import type { Videos } from "../../../videos/index.js";
 
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
+  readonly products: Pick<ProductDiscovery, "snapshot">;
   readonly contentAccess: ContentAccess;
   readonly materialContent: MaterialContent;
   readonly materialBodyOperations: MaterialBodyOperations;
@@ -33,16 +35,16 @@ export function assemblePublishedMaterialReader(dependencies: {
     listSiteMaterials: assembleListPublishedSiteMaterials(dependencies.prisma),
     readPractice: assembleReadPublishedPractice(dependencies),
     listPractices: assembleListPublishedPractices(dependencies),
-    readHomeProjections: () => readHomeProjections(dependencies.prisma),
+    readHomeProjections: () => readHomeProjections(dependencies),
     readHomePinnedSeries: () => readHomePinnedSeries(dependencies.prisma),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
       discoverPublishedMaterialProjections(
-        dependencies.prisma,
+        dependencies,
         query,
         dependencies.contentAccess,
       ),
     listProjections: (query: ListPublishedMaterialProjectionsQuery) =>
-      listPublishedMaterialProjections(dependencies.prisma, query),
+      listPublishedMaterialProjections(dependencies, query),
     read: (query: ReadPublishedMaterialQuery) =>
       readPublishedMaterial(dependencies, query),
   });

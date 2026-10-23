@@ -2,7 +2,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { readLearningPractice } from "../../src/modules/content-library/features/read-learning-practice/read-learning-practice.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";

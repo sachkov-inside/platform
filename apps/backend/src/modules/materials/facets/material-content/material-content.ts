@@ -1,6 +1,6 @@
 import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { materialsTransaction } from "../../infrastructure/transaction.js";
-import { loadMaterialProductAccessFacts } from "../../shared/product-composition.js";
+import type { ProductCatalogue } from "../../../products/index.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -98,6 +98,7 @@ const videoReferenceQuerySchema = z
 
 export function assembleMaterialContent(dependencies: {
   readonly prisma: MaterialsPrismaClient;
+  readonly productCatalogue: Pick<ProductCatalogue, "materialAccessFacts">;
   readonly materialBodyOperations: MaterialBodyOperations;
 }): MaterialContent {
   return Object.freeze({
@@ -137,9 +138,11 @@ export function assembleMaterialContent(dependencies: {
             ),
           };
         }
-        const productFacts = await loadMaterialProductAccessFacts(transaction, [
-          parsed.data,
-        ]);
+        const productFacts =
+          await dependencies.productCatalogue.materialAccessFacts(
+            [parsed.data],
+            handle,
+          );
         return {
           ok: true,
           value: { ...facts, ...productFacts.get(parsed.data) },
@@ -175,10 +178,10 @@ export function assembleMaterialContent(dependencies: {
             primaryVideoId: true,
           },
         });
-        const productFacts = await loadMaterialProductAccessFacts(
-          dependencies.prisma,
-          checkedMaterialIds,
-        );
+        const productFacts =
+          await dependencies.productCatalogue.materialAccessFacts(
+            checkedMaterialIds,
+          );
         const facts: (MaterialAccessFacts | undefined)[] = rows.map((row) => {
           const fact = toAccessFacts(row);
           return fact && { ...fact, ...productFacts.get(row.id) };

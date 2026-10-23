@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -5,7 +6,7 @@ import { seedLocalDevelopment } from "../../src/development/seed-local-developme
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { selectPublishedMaterialProjectionPage } from "../../src/modules/materials/infrastructure/postgres/published-material-reader/published-material-projection.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
@@ -440,7 +441,10 @@ describe("ListPublishedMaterials", () => {
     for (let sample = 0; sample < 20; sample += 1) {
       const startedAt = performance.now();
       const result = await selectPublishedMaterialProjectionPage(
-        testDatabase.prisma,
+        {
+          prisma: testDatabase.prisma,
+          products: new ProductDiscovery(testDatabase.prisma),
+        },
         {
           formatSlugs: [],
           first: 12,

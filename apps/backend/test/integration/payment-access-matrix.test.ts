@@ -25,11 +25,11 @@ import type {
 } from "../../src/modules/billing/domain/owner-operations.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleProductArtifactDelivery,
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
-  assembleMaterials,
   assembleMaterialResourceFacts,
   materialId as checkedMaterialId,
   type MaterialId,
