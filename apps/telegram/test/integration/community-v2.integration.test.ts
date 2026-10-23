@@ -84,7 +84,7 @@ async function stand(
       contractVersion: COMMUNITY_V2,
       removalsEnabled: options.removalsEnabled ?? true,
       botTelegramUserId: "1234",
-      ...(options.readmission
+      ...(isTruthy(options.readmission)
         ? {
             readmission: {
               replies: new StartResponseDeliveryQueue(
