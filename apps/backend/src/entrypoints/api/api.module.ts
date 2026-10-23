@@ -28,7 +28,7 @@ import {
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
-import { MemberProfilesModule } from "../../modules/member-profiles/index.js";
+import { AccountProfilesModule } from "../../modules/account-profiles/index.js";
 import {
   CommunityEntitlementsModule,
   RecipientLinksModule,
@@ -88,7 +88,7 @@ export class ApiModule {
         SalesFunnelModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,
-        MemberProfilesModule,
+        AccountProfilesModule,
         TelegramMembershipModule,
         CommunityEntitlementsModule,
         AccountRightsModule,

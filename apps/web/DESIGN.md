@@ -291,7 +291,7 @@ reading controls keep their own targets and remain above the stretched link.
 - **Content over mechanics:** headings and labels name content or actions. Reading and discovery surfaces do not narrate pagination, query limits, projection rules, automatic relationships or other implementation mechanics.
 - **Recovery is allowed:** explanatory copy appears only when it helps the user make a decision or recover from an empty, unavailable or invalid state.
 
-### Account and Member Profile
+### Account and Account Profile
 
 - **Status:** composition replaced in issue #494 by owner decision; the two-column editor and the
   separate member projection from issue #189 are history, not an alternative.

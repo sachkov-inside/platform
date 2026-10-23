@@ -95,7 +95,7 @@ const accountRightsTables = [
   "tribute_policies",
 ] as const;
 
-const memberProfileTables = [
+const accountProfileTables = [
   "audit_events",
   "avatar_renditions",
   "avatars",
@@ -172,7 +172,7 @@ describe("Platform migrations", () => {
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
     await expectTables(testDatabase, "account_rights", accountRightsTables);
-    await expectTables(testDatabase, "member_profiles", memberProfileTables);
+    await expectTables(testDatabase, "member_profiles", accountProfileTables);
     await expectTables(
       testDatabase,
       "telegram_membership",

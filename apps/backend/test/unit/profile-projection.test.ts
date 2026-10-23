@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { privateProfileProjection } from "../../src/modules/member-profiles/shared/profile-projection.js";
+import { privateProfileProjection } from "../../src/modules/account-profiles/shared/profile-projection.js";
 
 const storedProfile = {
   avatarId: "50000000-0000-4000-8000-000000000001",
@@ -13,7 +13,7 @@ const storedProfile = {
   version: 2,
 };
 
-describe("Member Profile persistence projection", () => {
+describe("Account Profile persistence projection", () => {
   test("accepts checked Profile and Avatar identifiers", () => {
     const projection = privateProfileProjection(storedProfile);
     expect(projection).toMatchObject({

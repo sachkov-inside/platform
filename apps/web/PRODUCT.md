@@ -10,7 +10,8 @@ web
 
 - Публичный посетитель знакомится с главным руководством и читает общую ленту материалов.
 - Участник Membership находит и читает доступные материалы, управляет минимальным reading state и
-  приватным Account, а через Member Profile показывает другим участникам выбранное имя и краткий bio.
+  приватным Account Profile. Автор сдач с действующим разрешением видит только активное имя;
+  биография и аватар доступны владельцу профиля.
 - Единственный автор первой версии — Кирилл. Он выбирает тему из доступного каталога, создаёт и
   изменяет current Material, проверяет Preview сохранённого состояния и явно выбирает
   publication state в full-state Save.
@@ -76,7 +77,7 @@ web
 - Storybook contains page stories of every production route and representative sanitized content
   fixtures; proofs stay on their `prototype/*` branches. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.
-- Accepted production evidence для Account и Member Profile: `docs/evidence/issue-189/README.md` с
+- Accepted production evidence для Account и Account Profile: `docs/evidence/issue-189/README.md` с
   desktop и 390 × 844 mobile captures из Storybook и full-stack smoke.
 
 ## Product Principles

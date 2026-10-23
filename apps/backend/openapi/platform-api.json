@@ -5123,11 +5123,11 @@
         ],
         "summary": "Read the current Account owner Profile state",
         "tags": [
-          "Member Profiles"
+          "Account Profiles"
         ]
       },
       "post": {
-        "operationId": "createMemberProfile",
+        "operationId": "createAccountProfile",
         "parameters": [],
         "requestBody": {
           "content": {
@@ -5650,11 +5650,11 @@
         ],
         "summary": "Create the current Account owner Profile",
         "tags": [
-          "Member Profiles"
+          "Account Profiles"
         ]
       },
       "put": {
-        "operationId": "updateMemberProfile",
+        "operationId": "updateAccountProfile",
         "parameters": [],
         "requestBody": {
           "content": {
@@ -6268,7 +6268,7 @@
         ],
         "summary": "Update the current Account owner Profile",
         "tags": [
-          "Member Profiles"
+          "Account Profiles"
         ]
       }
     },
@@ -6743,7 +6743,7 @@
         ],
         "summary": "Remove the current Account owner Profile avatar",
         "tags": [
-          "Member Profiles"
+          "Account Profiles"
         ]
       },
       "put": {
@@ -7272,7 +7272,7 @@
         ],
         "summary": "Crop and replace the current Account owner Profile avatar",
         "tags": [
-          "Member Profiles"
+          "Account Profiles"
         ]
       }
     },
@@ -7602,7 +7602,7 @@
         ],
         "summary": "Read a current avatar rendition of the current Account owner Profile",
         "tags": [
-          "Member Profiles"
+          "Account Profiles"
         ]
       }
     },

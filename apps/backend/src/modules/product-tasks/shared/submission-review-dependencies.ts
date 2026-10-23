@@ -1,4 +1,4 @@
-import type { MemberNames } from "../../member-profiles/index.js";
+import type { AccountNames } from "../../account-profiles/index.js";
 import type { ProductTasksPrismaClient } from "../../../infrastructure/prisma/index.js";
 import type { ProductDirectory } from "../../materials/index.js";
 import type { TelegramAccountLinks } from "../../telegram-membership/index.js";
@@ -14,6 +14,6 @@ export interface SubmissionReviewDependencies {
     TelegramAccountLinks,
     "readBinding" | "readContacts"
   >;
-  readonly names: Pick<MemberNames, "read">;
+  readonly names: Pick<AccountNames, "read">;
   readonly clock?: () => Date;
 }
