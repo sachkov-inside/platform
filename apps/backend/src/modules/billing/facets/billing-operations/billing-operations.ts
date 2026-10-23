@@ -18,10 +18,6 @@ import {
   type OwnerResult,
 } from "../../domain/owner-operations.js";
 import {
-  listPeople,
-  readAccessSummary,
-} from "../../features/read-access-roster/read-access-roster.js";
-import {
   listPayments,
   paymentView,
   readPayment,
@@ -309,6 +305,19 @@ export class BillingOperations {
             }
           : ownerFailure(result.error.code);
       }
+      case "productPrices.list": {
+        const result = await this.dependencies.pricing.ownerCatalog({
+          cursor: command.cursor,
+          limit: command.limit,
+        });
+        return result.ok
+          ? {
+              ok: true,
+              operationRef,
+              result: { outcome: "catalogOffers", ...result.value },
+            }
+          : ownerFailure(result.error.code);
+      }
       case "payments.list":
         return await listPayments(prisma, command);
       case "payments.read": {
@@ -399,15 +408,6 @@ export class BillingOperations {
             value: await readRespondents(prisma),
           },
         };
-      case "people.list":
-        return await listPeople({ prisma, grants }, actorId, command);
-      case "access.summary":
-        return await readAccessSummary(
-          { prisma, grants },
-          actorId,
-          operationRef,
-          this.clock(),
-        );
       default: {
         const exhaustive: never = command;
         throw new Error(
@@ -423,25 +423,7 @@ export class BillingOperations {
  * остальные итоги записываются как есть.
  */
 function auditedOutcome(outcome: OwnerOutcome): OwnerOutcome {
-  if (outcome.outcome !== "invitation") return outcome;
-  const { value } = outcome;
-  return {
-    outcome: "invitation",
-    value: {
-      id: value.id,
-      offerId: value.offerId,
-      offerRevision: value.offerRevision,
-      mode: value.mode,
-      state: value.state,
-      issuedAt: value.issuedAt,
-      expiresAt: value.expiresAt,
-      claimedAt: value.claimedAt,
-      redeemedAt: value.redeemedAt,
-      revokedAt: value.revokedAt,
-      accountId: value.accountId,
-      revision: value.revision,
-    },
-  };
+  return outcome;
 }
 
 function storedResult(operationRef: string, stored: unknown): OwnerResult {

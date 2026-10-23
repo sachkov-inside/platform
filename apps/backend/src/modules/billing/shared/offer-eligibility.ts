@@ -7,30 +7,10 @@ export interface PurchaseGrounds {
   /** Offer, к которым Account допущен погашёнными приглашениями. */
   readonly invitedOfferIds: readonly string[];
 }
-export type PurchaseGroundsReader = Pick<AccessGrants, "readPurchaseGrounds">;
-
 export const noPurchaseGrounds: PurchaseGrounds = {
   formerTributeSubscriber: false,
   invitedOfferIds: [],
 };
-
-/**
- * Основания Account для допуска к Offer; `null` — прочитать их не удалось. Без читателя оснований
- * процесс не может подтвердить ни одно основание и допускает только к Offer для всех.
- */
-export async function readPurchaseGrounds(
-  reader: PurchaseGroundsReader | undefined,
-  accountId: string | undefined,
-): Promise<PurchaseGrounds | null> {
-  if (reader === undefined || accountId === undefined) return noPurchaseGrounds;
-  const result = await reader.readPurchaseGrounds(accountId);
-  return result.ok
-    ? {
-        formerTributeSubscriber: result.formerTributeSubscriber,
-        invitedOfferIds: result.invitedOfferIds,
-      }
-    : null;
-}
 
 /**
  * Допускает ли Offer Account с этими основаниями. Прежний снимок без допуска открыт всем. Допуск по

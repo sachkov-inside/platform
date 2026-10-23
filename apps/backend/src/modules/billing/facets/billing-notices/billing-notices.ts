@@ -16,28 +16,7 @@ import {
 type NoticeRow = Awaited<
   ReturnType<BillingPrismaClient["billingNotice"]["findUniqueOrThrow"]>
 >;
-type SubscriptionRow = Awaited<
-  ReturnType<BillingPrismaClient["billingSubscription"]["findUniqueOrThrow"]>
->;
-
-/** Кабинет показывает последние поводы; полная история операций остаётся за #409. */
 const CABINET_NOTICE_LIMIT = 20;
-/** Страница границ Enrollment и открытых поводов за один запрос; пробег читает все страницы. */
-
-/** Чтение границ неоплаченного доступа: строки Enrollment остаются у Membership Entitlements. */
-export type EnrollmentEndings = Pick<
-  AccessGrants,
-  | "listEnrollmentEndings"
-  | "readEnrollmentEnding"
-  | "readSubscriptionContinuation"
->;
-
-/** Итог одного пробега календаря. */
-export interface CalendarCounts {
-  readonly created: number;
-  readonly refreshed: number;
-  readonly superseded: number;
-}
 
 export type BillingNoticeSource =
   | { readonly status: "unavailable" | "superseded" }
