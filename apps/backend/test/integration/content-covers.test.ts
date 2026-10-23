@@ -361,6 +361,47 @@ describe("ContentCovers", () => {
       cover: uploaded.value.cover,
       slug: "kak-ustroen-inside-platform",
     });
+    // Every reader seam must resolve the same owner-filtered public rendition projection.
+    const expectedCover = uploaded.value.cover;
+    for (const state of [
+      "ready",
+      "processing",
+      "unreferenced",
+      "ready",
+    ] as const) {
+      await database.prisma.contentCover.update({
+        where: { id: expectedCover.coverId },
+        data: {
+          state: state === "processing" ? "processing" : "ready",
+          currentlyReferenced: state !== "unreferenced",
+        },
+      });
+      const expected = state === "ready" ? expectedCover : null;
+      const read = await publishedMaterialReader.read({
+        subject: anonymousSubject,
+        slug: "kak-ustroen-inside-platform",
+      });
+      expect(read).toMatchObject({
+        ok: true,
+        value: { projection: { cover: expected } },
+      });
+      for (const discovery of [
+        { kind: "topic", slug: "platform" },
+        { kind: "series", slug: "platform-inside" },
+      ] as const) {
+        const discovered = await publishedMaterialReader.discoverProjections({
+          ...discovery,
+          first: 24,
+          subject: anonymousSubject,
+        });
+        if (!discovered.ok) throw new Error("Expected covered discovery");
+        expect(
+          discovered.value.items.find(
+            ({ slug }) => slug === "kak-ustroen-inside-platform",
+          )?.cover,
+        ).toEqual(expected);
+      }
+    }
     const delivered = await covers.deliver({
       coverId: uploaded.value.cover.coverId,
       width: 960,

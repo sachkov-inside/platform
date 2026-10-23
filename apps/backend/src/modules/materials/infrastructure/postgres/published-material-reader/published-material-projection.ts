@@ -1378,9 +1378,12 @@ export async function selectPublishedMaterialProjectionBySlug(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionBySlug"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionBySlug(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionBySlug(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1418,9 +1421,12 @@ export async function selectPublishedMaterialProjectionsByIds(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionsByIds"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionsByIds(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionsByIds(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1431,9 +1437,12 @@ export async function selectPublishedMaterialProjectionsByTopic(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionsByTopic"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionsByTopic(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionsByTopic(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1447,9 +1456,12 @@ export async function selectPublishedMaterialProjectionsBySeries(
     await context.products.snapshot(),
     context.compositions,
   );
-  return queries.selectPublishedMaterialProjectionsBySeries(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionsBySeries(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1460,9 +1472,12 @@ export async function selectRelatedPublishedMaterialProjections(
   >
 ): ReturnType<ProjectionQueries["selectRelatedPublishedMaterialProjections"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectRelatedPublishedMaterialProjections(
+  return hydrateProjectionCovers(
+    await queries.selectRelatedPublishedMaterialProjections(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
