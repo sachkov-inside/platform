@@ -48,6 +48,19 @@ test("upgrade makes automatic programmes explicit before dropping duplicate cata
       Prisma.sql`select column_name from information_schema.columns where table_schema='products' and ((table_name='series' and column_name='programme_explicit') or (table_name='series_memberships' and column_name in ('ordinal','chapter_id','step_group')))`,
     ),
   ).toEqual([]);
+  expect(
+    await database.prisma.$queryRaw(Prisma.sql`
+    select constraint_row.conname from pg_constraint constraint_row
+    join pg_class source_table on source_table.oid=constraint_row.conrelid
+    join pg_namespace source_schema on source_schema.oid=source_table.relnamespace
+    join pg_class target_table on target_table.oid=constraint_row.confrelid
+    join pg_namespace target_schema on target_schema.oid=target_table.relnamespace
+    where constraint_row.contype='f' and (
+      (source_schema.nspname='products' and target_schema.nspname<>'products') or
+      (source_schema.nspname='materials' and target_schema.nspname in ('products','content_covers'))
+    )
+  `),
+  ).toEqual([]);
   const owner = new ProductCompositions(database.prisma);
   const materials = assembleProductMaterials(database.prisma);
   const results = await owner.load({ ids: [auto, explicit] }, 2, {
