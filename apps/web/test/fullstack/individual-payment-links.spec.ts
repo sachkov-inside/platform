@@ -28,97 +28,40 @@ test("individual payment link shows its fixed price and terms, revokes across op
   );
   await page.goto("/authoring/billing");
   await page.getByRole("tab", { name: "Личные ссылки", exact: true }).click();
-  const content = await fullStackBrowserJsonRequest(
-    page,
-    "/api/authoring/billing/content/list",
-    "POST",
-    { operationId: randomUUID() },
-  );
-  const parsed = z
-    .object({
-      ok: z.literal(true),
-      value: z.object({
-        result: z.object({
-          items: z.array(
-            z.object({
-              id: z.uuid(),
-              kind: z.string(),
-              title: z.string(),
-              available: z.boolean(),
-            }),
-          ),
-        }),
+  const fixture = z
+    .record(
+      z.string(),
+      z.object({
+        productId: z.uuid(),
+        linkId: z.uuid(),
+        revision: z.int().positive(),
       }),
-    })
-    .parse(await content.json());
-  const product = parsed.value.result.items.find(
-    (entry) => entry.kind === "product" && entry.available,
-  );
-  if (product === undefined)
-    throw new Error("Seeded published Product is missing");
-  const catalogResponse = await fullStackBrowserRequest(
-    page,
-    "/api/authoring/billing/catalog",
-  );
-  const catalog = z
-    .object({
-      ok: z.literal(true),
-      value: z.array(
-        z.object({
-          product: z
-            .object({ id: z.uuid(), priceRevision: z.int() })
-            .optional(),
-        }),
-      ),
-    })
-    .parse(await catalogResponse.json());
-  const revision = catalog.value.find((item) => item.product?.id === product.id)
-    ?.product?.priceRevision;
-  const priced = await fullStackBrowserJsonRequest(
-    page,
-    "/api/authoring/billing/product-prices/save",
-    "POST",
-    {
-      operationId: randomUUID(),
-      ...(revision === undefined ? {} : { expectedRevision: revision }),
-      value: {
-        productId: product.id,
-        name: product.title,
-        priceKopecks: 2900000,
-        published: false,
-      },
-    },
-  );
-  const priceRevision = z
-    .object({
-      ok: z.literal(true),
-      value: z.object({
-        result: z.object({ value: z.object({ revision: z.int().positive() }) }),
-      }),
-    })
-    .parse(await priced.json()).value.result.value.revision;
-  const created = await fullStackBrowserJsonRequest(
+    )
+    .parse(
+      JSON.parse(process.env["FULLSTACK_PAYMENT_LINKS_FIXTURE"] ?? "null"),
+    )[testInfo.project.name];
+  if (fixture === undefined)
+    throw new Error("Missing saved payment-link fixture for browser profile");
+  const product = { id: fixture.productId };
+  const link = { id: fixture.linkId, revision: fixture.revision };
+  // Current published v6 does not authorize a new Product link. Existing immutable links still read and revoke.
+  const refused = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-links/create",
     "POST",
     {
       operationId: randomUUID(),
       productId: product.id,
-      priceRevision,
+      priceRevision: 1,
       price: { kind: "discount", percent: 10 },
       expiresAt: null,
     },
   );
-  const link = z
-    .object({
-      ok: z.literal(true),
-      value: z.object({
-        result: z.object({
-          value: z.object({ id: z.uuid(), revision: z.int() }),
-        }),
-      }),
-    })
-    .parse(await created.json()).value.result.value;
+  expect(refused.status()).toBe(200);
+  expect(await refused.json()).toMatchObject({
+    ok: false,
+    code: "method_unavailable",
+  });
   await page.reload();
   await page.getByRole("tab", { name: "Личные ссылки", exact: true }).click();
   await expect(

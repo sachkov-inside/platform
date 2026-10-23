@@ -13,6 +13,12 @@ The steps below describe that approved-fixture path and the later authorized ope
 free/protected Materials and unavailable new sales, without commerce writes. Its backend uses the
 real direct Product seed, not retired tariff operations. Positive approved-model payment and
 recovery proof remains on the explicit synthetic legal-provider composition.
+The full-stack private-link reader test separately seeds two already saved links through real
+Pricing and a distinct synthetic legal-provider composition. The running API retains the published
+v6 provider and rejects new link creation. Reading fixed terms, revoking the saved link and updating
+another open owner tab remain real API/browser checks. The fixture CLI is restricted to the isolated
+loopback `inside_checks` database and synthetic identity; it creates no bank operation or legal
+acceptance and publishes no legal edition.
 
 ## Purchase and recovery
 

@@ -239,7 +239,6 @@ try {
       "/api/account/billing/contact",
       "/api/account/billing/contact/confirm",
       "/api/account/billing/contact/start",
-      "/api/account/billing/enrollments",
       "/api/account/community-entry",
       "/api/account/terms",
     ],
