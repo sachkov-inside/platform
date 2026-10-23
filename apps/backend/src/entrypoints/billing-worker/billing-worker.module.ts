@@ -1,3 +1,4 @@
+import { ContentAccessCompositionModule } from "../composition/content-access-composition.module.js";
 import { WebTelemetryModule } from "../../modules/web-telemetry/index.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
@@ -25,6 +26,7 @@ export class BillingWorkerModule {
         WebTelemetryModule,
         CommunityEntitlementsModule,
         CoverageCatalogModule,
+        ContentAccessCompositionModule,
         RecipientLinksModule,
       ],
       providers: [OperationalReadiness],

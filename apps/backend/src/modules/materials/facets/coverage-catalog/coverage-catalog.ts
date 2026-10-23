@@ -27,7 +27,7 @@ export class CoverageCatalog {
       SELECT 'product' AS kind, product.id, product.name AS title,
         CASE WHEN product.archived_at IS NULL THEN product.slug ELSE NULL END AS slug,
         product.archived_at IS NULL AS available
-      FROM materials.series AS product
+      FROM products.series AS product
       WHERE ${Prisma.join(
         periods.map(
           (period) => Prisma.sql`(
@@ -47,7 +47,7 @@ export class CoverageCatalog {
   async list() {
     const rows = entriesSchema.parse(
       await this.prisma.$queryRaw(Prisma.sql`
-      SELECT 'product' AS kind, id, name AS title, slug, archived_at IS NULL AS available FROM materials.series
+      SELECT 'product' AS kind, id, name AS title, slug, archived_at IS NULL AS available FROM products.series
       UNION ALL
       SELECT 'material' AS kind, id, coalesce(title, 'Материал без названия') AS title,
         CASE WHEN publication_state = 'published' THEN slug ELSE NULL END AS slug,
@@ -90,7 +90,7 @@ export class CoverageCatalog {
     const rows = entriesSchema.parse(
       await this.prisma.$queryRaw(Prisma.sql`
       SELECT 'product' AS kind, id, name AS title, CASE WHEN archived_at IS NULL THEN slug ELSE NULL END AS slug, archived_at IS NULL AS available
-        FROM materials.series WHERE (${wholePlatform}::boolean AND archived_at IS NULL) OR id = ANY(${productIds}::uuid[])
+        FROM products.series WHERE (${wholePlatform}::boolean AND archived_at IS NULL) OR id = ANY(${productIds}::uuid[])
       UNION ALL
       SELECT 'material' AS kind, id, coalesce(title, 'Материал без названия') AS title,
         CASE WHEN publication_state = 'published' THEN slug ELSE NULL END AS slug, publication_state = 'published' AS available

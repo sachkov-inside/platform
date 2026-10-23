@@ -1,4 +1,8 @@
 import {
+  name as productsOwnershipName,
+  statement as productsOwnershipStatement,
+} from "../modules/products/infrastructure/postgres/migrations/0104-products-ownership.js";
+import {
   name as materialSourceCommitName,
   statement as materialSourceCommitStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0103-material-source-commit.js";
@@ -672,6 +676,7 @@ export const platformMigrations = [
     name: materialSourceCommitName,
     statement: materialSourceCommitStatement,
   },
+  { name: productsOwnershipName, statement: productsOwnershipStatement },
 ] as const;
 
 export function migrateToLatest(

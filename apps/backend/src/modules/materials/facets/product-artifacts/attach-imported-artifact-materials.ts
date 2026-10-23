@@ -34,7 +34,7 @@ export async function attachImportedProductArtifactMaterials(
     const error = await context.prisma.$transaction(
       async (transaction): Promise<ProductArtifactError | null> => {
         // Match artifact imports: Artifact first, then Product, then Material references.
-        await transaction.$executeRaw`select id from materials.product_artifacts where id = ${input.artifactId}::uuid for update`;
+        await transaction.$executeRaw`select id from products.product_artifacts where id = ${input.artifactId}::uuid for update`;
         const artifact = await transaction.productArtifact.findUnique({
           where: { id: input.artifactId },
           include: { placements: true },

@@ -85,3 +85,9 @@ export {
 export { hydrateMaterialAssets } from "./domain/material-body/hydrate-material-assets.js";
 
 export { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";
+
+export { PRODUCT_ACCESS_HOLDERS } from "./ports/product-access-holders.js";
+export { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js";
+export { PRODUCT_ARTIFACTS } from "./facets/product-artifacts/product-artifacts.js";
+export { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
+export { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";

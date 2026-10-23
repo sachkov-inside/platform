@@ -34,6 +34,15 @@ describe("Series order", () => {
     await testDatabase.dispose();
   });
 
+  test("Products owns its catalogue separately from Materials", async () => {
+    const { Prisma } = await import("../../src/infrastructure/prisma/index.js");
+    const rows = await testDatabase.prisma.$queryRaw(Prisma.sql`
+      select table_schema as schema from information_schema.tables
+      where table_name = 'series' and table_schema in ('materials', 'products')
+    `);
+    expect(rows).toEqual([{ schema: "products" }]);
+  });
+
   test("Product and legacy Series share identity, mutable version and archive state", async () => {
     const { authoring } = assembleMaterials({
       prisma: testDatabase.prisma,

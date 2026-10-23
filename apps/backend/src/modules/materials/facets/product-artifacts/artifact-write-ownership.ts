@@ -16,7 +16,7 @@ export async function checkArtifactWrite(
   const targets: ContentWriteTarget[] = [];
   let placedIds: readonly string[] = [];
   if (artifactId !== null) {
-    await transaction.$executeRaw`select id from materials.product_artifacts where id = ${artifactId}::uuid for update`;
+    await transaction.$executeRaw`select id from products.product_artifacts where id = ${artifactId}::uuid for update`;
     const artifact = await transaction.productArtifact.findUnique({
       where: { id: artifactId },
       include: { placements: true },

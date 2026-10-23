@@ -320,7 +320,7 @@ export async function selectHomeMaterialProjections(
           'count', series.count, 'cover', ${coverProjectionSql(Prisma.sql`series.cover_id`)},
           'previewMaterialIds', array(
             select membership.material_id
-            from materials.published_material_series_memberships as membership
+            from products.published_material_series_memberships as membership
             join materials.published_materials as publication on publication.material_id = membership.material_id
             where membership.series_id = series.id
             order by membership.ordinal, membership.material_id
@@ -331,9 +331,9 @@ export async function selectHomeMaterialProjections(
             select series.id, series.name, series.slug, series.summary, series.cover_id,
               count(*)::integer as count,
               row_number() over (order by series.name, series.id) as position
-            from materials.published_material_series_memberships as membership
+            from products.published_material_series_memberships as membership
             join materials.published_materials as publication on publication.material_id = membership.material_id
-            join materials.series as series on series.id = membership.series_id
+            join products.series as series on series.id = membership.series_id
             where series.archived_at is null
             group by series.id, series.name, series.slug, series.summary, series.cover_id
           ) as ranked
@@ -399,13 +399,13 @@ async function projectHomeFeedNotes(
     .parse(
       await prisma.$queryRaw(Prisma.sql`
       select distinct membership.material_id
-      from materials.published_material_series_memberships as membership
-      join materials.series as series on series.id = membership.series_id
+      from products.published_material_series_memberships as membership
+      join products.series as series on series.id = membership.series_id
       where series.archived_at is null
         and membership.material_id in (${Prisma.join(excerptIds)})
         and (
           select count(*)
-          from materials.published_material_series_memberships as earlier
+          from products.published_material_series_memberships as earlier
           join materials.published_materials as publication on publication.material_id = earlier.material_id
           where earlier.series_id = membership.series_id
             and (earlier.ordinal, earlier.material_id) < (membership.ordinal, membership.material_id)
@@ -484,10 +484,10 @@ function searchProjectionQuery(
             )
             order by series.name, membership.ordinal
           )
-          from materials.published_material_series_memberships as membership
-          left join materials.series_memberships as current_membership
+          from products.published_material_series_memberships as membership
+          left join products.series_memberships as current_membership
             on current_membership.series_id = membership.series_id and current_membership.material_id = membership.material_id
-          join materials.series as series on series.id = membership.series_id
+          join products.series as series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
@@ -528,8 +528,8 @@ function projectionFiltersSql(
     conditions.push(Prisma.sql`
       exists (
         select 1
-        from materials.published_material_series_memberships as selected_membership
-        join materials.series as selected_series
+        from products.published_material_series_memberships as selected_membership
+        join products.series as selected_series
           on selected_series.id = selected_membership.series_id
         where selected_membership.material_id = publication.material_id
           and selected_series.archived_at is null
@@ -694,7 +694,7 @@ async function selectProjectionMetadata(
                 ${coverProjectionSql(Prisma.sql`series.cover_id`)} as cover,
                 array(
                   select preview_membership.material_id
-                  from materials.published_material_series_memberships as preview_membership
+                  from products.published_material_series_memberships as preview_membership
                   join (${seriesPublications}) as preview_publication
                     on preview_publication.material_id = preview_membership.material_id
                   where preview_membership.series_id = series.id
@@ -702,8 +702,8 @@ async function selectProjectionMetadata(
                   limit 3
                 ) as preview_material_ids,
                 count(*)::integer as count
-              from materials.published_material_series_memberships as membership
-              join materials.series as series on series.id = membership.series_id
+              from products.published_material_series_memberships as membership
+              join products.series as series on series.id = membership.series_id
               join (${seriesPublications}) as publication
                 on publication.material_id = membership.material_id
               where series.archived_at is null
@@ -817,9 +817,9 @@ function seriesSortJoinsSql(
     throw new TypeError("Series order requires exactly one Series filter");
   }
   return Prisma.sql`
-    join materials.published_material_series_memberships as selected_membership
+    join products.published_material_series_memberships as selected_membership
       on selected_membership.material_id = publication.material_id
-    join materials.series as selected_series
+    join products.series as selected_series
       on selected_series.id = selected_membership.series_id
      and selected_series.archived_at is null
      and selected_series.slug = ${slug}
@@ -899,17 +899,17 @@ export async function selectPublishedMaterialProjectionsByTopic(
         count(*)::integer as matching_material_count,
         (
           select count(*)::integer
-          from materials.published_material_series_memberships as total_membership
+          from products.published_material_series_memberships as total_membership
           join materials.published_materials as total_publication
             on total_publication.material_id = total_membership.material_id
           where total_membership.series_id = series.id
 
         ) as total_material_count
-      from materials.published_material_series_memberships as membership
+      from products.published_material_series_memberships as membership
       join materials.published_materials as publication
         on publication.material_id = membership.material_id
       join materials.topics as topic on topic.id = publication.topic_id
-      join materials.series as series on series.id = membership.series_id
+      join products.series as series on series.id = membership.series_id
       where topic.slug = ${slug}
         and series.archived_at is null
 
@@ -1109,8 +1109,8 @@ export async function selectRelatedPublishedMaterialProjections(
               )
               or exists (
                 select 1
-                from materials.published_material_series_memberships as candidate_series
-                join materials.published_material_series_memberships as source_series
+                from products.published_material_series_memberships as candidate_series
+                join products.published_material_series_memberships as source_series
                   on source_series.series_id = candidate_series.series_id
                 where candidate_series.material_id = publication.material_id
                   and source_series.material_id = ${source.materialId}::uuid
@@ -1134,8 +1134,8 @@ export async function selectRelatedPublishedMaterialProjections(
               )
               + 4 * (
                 select count(*)::integer
-                from materials.published_material_series_memberships as candidate_series
-                join materials.published_material_series_memberships as source_series
+                from products.published_material_series_memberships as candidate_series
+                join products.published_material_series_memberships as source_series
                   on source_series.series_id = candidate_series.series_id
                 where candidate_series.material_id = publication.material_id
                   and source_series.material_id = ${source.materialId}::uuid
@@ -1221,10 +1221,10 @@ function projectionQuery({
             )
             order by series.name, membership.ordinal
           )
-          from materials.published_material_series_memberships as membership
-          left join materials.series_memberships as current_membership
+          from products.published_material_series_memberships as membership
+          left join products.series_memberships as current_membership
             on current_membership.series_id = membership.series_id and current_membership.material_id = membership.material_id
-          join materials.series on series.id = membership.series_id
+          join products.series on series.id = membership.series_id
           where membership.material_id = publication.material_id
         ),
         '[]'::jsonb
@@ -1252,13 +1252,13 @@ function coverProjectionSql(
               jsonb_build_object('width', rendition.width, 'height', rendition.height)
               order by rendition.width
             )
-            from materials.content_cover_renditions as rendition
+            from content_covers.content_cover_renditions as rendition
             where rendition.cover_id = cover.id
           ),
           '[]'::jsonb
         )
       )
-      from materials.content_covers as cover
+      from content_covers.content_covers as cover
       where cover.id = ${coverId}
         and cover.state = 'ready'
         and cover.currently_referenced

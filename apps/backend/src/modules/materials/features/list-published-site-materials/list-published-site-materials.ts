@@ -71,9 +71,9 @@ export function assembleListPublishedSiteMaterials(
         productSlugs = slugsSchema
           .parse(
             await prisma.$queryRaw(Prisma.sql`
-          select series.slug from materials.series as series
+          select series.slug from products.series as series
           where series.archived_at is null and exists (
-            select 1 from materials.published_material_series_memberships as membership
+            select 1 from products.published_material_series_memberships as membership
             join materials.published_materials as publication on publication.material_id = membership.material_id
             join materials.topics as topic on topic.id = publication.topic_id
             join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id

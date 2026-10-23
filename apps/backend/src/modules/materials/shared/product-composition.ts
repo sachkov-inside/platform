@@ -74,28 +74,28 @@ export async function loadProductCompositions(
       series.audience, series.outcome, series.prerequisites, series.scope,
       series.presentation, series.page, series.cover_id as "coverId",
       coalesce((select json_agg(json_build_object('id', placement.id, 'materialId', placement.material_id, 'chapterId', placement.chapter_id, 'ordinal', placement.ordinal, 'stepGroup', placement.step_group, 'published', original.publication_state = 'published' and published.material_id is not null) order by placement.ordinal)
-        from materials.product_programme_placements as placement
+        from products.product_programme_placements as placement
         join materials.materials as original on original.id = placement.material_id
-        left join materials.published_material_series_memberships as published on published.series_id = placement.product_id and published.material_id = placement.material_id
+        left join products.published_material_series_memberships as published on published.series_id = placement.product_id and published.material_id = placement.material_id
         where placement.product_id = series.id), '[]'::json) as "programmePlacements",
       coalesce((select json_agg(json_build_object(
         'id', chapter.id, 'name', chapter.name, 'summary', chapter.summary, 'ordinal', chapter.ordinal,
         'supplementaryMaterialIds', coalesce((select json_agg(extra.material_id order by extra.ordinal)
-          from materials.product_chapter_supplementary_materials as extra
-          join materials.published_material_series_memberships as membership
+          from products.product_chapter_supplementary_materials as extra
+          join products.published_material_series_memberships as membership
             on membership.series_id = extra.product_id and membership.material_id = extra.material_id
           join materials.materials as material on material.id = extra.material_id and material.publication_state = 'published'
           where extra.chapter_id = chapter.id), '[]'::json)
       ) order by chapter.ordinal, chapter.id)
-        from materials.product_chapters as chapter where chapter.product_id = series.id), '[]'::json) as chapters,
+        from products.product_chapters as chapter where chapter.product_id = series.id), '[]'::json) as chapters,
       coalesce((select json_agg(placement order by placement.ordinal, placement."materialId") from (
         select membership.material_id as "materialId", material.source_id as "sourceId",
           membership.chapter_id as "chapterId", coalesce(published.ordinal, membership.ordinal) as ordinal,
           publication.material_id is not null and material.publication_state = 'published' as published,
           publication.topic_id as "topicId", coalesce(publication.has_mode_variants, false) as "hasModeVariants"
-        from materials.series_memberships as membership
+        from products.series_memberships as membership
         join materials.materials as material on material.id = membership.material_id
-        left join materials.published_material_series_memberships as published
+        left join products.published_material_series_memberships as published
           on published.series_id = membership.series_id and published.material_id = membership.material_id
         left join materials.published_materials as publication
           on publication.material_id = published.material_id
@@ -103,7 +103,7 @@ export async function loadProductCompositions(
         order by coalesce(published.ordinal, membership.ordinal), membership.material_id
         limit ${MAX_PRODUCT_MATERIALS + 1}
       ) as placement), '[]'::json) as placements
-    from materials.series as series where ${condition}
+    from products.series as series where ${condition}
     order by series.name, series.id limit ${limit}
   `),
   );

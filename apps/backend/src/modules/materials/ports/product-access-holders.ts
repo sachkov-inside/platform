@@ -1,5 +1,7 @@
 import type { TransactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
 
+export const PRODUCT_ACCESS_HOLDERS = Symbol("PRODUCT_ACCESS_HOLDERS");
+
 /**
  * Сколько людей сейчас держат действующее право на руководство: купили его или получили тариф, в
  * составе которого оно есть. Materials спрашивает об этом, прежде чем убрать опубликованный

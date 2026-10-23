@@ -1,3 +1,4 @@
+import { ContentAccessCompositionModule } from "../composition/content-access-composition.module.js";
 import { WebTelemetryHttpModule } from "../../modules/web-telemetry/index.js";
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
@@ -93,6 +94,7 @@ export class ApiModule {
         CommunityEntitlementsModule,
         AccountRightsModule,
         MaterialsModule,
+        ContentAccessCompositionModule,
         MaterialsHttpModule,
         MaterialContentModule,
         ProductTasksHttpModule,
