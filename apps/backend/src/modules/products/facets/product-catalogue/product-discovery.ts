@@ -68,6 +68,13 @@ export class ProductDiscovery {
     });
   }
 
+  catalogueMemberships(productIds: readonly string[]) {
+    return this.prisma.productMembership.findMany({
+      where: { seriesId: { in: [...productIds] } },
+      select: { seriesId: true, materialId: true },
+    });
+  }
+
   snapshot(handle?: TransactionHandle) {
     return handle === undefined
       ? this.prisma.$transaction((tx) => this.read(tx))

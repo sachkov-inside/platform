@@ -109,7 +109,7 @@ describe("opaque transaction owner handoff", () => {
       permission: "materials:manage" as const,
     };
     await db.prisma.accountPermission.create({
-      data: { ...query, createdAt: new Date() },
+      data: { ...query, createdAt: new Date("2026-10-23T00:00:00.000Z") },
     });
     expect(await accounts.checkPermission(query)).toEqual({
       ok: true,
