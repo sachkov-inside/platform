@@ -52,7 +52,7 @@ export class ProductDiscovery {
                 ...(query.slugs === undefined
                   ? []
                   : [{ slug: { in: [...query.slugs] } }]),
-                ...(query.includeActive ? [{ archivedAt: null }] : []),
+                ...(query.includeActive === true ? [{ archivedAt: null }] : []),
               ],
             },
           }),
