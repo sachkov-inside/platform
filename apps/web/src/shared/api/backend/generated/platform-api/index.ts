@@ -14,6 +14,7 @@ export type { RecursiveSchema2schema0 } from './models/RecursiveSchema2schema0';
 export type { RecursiveSchema3schema0 } from './models/RecursiveSchema3schema0';
 
 export { AccessService } from './services/AccessService';
+export { AccountProfilesService } from './services/AccountProfilesService';
 export { AccountsService } from './services/AccountsService';
 export { BillingService } from './services/BillingService';
 export { BookmarksService } from './services/BookmarksService';
@@ -25,7 +26,6 @@ export { KinescopeIntegrationService } from './services/KinescopeIntegrationServ
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';
 export { MaterialVideoAuthoringService } from './services/MaterialVideoAuthoringService';
-export { MemberProfilesService } from './services/MemberProfilesService';
 export { NotificationsService } from './services/NotificationsService';
 export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';

@@ -1,6 +1,6 @@
 import { beforeAll, afterAll, expect, test } from "vitest";
 import { z } from "zod";
-import { MemberNames } from "../../src/modules/member-profiles/index.js";
+import { AccountNames } from "../../src/modules/account-profiles/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { assembleSubmissionReview } from "../../src/modules/product-tasks/facets/submission-review/submission-review.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -355,7 +355,7 @@ test("author submission pages and filters remain usable across 101 Products with
     },
     authorPolicy: { canManage: (actor) => actor === id(9002) },
     identities: new TelegramAccountLinks(measured.prisma),
-    names: new MemberNames(measured.prisma),
+    names: new AccountNames(measured.prisma),
   });
   const first = await measured.measure(() => review.list(id(9002), {}));
   process.stdout.write(

@@ -31,7 +31,7 @@ import {
   PUBLISHED_MATERIAL_READER,
 } from "../src/modules/materials/index.js";
 import { ACCOUNT_RIGHTS } from "../src/modules/account-rights/index.js";
-import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/member-profiles/index.js";
+import { PROFILE_AVATAR_MAINTENANCE } from "../src/modules/account-profiles/index.js";
 import { CommunityEntitlements } from "../src/modules/telegram-membership/index.js";
 import { VIDEO_DELETION_MAINTENANCE } from "../src/modules/videos/index.js";
 

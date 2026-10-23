@@ -1,9 +1,9 @@
-import type { PrivateMemberProfileState } from "@/entities/member-profile";
+import type { PrivateAccountProfileState } from "@/entities/account-profile";
 
 import type { AccountTelegramMembership } from "./account-telegram-membership";
 
 export type AccountPresentation = Readonly<{
-  profile: PrivateMemberProfileState;
+  profile: PrivateAccountProfileState;
   telegramMembership: AccountTelegramMembership;
 }>;
 

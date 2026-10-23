@@ -1,6 +1,6 @@
 "use client";
 
-import { ProfileAvatar } from "@/entities/member-profile";
+import { ProfileAvatar } from "@/entities/account-profile";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 

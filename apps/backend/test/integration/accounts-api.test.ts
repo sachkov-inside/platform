@@ -618,9 +618,9 @@ describe("Accounts API", () => {
       where: { accountId: ownerAccountId },
     });
     for (const url of [
-      `/member-profiles/${stored.publicProfileId}`,
-      `/member-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
-      `/member-profiles/${stored.publicProfileId}/reports`,
+      `/account-profiles/${stored.publicProfileId}`,
+      `/account-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
+      `/account-profiles/${stored.publicProfileId}/reports`,
     ]) {
       for (const token of [
         undefined,
@@ -816,7 +816,7 @@ function readPrivateProfile(value: unknown): {
     !("version" in value.profile) ||
     typeof value.profile.version !== "number"
   ) {
-    throw new TypeError("Member Profile API response has no private Profile");
+    throw new TypeError("Account Profile API response has no private Profile");
   }
   return {
     displayName: value.profile.displayName,

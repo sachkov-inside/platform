@@ -1,10 +1,13 @@
-import { MemberNames } from "../../src/modules/member-profiles/index.js";
+import { AccountNames } from "../../src/modules/account-profiles/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { accountId } from "../../src/modules/accounts/index.js";
+import {
+  accountId,
+  assembleAccounts,
+} from "../../src/modules/accounts/index.js";
 import {
   assembleContentAccess,
   type Subject,
@@ -74,7 +77,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       directory,
       authorPolicy,
       identities: new TelegramAccountLinks(db.prisma),
-      names: new MemberNames(db.prisma),
+      names: new AccountNames(db.prisma),
       clock,
     });
 
@@ -522,14 +525,14 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       directory,
       authorPolicy,
       identities,
-      names: new MemberNames(db.prisma),
+      names: new AccountNames(db.prisma),
       clock,
     });
     const current = await author.list(owner, { taskCode: task.code });
     expect(current.ok && current.value.submissions[0]?.person).toEqual({
       accountId: subject.accountId,
       telegramIdentityRef: identityRef,
-      displayName: "Анна Иванова",
+      displayName: null,
       telegramUsername: "anna_course",
       telegramUrl: "https://t.me/anna_course",
       telegramContactState: "available",
@@ -594,6 +597,52 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     const updated = await review().list(owner, { taskCode: task.code });
     expect(updated.ok && updated.value.submissions[0]?.person.displayName).toBe(
       "Борис",
+    );
+    await db.prisma.memberProfile.update({
+      where: { accountId: subject.accountId },
+      data: { status: "disabled" },
+    });
+    const disabled = await review().list(owner, { taskCode: task.code });
+    expect(
+      disabled.ok && disabled.value.submissions[0]?.person.displayName,
+    ).toBeNull();
+    expect(
+      disabled.ok && disabled.value.submissions[0]?.person,
+    ).not.toHaveProperty("avatar");
+    const accounts = assembleAccounts({
+      prisma: db.prisma,
+      emailFingerprintKey: "profile-review-test-fingerprint-key-32",
+    });
+    const authorizedReview = assembleSubmissionReview({
+      prisma: db.prisma,
+      directory,
+      authorPolicy: {
+        canManage: async (actor) => {
+          const permission = await accounts.checkPermission({
+            accountId: accountId(actor),
+            permission: "materials:manage",
+          });
+          return permission.ok && permission.allowed;
+        },
+      },
+      identities: new TelegramAccountLinks(db.prisma),
+      names: new AccountNames(db.prisma),
+      clock,
+    });
+    await db.prisma.accountPermission.create({
+      data: { accountId: owner, permission: "materials:manage" },
+    });
+    expect(
+      (await authorizedReview.list(owner, { taskCode: task.code })).ok,
+    ).toBe(true);
+    await db.prisma.accountPermission.deleteMany({
+      where: { accountId: owner },
+    });
+    expect(await authorizedReview.list(owner, { taskCode: task.code })).toEqual(
+      {
+        ok: false,
+        error: { code: "forbidden" },
+      },
     );
   });
 

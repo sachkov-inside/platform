@@ -1,25 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { getPrivateMemberProfile } from "@/_pages/account/api/get-private-member-profile";
+import { getPrivateAccountProfile } from "@/_pages/account/api/get-private-account-profile";
 import { getAccountTelegramMembership } from "@/_pages/account/api/get-account-telegram-membership";
 import { beginTelegramLink } from "@/features/account-access/api/begin-telegram-link.browser";
 import { confirmTelegramLink } from "@/features/account-access/api/confirm-telegram-link.browser";
 import { confirmTelegramLinkOperation } from "@/features/account-access.operations";
-import { createMemberProfileInputSchema } from "@/features/member-profile-editor.operations";
+import { createAccountProfileInputSchema } from "@/features/account-profile-editor.operations";
 import { requestAccountPresentation } from "@/features/account-access/api/request-account-presentation";
 import { accountPresentationQueryKey } from "@/features/account-access";
 import {
   executeBeginTelegramLink,
   executeConfirmTelegramLink,
-  executeCreateMemberProfile,
+  executeCreateAccountProfile,
   invalidCreateProfileFields,
   invalidTelegramLinkInput,
-  executeUpdateMemberProfile,
+  executeUpdateAccountProfile,
 } from "@/_pages/account.operations.server";
 import {
   profileInitials,
   shouldUseAvatarImage,
-} from "@/entities/member-profile";
+} from "@/entities/account-profile";
 
 const profile = {
   avatar: null,
@@ -31,7 +31,7 @@ const profile = {
   version: 2,
 } as const;
 
-describe("Member Profile web workflow", () => {
+describe("Account Profile web workflow", () => {
   it("derives deterministic Unicode initials for the avatar fallback", () => {
     expect(profileInitials("  Кирилл   Сачков ")).toBe("КС");
     expect(profileInitials("Prince")).toBe("P");
@@ -51,7 +51,11 @@ describe("Member Profile web workflow", () => {
     const formData = { displayName: "Кирилл", bio: "  " };
 
     await expect(
-      executeCreateMemberProfile(formData, "access-token", dependencies.create),
+      executeCreateAccountProfile(
+        formData,
+        "access-token",
+        dependencies.create,
+      ),
     ).resolves.toEqual({ kind: "saved", profile });
     expect(dependencies.create).toHaveBeenCalledWith(
       { bio: null, displayName: "Кирилл" },
@@ -265,7 +269,7 @@ describe("Member Profile web workflow", () => {
 
   it("rejects malformed fields before calling the backend", () => {
     const dependencies = successfulDependencies();
-    const parsed = createMemberProfileInputSchema.safeParse({
+    const parsed = createAccountProfileInputSchema.safeParse({
       displayName: "К",
       bio: "",
     });
@@ -283,13 +287,17 @@ describe("Member Profile web workflow", () => {
 
   it("counts authored fields by Unicode code point", async () => {
     const dependencies = successfulDependencies();
-    const formData = createMemberProfileInputSchema.parse({
+    const formData = createAccountProfileInputSchema.parse({
       displayName: "🙂".repeat(80),
       bio: "🙂".repeat(500),
     });
 
     await expect(
-      executeCreateMemberProfile(formData, "access-token", dependencies.create),
+      executeCreateAccountProfile(
+        formData,
+        "access-token",
+        dependencies.create,
+      ),
     ).resolves.toMatchObject({ kind: "saved" });
     expect(dependencies.create).toHaveBeenCalledWith(
       { bio: "🙂".repeat(500), displayName: "🙂".repeat(80) },
@@ -311,7 +319,7 @@ describe("Member Profile web workflow", () => {
       }),
     };
     await expect(
-      executeUpdateMemberProfile(
+      executeUpdateAccountProfile(
         updateForm(),
         "access-token",
         invalidDependencies.update,
@@ -330,7 +338,7 @@ describe("Member Profile web workflow", () => {
       }),
     };
     await expect(
-      executeUpdateMemberProfile(
+      executeUpdateAccountProfile(
         updateForm(),
         "access-token",
         conflictDependencies.update,
@@ -340,7 +348,7 @@ describe("Member Profile web workflow", () => {
 
   it("maps the private missing state", async () => {
     await expect(
-      getPrivateMemberProfile(
+      getPrivateAccountProfile(
         "access-token",
         vi.fn().mockResolvedValue({
           body: { kind: "missing" },
