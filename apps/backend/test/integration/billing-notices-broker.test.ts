@@ -55,9 +55,12 @@ const config = syntheticTbankConfig({
   notificationUrl: `${origin}/billing/tbank/notification`,
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const documents = syntheticConsentDocuments.filter(
-  (document) => document.kind === "terms",
-);
+const documents = syntheticConsentDocuments
+  .filter((document) => document.kind === "terms")
+  .map((document) => ({
+    ...document,
+    commercialModel: "product-lifetime-v1" as const,
+  }));
 
 /**
  * Подтверждённая оплата проходит весь путь через настоящий брокер: outbox Billing, очередь

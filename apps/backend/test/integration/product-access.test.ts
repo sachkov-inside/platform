@@ -18,13 +18,16 @@ import type {
 } from "../../src/infrastructure/object-storage/index.js";
 import { createHash, randomUUID } from "node:crypto";
 import { SignJWT } from "jose";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
-  assembleAccounts,
-  accountId,
-} from "../../src/modules/accounts/index.js";
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
+import { accountId } from "../../src/modules/accounts/index.js";
 import {
-  assembleAccessGrants,
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
@@ -52,32 +55,24 @@ registerFixedClock();
 describe("independent product, library, support and shared chat rights", () => {
   let db: TestDatabase;
   const owner = randomUUID(),
-    buyer = randomUUID(),
     productA = randomUUID(),
     productB = randomUUID(),
     topicId = randomUUID();
+  let buyer = randomUUID();
   let now = new Date("2030-01-01T00:00:00Z");
-  let grants: ReturnType<typeof assembleAccessGrants>;
+
   let membership: ReturnType<typeof assembleAccountRights>;
   let materials: ReturnType<typeof assembleMaterials>;
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
-    for (const id of [owner, buyer])
+    for (const id of [owner])
       await db.prisma.account.create({
         data: { id, logtoIssuer: "https://identity.test", logtoSubject: id },
       });
     await db.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
     });
-    const accounts = assembleAccounts({
-      prisma: db.prisma,
-      emailFingerprintKey: "synthetic-scoped-access-fingerprint-key",
-    });
-    grants = assembleAccessGrants({
-      prisma: db.prisma,
-      accounts,
-      clock: () => now,
-    });
+
     membership = assembleAccountRights({
       prisma: db.prisma,
       clock: () => now,
@@ -94,11 +89,22 @@ describe("independent product, library, support and shared chat rights", () => {
       authorPolicy: { canManage: (id) => id === owner },
     });
   });
+  beforeEach(async () => {
+    buyer = randomUUID();
+    now = new Date("2030-01-01T00:00:00Z");
+    await db.prisma.account.create({
+      data: {
+        id: buyer,
+        logtoIssuer: "https://identity.test",
+        logtoSubject: buyer,
+      },
+    });
+  });
   afterAll(async () => db.dispose());
   async function grant(
     capabilities: AccessCapability[],
-    validUntil: string | null,
-    source: "manual" | "legacy" = "manual",
+    _validUntil: string | null,
+    _source: "manual" | "legacy" = "manual",
   ) {
     const productId = capabilities[0]?.replace("product:", "");
     if (!productId) throw new Error("Expected Product target");
@@ -384,7 +390,8 @@ describe("independent product, library, support and shared chat rights", () => {
       items: [{ availability: "available" }, { availability: "locked" }],
     });
     expect(await membership.resolveForAccess(accountId(buyer))).toEqual({
-      kind: "required",
+      kind: "active",
+      validUntil: null,
     });
     const another = await grantProductFixture(db.prisma, buyer, productB);
     expect(

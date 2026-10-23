@@ -1,9 +1,6 @@
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
-import {
-  prepareInvitedQuote,
-  seedPurchaseInvitation,
-} from "./setup/purchase-invitation.js";
+
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -25,7 +22,7 @@ import {
   Notifications,
   type SendNotificationEmail,
 } from "../../src/modules/notifications/index.js";
-import { subscriptionSnapshotSchema } from "../../src/modules/billing/domain/subscription-change.js";
+
 import { deliverySchema } from "../../src/modules/notifications/domain/notification-wire.js";
 
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
@@ -56,13 +53,16 @@ const config = syntheticTbankConfig({
   bindingEncryptionKey: Buffer.alloc(32, 61).toString("base64"),
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
-  returnUrl: `${origin}/account`,
+  returnUrl: `${origin}/payment/return`,
   notificationUrl: `${origin}/billing/tbank/notification`,
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const documents = syntheticConsentDocuments.filter(
-  (document) => document.kind === "terms",
-);
+const documents = syntheticConsentDocuments
+  .filter((document) => document.kind === "terms")
+  .map((document) => ({
+    ...document,
+    commercialModel: "product-lifetime-v1" as const,
+  }));
 
 /**
  * Оба конца одного пути на реальном PostgreSQL: подтверждённые факты Billing становятся поводами,
@@ -458,7 +458,9 @@ describe("служебные сообщения подписки (реальны
     });
     expect(s.sent[0]?.text).toContain("Материалы");
     expect(s.sent[0]?.text).toContain("Сумма: 1000.00 ₽.");
-    expect(s.sent[0]?.text).toContain(`${origin}/account`);
+    expect(s.sent[0]?.text).toContain(
+      `${origin}/payment/return?purchaseRef=${purchaseRef}`,
+    );
     expect(
       await db.prisma.notificationDelivery.count({
         where: { ...s.own, state: "sent" },
@@ -470,11 +472,9 @@ describe("служебные сообщения подписки (реальны
     expect(
       await db.prisma.notification.count({ where: { accountId: s.buyer } }),
     ).toBe(1);
-    expect(await s.cabinet()).toMatchObject({
-      notices: [
-        { kind: "payment_succeeded", state: "current", amountKopecks: 100_000 },
-      ],
-    });
+    expect(await s.notices.readNotices(s.buyer)).toMatchObject([
+      { kind: "payment_succeeded", state: "current", amountKopecks: 100_000 },
+    ]);
   });
 
   test("служебное сообщение идёт в оба канала и не требует согласия на новые материалы", async () => {
@@ -527,7 +527,7 @@ describe("служебные сообщения подписки (реальны
       }),
     ).toMatchObject({ state: "confirmed" });
     expect(
-      await db.prisma.accessGrant.count({ where: { accountId: s.buyer } }),
+      await db.prisma.productAccess.count({ where: { accountId: s.buyer } }),
     ).toBe(1);
     await s.pump(s.deliverEmail);
     expect(attempts).toBe(1);

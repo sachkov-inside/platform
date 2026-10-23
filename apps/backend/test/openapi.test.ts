@@ -414,16 +414,6 @@ function hasResponseSchema(
   return isRecord(media) && isRecord(media["schema"]);
 }
 
-function hasRequestBodySchema(
-  operation: Readonly<Record<string, unknown>>,
-  mediaType: string,
-): boolean {
-  const requestBody = operation["requestBody"];
-  if (!isRecord(requestBody) || !isRecord(requestBody["content"])) return false;
-  const media = requestBody["content"][mediaType];
-  return isRecord(media) && isRecord(media["schema"]);
-}
-
 function hasMaterialAndAccountProblemSchemas(
   operation: Readonly<Record<string, unknown>>,
   status: string,

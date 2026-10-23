@@ -1,8 +1,6 @@
 import { grantProductFixture, revokeProductFixture } from "./product-access.js";
 import { randomUUID } from "node:crypto";
 
-import { assembleAccounts } from "../../../src/modules/accounts/index.js";
-import { assembleAccessGrants } from "../../../src/modules/account-rights/index.js";
 import { assembleMaterials } from "../../../src/entrypoints/composition/assemble-materials.js";
 import type { TestDatabase } from "./test-database.js";
 
@@ -64,7 +62,6 @@ export async function createScopedProductsWorld(
     data: { accountId: owner, permission: "platform:admin" },
   });
   // deterministic-test-allow wall-clock: Callers registerFixedClock; fixture and in-process consumers share virtual Date.
-  let now = (): Date => new Date();
 
   const materials = assembleMaterials({
     prisma: database.prisma,
@@ -311,6 +308,8 @@ export async function createScopedProductsWorld(
       );
       await revokeProductFixture(database.prisma, target);
     },
-    revokeGrant: (target) => revokeProductFixture(database.prisma, target),
+    async revokeGrant(target) {
+      await revokeProductFixture(database.prisma, target);
+    },
   };
 }

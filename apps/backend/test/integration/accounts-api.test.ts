@@ -118,7 +118,7 @@ describe("Accounts API", () => {
       read
         .json<{ documents: { documentId: string }[] }>()
         .documents.map((document) => document.documentId),
-    ).toEqual(["purchase", "subscription", "recurring-consent"]);
+    ).toEqual(["purchase"]);
     const disabled = await server.inject({
       method: "POST",
       url,

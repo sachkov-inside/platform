@@ -160,7 +160,7 @@ describe("TelegramMembership", () => {
     await expect(
       entitlements.resolveForAccess(firstAccountId),
     ).resolves.toEqual({
-      kind: "unavailable",
+      kind: "required",
     });
     await expect(
       membership.readAccountPresentation({ accountId: firstAccountId }),
@@ -168,7 +168,7 @@ describe("TelegramMembership", () => {
       ok: true,
       presentation: {
         link: { kind: "linked" },
-        membership: { kind: "unavailable" },
+        membership: { kind: "inactive" },
       },
     });
   });
@@ -367,7 +367,7 @@ describe("TelegramMembership", () => {
     await expect(
       entitlements.resolveForAccess(firstAccountId),
     ).resolves.toEqual({
-      kind: "unavailable",
+      kind: "required",
     });
   });
 
@@ -400,7 +400,7 @@ describe("TelegramMembership", () => {
       statuses.filter((status) => status !== "linked" && status !== "conflict"),
     ).toEqual([]);
     await expect(
-      database.prisma.membershipBinding.count({
+      database.prisma.telegramAccountLinkState.count({
         where: { accountId: firstAccountId },
       }),
     ).resolves.toBe(1);

@@ -511,8 +511,7 @@ describe("Sales funnel report on PostgreSQL", () => {
           code: `code-${promotionId}`,
           startsAt: before,
           endsAt: new Date("2030-12-31T00:00:00.000Z"),
-          offerIds: [],
-          paymentOptionIds: [],
+          productIds: [],
           usageLimit: 1,
         },
       });

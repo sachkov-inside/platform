@@ -1,4 +1,7 @@
-import { grantProductFixture } from "./setup/product-access.js";
+import {
+  grantProductFixture,
+  revokeProductFixture,
+} from "./setup/product-access.js";
 import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { HttpException } from "@nestjs/common";
@@ -544,13 +547,14 @@ describe("снятие материала из купленного руково
     ]);
   });
 
-  test("истёкшее право не делает руководство купленным", async () => {
+  test("отозванное право не делает руководство купленным", async () => {
     now = new Date("2030-01-01T00:00:00Z");
     const lapsed = await product();
     await grant({
       capabilities: [`product:${lapsed}`],
       validUntil: "2030-01-02T00:00:00Z",
     });
+    await revokeProductFixture(db.prisma, `${buyer}:${lapsed}`);
     const item = await publish([lapsed]);
     now = new Date("2030-01-03T00:00:00Z");
     expect(

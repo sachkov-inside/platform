@@ -1,6 +1,7 @@
 import {
   grantProductFixture,
   revokeProductFixture,
+  restoreProductFixture,
 } from "./setup/product-access.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import sharp from "sharp";
@@ -21,10 +22,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/server";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 
-import {
-  accountId,
-  assembleAccounts,
-} from "../../src/modules/accounts/index.js";
+import { accountId } from "../../src/modules/accounts/index.js";
 import {
   assembleContentAccess,
   type ContentAccess,
@@ -42,7 +40,6 @@ import {
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
 import {
-  assembleAccessGrants,
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
@@ -184,10 +181,6 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
     await db.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
-    });
-    const accounts = assembleAccounts({
-      prisma: db.prisma,
-      emailFingerprintKey: "product-tasks-email-fingerprint-key",
     });
 
     const membership = assembleAccountRights({
@@ -1368,7 +1361,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         submission: { ...submission, submissionKey: randomUUID() },
       }),
     ).toEqual({ ok: false, error: { code: "task_not_available" } });
-    await grant(subject, [`product:${productId}`]);
+    await restoreProductFixture(db.prisma, firstGrant);
     expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
       { ok: true, value: { submissions: [{ taskVersion: 1 }] } },
     );

@@ -33,21 +33,21 @@ beforeAll(async () => {
       nextEvent: "Launch",
     })),
   });
-  await database.prisma.billingOffer.create({
-    data: {
-      id: "49000000-0000-4000-8000-000000000001",
-      revision: 1,
-      name: "Shared owner Offer",
-      benefits: ["materials"],
-    },
-  });
-  await database.prisma.billingPaymentOption.createMany({
+  await database.prisma.product.createMany({
     data: Array.from({ length: 101 }, (_, index) => ({
-      id: `48000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      id: productId(index + 1),
+      slug: productId(index + 1),
+      name: "Owner Product",
+    })),
+  });
+  await database.prisma.billingProductPrice.createMany({
+    data: Array.from({ length: 101 }, (_, index) => ({
+      productId: productId(index + 1),
       revision: 1,
-      offerId: "49000000-0000-4000-8000-000000000001",
-      months: 1,
+      name: "Owner Product",
       priceKopecks: 10000n,
+      published: false,
+      updatedAt: new Date("2026-10-14T00:00:00Z"),
     })),
   });
   app = await createApiApplication(
@@ -166,7 +166,7 @@ test("HTTP scope and continuation preserve the strict products.v1 bot response",
   }
 });
 
-test("owner catalog cursor pages payment options rather than distinct Offers on PostgreSQL", async () => {
+test("owner catalogue cursor pages every Product price without skipping or repeating Products", async () => {
   const accounts = assembleAccounts({
     prisma: observer.prisma,
     emailFingerprintKey: "owner-catalog-key-00000000000000000000",
@@ -184,16 +184,14 @@ test("owner catalog cursor pages payment options rather than distinct Offers on 
   if (!first.result.ok) throw new Error(first.result.error.code);
   expect(first.result.value.items).toHaveLength(100);
   const cursor = first.result.value.nextCursor;
-  expect(cursor).toBe("48000000-0000-4000-8000-000000000100");
+  expect(cursor).toBe(productId(100));
   const second = await observer.measure(() =>
     billing.ownerCatalog({ limit: 100, cursor }),
   );
   expect(second.result.ok).toBe(true);
   if (!second.result.ok) throw new Error(second.result.error.code);
   expect(second.result.value.items).toHaveLength(1);
-  expect(second.result.value.items[0]?.paymentOption.id).toBe(
-    "48000000-0000-4000-8000-000000000101",
-  );
+  expect(second.result.value.items[0]?.paymentOption.id).toBe(productId(101));
   expect(second.result.value.nextCursor).toBeNull();
   process.stdout.write(
     `${JSON.stringify({ record: "PAG05", firstStatements: first.statements.length, secondStatements: second.statements.length, ownerCalls: 2, providerRequests: 0 })}\n`,

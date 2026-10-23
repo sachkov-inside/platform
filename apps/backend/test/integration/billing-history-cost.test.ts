@@ -1,3 +1,5 @@
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -209,24 +211,17 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
     prisma: observer.prisma,
     bank: undefined,
     contact: { read: unused, readConsents: unused },
-    grants: {
-      readCompatibilityCoverage: unused,
-      readLegacyClassification: unused,
-      readPurchaseGrounds: unused,
-      resolveCapabilities: unused,
-      resolveCapabilitiesMany: unused,
-      applyPaidPeriod: unused,
-    },
+    grants: assembleAccessGrants({
+      prisma: observer.prisma,
+      accounts: assembleAccounts({
+        prisma: observer.prisma,
+        emailFingerprintKey: "billing-history-fingerprint-key-000000",
+      }),
+    }),
     clock: () => now,
   });
   const notices = new BillingNotices({
-    sale: {},
     prisma: observer.prisma,
-    enrollments: {
-      listEnrollmentEndings: unused,
-      readEnrollmentEnding: unused,
-      readSubscriptionContinuation: unused,
-    },
     clock: () => now,
   });
   const money = await observer.measure(() => payments.history(id(600, 2)));

@@ -29,7 +29,6 @@ import {
   type ContentAccess,
 } from "../../src/modules/content-access/index.js";
 import {
-  assembleAccessGrants,
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
@@ -131,10 +130,6 @@ describe("Product Artifacts", () => {
         data: { id, name: `Synthetic product ${id}`, slug: id },
       });
     }
-    const accounts = assembleAccounts({
-      emailFingerprintKey: "synthetic-product-artifact-fingerprint-key",
-      prisma: db.prisma,
-    });
 
     const accountRights = assembleAccountRights({
       prisma: db.prisma,
@@ -187,6 +182,7 @@ describe("Product Artifacts", () => {
     await db.prisma.accountPermission.create({
       data: { accountId: author, permission: "materials:manage" },
     });
+
     const accounts = assembleAccounts({
       prisma: db.prisma,
       emailFingerprintKey: "artifact-permission-test-fingerprint-key",

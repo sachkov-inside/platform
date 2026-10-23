@@ -40,7 +40,7 @@ test("Payment Link retains saved kopeck price across current catalogue edits and
     await s.pricing.quote(other.buyer, {
       operationId: randomUUID(),
       productId: s.productId,
-      priceRevision: 2,
+      priceRevision: 1,
       paymentLinkId: link.id,
     }),
   );

@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
@@ -21,7 +20,7 @@ test("own Products retain stable names, Account isolation and explicit withdrawn
     prisma: world.db.prisma,
     accounts: assembleAccounts({
       prisma: world.db.prisma,
-      emailFingerprintKey: "own-products-fixture-key",
+      emailFingerprintKey: "own-products-fixture-fingerprint-key-000000",
     }),
     contentCatalog: new CoverageCatalog(
       world.db.prisma,

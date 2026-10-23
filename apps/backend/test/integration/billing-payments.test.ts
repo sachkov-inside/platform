@@ -79,7 +79,7 @@ test("foreign Account cannot read or restore another buyer's payment, even knowi
   ).toMatchObject({ ok: false, error: { code: "not_found" } });
   expect(
     await s.payments.purchaseEmail(other.buyer, purchase.purchaseRef),
-  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  ).toEqual({ ok: true, value: null });
 });
 
 test("one operation cannot replay a changed purchase payload", async () => {
