@@ -114,8 +114,6 @@ export interface CommunityProviderOptions {
   readonly contractVersion?: CommunityVersion;
   readonly removalsEnabled?: boolean;
   readonly botTelegramUserId?: string | undefined;
-  /** Removals by this bot end the Tribute basis only; they are never moderation. */
-  readonly tributeBotTelegramUserId?: string;
   readonly readmission?: CommunityPrivateNotice;
   /** Sent privately with the first link after an Account's first community right. */
   readonly welcome?: CommunityPrivateNotice;
@@ -697,67 +695,54 @@ export class CommunityProvider {
       let confirmedBanAttempt: string | null = null;
       let readmissionRequestedAt = current.readmission_requested_at;
       if (event.chatMember.status === "kicked") {
-        if (this.removedByTribute(event)) {
-          // Tribute ends only its own basis. A ban observed before this event arrived is lifted;
-          // a restriction with a recorded actor or a moderator stays in force.
-          if (
-            restriction === "none" ||
-            (restriction === "external_unknown" && origin === "unexplained_ban")
-          ) {
-            restriction = "none";
-            origin = "tribute_expiry";
-            readmissionRequestedAt = event.eventAt;
-          }
+        const own =
+          event.actorTelegramUserId !== undefined &&
+          event.actorTelegramUserId === this.options.botTelegramUserId;
+        const attempt = own
+          ? await tx
+              .selectFrom("community_effect_attempts")
+              .innerJoin(
+                "community_effects",
+                "community_effects.effect_ref",
+                "community_effect_attempts.effect_ref",
+              )
+              .select([
+                "community_effect_attempts.outcome",
+                "community_effect_attempts.attempt_id",
+              ])
+              .where("community_effects.bot_identity", "=", this.bot)
+              .where(
+                "community_effects.telegram_identity_ref",
+                "=",
+                current.telegram_identity_ref,
+              )
+              .where("community_effect_attempts.action", "=", "ban")
+              .where(
+                "community_effect_attempts.started_at",
+                ">=",
+                new Date(event.eventAt.getTime() - 60_000),
+              )
+              .where(
+                "community_effect_attempts.started_at",
+                "<=",
+                new Date(event.eventAt.getTime() + 1000),
+              )
+              .orderBy("community_effect_attempts.started_at", "desc")
+              .executeTakeFirst()
+          : undefined;
+        if (
+          attempt &&
+          ["succeeded", "started", "unknown"].includes(attempt.outcome) &&
+          restriction === "none"
+        ) {
+          origin = "bot_expiry";
+          confirmedBanAttempt = attempt.attempt_id;
         } else {
-          const own =
-            event.actorTelegramUserId !== undefined &&
-            event.actorTelegramUserId === this.options.botTelegramUserId;
-          const attempt = own
-            ? await tx
-                .selectFrom("community_effect_attempts")
-                .innerJoin(
-                  "community_effects",
-                  "community_effects.effect_ref",
-                  "community_effect_attempts.effect_ref",
-                )
-                .select([
-                  "community_effect_attempts.outcome",
-                  "community_effect_attempts.attempt_id",
-                ])
-                .where("community_effects.bot_identity", "=", this.bot)
-                .where(
-                  "community_effects.telegram_identity_ref",
-                  "=",
-                  current.telegram_identity_ref,
-                )
-                .where("community_effect_attempts.action", "=", "ban")
-                .where(
-                  "community_effect_attempts.started_at",
-                  ">=",
-                  new Date(event.eventAt.getTime() - 60_000),
-                )
-                .where(
-                  "community_effect_attempts.started_at",
-                  "<=",
-                  new Date(event.eventAt.getTime() + 1000),
-                )
-                .orderBy("community_effect_attempts.started_at", "desc")
-                .executeTakeFirst()
-            : undefined;
-          if (
-            attempt &&
-            ["succeeded", "started", "unknown"].includes(attempt.outcome) &&
-            restriction === "none"
-          ) {
-            origin = "bot_expiry";
-            confirmedBanAttempt = attempt.attempt_id;
-          } else {
-            restriction =
-              !own && event.actorIsBot === false
-                ? "moderation"
-                : "external_unknown";
-            origin = "external_unknown";
-          }
+          restriction =
+            restriction === "moderation" || (!own && event.actorIsBot === false)
+              ? "moderation"
+              : "external_unknown";
+          origin = "external_unknown";
         }
       } else if (
         ["left", "member", "administrator", "creator", "restricted"].includes(
@@ -765,10 +750,8 @@ export class CommunityProvider {
         )
       ) {
         origin = "none";
-        // Tribute's unban leaves the person outside; only a return ends the request.
+        // A saved historical readmission request ends only when the person returns.
         if (event.chatMember.status !== "left") readmissionRequestedAt = null;
-        else if (this.removedByTribute(event) && restriction === "none")
-          readmissionRequestedAt ??= event.eventAt;
       }
       await tx
         .updateTable("community_desired_states")
@@ -1526,17 +1509,6 @@ export class CommunityProvider {
       .where("bot_identity", "=", this.bot)
       .where("account_ref", "=", desired.account_ref)
       .execute();
-  }
-
-  private removedByTribute(event: {
-    readonly actorIsBot?: boolean;
-    readonly actorTelegramUserId?: string;
-  }): boolean {
-    return (
-      this.options.tributeBotTelegramUserId !== undefined &&
-      event.actorIsBot === true &&
-      event.actorTelegramUserId === this.options.tributeBotTelegramUserId
-    );
   }
 
   /**

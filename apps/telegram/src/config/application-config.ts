@@ -31,7 +31,7 @@ export interface CommunityTexts {
   readonly preparing: string;
   readonly member: string;
   readonly unavailable: string;
-  /** Sent with a fresh link to a person whom Tribute removed while a Platform right is current. */
+  /** Sent with a fresh link for a saved historical readmission request while a Platform right is current. */
   readonly readmission: string;
   /** Sent with the first link after an Account's first community right. */
   readonly welcome: string;
@@ -66,8 +66,6 @@ export interface ApplicationConfig {
   readonly communityMode: CommunityMode;
   readonly communityContractVersion?: CommunityVersion | undefined;
   readonly communityRemovalsEnabled?: boolean | undefined;
-  /** The Tribute bot whose own removals are expiry, not moderation. */
-  readonly communityTributeBotTelegramUserId?: string | undefined;
   readonly communityIntegrationSecret?: string | undefined;
   readonly communityDispatchUrl?: string | undefined;
   readonly communityDispatchSecret?: string | undefined;
@@ -258,19 +256,8 @@ export function loadApplicationConfig(
     false,
     "TELEGRAM_COMMUNITY_REMOVALS_ENABLED",
   );
-  const communityTributeBotTelegramUserId =
-    presentText(environment["TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID"]?.trim()) ??
-    undefined;
-  if (
-    communityTributeBotTelegramUserId !== undefined &&
-    (!isSafeTelegramId(communityTributeBotTelegramUserId) ||
-      communityTributeBotTelegramUserId.startsWith("-") ||
-      communityTributeBotTelegramUserId ===
-        botTelegramUserIdFromToken(botToken))
-  )
-    throw new Error(
-      "TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID must be the positive Telegram user id of another bot",
-    );
+  if (hasText(environment["TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID"]?.trim()))
+    throw new Error("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID is retired");
   const communityMode = environment["TELEGRAM_COMMUNITY_MODE"] ?? "disabled";
   assertExternalMode(communityMode, "TELEGRAM_COMMUNITY_MODE");
   const communityReconciliationCadenceMilliseconds = parseBoundedInteger(
@@ -484,9 +471,6 @@ export function loadApplicationConfig(
     communityContractVersion:
       communityContractVersion === undefined ? undefined : COMMUNITY_V2,
     communityRemovalsEnabled,
-    ...(hasText(communityTributeBotTelegramUserId)
-      ? { communityTributeBotTelegramUserId }
-      : {}),
     ...(hasText(communityIntegrationSecret)
       ? { communityIntegrationSecret }
       : {}),

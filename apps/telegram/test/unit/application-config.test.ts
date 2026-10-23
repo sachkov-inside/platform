@@ -539,31 +539,16 @@ describe("application configuration", () => {
     ).toThrow("TELEGRAM_COMMUNITY_REMOVALS_ENABLED must be true or false");
   });
 
-  it("accepts an explicit Tribute bot identity only as a Telegram user id distinct from this bot", () => {
-    expect(
-      loadApplicationConfig(validEnvironment).communityTributeBotTelegramUserId,
-    ).toBeUndefined();
-    expect(
-      loadApplicationConfig({
-        ...validEnvironment,
-        TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: "7000001",
-      }).communityTributeBotTelegramUserId,
-    ).toBe("7000001");
-    for (const bad of ["-7000001", "0", "tribute", "7000001.5"]) {
+  it("rejects a retired live Tribute identity instead of enabling recognition", () => {
+    for (const value of ["7000001", "tribute", "disabled"]) {
       expect(() =>
         loadApplicationConfig({
           ...validEnvironment,
-          TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: bad,
+          TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: value,
         }),
-      ).toThrow("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID");
+      ).toThrow("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID is retired");
     }
-    expect(() =>
-      loadApplicationConfig({
-        ...validEnvironment,
-        TELEGRAM_BOT_TOKEN: "7000001:synthetic",
-        TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID: "7000001",
-      }),
-    ).toThrow("TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID");
+    expect(() => loadApplicationConfig(validEnvironment)).not.toThrow();
   });
 
   it("refuses a Notifications secret shared with the community dispatch direction", () => {
