@@ -1,5 +1,10 @@
 export { createPrismaClient } from "./create-prisma-client.js";
 export {
+  type ProductsPrisma,
+  type ProductsPrismaClient,
+  type ProductsPrismaTransaction,
+  type ContentCoversPrisma,
+  type ContentCoversPrismaClient,
   type NotificationsPrisma,
   type NotificationsPrismaClient,
   type BillingPrisma,
@@ -62,3 +67,8 @@ export {
   lockProductWaitlistOperation,
   lockProductWaitlistMembership,
 } from "./transaction-locks.js";
+
+export {
+  transactionHandle,
+  type TransactionHandle,
+} from "./transaction-handle.js";
