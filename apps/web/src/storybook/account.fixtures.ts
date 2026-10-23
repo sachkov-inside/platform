@@ -3,7 +3,6 @@ import type { AccountTelegramMembership } from "@/features/account-access";
 
 import {
   accessGrounds,
-  activeSubscription,
   billingNotices,
   currentBillingResponse,
   enrollmentsResponse,
@@ -111,7 +110,7 @@ export const subscribedMemberRoutes: Readonly<Record<string, RouteResponse>> = {
   "/api/account/email": () =>
     Response.json({ ok: true, email: "member@example.test" }),
   "/api/account/billing": () =>
-    currentBillingResponse(activeSubscription, {
+    currentBillingResponse(null, {
       grounds: accessGrounds,
       notices: billingNotices,
       payments: ownPayments,

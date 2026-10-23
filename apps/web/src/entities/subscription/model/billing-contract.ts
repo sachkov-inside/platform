@@ -143,44 +143,6 @@ export const attemptStateSchema = z.enum([
   "confirmed",
   "failed",
 ]);
-export const subscriptionStateSchema = z.enum(["active", "canceled", "ended"]);
-export const subscriptionSnapshotSchema = z.object({
-  offer: offerSchema,
-  paymentOption: paymentOptionSchema,
-  currency: z.literal("RUB"),
-  timezone: z.literal("Europe/Moscow"),
-  renewalPriceKopecks: z.number().int().positive(),
-});
-export const subscriptionViewSchema = z.object({
-  subscriptionRef: z.uuid(),
-  revision: z.number().int().positive(),
-  state: subscriptionStateSchema,
-  snapshot: subscriptionSnapshotSchema,
-  periodStartsAt: z.iso.datetime(),
-  paidUntil: z.iso.datetime(),
-  periodAmountKopecks: z.number().int().positive(),
-  periodIndex: z.number().int().positive(),
-  paymentMethod: z
-    .object({ methodRef: z.uuid(), revoked: z.boolean() })
-    .nullable(),
-  pendingChange: z
-    .object({
-      snapshot: priceSnapshotSchema,
-      acceptedAt: z.iso.datetime(),
-      changeQuoteRef: z.uuid(),
-    })
-    .nullable(),
-  pendingMethodChange: z
-    .object({ flowRef: z.uuid(), formUrl: z.url().nullable() })
-    .nullable(),
-  inFlightPayment: z
-    .object({
-      attemptRef: z.uuid(),
-      kind: attemptKindSchema,
-      state: attemptStateSchema,
-    })
-    .nullable(),
-});
 export const noticeKindSchema = z.enum([
   "renewal_reminder",
   "payment_succeeded",
@@ -282,31 +244,6 @@ export const quoteSchema = z.object({
       snapshot.product !== undefined && snapshot.supportMonths === 3,
   ),
 });
-export const changePlanSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("upgrade"),
-    snapshot: priceSnapshotSchema,
-    topUpKopecks: z.number().int().positive(),
-    effectiveAt: z.iso.datetime(),
-  }),
-  z.object({
-    kind: z.literal("scheduled"),
-    snapshot: priceSnapshotSchema,
-    nextPriceKopecks: z.number().int().positive(),
-    effectiveAt: z.iso.datetime(),
-  }),
-]);
-export const changeQuoteSchema = z.object({
-  changeQuoteRef: z.uuid(),
-  baseRevision: z.number().int().positive(),
-  plan: changePlanSchema,
-  expiresAt: z.iso.datetime(),
-});
-export const changeResultSchema = z.object({
-  subscription: subscriptionViewSchema,
-  payment: purchaseStatusSchema.nullable(),
-});
-
 /**
  * Закрытый набор ожидаемых исходов billing. Он приходит из Problem Details бэкенда;
  * `unauthorized` и `unavailable` добавляет граница BFF, у которой своего кода нет.
@@ -351,8 +288,6 @@ export type BillingOffer = z.infer<typeof offerSchema>;
 export type BillingPaymentOption = z.infer<typeof paymentOptionSchema>;
 export type PriceSnapshot = z.infer<typeof priceSnapshotSchema>;
 export type OffersPage = z.infer<typeof offersPageSchema>;
-export type SubscriptionView = z.infer<typeof subscriptionViewSchema>;
-export type SubscriptionState = z.infer<typeof subscriptionStateSchema>;
 export type AttemptState = z.infer<typeof attemptStateSchema>;
 export type NoticeView = z.infer<typeof noticeViewSchema>;
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
@@ -362,22 +297,12 @@ export type AccessSource = z.infer<typeof accessSourceSchema>;
 export type OwnPayment = z.infer<typeof ownPaymentSchema>;
 export type PurchaseStatus = z.infer<typeof purchaseStatusSchema>;
 export type BillingQuote = z.infer<typeof quoteSchema>;
-export type ChangeQuote = z.infer<typeof changeQuoteSchema>;
-export type ChangePlan = z.infer<typeof changePlanSchema>;
-export type ChangeResult = z.infer<typeof changeResultSchema>;
 export type BillingFailureCode = z.infer<typeof billingFailureCodeSchema>;
 export type BillingFailure = z.infer<typeof billingFailureSchema>;
 
 /** Способ продажи снимка: у старых снимков его нет, и это подписка. */
 export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
   return snapshot.paymentOption.mode ?? "subscription";
-}
-
-/** Группировка уже допущенных сервером вариантов по способу оплаты, без повторной проверки продажи. */
-export function publicSubscriptionOffers(
-  offers: readonly PriceSnapshot[],
-): readonly PriceSnapshot[] {
-  return offers.filter((snapshot) => paymentMode(snapshot) === "subscription");
 }
 
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

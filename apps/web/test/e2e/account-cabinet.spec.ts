@@ -1,44 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const activeSubscription = {
-  subscriptionRef: "00000000-0000-4000-8000-000000000501",
-  revision: 7,
-  state: "active",
-  snapshot: {
-    offer: {
-      id: "00000000-0000-4000-8000-000000000101",
-      revision: 3,
-      name: "Материалы",
-      benefits: ["materials"],
-      archived: false,
-    },
-    paymentOption: {
-      id: "00000000-0000-4000-8000-000000000201",
-      revision: 2,
-      offerId: "00000000-0000-4000-8000-000000000101",
-      mode: "subscription",
-      months: 1,
-      priceKopecks: 100_000,
-      archived: false,
-    },
-    currency: "RUB",
-    timezone: "Europe/Moscow",
-    renewalPriceKopecks: 100_000,
-  },
-  periodStartsAt: "2026-09-01T00:00:00.000Z",
-  paidUntil: "2026-10-01T00:00:00.000Z",
-  periodAmountKopecks: 100_000,
-  periodIndex: 1,
-  paymentMethod: {
-    methodRef: "00000000-0000-4000-8000-000000000601",
-    revoked: false,
-  },
-  pendingChange: null,
-  pendingMethodChange: null,
-  inFlightPayment: null,
-};
-
 const paidGround = {
   source: "paid",
   capabilities: ["materials"],
@@ -50,12 +12,14 @@ const paidGround = {
 async function stubAccount(
   page: Page,
   {
-    subscription = null,
+    products = [],
+    payments = [],
     grounds = [],
     telegram = "linked",
     contact = () => null,
   }: {
-    subscription?: unknown;
+    products?: readonly unknown[];
+    payments?: readonly unknown[];
     grounds?: readonly unknown[];
     telegram?: "linked" | "unlinked";
     /** Контакт читается на каждый запрос: подтверждение меняет ответ, а не только первый снимок. */
@@ -82,12 +46,9 @@ async function stubAccount(
     route.fulfill({
       json: {
         ok: true,
-        value: { subscription, notices: [], grounds, payments: [] },
+        value: { products, notices: [], access: { grounds }, payments },
       },
     }),
-  );
-  await page.route("**/api/account/billing/enrollments", (route) =>
-    route.fulfill({ json: { ok: true, value: { items: [] } } }),
   );
   await page.route("**/api/account/billing/contact", (route) =>
     route.fulfill({ json: { ok: true, contact: contact(), documents: [] } }),
@@ -134,7 +95,6 @@ for (const [path, hash] of [
   ["access", ""],
   ["notifications", ""],
   ["purchases", "#purchases"],
-  ["subscription", ""],
   ["email", "#purchases"],
 ] as const) {
   test(`старый адрес ${path} открывает единый кабинет`, async ({ page }) => {
@@ -181,11 +141,25 @@ test("историческая подписка не возвращает упр
   page,
 }) => {
   await stubAccount(page, {
-    subscription: activeSubscription,
     grounds: [paidGround],
+    payments: [
+      {
+        purchaseRef: "00000000-0000-4000-8000-000000000501",
+        kind: "renewal",
+        state: "confirmed",
+        amountKopecks: 100000,
+        offerName: "Исторические материалы",
+        months: 1,
+        fiscalization: "confirmed",
+        confirmedAt: "2026-09-01T00:00:00Z",
+        periodEndsAt: "2026-10-01T00:00:00Z",
+        createdAt: "2026-09-01T00:00:00Z",
+        refundedKopecks: 0,
+        refundedAt: null,
+      },
+    ],
   });
-  await page.goto("/account/subscription");
-  await expect(page).toHaveURL(/\/account$/u);
+  await page.goto("/account");
   await expect(
     page.getByRole("heading", { name: "Личный кабинет", exact: true }),
   ).toBeVisible();
@@ -221,63 +195,38 @@ test("кабинет не имеет серьёзных нарушений до�
 });
 
 for (const [state, label] of [
-  ["scheduled", "Начнётся позже"],
-  ["expired", "Срок завершён"],
-  ["revoked", "Отозвано"],
+  ["available", "Доступ открыт"],
+  ["revoked", "Доступ отозван"],
 ] as const) {
-  test(`кабинет сохраняет продукт с состоянием ${state} без блока подписки`, async ({
+  test(`кабинет сохраняет lifetime Product ${state} без подписки`, async ({
     page,
   }) => {
-    await stubAccount(page);
     const productId = "00000000-0000-4000-8000-000000000701";
-    await page.route("**/api/account/billing/enrollments", (route) =>
-      route.fulfill({
-        json: {
-          ok: true,
-          value: {
-            items: [
-              {
-                id: "00000000-0000-4000-8000-000000000624",
-                accountId: "00000000-0000-4000-8000-000000000625",
-                tier: {
-                  id: "00000000-0000-4000-8000-000000000626",
-                  revision: 1,
-                  name: "История доступа",
-                  benefits: [`product:${productId}`],
-                  coverage: { productIds: [productId], materialIds: [] },
-                },
-                origin: "course",
-                startsAt: "2030-01-01T00:00:00.000Z",
-                endsAt: null,
-                endPolicy: "fixed",
-                revision: 1,
-                state,
-                renewal: "not_applicable",
-                nextChargeAt: null,
-                content: [
-                  {
-                    kind: "product",
-                    id: productId,
-                    title: "Инженерная практика",
-                    slug: "engineering-practice",
-                    available: true,
-                  },
-                ],
-              },
-            ],
-          },
+    await stubAccount(page, {
+      products: [
+        {
+          id: productId,
+          name: "Инженерная практика",
+          slug: "engineering-practice",
+          materials: { state },
+          community: { state },
         },
-      }),
-    );
+      ],
+    });
     await page.goto("/account");
     const card = page.locator(`[data-account-product="${productId}"]`);
     await expect(
       card.getByRole("heading", { name: "Инженерная практика" }),
     ).toBeVisible();
     await expect(card.getByText(label, { exact: true })).toBeVisible();
-    await expect(
-      card.getByRole("link", { name: "Открыть продукт" }),
-    ).toHaveCount(0);
+    if (state === "revoked")
+      await expect(
+        card.getByRole("link", { name: "Открыть продукт" }),
+      ).toHaveCount(0);
+    else
+      await expect(
+        card.getByRole("link", { name: "Открыть продукт" }),
+      ).toHaveAttribute("href", "/products/engineering-practice/programme");
     await expect(
       page.getByRole("heading", { name: "Подписка", exact: true }),
     ).toHaveCount(0);
