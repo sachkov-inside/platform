@@ -24,10 +24,12 @@ export class ProductMemberships {
     materialId: string,
     handle?: TransactionHandle,
   ): Promise<readonly MaterialMembership[]> {
-    return loadCatalogueMemberships(
-      handle === undefined ? this.prisma : productsTransaction(handle),
-      { materialId },
-    );
+    return (
+      await loadCatalogueMemberships(
+        handle === undefined ? this.prisma : productsTransaction(handle),
+        { materialId },
+      )
+    ).map(({ seriesId, ordinal }) => ({ seriesId, ordinal }));
   }
 
   async publishedProductIds(

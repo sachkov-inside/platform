@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeEach, afterEach, expect, test, vi } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
@@ -29,7 +30,10 @@ beforeEach(async () => {
       prisma: db.prisma,
       emailFingerprintKey: "own-product-fixture-fingerprint-key",
     }),
-    contentCatalog: new CoverageCatalog(db.prisma),
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
     clock: () => now,
   });
 });

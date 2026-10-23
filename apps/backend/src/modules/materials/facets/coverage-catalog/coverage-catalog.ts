@@ -15,7 +15,7 @@ const entriesSchema = z.array(coverageEntrySchema);
 export class CoverageCatalog {
   constructor(
     private readonly prisma: MaterialsPrismaClient,
-    private readonly products: Pick<ProductDiscovery, "snapshot">,
+    private readonly products: Pick<ProductDiscovery, "metadata">,
   ) {}
   async resolveWholePlatformProducts(
     periods: readonly { startsAt: Date; endsAt: Date }[],
@@ -23,9 +23,9 @@ export class CoverageCatalog {
     if (periods.length > COVERAGE_CATALOG_SCOPE_LIMIT)
       throw new Error("Historical Product periods exceed supported size");
     if (periods.length === 0) return [];
-    const snapshot = await this.products.snapshot();
+    const products = await this.products.metadata();
     const rows = entriesSchema.parse(
-      snapshot.products
+      products
         .filter((product) =>
           periods.some(
             (period) =>
@@ -48,14 +48,14 @@ export class CoverageCatalog {
     return rows;
   }
   async list() {
-    const snapshot = await this.products.snapshot();
+    const products = await this.products.metadata();
     const materials = await this.prisma.material.findMany({
       select: { id: true, title: true, publicationState: true, slug: true },
       take: maximumCatalogEntries + 1,
     });
     const rows = entriesSchema.parse(
       [
-        ...snapshot.products.map((product) => ({
+        ...products.map((product) => ({
           kind: "product",
           id: product.id,
           title: product.name,
@@ -104,14 +104,25 @@ export class CoverageCatalog {
     if (productIds.length + materialIds.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
     const wholePlatform = scopes.some((scope) => scope.wholePlatform === true);
-    const snapshot = await this.products.snapshot();
-    const materials = await this.prisma.material.findMany({
-      where: { id: { in: materialIds } },
-      select: { id: true, title: true, publicationState: true, slug: true },
+    const products = await this.products.metadata({
+      ids: productIds,
+      includeActive: wholePlatform,
     });
+    const materials =
+      materialIds.length === 0
+        ? []
+        : await this.prisma.material.findMany({
+            where: { id: { in: materialIds } },
+            select: {
+              id: true,
+              title: true,
+              publicationState: true,
+              slug: true,
+            },
+          });
     const rows = entriesSchema.parse(
       [
-        ...snapshot.products
+        ...products
           .filter(
             (product) =>
               (wholePlatform && product.archivedAt === null) ||

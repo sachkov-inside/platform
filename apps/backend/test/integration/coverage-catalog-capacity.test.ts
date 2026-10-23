@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
@@ -24,7 +25,10 @@ describe("metadata capacity preserves canonical references and complete Enrollme
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
     observer = createQueryEventClient(db.url);
-    catalog = new CoverageCatalog(observer.prisma);
+    catalog = new CoverageCatalog(
+      observer.prisma,
+      new ProductDiscovery(observer.prisma),
+    );
     products = Array.from({ length: 2500 }, () => randomUUID());
     await db.prisma.product.createMany({
       data: products.map((id) => ({ id, name: `Product ${id}`, slug: id })),
@@ -91,7 +95,7 @@ describe("metadata capacity preserves canonical references and complete Enrollme
     );
     expect(read.result.flat().every((entry) => entry.available)).toBe(true);
     expect(
-      read.statements.filter((sql) => sql.includes("FROM materials.series")),
+      read.statements.filter((sql) => sql.includes('"products"."series"')),
     ).toHaveLength(1);
   });
   test("five individually supported scopes keep all Enrollment metadata in its original order", async () => {
@@ -115,7 +119,7 @@ describe("metadata capacity preserves canonical references and complete Enrollme
         scopes[index]?.productIds,
       );
     expect(
-      read.statements.filter((sql) => sql.includes("FROM materials.series")),
+      read.statements.filter((sql) => sql.includes('"products"."series"')),
     ).toHaveLength(2);
   });
 });

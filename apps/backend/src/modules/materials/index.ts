@@ -81,3 +81,4 @@ export type { AuthorPolicy } from "./ports/author-policy.js";
 export type { ProductAccessHolders } from "./ports/product-access-holders.js";
 
 export { assembleProductMaterialReading } from "./infrastructure/postgres/product-material-reading.js";
+export { MATERIAL_PUBLICATION } from "./facets/material-content/material-content.js";

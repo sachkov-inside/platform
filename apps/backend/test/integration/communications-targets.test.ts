@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, test } from "vitest";
 import { PublicContentTargets } from "../../src/modules/materials/index.js";
@@ -22,7 +23,10 @@ describe("communications promised public targets against Materials PostgreSQL", 
     await database.prisma.product.create({
       data: { id: productId, slug: "public-product", name: "Public Product" },
     });
-    const targets = new PublicContentTargets(database.prisma);
+    const targets = new PublicContentTargets(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    );
     const validate = (url: string) =>
       validateTargets(
         [
@@ -112,7 +116,10 @@ describe("communications promised public targets against Materials PostgreSQL", 
       where: { id: materialId },
       data: { slug: "public-target" },
     });
-    const targets = new PublicContentTargets(database.prisma);
+    const targets = new PublicContentTargets(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    );
     expect(
       await targets.check({ kind: "material", slug: "public-target" }),
     ).toEqual({ targetId: materialId, reason: "not_published" });

@@ -1,5 +1,8 @@
 import { PRODUCT_MATERIAL_READING } from "../../modules/products/index.js";
 import { assembleProductMaterialReading } from "../../modules/materials/index.js";
+import { composeMaterialAccessFacts } from "./material-access-facts.js";
+import { MATERIAL_PUBLICATION } from "../../modules/materials/index.js";
+import { ProductCatalogue } from "../../modules/products/index.js";
 import {
   ProductDiscovery,
   ProductsModule,
@@ -86,6 +89,12 @@ import {
         assembleProductMaterialReading(prisma),
     },
     {
+      provide: MATERIAL_CONTENT,
+      inject: [MATERIAL_PUBLICATION, ProductCatalogue],
+      useFactory: (materials: MaterialContent, products: ProductCatalogue) =>
+        composeMaterialAccessFacts(materials, products),
+    },
+    {
       provide: PRODUCT_MATERIALS,
       inject: [PrismaClientProvider, ProductDiscovery],
       useFactory: (prisma: PrismaClientProvider, discovery: ProductDiscovery) =>
@@ -131,6 +140,7 @@ import {
     },
   ],
   exports: [
+    MATERIAL_CONTENT,
     CONTENT_ACCESS,
     PRODUCT_ACCESS_HOLDERS,
     PRODUCT_SALE_AVAILABILITY,

@@ -181,23 +181,14 @@ export function assembleReorderSeries(
         );
         const nextProgramme =
           command.programmePlacements ??
-          (nextChapters.length === 0 &&
-          command.chapters === undefined &&
-          command.stepGroups === undefined &&
-          command.chapterAssignments === undefined
-            ? snapshot.programmePlacements
-                .filter((entry) =>
-                  command.orderedMaterialIds.includes(entry.materialId),
-                )
-                .map((entry) => ({ ...entry, chapterId: null }))
-            : legacyProgrammePlacements(
-                snapshot.programmePlacements,
-                snapshot.items.map((item) => item.materialId),
-                command.orderedMaterialIds,
-                nextAssignments,
-                nextGroups,
-                nextChapters.map((chapter) => chapter.id),
-              ));
+          legacyProgrammePlacements(
+            snapshot.programmePlacements,
+            snapshot.items.map((item) => item.materialId),
+            command.orderedMaterialIds,
+            nextAssignments,
+            nextGroups,
+            nextChapters.map((chapter) => chapter.id),
+          );
         const programmeAssignments = Object.fromEntries(
           nextProgramme
             .slice()

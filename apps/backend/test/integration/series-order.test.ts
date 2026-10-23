@@ -139,6 +139,16 @@ describe("Series order", () => {
       if (!published.ok) throw new Error(published.error.code);
     }
 
+    const catalogue = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!catalogue.ok) throw new Error(catalogue.error.code);
+    expect(catalogue.value.programmePlacements).toEqual([]);
+    const programme = await authoring.reorderSeries({
+      actor,
+      seriesId,
+      expectedOrderVersion: catalogue.value.orderVersion,
+      orderedMaterialIds: materialIds,
+    });
+    if (!programme.ok) throw new Error(programme.error.code);
     const loaded = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!loaded.ok) throw new Error(loaded.error.code);
     expect(loaded.value).toMatchObject({
@@ -177,21 +187,15 @@ describe("Series order", () => {
     expect(reordered).toMatchObject({ ok: true, value: { seriesId } });
     if (!reordered.ok) throw new Error(reordered.error.code);
 
+    const after = await authoring.loadSeriesOrder({ actor, seriesId });
+    if (!after.ok) throw new Error(after.error.code);
     expect(
-      await testDatabase.prisma.productMembership.findMany({
-        where: { seriesId },
-        orderBy: { ordinal: "asc" },
-        select: { materialId: true, ordinal: true },
-      }),
-    ).toEqual(
-      reversed.map((materialId, index) => ({ materialId, ordinal: index + 1 })),
-    );
+      after.value.programmePlacements.map((placement) => placement.materialId),
+    ).toEqual(reversed);
     expect(
-      await testDatabase.prisma.publishedMaterialProductMembership.findMany({
-        where: { seriesId },
-        orderBy: { ordinal: "asc" },
-        select: { materialId: true, ordinal: true },
-      }),
+      after.value.items
+        .filter((item) => item.publicationState === "published")
+        .map(({ materialId, ordinal }) => ({ materialId, ordinal })),
     ).toEqual([
       { materialId: thirdMaterialId, ordinal: 1 },
       { materialId: firstMaterialId, ordinal: 3 },

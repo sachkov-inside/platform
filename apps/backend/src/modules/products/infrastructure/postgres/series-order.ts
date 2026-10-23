@@ -160,12 +160,12 @@ export async function appendSelectedSeriesMemberships(
   );
   return selectedSeriesIds.map((seriesId) => {
     const current = currentBySeries.get(seriesId);
-    return (
-      current ?? {
-        seriesId,
-        ordinal: (maximumBySeries.get(seriesId) ?? 0) + 1,
-      }
-    );
+    return current === undefined
+      ? {
+          seriesId,
+          ordinal: (maximumBySeries.get(seriesId) ?? 0) + 1,
+        }
+      : { seriesId: current.seriesId, ordinal: current.ordinal };
   });
 }
 

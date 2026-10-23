@@ -1,3 +1,5 @@
+import type { ProductDiscovery } from "../../../products/index.js";
+import { discoveryRelations } from "../../infrastructure/postgres/product-discovery-facts.js";
 import { z } from "zod";
 import {
   Prisma,
@@ -33,6 +35,7 @@ const slugsSchema = z.array(z.object({ slug: z.string().min(1) }));
 /** Sitemap enumeration does not project previews, viewer availability, covers or counts. */
 export function assembleListPublishedSiteMaterials(
   prisma: MaterialsPrisma,
+  discovery: Pick<ProductDiscovery, "snapshot">,
 ): ListPublishedSiteMaterialsOperation {
   return async (query) => {
     const parsed = querySchema.safeParse(query);
@@ -56,6 +59,7 @@ export function assembleListPublishedSiteMaterials(
       let productSlugs: readonly string[] = [];
       let topicSlugs: readonly string[] = [];
       if (after === undefined) {
+        const relations = discoveryRelations(await discovery.snapshot());
         topicSlugs = slugsSchema
           .parse(
             await prisma.$queryRaw(Prisma.sql`
@@ -71,9 +75,9 @@ export function assembleListPublishedSiteMaterials(
         productSlugs = slugsSchema
           .parse(
             await prisma.$queryRaw(Prisma.sql`
-          select series.slug from products.series as series
+          select series.slug from (${relations.products}) as series
           where series.archived_at is null and exists (
-            select 1 from products.published_material_series_memberships as membership
+            select 1 from (${relations.publishedMemberships}) as membership
             join materials.published_materials as publication on publication.material_id = membership.material_id
             join materials.topics as topic on topic.id = publication.topic_id
             join (${materialFormatsSql}) as format(id, slug, name) on format.id = publication.format_id

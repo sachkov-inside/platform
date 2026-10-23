@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
@@ -138,7 +139,10 @@ describe("Product Artifacts", () => {
       prisma: db.prisma,
     });
     artifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(db.prisma),
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       authorPolicy: { canManage: (id) => id === owner },
       objectStorage,
       prisma: db.prisma,
@@ -188,7 +192,10 @@ describe("Product Artifacts", () => {
     });
     const checked = assembleProductArtifacts({
       prisma: db.prisma,
-      materials: assembleProductMaterials(db.prisma),
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       authorPolicy: {
         canManage: async (accountId, transaction) => {
           const permission = await accounts.checkPermission(

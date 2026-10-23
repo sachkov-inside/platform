@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterials } from "../../src/modules/materials/index.js";
 import { z } from "zod";
 import { sourceIdentityRef } from "../../src/modules/account-rights/domain/source-identity.js";
@@ -352,7 +353,10 @@ describe("таблица сценариев доступа (реальный Pos
       clock: () => now,
     });
     productArtifacts = assembleProductArtifacts({
-      materials: assembleProductMaterials(db.prisma),
+      materials: assembleProductMaterials(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },

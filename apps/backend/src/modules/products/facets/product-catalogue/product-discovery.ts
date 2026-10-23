@@ -35,6 +35,33 @@ export class ProductDiscovery {
     };
   }
 
+  metadata(query?: {
+    readonly ids: readonly string[];
+    readonly includeActive: boolean;
+  }) {
+    return this.prisma.product.findMany({
+      ...(query === undefined
+        ? {}
+        : {
+            where: {
+              OR: [
+                { id: { in: [...query.ids] } },
+                ...(query.includeActive ? [{ archivedAt: null }] : []),
+              ],
+            },
+          }),
+      select: {
+        id: true,
+        createdAt: true,
+        name: true,
+        slug: true,
+        summary: true,
+        archivedAt: true,
+        coverId: true,
+      },
+    });
+  }
+
   snapshot(handle?: TransactionHandle) {
     return handle === undefined
       ? this.prisma.$transaction((tx) => this.read(tx))
@@ -59,17 +86,19 @@ export class ProductDiscovery {
         select: { seriesId: true, materialId: true },
       }),
     ]);
+    const ordinalByPair = new Map(
+      memberships.map((entry) => [
+        `${entry.seriesId}/${entry.materialId}`,
+        entry.ordinal,
+      ]),
+    );
     return {
       products,
       memberships,
       publishedMemberships: publishedMemberships.map((entry) => ({
         ...entry,
         ordinal:
-          memberships.find(
-            (membership) =>
-              membership.seriesId === entry.seriesId &&
-              membership.materialId === entry.materialId,
-          )?.ordinal ?? 1,
+          ordinalByPair.get(`${entry.seriesId}/${entry.materialId}`) ?? 1,
       })),
     };
   }
