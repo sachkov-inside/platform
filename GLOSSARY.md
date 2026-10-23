@@ -197,19 +197,15 @@ publication do not. In Russian product language: «Версия требован
 _Avoid_: Revision, content version, edition
 
 **Task Submission**:
-A learner's record of work on one Task Version, with an optional Review Report, the learner's
-note and an optional service mark of the reviewed repository, branch and commit. It comes from the
-learner's agent over the learning MCP or from the task page form; a form submission carries no
-Review Report, only an optional report as plain text. Submissions are
-only added; a new submission never replaces an earlier one. It is not a grade or an acceptance
-status. In Russian product language: «Сдача».
+A learner's immutable record of work on one Task Version, with their note, an optional Review
+Report and an optional reference to the reviewed work. It is neither a grade nor author acceptance;
+in Russian product language: «Сдача».
 _Avoid_: Attempt, grade, acceptance, solution upload
 
 **Review Report**:
-The learner's own agent's report inside a Task Submission: exactly one status per criterion of its
-Task Version — confirmed, violation or not verified — with the evidence, the remaining gap and
-whether the evidence came from running a command, with an optional short summary. It is the agent's statement, untrusted text for
-the author, never a Platform verdict. In Russian product language: «Отчёт проверки».
+The learner agent's statement about each criterion of a Task Version, with evidence and remaining
+gaps. It is neither a Platform verdict nor author acceptance; in Russian product language:
+«Отчёт проверки».
 _Avoid_: Grade, verdict, test result, Platform check
 
 **Self-check Attempt**:
@@ -225,6 +221,11 @@ The author's optional comment and «посмотрел автор» mark on one 
 the submission and changed only by the author. It is not a grade. In Russian product language:
 «Комментарий автора».
 _Avoid_: Grade, acceptance, review status
+
+**Task Review Progress**:
+The learner agent's current account of an unfinished self-check of one Task Version, separate
+from saved submissions and Author Feedback. It is not yet a Self-check Attempt.
+_Avoid_: Product Progress, author review, Task Submission
 
 **Product Mode**:
 One of the two ways a reader goes through a Product: on the worked example the author prepared, or
@@ -360,8 +361,13 @@ An Account's private material acknowledgement and opening activity. Opening and 
 read are different facts.
 _Avoid_: Product analytics, ContentAccess, learning assessment
 
+**Product Learning Started**:
+The lasting fact that an Account has opened an available published Material belonging to a
+Product. It is independent of purchase, a manual read mark and the Product's current programme.
+_Avoid_: Product Access, Product Progress, completed lesson
+
 **Product Progress**:
-The number of currently published Materials in a Product's programme that an Account has marked
+The number of unique currently published Materials in a Product's programme that an Account has marked
 read. Progress, continuation, the programme and chapter tables of contents count the same
 composition. A non-empty Product is currently all read only when every such Material is marked.
 _Avoid_: Historical completion certificate, stored course percentage
