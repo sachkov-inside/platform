@@ -67,7 +67,7 @@ describe("IdentityLinkRecovery", () => {
     await expect(tableExists("identity_link_recoveries")).resolves.toBe(true);
   });
 
-  it("rolls back ownership transfer and its audit when the initial check cannot commit", async () => {
+  it("rolls back ownership transfer when its immutable recovery audit cannot commit", async () => {
     const fixture = await conflictingLinkFixture();
     const command = {
       confirmedSourceAccountRef: "principal-ref-source",
@@ -82,7 +82,7 @@ describe("IdentityLinkRecovery", () => {
     };
     await sql`create function synthetic_recovery_check_fault() returns trigger language plpgsql as $$
       begin raise exception 'synthetic recovery check failure'; end $$;
-      create trigger synthetic_recovery_check_fault before insert on membership_checks
+      create trigger synthetic_recovery_check_fault before insert on identity_link_recoveries
       for each row execute function synthetic_recovery_check_fault()`.execute(
       database,
     );
@@ -111,7 +111,7 @@ describe("IdentityLinkRecovery", () => {
           .executeTakeFirst(),
       ).toEqual({ state: "conflict" });
     } finally {
-      await sql`drop trigger synthetic_recovery_check_fault on membership_checks;
+      await sql`drop trigger synthetic_recovery_check_fault on identity_link_recoveries;
         drop function synthetic_recovery_check_fault()`.execute(database);
     }
     await expect(recovery.execute(command)).resolves.toMatchObject({

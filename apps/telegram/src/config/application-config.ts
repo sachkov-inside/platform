@@ -350,9 +350,6 @@ export function loadApplicationConfig(
     );
   }
 
-  let platformEvidenceDeliveryUrl: string | undefined;
-  let platformEvidenceDeliverySecret: string | undefined;
-
   const platformAuthorAuthorizationUrl =
     environment["PLATFORM_AUTHOR_AUTHORIZATION_URL"];
   const platformAuthorAuthorizationSecret =
@@ -463,7 +460,6 @@ export function loadApplicationConfig(
     TELEGRAM_SIGN_IN_INTEGRATION_SECRET: signInIntegrationSecret,
     PLATFORM_COMMUNITY_INTEGRATION_SECRET: communityIntegrationSecret,
     PLATFORM_COMMUNITY_DISPATCH_SECRET: communityDispatchSecret,
-    PLATFORM_EVIDENCE_DELIVERY_SECRET: platformEvidenceDeliverySecret,
     PLATFORM_AUTHOR_AUTHORIZATION_SECRET: platformAuthorAuthorizationSecret,
     NOTIFICATION_AUTHORIZE_SECRET: notifications?.authorizeSecret,
     PLATFORM_ACTIVATION_SECRET: activation?.secret,
@@ -533,12 +529,6 @@ export function loadApplicationConfig(
     membershipCheckRetentionDays,
     membershipMode,
     membershipReconciliationCadenceMilliseconds,
-    ...(hasText(platformEvidenceDeliverySecret)
-      ? { platformEvidenceDeliverySecret }
-      : {}),
-    ...(hasText(platformEvidenceDeliveryUrl)
-      ? { platformEvidenceDeliveryUrl }
-      : {}),
     platformIntegrationSecret,
     port: parsePort(environment["PORT"]),
     salesFunnel,
