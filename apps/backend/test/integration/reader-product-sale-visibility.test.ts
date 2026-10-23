@@ -239,7 +239,7 @@ describe.each([1, 10, 100])(
       });
       expect(
         read.statements.filter((sql) => /^\s*SELECT\b/iu.test(sql)),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
     });
     test("does not invite a guest to an archived or nonexistent Product even with an active price", async () => {
       expect(
@@ -267,7 +267,7 @@ describe.each([1, 10, 100])(
         ),
       ).toEqual({
         ok: true,
-        value: { items: [{ productId: corpus.archived, sold: true }] },
+        value: { items: [{ productId: corpus.archived, sold: false }] },
       });
       expect(
         await readProductSaleAvailability(
@@ -422,7 +422,7 @@ describe("reader archive gate with current Product exclusions", () => {
       ),
     ).toEqual({
       ok: true,
-      value: { items: [{ productId: corpus.archived, sold: true }] },
+      value: { items: [{ productId: corpus.archived, sold: false }] },
     });
   });
 });

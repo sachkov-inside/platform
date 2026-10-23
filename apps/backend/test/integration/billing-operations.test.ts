@@ -93,3 +93,53 @@ test("scoped Billing permission admits owner reads while Materials permission st
       expect(read).toMatchObject({ error: { code: "forbidden" } });
   }
 });
+
+test("one owner operation id cannot cross command families or repeat a changed Product price", async () => {
+  const { s, owner } = await operations();
+  const operationId = randomUUID();
+  const command = {
+    operation: "productPrices.save",
+    operationId,
+    expectedRevision: 1,
+    value: {
+      productId: s.productId,
+      name: "Operation receipt Product",
+      priceKopecks: 250000,
+      published: true,
+    },
+  };
+  const first = await owner.execute(world.owner, command);
+  expect(first).toMatchObject({ ok: true });
+  expect(await owner.execute(world.owner, command)).toEqual(first);
+  expect(
+    await owner.execute(world.owner, {
+      operation: "promotions.save",
+      operationId,
+      value: {
+        id: randomUUID(),
+        name: "Conflicting family",
+        percent: 10,
+        code: null,
+        startsAt: "2020-01-01T00:00:00Z",
+        endsAt: "2040-01-01T00:00:00Z",
+        productIds: [s.productId],
+        usageLimit: null,
+      },
+    }),
+  ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+  expect(
+    await owner.execute(world.owner, {
+      ...command,
+      value: { ...command.value, priceKopecks: 300000 },
+    }),
+  ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+  expect(
+    value(
+      await s.pricing.quote(s.buyer, {
+        operationId: randomUUID(),
+        productId: s.productId,
+        priceRevision: 2,
+      }),
+    ).snapshot.firstPriceKopecks,
+  ).toBe(250000);
+});
