@@ -31,4 +31,19 @@ where option.mode='one_time' and not option.archived and not offer.archived
  and benefit ~ '^product:[0-9a-fA-F-]{36}$'
  and (select count(*) from unnest(offer.benefits) b where b like 'product:%')=1
 order by substring(benefit from 9)::uuid,offer.published desc,option.id;
+
+-- Promotion scope now names Products directly. Prior price/quote/payment snapshots stay immutable.
+alter table billing.promotions add column product_ids uuid[] not null default '{}';
+update billing.promotions promotion set product_ids=array(
+ select distinct substring(benefit from 9)::uuid
+ from billing.offers offer cross join lateral unnest(offer.benefits) benefit
+ where benefit ~ '^product:[0-9a-fA-F-]{36}$' and (
+ offer.id=any(promotion.offer_ids)
+ or exists(select 1 from billing.payment_options option where option.offer_id=offer.id and option.id=any(promotion.payment_option_ids))
+ )
+);
+-- An unmappable restricted historical scope must never become an all-Product discount.
+update billing.promotions set archived=true where cardinality(product_ids)=0
+ and (cardinality(offer_ids)>0 or cardinality(payment_option_ids)>0);
+
 `;

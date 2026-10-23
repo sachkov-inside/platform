@@ -7,6 +7,130 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class BillingService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read own lifetime Products, purchase history and service notices
+   * @returns any
+   * @throws ApiError
+   */
+  public readOwnBilling(): CancelablePromise<{
+    access: {
+      grounds: Array<{
+        active: boolean;
+        capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'product' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        source: 'paid' | 'manual' | 'legacy';
+        startsAt: string;
+        validUntil: string | null;
+      }>;
+    };
+    notices: Array<{
+      amountKopecks: number | null;
+      dueAt: string | null;
+      kind: 'renewal_reminder' | 'payment_succeeded' | 'payment_failed' | 'renewal_cancelled' | 'access_expired' | 'refund_resolved';
+      noticeRef: string;
+      occurredAt: string;
+      state: 'current' | 'superseded';
+    }>;
+    payments: Array<{
+      access?: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+      amountKopecks: number;
+      confirmedAt: string | null;
+      content?: Array<{
+        available: boolean;
+        id: string;
+        kind: 'product' | 'material';
+        slug: string | null;
+        title: string;
+      }>;
+      createdAt: string;
+      fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
+      kind: 'initial' | 'one_time' | 'renewal' | 'upgrade';
+      months: number;
+      offerName: string;
+      periodEndsAt: string | null;
+      productAccess?: Array<{
+        access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+        productId: string;
+      }>;
+      purchaseRef: string;
+      refundedAt: string | null;
+      refundedKopecks: number;
+      snapshot?: {
+        communityPolicy?: 'explicit';
+        currency: 'RUB';
+        firstPriceKopecks: number;
+        individualPayment?: {
+          basePriceKopecks: number;
+          linkId: string;
+        };
+        offer: {
+          archived: boolean;
+          availableForAssignment?: boolean;
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          coverage?: {
+            materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
+          } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
+          id: string;
+          name: string;
+          published?: boolean;
+          revision: number;
+        };
+        paymentOption: {
+          archived: boolean;
+          id: string;
+          mode?: 'subscription' | 'one_time';
+          months: number;
+          offerId: string;
+          priceKopecks: number;
+          revision: number;
+        };
+        product?: {
+          id: string;
+          name: string;
+          priceRevision: number;
+        };
+        promotion: {
+          id: string;
+          name: string;
+          percent: number;
+          revision: number;
+        } | null;
+        renewalPriceKopecks: number;
+        supportMonths?: 3;
+        timezone: 'Europe/Moscow';
+      };
+      state: 'prepared' | 'sent' | 'unknown' | 'pending' | 'authorized' | 'confirmed' | 'failed';
+    }>;
+    products: Array<{
+      community: {
+        state: 'available' | 'expired' | 'revoked' | 'unavailable';
+      };
+      id: string;
+      materials: {
+        state: 'available' | 'expired' | 'revoked' | 'unavailable';
+      };
+      name: string;
+      slug: string | null;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/billing',
+    });
+  }
+  /**
    * Restore the latest own Product purchase
    * @returns any
    * @throws ApiError
@@ -404,9 +528,8 @@ export class BillingService {
         endsAt: string;
         id: string;
         name: string;
-        offerIds: Array<string>;
-        paymentOptionIds: Array<string>;
         percent: number;
+        productIds: Array<string>;
         startsAt: string;
         usageLimit: number | null;
       };

@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { isProductCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
@@ -66,15 +67,15 @@ export async function managePaymentLink(
     parsed = paymentLinkCommandSchema.safeParse(input);
   if (!identity.success || !parsed.success) return failure("invalid_request");
   try {
-    const permission = await dependencies.accounts.checkPermission({
-      accountId: identity.data,
-      permission: "billing:manage",
-    });
-    if (!permission.ok) return failure("dependency_unavailable");
-    if (!permission.allowed) return failure("forbidden");
     return await dependencies.prisma.$transaction(
       async (tx): Promise<CommandResult> => {
         await lockBillingPricing(tx);
+        const permission = await dependencies.accounts.checkPermission(
+          { accountId: identity.data, permission: "billing:manage" },
+          transactionHandle(tx),
+        );
+        if (!permission.ok) return failure("dependency_unavailable");
+        if (!permission.allowed) return failure("forbidden");
         const command = parsed.data,
           key = { actor: identity.data, operationId: command.operationId };
         const fingerprint = replayCommandFingerprint("paymentLinks", command);
