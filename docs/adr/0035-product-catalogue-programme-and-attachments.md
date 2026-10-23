@@ -31,9 +31,15 @@ All published free Materials appear in the feed; the legacy showInFeed value can
 
 ## Consequences
 
-Existing programmes gain stable placement identities through an additive migration. Flat Products retain their legacy automatic initial programme until the author explicitly saves placements; later catalogue edits and membership additions preserve that explicit programme. Reading state,
-submissions, access grounds and artifact bindings remain unchanged. Removing a catalogue membership
-removes its placement and attachment references through membership constraints.
+Existing programmes gain stable placement identities through migration. Migration 0105 materializes
+legacy automatic programmes before removing their discriminator and catalogue position fields.
+New catalogue memberships do not create programme placements. A composition command omitting
+`programmePlacements` retains the existing occurrences and their stable identities; catalogue order
+cannot recreate removed positions. Commands that intentionally replace programme order supply the
+complete explicit placements. Chapter removal can detach retained placements into a flat programme.
+Reading state, submissions, access grounds and artifact bindings remain unchanged. Removing a
+catalogue membership removes its placement and attachment references through the Product owner's
+atomic composition command.
 
 A copied Material body was rejected because it would split study history and future edits. Slug-based
 reference groups were rejected because they encode one course's editorial choices in application code.

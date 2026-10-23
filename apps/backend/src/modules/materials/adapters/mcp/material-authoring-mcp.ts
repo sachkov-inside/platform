@@ -339,7 +339,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Product composition",
       description:
-        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Legacy chapterAssignments remain supported. Each chapter must stay one continuous programme run.",
+        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Omitting programmePlacements preserves existing programme positions and their identifiers; orderedMaterialIds changes catalogue membership only. Legacy chapterAssignments update retained positions. Each chapter must stay one continuous programme run.",
       inputSchema: z
         .object({
           chapters: productChapterDraftsSchema.optional(),
@@ -407,7 +407,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Product composition",
       description:
-        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Legacy chapterAssignments remain supported. Each chapter must stay one continuous programme run. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until confirmedProductRemovals lists this productId after the owner confirms; the removal is journaled.",
+        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and use programmePlacements for stable, repeatable Material links and supplementaryMaterialIds for chapter references. Omitting programmePlacements preserves existing programme positions and their identifiers; orderedMaterialIds changes catalogue membership only. Legacy chapterAssignments update retained positions. Each chapter must stay one continuous programme run. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until confirmedProductRemovals lists this productId after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           chapters: productChapterDraftsSchema.optional(),

@@ -55,7 +55,7 @@ test("composition keeps one Products snapshot when archive and programme change 
   const interleaved = db.prisma.$extends({
     query: {
       $allOperations: async ({ args, query }) => {
-        const result = await query(args);
+        const result: unknown = await query(args);
         if (!changed) {
           changed = true;
           await db.prisma.$transaction(async (tx) => {
