@@ -5,6 +5,7 @@ export {
   billingFailureCodeSchema,
   cohortStageSchema,
   accessGroundSchema,
+  accessSourceSchema,
   currentBillingSchema,
   ownPaymentSchema,
   noticeViewSchema,

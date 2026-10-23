@@ -516,7 +516,7 @@ export class CourseActivationIntegrationService {
           slug: string | null;
           title: string;
         }>;
-        source: 'paid' | 'manual' | 'legacy';
+        source: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         startsAt: string | null;
         validUntil: string | null;
       }>;
@@ -1056,7 +1056,7 @@ export class CourseActivationIntegrationService {
           slug: string | null;
           title: string;
         }>;
-        source: 'paid' | 'manual' | 'legacy';
+        source: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         startsAt: string | null;
         validUntil: string | null;
       }>;

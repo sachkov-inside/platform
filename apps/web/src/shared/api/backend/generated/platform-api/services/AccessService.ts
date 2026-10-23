@@ -88,7 +88,7 @@ export class AccessService {
       accountId: string;
       affected: Array<{
         capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        source: 'paid' | 'manual' | 'legacy';
+        source: 'paid' | 'manual' | 'legacy' | 'course_activation' | 'unknown';
         validUntil: string | null;
       }>;
       affectedCount: number;

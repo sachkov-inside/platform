@@ -144,6 +144,21 @@ export function activationMessage(
       return "Не удалось проверить доступ.\n\nПопробуйте ещё раз чуть позже.";
   }
 }
+function productAccessOrigin(source: string): string {
+  switch (source) {
+    case "paid":
+      return "покупка";
+    case "manual":
+      return "назначение владельца";
+    case "course_activation":
+      return "активация курса";
+    case "legacy":
+      return "ранее полученный доступ";
+    default:
+      return "источник не уточнён";
+  }
+}
+
 export function ownAccessText(access: OwnAccess): string {
   const origin = {
     course: "Предоставлено за курс",
@@ -160,7 +175,7 @@ export function ownAccessText(access: OwnAccess): string {
     );
   for (const ground of access.grounds.filter((g) => g.active).slice(0, 8))
     rows.push(
-      `Действующее основание: ${ground.source === "paid" ? "покупка" : ground.source === "manual" ? "назначение владельца" : "прежний доступ"}. ${term(ground.validUntil)}. Состав: ${ground.capabilities.map(capability).join(", ")}.`,
+      `Действующее основание: ${productAccessOrigin(ground.source)}. ${term(ground.validUntil)}. Состав: ${ground.capabilities.map(capability).join(", ")}.`,
     );
   if (!isTruthy(rows.length))
     rows.push(

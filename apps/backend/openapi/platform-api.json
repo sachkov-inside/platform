@@ -8137,7 +8137,9 @@
                                 "enum": [
                                   "paid",
                                   "manual",
-                                  "legacy"
+                                  "legacy",
+                                  "course_activation",
+                                  "unknown"
                                 ],
                                 "type": "string"
                               },
@@ -20786,7 +20788,9 @@
                                 "enum": [
                                   "paid",
                                   "manual",
-                                  "legacy"
+                                  "legacy",
+                                  "course_activation",
+                                  "unknown"
                                 ],
                                 "type": "string"
                               },
@@ -110593,7 +110597,9 @@
                                         "enum": [
                                           "paid",
                                           "manual",
-                                          "legacy"
+                                          "legacy",
+                                          "course_activation",
+                                          "unknown"
                                         ],
                                         "type": "string"
                                       },
@@ -110687,7 +110693,9 @@
                                         "enum": [
                                           "paid",
                                           "manual",
-                                          "legacy"
+                                          "legacy",
+                                          "course_activation",
+                                          "unknown"
                                         ],
                                         "type": "string"
                                       },
@@ -114800,7 +114808,9 @@
                                         "enum": [
                                           "paid",
                                           "manual",
-                                          "legacy"
+                                          "legacy",
+                                          "course_activation",
+                                          "unknown"
                                         ],
                                         "type": "string"
                                       },
@@ -114894,7 +114904,9 @@
                                         "enum": [
                                           "paid",
                                           "manual",
-                                          "legacy"
+                                          "legacy",
+                                          "course_activation",
+                                          "unknown"
                                         ],
                                         "type": "string"
                                       },

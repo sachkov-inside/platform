@@ -216,3 +216,41 @@ it("accepts an honest unknown historical acquisition date in own Product grounds
   ).toBe(false);
   expect(ownAccessText(access)).toContain("кабинете");
 });
+
+it.each([
+  ["paid", "покупка"],
+  ["manual", "назначение владельца"],
+  ["legacy", "ранее полученный доступ"],
+  ["course_activation", "активация курса"],
+  ["unknown", "источник не уточнён"],
+])(
+  "own Product access names factual %s origin without inventing a purchase",
+  (source, label) => {
+    const access: OwnAccess = {
+      contractVersion: "inside.subscription-activation.v1",
+      enrollments: [],
+      grounds: [
+        {
+          source,
+          capabilities: ["materials"],
+          startsAt: null,
+          validUntil: null,
+          active: true,
+        },
+      ],
+      admission: { state: "checking", admissionRestriction: null },
+    };
+    const valid = activationValidator("ownAccessResponse");
+    expect(valid({ ok: true, value: access })).toBe(true);
+    expect(
+      valid({
+        ok: true,
+        value: {
+          ...access,
+          grounds: [{ ...access.grounds[0], source: "invented" }],
+        },
+      }),
+    ).toBe(false);
+    expect(ownAccessText(access)).toContain(`Действующее основание: ${label}.`);
+  },
+);

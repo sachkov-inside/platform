@@ -679,3 +679,20 @@ Fresh purchase admission and dispatch read Product acquisition state through Acc
 same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime
 state prevent another sale. Already sent attempts continue their saved recovery without another Init.
 Unsent historical recurring attempts retire once, independently of current terminal configuration.
+
+### Lifetime access provenance and reader rollout
+
+A buyer's active Product grounds are a read projection of one lifetime Account/Product state.
+They list each distinct factual origin (`paid`, `manual`, `course_activation`, `legacy`, or
+`unknown`) without creating separate grants or choosing an origin by priority. Revocation hides
+all active grounds for that state. Migration provenance requires an exact original grant and its
+recorded Account/Product mapping; an orphan or unprovable origin remains `unknown`.
+The owner preview counts the unified state once even when it shows several factual origins.
+Owner action history exposes the persisted action UUID; source additions can share an access
+revision and must not use that revision as a UI identity.
+
+The retained activation-v1 own-access wire now permits `course_activation` and `unknown`, and
+its historical first-acquisition timestamp can be null. Deploy readers and strict decoders that
+accept these values before enabling the expanded writer. #1712 must prove mixed-version restore
+and old-reader behavior before rollout. Retaining the contract-version literal alone does not
+make an old strict decoder compatible; this branch does not claim production publication.

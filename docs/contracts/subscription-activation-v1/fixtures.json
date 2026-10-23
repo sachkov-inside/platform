@@ -1154,5 +1154,167 @@
         "enrollment": null
       }
     }
+  },
+  {
+    "name": "own-product-origin-paid",
+    "definition": "ownAccessResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [
+          {
+            "source": "paid",
+            "capabilities": [
+              "product:00000000-0000-4000-8000-000000000003"
+            ],
+            "startsAt": null,
+            "validUntil": null,
+            "active": true
+          }
+        ],
+        "admission": {
+          "state": "moderation_blocked",
+          "admissionRestriction": "moderation"
+        }
+      }
+    }
+  },
+  {
+    "name": "own-product-origin-manual",
+    "definition": "ownAccessResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [
+          {
+            "source": "manual",
+            "capabilities": [
+              "product:00000000-0000-4000-8000-000000000003"
+            ],
+            "startsAt": null,
+            "validUntil": null,
+            "active": true
+          }
+        ],
+        "admission": {
+          "state": "moderation_blocked",
+          "admissionRestriction": "moderation"
+        }
+      }
+    }
+  },
+  {
+    "name": "own-product-origin-legacy",
+    "definition": "ownAccessResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [
+          {
+            "source": "legacy",
+            "capabilities": [
+              "product:00000000-0000-4000-8000-000000000003"
+            ],
+            "startsAt": null,
+            "validUntil": null,
+            "active": true
+          }
+        ],
+        "admission": {
+          "state": "moderation_blocked",
+          "admissionRestriction": "moderation"
+        }
+      }
+    }
+  },
+  {
+    "name": "own-product-origin-course_activation",
+    "definition": "ownAccessResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [
+          {
+            "source": "course_activation",
+            "capabilities": [
+              "product:00000000-0000-4000-8000-000000000003"
+            ],
+            "startsAt": null,
+            "validUntil": null,
+            "active": true
+          }
+        ],
+        "admission": {
+          "state": "moderation_blocked",
+          "admissionRestriction": "moderation"
+        }
+      }
+    }
+  },
+  {
+    "name": "own-product-origin-unknown",
+    "definition": "ownAccessResponse",
+    "valid": true,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [
+          {
+            "source": "unknown",
+            "capabilities": [
+              "product:00000000-0000-4000-8000-000000000003"
+            ],
+            "startsAt": null,
+            "validUntil": null,
+            "active": true
+          }
+        ],
+        "admission": {
+          "state": "moderation_blocked",
+          "admissionRestriction": "moderation"
+        }
+      }
+    }
+  },
+  {
+    "name": "own-product-origin-invented",
+    "definition": "ownAccessResponse",
+    "valid": false,
+    "value": {
+      "ok": true,
+      "value": {
+        "contractVersion": "inside.subscription-activation.v1",
+        "enrollments": [],
+        "grounds": [
+          {
+            "source": "invented",
+            "capabilities": [
+              "product:00000000-0000-4000-8000-000000000003"
+            ],
+            "startsAt": null,
+            "validUntil": null,
+            "active": true
+          }
+        ],
+        "admission": {
+          "state": "moderation_blocked",
+          "admissionRestriction": "moderation"
+        }
+      }
+    }
   }
 ]

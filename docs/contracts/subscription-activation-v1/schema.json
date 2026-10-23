@@ -1866,7 +1866,9 @@
                             "enum": [
                               "paid",
                               "manual",
-                              "legacy"
+                              "legacy",
+                              "course_activation",
+                              "unknown"
                             ]
                           },
                           "content": {
@@ -1973,7 +1975,9 @@
                             "enum": [
                               "paid",
                               "manual",
-                              "legacy"
+                              "legacy",
+                              "course_activation",
+                              "unknown"
                             ]
                           },
                           "content": {
