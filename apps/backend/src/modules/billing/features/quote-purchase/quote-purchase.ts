@@ -17,7 +17,6 @@ import {
 } from "../../domain/pricing.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
-import type { PurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { selectPrice } from "../../shared/select-price.js";
 import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
@@ -57,9 +56,7 @@ export async function quotePurchase(
   accountId: string,
   input: unknown,
   clock: () => Date,
-  grounds: PurchaseGrounds,
   sale: SaleCapability,
-  recurringAllowed: boolean,
   contentCatalog?: Pick<CoverageCatalog, "resolve">,
 ): Promise<QuotePurchaseResult> {
   const parsed = quotePurchaseSchema.safeParse(input);
@@ -112,11 +109,8 @@ export async function quotePurchase(
         if (price.value.paymentOption.revision !== command.priceRevision)
           return failure("quote_changed");
         const admission = paymentAdmission({
-          context: "quote",
           snapshot: price.value,
           sale,
-          grounds,
-          recurringAllowed,
         });
         if (!admission.ok) return failure(admission.error.code);
         const expiresAt = new Date(

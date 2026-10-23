@@ -55,7 +55,7 @@ const app = await createApiApplication(
     LOGTO_AUDIENCE: audience,
     LOGTO_JWKS_URL: `${providerUrl}/jwks`,
   }),
-  { logger: false },
+  {},
 );
 await app.listen(0, "127.0.0.1");
 const token = await new SignJWT({})
@@ -76,6 +76,7 @@ await writeFile(
     token,
     providerUrl,
     ENROLLMENT_OWNER_ID: owner.accountId,
+    ENROLLMENT_PRODUCT_ID: productId,
   }),
 );
 let stopping = false;

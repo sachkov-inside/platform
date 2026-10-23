@@ -85,9 +85,7 @@ export class BillingPricing {
       accountId,
       input,
       this.clock,
-      { formerTributeSubscriber: false, invitedOfferIds: [] },
       this.dependencies.sale,
-      false,
       this.dependencies.contentCatalog,
     );
   }
