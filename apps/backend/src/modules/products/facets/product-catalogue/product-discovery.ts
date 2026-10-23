@@ -2,7 +2,6 @@ import { z } from "zod";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { readProductPage } from "../../shared/product-page-reader.js";
 import { productPageHero } from "../../domain/product-page.js";
-import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
 import type {
   ProductsPrisma,
   ProductsPrismaClient,
@@ -118,43 +117,92 @@ export class ProductDiscovery {
   }
 
   snapshot(handle?: TransactionHandle) {
-    return handle === undefined
-      ? this.prisma.$transaction((tx) => this.read(tx))
-      : this.read(productsTransaction(handle));
+    return this.read(
+      handle === undefined ? this.prisma : productsTransaction(handle),
+    );
   }
 
   private async read(prisma: ProductsPrisma) {
-    const [products, memberships, publishedMemberships] = await Promise.all([
-      prisma.product.findMany({
-        select: {
-          id: true,
-          createdAt: true,
-          name: true,
-          slug: true,
-          summary: true,
-          archivedAt: true,
-          coverId: true,
-        },
-      }),
-      loadCatalogueMemberships(prisma),
-      prisma.publishedMaterialProductMembership.findMany({
-        select: { seriesId: true, materialId: true },
-      }),
-    ]);
-    const ordinalByPair = new Map(
-      memberships.map((entry) => [
-        `${entry.seriesId}/${entry.materialId}`,
-        entry.ordinal,
-      ]),
+    // All Product relationships share this statement's MVCC snapshot, including joined callers.
+    // Standalone discovery opens no transaction that could outlive this owner's read.
+    const rows = discoverySnapshotSchema.array().parse(
+      await prisma.$queryRaw(Prisma.sql`
+      with primary_programme as (
+        select distinct on (product_id, material_id)
+          product_id, material_id, id, ordinal, chapter_id, step_group
+        from products.product_programme_placements
+        order by product_id, material_id, ordinal
+      ), programme_maximum as (
+        select product_id, max(ordinal) as ordinal
+        from products.product_programme_placements group by product_id
+      ), catalogue as (
+        select membership.series_id, membership.material_id,
+          coalesce(placement.ordinal,
+            coalesce(maximum.ordinal, 0) + row_number() over (
+              partition by membership.series_id, placement.id is null
+              order by membership.material_id
+            ))::integer as ordinal,
+          placement.chapter_id, placement.step_group
+        from products.series_memberships membership
+        left join primary_programme placement
+          on placement.product_id = membership.series_id
+          and placement.material_id = membership.material_id
+        left join programme_maximum maximum on maximum.product_id = membership.series_id
+      )
+      select
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'id', product.id, 'createdAt', product.created_at, 'name', product.name,
+          'slug', product.slug, 'summary', product.summary,
+          'archivedAt', product.archived_at, 'coverId', product.cover_id
+        ) order by product.id) from products.series product), '[]'::jsonb) as products,
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'seriesId', membership.series_id, 'materialId', membership.material_id,
+          'ordinal', membership.ordinal, 'chapterId', membership.chapter_id,
+          'stepGroup', membership.step_group
+        ) order by membership.series_id, membership.material_id)
+          from catalogue membership), '[]'::jsonb) as memberships,
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'seriesId', published.series_id, 'materialId', published.material_id,
+          'ordinal', coalesce(membership.ordinal, 1)
+        ) order by published.series_id, published.material_id)
+          from products.published_material_series_memberships published
+          left join catalogue membership on membership.series_id = published.series_id
+            and membership.material_id = published.material_id), '[]'::jsonb) as "publishedMemberships"
+    `),
     );
-    return {
-      products,
-      memberships,
-      publishedMemberships: publishedMemberships.map((entry) => ({
-        ...entry,
-        ordinal:
-          ordinalByPair.get(`${entry.seriesId}/${entry.materialId}`) ?? 1,
-      })),
-    };
+    const snapshot = rows[0];
+    if (snapshot === undefined)
+      throw new Error("Product discovery snapshot is missing");
+    return snapshot;
   }
 }
+
+const discoverySnapshotSchema = z.object({
+  products: z.array(
+    z.object({
+      id: z.uuid(),
+      createdAt: z.coerce.date(),
+      name: z.string(),
+      slug: z.string(),
+      summary: z.string(),
+      archivedAt: z.coerce.date().nullable(),
+      coverId: z.uuid().nullable(),
+    }),
+  ),
+  memberships: z.array(
+    z.object({
+      seriesId: z.uuid(),
+      materialId: z.uuid(),
+      ordinal: z.number().int(),
+      chapterId: z.uuid().nullable(),
+      stepGroup: z.string().nullable(),
+    }),
+  ),
+  publishedMemberships: z.array(
+    z.object({
+      seriesId: z.uuid(),
+      materialId: z.uuid(),
+      ordinal: z.number().int(),
+    }),
+  ),
+});
