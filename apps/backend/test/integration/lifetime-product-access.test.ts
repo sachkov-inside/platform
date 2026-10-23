@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
@@ -36,6 +38,10 @@ beforeAll(async () => {
       data: { id, name: "Lifetime product", slug: id },
     });
   grants = assembleAccessGrants({
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
     prisma: db.prisma,
     accounts: assembleAccounts({
       prisma: db.prisma,
@@ -284,5 +290,78 @@ test("owner history keeps both sources while paginating multiple Products of one
   expect(next.nextCursor).toBeNull();
   expect(
     await grants.listProductAccess(owner, { cursor: "malformed:cursor" }),
+  ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
+});
+test("manual issuance uses actual free issuance time and requires a real Product on the caller transaction", async () => {
+  const target = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: target,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: target,
+    },
+  });
+  const command = {
+    accountId: target,
+    productId: product,
+    sourceRef: randomUUID(),
+    issuedAt: "2000-01-01T00:00:00.000Z",
+    reason: "Actual free issuance",
+  };
+  expect(
+    await grants.issueProductAccess(
+      { source: "manual", actorId: owner },
+      command,
+    ),
+  ).toMatchObject({ ok: true, value: { firstIssuedAt: now.toISOString() } });
+  expect(
+    await grants.issueProductAccess(
+      { source: "manual", actorId: owner },
+      { ...command, productId: randomUUID(), sourceRef: randomUUID() },
+    ),
+  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+});
+test("manual Product validation reads an uncommitted owning Product on the exact transaction and rolls back together", async () => {
+  const productId = randomUUID(),
+    sourceRef = randomUUID();
+  await expect(
+    db.prisma.$transaction(async (tx) => {
+      await tx.product.create({
+        data: { id: productId, name: "Uncommitted Product", slug: productId },
+      });
+      expect(
+        await grants.issueManualProductAccess(
+          owner,
+          {
+            accountId: buyer,
+            productId,
+            sourceRef,
+            reason: "Transactional issuance",
+          },
+          transactionHandle(tx),
+        ),
+      ).toMatchObject({ ok: true, outcome: "issued" });
+      throw new Error("Roll back Product and issuance");
+    }),
+  ).rejects.toThrow("Roll back Product and issuance");
+  expect(await rights.resolveForAccess(accountId(buyer), [productId])).toEqual({
+    kind: "required",
+  });
+  expect(
+    await grants.issueManualProductAccess(owner, {
+      accountId: buyer,
+      productId,
+      sourceRef,
+      reason: "Transactional issuance",
+    }),
+  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+  expect(
+    await grants.issueManualProductAccess(owner, {
+      accountId: buyer,
+      productId: product,
+      sourceRef,
+      reason: "No backdate",
+      issuedAt: "2000-01-01T00:00:00.000Z",
+    }),
   ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
 });

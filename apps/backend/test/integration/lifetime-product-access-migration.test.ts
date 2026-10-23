@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "vitest";
 import { Pool } from "pg";
@@ -96,6 +98,10 @@ test("upgrade freezes legacy scoped history into one lifetime state, preserves r
       clock: () => new Date("2040-01-01"),
     });
     const grants = assembleAccessGrants({
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       accounts: assembleAccounts({
         prisma: db.prisma,

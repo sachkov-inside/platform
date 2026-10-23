@@ -72,3 +72,7 @@ export const productAccessRecordsSchema = productAccessViewSchema.extend({
   sources: z.array(productAccessSourceSchema),
   actions: z.array(productAccessActionSchema),
 });
+
+export const issueManualProductAccessSchema = issueProductAccessSchema.omit({
+  issuedAt: true,
+});

@@ -73,6 +73,7 @@ export type {
 } from "./domain/product-access.js";
 export {
   issueProductAccessSchema,
+  issueManualProductAccessSchema,
   productAccessViewSchema,
   productAccessChangeSchema,
   productAccessTargetSchema,

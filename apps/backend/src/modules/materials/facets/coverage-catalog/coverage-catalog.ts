@@ -1,3 +1,5 @@
+import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { materialsTransaction } from "../../infrastructure/transaction.js";
 import type { ProductDiscovery } from "../../../products/index.js";
 import { z } from "zod";
 import {
@@ -76,13 +78,19 @@ export class CoverageCatalog {
       throw new Error("Content scope catalog exceeds supported size");
     return rows;
   }
-  async resolve(input: unknown) {
-    const [entries] = await this.resolveMany([input]);
+  async hasProduct(productId: string, handle?: TransactionHandle) {
+    const products = await this.products.metadata({ ids: [productId] }, handle);
+    return products.some((product) => product.id === productId.toLowerCase());
+  }
+  async resolve(input: unknown, handle?: TransactionHandle) {
+    const [entries] = await this.resolveMany([input], handle);
     return entries ?? [];
   }
 
   /** One bounded metadata read for all scopes in an Account view. */
-  async resolveMany(inputs: readonly unknown[]) {
+  async resolveMany(inputs: readonly unknown[], handle?: TransactionHandle) {
+    const prisma =
+      handle === undefined ? this.prisma : materialsTransaction(handle);
     if (inputs.length > COVERAGE_CATALOG_SCOPE_LIMIT)
       throw new Error("Content scope batch exceeds supported size");
     const scopes = inputs.map((input) => coverageSchema.parse(input));
@@ -104,14 +112,17 @@ export class CoverageCatalog {
     if (productIds.length + materialIds.length > maximumCatalogEntries)
       throw new Error("Content scope catalog exceeds supported size");
     const wholePlatform = scopes.some((scope) => scope.wholePlatform === true);
-    const products = await this.products.metadata({
-      ids: productIds,
-      includeActive: wholePlatform,
-    });
+    const products = await this.products.metadata(
+      {
+        ids: productIds,
+        includeActive: wholePlatform,
+      },
+      handle,
+    );
     const materials =
       materialIds.length === 0
         ? []
-        : await this.prisma.material.findMany({
+        : await prisma.material.findMany({
             where: { id: { in: materialIds } },
             select: {
               id: true,
