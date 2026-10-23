@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -9,7 +10,7 @@ import {
   ProductOutlines,
   ProductDirectory,
   PublishedSeriesComposition,
-} from "../../src/modules/materials/index.js";
+} from "../../src/modules/products/index.js";
 import { productChapterPlacementIssues } from "../../src/modules/materials/features/reorder-series/product-chapter-placement.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
@@ -906,9 +907,15 @@ describe("Product chapters", () => {
       published,
     ]);
     expect(
-      await new PublishedSeriesComposition(testDatabase.prisma).read(productId),
+      await new PublishedSeriesComposition(
+        testDatabase.prisma,
+        assembleProductMaterialReading(testDatabase.prisma),
+      ).read(productId),
     ).toEqual({ ok: true, value: [published] });
-    const outlines = await new ProductOutlines(testDatabase.prisma).list();
+    const outlines = await new ProductOutlines(
+      testDatabase.prisma,
+      assembleProductMaterialReading(testDatabase.prisma),
+    ).list();
     if (!outlines.ok) throw new Error(outlines.error.code);
     expect(
       outlines.value.find((product) => product.id === productId)?.chapters,
@@ -917,7 +924,10 @@ describe("Product chapters", () => {
       { id: empty, name: "Пустая глава", materialIds: [] },
     ]);
     expect(
-      await new ProductDirectory(testDatabase.prisma).products({
+      await new ProductDirectory(
+        testDatabase.prisma,
+        assembleProductMaterialReading(testDatabase.prisma),
+      ).products({
         ids: [productId],
       }),
     ).toMatchObject([

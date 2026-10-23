@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -12,11 +13,11 @@ import {
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   materialId,
   PublishedMaterialSelection,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
@@ -64,7 +65,10 @@ describe("ReadingActivity on PostgreSQL", () => {
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => membershipNow ?? new Date(),
     });
-    composition = new PublishedSeriesComposition(database.prisma);
+    composition = new PublishedSeriesComposition(
+      database.prisma,
+      assembleProductMaterialReading(database.prisma),
+    );
     reading = assembleReading(database.prisma);
   });
   afterAll(async () => {
@@ -89,6 +93,27 @@ describe("ReadingActivity on PostgreSQL", () => {
       }),
       composition,
     });
+  }
+  /** Catalogue membership alone does not create a programme placement. */
+  async function placeInProgramme(
+    productIds: readonly string[],
+    materialId: string,
+  ) {
+    for (const productId of productIds) {
+      const last = await database.prisma.productProgrammePlacement.aggregate({
+        where: { productId },
+        _max: { ordinal: true },
+      });
+      await database.prisma.productProgrammePlacement.create({
+        data: {
+          id: randomUUID(),
+          productId,
+          materialId,
+          chapterId: null,
+          ordinal: (last._max.ordinal ?? 0) + 1,
+        },
+      });
+    }
   }
   async function material(
     seriesIds: string[] = [],
@@ -119,6 +144,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       publicationState: "published",
     });
     if (!published.ok) throw new Error(published.error.code);
+    await placeInProgramme(seriesIds, published.value.materialId);
     return published.value.materialId;
   }
   function command(materialId: string, isRead = true, expectedVersion = 0) {
@@ -543,6 +569,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     } satisfies Parameters<typeof materials.authoring.applySourceMaterial>[0];
     let applied = await materials.authoring.applySourceMaterial(command);
     if (!applied.ok) throw new Error(applied.error.code);
+    await placeInProgramme([product.value.id], lesson);
     expect(
       await reading.setReadingState({
         accountId,
@@ -836,7 +863,10 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
           reader: pooled.publishedMaterialReader,
           selection: new PublishedMaterialSelection({
             prisma: prisma,
@@ -853,7 +883,10 @@ describe("ReadingActivity on PostgreSQL", () => {
           prisma,
           contentAccess,
           materialContent: pooled.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
         });
         return [
           await home.recordOpen({

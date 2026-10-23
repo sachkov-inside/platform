@@ -1,10 +1,7 @@
 import { ProductDiscovery, ProductsModule } from "../products/index.js";
 import { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";
-import { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
-import { ProductDirectory } from "./features/read-product-directory/read-product-directory.js";
 import { CoverageCatalog } from "./facets/coverage-catalog/coverage-catalog.js";
 import { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
-import { PublishedSeriesComposition } from "./features/read-published-series-composition/read-published-series-composition.js";
 import { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 import { Module } from "@nestjs/common";
 
@@ -41,23 +38,6 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
         new PublishedMaterialSelection({ prisma, products }),
     },
     {
-      provide: PublishedSeriesComposition,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new PublishedSeriesComposition(prisma),
-    },
-    {
-      provide: ProductOutlines,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) => new ProductOutlines(prisma),
-    },
-    {
-      provide: ProductDirectory,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new ProductDirectory(prisma),
-    },
-    {
       provide: PublicContentTargets,
       inject: [PrismaClientProvider, ProductDiscovery],
       useFactory: (prisma: PrismaClientProvider, products: ProductDiscovery) =>
@@ -73,11 +53,8 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
   exports: [
     PublicMaterialAnnouncements,
     CoverageCatalog,
-    ProductDirectory,
-    ProductOutlines,
     MATERIAL_PUBLICATION,
     PublicContentTargets,
-    PublishedSeriesComposition,
     PublishedMaterialSelection,
   ],
 })

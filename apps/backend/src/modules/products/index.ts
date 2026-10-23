@@ -174,3 +174,25 @@ export { assembleProductArtifactResourceFacts } from "./adapters/content-access/
 
 export { ProductArtifactsModule } from "./product-artifacts.module.js";
 export { ProductArtifactsHttpModule } from "./product-artifacts-http.module.js";
+
+export {
+  ProductDirectory,
+  type DirectoryMaterial,
+  type DirectoryPlacement,
+  type DirectoryProduct,
+} from "./features/read-product-directory/read-product-directory.js";
+export {
+  ProductOutlines,
+  type ProductOutline,
+  type ProductOutlinesResult,
+} from "./features/list-product-outlines/list-product-outlines.js";
+export {
+  PublishedSeriesComposition,
+  type PublishedSeriesCompositionResult,
+} from "./features/read-published-series-composition/read-published-series-composition.js";
+export { ProductCompositionsReading } from "./facets/product-compositions-reading/product-compositions-reading.js";
+export { ProductReadingModule } from "./product-reading.module.js";
+export {
+  PRODUCT_MATERIAL_READING,
+  type ProductMaterialReading,
+} from "./ports/product-material-reading.js";

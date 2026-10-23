@@ -1,3 +1,4 @@
+import { ProductReadingModule } from "../products/index.js";
 import {
   AccountNames,
   AccountProfilesModule,
@@ -38,8 +39,8 @@ import {
   CONTENT_ACCESS,
   type ContentAccess,
 } from "../content-access/index.js";
+import { ProductDirectory } from "../products/index.js";
 import {
-  ProductDirectory,
   PUBLISHED_MATERIAL_READER,
   type PublishedMaterialReader,
   MaterialContentModule,
@@ -67,6 +68,7 @@ import {
 
 @Module({
   imports: [
+    ProductReadingModule,
     PrismaModule,
     AssetsModule,
     ObjectStorageModule,

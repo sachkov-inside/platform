@@ -49,19 +49,9 @@ export {
 
 export { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 
-export {
-  PublishedSeriesComposition,
-  type PublishedSeriesCompositionResult,
-} from "./features/read-published-series-composition/read-published-series-composition.js";
-
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-export { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
-export {
-  ProductDirectory,
-  type DirectoryProduct,
-} from "./features/read-product-directory/read-product-directory.js";
 
 export { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
@@ -90,4 +80,5 @@ export { assemblePublishedMaterialReader } from "./facets/published-material-rea
 export type { AuthorPolicy } from "./ports/author-policy.js";
 export type { ProductAccessHolders } from "./ports/product-access-holders.js";
 
+export { assembleProductMaterialReading } from "./infrastructure/postgres/product-material-reading.js";
 export { MATERIAL_PUBLICATION } from "./facets/material-content/material-content.js";

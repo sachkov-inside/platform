@@ -34,7 +34,7 @@ import {
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
 import { ACCOUNTS, type Accounts } from "../../../accounts/index.js";
-import { ProductDirectory } from "../../../materials/index.js";
+import { ProductDirectory } from "../../../products/index.js";
 import { BillingPricing } from "../../../billing/index.js";
 import { ProductWaitlists } from "../../../sales-funnel/index.js";
 import { TelegramAccountLinks } from "../../../telegram-membership/index.js";

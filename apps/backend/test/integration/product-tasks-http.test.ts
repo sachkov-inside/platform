@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -12,7 +13,7 @@ import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { assembleApplySourceTask } from "../../src/modules/product-tasks/features/import-product-task/import-product-task.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import { ProductDirectory } from "../../src/modules/materials/index.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { declaredServer } from "../support/declared-api.js";
 import {
@@ -171,7 +172,10 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
     });
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: () => Promise.resolve(true) },
     });
     for (const [code, access, position, after] of [
@@ -551,7 +555,10 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
     const code = `format-c-${randomUUID()}`;
     const apply = assembleApplySourceTask({
       prisma: database.prisma,
-      directory: new ProductDirectory(database.prisma),
+      directory: new ProductDirectory(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ),
       authorPolicy: { canManage: () => Promise.resolve(true) },
     });
     const sourceTask = {

@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -22,10 +23,10 @@ import {
 } from "../../src/modules/content-access/index.js";
 import { assembleAssetResourceFacts } from "../../src/modules/materials/adapters/content-access/asset-resource-facts.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
 import {
   assembleMaterialResourceFacts,
   materialId as checkedMaterialId,
-  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -383,7 +384,10 @@ describe("source-imported draft privacy", () => {
       ).not.toContain(draftId);
     }
     expect(
-      await new PublishedSeriesComposition(database.prisma).read(productId),
+      await new PublishedSeriesComposition(
+        database.prisma,
+        assembleProductMaterialReading(database.prisma),
+      ).read(productId),
     ).toEqual({ ok: true, value: [siblingId] });
     expect(
       await readLearningMaterial(

@@ -1,10 +1,9 @@
+import { assembleProductMaterialReading } from "../modules/materials/index.js";
 import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 import { randomUUID } from "node:crypto";
 import { assembleMaterials } from "../entrypoints/composition/assemble-materials.js";
-import {
-  assembleMaterialResourceFacts,
-  PublishedSeriesComposition,
-} from "../modules/materials/index.js";
+import { PublishedSeriesComposition } from "../modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../modules/materials/index.js";
 import { assembleContentAccess } from "../modules/content-access/index.js";
 import { ReadingActivity } from "../modules/reading-activity/index.js";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
@@ -119,7 +118,10 @@ async function main(): Promise<void> {
         const reading = new ReadingActivity({
           prisma,
           materialContent: materials.materialContent,
-          composition: new PublishedSeriesComposition(prisma),
+          composition: new PublishedSeriesComposition(
+            prisma,
+            assembleProductMaterialReading(prisma),
+          ),
           contentAccess: assembleContentAccess({
             materialResourceFacts: assembleMaterialResourceFacts(
               materials.materialContent,

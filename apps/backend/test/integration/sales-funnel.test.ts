@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
@@ -22,7 +23,7 @@ import {
   BillingSurveyRespondentSales,
 } from "../../src/modules/billing/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import { ProductOutlines } from "../../src/modules/materials/index.js";
+import { ProductOutlines } from "../../src/modules/products/index.js";
 import { MaterialFirstOpens } from "../../src/modules/reading-activity/index.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/facets/sales-funnel/sales-funnel.js";
 import { RecordBotEventsController } from "../../src/modules/sales-funnel/features/record-bot-events/record-bot-events.controller.js";
@@ -158,7 +159,10 @@ describe("Sales funnel report on PostgreSQL", () => {
         emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
       }),
       links: new TelegramAccountLinks(db.prisma),
-      outlines: new ProductOutlines(db.prisma),
+      outlines: new ProductOutlines(
+        db.prisma,
+        assembleProductMaterialReading(db.prisma),
+      ),
       firstOpens: new MaterialFirstOpens(db.prisma),
       sales: new BillingProductSales(db.prisma),
       surveyRespondents: new BillingSurveyRespondentSales(db.prisma),
@@ -594,7 +598,10 @@ describe("Sales funnel report on PostgreSQL", () => {
           emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
         }),
         links: new TelegramAccountLinks(prisma),
-        outlines: new ProductOutlines(prisma),
+        outlines: new ProductOutlines(
+          prisma,
+          assembleProductMaterialReading(prisma),
+        ),
         firstOpens: new MaterialFirstOpens(prisma),
         sales: new BillingProductSales(prisma),
         surveyRespondents: new BillingSurveyRespondentSales(prisma),

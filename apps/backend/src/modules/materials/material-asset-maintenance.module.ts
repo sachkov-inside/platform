@@ -28,7 +28,7 @@ import {
   type MaterialAssetMaintenance,
 } from "./features/cleanup-material-assets/cleanup-material-assets.js";
 import {
-  MATERIAL_CONTENT,
+  MATERIAL_PUBLICATION,
   type MaterialContent,
 } from "./facets/material-content/material-content.js";
 import { MaterialContentModule } from "./material-content.module.js";
@@ -46,7 +46,7 @@ import { MaterialContentModule } from "./material-content.module.js";
       provide: MATERIAL_ASSET_MAINTENANCE,
       inject: [
         MATERIAL_ASSETS,
-        MATERIAL_CONTENT,
+        MATERIAL_PUBLICATION,
         PLATFORM_CONFIG,
         PrismaClientProvider,
         OBJECT_STORAGE,

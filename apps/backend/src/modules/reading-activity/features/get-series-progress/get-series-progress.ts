@@ -6,7 +6,7 @@ import type { ReadingActivityPrismaClient } from "../../../../infrastructure/pri
 import type {
   PublishedSeriesComposition,
   PublishedSeriesCompositionResult,
-} from "../../../materials/index.js";
+} from "../../../products/index.js";
 
 const querySchema = z
   .object({ accountId: z.uuid(), seriesId: z.uuid() })

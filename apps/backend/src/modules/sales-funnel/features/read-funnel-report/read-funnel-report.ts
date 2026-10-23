@@ -11,7 +11,7 @@ import type {
   BillingProductSales,
   BillingSurveyRespondentSales,
 } from "../../../billing/index.js";
-import type { ProductOutlines } from "../../../materials/index.js";
+import type { ProductOutlines } from "../../../products/index.js";
 import type { MaterialFirstOpens } from "../../../reading-activity/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import {

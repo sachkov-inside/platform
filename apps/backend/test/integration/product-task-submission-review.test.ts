@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { AccountNames } from "../../src/modules/account-profiles/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
@@ -21,10 +22,8 @@ import {
 } from "../../src/modules/product-tasks/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import {
-  assembleMaterialResourceFacts,
-  ProductDirectory,
-} from "../../src/modules/materials/index.js";
+import { ProductDirectory } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import {
@@ -87,7 +86,10 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
       await db.prisma.account.create({
         data: { id, logtoIssuer: "https://identity.test", logtoSubject: id },
       });
-    directory = new ProductDirectory(db.prisma);
+    directory = new ProductDirectory(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    );
     const materials = assembleMaterials({ prisma: db.prisma, authorPolicy });
     tasks = assembleLearningTasks({
       prisma: db.prisma,

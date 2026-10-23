@@ -1,10 +1,9 @@
+import type { ProductMaterialReading } from "../../ports/product-material-reading.js";
+import { ProductCompositionsReading } from "../../facets/product-compositions-reading/product-compositions-reading.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import {
-  loadProductCompositions,
-  productCompositionChapters,
-} from "../../shared/product-composition.js";
+import type { ProductsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import { productCompositionChapters } from "../../facets/product-compositions/product-compositions.js";
 
 // A report selector lists every Product at once; the bound only stops a runaway catalog.
 const MAX_PRODUCTS = 200;
@@ -38,12 +37,18 @@ export type ProductOutlinesResult =
  * Materials of each chapter: the same composition the Product programme shows.
  */
 export class ProductOutlines {
-  constructor(private readonly prisma: MaterialsPrismaClient) {}
+  constructor(
+    prisma: ProductsPrismaClient,
+    materials: ProductMaterialReading,
+    private readonly compositions = new ProductCompositionsReading(
+      prisma,
+      materials,
+    ),
+  ) {}
 
   async list(): Promise<ProductOutlinesResult> {
     try {
-      const products = await loadProductCompositions(
-        this.prisma,
+      const products = await this.compositions.load(
         { current: true },
         MAX_PRODUCTS + 1,
       );
@@ -65,7 +70,7 @@ export class ProductOutlines {
       return { ok: true, value: rows };
     } catch (error) {
       return dependencyFailure(
-        { module: "materials", operation: "listProductOutlines" },
+        { module: "products", operation: "listProductOutlines" },
         error,
         { ok: false, error: { code: "dependency_unavailable" } } as const,
       );

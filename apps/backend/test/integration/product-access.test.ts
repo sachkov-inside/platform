@@ -1,3 +1,4 @@
+import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
@@ -25,10 +26,8 @@ import {
 } from "../../src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import {
-  assembleMaterialResourceFacts,
-  PublishedSeriesComposition,
-} from "../../src/modules/materials/index.js";
+import { PublishedSeriesComposition } from "../../src/modules/products/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import {
   ReadingActivity,
   PersonalHome,
@@ -395,7 +394,10 @@ describe("independent product, library, support and shared chat rights", () => {
       authorPolicy: { canManage: () => false },
       contentAccess,
     }).publishedMaterialReader;
-    const composition = new PublishedSeriesComposition(db.prisma);
+    const composition = new PublishedSeriesComposition(
+      db.prisma,
+      assembleProductMaterialReading(db.prisma),
+    );
     const reading = new ReadingActivity({
       prisma: db.prisma,
       materialContent: materials.materialContent,
