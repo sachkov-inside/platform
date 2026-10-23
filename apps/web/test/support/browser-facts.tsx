@@ -1,3 +1,8 @@
+import {
+  useCurrentBilling,
+  ProductAccessList,
+} from "@/features/billing-subscription";
+import { ProductAccessPanel } from "@/features/billing-admin";
 import { AccountProductCommunity } from "@/_pages/account-access/ui/account-product-community.client";
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -113,10 +118,41 @@ function CommunityFacts() {
     </QueryClientProvider>
   );
 }
+function BillingFacts() {
+  const query = useCurrentBilling();
+  return query.data?.ok === true ? (
+    <ProductAccessList
+      {...query.data.value}
+      grounds={query.data.value.access.grounds}
+    />
+  ) : null;
+}
+function ProductAccessFacts() {
+  return (
+    <>
+      <QueryClientProvider client={client}>
+        <ProductAccessPanel />
+      </QueryClientProvider>
+      {new URLSearchParams(window.location.search).has("secondary") ? (
+        <QueryClientProvider client={secondaryClient}>
+          <section aria-label="Secondary access">
+            <ProductAccessPanel />
+          </section>
+        </QueryClientProvider>
+      ) : null}
+    </>
+  );
+}
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing browser facts root");
 createRoot(root).render(
-  new URLSearchParams(window.location.search).has("community") ? (
+  new URLSearchParams(window.location.search).has("productAccess") ? (
+    <ProductAccessFacts />
+  ) : new URLSearchParams(window.location.search).has("billing") ? (
+    <QueryClientProvider client={client}>
+      <BillingFacts />
+    </QueryClientProvider>
+  ) : new URLSearchParams(window.location.search).has("community") ? (
     <CommunityFacts />
   ) : new URLSearchParams(window.location.search).has("reading") ? (
     <ReadingFacts />

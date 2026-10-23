@@ -200,7 +200,11 @@ export function accessSourceLabel(source: AccessSource): string {
     case "manual":
       return "Выдано вручную";
     case "legacy":
-      return "Прежняя подписка";
+      return "Ранее полученный доступ";
+    case "course_activation":
+      return "Активация курса";
+    case "unknown":
+      return "Источник не уточнён";
   }
 }
 

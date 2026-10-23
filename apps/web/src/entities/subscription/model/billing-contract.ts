@@ -163,7 +163,13 @@ export const noticeViewSchema = z.object({
  * Собственное основание доступа: состав, срок и то, чем оно выдано. Ручная выдача остаётся
  * выдачей и не называется покупкой.
  */
-export const accessSourceSchema = z.enum(["paid", "manual", "legacy"]);
+export const accessSourceSchema = z.enum([
+  "paid",
+  "manual",
+  "legacy",
+  "course_activation",
+  "unknown",
+]);
 export const accessGroundSchema = z.object({
   source: accessSourceSchema,
   content: z.array(coverageEntrySchema).optional(),

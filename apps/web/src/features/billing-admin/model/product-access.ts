@@ -36,6 +36,7 @@ export const productAccessDetailSchema = productAccessSchema.extend({
   ),
   actions: z.array(
     z.object({
+      id: z.uuid(),
       kind: z.string(),
       actorId: z.string().nullable(),
       reason: z.string(),

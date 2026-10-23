@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { authoringPageEnvironment } from "@/storybook/story-environment";
+import { getQueryClient } from "@/shared/api/query-client";
 import { ProductAccessPanel } from "./product-access-panel.client";
 const accountId = "00000000-0000-4000-8000-000000000001";
 const productId = "00000000-0000-4000-8000-000000000f01";
@@ -13,6 +14,7 @@ const record = {
   access: "revoked" as const,
 };
 function replies(firstIssuedAt: string | null = record.firstIssuedAt) {
+  getQueryClient().clear();
   let restored = false;
   return fetchBeforeRender((input) => {
     const path = new URL(
@@ -71,6 +73,7 @@ function replies(firstIssuedAt: string | null = record.firstIssuedAt) {
               ],
               actions: [
                 {
+                  id: "30000000-0000-4000-8000-000000000001",
                   kind: "revoked",
                   actorId: accountId,
                   reason: "Отзыв владельцем",
