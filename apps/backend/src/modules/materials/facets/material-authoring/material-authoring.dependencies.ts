@@ -1,5 +1,6 @@
 import type {
   ProductAuthoring,
+  ProductDiscovery,
   ProductMemberships,
 } from "../../../products/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
@@ -12,6 +13,7 @@ import type { Videos } from "../../../videos/index.js";
 
 export interface MaterialAuthoringDependencies {
   readonly products: ProductAuthoring;
+  readonly discovery: Pick<ProductDiscovery, "snapshot">;
   readonly memberships: ProductMemberships;
   readonly prisma: MaterialsPrismaClient;
   readonly materialBodyOperations: MaterialBodyOperations;

@@ -22,8 +22,8 @@ import type {
   MaterialDto,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
-import { type ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
-import { loadContentCoverProjections } from "./content-cover-projections.js";
+import { type ContentCoverProjection } from "../../../content-covers/index.js";
+import { loadContentCoverProjections } from "../../../content-covers/index.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
@@ -61,7 +61,7 @@ export async function loadCurrentMaterial(
     }),
     products.load(materialId, transactionHandle(prisma)),
     loadContentCoverProjections(
-      prisma,
+      transactionHandle(prisma),
       row.coverId === null ? [] : [row.coverId],
     ),
   ]);

@@ -42,7 +42,7 @@ const MAX_READ_ATTEMPTS = 2;
 export async function readPublishedMaterial(
   dependencies: {
     readonly prisma: MaterialsPrismaClient;
-    readonly products: Pick<ProductDiscovery, "snapshot">;
+    readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
     readonly contentAccess: ContentAccess;
     readonly materialContent: MaterialContent;
     readonly materialBodyOperations: MaterialBodyOperations;

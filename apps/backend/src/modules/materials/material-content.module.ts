@@ -34,8 +34,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
     },
     {
       provide: CoverageCatalog,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) => new CoverageCatalog(prisma),
+      inject: [PrismaClientProvider, ProductDiscovery],
+      useFactory: (prisma: PrismaClientProvider, products: ProductDiscovery) =>
+        new CoverageCatalog(prisma, products),
     },
     {
       provide: PublishedMaterialSelection,
@@ -62,9 +63,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
     },
     {
       provide: PublicContentTargets,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new PublicContentTargets(prisma),
+      inject: [PrismaClientProvider, ProductDiscovery],
+      useFactory: (prisma: PrismaClientProvider, products: ProductDiscovery) =>
+        new PublicContentTargets(prisma, products),
     },
     {
       provide: MATERIAL_CONTENT,

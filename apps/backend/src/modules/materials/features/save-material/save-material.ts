@@ -1,4 +1,7 @@
-import type { ProductMemberships } from "../../../products/index.js";
+import type {
+  ProductMemberships,
+  ProductDiscovery,
+} from "../../../products/index.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
@@ -531,6 +534,7 @@ export function assembleSaveMaterial(
               await replacePublishedProjections(
                 transaction,
                 dependencies.memberships,
+                dependencies.discovery,
                 {
                   materialId: command.materialId,
                   contentVersion: next.value.contentVersion,
@@ -643,6 +647,7 @@ export function assembleSaveMaterial(
 async function replacePublishedProjections(
   transaction: MaterialsPrismaTransaction,
   products: ProductMemberships,
+  discovery: Pick<ProductDiscovery, "snapshot">,
   values: {
     readonly materialId: string;
     readonly contentVersion: number;
@@ -723,10 +728,14 @@ async function replacePublishedProjections(
     values.metadata.seriesMemberships,
     transactionHandle(transaction),
   );
-  await refreshPublishedMaterialSearchProjections(transaction, {
-    kind: "materials",
-    materialIds: [values.materialId],
-  });
+  await refreshPublishedMaterialSearchProjections(
+    transaction,
+    {
+      kind: "materials",
+      materialIds: [values.materialId],
+    },
+    discovery,
+  );
   await transaction.materialSearchDocument.upsert({
     where: { materialId: values.materialId },
     create: {

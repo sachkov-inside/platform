@@ -1,3 +1,5 @@
+import { assembleLoadHomePin } from "../../features/load-home-pin/load-home-pin.js";
+import { assembleSetHomePin } from "../../features/set-home-pin/set-home-pin.js";
 import type { ProductAuthoringDependencies } from "./product-authoring.dependencies.js";
 import { assembleCreateContentCollection } from "../../features/create-content-collection/create-content-collection.js";
 import { assembleUpdateContentCollection } from "../../features/update-content-collection/update-content-collection.js";
@@ -14,6 +16,8 @@ export function assembleProductAuthoring(
   dependencies: ProductAuthoringDependencies,
 ) {
   return Object.freeze({
+    loadHomePin: assembleLoadHomePin(dependencies),
+    setHomePin: assembleSetHomePin(dependencies),
     createContentCollection: assembleCreateContentCollection(dependencies),
     updateContentCollection: assembleUpdateContentCollection(dependencies),
     setContentCollectionArchive:

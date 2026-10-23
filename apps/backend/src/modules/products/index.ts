@@ -169,10 +169,20 @@ export {
   PRODUCT_AUTHORING,
   type ProductAuthoring,
 } from "./facets/product-authoring/product-authoring.js";
-export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
 
 export {
   ProductMemberships,
   PRODUCT_MEMBERSHIPS,
   type MaterialMembership,
 } from "./facets/product-memberships/product-memberships.js";
+
+export type {
+  HomePinDto,
+  LoadHomePinOperation,
+} from "./features/load-home-pin/load-home-pin.contract.js";
+
+export type {
+  SetHomePinCommand,
+  SetHomePinError,
+  SetHomePinOperation,
+} from "./features/set-home-pin/set-home-pin.contract.js";

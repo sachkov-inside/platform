@@ -18,7 +18,7 @@ import {
 import {
   PRODUCT_ACCESS_HOLDERS,
   type ProductAccessHolders,
-} from "../../modules/materials/ports/product-access-holders.js";
+} from "../../modules/materials/index.js";
 import { loadContentCoverProjections } from "../../modules/content-covers/index.js";
 
 @Global()

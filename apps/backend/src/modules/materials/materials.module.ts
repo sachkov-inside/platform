@@ -110,6 +110,7 @@ import {
       inject: [
         PrismaClientProvider,
         PRODUCT_AUTHORING,
+        ProductDiscovery,
         PRODUCT_MEMBERSHIPS,
         ACCOUNTS,
         CONTENT_ACCESS,
@@ -120,6 +121,7 @@ import {
       useFactory: (
         prisma: PrismaClientProvider,
         products: ProductAuthoring,
+        discovery: ProductDiscovery,
         memberships: ProductMemberships,
         accounts: Accounts,
         contentAccess: ContentAccess,
@@ -135,6 +137,7 @@ import {
         return assembleMaterialAuthoring({
           prisma,
           products,
+          discovery,
           memberships,
           authorPolicy,
           contentAccess,

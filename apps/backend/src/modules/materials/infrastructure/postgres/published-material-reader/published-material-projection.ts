@@ -219,7 +219,7 @@ type SearchedPublishedMaterialProjectionRow = z.infer<
 
 export interface MaterialDiscoveryContext {
   readonly prisma: MaterialsPrisma;
-  readonly products: Pick<ProductDiscovery, "snapshot">;
+  readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
 }
 
 function projectionQueries(snapshot: DiscoverySnapshot) {

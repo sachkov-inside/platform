@@ -88,3 +88,10 @@ export { assembleVideoResourceFacts } from "./adapters/content-access/video-reso
 
 export { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
 export { assembleProductMaterials } from "./adapters/products/product-materials.js";
+
+export { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
+export { assembleMaterialContent } from "./facets/material-content/material-content.js";
+export { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
+
+export type { AuthorPolicy } from "./ports/author-policy.js";
+export type { ProductAccessHolders } from "./ports/product-access-holders.js";
