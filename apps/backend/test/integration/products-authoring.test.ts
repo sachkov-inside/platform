@@ -9,7 +9,6 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { representativeDocument } from "../fixtures/material-body/representative.js";
 
 let database: TestDatabase;
 beforeAll(async () => {
@@ -26,7 +25,7 @@ test("Product authoring preserves repeated programme identities separately from 
     data: {
       id: materialId,
       createdBy: actor,
-      body: representativeDocument("One current body"),
+      body: { type: "doc", content: [] },
       schemaVersion: 1,
       access: "free",
       publicationState: "draft",
@@ -119,7 +118,10 @@ test("Product authoring preserves repeated programme identities separately from 
         id,
         name,
         summary,
-        supplementaryMaterialIds,
+        supplementaryMaterialIds:
+          supplementaryMaterialIds === undefined
+            ? undefined
+            : [...supplementaryMaterialIds],
       }),
     ),
     programmePlacements: loaded.value.programmePlacements,
@@ -131,4 +133,33 @@ test("Product authoring preserves repeated programme identities separately from 
   expect(
     await authoring.loadSeriesOrder({ actor, seriesId: product.value.id }),
   ).toEqual(loaded);
+});
+
+test("Product writes authorize through the same transaction handle as persistence", async () => {
+  const actor = randomUUID();
+  const authoring = assembleProductAuthoring({
+    prisma: database.prisma,
+    authorPolicy: { canManage: (_accountId, handle) => handle !== undefined },
+    materials: assembleProductMaterials(database.prisma),
+    loadCovers: async () => new Map(),
+  });
+  const product = await authoring.createContentCollection({
+    actor,
+    kind: "product",
+    slug: "transaction-authorized",
+    name: "Transaction permission",
+    summary: "Same connection",
+  });
+  expect(product.ok).toBe(true);
+  if (!product.ok) throw new Error(product.error.code);
+  expect(
+    await authoring.updateContentCollection({
+      actor,
+      kind: "product",
+      collectionId: product.value.id,
+      expectedVersion: product.value.version,
+      name: "Changed under permission",
+      summary: "Same connection",
+    }),
+  ).toMatchObject({ ok: true });
 });

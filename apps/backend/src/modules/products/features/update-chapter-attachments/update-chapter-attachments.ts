@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { z } from "zod";
 import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
 import {
@@ -51,17 +52,20 @@ export function assembleUpdateChapterAttachments(
     const parsed = parseCommand(commandSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
-    const authorization = await authorizeManager(
-      dependencies.authorPolicy,
-      command.actor,
-    );
-    if (!authorization.ok) return failure(authorization.error);
+
     return executeAuthoringTransaction<
       ReorderSeriesReceiptDto,
       ReorderSeriesError
     >(
       dependencies.prisma,
       async (transaction, rollback) => {
+        const permission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!permission.ok) return rollback(permission.error);
+
         await lockSeries(transaction, [command.productId]);
         const snapshot = await loadSeriesOrderSnapshot(
           transaction,

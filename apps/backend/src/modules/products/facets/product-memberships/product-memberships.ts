@@ -1,3 +1,4 @@
+import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
 import type { ProductsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { type TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import type { ContentWriteTarget } from "../../../../infrastructure/content-authoring/content-write-policy.js";
@@ -12,7 +13,6 @@ import {
   recordProductRemovals,
 } from "../../shared/product-removal-confirmation.js";
 import type { ProductAccessHolders } from "../../ports/product-access-holders.js";
-import { randomUUID } from "node:crypto";
 export interface MaterialMembership {
   readonly seriesId: string;
   readonly ordinal: number;
@@ -24,14 +24,12 @@ export class ProductMemberships {
     materialId: string,
     handle?: TransactionHandle,
   ): Promise<readonly MaterialMembership[]> {
-    return (
-      handle === undefined ? this.prisma : productsTransaction(handle)
-    ).productMembership.findMany({
-      where: { materialId },
-      select: { seriesId: true, ordinal: true },
-      orderBy: { seriesId: "asc" },
-    });
+    return loadCatalogueMemberships(
+      handle === undefined ? this.prisma : productsTransaction(handle),
+      { materialId },
+    );
   }
+
   async publishedProductIds(
     materialId: string,
     handle: TransactionHandle,
@@ -102,80 +100,22 @@ export class ProductMemberships {
     handle: TransactionHandle,
   ): Promise<void> {
     const transaction = productsTransaction(handle);
-    const previousMemberships = await transaction.productMembership.findMany({
+    const selected = memberships.map((entry) => entry.seriesId);
+    const current = await transaction.productMembership.findMany({
       where: { materialId },
-      select: { chapterId: true, seriesId: true, stepGroup: true },
+      select: { seriesId: true },
     });
-    // A full Material Save keeps the Product-owned placement of every retained membership.
-    const placements = new Map(
-      previousMemberships.map(({ chapterId, seriesId, stepGroup }) => [
-        seriesId,
-        { chapterId, stepGroup },
-      ]),
-    );
-    const retainedProducts = memberships.map((entry) => entry.seriesId);
-    const retainedProgramme =
-      await transaction.productProgrammePlacement.findMany({
-        where: { materialId, productId: { in: retainedProducts } },
-      });
-    const retainedSupplements =
-      await transaction.productChapterSupplementaryMaterial.findMany({
-        where: { materialId, productId: { in: retainedProducts } },
-      });
-    await transaction.productMembership.deleteMany({ where: { materialId } });
-    if (memberships.length > 0) {
+    await transaction.productMembership.deleteMany({
+      where: { materialId, seriesId: { notIn: selected } },
+    });
+    const existing = new Set(current.map((entry) => entry.seriesId));
+    const added = selected.filter((id) => !existing.has(id));
+    if (added.length > 0)
       await transaction.productMembership.createMany({
-        data: memberships.map(({ seriesId, ordinal }) => ({
-          materialId,
-          seriesId,
-          ordinal,
-          chapterId: placements.get(seriesId)?.chapterId ?? null,
-          stepGroup: placements.get(seriesId)?.stepGroup ?? null,
-        })),
+        data: added.map((seriesId) => ({ materialId, seriesId })),
       });
-    }
-    if (retainedProgramme.length > 0)
-      await transaction.productProgrammePlacement.createMany({
-        data: retainedProgramme,
-      });
-    if (retainedSupplements.length > 0)
-      await transaction.productChapterSupplementaryMaterial.createMany({
-        data: retainedSupplements,
-      });
-    const previousProducts = new Set(
-      previousMemberships.map((entry) => entry.seriesId),
-    );
-    for (const productId of retainedProducts.filter(
-      (id) => !previousProducts.has(id),
-    )) {
-      const product = await transaction.product.findUnique({
-        where: { id: productId },
-        select: { programmeExplicit: true },
-      });
-      if (product?.programmeExplicit === true) continue;
-      if (
-        (await transaction.productChapter.findFirst({
-          where: { productId },
-          select: { id: true },
-        })) !== null
-      )
-        continue;
-      const maximum = await transaction.productProgrammePlacement.aggregate({
-        where: { productId },
-        _max: { ordinal: true },
-      });
-      await transaction.productProgrammePlacement.create({
-        data: {
-          id: randomUUID(),
-          productId,
-          materialId,
-          chapterId: null,
-          ordinal: (maximum._max.ordinal ?? 0) + 1,
-          stepGroup: null,
-        },
-      });
-    }
   }
+
   async setPublication(
     materialId: string,
     memberships: readonly MaterialMembership[] | null,
@@ -187,7 +127,10 @@ export class ProductMemberships {
     });
     if (memberships !== null && memberships.length > 0)
       await tx.publishedMaterialProductMembership.createMany({
-        data: memberships.map((entry) => ({ ...entry, materialId })),
+        data: memberships.map((entry) => ({
+          seriesId: entry.seriesId,
+          materialId,
+        })),
       });
   }
   async detachMaterial(
@@ -249,21 +192,9 @@ export class ProductMemberships {
             ]
           : [],
     );
-    const occupied = await tx.productMembership.findMany({
-      where: {
-        seriesId: { in: memberships.map((entry) => entry.seriesId) },
-        materialId: { not: materialId },
-      },
-      select: { seriesId: true, ordinal: true },
-    });
-    const conflict = memberships.find((entry) =>
-      occupied.some(
-        (other) =>
-          other.seriesId === entry.seriesId && other.ordinal === entry.ordinal,
-      ),
-    );
-    return { ...(conflict === undefined ? {} : { conflict }), issues };
+    return { issues };
   }
+
   async heldRemovals(
     ids: readonly string[],
     holders: ProductAccessHolders | undefined,

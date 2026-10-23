@@ -1,3 +1,4 @@
+import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
 import { z } from "zod";
 import { type ProductsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
@@ -86,10 +87,7 @@ export class ProductCompositions {
     const ids = products.map((product) => product.id);
     if (ids.length === 0) return [];
     const [memberships, chapters, programme, supplements] = await Promise.all([
-      this.prisma.productMembership.findMany({
-        where: { seriesId: { in: ids } },
-        orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
-      }),
+      loadCatalogueMemberships(this.prisma, { productIds: ids }),
       this.prisma.productChapter.findMany({
         where: { productId: { in: ids } },
         orderBy: [{ ordinal: "asc" }, { id: "asc" }],
