@@ -87,3 +87,4 @@ export { assembleAssetResourceFacts } from "./adapters/content-access/asset-reso
 export { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 
 export { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
+export { assembleProductMaterials } from "./adapters/products/product-materials.js";
