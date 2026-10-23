@@ -2,26 +2,8 @@ import { coverageEntrySchema } from "@inside/access-capabilities";
 import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
 import { z } from "zod";
 import {
-  accessGrantsViewSchema,
-  accessHolderSchema,
-  accessSourceSchema,
   activationRuleSchema,
-  enrollmentViewSchema,
-  expansionPreviewSchema,
-  invitationFunnelSchema,
-  invitationViewSchema,
-  legacyClassificationViewSchema,
-  listAccessHoldersSchema,
   manageActivationRuleSchema,
-  sourceEntitlementViewSchema,
-  tierSnapshotSchema,
-  tributeApplyResultSchema,
-  tributeImportReviewSchema,
-  tributeInboxViewSchema,
-  tributeOperationsViewSchema,
-  tributePolicySchema,
-  tributePreviewSchema,
-  tributeSourceViewSchema,
 } from "../../account-rights/index.js";
 import {
   catalogOutcomeSchema,
@@ -42,13 +24,11 @@ import {
 } from "../features/survey-respondents/survey-respondents.contract.js";
 import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
 import {
-  benefitPeriodsSchema,
   idSchema,
   moneySchema,
   priceSnapshotSchema,
   revisionSchema,
 } from "./pricing.js";
-import { subscriptionViewSchema } from "./subscription-change.js";
 
 export const reasonSchema = z.string().trim().min(1).max(1000);
 const command = { operationId: idSchema };
@@ -65,8 +45,8 @@ export const refundBasisSchema = z.enum(["withdrawal", "compensation"]);
 export type RefundBasis = z.infer<typeof refundBasisSchema>;
 export const refundAccessSchema = z.enum(["keep", "revoke"]);
 export type RefundAccess = z.infer<typeof refundAccessSchema>;
-export function refundAccessFor(basis: RefundBasis): RefundAccess {
-  return basis === "withdrawal" ? "revoke" : "keep";
+export function refundAccessFor(_basis: RefundBasis): RefundAccess {
+  return "keep";
 }
 
 /**
@@ -86,6 +66,11 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     identityRef: z.string().trim().min(1).max(256),
   }),
   ...manageCatalogSchema.options,
+  z.strictObject({
+    ...command,
+    operation: z.literal("productPrices.list"),
+    ...listBounds,
+  }),
   z.strictObject({ ...command, operation: z.literal("content.list") }),
   z.strictObject({
     ...manageActivationRuleSchema.shape,
@@ -126,15 +111,11 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     operation: z.literal("respondents.issue"),
   }),
   z.strictObject({ ...command, operation: z.literal("respondents.status") }),
-  z.strictObject({
-    ...listAccessHoldersSchema.shape,
-    operation: z.literal("people.list"),
-  }),
-  z.strictObject({ ...command, operation: z.literal("access.summary") }),
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
 export const ownerReadOperations = [
+  "productPrices.list",
   "paymentLinks.list",
   "tribute.status",
   "recipients.lookup",
@@ -223,51 +204,6 @@ export const auditEntryViewSchema = z.strictObject({
  * Приглашение для владельца: готовая ссылка в бота. `link` — `null`, когда процессу не задан
  * адрес бота; тогда ссылку собирают из `startParameter`.
  */
-export const ownerInvitationSchema = invitationViewSchema.extend({
-  link: z.url().nullable(),
-});
-/**
- * Сводка раздела «Доступ» на момент `asOf`. `active` — люди с действующим основанием по Offer:
- * платные (оплата, Tribute, разовая покупка), подарочные (приглашение, решение владельца) и курс;
- * человек с двумя основаниями одной группы считается один раз. `attention` — основания, которые
- * кончаются за 7 дней, и сбои списания за 7 дней. `revenue` — подтверждённые оплаты и возвраты
- * по месяцам Москвы и Offer за 12 месяцев.
- */
-export const accessSummarySchema = z.strictObject({
-  asOf: z.iso.datetime(),
-  active: z.array(
-    z.strictObject({
-      offerId: idSchema,
-      name: z.string(),
-      paid: z.int().nonnegative(),
-      gift: z.int().nonnegative(),
-      course: z.int().nonnegative(),
-    }),
-  ),
-  invitations: invitationFunnelSchema,
-  attention: z.array(
-    z.strictObject({
-      accountId: idSchema,
-      reason: z.enum(["ending", "payment_failed"]),
-      source: accessSourceSchema.nullable(),
-      offerId: idSchema.nullable(),
-      title: z.string(),
-      at: z.iso.datetime(),
-    }),
-  ),
-  revenue: z.array(
-    z.strictObject({
-      month: z.string().regex(/^\d{4}-\d{2}$/),
-      offerId: idSchema,
-      name: z.string(),
-      payments: z.int().nonnegative(),
-      revenueKopecks: z.int().nonnegative(),
-      refunds: z.int().nonnegative(),
-      refundedKopecks: z.int().nonnegative(),
-    }),
-  ),
-});
-export type AccessSummary = z.infer<typeof accessSummarySchema>;
 export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("paymentLink"),
@@ -278,60 +214,12 @@ export const ownerSuccessSchema = z.union([
     ...paymentLinksPageSchema.shape,
   }),
   z.strictObject({
-    outcome: z.literal("tributeImportReview"),
-    value: tributeImportReviewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("tributeStatus"),
-    value: tributeOperationsViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("tributePolicy"),
-    value: tributePolicySchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("tributePreview"),
-    value: tributePreviewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("tributeApplied"),
-    value: tributeApplyResultSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("tributeSource"),
-    value: tributeSourceViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("tributeEvent"),
-    value: tributeInboxViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("sourceEntitlement"),
-    value: sourceEntitlementViewSchema,
-  }),
-  z.strictObject({
     outcome: z.literal("activationRule"),
     value: activationRuleSchema,
   }),
   z.strictObject({
     outcome: z.literal("activationRules"),
     items: z.array(activationRuleSchema),
-  }),
-  z.strictObject({
-    outcome: z.literal("enrollmentExpansionPreview"),
-    value: expansionPreviewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("enrollmentExpansion"),
-    enrollmentIds: z.array(idSchema),
-  }),
-  z.strictObject({
-    outcome: z.literal("enrollment"),
-    value: enrollmentViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("enrollments"),
-    items: z.array(enrollmentViewSchema),
   }),
   z.strictObject({
     outcome: z.literal("content"),
@@ -353,19 +241,6 @@ export const ownerSuccessSchema = z.union([
       z.strictObject({ state: z.literal("not_found") }),
       z.strictObject({ state: z.literal("ambiguous") }),
     ]),
-  }),
-  z.strictObject({
-    outcome: z.literal("tiers"),
-    items: z.array(
-      z.strictObject({
-        tier: tierSnapshotSchema,
-        benefitPeriods: benefitPeriodsSchema,
-        availableForAssignment: z.boolean(),
-        published: z.boolean(),
-        archived: z.boolean(),
-      }),
-    ),
-    nextCursor: idSchema.nullable(),
   }),
   z.strictObject({
     outcome: z.literal("catalog"),
@@ -394,69 +269,11 @@ export const ownerSuccessSchema = z.union([
     value: paymentViewSchema,
   }),
   z.strictObject({
-    outcome: z.literal("subscription"),
-    value: subscriptionViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("refundDecision"),
-    value: refundDecisionViewSchema,
-  }),
-  z.strictObject({
     outcome: z.literal("refunds"),
     purchaseRef: idSchema,
     refundedKopecks: z.int().nonnegative(),
     refundableKopecks: z.int().nonnegative(),
     decisions: z.array(refundDecisionViewSchema),
-  }),
-  z.strictObject({
-    outcome: z.literal("grants"),
-    value: accessGrantsViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("classification"),
-    value: legacyClassificationViewSchema,
-  }),
-  z.strictObject({
-    outcome: z.literal("grantPreview"),
-    previewRef: idSchema,
-    revision: revisionSchema,
-    expiresAt: z.iso.datetime(),
-    rows: z.array(
-      z.strictObject({
-        rowKey: z.string(),
-        accountId: idSchema,
-        status: z.enum(["confirmed", "not_found"]),
-      }),
-    ),
-  }),
-  z.strictObject({
-    outcome: z.literal("grantBatch"),
-    rows: z.array(
-      z.strictObject({
-        rowKey: z.string(),
-        result: z.union([
-          z.strictObject({
-            ok: z.literal(true),
-            grantRef: idSchema,
-            revision: revisionSchema,
-          }),
-          z.strictObject({
-            ok: z.literal(true),
-            classification: legacyClassificationViewSchema.shape.classification,
-            revision: revisionSchema,
-          }),
-          z.strictObject({
-            ok: z.literal(false),
-            error: z.strictObject({ code: z.literal("operation_conflict") }),
-          }),
-        ]),
-      }),
-    ),
-  }),
-  z.strictObject({
-    outcome: z.literal("grant"),
-    grantRef: idSchema,
-    revision: revisionSchema,
   }),
   z.strictObject({
     outcome: z.literal("respondentImport"),
@@ -469,29 +286,6 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("respondents"),
     value: respondentsViewSchema,
-  }),
-  // Заметки владельца о человеке в итоге выдачи и отзыва нет. Код и ссылка погашают неоткрытое
-  // приглашение, поэтому журнал хранит итог без них (`auditedOutcome`), а повтор выдачи читает их
-  // заново.
-  z.strictObject({
-    outcome: z.literal("invitation"),
-    value: ownerInvitationSchema
-      .omit({ note: true })
-      .partial({ code: true, startParameter: true, link: true }),
-  }),
-  z.strictObject({
-    outcome: z.literal("invitations"),
-    items: z.array(ownerInvitationSchema),
-    nextCursor: idSchema.nullable(),
-  }),
-  z.strictObject({
-    outcome: z.literal("people"),
-    items: z.array(accessHolderSchema),
-    nextCursor: idSchema.nullable(),
-  }),
-  z.strictObject({
-    outcome: z.literal("accessSummary"),
-    value: accessSummarySchema,
   }),
 ]);
 export type OwnerOutcome = z.infer<typeof ownerSuccessSchema>;
