@@ -3,15 +3,19 @@ import { z } from "zod";
 import { createPrismaClient } from "../../../../apps/backend/src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../../../../apps/backend/src/migrations/index.js";
 import { accountId } from "../../../../apps/backend/src/modules/accounts/index.js";
-import { MemberNames } from "../../../../apps/backend/src/modules/member-profiles/index.js";
+import { AccountNames } from "../../../../apps/backend/src/modules/account-profiles/index.js";
 import { TelegramAccountLinks } from "../../../../apps/backend/src/modules/telegram-membership/index.js";
 import { assembleAccountRights } from "../../../../apps/backend/src/modules/account-rights/index.js";
 import { assembleContentAccess } from "../../../../apps/backend/src/modules/content-access/index.js";
 import {
-  assembleMaterials,
-  ProductDirectory,
   assembleMaterialResourceFacts,
+  assembleProductMaterialReading,
 } from "../../../../apps/backend/src/modules/materials/index.js";
+import { assembleMaterials } from "../../../../apps/backend/src/entrypoints/composition/assemble-materials.js";
+import {
+  ProductDirectory,
+  ProductCompositionsReading,
+} from "../../../../apps/backend/src/modules/products/index.js";
 import { assembleProductTaskResourceFacts } from "../../../../apps/backend/src/modules/product-tasks/adapters/content-access/product-task-resource-facts.js";
 import { assembleLearningTasks } from "../../../../apps/backend/src/modules/product-tasks/index.js";
 import { assembleSubmissionReview } from "../../../../apps/backend/src/modules/product-tasks/facets/submission-review/submission-review.js";
@@ -162,7 +166,12 @@ export async function startChapterStand(
       canManage: (id: string) => Promise.resolve(id === owner),
     };
     const materials = assembleMaterials({ prisma: db, authorPolicy });
-    const directory = new ProductDirectory(db);
+    const reading = assembleProductMaterialReading(db);
+    const directory = new ProductDirectory(
+      db,
+      reading,
+      new ProductCompositionsReading(db, reading),
+    );
     const contentAccess = assembleContentAccess({
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
@@ -184,7 +193,7 @@ export async function startChapterStand(
       directory,
       authorPolicy,
       identities: new TelegramAccountLinks(db),
-      names: new MemberNames(db),
+      names: new AccountNames(db),
     });
     stand = await startLocalStand({
       ...refusingLearnerMcpDependencies(),

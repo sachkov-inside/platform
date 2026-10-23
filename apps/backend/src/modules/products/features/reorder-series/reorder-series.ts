@@ -207,11 +207,11 @@ export function assembleReorderSeries(
               b = nextProgramme.findIndex(
                 (entry) => entry.materialId === right,
               );
-            return (
-              (a < 0 ? Number.MAX_SAFE_INTEGER : a) -
-                (b < 0 ? Number.MAX_SAFE_INTEGER : b) ||
-              left.localeCompare(right)
-            );
+            const first = a < 0 ? Number.MAX_SAFE_INTEGER : a;
+            const second = b < 0 ? Number.MAX_SAFE_INTEGER : b;
+            return first !== second
+              ? first - second
+              : left.localeCompare(right);
           },
         );
         const nextEntries = catalogueOrder.map((materialId) => {

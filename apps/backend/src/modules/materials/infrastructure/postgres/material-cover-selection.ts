@@ -19,7 +19,7 @@ export class MaterialCoverSelection implements ContentCoverSelection {
         prisma,
         materialId(owner.id),
       );
-      if (material === undefined || material === null) return undefined;
+      if (material === undefined) return undefined;
       const row = await prisma.material.findUnique({
         where: { id: owner.id },
         select: { coverId: true, sourceId: true },
@@ -77,5 +77,6 @@ export class MaterialCoverSelection implements ContentCoverSelection {
   }
 }
 function persistence(handle: TransactionHandle): MaterialsPrisma {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The owning persistence adapter narrows the validated connection to its own delegates.
   return unwrapTransaction(handle) as MaterialsPrisma;
 }

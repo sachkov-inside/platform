@@ -1,4 +1,4 @@
-import type { TransactionHandle } from "../../../infrastructure/prisma/transaction-handle.js";
+import type { TransactionHandle } from "../../../infrastructure/transaction-handle.js";
 import { z } from "zod";
 import {
   instantSchema,

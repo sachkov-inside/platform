@@ -41,7 +41,7 @@ test("Product authoring preserves repeated programme identities separately from 
     prisma: database.prisma,
     authorPolicy: { canManage: () => true },
     materials,
-    loadCovers: async () => new Map(),
+    loadCovers: () => Promise.resolve(new Map()),
   });
   const product = await authoring.createContentCollection({
     actor,
@@ -148,7 +148,7 @@ test("Product writes authorize through the same transaction handle as persistenc
       database.prisma,
       new ProductDiscovery(database.prisma),
     ),
-    loadCovers: async () => new Map(),
+    loadCovers: () => Promise.resolve(new Map()),
   });
   const product = await authoring.createContentCollection({
     actor,
@@ -179,7 +179,7 @@ test("concurrent Product source reservation returns one stable identity", async 
       database.prisma,
       new ProductDiscovery(database.prisma),
     ),
-    loadCovers: async () => new Map(),
+    loadCovers: () => Promise.resolve(new Map()),
   });
   const command = {
     actor: randomUUID(),

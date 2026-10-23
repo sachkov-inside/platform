@@ -1492,5 +1492,6 @@ async function hydrateProjectionCovers<Value>(
       Object.entries(current).map(([key, child]) => [key, hydrate(child)]),
     );
   }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Private SQL projections retain their shape while cover placeholders become owner projections.
   return hydrate(value) as Value;
 }

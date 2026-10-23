@@ -475,7 +475,7 @@ const delegateOwners = new Map(
       schema === "member_profiles"
         ? "account-profiles"
         : schema.replaceAll("_", "-");
-    return [[name[0].toLowerCase() + name.slice(1), owner]];
+    return [[name.charAt(0).toLowerCase() + name.slice(1), owner]];
   }),
 );
 

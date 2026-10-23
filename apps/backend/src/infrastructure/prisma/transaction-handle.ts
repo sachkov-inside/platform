@@ -1,8 +1,5 @@
-/** A connection-scoped capability. It exposes no persistence delegates. */
-declare const transactionBrand: unique symbol;
-export interface TransactionHandle {
-  readonly [transactionBrand]: true;
-}
+import type { TransactionHandle } from "../transaction-handle.js";
+export type { TransactionHandle } from "../transaction-handle.js";
 
 const connections = new WeakMap<TransactionHandle, object>();
 const handles = new WeakMap<object, TransactionHandle>();
@@ -11,6 +8,7 @@ const handles = new WeakMap<object, TransactionHandle>();
 export function transactionHandle(connection: object): TransactionHandle {
   const existing = handles.get(connection);
   if (existing !== undefined) return existing;
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Only this factory brands runtime-validated opaque capabilities.
   const handle = Object.freeze({}) as TransactionHandle;
   connections.set(handle, connection);
   handles.set(connection, handle);
