@@ -1,3 +1,9 @@
+import {
+  assembleContentCovers,
+  routeContentCoverSelection,
+} from "../../src/modules/content-covers/index.js";
+import { MaterialCoverSelection } from "../../src/modules/materials/index.js";
+import { ProductCoverSelection } from "../../src/modules/products/index.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import sharp from "sharp";
@@ -5,10 +11,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
-import {
-  assembleContentCovers,
-  assembleProductArtifacts,
-} from "../../src/modules/materials/index.js";
+import { assembleProductArtifacts } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
@@ -464,6 +467,11 @@ describe("authoring source Product completion", () => {
 
   test("changes covers only for records owned by the same source", async () => {
     const covers = assembleContentCovers({
+      selection: routeContentCoverSelection({
+        material: new MaterialCoverSelection(),
+        topic: new MaterialCoverSelection(),
+        series: new ProductCoverSelection(),
+      }),
       prisma: database.prisma,
       objectStorage,
       authorPolicy,
@@ -723,7 +731,7 @@ describe("authoring source Product completion", () => {
       title: "Rejected batch artifact",
     };
     await database.prisma
-      .$executeRaw`alter table materials.product_artifacts add constraint reject_test_artifact_second check (title <> 'Rejected batch artifact') not valid`;
+      .$executeRaw`alter table products.product_artifacts add constraint reject_test_artifact_second check (title <> 'Rejected batch artifact') not valid`;
     try {
       expect(
         await artifacts.applyAuthoringImport({
@@ -743,7 +751,7 @@ describe("authoring source Product completion", () => {
       ).toBe(false);
     } finally {
       await database.prisma
-        .$executeRaw`alter table materials.product_artifacts drop constraint reject_test_artifact_second`;
+        .$executeRaw`alter table products.product_artifacts drop constraint reject_test_artifact_second`;
     }
     const created = await artifacts.applyAuthoringImport({
       actor,

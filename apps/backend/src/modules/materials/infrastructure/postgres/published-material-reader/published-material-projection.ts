@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../../infrastructure/prisma/transaction-handle.js";
 import type { ProductDiscovery } from "../../../../products/index.js";
 import {
   discoveryRelations,
@@ -948,7 +949,7 @@ function projectionQueries(snapshot: DiscoverySnapshot) {
       .array()
       .parse(rawRelatedSeries);
     const covers = await loadContentCoverProjections(
-      prisma,
+      transactionHandle(prisma),
       [
         reference.coverId,
         ...relatedSeries.map(({ cover_id }) => cover_id),
@@ -1046,7 +1047,7 @@ function projectionQueries(snapshot: DiscoverySnapshot) {
         ),
     );
     const covers = await loadContentCoverProjections(
-      prisma,
+      transactionHandle(prisma),
       [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
         (coverId) => (coverId === null ? [] : [coverId]),
       ),

@@ -1,4 +1,10 @@
-import { ProductDiscovery, ProductsModule } from "../products/index.js";
+import {
+  ProductDiscovery,
+  ProductsModule,
+  ProductCoverSelection,
+} from "../products/index.js";
+import { routeContentCoverSelection } from "../content-covers/index.js";
+import { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
 import {
   PRODUCT_ACCESS_HOLDERS,
   type ProductAccessHolders,
@@ -70,7 +76,7 @@ import {
   assembleContentCovers,
   CONTENT_COVERS,
   type ContentCovers,
-} from "./facets/content-covers/content-covers.js";
+} from "../content-covers/index.js";
 import { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
 import { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
 import {
@@ -136,21 +142,40 @@ import {
     },
     {
       provide: CONTENT_COVERS,
-      inject: [PrismaClientProvider, ACCOUNTS, OBJECT_STORAGE],
+      inject: [
+        PrismaClientProvider,
+        ACCOUNTS,
+        OBJECT_STORAGE,
+        ProductCoverSelection,
+      ],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         objectStorage: ObjectStorage,
+        products: ProductCoverSelection,
       ): ContentCovers => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
+        const materials = new MaterialCoverSelection();
         return assembleContentCovers({
+          selection: routeContentCoverSelection({
+            material: materials,
+            topic: materials,
+            series: products,
+          }),
           prisma,
           objectStorage,
           authorPolicy: {
-            canManage: (accountId) =>
-              accountPermissions.hasMaterialsManage(
-                checkedAccountId(accountId),
-              ),
+            canManage: async (accountId, transaction) => {
+              const permission = await accounts.checkPermission(
+                {
+                  accountId: checkedAccountId(accountId),
+                  permission: "materials:manage",
+                },
+                transaction,
+              );
+              if (!permission.ok)
+                throw new Error("Account permission unavailable");
+              return permission.allowed;
+            },
           },
         });
       },

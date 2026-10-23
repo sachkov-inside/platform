@@ -1,5 +1,5 @@
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
-import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
+import type { ContentCoverProjection } from "../../../content-covers/index.js";
 import type { Result } from "../../result.js";
 
 export interface ListPublishedMaterialProjectionsQuery {

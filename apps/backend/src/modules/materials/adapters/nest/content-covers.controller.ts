@@ -36,8 +36,8 @@ import { MATERIAL_ASSET_LIMITS } from "../../../assets/index.js";
 import {
   ApiMaterialAuthoringErrors,
   MaterialAuthoringEndpoint,
-} from "../../adapters/nest/material-authoring-endpoint.js";
-import { contentCoverProjectionHttpSchema } from "../../adapters/nest/content-cover-http.js";
+} from "./material-authoring-endpoint.js";
+import { contentCoverProjectionHttpSchema } from "./content-cover-http.js";
 import { authoringSourceIdSchema } from "../../domain/authoring-source.js";
 import {
   CONTENT_COVERS,
@@ -45,7 +45,7 @@ import {
   type ChangeContentCoverCommand,
   type ChangeContentCoverResult,
   type ContentCovers,
-} from "./content-covers.js";
+} from "../../../content-covers/index.js";
 import {
   problemException,
   problemType,

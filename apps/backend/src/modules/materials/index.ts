@@ -37,12 +37,6 @@ export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
 export {
-  assembleContentCovers,
-  type ContentCoverOwner,
-  type ContentCoverProjection,
-} from "./facets/content-covers/content-covers.js";
-
-export {
   contentCoverProjectionHttpSchema,
   publishedMaterialProblemHttpSchema,
   publishedMaterialProjectionHttpSchema,
@@ -91,3 +85,5 @@ export { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js"
 export { PRODUCT_ARTIFACTS } from "./facets/product-artifacts/product-artifacts.js";
 export { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
 export { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
+
+export { MaterialCoverSelection } from "./infrastructure/postgres/material-cover-selection.js";
