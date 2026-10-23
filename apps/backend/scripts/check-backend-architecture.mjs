@@ -271,7 +271,7 @@ function violationsFor(source, specifier) {
   const sourcePath = scannedPath(source);
   const importedPath = importedRepositoryPath(sourcePath, specifier);
   if (
-    specifier.endsWith("transaction-handle.js") &&
+    importedPath === "src/infrastructure/prisma/transaction-handle.js" &&
     readFileSync(source, "utf8").includes("unwrapTransaction") &&
     !/^src\/modules\/[^/]+\/infrastructure\//u.test(sourcePath)
   ) {
