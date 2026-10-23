@@ -91,3 +91,4 @@ export { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js"
 export { PRODUCT_ARTIFACTS } from "./facets/product-artifacts/product-artifacts.js";
 export { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
 export { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
+export { assembleProductMaterials } from "./adapters/products/product-materials.js";

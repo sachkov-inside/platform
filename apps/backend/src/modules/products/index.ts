@@ -55,3 +55,8 @@ export {
   seriesStepGroupSchema,
   seriesStepGroupsSchema,
 } from "./shared/series-step-groups.js";
+export {
+  PRODUCT_MATERIALS,
+  type ProductMaterials,
+  type ProductMaterialFacts,
+} from "./ports/product-materials.js";
