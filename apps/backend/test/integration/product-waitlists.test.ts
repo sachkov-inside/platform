@@ -1,10 +1,18 @@
 import { outsideTransaction } from "./setup/transaction-guard.js";
 import { eventually } from "./setup/eventually.js";
-import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
+import { grantProductFixture } from "./setup/product-access.js";
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import {
+  assembleAccessGrants,
+  assembleAccountRights,
+} from "../../src/modules/account-rights/index.js";
 import {
   lockTelegramAccountBinding,
   lockAccountEntitlementChanges,
   Prisma,
+  transactionHandle,
 } from "../../src/infrastructure/prisma/index.js";
 import { migrateToLatest } from "../../src/migrations/index.js";
 import { randomUUID } from "node:crypto";
@@ -59,7 +67,9 @@ beforeAll(async () => {
   });
 });
 beforeEach(async () => {
-  await db.prisma.accessGrant.deleteMany({ where: { accountId } });
+  await db.prisma.productAccessAction.deleteMany({ where: { accountId } });
+  await db.prisma.productAccessSource.deleteMany({ where: { accountId } });
+  await db.prisma.productAccess.deleteMany({ where: { accountId } });
   await db.prisma.productWaitlistConfirmation.deleteMany({});
   await db.prisma.productWaitlistOperation.deleteMany({});
   await db.prisma.productWaitlistEvent.deleteMany({});
@@ -415,21 +425,8 @@ test("a failed durable confirmation write rolls back membership and never author
   }
 });
 
-async function openCourse(prisma = db.prisma) {
-  await prisma.accessGrant.create({
-    data: {
-      id: randomUUID(),
-      accountId,
-      source: "manual",
-      sourceRef: randomUUID(),
-      capabilities: [`product:${productId}`],
-      coverage: { productIds: [productId], materialIds: [] },
-      startsAt: new Date("2030-03-01T00:00:00Z"),
-      validUntil: null,
-      revision: 1,
-      reason: "Waitlist learner eligibility",
-    },
-  });
+async function openCourse() {
+  await grantProductFixture(db.prisma, accountId, productId);
 }
 test("a learner cannot join and creates no signup or confirmation", async () => {
   await openCourse();
@@ -480,6 +477,18 @@ test("an existing signup stops being current and deliverable after course access
 });
 
 test("joining waits for an access writer without reversing its binding and entitlement locks", async () => {
+  const grants = assembleAccessGrants({
+    prisma: db.prisma,
+    accounts: assembleAccounts({
+      prisma: db.prisma,
+      emailFingerprintKey: "waitlist-public-writer-fixture-key",
+    }),
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
+    clock: () => new Date("2030-03-05T12:00:00Z"),
+  });
   let joining: ReturnType<ProductWaitlists["join"]> | undefined;
   try {
     await db.prisma.$transaction(async (tx) => {
@@ -504,20 +513,19 @@ test("joining waits for an access writer without reversing its binding and entit
         }, 10000),
       );
       await lockAccountEntitlementChanges(tx, accountId);
-      await tx.accessGrant.create({
-        data: {
-          id: randomUUID(),
-          accountId,
-          source: "manual",
-          sourceRef: randomUUID(),
-          capabilities: [`product:${productId}`],
-          coverage: { productIds: [productId], materialIds: [] },
-          startsAt: new Date("2030-03-01T00:00:00Z"),
-          validUntil: null,
-          revision: 1,
-          reason: "Concurrent waitlist access",
-        },
-      });
+      expect(
+        await grants.issueProductAccess(
+          { source: "purchase" },
+          {
+            accountId,
+            productId,
+            sourceRef: randomUUID(),
+            issuedAt: "2030-03-01T00:00:00Z",
+            reason: "Concurrent waitlist access",
+          },
+          transactionHandle(tx),
+        ),
+      ).toMatchObject({ ok: true });
     });
     expect(await joining).toMatchObject({ ok: true, value: { active: false } });
     expect(await db.prisma.productWaitlistMembership.count()).toBe(0);

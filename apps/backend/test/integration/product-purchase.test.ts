@@ -35,7 +35,7 @@ test("concurrent Product purchase, verified confirmation, replay and fulfillment
   ]);
   expect(started.every((r) => r.ok)).toBe(true);
   expect(s.initCalls()).toBe(1);
-  const purchase = value(started[0]!);
+  const purchase = value(started[0]);
   expect(
     value(await s.payments.status(s.buyer, purchase.purchaseRef)).access,
   ).toBe("awaiting_payment");
@@ -292,5 +292,62 @@ test("a holder cannot buy the Product again even by acknowledging existing acces
       acknowledgeExistingAccess: true,
     }),
   ).toMatchObject({ ok: false, error: { code: "existing_access" } });
+  expect(s.initCalls()).toBe(1);
+});
+
+test("the actual published legal catalog refuses fresh Product payment including a private link without Init", async () => {
+  const { consentDocuments } = await import("@inside/legal");
+  const s = await scenario({
+    legalDocuments: consentDocuments("https://inside.example.test"),
+  });
+  expect(s.document.commercialModel).toBeUndefined();
+  expect(await s.payments.purchase(s.buyer, s.command)).toMatchObject({
+    ok: false,
+    error: { code: "method_unavailable" },
+  });
+  const link = value(
+    await s.pricing.managePaymentLink(owner, {
+      operation: "paymentLinks.create",
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      price: { kind: "amount", amountKopecks: 100000 },
+      expiresAt: null,
+    }),
+  );
+  const quote = value(
+    await s.pricing.quote(s.buyer, {
+      operationId: randomUUID(),
+      productId: s.productId,
+      priceRevision: 1,
+      paymentLinkId: link.id,
+    }),
+  );
+  expect(
+    await s.payments.purchase(s.buyer, {
+      ...s.command,
+      operationId: randomUUID(),
+      quoteRef: quote.quoteRef,
+    }),
+  ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
+  expect(s.initCalls()).toBe(0);
+  expect(
+    await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } }),
+  ).toBe(0);
+});
+
+test("a distinct approved-model synthetic legal edition is persisted from the server catalog", async () => {
+  const s = await scenario();
+  expect(s.document.commercialModel).toBe("product-lifetime-v1");
+  expect(s.document.version).toBe("test-v1");
+  expect(s.document.text).toContain("Synthetic");
+  const purchase = value(await s.payments.purchase(s.buyer, s.command));
+  const stored = await db.prisma.billingPurchase.findUniqueOrThrow({
+    where: { id: purchase.purchaseRef },
+  });
+  expect(stored.acceptance).toMatchObject({
+    commercialModel: "product-lifetime-v1",
+  });
+  expect(JSON.stringify(stored.acceptance)).toContain(s.document.digest);
   expect(s.initCalls()).toBe(1);
 });

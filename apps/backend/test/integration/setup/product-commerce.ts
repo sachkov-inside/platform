@@ -1,3 +1,4 @@
+import type { LegalDocument } from "../../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
 import { CoverageCatalog } from "../../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
 import { ProductDiscovery } from "../../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
@@ -44,7 +45,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     notificationUrl: "https://inside.example.test/billing/tbank/notification",
     receipt: { taxation: "usn_income", tax: "none" },
   });
-  function setupFacets() {
+  function setupFacets(legalDocuments?: readonly LegalDocument[]) {
     const accounts = assembleAccounts({
       prisma: db.prisma,
       emailFingerprintKey: "product-buyer-test-fingerprint-key-000000",
@@ -64,15 +65,18 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       sale: { payments: true },
       clock: () => now,
     });
-    const document = syntheticConsentDocument("terms", {
-      appliesTo: ["one_time"],
-    });
+    const document = legalDocuments?.find(
+      (document) => document.kind === "terms",
+    ) ?? {
+      ...syntheticConsentDocument("terms", { appliesTo: ["one_time"] }),
+      commercialModel: "product-lifetime-v1" as const,
+    };
     const contact = new BillingContact({
       prisma: db.prisma,
       protection: billingContactProtection(
         Buffer.alloc(32, 42).toString("base64"),
       ),
-      documents: [document],
+      documents: legalDocuments ?? [document],
       now: () => now,
       sendCode: () => Promise.resolve(),
     });
@@ -83,6 +87,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       productId?: string;
       discount?: number;
       usageLimit?: number;
+      legalDocuments?: readonly LegalDocument[];
     } = {},
   ) {
     const buyer = randomUUID(),
@@ -98,7 +103,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       await db.prisma.product.create({
         data: { id: productId, name: "Курс", slug: productId },
       });
-    const facets = setupFacets();
+    const facets = setupFacets(options.legalDocuments);
     if (options.productId === undefined)
       value(
         await facets.pricing.manage(owner, {
@@ -124,8 +129,7 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
             code: null,
             startsAt: "2020-01-01T00:00:00.000Z",
             endsAt: "2040-01-01T00:00:00.000Z",
-            offerIds: [productId],
-            paymentOptionIds: [],
+            productIds: [productId],
             usageLimit: options.usageLimit ?? null,
           },
         }),
@@ -176,12 +180,12 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
       ErrorCode: "0",
       ...extra,
     });
-    const bank = new Tbank(config, async (url, init) => {
+    const bank = new Tbank(config, (url, init) => {
       const body = z
         .object({ OrderId: z.string().optional() })
         .loose()
-        .parse(JSON.parse(String(init.body)));
-      if (String(url).endsWith("/Init")) {
+        .parse(JSON.parse(init.body));
+      if (url.endsWith("/Init")) {
         initCalls++;
         orderId = z.string().parse(body.OrderId);
         expect(body).toMatchObject({
@@ -189,29 +193,33 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
         });
         expect(body).not.toHaveProperty("Recurrent");
         if (timeout) throw new Error("Synthetic lost Init answer");
-        return Response.json({
-          ...event(),
-          PaymentURL: "https://securepay.tinkoff.ru/test",
-        });
+        return Promise.resolve(
+          Response.json({
+            ...event(),
+            PaymentURL: "https://securepay.tinkoff.ru/test",
+          }),
+        );
       }
-      if (String(url).endsWith("/CheckOrder"))
-        return Response.json({
-          Success: true,
-          ErrorCode: "0",
-          TerminalKey: config.terminalKey,
-          OrderId: body.OrderId,
-          Payments: [
-            {
-              PaymentId: paymentId,
-              Status: status,
-              Success: true,
-              ErrorCode: 0,
-            },
-          ],
-        });
-      if (String(url).endsWith("/GetState")) {
+      if (url.endsWith("/CheckOrder"))
+        return Promise.resolve(
+          Response.json({
+            Success: true,
+            ErrorCode: "0",
+            TerminalKey: config.terminalKey,
+            OrderId: body.OrderId,
+            Payments: [
+              {
+                PaymentId: paymentId,
+                Status: status,
+                Success: true,
+                ErrorCode: 0,
+              },
+            ],
+          }),
+        );
+      if (url.endsWith("/GetState")) {
         stateCalls++;
-        return Response.json(event());
+        return Promise.resolve(Response.json(event()));
       }
       throw new Error("Recurring or unsupported bank operation");
     });
@@ -261,5 +269,28 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     setTime: (time: Date) => {
       now = time;
     },
+  };
+}
+
+/** A session-owned migrated PostgreSQL database and a real owner for integration suites. */
+export async function createProductCommerceWorld() {
+  const { createMigratedTestDatabase } = await import("./test-database.js");
+  const db = await createMigratedTestDatabase();
+  const owner = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: owner,
+      logtoIssuer: "https://identity.invalid",
+      logtoSubject: owner,
+    },
+  });
+  await db.prisma.accountPermission.create({
+    data: { accountId: owner, permission: "platform:admin" },
+  });
+  return {
+    db,
+    owner,
+    ...createProductCommerceFixture(db, owner),
+    dispose: () => db.dispose(),
   };
 }
