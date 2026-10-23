@@ -1,4 +1,8 @@
-# Tribute: подтверждение реестра и перенос доступа
+# Tribute: historical convergence procedure
+
+This procedure is historical. #1709 removes its runtime, ingress, keys, jobs and owner commands.
+Retained financial, source and receipt records are passive; no instruction below is a current
+operating procedure. Use [Product purchase acceptance](local-acceptance-sale.md) for current access.
 
 После #1064 новые источники `temporary_membership` не создаются. Этот режим ниже относится
 только к историческим источникам: их данные и проверки свежести сохраняются. Новый импорт

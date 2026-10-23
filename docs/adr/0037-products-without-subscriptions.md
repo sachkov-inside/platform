@@ -9,6 +9,27 @@ supersedes the six-month Support term, configurable Tariffs, and the dormant-sub
 The target model gives the whole Product and removes subscription functionality altogether.
 The original decision is retained as history.
 
+## Current implementation of the accepted 2026-10-23 model
+
+#1709 removes the recurring runtime, its routes, owner commands, jobs, card flows, Tribute ingress
+and the membership-evidence bridge. One Account and Product have one lifetime state with source
+and action history. Explicit withdrawal latches against payment/course replay; only an owner
+restore command reopens it. Refund confirmation is a financial fact independent of withdrawal.
+
+New commerce uses a direct Product Price and one best Promotion, a quote, and a separately reserved
+purchase. Closing sales and archive deny unsent operations, including Payment Links. Already sent
+operations retain their exact terms and reconcile without another Init. Confirmed fulfillment
+issues the same Product Access idempotently. The three-calendar-month Support promise creates no
+access expiry, recurring charge or repeat-purchase path. Publishing the concrete prospective legal
+edition remains assigned to #1464; historical editions and accepted snapshots are unchanged.
+
+Historical storage and receipt decoders remain passive. Migration inventory preserves unmappable,
+expired and future technical facts without granting a Product inferred from whole-platform,
+Material-only or membership-bridge history. Current explicit Product grounds can migrate; an
+explicit Product withdrawal remains a durable latch. Review inventory before an authorized rollout.
+
+## Historical 2026-10-20 decision
+
 The owner decided on 2026-10-20 that Platform currently sells access to Products only by
 one-time payment. Course activation and owner assignment grant Product access without creating
 a Subscription. Subscriptions may become a separate offering later; they have no relationship

@@ -28,6 +28,8 @@ export interface LegalEdition {
   readonly text: string;
   /** SHA-256 of `text` in lowercase hex, stored with the edition and checked by its test. */
   readonly digest: string;
+  /** Present only on a separately approved Product/community/three-calendar-month purchase edition. */
+  readonly commercialModel?: "product-lifetime-v1";
 }
 
 /** Address of the edition in force. */
