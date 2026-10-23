@@ -50,12 +50,17 @@ export class ProductDiscovery {
     };
   }
 
-  async metadata(query?: {
-    readonly ids?: readonly string[];
-    readonly slugs?: readonly string[];
-    readonly includeActive?: boolean;
-  }): Promise<ProductMetadataFact[]> {
-    return this.prisma.product.findMany({
+  async metadata(
+    query?: {
+      readonly ids?: readonly string[];
+      readonly slugs?: readonly string[];
+      readonly includeActive?: boolean;
+    },
+    handle?: TransactionHandle,
+  ): Promise<ProductMetadataFact[]> {
+    const prisma =
+      handle === undefined ? this.prisma : productsTransaction(handle);
+    return prisma.product.findMany({
       ...(query === undefined
         ? {}
         : {

@@ -1,3 +1,4 @@
+import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
 import { randomUUID } from "node:crypto";
 import {
   lockAccountAccess,
@@ -20,13 +21,15 @@ export async function issueProductAccess(
   contextInput: unknown,
   input: unknown,
   now: Date,
+  catalog?: Pick<CoverageCatalog, "hasProduct">,
 ) {
   const context = productAccessContextSchema.safeParse(contextInput),
     parsed = issueProductAccessSchema.safeParse(input);
   if (!context.success || !parsed.success)
     return accessFailure("invalid_input");
   const command = parsed.data;
-  if (new Date(command.issuedAt) > now) return accessFailure("invalid_input");
+  if (context.data.source !== "manual" && new Date(command.issuedAt) > now)
+    return accessFailure("invalid_input");
   if (context.data.source === "manual") {
     if (context.data.actorId === undefined) return accessFailure("forbidden");
     const decision = await accounts.checkPermission(
@@ -35,6 +38,9 @@ export async function issueProductAccess(
     );
     if (!decision.ok) return accessFailure("unavailable");
     if (!decision.allowed) return accessFailure("forbidden");
+    if (catalog?.hasProduct === undefined) return accessFailure("unavailable");
+    if (!(await catalog.hasProduct(command.productId, transactionHandle(tx))))
+      return accessFailure("not_found");
   }
   if (
     (await accounts.readIdentityForLink(
@@ -56,6 +62,9 @@ export async function issueProductAccess(
       },
     },
   });
+  if (context.data.source === "manual")
+    command.issuedAt =
+      existingSource?.issuedAt.toISOString() ?? now.toISOString();
   if (
     existingSource !== null &&
     (existingSource.accountId !== command.accountId.toLowerCase() ||

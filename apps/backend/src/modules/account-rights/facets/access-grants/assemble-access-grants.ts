@@ -51,6 +51,7 @@ import { readOwnAccess } from "../../features/read-own-access/read-own-access.js
 import { readOwnProducts } from "../../features/read-own-products/read-own-products.js";
 import { setAccessSnapshotIsolation } from "../../infrastructure/access-isolation.js";
 import {
+  issueManualProductAccessSchema,
   productAccessViewSchema,
   productAccessListQuerySchema,
   productAccessTargetSchema,
@@ -128,13 +129,38 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     }
   }
   return Object.freeze({
+    issueManualProductAccess: (
+      actorId: string,
+      input: unknown,
+      handle?: TransactionHandle,
+    ) =>
+      inTransaction(handle, (tx) => {
+        const parsed = issueManualProductAccessSchema.safeParse(input);
+        if (!parsed.success)
+          return Promise.resolve(accessFailure("invalid_input"));
+        return issueProductAccess(
+          tx,
+          accounts,
+          { source: "manual", actorId },
+          { ...parsed.data, issuedAt: clock().toISOString() },
+          clock(),
+          dependencies.contentCatalog,
+        );
+      }),
     issueProductAccess: (
       context: ProductAccessContext,
       command: IssueProductAccessCommand,
       handle?: TransactionHandle,
     ) =>
       inTransaction(handle, (tx) =>
-        issueProductAccess(tx, accounts, context, command, clock()),
+        issueProductAccess(
+          tx,
+          accounts,
+          context,
+          command,
+          clock(),
+          dependencies.contentCatalog,
+        ),
       ),
     lookupRecipient: (actorId: string, identityRef: string) =>
       manage(actorId, "billing:manage", async () => {
@@ -264,7 +290,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         clock(),
         (context, command, issuerHandle) =>
           inTransaction(issuerHandle, (tx) =>
-            issueProductAccess(tx, accounts, context, command, clock()),
+            issueProductAccess(
+              tx,
+              accounts,
+              context,
+              command,
+              clock(),
+              dependencies.contentCatalog,
+            ),
           ),
       ),
 

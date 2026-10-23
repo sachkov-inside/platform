@@ -1,3 +1,5 @@
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "vitest";
 import {
@@ -54,6 +56,10 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
       emailFingerprintKey: "synthetic-lifetime-content-access-key",
     });
     const grants = assembleAccessGrants({
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       prisma: db.prisma,
       accounts,
       clock: () => now,

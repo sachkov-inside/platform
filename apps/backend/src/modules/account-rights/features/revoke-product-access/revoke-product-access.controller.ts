@@ -1,4 +1,4 @@
-import { issueProductAccessSchema } from "../../domain/product-access.js";
+import { issueManualProductAccessSchema } from "../../domain/product-access.js";
 import {
   Body,
   Controller,
@@ -125,7 +125,7 @@ export class RevokeProductAccessController {
     operationId: "issueProductAccess",
     summary: "Issue one lifetime Product Access explicitly as owner",
   })
-  @ApiBody({ schema: toOpenApiSchema(issueProductAccessSchema) })
+  @ApiBody({ schema: toOpenApiSchema(issueManualProductAccessSchema) })
   @ApiOkResponse({
     schema: toOpenApiSchema(
       z.strictObject({
@@ -139,10 +139,10 @@ export class RevokeProductAccessController {
     @CurrentAccount() actor: AuthenticatedAccount,
     @Body() input: unknown,
   ) {
-    const parsed = issueProductAccessSchema.safeParse(input);
+    const parsed = issueManualProductAccessSchema.safeParse(input);
     if (!parsed.success) fail("invalid_input");
-    const result = await this.grants.issueProductAccess(
-      { source: "manual", actorId: actor.accountId },
+    const result = await this.grants.issueManualProductAccess(
+      actor.accountId,
       parsed.data,
     );
     if (!result.ok) fail(result.error.code);
