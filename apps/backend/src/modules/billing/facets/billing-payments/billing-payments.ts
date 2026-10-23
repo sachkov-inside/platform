@@ -765,8 +765,46 @@ export class BillingPayments {
         row.terminalRef !== bank.config.terminalKey
       )
         return paymentFailure("method_unavailable");
-      if (row.state === "prepared" && row.kind !== "one_time")
+      if (row.state === "prepared" && row.kind !== "one_time") {
+        await prisma.$transaction(async (tx) => {
+          await lockBillingPricing(tx);
+          await lockBillingPurchase(tx, row.id);
+          const current = await tx.billingPurchase.findUniqueOrThrow({
+            where: { id: row.id },
+          });
+          if (current.state !== "prepared" || current.kind === "one_time")
+            return;
+          const now = this.clock();
+          await tx.billingPurchase.update({
+            where: { id: row.id },
+            data: {
+              state: "failed",
+              lifecycleActive: false,
+              paymentUrl: null,
+              updatedAt: now,
+            },
+          });
+          await tx.billingPromoReservation.updateMany({
+            where: { purchaseRef: row.id },
+            data: { state: "failed" },
+          });
+          await tx.billingPaymentEvent.create({
+            data: {
+              id: randomUUID(),
+              purchaseRef: row.id,
+              kind: "legacy_dispatch_retired",
+              payload: {
+                kind: current.kind,
+                reason:
+                  "Unsent recurring operation retired without bank dispatch",
+              },
+              occurredAt: now,
+              recordedAt: now,
+            },
+          });
+        });
         return { ok: true, value: true };
+      }
       if (row.state === "prepared") {
         const outcome = await this.dispatch(row.id);
         if (outcome === "configuration_idle")
@@ -867,30 +905,45 @@ export class BillingPayments {
           continue;
         }
         const snapshot = priceSnapshotSchema.parse(purchase.snapshot);
-        const productIds = snapshot.offer.benefits
-          .filter(isProductCapability)
-          .map(productIdFromCapability)
-          .filter((id): id is string => id !== null);
-        if (productIds.length !== 1 || purchase.confirmedAt === null) {
+        const productIds = [
+          ...new Set(
+            (snapshot.product === undefined
+              ? [
+                  ...snapshot.offer.benefits
+                    .filter(isProductCapability)
+                    .map(productIdFromCapability)
+                    .filter((id): id is string => id !== null),
+                  ...(snapshot.offer.coverage?.productIds ?? []),
+                ]
+              : [snapshot.product.id]
+            ).map((id) => id.toLowerCase()),
+          ),
+        ].sort();
+        if (productIds.length === 0 || purchase.confirmedAt === null) {
           failed += 1;
           continue;
         }
-        const productId = productIds[0];
-        if (productId === undefined) {
-          failed += 1;
-          continue;
+        let completed = true;
+        for (const productId of productIds) {
+          const result = await this.dependencies.grants.issueProductAccess(
+            { source: "purchase" },
+            {
+              accountId: purchase.accountId,
+              productId,
+              sourceRef:
+                productIds.length === 1
+                  ? `payment:${purchase.id}`
+                  : `payment:${purchase.id}:product:${productId}`,
+              issuedAt: purchase.confirmedAt.toISOString(),
+              reason: "payment_confirmed",
+            },
+          );
+          if (!result.ok) {
+            completed = false;
+            break;
+          }
         }
-        const result = await this.dependencies.grants.issueProductAccess(
-          { source: "purchase" },
-          {
-            accountId: purchase.accountId,
-            productId,
-            sourceRef: `payment:${purchase.id}`,
-            issuedAt: purchase.confirmedAt.toISOString(),
-            reason: "payment_confirmed",
-          },
-        );
-        if (result.ok) {
+        if (completed) {
           await this.dependencies.prisma.billingFulfillment.update({
             where: { eventRef: row.eventRef },
             data: { appliedAt: this.clock() },

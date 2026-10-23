@@ -44,11 +44,54 @@ test("course rollout resolves only existing unambiguous Products and preserves e
         expected: null,
         published: false,
       },
+      {
+        id: randomUUID(),
+        offer: randomUUID(),
+        benefits: [`product:${product}`, "support"],
+        expected: null,
+        published: false,
+        offerRevision: 8,
+      },
+      {
+        id: randomUUID(),
+        offer: randomUUID(),
+        benefits: [`product:${product}`, "support"],
+        expected: null,
+        published: false,
+        archived: true,
+      },
+      {
+        id: randomUUID(),
+        offer: randomUUID(),
+        benefits: [`product:${product}`, "support"],
+        expected: null,
+        published: false,
+        assignable: false,
+      },
+      {
+        id: randomUUID(),
+        offer: randomUUID(),
+        benefits: [`product:${product}`, "support"],
+        expected: null,
+        published: false,
+        missingSupportTerm: true,
+      },
     ];
     for (const row of scenarios) {
       await pool.query(
-        "insert into billing.offers(id,revision,name,benefits) values($1,7,'Historical course',$2)",
-        [row.offer, row.benefits],
+        "insert into billing.offers(id,revision,name,benefits,archived,available_for_assignment,benefit_periods) values($1,$3,'Historical course',$2,$4,$5,$6)",
+        [
+          row.offer,
+          row.benefits,
+          "offerRevision" in row ? row.offerRevision : 7,
+          "archived" in row && row.archived,
+          !("assignable" in row) || row.assignable,
+          JSON.stringify(
+            "missingSupportTerm" in row
+              ? []
+              : [{ capability: "support", months: 3 }],
+          ),
+        ],
       );
       await pool.query(
         "insert into account_rights.activation_rules(id,code,name,revision,tier_id,tier_revision,source_ref,published,starts_at,reason) values($1::uuid,$1::text,'Historical rule',3,$2,7,$1::text,true,'2030-01-01','Historical source')",
@@ -112,6 +155,23 @@ test("course rollout resolves only existing unambiguous Products and preserves e
           tier_id: row.offer,
           tier_revision: 7,
           revision: 3,
+        },
+      ]);
+    }
+    for (const row of scenarios) {
+      const inventory = await pool.query(
+        "select disposition,source->'rule'->>'tier_revision' as pinned_revision,source->'offer'->>'revision' as offer_revision from account_rights.course_rule_migration_inventory where rule_id=$1",
+        [row.id],
+      );
+      expect(inventory.rows).toEqual([
+        {
+          disposition:
+            row.expected === null
+              ? "paused_requires_review"
+              : "mapped_exact_pinned_revision",
+          pinned_revision: "7",
+          offer_revision:
+            "offerRevision" in row ? String(row.offerRevision) : "7",
         },
       ]);
     }
