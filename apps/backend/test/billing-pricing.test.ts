@@ -60,7 +60,7 @@ describe("Billing pricing rules", () => {
     for (const amount of [0, -1, 1.2, Number.MAX_SAFE_INTEGER + 1])
       expect(moneySchema.safeParse(amount).success).toBe(false);
   });
-  test("promotion uses a half-open instant interval, both scopes and exact trimmed code", () => {
+  test("promotion uses a half-open instant interval, exact Product scope and exact trimmed code", () => {
     const option = {
       id: randomUUID(),
       offerId: randomUUID(),
@@ -77,7 +77,7 @@ describe("Billing pricing rules", () => {
       code: "CODE",
       startsAt: "2026-09-08T15:00:00+03:00",
       endsAt: "2026-09-08T16:00:00+03:00",
-      productIds: [option.offerId],
+      productIds: [option.id],
       usageLimit: null,
       archived: false,
     };
@@ -116,7 +116,7 @@ describe("Billing pricing rules", () => {
     expect(
       applicablePromotion(
         promotion,
-        { ...option, offerId: randomUUID() },
+        { ...option, id: randomUUID() },
         new Date("2026-09-08T12:00:00Z"),
         "CODE",
       ),

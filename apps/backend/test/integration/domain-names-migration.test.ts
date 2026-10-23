@@ -274,7 +274,7 @@ test("retains a pre-upgrade paid receipt and malformed legacy fulfillment passiv
     const migrated = await database.prisma.billingFulfillment.findUniqueOrThrow(
       { where: { eventRef } },
     );
-    expect(migrated.appliedAt).toBeNull();
+    expect(migrated.appliedAt).toEqual(now);
     expect(migrated.payload).toMatchObject({
       eventRef,
       accountId,

@@ -235,7 +235,10 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
   expect(messages.result.map((entry) => entry.noticeRef)).toEqual(
     Array.from({ length: 20 }, (_, index) => id(612, 21 - index)),
   );
-  expect(money.statements).toHaveLength(3);
+  expect(money.statements).toHaveLength(4);
+  expect(
+    money.statements.filter((sql) => /^\s*SELECT\b/iu.test(sql)),
+  ).toHaveLength(4);
   expect(
     money.statements.filter((sql) =>
       sql.includes('"billing"."fulfillment_outbox"'),

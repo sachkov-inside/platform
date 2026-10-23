@@ -789,7 +789,9 @@ describe("приёмка обоих источников Notifications (реал
 
     // Отсутствие доказывается только после того, как сама рассылка закрыта: рядом стоит
     // участник, которому она полагается, и его сообщение — закреплённый факт этого шага.
-    const material = await publish("Материал после выдачи права");
+    const material = await publish("Материал после выдачи права", [
+      libraryOffer,
+    ]);
     const announcement = await announcementOf(material);
     await eventually(async () => {
       expect(await announcementSettled(announcement.id)).toBe(true);
@@ -980,7 +982,9 @@ describe("приёмка обоих источников Notifications (реал
         }),
       );
     }
-    const material = await publish("Материал при нагруженной ленте подписки");
+    const material = await publish("Материал при нагруженной ленте подписки", [
+      optionId,
+    ]);
     const announcement = await announcementOf(material);
 
     let backlogWhenAnnounced = 0;

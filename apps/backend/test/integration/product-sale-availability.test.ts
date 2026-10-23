@@ -76,7 +76,7 @@ describe.each([1, 10, 100])(
       ]);
       expect(
         read.statements.filter((sql) => sql.startsWith("SELECT")).length,
-      ).toBe(3);
+      ).toBe(4);
     });
   },
 );
