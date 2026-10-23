@@ -61,3 +61,111 @@ export {
   type ProductMaterials,
   type ProductMaterialFacts,
 } from "./ports/product-materials.js";
+export type {
+  CreateContentCollectionCommand,
+  CreateContentCollectionError,
+  CreateContentCollectionResult,
+  CreateContentCollectionOperation,
+} from "./features/create-content-collection/create-content-collection.contract.js";
+export type {
+  UpdateContentCollectionCommand,
+  UpdateContentCollectionError,
+  UpdateContentCollectionResult,
+  UpdateContentCollectionOperation,
+} from "./features/update-content-collection/update-content-collection.contract.js";
+export type {
+  SetContentCollectionArchiveCommand,
+  SetContentCollectionArchiveError,
+  SetContentCollectionArchiveResult,
+  SetContentCollectionArchiveOperation,
+} from "./features/set-content-collection-archive/set-content-collection-archive.contract.js";
+export type {
+  ListContentCollectionsQuery,
+  ListContentCollectionsResult,
+  ListContentCollectionsOperation,
+} from "./features/list-content-collections/list-content-collections.contract.js";
+export type {
+  ProductChapterDto,
+  SeriesOrderMaterialDto,
+  SeriesOrderDto,
+  LoadSeriesOrderQuery,
+  SeriesNotFoundError,
+  LoadSeriesOrderError,
+  LoadSeriesOrderResult,
+  LoadSeriesOrderOperation,
+} from "./features/load-series-order/load-series-order.contract.js";
+export { assembleLoadSeriesOrder } from "./features/load-series-order/load-series-order.js";
+export type {
+  ReorderSeriesCommand,
+  ReorderSeriesReceiptDto,
+  StaleSeriesOrderError,
+  ReorderSeriesError,
+  ReorderSeriesResult,
+  ReorderSeriesOperation,
+} from "./features/reorder-series/reorder-series.contract.js";
+export { productChapterPlacementIssues } from "./features/reorder-series/product-chapter-placement.js";
+export {
+  reorderSeriesCommandSchema,
+  assembleReorderSeries,
+} from "./features/reorder-series/reorder-series.js";
+export {
+  reserveSourceProductBodySchema,
+  updateSourceProductBodySchema,
+  reorderSourceProductBodySchema,
+  validateSourceProductBodySchema,
+} from "./features/import-source-product/import-source-product.contract.js";
+export type {
+  ValidateSourceProductOperation,
+  ReserveSourceProductOperation,
+  UpdateSourceProductOperation,
+  ReorderSourceProductOperation,
+} from "./features/import-source-product/import-source-product.contract.js";
+export {
+  assembleReserveSourceProduct,
+  assembleValidateSourceProduct,
+  assembleUpdateSourceProduct,
+  assembleReorderSourceProduct,
+} from "./features/import-source-product/import-source-product.js";
+export {
+  chapterAttachmentsBodySchema,
+  assembleUpdateChapterAttachments,
+} from "./features/update-chapter-attachments/update-chapter-attachments.js";
+export type { UpdateChapterAttachmentsOperation } from "./features/update-chapter-attachments/update-chapter-attachments.js";
+export { PRODUCT_INTRODUCTION_FIELD_MAX } from "./facets/product-authoring/content-collection.contract.js";
+export type {
+  ContentCollectionKind,
+  ProductIntroductionDto,
+  ContentCollectionDto,
+  ProductLandingPageDto,
+} from "./facets/product-authoring/content-collection.contract.js";
+export {
+  loadSeriesOrderSnapshot,
+  appendSelectedSeriesMemberships,
+  lockSeries,
+  lockMaterialSeries,
+  replaceProductComposition,
+} from "./infrastructure/postgres/series-order.js";
+export type {
+  ProductChapterSnapshot,
+  SeriesOrderSnapshot,
+} from "./infrastructure/postgres/series-order.js";
+export {
+  heldProductRemovals,
+  unconfirmedProductRemovals,
+  recordProductRemovals,
+} from "./shared/product-removal-confirmation.js";
+export {
+  contentCollectionInputSchema,
+  assembleCreateContentCollection,
+} from "./features/create-content-collection/create-content-collection.js";
+export {
+  updateContentCollectionCommandSchema,
+  assembleUpdateContentCollection,
+} from "./features/update-content-collection/update-content-collection.js";
+export { assembleSetContentCollectionArchive } from "./features/set-content-collection-archive/set-content-collection-archive.js";
+export { assembleListContentCollections } from "./features/list-content-collections/list-content-collections.js";
+export {
+  assembleProductAuthoring,
+  PRODUCT_AUTHORING,
+  type ProductAuthoring,
+} from "./facets/product-authoring/product-authoring.js";

@@ -1,4 +1,3 @@
-import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   Prisma,
   type MaterialsPrisma,
@@ -13,8 +12,8 @@ import type {
   ContentCollectionKind,
   ProductIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
-import type { ContentCoverProjection } from "../../../content-covers/index.js";
-import { loadContentCoverProjections } from "../../../content-covers/index.js";
+import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
+import { loadContentCoverProjections } from "./content-cover-projections.js";
 
 interface ContentCollectionRecord {
   readonly archivedAt: Date | null;
@@ -63,9 +62,9 @@ export function contentCollectionPersistence(
   prisma: MaterialsPrisma,
   kind: ContentCollectionKind,
 ): ContentCollectionPersistence {
-  return kind === "topic"
-    ? topicPersistence(prisma)
-    : productPersistence(prisma, kind);
+  if (kind !== "topic")
+    throw new TypeError("Product collections belong to Products");
+  return topicPersistence(prisma);
 }
 
 function topicPersistence(
@@ -78,7 +77,7 @@ function topicPersistence(
     const [materialCount, covers] = await Promise.all([
       prisma.material.count({ where: { topicId: record.id } }),
       loadContentCoverProjections(
-        transactionHandle(prisma),
+        prisma,
         record.coverId === null ? [] : [record.coverId],
       ),
     ]);
@@ -113,7 +112,7 @@ function topicPersistence(
         ),
       );
       const covers = await loadContentCoverProjections(
-        transactionHandle(prisma),
+        prisma,
         records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
       );
       return records.map((record) =>
@@ -153,135 +152,6 @@ function topicPersistence(
           },
         })
       ).count,
-  };
-}
-
-function productPersistence(
-  prisma: MaterialsPrisma,
-  kind: "product" | "series",
-): ContentCollectionPersistence {
-  const project = async (
-    record: ProductRecord | null,
-  ): Promise<ContentCollectionDto | undefined> => {
-    if (record === null) return undefined;
-    const [materialCount, covers] = await Promise.all([
-      prisma.productMembership.count({ where: { seriesId: record.id } }),
-      loadContentCoverProjections(
-        transactionHandle(prisma),
-        record.coverId === null ? [] : [record.coverId],
-      ),
-    ]);
-    return toDto(
-      kind,
-      record,
-      introductionOf(record),
-      materialCount,
-      record.coverId === null ? null : (covers.get(record.coverId) ?? null),
-      sourceOf(record),
-    );
-  };
-  return {
-    create: async (data) => {
-      const record = await prisma.product.create({ data });
-      return toDto(
-        kind,
-        record,
-        introductionOf(record),
-        0,
-        null,
-        sourceOf(record),
-      );
-    },
-    list: async () => {
-      const [records, counts] = await Promise.all([
-        prisma.product.findMany({
-          orderBy: [{ name: "asc" }, { id: "asc" }],
-        }),
-        prisma.productMembership.groupBy({
-          by: ["seriesId"],
-          _count: { _all: true },
-        }),
-      ]);
-      const countById = new Map(
-        counts.map(({ seriesId, _count }) => [seriesId, _count._all]),
-      );
-      const covers = await loadContentCoverProjections(
-        transactionHandle(prisma),
-        records.flatMap(({ coverId }) => (coverId === null ? [] : [coverId])),
-      );
-      return records.map((record) =>
-        toDto(
-          kind,
-          record,
-          introductionOf(record),
-          countById.get(record.id) ?? 0,
-          record.coverId === null ? null : (covers.get(record.coverId) ?? null),
-          sourceOf(record),
-        ),
-      );
-    },
-    load: async (id) =>
-      project(await prisma.product.findUnique({ where: { id } })),
-    setArchive: async ({ archived, expectedVersion, id }) =>
-      (
-        await prisma.product.updateMany({
-          where: { id, version: expectedVersion },
-          data: {
-            archivedAt: archived ? new Date() : null,
-            updatedAt: new Date(),
-            version: { increment: 1 },
-          },
-        })
-      ).count,
-    slugConstraint: "series_slug_unique",
-    updateMetadata: async ({
-      expectedVersion,
-      id,
-      introduction,
-      name,
-      source,
-      summary,
-    }) =>
-      (
-        await prisma.product.updateMany({
-          where: { id, version: expectedVersion },
-          data: {
-            name,
-            summary,
-            ...(introduction ?? {}),
-            ...(source === undefined
-              ? {}
-              : {
-                  slug: source.slug,
-                  presentation: source.presentation,
-                  page: source.page ?? Prisma.DbNull,
-                }),
-            updatedAt: new Date(),
-            version: { increment: 1 },
-          },
-        })
-      ).count,
-  };
-}
-
-function introductionOf(
-  record: ProductIntroductionDto,
-): ProductIntroductionDto {
-  return {
-    audience: record.audience,
-    outcome: record.outcome,
-    prerequisites: record.prerequisites,
-    scope: record.scope,
-  };
-}
-
-function sourceOf(record: ProductRecord): CollectionSource {
-  const stored = readProductPageState(record.page, `Product ${record.slug}`);
-  return {
-    page: stored.page,
-    pageRejected: stored.rejected,
-    presentation: record.presentation,
-    sourceId: record.sourceId,
   };
 }
 
