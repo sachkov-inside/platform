@@ -70,6 +70,7 @@ export function ProductAccessPanel() {
           ? "Доступ отозван. Для возврата права используйте явное восстановление."
           : "Бессрочное право сохранено.",
       );
+      applyAccess(result.value.value);
       read.mutate({ accountId, productId });
     },
   });
@@ -83,9 +84,26 @@ export function ProductAccessPanel() {
       }
       repeat.completeOperation("restore");
       setNotice("Доступ явно восстановлен владельцем.");
+      applyAccess(result.value.value);
       read.mutate({ accountId, productId });
     },
   });
+  function applyAccess(value: Access) {
+    setRows((current) =>
+      current.some(
+        (row) =>
+          row.accountId === value.accountId &&
+          row.productId === value.productId,
+      )
+        ? current.map((row) =>
+            row.accountId === value.accountId &&
+            row.productId === value.productId
+              ? value
+              : row,
+          )
+        : [...current, value],
+    );
+  }
   const busy =
     list.isPending || read.isPending || issue.isPending || restore.isPending;
   const lost = list.isError || read.isError || issue.isError || restore.isError;
@@ -187,21 +205,36 @@ export function ProductAccessPanel() {
             {detail.access === "active"
               ? "Бессрочный доступ открыт"
               : "Доступ отозван"}
-            . Первая выдача {formatBillingDate(detail.firstIssuedAt)}.
+            . Первая выдача {formatBillingDate(detail.firstIssuedAt)}
           </p>
           <ul>
             {detail.sources.map((source) => (
               <li key={`${source.source}:${source.sourceRef}`}>
-                {source.source} · {source.reason} ·{" "}
-                {formatBillingDate(source.issuedAt)}
+                {(
+                  {
+                    manual: "Ручная выдача",
+                    paid: "Оплата",
+                    course: "Активация курса",
+                    legacy: "Прежнее основание",
+                  } as Readonly<Record<string, string>>
+                )[source.source] ?? source.source}{" "}
+                · {source.reason} · {formatBillingDate(source.issuedAt)}
               </li>
             ))}
           </ul>
           <ul>
             {detail.actions.map((action) => (
               <li key={action.revision}>
-                {action.kind} · {action.reason} ·{" "}
-                {formatBillingDate(action.recordedAt)}
+                {(
+                  {
+                    issue: "Выдача",
+                    source_recorded: "Запись источника",
+                    revoke: "Отзыв",
+                    restore: "Восстановление",
+                    revoked: "Отзыв",
+                  } as Readonly<Record<string, string>>
+                )[action.kind] ?? action.kind}{" "}
+                · {action.reason} · {formatBillingDate(action.recordedAt)}
               </li>
             ))}
           </ul>
