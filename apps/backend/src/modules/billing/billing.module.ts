@@ -106,7 +106,6 @@ const BILLING_BANK = Symbol("BillingBank");
         PrismaClientProvider,
         ACCOUNTS,
         PLATFORM_CONFIG,
-        ACCESS_GRANTS,
         COVERAGE_CATALOG,
         BillingContact,
       ],
@@ -114,7 +113,6 @@ const BILLING_BANK = Symbol("BillingBank");
         prisma: PrismaClientProvider,
         accounts: Accounts,
         config: PlatformConfig,
-        grants: AccessGrants,
         contentCatalog: CoverageCatalog,
         contact: BillingContact,
       ) =>
@@ -122,7 +120,6 @@ const BILLING_BANK = Symbol("BillingBank");
           contentCatalog,
           prisma,
           accounts,
-          grants,
           sale: saleCapability(
             config.tbank,
             config.billingContact !== undefined &&
