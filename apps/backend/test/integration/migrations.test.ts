@@ -88,6 +88,7 @@ const accountRightsTables = [
   "activation_rules",
   "coverage_baseline",
   "current_projections",
+  "course_rule_migration_inventory",
   "evidence_receipts",
   "invitations",
   "legacy_classifications",

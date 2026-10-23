@@ -413,9 +413,9 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
   const original = await db.prisma.accessGrant.findUniqueOrThrow({
     where: { id: grantId },
   });
-  const purchase = await db.prisma.billingPurchase.findUniqueOrThrow({
-    where: { id: purchaseId },
-  });
+  const purchase = await db.prisma.$queryRaw(
+    Prisma.sql`select to_jsonb(p) as value from billing.purchases p where id=${purchaseId}::uuid`,
+  );
   await upgradeAndUseCurrentCatalogue();
   expect(
     await db.prisma.accessGrant.findUniqueOrThrow({ where: { id: grantId } }),
@@ -424,9 +424,9 @@ test("uses a frozen paid Product scope without modifying purchases or grant term
     coverage: { productIds: [product], materialIds: [] },
   });
   expect(
-    await db.prisma.billingPurchase.findUniqueOrThrow({
-      where: { id: purchaseId },
-    }),
+    await db.prisma.$queryRaw(
+      Prisma.sql`select to_jsonb(p) - 'refund_review_required' as value from billing.purchases p where id=${purchaseId}::uuid`,
+    ),
   ).toEqual(purchase);
   expect(
     await rights.resolveCapabilities(account, { productIds: [product] }),

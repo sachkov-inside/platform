@@ -506,3 +506,53 @@ test("Product-scoped capabilities see an uncommitted issuance only through the c
     await grants.resolveCapabilities(target, { productIds: [product] }),
   ).toMatchObject({ ok: true, capabilities: [] });
 });
+
+test("Product acquisition reads the caller transaction, scopes the exact pair and rolls back with issuance", async () => {
+  const target = randomUUID(),
+    foreignAccount = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: target,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: target,
+    },
+  });
+  await db.prisma.account.create({
+    data: {
+      id: foreignAccount,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: foreignAccount,
+    },
+  });
+  await expect(
+    db.prisma.$transaction(async (tx) => {
+      const handle = transactionHandle(tx);
+      expect(
+        await grants.issueManualProductAccess(
+          owner,
+          {
+            accountId: target,
+            productId: product,
+            sourceRef: randomUUID(),
+            reason: "Joined lifetime acquisition check",
+          },
+          handle,
+        ),
+      ).toMatchObject({ ok: true });
+      expect(
+        await grants.hasProductAcquisition(target, product, handle),
+      ).toEqual({ ok: true, acquired: true });
+      expect(
+        await grants.hasProductAcquisition(target, second, handle),
+      ).toEqual({ ok: true, acquired: false });
+      expect(
+        await grants.hasProductAcquisition(foreignAccount, product, handle),
+      ).toEqual({ ok: true, acquired: false });
+      throw new Error("Rollback acquisition reader");
+    }),
+  ).rejects.toThrow("Rollback acquisition reader");
+  expect(await grants.hasProductAcquisition(target, product)).toEqual({
+    ok: true,
+    acquired: false,
+  });
+});

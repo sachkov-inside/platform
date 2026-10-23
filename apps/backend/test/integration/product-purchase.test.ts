@@ -1033,3 +1033,125 @@ test.each(["manual", "purchase"] as const)(
     expect(s.initCalls()).toBe(initBefore);
   },
 );
+
+test.each(["sequential", "concurrent", "existing_event"] as const)(
+  "multiple historical fulfillment rows (%s) share one immutable review event without starving a valid purchase",
+  async (mode) => {
+    const s = await scenario();
+    const {
+      product: _product,
+      supportMonths: _supportMonths,
+      ...legacy
+    } = s.quote.snapshot;
+    const snapshot = {
+      ...legacy,
+      offer: {
+        ...legacy.offer,
+        benefits: ["support", "community"],
+        coverage: { productIds: [s.productId], materialIds: [] },
+      },
+    };
+    const { purchase, historicalPayments } = await historicalOneTime(
+      s,
+      snapshot,
+    );
+    expect(
+      await historicalPayments.reconcile(purchase.purchaseRef),
+    ).toMatchObject({ ok: true });
+    const first = await db.prisma.billingFulfillment.findFirstOrThrow({
+      where: { purchaseRef: purchase.purchaseRef },
+    });
+    let priorEvent;
+    if (mode === "existing_event") {
+      expect(await historicalPayments.recover()).toMatchObject({ ok: true });
+      priorEvent = await db.prisma.billingPaymentEvent.findUniqueOrThrow({
+        where: {
+          purchaseRef_kind: {
+            purchaseRef: purchase.purchaseRef,
+            kind: "fulfillment_review_required",
+          },
+        },
+      });
+    }
+    // Reconstruct another pre-refactoring per-benefit outbox item without changing saved purchase facts.
+    const eventRef = randomUUID();
+    const payload = {
+      eventRef,
+      periodRef: `${purchase.purchaseRef}:community`,
+      accountId: s.buyer,
+      revision: 1,
+      revoked: false,
+      terms: {
+        capabilities: ["community"],
+        coverage: snapshot.offer.coverage,
+        startsAt: "2030-01-31T10:00:00.000Z",
+        validUntil: null,
+        reason: `Confirmed payment ${purchase.purchaseRef}`,
+      },
+    };
+    await db.prisma.billingFulfillment.create({
+      data: {
+        eventRef,
+        purchaseRef: purchase.purchaseRef,
+        payload,
+        nextAttemptAt: new Date("2000-01-01"),
+      },
+    });
+    const valid = await scenario();
+    const validRef = value(
+      await valid.payments.purchase(valid.buyer, valid.command),
+    ).purchaseRef;
+    expect(await valid.notify("CONFIRMED")).toMatchObject({ ok: true });
+    const runs = await Promise.all(
+      Array.from({ length: mode === "concurrent" ? 2 : 1 }, () =>
+        historicalPayments.recover(),
+      ),
+    );
+    expect(runs.every((result) => result.ok)).toBe(true);
+    const rows = await db.prisma.billingFulfillment.findMany({
+      where: { purchaseRef: purchase.purchaseRef },
+      orderBy: { eventRef: "asc" },
+    });
+    expect(rows).toHaveLength(2);
+    expect(
+      rows.every(
+        (row) =>
+          row.appliedAt === null &&
+          row.reviewRequiredAt !== null &&
+          row.reviewReason === "historical_scope_unresolved",
+      ),
+    ).toBe(true);
+    expect(
+      rows.find((row) => row.eventRef === first.eventRef)?.payload,
+    ).toEqual(first.payload);
+    expect(rows.find((row) => row.eventRef === eventRef)?.payload).toEqual(
+      payload,
+    );
+    const events = await db.prisma.billingPaymentEvent.findMany({
+      where: {
+        purchaseRef: purchase.purchaseRef,
+        kind: "fulfillment_review_required",
+      },
+    });
+    expect(events).toHaveLength(1);
+    if (priorEvent !== undefined) expect(events[0]).toEqual(priorEvent);
+    await historicalPayments.recover();
+    expect(
+      await db.prisma.billingFulfillment.findMany({
+        where: { purchaseRef: purchase.purchaseRef },
+        orderBy: { eventRef: "asc" },
+      }),
+    ).toEqual(rows);
+    expect(
+      await s.grants.readProductAccess(owner, {
+        accountId: s.buyer,
+        productId: s.productId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(await valid.payments.status(valid.buyer, validRef)).toMatchObject({
+      ok: true,
+      value: { access: "ready" },
+    });
+    expect(s.initCalls()).toBe(0);
+  },
+);

@@ -184,7 +184,7 @@ describe("состояния и ошибки", () => {
   it("объясняет ожидаемые исходы billing словами покупателя", () => {
     expect(billingErrorMessage("contact_required")).toContain("email");
     expect(billingErrorMessage("legacy_review_required")).toContain(
-      "прежняя подписка",
+      "заказ требует проверки",
     );
     expect(billingErrorMessage("payment_in_progress")).toContain(
       "новую покупку начинать не нужно",
@@ -194,7 +194,9 @@ describe("состояния и ошибки", () => {
     expect(billingErrorMessage("payment_in_progress")).toContain(
       "раздел «Покупки»",
     );
-    expect(billingErrorMessage("existing_access")).toContain("уже есть доступ");
+    expect(billingErrorMessage("existing_access")).toContain(
+      "Повторная покупка недоступна",
+    );
     // Прежняя редакция не принимается: покупатель читает действующую и нажимает кнопку снова.
     expect(billingErrorMessage("document_changed")).toBe(
       "Условия покупки обновились. Прочитайте действующую редакцию и нажмите кнопку оплаты снова.",

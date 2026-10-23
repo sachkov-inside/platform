@@ -895,20 +895,32 @@ export class BillingPayments {
               where: { eventRef: row.eventRef },
               data: { reviewRequiredAt: now, reviewReason: reason },
             });
-            await tx.billingPaymentEvent.create({
-              data: {
-                id: randomUUID(),
-                purchaseRef: purchase.id,
-                kind: "fulfillment_review_required",
-                payload: {
-                  reason,
-                  savedBenefits: snapshot.offer.benefits,
-                  savedCoverage: snapshot.offer.coverage ?? null,
+            const reviewEvent = await tx.billingPaymentEvent.findUnique({
+              where: {
+                purchaseRef_kind: {
+                  purchaseRef: purchase.id,
+                  kind: "fulfillment_review_required",
                 },
-                occurredAt: now,
-                recordedAt: now,
               },
             });
+            // Old purchases may have one outbox row per benefit. The purchase event is immutable;
+            // each row still needs its own terminal review marker, including later-arriving rows.
+            if (reviewEvent === null) {
+              await tx.billingPaymentEvent.create({
+                data: {
+                  id: randomUUID(),
+                  purchaseRef: purchase.id,
+                  kind: "fulfillment_review_required",
+                  payload: {
+                    reason,
+                    savedBenefits: snapshot.offer.benefits,
+                    savedCoverage: snapshot.offer.coverage ?? null,
+                  },
+                  occurredAt: now,
+                  recordedAt: now,
+                },
+              });
+            }
           });
           continue;
         }

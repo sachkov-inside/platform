@@ -6,7 +6,6 @@ export const telemetryRouteTemplates = [
   "/account/access",
   "/account/notifications",
   "/account/purchases",
-  "/account/subscription",
   "/authoring/access",
   "/authoring/billing",
   "/authoring/communications",
