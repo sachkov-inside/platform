@@ -6,7 +6,7 @@ Platform sells access to Inside Products and shows free Materials to everyone in
 between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
 [Telegram application terms](apps/telegram/GLOSSARY.md) owns only the bot-specific language.
 [The shared brief](docs/product/README.md) owns overall product scope;
-[the access model](docs/product/access-model.md) owns commercial composition and independent right terms.
+[the access model](docs/product/access-model.md) owns Product acquisition and access conditions.
 
 ## Language
 
@@ -27,16 +27,13 @@ The current structured content owned by a Material. In Russian product language:
 _Avoid_: MaterialDocumentV1, HTML blob, editor state
 
 **Material Block Registry**:
-The single description of every block a MaterialBody may contain: node type, fields, field rules,
-rendered shape, search text and headings. It lives in `@inside/material-blocks`; the server, the
-editor and the reading client all read the same entry instead of keeping their own copy.
+The shared vocabulary of allowed Material Block kinds, their meaning and the content each kind
+can carry. It keeps authoring and reading consistent across Materials.
 _Avoid_: Block schema copy, editor extension list, ContentSchema capability
 
-**Lesson Block**:
-A typed block a lesson is assembled from, beyond running text: a callout of a named kind, an
-external resource card, an agent prompt, the takeaways of a lesson, a labeled list of terms and a
-key point. The platform owns how each one looks, so the same block reads the same in every
-Material. In Russian product language: «блок урока».
+**Material Block**:
+A structured part of a MaterialBody, such as a callout, resource card, agent prompt or key point.
+Its kind defines its meaning and consistent presentation; in Russian product language: «Блок материала».
 _Avoid_: Custom layout, embedded HTML, per-lesson styling
 
 **Callout Kind**:
@@ -47,15 +44,13 @@ _Avoid_: Callout color, callout style, callout severity
 
 **Public Material Projection**:
 The indexable body-free view of a Published Material: title, description, cover, author, taxonomy
-and publication date. A membership Material remains discoverable through this projection while its
+and publication date. A closed Material remains discoverable through this projection while its
 body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
 **Content Cover**:
-A dedicated public image owned by exactly one Material, Topic or Product. Platform keeps only
-normalized responsive renditions; replacement and removal detach the old cover, and API
-projections never expose originals, storage keys or checksums. In Russian product language:
-«Обложка».
+A dedicated public image belonging to one Material, Topic or Product, distinct from its body and
+private resources. In Russian product language: «Обложка».
 _Avoid_: MaterialAsset, shared media-library image, original upload
 
 **Link Preview**:
@@ -65,6 +60,16 @@ exists and a generated card with the page title otherwise. A closed Material kee
 while its body stays protected. In Russian product language: «Карточка ссылки».
 _Avoid_: OG tags, meta preview, share image
 
+**Related Material Pin**:
+An author's ordered recommendation of one Material from another, taking priority over inferred
+recommendations. It changes discovery, not content ownership, programme membership or access.
+_Avoid_: Product membership, prerequisite, Material copy
+
+**Featured Product**:
+The single Product selected for prominent placement on Home, provided it is not archived and has
+published Materials. This selection does not grant access or open sales.
+_Avoid_: Product Catalogue, current Cohort, Home Series
+
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1 and have an
 immutable slug plus mutable name and summary. Archiving removes a Topic from new assignments and
@@ -72,11 +77,8 @@ public discovery while preserving existing Material relations and its canonical 
 _Avoid_: Category, section
 
 **Format**:
-The single primary way a Material is consumed. The Materials domain defines the closed values
-`video` (Видео), `guide` (Гайд), and `note` (Заметка). A Material stores that value directly;
-there is no editable Format dictionary or separate database entity. Format is independent of
-Topic and is not the kind of an attached file. Drafts may leave it unassigned; publication requires it.
-The domain schema and material-format integration tests enforce this contract.
+The primary way a Material is consumed: `video` (Видео), `guide` (Гайд), or `note` (Заметка),
+independent of Topic and attached file types. A Draft may have none; publication requires one.
 _Avoid_: Content type, asset type
 
 **Tag**:
@@ -238,16 +240,14 @@ stored. Both branches stay in the lesson's search text, and the step — not a b
 progress and bookmarks address. In Russian product language: «Вариантный шаг».
 _Avoid_: Callout, separate Material, access variant, A/B test
 
-**Lesson Difficulty**:
-How hard one lesson is for the reader who opens it: basic, intermediate or advanced. It is the
-Material's own fact, so a lesson reused in two Products keeps one answer, and a Material that
-declares none simply shows none. In Russian product language: «Сложность».
+**Material Difficulty**:
+The basic, intermediate or advanced difficulty of one Material, independent of the Product that
+uses it. An unspecified difficulty makes no claim; in Russian product language: «Сложность».
 _Avoid_: Product Mode, access class, Product-level rating
 
-**Lesson Outcomes**:
-What the reader can do after one lesson: two to four written points, or none at all. They come
-from the Material's data and are not repeated in its body; a published lesson carries either no
-points or a real list, never a single one. In Russian product language: «Чему научишься».
+**Material Outcomes**:
+The authored abilities a reader should gain from one Material, independent of its Product
+placements. In Russian product language: «Чему научишься».
 _Avoid_: Product Introduction, Summary, Takeaways block
 
 **Product Step Sequence**:
@@ -264,33 +264,30 @@ the Russian product interface.
 _Avoid_: Material, generated index
 
 **ContentLibrary**:
-The read capability that builds coherent, body-free projections of current Published Materials,
-Topics and Products for Home, Library and discovery pages. Home is a bounded projection of this same
-model, not an editorial copy or a second content store.
+The reader-facing collection of published Material, Topic and Product presentations for
+discovery, including Home and the Library. It does not own another copy of the content.
 _Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
 **MaterialAsset**:
-An immutable non-video image or downloadable file owned by exactly one Material and referenced
-inline from its current MaterialBody. It inherits the Material access class and is deliverable only
-while ready and currently authorized.
+An immutable non-video image or downloadable file belonging to one Material and referenced from
+its body. Its availability follows the Material publication and access rules.
 _Avoid_: Media library item, attachment URL, mutable file
 
 **Video**:
-A local identity for one Kinescope object owned by exactly one Material. A Material may select at
-most one ready Video through nullable `primaryVideoId` outside MaterialBody; provider IDs, embed
-locators, status and errors remain Video facts and never enter the document. Its immutable origin
-distinguishes a Platform Upload, which an author may explicitly delete, from an External
-Attachment, which Platform may only detach. A Platform Upload its Material has not selected, and
-whose outcome Platform has not settled, stays that Material's unselected upload and returns to its
-author; a settled outcome the author already saw, and a Video the author removed, are their own
-decision, whatever the provider reports afterwards.
+A recording belonging to one Material, with its own identity, readiness and origin. A Material
+selects at most one ready Video; Platform-uploaded recordings may be explicitly deleted by the
+author, while externally attached recordings may only be detached.
 _Avoid_: Inline video node, iframe block, provider URL as Material content
 
 **VideoDeletion**:
-A durable request to delete one Platform Upload after a successful Material Save has removed every
-current and published reference. It remains observable through requested, deleting, deleted or
-failed state; ordinary detach and replacement never create it.
+The author's explicit request to permanently delete a Platform-uploaded Video once no Material
+references it. Ordinary detachment or replacement does not itself authorize deletion.
 _Avoid_: Automatic cleanup, remove button, external video deletion
+
+**Video Chapter**:
+A named timestamp in a Material's selected Video, used to navigate within that recording.
+It belongs to that Video's presentation, not to the Product programme.
+_Avoid_: Product Chapter, Material, programme step
 
 ## Access and activity
 
@@ -539,3 +536,6 @@ These names refer to the same concept; they do not introduce another right or pr
 | Product Purchase | OneTimePurchase |
 | BillingContact | Billing Contact |
 | Supplementary Material | ChapterAttachment |
+| Lesson Block | Material Block |
+| Lesson Difficulty | Material Difficulty |
+| Lesson Outcomes | Material Outcomes |
