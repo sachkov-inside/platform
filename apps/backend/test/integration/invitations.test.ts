@@ -114,7 +114,7 @@ describe("приглашения: выдача владельцем и пога�
         accounts,
         grants,
         clock: () => now,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
       }),
       // Приглашения не трогают платежи и подписки.
       payments: { reconcile: () => Promise.reject(new Error("unused")) },
@@ -126,7 +126,7 @@ describe("приглашения: выдача владельцем и пога�
     };
     operations = new BillingOperations({
       ...operationDependencies,
-      sale: { subscriptions: true },
+      sale: {},
     });
     currentOperations = new BillingOperations(operationDependencies);
     const activationDependencies = {
@@ -142,7 +142,7 @@ describe("приглашения: выдача владельцем и пога�
     };
     const activation = new CourseActivation({
       ...activationDependencies,
-      sale: { subscriptions: true },
+      sale: {},
     });
     currentActivation = new CourseActivation(activationDependencies);
     @Module({

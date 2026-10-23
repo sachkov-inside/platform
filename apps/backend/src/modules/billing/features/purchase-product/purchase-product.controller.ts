@@ -36,9 +36,9 @@ import {
 } from "../../../accounts/index.js";
 import { BillingPayments } from "../../facets/billing-payments/billing-payments.js";
 import {
-  purchaseSubscriptionSchema,
+  purchaseProductSchema,
   purchaseStatusSchema,
-} from "./purchase-subscription.contract.js";
+} from "./purchase-product.contract.js";
 
 import { throwPaymentError } from "../../shared/payment-http.filter.js";
 @ApiTags("Billing")
@@ -99,17 +99,17 @@ import { throwPaymentError } from "../../shared/payment-http.filter.js";
   ),
 })
 @Controller("accounts/current/billing")
-export class PurchaseSubscriptionController {
+export class PurchaseProductController {
   constructor(
     @Inject(BillingPayments) private readonly payments: BillingPayments,
   ) {}
   @Post("purchase")
   @HttpCode(200)
   @ApiOperation({
-    operationId: "purchaseBillingSubscription",
-    summary: "Start or recover one subscription or one-time purchase",
+    operationId: "purchaseProduct",
+    summary: "Start or recover one Product purchase",
   })
-  @ApiBody({ schema: toOpenApiSchema(purchaseSubscriptionSchema) })
+  @ApiBody({ schema: toOpenApiSchema(purchaseProductSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(purchaseStatusSchema) })
   async purchase(
     @CurrentAccount() account: AuthenticatedAccount,

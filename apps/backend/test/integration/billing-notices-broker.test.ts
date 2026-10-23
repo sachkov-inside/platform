@@ -111,7 +111,7 @@ test("подтверждённая оплата доходит до обоих �
   const pricing = assembleTestBillingPricing({
     prisma: database.prisma,
     accounts,
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
   });
   const contact = new BillingContact({
     prisma: database.prisma,
@@ -182,14 +182,14 @@ test("подтверждённая оплата доходит до обоих �
 
   const bank = new BankFixture(config);
   const payments = new BillingPayments({
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
     prisma: database.prisma,
     bank: bank.client(),
     contact,
     grants,
   });
   const notices = new BillingNotices({
-    sale: { subscriptions: true },
+    sale: {},
     prisma: database.prisma,
     enrollments: grants,
   });

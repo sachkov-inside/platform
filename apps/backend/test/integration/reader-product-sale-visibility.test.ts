@@ -131,7 +131,7 @@ async function fixture(size: number) {
         prisma: measured.prisma,
         accounts,
         clock,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
       }),
       contentAccess,
     };

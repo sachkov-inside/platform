@@ -59,7 +59,7 @@ beforeAll(async () => {
   await db.prisma.accountPermission.create({
     data: { accountId: owner, permission: "platform:admin" },
   });
-  const pricing = pricingWith({ payments: true, subscriptions: true });
+  const pricing = pricingWith({ payments: true });
   const offerId = randomUUID();
   value(
     await pricing.manage(owner, {
@@ -98,7 +98,7 @@ beforeAll(async () => {
 afterAll(async () => db.dispose());
 
 test("an unavailable payment method hides the option and refuses its quote", async () => {
-  const pricing = pricingWith({ payments: false, subscriptions: false });
+  const pricing = pricingWith({ payments: false });
   expect(await pricing.offers({})).toEqual({
     ok: true,
     value: { items: [], nextCursor: null },
@@ -197,7 +197,7 @@ test.each([
         logtoSubject: buyer,
       },
     });
-    const configured = pricingWith({ payments: true, subscriptions: true });
+    const configured = pricingWith({ payments: true });
     value(
       await configured.manage(owner, {
         operation: "offers.save",
@@ -306,7 +306,7 @@ test.each([
         )
       : undefined;
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       grants,
       contact,
@@ -325,7 +325,7 @@ test.each([
 );
 test("product sale uses coverage and payment mode, including an invited subscription to a product", async () => {
   const productId = randomUUID();
-  const pricing = pricingWith({ payments: true, subscriptions: true });
+  const pricing = pricingWith({ payments: true });
   const ids: string[] = [];
   for (const variant of [
     {

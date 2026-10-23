@@ -119,7 +119,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
   });
   afterAll(async () => db.dispose());
@@ -224,7 +224,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     });
     const paymentsOn = (contact: BillingContact) =>
       new BillingPayments({
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         prisma: db.prisma,
         bank,
         contact,

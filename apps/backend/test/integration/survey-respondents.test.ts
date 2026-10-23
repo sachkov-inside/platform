@@ -111,10 +111,10 @@ describe("скидка респондентам анкеты: список ни�
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       accounts,
       pricing,

@@ -199,7 +199,7 @@ const unused = () =>
   Promise.reject(new Error("Unexpected external boundary in history read"));
 test("recent cabinet windows retain latest 50 payments and 20 notices with Account isolation", async () => {
   const payments = new BillingPayments({
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
     prisma: observer.prisma,
     bank: undefined,
     contact: { read: unused, readConsents: unused },
@@ -214,7 +214,7 @@ test("recent cabinet windows retain latest 50 payments and 20 notices with Accou
     clock: () => now,
   });
   const notices = new BillingNotices({
-    sale: { subscriptions: true },
+    sale: {},
     prisma: observer.prisma,
     enrollments: {
       listEnrollmentEndings: unused,

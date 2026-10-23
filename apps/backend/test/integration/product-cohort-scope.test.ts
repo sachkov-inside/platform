@@ -73,7 +73,7 @@ test("a Product beyond the global hundred-row page retains its true scoped cohor
     prisma: observer.prisma,
     accounts,
     clock: () => new Date("2026-10-14T00:00:00.000Z"),
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
   });
   const legacy = await observer.measure(() => billing.cohorts());
   expect(legacy.statements).toHaveLength(1);
@@ -175,7 +175,7 @@ test("owner catalog cursor pages payment options rather than distinct Offers on 
     prisma: observer.prisma,
     accounts,
     clock: () => new Date("2026-10-14T00:00:00.000Z"),
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
   });
   const first = await observer.measure(() =>
     billing.ownerCatalog({ limit: 100 }),

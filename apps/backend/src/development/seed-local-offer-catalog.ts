@@ -12,7 +12,7 @@ export async function seedLocalOfferCatalog(
 ): Promise<void> {
   const pricing = new BillingPricing({
     prisma,
-    sale: { payments: true, subscriptions: false },
+    sale: { payments: true },
     accounts: {
       checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
     },

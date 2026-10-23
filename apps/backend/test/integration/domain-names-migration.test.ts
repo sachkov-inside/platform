@@ -244,7 +244,7 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
       clock: () => now,
     });
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: database.prisma,
       grants,
       bank: undefined,
@@ -461,7 +461,7 @@ test("replays and accepts an unexpired change quote saved before the rename", as
       }),
     );
     const subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: database.prisma,
       grants,
       bank: bank.client(),

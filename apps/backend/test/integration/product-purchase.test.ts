@@ -59,7 +59,7 @@ function setupFacets() {
   const pricing = new BillingPricing({
     prisma: db.prisma,
     accounts,
-    sale: { payments: true, subscriptions: false },
+    sale: { payments: true },
     clock: () => now,
   });
   const document = syntheticConsentDocument("terms", {

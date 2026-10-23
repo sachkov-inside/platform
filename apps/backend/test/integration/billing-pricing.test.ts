@@ -53,13 +53,13 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       prisma: database.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     other = assembleTestBillingPricing({
       prisma: second,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
   });
   afterAll(async () => {
@@ -509,7 +509,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       prisma: database.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: false, subscriptions: false },
+      sale: { payments: false },
     });
     const unsold = randomUUID(),
       unsoldCapability = `product:${randomUUID()}`;
@@ -554,7 +554,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       prisma: database.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: false },
+      sale: { payments: true },
     });
     const onSale = async (mode: "subscription" | "one_time") =>
       value(await billing.offers({ mode }, owner)).items.map(
@@ -659,7 +659,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       prisma: database.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     expect(
       value(
@@ -807,7 +807,7 @@ describe("признак продажи подписки на собственн
         emailFingerprintKey: "billing-sale-key-0000000000000000000",
       }),
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
   });
   afterAll(async () => {
@@ -1064,7 +1064,7 @@ describe.each([
         prisma: measured.prisma,
         accounts,
         clock: () => fixed,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
       });
       const [snapshot] = value(
         await pricing.ownerCatalog({ limit: 100 }),

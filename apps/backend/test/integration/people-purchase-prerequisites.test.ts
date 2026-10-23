@@ -136,7 +136,7 @@ describe.each([0, 1000, 10000])(
         recipientLinks: new TelegramAccountLinks(observer.prisma),
       });
       operations = new BillingOperations({
-        sale: { subscriptions: true },
+        sale: {},
         prisma: observer.prisma,
         accounts,
         grants,

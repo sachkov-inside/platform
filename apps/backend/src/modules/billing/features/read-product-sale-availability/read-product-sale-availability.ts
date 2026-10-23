@@ -58,7 +58,7 @@ export async function readProductSaleAvailability(
             context: "storefront",
             snapshot: price.value,
             grounds: options.grounds ?? noPurchaseGrounds,
-            sale: options.sale ?? { payments: false, subscriptions: false },
+            sale: options.sale ?? { payments: false },
             recurringAllowed: options.recurringAllowed ?? true,
           }).ok
         )

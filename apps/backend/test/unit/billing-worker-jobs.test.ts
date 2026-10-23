@@ -4,7 +4,7 @@ import {
   runRecoveryJob,
   runRenewalJob,
 } from "../../src/entrypoints/billing-worker/jobs.js";
-import { paymentFailure } from "../../src/modules/billing/features/purchase-subscription/purchase-subscription.contract.js";
+import { paymentFailure } from "../../src/modules/billing/features/purchase-product/purchase-product.contract.js";
 
 // Mapping tests for the process adapter: application acceptance uses real facades and PostgreSQL.
 test("renewal job rejects a failed payment pass", async () => {

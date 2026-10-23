@@ -14,7 +14,7 @@ import {
   paymentLinkViewSchema,
   paymentLinksPageSchema,
 } from "../features/payment-links/payment-links.contract.js";
-import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
+import type { PaymentFailureCode } from "../features/purchase-product/purchase-product.contract.js";
 import {
   importRespondentsSchema,
   issueRespondentLinkSchema,

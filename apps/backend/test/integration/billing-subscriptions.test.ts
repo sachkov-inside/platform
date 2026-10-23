@@ -10,7 +10,7 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { PurchaseSubscriptionController } from "../../src/modules/billing/features/purchase-subscription/purchase-subscription.controller.js";
+import { PurchaseProductController } from "../../src/modules/billing/features/purchase-product/purchase-product.controller.js";
 import { ManageSubscriptionController } from "../../src/modules/billing/features/manage-subscription/manage-subscription.controller.js";
 import { ACCESS_GRANTS } from "../../src/modules/account-rights/index.js";
 import { declaredServer } from "../support/declared-api.js";
@@ -126,7 +126,7 @@ describe("подписка: продление, отмена, смена вар�
       accounts,
       grants,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     contact = new BillingContact({
       prisma: db.prisma,
@@ -241,7 +241,7 @@ describe("подписка: продление, отмена, смена вар�
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -249,14 +249,14 @@ describe("подписка: продление, отмена, смена вар�
       clock: () => now,
     });
     const notices = new BillingNotices({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       enrollments: grants,
       clock: () => now,
     });
     function assembleSubscriptions() {
       return new BillingSubscriptions({
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         prisma: db.prisma,
         bank: client,
         contact,
@@ -422,10 +422,7 @@ describe("подписка: продление, отмена, смена вар�
   // Isolate transport mapping from authentication; the real Billing facets own the result.
   async function httpFor(s: Awaited<ReturnType<typeof scenario>>) {
     @Module({
-      controllers: [
-        PurchaseSubscriptionController,
-        ManageSubscriptionController,
-      ],
+      controllers: [PurchaseProductController, ManageSubscriptionController],
       providers: [
         { provide: BillingPayments, useValue: s.payments },
         { provide: BillingSubscriptions, useValue: s.subscriptions },
@@ -472,7 +469,7 @@ describe("подписка: продление, отмена, смена вар�
   test("действующий владельческий MCP сохраняет dependency_unavailable при отказе Accounts", async () => {
     const s = await scenario();
     const operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       bank: s.bank.client(),
       accounts,
@@ -1023,7 +1020,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -1076,7 +1073,7 @@ describe("подписка: продление, отмена, смена вар�
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -1084,7 +1081,7 @@ describe("подписка: продление, отмена, смена вар�
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: undefined,
       contact,
@@ -1112,7 +1109,7 @@ describe("подписка: продление, отмена, смена вар�
       bindings: { status: "configuration_idle", inspected: 0, applied: 0 },
     });
     const operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       bank: undefined,
       accounts,
@@ -1180,7 +1177,7 @@ describe("подписка: продление, отмена, смена вар�
       const payments = withBank
         ? s.payments
         : new BillingPayments({
-            sale: { payments: true, subscriptions: true },
+            sale: { payments: true },
             prisma: db.prisma,
             bank: undefined,
             contact,
@@ -1202,7 +1199,7 @@ describe("подписка: продление, отмена, смена вар�
     await s.buy();
     const bank = new BankFixture({ ...config, recurringCardConfirmed: false });
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: bank.client(),
       contact,
@@ -1380,7 +1377,7 @@ describe("подписка: продление, отмена, смена вар�
     const active = await s.view();
     await withExhaustedPool(db, async (pool) => {
       const subscriptions = new BillingSubscriptions({
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         prisma: pool,
         bank: s.bank.client(),
         contact,
@@ -1391,7 +1388,7 @@ describe("подписка: продление, отмена, смена вар�
         }),
         payments: s.payments,
         notices: new BillingNotices({
-          sale: { subscriptions: true },
+          sale: {},
           prisma: pool,
           enrollments: grants,
           clock: () => now,
@@ -1775,7 +1772,7 @@ describe("подписка: продление, отмена, смена вар�
     s.bank.failInit = false;
     s.bank.failState = true;
     const operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       bank: s.bank.client(),
       accounts,
@@ -1882,7 +1879,7 @@ describe("подписка: продление, отмена, смена вар�
         recurringCardConfirmed: false,
       });
       const payments = new BillingPayments({
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         prisma: db.prisma,
         bank: unreadyBank,
         contact,

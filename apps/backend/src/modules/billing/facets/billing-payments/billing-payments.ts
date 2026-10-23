@@ -39,11 +39,11 @@ import {
 } from "../../features/manage-subscription/manage-subscription.contract.js";
 import {
   paymentFailure,
+  purchaseProductSchema,
   purchaseStatusSchema,
-  purchaseSubscriptionSchema,
   type PaymentResult,
   type PurchaseStatus,
-} from "../../features/purchase-subscription/purchase-subscription.contract.js";
+} from "../../features/purchase-product/purchase-product.contract.js";
 import { reservePurchaseInTransaction } from "../../features/reserve-purchase/reserve-purchase.js";
 import {
   bankTimeoutMs,
@@ -88,7 +88,6 @@ export class BillingPayments {
     this.sale = saleCapability(
       dependencies.bank?.config,
       dependencies.sale?.payments ?? true,
-      dependencies.sale?.subscriptions ?? false,
     );
   }
 
@@ -97,7 +96,7 @@ export class BillingPayments {
     input: unknown,
     receiptEmail?: string,
   ): Promise<PaymentResult<PurchaseStatus>> {
-    const parsed = purchaseSubscriptionSchema.safeParse(input);
+    const parsed = purchaseProductSchema.safeParse(input);
     if (!z.uuid().safeParse(accountId).success || !parsed.success)
       return paymentFailure("invalid_request");
     const bank = this.dependencies.bank;

@@ -10,7 +10,7 @@ const terminal = {
 const sale = saleCapability(terminal, true);
 
 test("terminal confirmation cannot enable product subscriptions or recurring charges", () => {
-  expect(sale).toEqual({ payments: true, subscriptions: false });
+  expect(sale).toEqual({ payments: true });
   expect(saleCapability(undefined, true).payments).toBe(false);
   expect(saleCapability(terminal, false).payments).toBe(false);
   expect(renewalTerminal(terminal, sale)).toBe("no_recurring");

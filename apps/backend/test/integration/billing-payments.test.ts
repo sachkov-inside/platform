@@ -104,7 +104,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     contact = new BillingContact({
       prisma: db.prisma,
@@ -290,7 +290,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     });
     const runtime = (projector = grants) =>
       new BillingPayments({
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         prisma: db.prisma,
         bank,
         contact,

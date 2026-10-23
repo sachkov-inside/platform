@@ -93,7 +93,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       clock: () => now,
     });
     operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       accounts,
       pricing: new BillingPricing({
@@ -101,7 +101,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
         accounts,
         grants,
         clock: () => now,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
       }),
       payments: { reconcile: () => Promise.reject(new Error("unused")) },
       subscriptions: { cancel: () => Promise.reject(new Error("unused")) },

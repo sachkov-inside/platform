@@ -227,7 +227,7 @@ describe("Billing purchases HTTP", () => {
       prisma: database.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     const codes = new Map<string, string>();
     const contact = new BillingContact({
@@ -328,7 +328,7 @@ describe("Billing purchases HTTP", () => {
     );
     if (!consent.ok) throw new Error(consent.error.code);
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: database.prisma,
       bank: new BankFixture(terminal).client(),
       contact,

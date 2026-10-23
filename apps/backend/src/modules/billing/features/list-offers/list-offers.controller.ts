@@ -26,16 +26,16 @@ import { listOffersSchema, offersPageSchema } from "./list-offers.js";
 @ApiTags("Billing")
 @PrivateNoStore()
 @OptionalAccountEndpoint()
-@Controller("billing/offers")
+@Controller("billing/product-prices")
 export class ListOffersController {
   constructor(
     @Inject(BillingPricing) private readonly pricing: BillingPricing,
   ) {}
   @Get()
   @ApiOperation({
-    operationId: "billingOffers",
+    operationId: "productPrices",
     summary:
-      "Read active options and public first-payment prices, filtered by sale mode, access capability and the reader's eligibility",
+      "Read current one-time Product prices and their best available discount",
   })
   @ApiQuery({
     name: "cursor",

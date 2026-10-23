@@ -56,10 +56,10 @@ test("AIE sales commands preserve the sale gate and agreed prices (#1359)", asyn
     prisma: database.prisma,
     accounts,
     clock,
-    sale: { payments: true, subscriptions: false },
+    sale: { payments: true },
   });
   const operations = new BillingOperations({
-    sale: { subscriptions: true },
+    sale: {},
     prisma: database.prisma,
     accounts,
     pricing: billing,

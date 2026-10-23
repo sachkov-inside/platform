@@ -211,7 +211,7 @@ describe("оплата, выдача прав и доступ к материа�
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     contact = new BillingContact({
       prisma: db.prisma,
@@ -718,7 +718,7 @@ describe("оплата, выдача прав и доступ к материа�
     const bank = new BankFixture(config);
     const client = bank.client();
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: client,
       contact,
@@ -726,14 +726,14 @@ describe("оплата, выдача прав и доступ к материа�
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: db.prisma,
       bank: client,
       contact,
       grants,
       payments,
       notices: new BillingNotices({
-        sale: { subscriptions: true },
+        sale: {},
         prisma: db.prisma,
         enrollments: grants,
         clock: () => now,
@@ -741,7 +741,7 @@ describe("оплата, выдача прав и доступ к материа�
       clock: () => now,
     });
     const operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: db.prisma,
       accounts,
       pricing,

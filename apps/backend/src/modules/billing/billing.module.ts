@@ -32,7 +32,7 @@ import { ListOffersController } from "./features/list-offers/list-offers.control
 import { ListProductCohortsController } from "./features/list-product-cohorts/list-product-cohorts.controller.js";
 import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
-import { PurchaseSubscriptionController } from "./features/purchase-subscription/purchase-subscription.controller.js";
+import { PurchaseProductController } from "./features/purchase-product/purchase-product.controller.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
 import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 import { bankRequest } from "./infrastructure/tbank/bank-request.js";
@@ -45,7 +45,7 @@ const BILLING_BANK = Symbol("BillingBank");
 @Module({
   imports: [PrismaModule, AccountsModule, AccountRightsModule],
   controllers: [
-    PurchaseSubscriptionController,
+    PurchaseProductController,
     AcceptTbankNotificationController,
     ManageBillingController,
     QuotePurchaseController,

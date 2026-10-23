@@ -1,42 +1,16 @@
-import { z } from "zod";
 import { coverageEntrySchema } from "@inside/access-capabilities";
-import { ownAccessGroundSchema } from "../../../account-rights/index.js";
-import {
-  idSchema,
-  moneySchema,
-  revisionSchema,
-  priceSnapshotSchema,
-} from "../../domain/pricing.js";
+import { z } from "zod";
 import {
   attemptKindSchema,
   attemptStateSchema,
 } from "../../domain/payment-attempt.js";
-import { noticeViewSchema } from "../../domain/notice.js";
 import {
-  changePlanSchema,
-  subscriptionViewSchema,
-} from "../../domain/subscription-change.js";
-import { purchaseStatusSchema } from "../purchase-subscription/purchase-subscription.contract.js";
+  idSchema,
+  moneySchema,
+  priceSnapshotSchema,
+} from "../../domain/pricing.js";
+import { purchaseStatusSchema } from "../purchase-product/purchase-product.contract.js";
 
-const command = { operationId: idSchema, expectedRevision: revisionSchema };
-export const cancelRenewalSchema = z.strictObject(command);
-export const resumeRenewalSchema = z.strictObject({
-  ...command,
-  consentEvidenceRefs: z.array(idSchema).min(1).max(4),
-});
-export const quoteChangeSchema = z.strictObject({
-  ...command,
-  paymentOptionId: idSchema,
-});
-export const changeOptionSchema = z.strictObject({
-  ...command,
-  changeQuoteRef: idSchema,
-});
-export const cancelChangeSchema = z.strictObject(command);
-/**
- * Собственная история списаний покупателя: что списывали, когда и чем это подтверждено.
- * Данные провайдера — терминал, окружение и идентификатор платежа — остаются владельческими.
- */
 export const ownPaymentSchema = z.strictObject({
   purchaseRef: idSchema,
   content: z.array(coverageEntrySchema).optional(),
@@ -64,26 +38,3 @@ export const ownPaymentSchema = z.strictObject({
   refundedAt: z.iso.datetime().nullable(),
 });
 export type OwnPayment = z.infer<typeof ownPaymentSchema>;
-/**
- * Конверт кабинета: подписка, действующие основания доступа, история списаний и служебные поводы.
- * Путь не меняется — #411 добавляет к нему сводку прав и историю, как предусмотрено контрактом.
- */
-export const currentBillingSchema = z.strictObject({
-  subscription: subscriptionViewSchema.nullable(),
-  notices: z.array(noticeViewSchema),
-  grounds: z.array(ownAccessGroundSchema),
-  payments: z.array(ownPaymentSchema),
-});
-export const changeQuoteResultSchema = z.strictObject({
-  changeQuoteRef: idSchema,
-  baseRevision: revisionSchema,
-  plan: changePlanSchema,
-  expiresAt: z.iso.datetime(),
-});
-export const changeResultSchema = z.strictObject({
-  subscription: subscriptionViewSchema,
-  payment: purchaseStatusSchema.nullable(),
-});
-export type CurrentBilling = z.infer<typeof currentBillingSchema>;
-export type ChangeQuoteResult = z.infer<typeof changeQuoteResultSchema>;
-export type ChangeResult = z.infer<typeof changeResultSchema>;

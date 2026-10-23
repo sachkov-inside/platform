@@ -109,7 +109,7 @@ test("history reads its purchase window once and batches metadata, fulfillment a
     now: () => now,
   });
   const payments = new BillingPayments({
-    sale: { payments: true, subscriptions: true },
+    sale: { payments: true },
     prisma,
     grants,
     contact,

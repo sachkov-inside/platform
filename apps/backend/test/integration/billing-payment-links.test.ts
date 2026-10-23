@@ -58,7 +58,6 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
       clock: () => now,
       sale: {
         payments: true,
-        subscriptions: false,
         amountLimits: { minimumKopecks: 100, maximumKopecks: 100_000_000 },
       },
     });
@@ -372,7 +371,7 @@ describe("individual paid links through billing capability on PostgreSQL", () =>
         prisma: observer,
         accounts,
         clock: () => now,
-        sale: { payments: true, subscriptions: false },
+        sale: { payments: true },
       });
       value(await observed.paymentLinks(owner, { limit: 1 }));
       const small = queries;

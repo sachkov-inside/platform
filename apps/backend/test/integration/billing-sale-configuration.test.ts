@@ -58,7 +58,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
     // Каталог заводит процесс со всеми правами продажи: проверяется состояние, а не отказ каталога.
     pricing = assembleTestBillingPricing({
       prisma: db.prisma,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       accounts: assembleAccounts({
         prisma: db.prisma,
         emailFingerprintKey: "sale-configuration-test-key-000000000",

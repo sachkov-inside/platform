@@ -51,7 +51,7 @@ describe.each([1, 10, 100])(
         prisma: measured.prisma,
         accounts,
         clock: () => new Date("2030-01-01T00:00:00.000Z"),
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
       });
     });
     afterAll(async () => {

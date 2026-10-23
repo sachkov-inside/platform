@@ -28,7 +28,7 @@ beforeAll(async () => {
       prisma: db.prisma,
       emailFingerprintKey: "product-prices-test-key-000000000000",
     }),
-    sale: { payments: true, subscriptions: false },
+    sale: { payments: true },
   });
 });
 afterAll(async () => db.dispose());

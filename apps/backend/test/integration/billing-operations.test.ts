@@ -313,7 +313,7 @@ describe("владельческие операции billing: платежи, �
       prisma: db.prisma,
       accounts,
       clock: () => now,
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
     });
     contact = new BillingContact({
       prisma: db.prisma,
@@ -391,7 +391,7 @@ describe("владельческие операции billing: платежи, �
             prisma: database.prisma,
             accounts: fixtureAccounts,
             clock: () => now,
-            sale: { payments: true, subscriptions: true },
+            sale: { payments: true },
           });
     const fixtureContact =
       options.database === undefined
@@ -475,7 +475,7 @@ describe("владельческие операции billing: платежи, �
     const bank = new BankFixture();
     const client = bank.client();
     const payments = new BillingPayments({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: database.prisma,
       bank: client,
       contact: fixtureContact,
@@ -483,13 +483,13 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const notices = new BillingNotices({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: database.prisma,
       enrollments: grants,
       clock: () => now,
     });
     const subscriptions = new BillingSubscriptions({
-      sale: { payments: true, subscriptions: true },
+      sale: { payments: true },
       prisma: database.prisma,
       bank: client,
       contact: fixtureContact,
@@ -499,7 +499,7 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const operations = new BillingOperations({
-      sale: { subscriptions: true },
+      sale: {},
       prisma: options.operationsPrisma ?? database.prisma,
       accounts: fixtureAccounts,
       pricing: fixturePricing,

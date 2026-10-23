@@ -235,14 +235,14 @@ describe("local development offer catalog", () => {
       productId = product.id;
       owner = new BillingPricing({
         prisma: testDatabase.prisma,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         accounts: {
           checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
         },
       });
       storefront = new BillingPricing({
         prisma: testDatabase.prisma,
-        sale: { payments: true, subscriptions: true },
+        sale: { payments: true },
         accounts: {
           checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
         },
