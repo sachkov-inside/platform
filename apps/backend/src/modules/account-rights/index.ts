@@ -11,11 +11,7 @@ export {
   RECIPIENT_LINKS,
   type RecipientLinks,
 } from "./ports/recipient-links.js";
-export type {
-  AccountRights,
-  MembershipEvidenceAcceptance,
-  MembershipEvidenceSource,
-} from "./facets/account-rights/account-rights.interface.js";
+export type { AccountRights } from "./facets/account-rights/account-rights.interface.js";
 export {
   assembleAccessGrants,
   type AccessGrants,
@@ -30,16 +26,8 @@ export {
 } from "./domain/access-grant.js";
 
 export {
-  assignEnrollmentSchema,
-  changeEnrollmentSchema,
   enrollmentViewSchema,
   tierSnapshotSchema,
-} from "./domain/tariff-assignment.js";
-
-export {
-  previewEnrollmentExpansionSchema,
-  applyEnrollmentExpansionSchema,
-  expansionPreviewSchema,
 } from "./domain/tariff-assignment.js";
 
 export {
