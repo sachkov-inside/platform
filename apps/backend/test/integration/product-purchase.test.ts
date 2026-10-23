@@ -351,3 +351,49 @@ test("a distinct approved-model synthetic legal edition is persisted from the se
   expect(JSON.stringify(stored.acceptance)).toContain(s.document.digest);
   expect(s.initCalls()).toBe(1);
 });
+
+test.each(["refund_first", "refund_before_fulfillment"] as const)(
+  "%s preserves paid Product fulfillment independently of the financial refund",
+  async (order) => {
+    const s = await scenario();
+    const purchase = value(await s.payments.purchase(s.buyer, s.command));
+    if (order === "refund_before_fulfillment")
+      expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+    expect(await s.notify("REFUNDED")).toMatchObject({ ok: true });
+    expect(await s.notify("REFUNDED")).toMatchObject({ ok: true });
+    expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+    await s.payments.recover();
+    expect(
+      value(await s.payments.status(s.buyer, purchase.purchaseRef)),
+    ).toMatchObject({ access: "ready", refundedKopecks: 200000 });
+    const pair = { accountId: s.buyer, productId: s.productId };
+    const right = value(await s.grants.readProductAccess(owner, pair));
+    expect(right.access).toBe("active");
+    expect(
+      await s.grants.revokeProductAccess(owner, {
+        ...pair,
+        operationId: randomUUID(),
+        expectedRevision: right.revision,
+        reason: "Explicit owner withdrawal after bank refund",
+      }),
+    ).toMatchObject({ ok: true });
+    await s.payments.recover();
+    expect(await s.notify("REFUNDED")).toMatchObject({ ok: true });
+    expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+    expect(await s.grants.readProductAccess(owner, pair)).toMatchObject({
+      ok: true,
+      value: { access: "revoked" },
+    });
+    expect(s.initCalls()).toBe(1);
+    expect(
+      await db.prisma.billingPaymentEvent.count({
+        where: { purchaseRef: purchase.purchaseRef, kind: "payment_confirmed" },
+      }),
+    ).toBe(1);
+    expect(
+      await db.prisma.billingRefund.count({
+        where: { purchaseRef: purchase.purchaseRef },
+      }),
+    ).toBe(1);
+  },
+);
