@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
 }
 
 model Account {
@@ -219,7 +219,7 @@ model Product {
   updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
   @@map("series")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifact {
@@ -246,7 +246,7 @@ model ProductArtifact {
   @@unique([sourceId], map: "product_artifacts_source_unique")
   @@index([state, updatedAt(sort: Desc)], map: "product_artifacts_state_idx")
   @@map("product_artifacts")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifactVersion {
@@ -270,7 +270,7 @@ model ProductArtifactVersion {
 
   @@id([artifactId, version], map: "product_artifact_versions_primary")
   @@map("product_artifact_versions")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifactPlacement {
@@ -283,7 +283,7 @@ model ProductArtifactPlacement {
   @@id([artifactId, productId], map: "product_artifact_placements_primary")
   @@index([productId, createdAt], map: "product_artifact_placements_product_idx")
   @@map("product_artifact_placements")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductArtifactMaterialLink {
@@ -296,7 +296,7 @@ model ProductArtifactMaterialLink {
   @@id([artifactId, materialId], map: "product_artifact_material_links_primary")
   @@index([materialId], map: "product_artifact_material_links_material_idx")
   @@map("product_artifact_material_links")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductChapter {
@@ -311,7 +311,7 @@ model ProductChapter {
   @@unique([id, productId], map: "product_chapters_identity_unique")
   @@unique([productId, ordinal], map: "product_chapters_ordinal_unique")
   @@map("product_chapters")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductProgrammePlacement {
@@ -323,7 +323,7 @@ model ProductProgrammePlacement {
   stepGroup String? @map("step_group")
   @@unique([productId, ordinal])
   @@map("product_programme_placements")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductChapterSupplementaryMaterial {
@@ -336,7 +336,7 @@ model ProductChapterSupplementaryMaterial {
   @@unique([chapterId, ordinal])
   @@index([productId], map: "product_chapter_supplementary_materials_product_idx")
   @@map("product_chapter_supplementary_materials")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model HomeSeriesPin {
@@ -345,7 +345,7 @@ model HomeSeriesPin {
   version  Int     @default(1)
 
   @@map("home_series_pin")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model Material {
@@ -402,7 +402,7 @@ model ProductMembership {
   @@id([seriesId, materialId], map: "series_memberships_primary")
   @@unique([seriesId, ordinal], map: "series_memberships_ordinal_unique")
   @@map("series_memberships")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model AuthoringIdempotency {
@@ -465,7 +465,7 @@ model ContentCover {
   @@unique([id, seriesId], map: "content_covers_series_identity")
   @@index([currentlyReferenced, orphanedAt, updatedAt], map: "content_covers_orphan_idx")
   @@map("content_covers")
-  @@schema("materials")
+  @@schema("content_covers")
 }
 
 model ContentCoverRendition {
@@ -480,7 +480,7 @@ model ContentCoverRendition {
 
   @@id([coverId, width], map: "content_cover_renditions_primary")
   @@map("content_cover_renditions")
-  @@schema("materials")
+  @@schema("content_covers")
 }
 
 model PublishedMaterialTag {
@@ -500,7 +500,7 @@ model PublishedMaterialProductMembership {
   @@id([materialId, seriesId], map: "published_material_series_primary")
   @@unique([seriesId, ordinal], map: "published_material_series_ordinal_unique")
   @@map("published_material_series_memberships")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model ProductMaterialRemoval {
@@ -514,7 +514,7 @@ model ProductMaterialRemoval {
 
   @@index([productId, removedAt(sort: Desc)], map: "product_material_removals_product_idx")
   @@map("product_material_removals")
-  @@schema("materials")
+  @@schema("products")
 }
 
 model MaterialRelatedPin {

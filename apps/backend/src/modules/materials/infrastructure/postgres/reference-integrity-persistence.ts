@@ -102,7 +102,7 @@ export async function findSeriesOrdinalConflict(
   await transaction.$queryRaw(
     Prisma.sql`
       select id
-      from materials.series
+      from products.series
       where id in (${Prisma.join(seriesIds)})
       order by id
       for update

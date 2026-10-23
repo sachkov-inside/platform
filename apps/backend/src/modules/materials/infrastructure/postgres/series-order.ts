@@ -182,7 +182,7 @@ export async function lockSeries(
   await transaction.$queryRaw(
     Prisma.sql`
       select id
-      from materials.series
+      from products.series
       where id in (${Prisma.join([...seriesIds].sort())})
       order by id
       for update

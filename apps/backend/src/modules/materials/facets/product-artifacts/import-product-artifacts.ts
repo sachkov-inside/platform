@@ -88,7 +88,7 @@ export async function applyAuthoringImport(
         // All artifact writers take Artifact locks before Product locks.
         if (sourceIds.length > 0)
           await transaction.$executeRaw(
-            Prisma.sql`select id from materials.product_artifacts where source_id = any(${sourceIds}::text[]) order by id for update`,
+            Prisma.sql`select id from products.product_artifacts where source_id = any(${sourceIds}::text[]) order by id for update`,
           );
         const current = await loadArtifactsBySource(transaction, sourceIds);
         const placedProductIds =
