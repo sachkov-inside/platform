@@ -7,6 +7,9 @@ export type AccountRightsPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
   | "$queryRaw"
+  | "productAccess"
+  | "productAccessSource"
+  | "productAccessAction"
   | "accessGrant"
   | "productAccessExclusion"
   | "tariffAssignment"

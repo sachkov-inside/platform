@@ -1,11 +1,8 @@
-import { productIdFromCapability } from "@inside/access-capabilities";
-import {
-  isWithheldCapability,
-  coverageEntrySchema,
-  coverageSchema,
-  isProductCapability,
-} from "@inside/access-capabilities";
 import { z } from "zod";
+import {
+  coverageEntrySchema,
+  productCapability,
+} from "@inside/access-capabilities";
 import type { CoverageCatalog } from "../../ports/coverage-catalog.js";
 import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
 import {
@@ -13,11 +10,6 @@ import {
   accessFailure,
   type AccessFailure,
 } from "../../domain/access-grant.js";
-
-/**
- * Собственное основание доступа глазами покупателя: состав, срок и то, чем оно выдано.
- * Операторские поля — причина, ссылка на источник, исполнитель и история — здесь не показываются.
- */
 export const ownAccessGroundSchema = z.object({
   source: z.enum(["paid", "manual", "legacy"]),
   content: z.array(coverageEntrySchema).optional(),
@@ -35,91 +27,41 @@ export type ReadOwnAccessResult =
   | AccessFailure<"invalid_input" | "unavailable">
   | { readonly ok: true; readonly value: OwnAccess };
 
-/**
- * Отозванные основания не показываются: они больше ничего не открывают. Истёкшее основание
- * тоже скрыто, потому что вопрос кабинета — что доступно сейчас и до какого срока.
- */
 export async function readOwnAccess(
   prisma: AccountRightsPrismaClient,
   accountId: string,
-  now: Date,
+  _now: Date,
   catalog?: CoverageCatalog,
 ): Promise<ReadOwnAccessResult> {
   if (!z.uuid().safeParse(accountId).success)
     return accessFailure("invalid_input");
-  const grants = await prisma.accessGrant.findMany({
-    where: {
-      accountId,
-      revokedAt: null,
-      OR: [{ validUntil: null }, { validUntil: { gt: now } }],
-    },
-    orderBy: [{ startsAt: "asc" }, { id: "asc" }],
+  const access = await prisma.productAccess.findMany({
+    where: { accountId, revokedAt: null },
     take: 1001,
+    orderBy: [{ firstIssuedAt: "asc" }, { productId: "asc" }],
   });
-  if (grants.length > 1000) return accessFailure("unavailable");
-  const exclusions = await prisma.productAccessExclusion.findMany({
-    where: { accountId },
-  });
-  const scopes = grants.map(
-    (grant) =>
-      grant.coverage ?? {
-        productIds: grant.capabilities
-          .filter(isProductCapability)
-          .map(
-            (value) =>
-              productIdFromCapability(accessCapabilitySchema.parse(value)) ??
-              "",
-          ),
-        materialIds: [],
-      },
-  );
+  if (access.length > 1000) return accessFailure("unavailable");
+  const scopes = access.map((row) => ({
+    productIds: [row.productId],
+    materialIds: [],
+  }));
   const contents =
     catalog === undefined ? [] : await catalog.resolveMany(scopes);
   return {
     ok: true,
     value: ownAccessSchema.parse({
-      // Право, которое не выдаёт ни одно основание, кабинет не показывает и в прежних записях.
-      grounds: grants.flatMap((grant, index) => {
-        const excluded = exclusions
-          .filter((entry) => entry.grantIds.includes(grant.id))
-          .map((entry) => entry.productId);
-        const scope =
-          grant.coverage === null ? null : coverageSchema.parse(grant.coverage);
-        const capabilities = grant.capabilities.filter(
-          (capability) =>
-            !isWithheldCapability(capability) &&
-            (!isProductCapability(capability) ||
-              !excluded.includes(
-                productIdFromCapability(
-                  accessCapabilitySchema.parse(capability),
-                ) ?? "",
-              )) &&
-            (isProductCapability(capability) ||
-              scope === null ||
-              scope.wholePlatform === true ||
-              scope.materialIds.length > 0 ||
-              scope.productIds.length === 0 ||
-              !scope.productIds.every((id) => excluded.includes(id))),
-        );
-        return capabilities.length === 0
-          ? []
-          : [
-              {
-                source: grant.source,
-                ...(contents[index] === undefined
-                  ? {}
-                  : {
-                      content: contents[index].filter(
-                        (entry) => !excluded.includes(entry.id),
-                      ),
-                    }),
-                capabilities,
-                startsAt: grant.startsAt.toISOString(),
-                validUntil: grant.validUntil?.toISOString() ?? null,
-                active: grant.startsAt <= now,
-              },
-            ];
-      }),
+      grounds: access.map((row, index) => ({
+        source: "manual",
+        ...(contents[index] === undefined ? {} : { content: contents[index] }),
+        capabilities: [
+          productCapability(row.productId),
+          "materials",
+          "community",
+        ],
+        startsAt: row.firstIssuedAt.toISOString(),
+        validUntil: null,
+        active: true,
+      })),
     }),
   };
 }
