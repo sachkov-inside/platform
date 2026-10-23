@@ -16,6 +16,7 @@ export async function resolveMembershipForAccessAccounts(
   transaction?: AccountRightsPrisma,
 ): Promise<ReadonlyMap<string, MembershipAccessState>> {
   const ids = z.array(z.uuid()).parse(accountIds);
+  if (ids.length === 0) return new Map();
   const read = async (tx: AccountRightsPrisma) => {
     const capabilities = await resolveAccessCapabilitiesForAccounts(
       tx,

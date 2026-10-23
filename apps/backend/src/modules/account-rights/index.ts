@@ -40,13 +40,6 @@ export {
   type ActivationBindings,
 } from "./domain/course-activation.js";
 
-export { courseSourceRef } from "./domain/source-identity.js";
-
-export {
-  registerSourceSchema,
-  sourceEntitlementViewSchema,
-} from "./domain/course-activation.js";
-
 export { ownSubscriptionAccessQuerySchema } from "./domain/course-activation.js";
 export {
   bindingLookupQuerySchema,
@@ -54,18 +47,3 @@ export {
 } from "./domain/course-activation.js";
 
 export { announcementQuerySchema } from "./domain/activation-announcement.js";
-
-export type {
-  IssueProductAccessCommand,
-  ProductAccessContext,
-} from "./domain/product-access.js";
-export {
-  issueProductAccessSchema,
-  issueManualProductAccessSchema,
-  productAccessViewSchema,
-  productAccessChangeSchema,
-  productAccessTargetSchema,
-  productAccessListQuerySchema,
-  productAccessListSchema,
-  productAccessRecordsSchema,
-} from "./domain/product-access.js";
