@@ -708,6 +708,40 @@ describe("durable activation ingress, identity and continuation", () => {
     expect(a.granted.size).toBe(1);
   });
 
+  it("checks current rights before rendering a legacy confirmation receipt without Product metadata", async ({
+    activation: a,
+  }) => {
+    await a.ingress(70108, "/start");
+    await a.link(70108);
+    await a.ingress(70108, "/start a_course");
+    // A stored pre-Product receipt has no Product metadata; its accepted evidence remains exact.
+    await a.db
+      .updateTable("activation_attempts")
+      .set({ source_proof: null })
+      .where("bot_identity", "=", a.bot)
+      .where("telegram_user_id", "=", "70108")
+      .execute();
+    a.state.ownUnavailable = true;
+    await a.ingress(70108, "/start a_course");
+    const queue = a.app.get(StartResponseDeliveryQueue);
+    let last;
+    for (let i = 0; i < 10; i++) {
+      const reply = await queue.claimNext(a.clock.now());
+      if (!reply) break;
+      last = reply;
+      await queue.recordResult(
+        reply,
+        { kind: "delivered", providerMessageId: String(i + 1) },
+        a.clock.now(),
+      );
+    }
+    expect(last?.messageText).toContain("Не удалось проверить доступ");
+    expect(
+      last?.buttons?.some((button) => button.text === "Вступить в группу"),
+    ).toBe(false);
+    expect(a.granted.size).toBe(1);
+  });
+
   it("returns bounded failure for a stalled community check and permits a fresh checked retry", async ({
     activation: a,
   }) => {
