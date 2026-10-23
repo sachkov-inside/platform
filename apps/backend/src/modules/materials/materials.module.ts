@@ -1,4 +1,8 @@
 import {
+  ProductCompositionsReading,
+  ProductReadingModule,
+} from "../products/index.js";
+import {
   PRODUCT_MEMBERSHIPS,
   type ProductMemberships,
 } from "../products/index.js";
@@ -84,6 +88,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
   imports: [
     PrismaModule,
     ProductsModule,
+    ProductReadingModule,
     ObjectStorageModule,
     AccountsModule,
     AssetsModule,
@@ -222,6 +227,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
       inject: [
         PrismaClientProvider,
         ProductDiscovery,
+        ProductCompositionsReading,
         CONTENT_ACCESS,
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
@@ -231,6 +237,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
       useFactory: (
         prisma: PrismaClientProvider,
         products: ProductDiscovery,
+        compositions: ProductCompositionsReading,
         contentAccess: ContentAccess,
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
@@ -240,6 +247,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         assemblePublishedMaterialReader({
           prisma,
           products,
+          compositions,
           contentAccess,
           materialContent,
           materialBodyOperations,

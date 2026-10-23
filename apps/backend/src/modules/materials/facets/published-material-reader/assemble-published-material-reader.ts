@@ -1,4 +1,7 @@
-import type { ProductDiscovery } from "../../../products/index.js";
+import type {
+  ProductDiscovery,
+  ProductCompositionsReading,
+} from "../../../products/index.js";
 import { assembleListPublishedSiteMaterials } from "../../features/list-published-site-materials/list-published-site-materials.js";
 import { readHomeProjections } from "../../features/read-home-projections/read-home-projections.js";
 import {
@@ -23,6 +26,7 @@ import type { Videos } from "../../../videos/index.js";
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
   readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
+  readonly compositions: Pick<ProductCompositionsReading, "load">;
   readonly contentAccess: ContentAccess;
   readonly materialContent: MaterialContent;
   readonly materialBodyOperations: MaterialBodyOperations;
