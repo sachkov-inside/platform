@@ -36,8 +36,9 @@ export class ProductDiscovery {
   }
 
   metadata(query?: {
-    readonly ids: readonly string[];
-    readonly includeActive: boolean;
+    readonly ids?: readonly string[];
+    readonly slugs?: readonly string[];
+    readonly includeActive?: boolean;
   }) {
     return this.prisma.product.findMany({
       ...(query === undefined
@@ -45,7 +46,12 @@ export class ProductDiscovery {
         : {
             where: {
               OR: [
-                { id: { in: [...query.ids] } },
+                ...(query.ids === undefined
+                  ? []
+                  : [{ id: { in: [...query.ids] } }]),
+                ...(query.slugs === undefined
+                  ? []
+                  : [{ slug: { in: [...query.slugs] } }]),
                 ...(query.includeActive ? [{ archivedAt: null }] : []),
               ],
             },

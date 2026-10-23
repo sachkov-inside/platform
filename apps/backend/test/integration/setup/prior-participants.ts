@@ -1,3 +1,4 @@
+import { accountRightsTransaction } from "../../../src/modules/account-rights/infrastructure/prisma.js";
 import {
   assembleAccountRights,
   type AccountRights,
@@ -33,8 +34,8 @@ export function assemblePriorParticipantsFixture(
     async bindPrincipal(command, transaction) {
       // Inside the caller's transaction the fixture writes through it, as the binding does.
       await enrollPriorParticipantsFixture(
-        transaction !== undefined && hasLegacyClassification(transaction)
-          ? transaction
+        transaction !== undefined
+          ? accountRightsTransaction(transaction)
           : dependencies.prisma,
         command.accountId,
       );
@@ -48,11 +49,4 @@ export function assemblePriorParticipantsFixture(
       return membership.acceptEvidence(command);
     },
   };
-}
-
-/** A Prisma transaction client carries every delegate, beyond what its narrow type lists. */
-function hasLegacyClassification(
-  transaction: object,
-): transaction is Pick<PlatformPrisma, "legacyClassification"> {
-  return Reflect.get(transaction, "legacyClassification") !== undefined;
 }

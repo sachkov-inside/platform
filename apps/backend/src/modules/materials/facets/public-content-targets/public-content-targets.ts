@@ -16,7 +16,7 @@ export type PublicContentTargetResult = {
 export class PublicContentTargets {
   constructor(
     private readonly prisma: MaterialsPrismaClient,
-    private readonly discovery: Pick<ProductDiscovery, "snapshot">,
+    private readonly discovery: Pick<ProductDiscovery, "snapshot" | "metadata">,
   ) {}
   static parseUrl(url: URL): PublicContentTarget | "invalid" | null {
     const route = url.pathname.split("/")[1];
@@ -66,7 +66,10 @@ export class PublicContentTargets {
       { id: string; publicationState: string; access: string }
     >();
     const products = new Map<string, { id: string; archivedAt: Date | null }>();
-    const snapshot = await this.discovery.snapshot();
+    const productRows =
+      productSlugs.length === 0
+        ? []
+        : await this.discovery.metadata({ slugs: productSlugs });
     const batchSize = 100;
     for (let start = 0; start < materialSlugs.length; start += batchSize) {
       const rows = await this.prisma.material.findMany({
@@ -77,7 +80,7 @@ export class PublicContentTargets {
         if (row.slug !== null) materials.set(row.slug, row);
     }
     for (let start = 0; start < productSlugs.length; start += batchSize) {
-      const rows = snapshot.products.filter((row) =>
+      const rows = productRows.filter((row) =>
         productSlugs.slice(start, start + batchSize).includes(row.slug),
       );
       for (const row of rows) products.set(row.slug, row);
@@ -92,9 +95,13 @@ export class PublicContentTargets {
         }),
       ),
     ];
+    const memberships =
+      seriesIds.length === 0
+        ? []
+        : (await this.discovery.snapshot()).memberships;
     const memberIds = new Map<string, string[]>();
     for (let start = 0; start < seriesIds.length; start += batchSize) {
-      const rows = snapshot.memberships.filter((row) =>
+      const rows = memberships.filter((row) =>
         seriesIds.slice(start, start + batchSize).includes(row.seriesId),
       );
       for (const row of rows) {
