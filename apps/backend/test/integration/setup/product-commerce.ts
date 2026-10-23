@@ -265,3 +265,26 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     },
   };
 }
+
+/** A session-owned migrated PostgreSQL database and a real owner for integration suites. */
+export async function createProductCommerceWorld() {
+  const { createMigratedTestDatabase } = await import("./test-database.js");
+  const db = await createMigratedTestDatabase();
+  const owner = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: owner,
+      logtoIssuer: "https://identity.invalid",
+      logtoSubject: owner,
+    },
+  });
+  await db.prisma.accountPermission.create({
+    data: { accountId: owner, permission: "platform:admin" },
+  });
+  return {
+    db,
+    owner,
+    ...createProductCommerceFixture(db, owner),
+    dispose: () => db.dispose(),
+  };
+}

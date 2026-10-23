@@ -47,11 +47,11 @@ describe("тестовая база отказывает второму соед
     });
     const enrollmentId = randomUUID();
     let read:
-      Awaited<ReturnType<typeof grants.readEnrollmentEnding>> | undefined;
+      Awaited<ReturnType<typeof grants.resolveCapabilities>> | undefined;
 
     await prisma.$transaction(async (tx) => {
       await lockBillingEnrollmentNotices(tx, enrollmentId);
-      read = await grants.readEnrollmentEnding(enrollmentId);
+      read = await grants.resolveCapabilities(enrollmentId);
     });
 
     // Фасад превращает отказ в неудачный результат; сам отказ остаётся у стража.
@@ -59,9 +59,7 @@ describe("тестовая база отказывает второму соед
     expect(guarded.refused.at(-1)).toBeInstanceOf(
       SecondConnectionInTransactionError,
     );
-    expect(guarded.refused.at(-1)?.message).toContain(
-      "tariffAssignment.findFirst",
-    );
+    expect(guarded.refused.at(-1)?.message).toContain("productAccess.findMany");
   });
 
   test("запрос, $queryRaw и вложенная $transaction через корневой client падают с именованной ошибкой", async () => {

@@ -121,7 +121,7 @@ describe("scoped Account access over Nest HTTP", () => {
 
   test("expired Product A grant exposes no protected bytes while the public Material stays open", async () => {
     const { bearer, accountId } = await signedInAccount();
-    await world.grantExpiredProduct(accountId, world.productA.productId);
+    await world.grantRevokedProduct(accountId, world.productA.productId);
     expect(await publicBody(bearer)).toBe("open");
     expect(await exposure(world.productA, bearer)).toEqual(allClosed);
   });
