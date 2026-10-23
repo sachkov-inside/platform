@@ -175,7 +175,10 @@ test("concurrent Product source reservation returns one stable identity", async 
   const authoring = assembleProductAuthoring({
     prisma: database.prisma,
     authorPolicy: { canManage: (_accountId, handle) => handle !== undefined },
-    materials: assembleProductMaterials(database.prisma),
+    materials: assembleProductMaterials(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
     loadCovers: async () => new Map(),
   });
   const command = {
