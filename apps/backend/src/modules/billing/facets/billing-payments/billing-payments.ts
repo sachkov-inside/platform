@@ -1154,54 +1154,30 @@ export class BillingPayments {
           }
           return { ok: true, value: true };
         }
-        if (row.state !== "failed" && payment.Status === "REFUNDED") {
-          if (!payment.Success || payment.ErrorCode !== "0")
-            return paymentFailure("invalid_notification");
-          // REFUNDED доказывает расчёт даже при пропущенном CONFIRMED. Условия периода
-          // фиксируются и сразу отменяются той же транзакцией, без выдачи прав.
-          let refundedPurchase = row;
-          if (row.state !== "confirmed") {
-            const period = { endsAt: null };
-            refundedPurchase = await tx.billingPurchase.update({
-              where: { id: row.id },
-              data: {
-                state: "confirmed",
-                paymentId: payment.PaymentId,
-                confirmedAt: now,
-                periodEndsAt: period.endsAt,
-                lifecycleActive: false,
-                paymentUrl: null,
-                updatedAt: now,
-              },
-            });
-          }
-          if (isQuotedPurchase(kind))
-            await tx.billingPromoReservation.update({
-              where: { purchaseRef: row.id },
-              data: { state: "confirmed" },
-            });
-          await acceptBankRefund(tx, refundedPurchase, now);
-          return { ok: true, value: true };
-        }
+        const refunded = payment.Status === "REFUNDED";
+        if (refunded && (!payment.Success || payment.ErrorCode !== "0"))
+          return paymentFailure("invalid_notification");
         if (row.state === "confirmed") {
+          if (refunded) await acceptBankRefund(tx, row, now);
           return { ok: true, value: true };
         }
         if (row.state === "failed")
-          return payment.Status === "CONFIRMED"
+          return payment.Status === "CONFIRMED" || refunded
             ? paymentFailure("invalid_notification")
             : { ok: true, value: true };
         const common = {
           paymentId: payment.PaymentId,
           updatedAt: now,
         };
-        if (payment.Status === "CONFIRMED") {
+        if (payment.Status === "CONFIRMED" || refunded) {
           if (!payment.Success || payment.ErrorCode !== "0")
             return paymentFailure("invalid_notification");
-          // The first durably verified CONFIRMED starts the full period; replays returned above.
+          // A verified full refund also proves prior capture when CONFIRMED delivery was lost.
+          // Payment fulfillment and the independent refund fact commit together.
           const paidAt = now;
           const eventRef = randomUUID();
           const snapshot = priceSnapshotSchema.parse(row.snapshot);
-          await tx.billingPurchase.update({
+          const confirmedPurchase = await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
               ...common,
@@ -1260,6 +1236,7 @@ export class BillingPayments {
               },
             });
           }
+          if (refunded) await acceptBankRefund(tx, confirmedPurchase, now);
         } else if (
           [
             "REJECTED",
@@ -1284,7 +1261,7 @@ export class BillingPayments {
               data: { state: "failed" },
             });
         } else if (
-          ["REVERSING", "REFUNDING", "PARTIAL_REFUNDED", "REFUNDED"].includes(
+          ["REVERSING", "REFUNDING", "PARTIAL_REFUNDED"].includes(
             payment.Status,
           ) ||
           !payment.Success ||
