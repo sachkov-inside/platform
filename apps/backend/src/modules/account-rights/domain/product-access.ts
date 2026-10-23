@@ -42,7 +42,12 @@ export const productAccessListQuerySchema = z.strictObject({
   productId: z.uuid().optional(),
   cursor: z
     .string()
-    .regex(/^[0-9a-f-]{36}:[0-9a-f-]{36}$/i)
+    .refine((value) => {
+      const ids = value.split(":");
+      return (
+        ids.length === 2 && ids.every((id) => z.uuid().safeParse(id).success)
+      );
+    })
     .optional(),
   limit: z.int().min(1).max(100).default(50),
 });

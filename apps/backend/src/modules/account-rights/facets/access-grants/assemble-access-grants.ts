@@ -198,8 +198,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const now = clock();
       const rule = await prisma.activationRule.findUnique({ where: { code } });
       if (
-        rule === null ||
-        rule.productId === null ||
+        rule?.productId == null ||
         !rule.published ||
         rule.verificationMode !== "course_membership" ||
         rule.startsAt > now ||
@@ -218,7 +217,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const row = await prisma.activationRule.findUnique({
         where: { id: ruleId },
       });
-      return row === null || row.productId === null
+      return row?.productId == null
         ? null
         : activationRuleSchema.parse({
             id: row.id,
@@ -271,10 +270,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
 
     readActivationReceipt: (input: unknown) =>
       readActivationReceipt(prisma, input),
-    async readOwnEnrollments(targetAccountId: string) {
-      if (!z.uuid().safeParse(targetAccountId).success)
-        return accessFailure("invalid_input");
-      return { ok: true as const, value: [] };
+    readOwnEnrollments(targetAccountId: string) {
+      return Promise.resolve(
+        !z.uuid().safeParse(targetAccountId).success
+          ? accessFailure("invalid_input")
+          : { ok: true as const, value: [] },
+      );
     },
     readContentCatalog: (actorId: string) =>
       manage(actorId, "billing:manage", async () =>
@@ -312,6 +313,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", async () => {
         const query = productAccessListQuerySchema.safeParse(input);
         if (!query.success) return accessFailure("invalid_input");
+        const cursor =
+          query.data.cursor === undefined
+            ? undefined
+            : z.tuple([z.uuid(), z.uuid()]).parse(query.data.cursor.split(":"));
         const rows = await prisma.productAccess.findMany({
           where: {
             ...(query.data.accountId === undefined
@@ -320,14 +325,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
             ...(query.data.productId === undefined
               ? {}
               : { productId: query.data.productId }),
-            ...(query.data.cursor === undefined
+            ...(cursor === undefined
               ? {}
               : {
                   OR: [
-                    { accountId: { gt: query.data.cursor.split(":")[0] } },
+                    { accountId: { gt: cursor[0] } },
                     {
-                      accountId: query.data.cursor.split(":")[0],
-                      productId: { gt: query.data.cursor.split(":")[1] },
+                      accountId: cursor[0],
+                      productId: { gt: cursor[1] },
                     },
                   ],
                 }),

@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
@@ -167,4 +168,121 @@ test("revocation latches across automatic sources until an explicit authorized r
     kind: "active",
     validUntil: null,
   });
+});
+test("caller rollback leaves neither a right nor a source receipt, and immutable source bindings reject cross-Account replay", async () => {
+  const target = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: target,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: target,
+    },
+  });
+  const command = {
+    accountId: target,
+    productId: product,
+    sourceRef: randomUUID(),
+    issuedAt: now.toISOString(),
+    reason: "Atomic payment fulfillment",
+  };
+  await expect(
+    db.prisma.$transaction(async (tx) => {
+      const result = await grants.issueProductAccess(
+        { source: "purchase" },
+        command,
+        transactionHandle(tx),
+      );
+      expect(result).toMatchObject({ ok: true, outcome: "issued" });
+      throw new Error("Outer fulfillment failed");
+    }),
+  ).rejects.toThrow("Outer fulfillment failed");
+  expect(await rights.resolveForAccess(accountId(target), [product])).toEqual({
+    kind: "required",
+  });
+  expect(
+    await grants.issueProductAccess({ source: "purchase" }, command),
+  ).toMatchObject({ ok: true, outcome: "issued" });
+  expect(
+    await grants.issueProductAccess(
+      { source: "purchase" },
+      { ...command, accountId: buyer },
+    ),
+  ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+  expect(
+    await grants.issueProductAccess(
+      { source: "manual", actorId: buyer },
+      { ...command, sourceRef: randomUUID() },
+    ),
+  ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+});
+test("owner history keeps both sources while paginating multiple Products of one Account without omissions", async () => {
+  const target = randomUUID();
+  await db.prisma.account.create({
+    data: {
+      id: target,
+      logtoIssuer: "https://identity.test",
+      logtoSubject: target,
+    },
+  });
+  const command = {
+    accountId: target,
+    productId: product,
+    sourceRef: randomUUID(),
+    issuedAt: now.toISOString(),
+    reason: "Initial payment",
+  };
+  await grants.issueProductAccess({ source: "purchase" }, command);
+  await grants.issueProductAccess(
+    { source: "course_activation" },
+    { ...command, sourceRef: randomUUID(), reason: "Verified course" },
+  );
+  await grants.issueProductAccess(
+    { source: "manual", actorId: owner },
+    {
+      ...command,
+      productId: second,
+      sourceRef: randomUUID(),
+      reason: "Other Product",
+    },
+  );
+  expect(
+    await grants.readProductAccess(buyer, {
+      accountId: target,
+      productId: product,
+    }),
+  ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+  const record = await grants.readProductAccess(owner, {
+    accountId: target,
+    productId: product,
+  });
+  if (!record.ok) throw new Error(record.error.code);
+  expect(record.value.sources.map((source) => source.source).sort()).toEqual([
+    "course_activation",
+    "purchase",
+  ]);
+  expect(record.value.actions.map((action) => action.kind).sort()).toEqual([
+    "issue",
+    "source_recorded",
+  ]);
+  const first = await grants.listProductAccess(owner, {
+    accountId: target,
+    limit: 1,
+  });
+  if (!first.ok) throw new Error(first.error.code);
+  expect(first.value).toHaveLength(1);
+  expect(first.nextCursor).not.toBeNull();
+  const next = await grants.listProductAccess(owner, {
+    accountId: target,
+    limit: 1,
+    cursor: first.nextCursor,
+  });
+  if (!next.ok) throw new Error(next.error.code);
+  expect(next.value).toHaveLength(1);
+  expect(
+    new Set([...first.value, ...next.value].map((row) => row.productId)),
+  ).toEqual(new Set([product, second]));
+  expect(next.nextCursor).toBeNull();
+  expect(
+    await grants.listProductAccess(owner, { cursor: "malformed:cursor" }),
+  ).toMatchObject({ ok: false, error: { code: "invalid_input" } });
 });
