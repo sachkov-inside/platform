@@ -275,7 +275,7 @@ test("the Account access view resolves lifetime Product states in one metadata r
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error(result.error.code);
   expect(
-    result.value.grounds.map((ground) => ground.content[0]?.id).sort(),
+    result.value.grounds.map((ground) => ground.content?.[0]?.id).sort(),
   ).toEqual(products.map((product) => product.id).sort());
   expect(queries).toBe(2);
 });

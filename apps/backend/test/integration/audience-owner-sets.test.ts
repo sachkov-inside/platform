@@ -1091,10 +1091,10 @@ describe("resource-aware set committed state", () => {
       prisma: owned.prisma,
       clock: () => instant,
     });
+    const readSet = rights.resolveForAccessAccounts?.bind(rights);
+    if (readSet === undefined) throw new Error("Missing scoped Account set");
     const read = () =>
-      outsideTransaction(() =>
-        rights.resolveForAccessAccounts([recipient], [material]),
-      );
+      outsideTransaction(() => readSet([recipient], [material]));
     await owned.prisma.$transaction(async (tx) => {
       await tx.productAccess.create({
         data: {
@@ -1118,10 +1118,10 @@ describe("resource-aware set committed state", () => {
       prisma: owned.prisma,
       clock: () => instant,
     });
+    const readSet = rights.resolveForAccessAccounts?.bind(rights);
+    if (readSet === undefined) throw new Error("Missing scoped Account set");
     const read = () =>
-      outsideTransaction(() =>
-        rights.resolveForAccessAccounts([recipient], [material]),
-      );
+      outsideTransaction(() => readSet([recipient], [material]));
     await owned.prisma.$transaction(async (tx) => {
       await tx.productAccess.update({
         where: {
