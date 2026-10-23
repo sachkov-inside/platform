@@ -34,9 +34,10 @@ export function assembleListAuthoringReferences(
           .snapshot()
           .then(({ products }) =>
             products
-              .sort(
-                (a, b) =>
-                  a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+              .sort((a, b) =>
+                a.name === b.name
+                  ? a.id.localeCompare(b.id)
+                  : a.name.localeCompare(b.name),
               )
               .map(({ id, name, archivedAt }) => ({ id, name, archivedAt })),
           ),

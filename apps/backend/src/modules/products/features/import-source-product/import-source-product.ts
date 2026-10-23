@@ -50,7 +50,7 @@ export function assembleReserveSourceProduct(
             slug: command.slug,
             summary: command.summary,
           },
-          update: {},
+          update: { sourceId: command.sourceId },
         });
         const result = await contentCollectionPersistence(
           transaction,

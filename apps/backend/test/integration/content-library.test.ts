@@ -575,6 +575,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
     },
   ] as const;
 
+  const programmeMaterialIds: string[] = [];
   for (const [index, fixture] of fixtures.entries()) {
     const created = await authoring.createDraft({
       actor: actorId,
@@ -625,6 +626,9 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
     if (!published.ok) {
       throw new Error(`Search fixture publish failed: ${published.error.code}`);
     }
+    if (fixture.metadata.seriesIds.length > 0) {
+      programmeMaterialIds.push(created.value.materialId);
+    }
     const publishedAt = new Date(`2026-01-0${String(index + 1)}T00:00:00.000Z`);
     await testDatabase.prisma.$transaction([
       testDatabase.prisma.material.update({
@@ -637,6 +641,22 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       }),
     ]);
   }
+  const current = await authoring.loadSeriesOrder({
+    actor: actorId,
+    seriesId: careerSeriesId,
+  });
+  if (!current.ok)
+    throw new Error(
+      `Search fixture programme load failed: ${current.error.code}`,
+    );
+  const reordered = await authoring.reorderSeries({
+    actor: actorId,
+    seriesId: careerSeriesId,
+    expectedOrderVersion: current.value.orderVersion,
+    orderedMaterialIds: programmeMaterialIds,
+  });
+  if (!reordered.ok)
+    throw new Error(`Search fixture programme failed: ${reordered.error.code}`);
 }
 
 async function seedSearchPerformanceCorpus(

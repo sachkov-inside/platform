@@ -117,10 +117,10 @@ export class ProductCompositions {
         }));
       const placements = memberships
         .filter((entry) => entry.seriesId === product.id)
-        .sort(
-          (left, right) =>
-            left.ordinal - right.ordinal ||
-            left.materialId.localeCompare(right.materialId),
+        .sort((left, right) =>
+          left.ordinal !== right.ordinal
+            ? left.ordinal - right.ordinal
+            : left.materialId.localeCompare(right.materialId),
         )
         .slice(0, MAX_PRODUCT_MATERIALS + 1)
         .map((entry) => ({

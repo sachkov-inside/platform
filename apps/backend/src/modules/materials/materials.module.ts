@@ -1,4 +1,8 @@
 import {
+  ProductCompositionsReading,
+  ProductReadingModule,
+} from "../products/index.js";
+import {
   PRODUCT_MEMBERSHIPS,
   type ProductMemberships,
 } from "../products/index.js";
@@ -31,11 +35,7 @@ import {
   AccountsModule,
   type Accounts,
 } from "../accounts/index.js";
-import {
-  assembleCurrentAccountPermissions,
-  CONTENT_ACCESS,
-  type ContentAccess,
-} from "../content-access/index.js";
+import { CONTENT_ACCESS, type ContentAccess } from "../content-access/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -88,6 +88,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
   imports: [
     PrismaModule,
     ProductsModule,
+    ProductReadingModule,
     ObjectStorageModule,
     AccountsModule,
     AssetsModule,
@@ -119,10 +120,14 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         videos: Videos,
         grants: ProductAccessHolders,
       ): MaterialAuthoring => {
-        const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
-          canManage: (accountId) =>
-            accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+          async canManage(accountId, handle) {
+            const decision = await accounts.checkPermission(
+              { accountId, permission: "materials:manage" },
+              handle,
+            );
+            return decision.ok && decision.allowed;
+          },
         };
         return assembleMaterialAuthoring({
           prisma,
@@ -222,6 +227,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
       inject: [
         PrismaClientProvider,
         ProductDiscovery,
+        ProductCompositionsReading,
         CONTENT_ACCESS,
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
@@ -231,6 +237,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
       useFactory: (
         prisma: PrismaClientProvider,
         products: ProductDiscovery,
+        compositions: ProductCompositionsReading,
         contentAccess: ContentAccess,
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
@@ -240,6 +247,7 @@ import { MaterialAnnouncements } from "./facets/material-announcements/material-
         assemblePublishedMaterialReader({
           prisma,
           products,
+          compositions,
           contentAccess,
           materialContent,
           materialBodyOperations,

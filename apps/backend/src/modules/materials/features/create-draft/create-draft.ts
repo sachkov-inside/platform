@@ -1,3 +1,4 @@
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
   contentWriter,
@@ -86,8 +87,14 @@ export function assembleCreateDraft(
       CreateDraftError
     >(
       dependencies.prisma,
-      (transaction, rollback) =>
-        executeIdempotentMaterialMutation<CreateDraftEffect>(
+      async (transaction, rollback) => {
+        const currentPermission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!currentPermission.ok) return rollback(currentPermission.error);
+        return executeIdempotentMaterialMutation<CreateDraftEffect>(
           transaction,
           {
             actor: command.actor,
@@ -168,7 +175,8 @@ export function assembleCreateDraft(
               },
             };
           },
-        ),
+        );
+      },
       (unexpected) => mapPostgresError(unexpected, materializedMetadata),
       "createDraft",
     );

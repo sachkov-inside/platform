@@ -148,14 +148,12 @@ describe("Content Library discovery", () => {
       testDatabase.prisma.productMembership.create({
         data: {
           materialId: target.materialId,
-          ordinal: 1,
           seriesId: beyondPageSeriesId,
         },
       }),
       testDatabase.prisma.publishedMaterialProductMembership.create({
         data: {
           materialId: target.materialId,
-          ordinal: 1,
           seriesId: beyondPageSeriesId,
         },
       }),

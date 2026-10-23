@@ -6,8 +6,6 @@ export {
   MAX_PRODUCT_MATERIALS,
   productCompositionChapters,
   readProductCompositionAccess,
-  loadMaterialProductAccessFacts,
-  type ProductComposition,
 } from "./facets/product-compositions/product-compositions.js";
 export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
 export {
@@ -125,17 +123,6 @@ export type {
   ProductLandingPageDto,
 } from "./facets/product-authoring/content-collection.contract.js";
 export {
-  loadSeriesOrderSnapshot,
-  appendSelectedSeriesMemberships,
-  lockSeries,
-  lockMaterialSeries,
-  replaceProductComposition,
-} from "./infrastructure/postgres/series-order.js";
-export type {
-  ProductChapterSnapshot,
-  SeriesOrderSnapshot,
-} from "./infrastructure/postgres/series-order.js";
-export {
   heldProductRemovals,
   unconfirmedProductRemovals,
   recordProductRemovals,
@@ -177,15 +164,9 @@ export { ProductArtifactsHttpModule } from "./product-artifacts-http.module.js";
 
 export {
   ProductDirectory,
-  type DirectoryMaterial,
-  type DirectoryPlacement,
   type DirectoryProduct,
 } from "./features/read-product-directory/read-product-directory.js";
-export {
-  ProductOutlines,
-  type ProductOutline,
-  type ProductOutlinesResult,
-} from "./features/list-product-outlines/list-product-outlines.js";
+export { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
 export {
   PublishedSeriesComposition,
   type PublishedSeriesCompositionResult,

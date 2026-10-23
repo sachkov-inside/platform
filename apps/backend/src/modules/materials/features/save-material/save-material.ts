@@ -174,8 +174,14 @@ export function assembleSaveMaterial(
       SaveMaterialError
     >(
       dependencies.prisma,
-      (transaction, rollback) =>
-        executeIdempotentMaterialMutation<SaveMaterialEffect>(
+      async (transaction, rollback) => {
+        const currentPermission = await authorizeManager(
+          dependencies.authorPolicy,
+          command.actor,
+          transactionHandle(transaction),
+        );
+        if (!currentPermission.ok) return rollback(currentPermission.error);
+        return executeIdempotentMaterialMutation<SaveMaterialEffect>(
           transaction,
           {
             actor: command.actor,
@@ -636,7 +642,8 @@ export function assembleSaveMaterial(
               },
             };
           },
-        ),
+        );
+      },
       (unexpected) => mapPostgresError(unexpected, materializedMetadata),
       "saveMaterial",
     );

@@ -93,10 +93,10 @@ export async function loadSeriesOrderSnapshot(
     }),
     items: memberships
       .slice()
-      .sort(
-        (left, right) =>
-          left.ordinal - right.ordinal ||
-          left.materialId.localeCompare(right.materialId),
+      .sort((left, right) =>
+        left.ordinal !== right.ordinal
+          ? left.ordinal - right.ordinal
+          : left.materialId.localeCompare(right.materialId),
       )
       .map(({ chapterId, materialId, ordinal, stepGroup }) => {
         const material = materialById.get(materialId);

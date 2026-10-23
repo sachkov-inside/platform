@@ -1,3 +1,5 @@
+import { ProductCompositionsReading } from "../../modules/products/index.js";
+import { assembleProductMaterialReading } from "../../modules/materials/index.js";
 import { composeMaterialAccessFacts } from "./material-access-facts.js";
 import { ProductMemberships } from "../../modules/products/index.js";
 import { assembleProductAuthoring } from "../../modules/products/index.js";
@@ -111,6 +113,10 @@ export function assembleMaterials(dependencies: {
     publishedMaterialReader: assemblePublishedMaterialReader({
       prisma: dependencies.prisma,
       products: new ProductDiscovery(dependencies.prisma),
+      compositions: new ProductCompositionsReading(
+        dependencies.prisma,
+        assembleProductMaterialReading(dependencies.prisma),
+      ),
       contentAccess,
       materialContent,
       materialBodyOperations,

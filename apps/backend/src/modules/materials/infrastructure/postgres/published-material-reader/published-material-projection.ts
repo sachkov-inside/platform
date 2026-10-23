@@ -1,3 +1,4 @@
+import type { ProductCompositionsReading } from "../../../../products/index.js";
 import { transactionHandle } from "../../../../../infrastructure/prisma/transaction-handle.js";
 import type { ProductDiscovery } from "../../../../products/index.js";
 import {
@@ -7,11 +8,10 @@ import {
 import type { HomeProjections } from "../../../features/read-home-projections/read-home-projections.contract.js";
 import type { HomePinnedSeries } from "../../../features/read-home-pinned-series/read-home-pinned-series.js";
 import {
-  loadProductCompositions,
   productCompositionChapters,
   readProductCompositionAccess,
   MAX_PRODUCT_MATERIALS,
-} from "../../../shared/product-composition.js";
+} from "../../../../products/index.js";
 import type {
   ContentAccess,
   Subject,
@@ -222,7 +222,14 @@ export interface MaterialDiscoveryContext {
   readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
 }
 
-function projectionQueries(snapshot: DiscoverySnapshot) {
+export interface MaterialProgrammeContext extends MaterialDiscoveryContext {
+  readonly compositions: Pick<ProductCompositionsReading, "load">;
+}
+
+function projectionQueries(
+  snapshot: DiscoverySnapshot,
+  compositions?: Pick<ProductCompositionsReading, "load">,
+) {
   const relations = discoveryRelations(snapshot);
   async function selectPublishedMaterialProjectionBySlug(
     prisma: MaterialsPrisma,
@@ -997,11 +1004,9 @@ function projectionQueries(snapshot: DiscoverySnapshot) {
       readonly contentAccess: Pick<ContentAccess, "checkProductAccess">;
     },
   ): Promise<PublishedMaterialDiscoveryPage | undefined | "unavailable"> {
-    const [reference] = await loadProductCompositions(
-      prisma,
-      { slugs: [slug] },
-      1,
-    );
+    if (compositions === undefined)
+      throw new TypeError("Product composition reader is required");
+    const [reference] = await compositions.load({ slugs: [slug] }, 1);
     if (reference === undefined) return undefined;
     const access = await readProductCompositionAccess(reference, reader);
     if (access === "unavailable") return "unavailable";
@@ -1373,9 +1378,12 @@ export async function selectPublishedMaterialProjectionBySlug(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionBySlug"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionBySlug(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionBySlug(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1413,9 +1421,12 @@ export async function selectPublishedMaterialProjectionsByIds(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionsByIds"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionsByIds(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionsByIds(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1426,22 +1437,31 @@ export async function selectPublishedMaterialProjectionsByTopic(
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionsByTopic"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionsByTopic(
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionsByTopic(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
 export async function selectPublishedMaterialProjectionsBySeries(
-  context: MaterialDiscoveryContext,
+  context: MaterialProgrammeContext,
   ...args: Tail<
     Parameters<ProjectionQueries["selectPublishedMaterialProjectionsBySeries"]>
   >
 ): ReturnType<ProjectionQueries["selectPublishedMaterialProjectionsBySeries"]> {
-  const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectPublishedMaterialProjectionsBySeries(
+  const queries = projectionQueries(
+    await context.products.snapshot(),
+    context.compositions,
+  );
+  return hydrateProjectionCovers(
+    await queries.selectPublishedMaterialProjectionsBySeries(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1452,9 +1472,12 @@ export async function selectRelatedPublishedMaterialProjections(
   >
 ): ReturnType<ProjectionQueries["selectRelatedPublishedMaterialProjections"]> {
   const queries = projectionQueries(await context.products.snapshot());
-  return queries.selectRelatedPublishedMaterialProjections(
+  return hydrateProjectionCovers(
+    await queries.selectRelatedPublishedMaterialProjections(
+      context.prisma,
+      ...args,
+    ),
     context.prisma,
-    ...args,
   );
 }
 
@@ -1484,5 +1507,6 @@ async function hydrateProjectionCovers<Value>(
       Object.entries(current).map(([key, child]) => [key, hydrate(child)]),
     );
   }
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Private SQL projections retain their shape while cover placeholders become owner projections.
   return hydrate(value) as Value;
 }

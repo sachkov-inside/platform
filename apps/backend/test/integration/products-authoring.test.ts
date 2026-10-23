@@ -41,7 +41,7 @@ test("Product authoring preserves repeated programme identities separately from 
     prisma: database.prisma,
     authorPolicy: { canManage: () => true },
     materials,
-    loadCovers: async () => new Map(),
+    loadCovers: () => Promise.resolve(new Map()),
   });
   const product = await authoring.createContentCollection({
     actor,
@@ -148,7 +148,7 @@ test("Product writes authorize through the same transaction handle as persistenc
       database.prisma,
       new ProductDiscovery(database.prisma),
     ),
-    loadCovers: async () => new Map(),
+    loadCovers: () => Promise.resolve(new Map()),
   });
   const product = await authoring.createContentCollection({
     actor,
@@ -169,4 +169,31 @@ test("Product writes authorize through the same transaction handle as persistenc
       summary: "Same connection",
     }),
   ).toMatchObject({ ok: true });
+});
+
+test("concurrent Product source reservation returns one stable identity", async () => {
+  const authoring = assembleProductAuthoring({
+    prisma: database.prisma,
+    authorPolicy: { canManage: (_accountId, handle) => handle !== undefined },
+    materials: assembleProductMaterials(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
+    loadCovers: () => Promise.resolve(new Map()),
+  });
+  const command = {
+    actor: randomUUID(),
+    sourceId: "concurrent-product-source",
+    slug: "concurrent-source",
+    name: "Concurrent source",
+    summary: "One Product",
+  };
+  const results = await Promise.all([
+    authoring.reserveSourceProduct(command),
+    authoring.reserveSourceProduct(command),
+  ]);
+  expect(results.every((result) => result.ok)).toBe(true);
+  expect(
+    new Set(results.flatMap((result) => (result.ok ? [result.value.id] : []))),
+  ).toHaveLength(1);
 });

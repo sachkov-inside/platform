@@ -188,9 +188,8 @@ function compareEntries(
   a: { kind: string; title: string; id: string },
   b: { kind: string; title: string; id: string },
 ) {
-  return (
-    a.kind.localeCompare(b.kind) ||
-    a.title.localeCompare(b.title) ||
-    a.id.localeCompare(b.id)
-  );
+  const kind = a.kind.localeCompare(b.kind);
+  if (kind !== 0) return kind;
+  const title = a.title.localeCompare(b.title);
+  return title !== 0 ? title : a.id.localeCompare(b.id);
 }

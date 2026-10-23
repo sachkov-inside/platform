@@ -6,5 +6,6 @@ import {
 export function telegramTransaction(
   handle: TransactionHandle,
 ): TelegramMembershipPrisma {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The owning persistence adapter narrows the validated connection to its own delegates.
   return unwrapTransaction(handle) as TelegramMembershipPrisma;
 }
