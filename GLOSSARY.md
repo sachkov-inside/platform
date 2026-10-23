@@ -407,11 +407,10 @@ Russian product language: «Поток».
 _Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel period, prior participants
 
 **Tariff Assignment**:
-An Account's holding of a promised version of a Tariff, with its own origin and term. A free
-assignment is always for life; its origins are the bot's verification of a prior course participant
-and the owner's decision. An assignment without payment is not a Subscription or consent to renewal. In Russian
-product language: «назначение тарифа».
-_Avoid_: Subscription, gift subscription, temporary free access, Payment
+An Account's AccessGrant based on an agreed version of a Tariff, preserving its rights and their
+individual terms whether obtained by purchase, verified course activation, or an owner's decision.
+In Russian product language: «назначение тарифа».
+_Avoid_: Subscription, gift subscription, Payment
 
 **Coverage**:
 The Products a Tariff opens: named Products, or the whole platform. A named Product includes its
@@ -429,7 +428,7 @@ _Avoid_: Unpublish, reorder, access revocation
 
 **ActivationRule**:
 A published or paused path through the bot from a verified prior-course source, such as membership
-in the prior course group, to a lifetime Tariff Assignment of the course. Its code selects the path;
+in the prior course group, to an AccessGrant with the course Tariff's rights and terms. Its code selects the path;
 possession of the code does not prove entitlement.
 _Avoid_: Invite link, payment proof, grant, Tribute subscription
 
@@ -579,8 +578,8 @@ The right to ask the author for help within a stated term; in Russian, «Соп�
 _Avoid_: Personal mentoring, guaranteed answer, community participation
 
 **Lifetime Access Grant**:
-An AccessGrant without a scheduled end date, for a defined set of Inside benefits. It is the only
-form of free access. It does not promise every future separate paid Product.
+An AccessGrant whose rights have no scheduled end date, for a defined set of Inside benefits.
+It does not promise every future separate paid Product.
 _Avoid_: Never-expiring subscription, future all-access purchase, permanent Telegram membership
 
 **Direct Right**:
