@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   accessComposition,
+  accessSourceLabel,
+  accessGroundSchema,
   attemptStateLabel,
   benefitLines,
   billingErrorMessage,
@@ -242,4 +244,21 @@ describe("состав предложения", () => {
     const offer = { ...productOnlyOffer.offer, benefits: [] };
     expect(offerCompositionLabel(offer)).toBe(offer.name);
   });
+});
+
+it("retains truthful course, unknown and historical provenance in the buyer reader", () => {
+  for (const [source, label] of [
+    ["course_activation", "Активация курса"],
+    ["unknown", "Источник не уточнён"],
+    ["legacy", "Ранее полученный доступ"],
+  ] as const) {
+    const ground = accessGroundSchema.parse({
+      source,
+      capabilities: ["materials"],
+      startsAt: null,
+      validUntil: null,
+      active: true,
+    });
+    expect(accessSourceLabel(ground.source)).toBe(label);
+  }
 });

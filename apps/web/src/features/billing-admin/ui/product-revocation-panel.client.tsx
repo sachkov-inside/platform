@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  announceEnrollmentChange,
   accessSourceLabel,
   billingErrorMessage,
   formatBillingDate,
@@ -56,6 +57,7 @@ export function ProductRevocationPanel({
       completeOperation("product-revoke");
       preview.reset();
       setMessage("Доступ к продукту отозван. Оплаты и прогресс сохранены.");
+      announceEnrollmentChange();
       onRevoked();
     },
   });
