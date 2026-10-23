@@ -62,6 +62,7 @@ export function assemblePreviewMaterial(
         dependencies.prisma,
         dependencies.materialBodyOperations,
         parsed.value.materialId,
+        dependencies.memberships,
       );
       if (current === undefined) {
         return failure({ code: "material_not_found" });

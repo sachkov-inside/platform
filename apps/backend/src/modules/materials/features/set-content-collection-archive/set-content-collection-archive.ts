@@ -1,4 +1,3 @@
-import { lockSeries } from "../../infrastructure/postgres/series-order.js";
 import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
@@ -18,10 +17,6 @@ import type {
   SetContentCollectionArchiveError,
   SetContentCollectionArchiveOperation,
 } from "./set-content-collection-archive.contract.js";
-import {
-  checkContentWrite,
-  contentWriter,
-} from "../../domain/content-write-policy.js";
 
 const commandSchema = z
   .object({

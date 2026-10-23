@@ -1,4 +1,7 @@
-import type { ProductAuthoring } from "../../../products/index.js";
+import type {
+  ProductAuthoring,
+  ProductMemberships,
+} from "../../../products/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import type { MaterialBodyOperations } from "../../domain/material-body/material-body.js";
@@ -9,6 +12,7 @@ import type { Videos } from "../../../videos/index.js";
 
 export interface MaterialAuthoringDependencies {
   readonly products: ProductAuthoring;
+  readonly memberships: ProductMemberships;
   readonly prisma: MaterialsPrismaClient;
   readonly materialBodyOperations: MaterialBodyOperations;
   readonly authorPolicy: AuthorPolicy;

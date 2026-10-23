@@ -1,3 +1,4 @@
+import type { ProductMemberships } from "../../../products/index.js";
 import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import {
   checkContentWrite,
@@ -53,15 +54,10 @@ import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { allocateMaterialSlug } from "../../infrastructure/postgres/material-slug.js";
-import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
 import { replaceCurrentRelations } from "../../infrastructure/postgres/current-material.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
-import {
-  heldProductRemovals,
-  recordProductRemovals,
-  unconfirmedProductRemovals,
-} from "../../shared/product-removal-confirmation.js";
+import { unconfirmedProductRemovals } from "../../shared/product-removal-confirmation.js";
 
 const saveMaterialCommand = z
   .object({
@@ -193,10 +189,15 @@ export function assembleSaveMaterial(
                     transaction,
                     command.materialId,
                     selection.value.toValues().seriesIds,
+                    dependencies.memberships,
                   )
                 : [];
             if (publication !== undefined)
-              await lockMaterialSeries(transaction, command.materialId, []);
+              await dependencies.memberships.lockForMaterial(
+                command.materialId,
+                [],
+                transactionHandle(transaction),
+              );
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
             ]);
@@ -340,6 +341,7 @@ export function assembleSaveMaterial(
                 command.materialId,
                 selection.value,
                 slug,
+                dependencies.memberships,
               );
             } else {
               // Composition has its own version. Reload it under the same series locks; never
@@ -348,6 +350,7 @@ export function assembleSaveMaterial(
                 transaction,
                 dependencies.materialBodyOperations,
                 command.materialId,
+                dependencies.memberships,
               );
               if (current === undefined)
                 return rollback({ code: "material_not_found" });
@@ -368,6 +371,7 @@ export function assembleSaveMaterial(
               command.materialId,
               materializedMetadata,
               rollback,
+              dependencies.memberships,
             );
             if (dependencies.materialAssets !== undefined) {
               const assetIssues =
@@ -422,24 +426,21 @@ export function assembleSaveMaterial(
 
             // Опубликованный материал уходит из руководства, где у кого-то есть право, только
             // подтверждённым снятием: иначе купившие молча потеряли бы часть продукта.
-            const previousProductIds = (
-              await transaction.publishedMaterialProductMembership.findMany({
-                where: { materialId: command.materialId },
-                select: { seriesId: true },
-              })
-            ).map(({ seriesId }) => seriesId);
+            const previousProductIds =
+              await dependencies.memberships.publishedProductIds(
+                command.materialId,
+                transactionHandle(transaction),
+              );
             const nextProductIds =
               next.value.publicationState === "published"
                 ? materializedMetadata.seriesMemberships.map(
                     ({ seriesId }) => seriesId,
                   )
                 : [];
-            const heldRemovals = await heldProductRemovals(
-              transaction,
+            const heldRemovals = await dependencies.memberships.heldRemovals(
+              previousProductIds.filter((id) => !nextProductIds.includes(id)),
               dependencies.productAccessHolders,
-              previousProductIds.filter(
-                (productId) => !nextProductIds.includes(productId),
-              ),
+              transactionHandle(transaction),
             );
             const unconfirmed = unconfirmedProductRemovals(
               heldRemovals,
@@ -451,15 +452,18 @@ export function assembleSaveMaterial(
                 products: unconfirmed,
               });
             }
-            await recordProductRemovals(transaction, {
-              actor: command.actor,
-              operation: "material_save",
-              removals: heldRemovals.map((product) => ({
-                product,
-                materialId: command.materialId,
-              })),
-              removedAt: savedAt,
-            });
+            await dependencies.memberships.recordRemovals(
+              {
+                actor: command.actor,
+                operation: "material_save",
+                removals: heldRemovals.map((product) => ({
+                  product,
+                  materialId: command.materialId,
+                })),
+                removedAt: savedAt,
+              },
+              transactionHandle(transaction),
+            );
 
             const entersPublished =
               locked.lifecycle.publicationState !== "published" &&
@@ -515,6 +519,7 @@ export function assembleSaveMaterial(
                 transaction,
                 command.materialId,
                 materializedMetadata,
+                dependencies.memberships,
               );
             if (next.value.publicationState === "published") {
               if (!publishable.ok || publishedBy === null) {
@@ -523,17 +528,24 @@ export function assembleSaveMaterial(
                   correlationId: randomUUID(),
                 });
               }
-              await replacePublishedProjections(transaction, {
-                materialId: command.materialId,
-                contentVersion: next.value.contentVersion,
-                metadata: publishable.value,
-                publishedAt: requireDate(next.value.publishedAt, "publishedAt"),
-                publishedBy,
-                hasModeVariants: extraction.value.hasModeVariants,
-                plainText: extraction.value.plainText,
-                primaryVideoId: command.primaryVideoId,
-                coverId: locked.coverId,
-              });
+              await replacePublishedProjections(
+                transaction,
+                dependencies.memberships,
+                {
+                  materialId: command.materialId,
+                  contentVersion: next.value.contentVersion,
+                  metadata: publishable.value,
+                  publishedAt: requireDate(
+                    next.value.publishedAt,
+                    "publishedAt",
+                  ),
+                  publishedBy,
+                  hasModeVariants: extraction.value.hasModeVariants,
+                  plainText: extraction.value.plainText,
+                  primaryVideoId: command.primaryVideoId,
+                  coverId: locked.coverId,
+                },
+              );
               // Первая публикация обещает уведомление в той же транзакции, что и сам факт.
               await recordMaterialAnnouncement(
                 transaction,
@@ -556,6 +568,11 @@ export function assembleSaveMaterial(
                 savedAt,
               );
             } else {
+              await dependencies.memberships.setPublication(
+                command.materialId,
+                null,
+                transactionHandle(transaction),
+              );
               await transaction.publishedMaterial.deleteMany({
                 where: { materialId: command.materialId },
               });
@@ -625,6 +642,7 @@ export function assembleSaveMaterial(
 
 async function replacePublishedProjections(
   transaction: MaterialsPrismaTransaction,
+  products: ProductMemberships,
   values: {
     readonly materialId: string;
     readonly contentVersion: number;
@@ -700,18 +718,11 @@ async function replacePublishedProjections(
       })),
     });
   }
-  await transaction.publishedMaterialProductMembership.deleteMany({
-    where: { materialId: values.materialId },
-  });
-  if (values.metadata.seriesMemberships.length > 0) {
-    await transaction.publishedMaterialProductMembership.createMany({
-      data: values.metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
-        materialId: values.materialId,
-        seriesId,
-        ordinal,
-      })),
-    });
-  }
+  await products.setPublication(
+    values.materialId,
+    values.metadata.seriesMemberships,
+    transactionHandle(transaction),
+  );
   await refreshPublishedMaterialSearchProjections(transaction, {
     kind: "materials",
     materialIds: [values.materialId],

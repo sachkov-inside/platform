@@ -169,3 +169,9 @@ export {
   type ProductAuthoring,
 } from "./facets/product-authoring/product-authoring.js";
 export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
+
+export {
+  ProductMemberships,
+  PRODUCT_MEMBERSHIPS,
+  type MaterialMembership,
+} from "./facets/product-memberships/product-memberships.js";

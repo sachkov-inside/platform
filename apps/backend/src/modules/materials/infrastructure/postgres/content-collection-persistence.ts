@@ -1,12 +1,8 @@
-import {
-  Prisma,
-  type MaterialsPrisma,
-} from "../../../../infrastructure/prisma/index.js";
+import { type MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import type {
   ProductPage,
   ProductSourceFields,
 } from "../../domain/product-page.js";
-import { readProductPageState } from "../../shared/product-page-reader.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
@@ -24,13 +20,6 @@ interface ContentCollectionRecord {
   readonly version: number;
   readonly coverId: string | null;
 }
-
-type ProductRecord = ContentCollectionRecord &
-  ProductIntroductionDto & {
-    readonly page: unknown;
-    readonly presentation: string;
-    readonly sourceId: string | null;
-  };
 
 interface ContentCollectionPersistence {
   readonly create: (data: {
