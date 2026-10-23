@@ -1,3 +1,7 @@
+import {
+  PRODUCT_MEMBERSHIPS,
+  type ProductMemberships,
+} from "../products/index.js";
 import { PRODUCT_AUTHORING, type ProductAuthoring } from "../products/index.js";
 import {
   ProductDiscovery,
@@ -106,6 +110,7 @@ import {
       inject: [
         PrismaClientProvider,
         PRODUCT_AUTHORING,
+        PRODUCT_MEMBERSHIPS,
         ACCOUNTS,
         CONTENT_ACCESS,
         MATERIAL_ASSETS,
@@ -115,6 +120,7 @@ import {
       useFactory: (
         prisma: PrismaClientProvider,
         products: ProductAuthoring,
+        memberships: ProductMemberships,
         accounts: Accounts,
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
@@ -129,6 +135,7 @@ import {
         return assembleMaterialAuthoring({
           prisma,
           products,
+          memberships,
           authorPolicy,
           contentAccess,
           materialAssets,

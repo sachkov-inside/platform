@@ -1,3 +1,7 @@
+import {
+  ProductMemberships,
+  PRODUCT_MEMBERSHIPS,
+} from "./facets/product-memberships/product-memberships.js";
 import { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
 import { Module } from "@nestjs/common";
 import {
@@ -10,6 +14,12 @@ import { ProductCoverSelection } from "./adapters/product-cover-selection.js";
 @Module({
   imports: [PrismaModule],
   providers: [
+    {
+      provide: PRODUCT_MEMBERSHIPS,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new ProductMemberships(prisma),
+    },
     ProductCoverSelection,
     {
       provide: ProductDiscovery,
@@ -24,6 +34,11 @@ import { ProductCoverSelection } from "./adapters/product-cover-selection.js";
         new ProductCatalogue(prisma),
     },
   ],
-  exports: [ProductCatalogue, ProductCoverSelection, ProductDiscovery],
+  exports: [
+    PRODUCT_MEMBERSHIPS,
+    ProductCatalogue,
+    ProductCoverSelection,
+    ProductDiscovery,
+  ],
 })
 export class ProductsModule {}

@@ -87,6 +87,7 @@ export function assembleDeleteDraft(
               transaction,
               command.materialId,
               [],
+              dependencies.memberships,
             );
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
@@ -150,6 +151,10 @@ export function assembleDeleteDraft(
                 });
               }
             }
+            await dependencies.memberships.detachMaterial(
+              command.materialId,
+              transactionHandle(transaction),
+            );
             await transaction.material.delete({
               where: { id: command.materialId },
             });

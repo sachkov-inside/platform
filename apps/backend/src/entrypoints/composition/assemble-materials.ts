@@ -1,3 +1,4 @@
+import { ProductMemberships } from "../../modules/products/index.js";
 import { assembleProductAuthoring } from "../../modules/products/index.js";
 import { assembleProductMaterials } from "../../modules/materials/index.js";
 import { loadContentCoverProjections } from "../../modules/content-covers/index.js";
@@ -68,6 +69,7 @@ export function assembleMaterials(dependencies: {
       accountRights: assembleDeterministicAccountRights(),
     });
   const shared = {
+    memberships: new ProductMemberships(dependencies.prisma),
     prisma: dependencies.prisma,
     products: assembleProductAuthoring({
       prisma: dependencies.prisma,

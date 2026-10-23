@@ -1,3 +1,4 @@
+import type { ProductMemberships } from "../../products/index.js";
 import type { MaterialMetadata } from "../domain/material-metadata.js";
 import type { MaterialId } from "../domain/material-identifiers.js";
 import type { MaterialsPrismaTransaction } from "../../../infrastructure/prisma/index.js";
@@ -19,8 +20,14 @@ export async function requireReferenceIntegrity(
   materialId: MaterialId,
   metadata: MaterialMetadata,
   rollback: Rollback<ReferenceIntegrityError>,
+  products: ProductMemberships,
 ): Promise<void> {
-  const issues = await findReferenceIssues(transaction, materialId, metadata);
+  const issues = await findReferenceIssues(
+    transaction,
+    materialId,
+    metadata,
+    products,
+  );
   if (issues.length > 0) {
     rollback({ code: "invalid_reference", issues });
   }
@@ -28,6 +35,7 @@ export async function requireReferenceIntegrity(
     transaction,
     materialId,
     metadata,
+    products,
   );
   if (conflict !== undefined) {
     rollback({ code: "series_ordinal_conflict", ...conflict });

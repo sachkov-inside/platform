@@ -103,6 +103,7 @@ export function assembleCreateDraft(
               transaction,
               newMaterialId,
               selection.value.toValues().seriesIds,
+              dependencies.memberships,
             );
             const sourceError = checkContentWrite(
               contentWriter(source?.id ?? null),
@@ -118,12 +119,14 @@ export function assembleCreateDraft(
               newMaterialId,
               selection.value,
               sourceSlug,
+              dependencies.memberships,
             );
             await requireReferenceIntegrity(
               transaction,
               newMaterialId,
               materializedMetadata,
               rollback,
+              dependencies.memberships,
             );
             await transaction.material.create({
               data: {
@@ -153,6 +156,7 @@ export function assembleCreateDraft(
               transaction,
               newMaterialId,
               materializedMetadata,
+              dependencies.memberships,
             );
             return {
               kind: "material",
