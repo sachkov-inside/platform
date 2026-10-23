@@ -25,7 +25,10 @@ import type { Videos } from "../../../videos/index.js";
 
 export function assemblePublishedMaterialReader(dependencies: {
   readonly prisma: MaterialsPrismaClient;
-  readonly products: Pick<ProductDiscovery, "snapshot" | "homePin">;
+  readonly products: Pick<
+    ProductDiscovery,
+    "snapshot" | "homePin" | "siteCandidates"
+  >;
   readonly compositions: Pick<ProductCompositionsReading, "load">;
   readonly contentAccess: ContentAccess;
   readonly materialContent: MaterialContent;

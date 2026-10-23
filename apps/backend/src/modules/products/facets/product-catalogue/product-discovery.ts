@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import { readProductPage } from "../../shared/product-page-reader.js";
 import { productPageHero } from "../../domain/product-page.js";
 import { loadCatalogueMemberships } from "../../infrastructure/postgres/catalogue-memberships.js";
@@ -66,6 +68,30 @@ export class ProductDiscovery {
         coverId: true,
       },
     });
+  }
+
+  async siteCandidates() {
+    return z
+      .array(
+        z.object({
+          id: z.uuid(),
+          slug: z.string(),
+          name: z.string(),
+          materialIds: z.array(z.uuid()),
+        }),
+      )
+      .parse(
+        await this.prisma.$queryRaw(Prisma.sql`
+        select product.id, product.slug, product.name,
+          coalesce(array_agg(membership.material_id order by membership.material_id)
+            filter (where membership.material_id is not null), array[]::uuid[]) as "materialIds"
+        from products.series as product
+        left join products.published_material_series_memberships as membership on membership.series_id = product.id
+        where product.archived_at is null
+        group by product.id
+        order by product.name, product.id
+      `),
+      );
   }
 
   catalogueMemberships(productIds: readonly string[]) {
