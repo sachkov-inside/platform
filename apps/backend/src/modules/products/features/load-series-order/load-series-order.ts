@@ -1,0 +1,69 @@
+import { z } from "zod";
+
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import type { ProductAuthoringDependencies } from "../../facets/product-authoring/product-authoring.dependencies.js";
+import { loadSeriesOrderSnapshot } from "../../infrastructure/postgres/series-order.js";
+import { authorizeManager } from "../../../../infrastructure/content-authoring/author-policy.js";
+import { failure } from "../../shared/application-result.js";
+import {
+  accountId,
+  entityId,
+  parseCommand,
+} from "../../shared/command-validation.js";
+import { mapPostgresReadError } from "../../../../infrastructure/content-authoring/postgres-error-mapping.js";
+import { productOrderVersion } from "../../shared/product-order-version.js";
+import type { LoadSeriesOrderOperation } from "./load-series-order.contract.js";
+
+const querySchema = z.object({ actor: accountId, seriesId: entityId }).strict();
+
+export function assembleLoadSeriesOrder(
+  dependencies: ProductAuthoringDependencies,
+): LoadSeriesOrderOperation {
+  return async (input) => {
+    const parsed = parseCommand(querySchema, input);
+    if (!parsed.ok) {
+      return failure({ code: "forbidden" });
+    }
+    const authorization = await authorizeManager(
+      dependencies.authorPolicy,
+      parsed.value.actor,
+    );
+    if (!authorization.ok) {
+      return failure(authorization.error);
+    }
+    try {
+      const snapshot = await loadSeriesOrderSnapshot(
+        dependencies.prisma,
+        parsed.value.seriesId,
+        dependencies.materials,
+      );
+      if (snapshot === undefined) {
+        return failure({ code: "series_not_found" });
+      }
+      return {
+        ok: true,
+        value: {
+          archived: snapshot.archived,
+          chapters: snapshot.chapters,
+          items: snapshot.items,
+          name: snapshot.name,
+          programmePlacements: snapshot.programmePlacements,
+          seriesId: snapshot.seriesId,
+          orderVersion: productOrderVersion(
+            snapshot.items,
+            snapshot.chapters,
+            snapshot.programmePlacements,
+          ),
+        },
+      };
+    } catch (error) {
+      return failure(
+        dependencyFailure(
+          { module: "products", operation: "loadSeriesOrder" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      );
+    }
+  };
+}

@@ -1,0 +1,52 @@
+import type {
+  ForbiddenError,
+  ProductRemovalConfirmationRequiredError,
+  InvalidContentError,
+  InvalidReferenceError,
+  SystemError,
+} from "../../../../infrastructure/content-authoring/authoring-errors.js";
+import type { ProductProgrammePlacement } from "../../shared/product-chapters.js";
+import type { ProductChapterDraft } from "../../shared/product-chapters.js";
+import type { SeriesNotFoundError } from "../load-series-order/load-series-order.contract.js";
+import type { Result } from "../../../../infrastructure/content-authoring/result.js";
+
+export interface ReorderSeriesCommand {
+  readonly programmePlacements?:
+    readonly ProductProgrammePlacement[] | undefined;
+  readonly actor: string;
+  /** The complete ordered chapter list; omitted keeps the current chapters unchanged. */
+  readonly chapters?: readonly ProductChapterDraft[] | undefined;
+  /** Material to chapter placement; omitted keeps the placement of retained Materials. */
+  readonly chapterAssignments?: Readonly<Record<string, string>> | undefined;
+  readonly expectedOrderVersion: string;
+  readonly orderedMaterialIds: readonly string[];
+  readonly stepGroups?: Readonly<Record<string, string>> | undefined;
+  readonly seriesId: string;
+  /** Подтверждённое снятие опубликованных материалов из руководства с держателями права. */
+  readonly confirmedProductRemovals?: readonly string[] | undefined;
+}
+
+export interface ReorderSeriesReceiptDto {
+  readonly orderVersion: string;
+  readonly seriesId: string;
+}
+
+export type StaleSeriesOrderError = {
+  readonly code: "stale_series_order";
+  readonly currentOrderVersion: string;
+};
+export type ReorderSeriesError =
+  | ForbiddenError
+  | ProductRemovalConfirmationRequiredError
+  | InvalidContentError
+  | InvalidReferenceError
+  | SeriesNotFoundError
+  | StaleSeriesOrderError
+  | SystemError;
+export type ReorderSeriesResult = Result<
+  ReorderSeriesReceiptDto,
+  ReorderSeriesError
+>;
+export type ReorderSeriesOperation = (
+  command: ReorderSeriesCommand,
+) => Promise<ReorderSeriesResult>;

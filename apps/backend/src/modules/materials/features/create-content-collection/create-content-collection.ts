@@ -31,6 +31,8 @@ export function assembleCreateContentCollection(
   dependencies: MaterialAuthoringDependencies,
 ): CreateContentCollectionOperation {
   return async (input) => {
+    if (input.kind !== "topic")
+      return dependencies.products.createContentCollection(input);
     const parsed = parseCommand(contentCollectionInputSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;

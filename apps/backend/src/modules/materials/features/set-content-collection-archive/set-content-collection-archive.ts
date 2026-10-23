@@ -37,6 +37,8 @@ export function assembleSetContentCollectionArchive(
   dependencies: MaterialAuthoringDependencies,
 ): SetContentCollectionArchiveOperation {
   return async (input) => {
+    if (input.kind !== "topic")
+      return dependencies.products.setContentCollectionArchive(input);
     const parsed = parseCommand(commandSchema, input);
     if (!parsed.ok) return failure(parsed.error);
     const command = parsed.value;
@@ -49,21 +51,6 @@ export function assembleSetContentCollectionArchive(
     return executeAuthoringTransaction(
       dependencies.prisma,
       async (transaction, rollback) => {
-        if (command.kind !== "topic") {
-          await lockSeries(transaction, [command.collectionId]);
-          const source = await transaction.product.findUnique({
-            where: { id: command.collectionId },
-            select: { sourceId: true },
-          });
-          const sourceError = checkContentWrite(contentWriter(), [
-            {
-              kind: "archive",
-              sourceId: source?.sourceId ?? null,
-              path: "/collectionId",
-            },
-          ]);
-          if (sourceError !== null) return rollback(sourceError);
-        }
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,
