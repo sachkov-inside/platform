@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { idSchema, priceSnapshotSchema } from "../../domain/pricing.js";
 import { attemptStateSchema } from "../../domain/payment-attempt.js";
+import { idSchema, priceSnapshotSchema } from "../../domain/pricing.js";
 
 export const purchaseSubscriptionSchema = z.strictObject({
   operationId: idSchema,
@@ -9,7 +9,7 @@ export const purchaseSubscriptionSchema = z.strictObject({
   email: z.string().trim().toLowerCase().pipe(z.email().max(254)).optional(),
   contactRevision: z.int().positive().optional(),
   consentEvidenceRefs: z.array(idSchema).min(1).max(4),
-  acknowledgeExistingAccess: z.boolean(),
+  acknowledgeExistingAccess: z.boolean().optional(),
 });
 export type PurchaseSubscriptionCommand = z.infer<
   typeof purchaseSubscriptionSchema

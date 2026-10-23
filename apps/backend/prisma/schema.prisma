@@ -955,6 +955,17 @@ model TelegramCommunityProjectionCursor {
 }
 
 
+model BillingProductPrice {
+  productId String @id @map("product_id") @db.Uuid
+  revision Int
+  name String
+  priceKopecks BigInt @map("price_kopecks")
+  published Boolean @default(false)
+  archived Boolean @default(false)
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@map("product_prices")
+  @@schema("billing")
+}
 model BillingOffer {
   id String @id @db.Uuid
   revision Int

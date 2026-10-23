@@ -1,65 +1,38 @@
+import { coverageEntrySchema } from "@inside/access-capabilities";
+import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
+import { z } from "zod";
+import {
+  accessGrantsViewSchema,
+  accessHolderSchema,
+  accessSourceSchema,
+  activationRuleSchema,
+  enrollmentViewSchema,
+  expansionPreviewSchema,
+  invitationFunnelSchema,
+  invitationViewSchema,
+  legacyClassificationViewSchema,
+  listAccessHoldersSchema,
+  manageActivationRuleSchema,
+  sourceEntitlementViewSchema,
+  tierSnapshotSchema,
+  tributeApplyResultSchema,
+  tributeImportReviewSchema,
+  tributeInboxViewSchema,
+  tributeOperationsViewSchema,
+  tributePolicySchema,
+  tributePreviewSchema,
+  tributeSourceViewSchema,
+} from "../../account-rights/index.js";
+import {
+  catalogOutcomeSchema,
+  manageCatalogSchema,
+} from "../features/manage-catalog/manage-catalog.contract.js";
 import {
   paymentLinkCommandSchema,
   paymentLinkViewSchema,
   paymentLinksPageSchema,
 } from "../features/payment-links/payment-links.contract.js";
-import { paymentAuditCursorSchema } from "@inside/contracts/payment-audit";
-import {
-  dismissTributeImportSchema,
-  tributeImportReviewSchema,
-  saveTributePolicySchema,
-  previewTributeImportSchema,
-  applyTributeImportSchema,
-  reconcileTributeSchema,
-  retryTributeInboxSchema,
-  tributePolicySchema,
-  tributePreviewSchema,
-  tributeApplyResultSchema,
-  tributeSourceViewSchema,
-  tributeInboxViewSchema,
-  tributeOperationsViewSchema,
-} from "../../account-rights/index.js";
-import { coverageEntrySchema } from "@inside/access-capabilities";
-import { z } from "zod";
-import {
-  registerSourceSchema,
-  sourceEntitlementViewSchema,
-  manageActivationRuleSchema,
-  activationRuleSchema,
-  previewEnrollmentExpansionSchema,
-  applyEnrollmentExpansionSchema,
-  expansionPreviewSchema,
-  assignEnrollmentSchema,
-  changeEnrollmentSchema,
-  enrollmentViewSchema,
-  tierSnapshotSchema,
-  applyGrantBatchCommandSchema,
-  changeAccessGrantCommandSchema,
-  previewGrantBatchCommandSchema,
-  accessGrantsViewSchema,
-  classifyLegacyAccountCommandSchema,
-  legacyClassificationViewSchema,
-  invitationViewSchema,
-  issueInvitationSchema,
-  listInvitationsSchema,
-  revokeInvitationSchema,
-  accessHolderSchema,
-  accessSourceSchema,
-  invitationFunnelSchema,
-  listAccessHoldersSchema,
-} from "../../account-rights/index.js";
-import {
-  manageCatalogSchema,
-  catalogOutcomeSchema,
-} from "../features/manage-catalog/manage-catalog.contract.js";
-import {
-  benefitPeriodsSchema,
-  idSchema,
-  moneySchema,
-  priceSnapshotSchema,
-  revisionSchema,
-} from "./pricing.js";
-import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
+import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
 import {
   importRespondentsSchema,
   issueRespondentLinkSchema,
@@ -67,8 +40,15 @@ import {
   respondentLinkSchema,
   respondentsViewSchema,
 } from "../features/survey-respondents/survey-respondents.contract.js";
+import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
+import {
+  benefitPeriodsSchema,
+  idSchema,
+  moneySchema,
+  priceSnapshotSchema,
+  revisionSchema,
+} from "./pricing.js";
 import { subscriptionViewSchema } from "./subscription-change.js";
-import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
 
 export const reasonSchema = z.string().trim().min(1).max(1000);
 const command = { operationId: idSchema };
@@ -102,80 +82,16 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
   }),
   z.strictObject({
     ...command,
-    operation: z.literal("tribute.status"),
-    page: z.int().min(0).max(100000).optional(),
-  }),
-  z.strictObject({
-    ...dismissTributeImportSchema.shape,
-    operation: z.literal("tribute.dismissImport"),
-  }),
-  z.strictObject({
-    ...saveTributePolicySchema.shape,
-    operation: z.literal("tribute.savePolicy"),
-  }),
-  z.strictObject({
-    ...previewTributeImportSchema.shape,
-    operation: z.literal("tribute.preview"),
-  }),
-  z.strictObject({
-    ...applyTributeImportSchema.shape,
-    operation: z.literal("tribute.apply"),
-  }),
-  z.strictObject({
-    ...reconcileTributeSchema.shape,
-    operation: z.literal("tribute.reconcile"),
-  }),
-  z.strictObject({
-    ...retryTributeInboxSchema.shape,
-    operation: z.literal("tribute.retryEvent"),
-  }),
-  z.strictObject({
-    ...command,
     operation: z.literal("recipients.lookup"),
     identityRef: z.string().trim().min(1).max(256),
   }),
   ...manageCatalogSchema.options,
   z.strictObject({ ...command, operation: z.literal("content.list") }),
   z.strictObject({
-    ...registerSourceSchema.shape,
-    operation: z.literal("sources.register"),
-  }),
-  z.strictObject({
     ...manageActivationRuleSchema.shape,
     operation: z.literal("activationRules.save"),
   }),
   z.strictObject({ ...command, operation: z.literal("activationRules.list") }),
-  z.strictObject({
-    ...previewEnrollmentExpansionSchema.shape,
-    operation: z.literal("enrollments.previewExpansion"),
-  }),
-  z.strictObject({
-    ...applyEnrollmentExpansionSchema.shape,
-    operation: z.literal("enrollments.applyExpansion"),
-  }),
-  z.strictObject({
-    ...assignEnrollmentSchema.shape,
-    operation: z.literal("enrollments.assign"),
-  }),
-  z.strictObject({
-    ...changeEnrollmentSchema.shape,
-    operation: z.literal("enrollments.change"),
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("enrollments.list"),
-    accountId: idSchema,
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("tiers.list"),
-    ...listBounds,
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("offers.list"),
-    ...listBounds,
-  }),
   z.strictObject({
     ...command,
     operation: z.literal("payments.list"),
@@ -197,61 +113,8 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
   }),
   z.strictObject({
     ...command,
-    operation: z.literal("subscriptions.cancel"),
-    accountId: idSchema,
-    expectedRevision: revisionSchema,
-    reason: reasonSchema,
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("refunds.decide"),
-    purchaseRef: idSchema,
-    amountKopecks: moneySchema,
-    basis: refundBasisSchema,
-    recurring: z.enum(["keep", "cancel"]),
-    reason: reasonSchema,
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("refunds.execute"),
-    decisionRef: idSchema,
-    expectedRevision: revisionSchema,
-  }),
-  z.strictObject({
-    ...command,
     operation: z.literal("refunds.read"),
     purchaseRef: idSchema,
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("grants.read"),
-    accountId: idSchema,
-  }),
-  z.strictObject({
-    ...command,
-    operation: z.literal("grants.readClassification"),
-    accountId: idSchema,
-  }),
-  // Кросс-полевые правила команды и её строк остаются за владеющим use case: он повторно разбирает команду.
-  z.strictObject({
-    ...classifyLegacyAccountCommandSchema.shape,
-    operation: z.literal("grants.classify"),
-  }),
-  z.strictObject({
-    ...previewGrantBatchCommandSchema.shape,
-    operation: z.literal("grants.previewBatch"),
-  }),
-  z.strictObject({
-    ...applyGrantBatchCommandSchema.shape,
-    operation: z.literal("grants.applyBatch"),
-  }),
-  z.strictObject({
-    ...changeAccessGrantCommandSchema.options[0].omit({ action: true }).shape,
-    operation: z.literal("grants.extend"),
-  }),
-  z.strictObject({
-    ...changeAccessGrantCommandSchema.options[1].omit({ action: true }).shape,
-    operation: z.literal("grants.revoke"),
   }),
   // Скидка респондентам анкеты (#815): список ников и личные одноразовые ссылки.
   z.strictObject({
@@ -263,18 +126,6 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     operation: z.literal("respondents.issue"),
   }),
   z.strictObject({ ...command, operation: z.literal("respondents.status") }),
-  z.strictObject({
-    ...issueInvitationSchema.shape,
-    operation: z.literal("invitations.issue"),
-  }),
-  z.strictObject({
-    ...revokeInvitationSchema.shape,
-    operation: z.literal("invitations.revoke"),
-  }),
-  z.strictObject({
-    ...listInvitationsSchema.shape,
-    operation: z.literal("invitations.list"),
-  }),
   z.strictObject({
     ...listAccessHoldersSchema.shape,
     operation: z.literal("people.list"),

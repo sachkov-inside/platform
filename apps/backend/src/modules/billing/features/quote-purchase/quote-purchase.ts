@@ -1,4 +1,3 @@
-import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -9,20 +8,21 @@ import {
 import {
   failure,
   idSchema,
-  revisionSchema,
   priceSnapshotSchema,
+  revisionSchema,
   type PricingResult,
 } from "../../domain/pricing.js";
-import { selectPrice } from "../../shared/select-price.js";
+import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import type { PurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
-import type { SaleCapability } from "../../domain/sale-capability.js";
+import { selectPrice } from "../../shared/select-price.js";
+import { selectPaymentLinkPrice } from "../payment-links/payment-links.js";
 
 export const quotePurchaseSchema = z.strictObject({
   operationId: idSchema,
-  paymentOptionId: idSchema,
-  optionRevision: revisionSchema,
+  productId: idSchema,
+  priceRevision: revisionSchema,
   paymentLinkId: idSchema.optional(),
   promoCode: z.string().trim().min(1).max(100).optional(),
 });
@@ -89,20 +89,15 @@ export async function quotePurchase(
         const now = clock();
         const price =
           command.paymentLinkId === undefined
-            ? await selectPrice(
-                tx,
-                command.paymentOptionId,
-                now,
-                command.promoCode,
-              )
+            ? await selectPrice(tx, command.productId, now, command.promoCode)
             : await selectPaymentLinkPrice(
                 tx,
                 command.paymentLinkId,
-                command.paymentOptionId,
+                command.productId,
                 now,
               );
         if (!price.ok) return price;
-        if (price.value.paymentOption.revision !== command.optionRevision)
+        if (price.value.paymentOption.revision !== command.priceRevision)
           return failure("quote_changed");
         const admission = paymentAdmission({
           context: "quote",

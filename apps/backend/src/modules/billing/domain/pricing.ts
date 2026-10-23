@@ -1,5 +1,8 @@
+import {
+  benefitPeriodsSchema,
+  coverageSchema,
+} from "@inside/access-capabilities";
 import { z } from "zod";
-import { coverageSchema } from "@inside/access-capabilities";
 import { capabilitiesSchema } from "../../account-rights/index.js";
 
 export const idSchema = z.uuid().toLowerCase();
@@ -7,7 +10,6 @@ export const revisionSchema = z.int().positive().max(2_147_483_647);
 export const moneySchema = z.int().positive();
 export const benefitsSchema = capabilitiesSchema;
 export { benefitPeriodsSchema } from "@inside/access-capabilities";
-import { benefitPeriodsSchema } from "@inside/access-capabilities";
 /**
  * Кому Offer продаётся: всем, только Account с основанием «прежний подписчик Tribute» —
  * подтверждённым периодом Tribute, или только Account с погашённым приглашением на этот Offer.
@@ -68,6 +70,14 @@ export const promotionSchema = z.strictObject({
   archived: z.boolean(),
 });
 export const priceSnapshotSchema = z.strictObject({
+  product: z
+    .strictObject({
+      id: idSchema,
+      name: z.string(),
+      priceRevision: revisionSchema,
+    })
+    .optional(),
+  supportMonths: z.literal(3).optional(),
   individualPayment: z
     .strictObject({ linkId: idSchema, basePriceKopecks: moneySchema })
     .optional(),

@@ -1,24 +1,13 @@
-import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
-import type { SaleCapability } from "../../domain/sale-capability.js";
-import type { TributeConvergence } from "../tribute-convergence/tribute-convergence.js";
 import { z } from "zod";
-import { benefitPeriodsSchema } from "../../domain/pricing.js";
-import {
-  courseSourceRef,
-  tierSnapshotSchema,
-} from "../../../account-rights/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
   Prisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
+import { transactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
+import { type AccessGrants } from "../../../account-rights/index.js";
 import type { Accounts } from "../../../accounts/index.js";
-import {
-  recurringAllowedFor,
-  type AccessGrants,
-  type invitationViewSchema,
-} from "../../../account-rights/index.js";
 import {
   isOwnerReadOperation,
   ownerAccessFailure,
@@ -26,45 +15,39 @@ import {
   ownerOperationSchema,
   ownerPaymentFailure,
   ownerSuccessSchema,
-  type ownerInvitationSchema,
-  type AccessFailureCode,
   type OwnerOperation,
   type OwnerOutcome,
   type OwnerResult,
 } from "../../domain/owner-operations.js";
-import { reconcileRefunds } from "../../features/reconcile-refunds/reconcile-refunds.js";
+import {
+  listPeople,
+  readAccessSummary,
+} from "../../features/read-access-roster/read-access-roster.js";
 import {
   listPayments,
   paymentView,
   readPayment,
   refundDecisionViews,
 } from "../../features/read-payments/read-payments.js";
-import { commandFingerprint } from "../../shared/command-fingerprint.js";
+import { reconcileRefunds } from "../../features/reconcile-refunds/reconcile-refunds.js";
 import {
   importRespondents,
   issueRespondentLink,
   readRespondents,
 } from "../../features/survey-respondents/survey-respondents.js";
+import type { Tbank } from "../../infrastructure/tbank/tbank.js";
+import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
 import {
-  listPeople,
-  readAccessSummary,
-} from "../../features/read-access-roster/read-access-roster.js";
-import {
-  offerGrantsWithheld,
   isProductOffer,
+  offerGrantsWithheld,
   productSupportTermMissing,
-  subscriptionOfferForInvitation,
   tierLacksComposition,
 } from "../../shared/tier-composition.js";
-import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
-import type { BillingSubscriptions } from "../billing-subscriptions/billing-subscriptions.js";
 
 interface Dependencies {
-  readonly tribute?: TributeConvergence;
-  readonly sale?: Pick<SaleCapability, "subscriptions">;
   readonly prisma: BillingPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly pricing: Pick<
@@ -72,32 +55,12 @@ interface Dependencies {
     "manage" | "ownerCatalog" | "managePaymentLink" | "paymentLinks"
   >;
   readonly payments: Pick<BillingPayments, "reconcile">;
-  readonly subscriptions: Pick<BillingSubscriptions, "cancel">;
   readonly grants: Pick<
     AccessGrants,
     | "lookupRecipient"
     | "readContentCatalog"
-    | "previewBatch"
-    | "applyBatch"
-    | "changeGrant"
-    | "listGrants"
-    | "classifyLegacy"
-    | "readClassification"
-    | "registerSourceEntitlement"
     | "manageActivationRule"
     | "listActivationRules"
-    | "previewEnrollmentExpansion"
-    | "applyEnrollmentExpansion"
-    | "readEnrollmentAssignmentReceipt"
-    | "assignEnrollment"
-    | "changeEnrollment"
-    | "listEnrollments"
-    | "issueInvitation"
-    | "revokeInvitation"
-    | "listInvitations"
-    | "readInvitation"
-    | "listAccessHolders"
-    | "readAccessSummary"
   >;
   readonly bank: Tbank | undefined;
   /** База deep link бота `t.me/<бот>`; без неё приглашение отдаёт только start-параметр. */
@@ -127,16 +90,6 @@ export class BillingOperations {
       });
       if (!permission.ok) return ownerFailure("dependency_unavailable");
       if (!permission.allowed) return ownerFailure("forbidden");
-      if (
-        command.operation === "refunds.decide" ||
-        command.operation === "refunds.execute"
-      )
-        return ownerFailure("method_unavailable");
-      if (
-        command.operation === "invitations.issue" &&
-        this.dependencies.sale?.subscriptions !== true
-      )
-        return ownerFailure("method_unavailable");
       if (isOwnerReadOperation(command.operation))
         return await this.dispatch(actorId, command);
       const digest = commandFingerprint(command.operation, command);
@@ -212,31 +165,10 @@ export class BillingOperations {
   }
 
   private async replay(
-    actorId: string,
+    _actorId: string,
     command: OwnerOperation,
     outcome: unknown,
   ): Promise<OwnerResult> {
-    // Ключ и аудит не хранят код приглашения; владеющий интерфейс читает уже выданное без проверки Offer.
-    if (
-      command.operation === "invitations.issue" ||
-      command.operation === "invitations.revoke"
-    ) {
-      const issued = await this.dependencies.grants.readInvitation(
-        actorId,
-        command.operation === "invitations.issue"
-          ? command.operationId
-          : command.invitationId,
-      );
-      if (!issued.ok) return invitationFailure(issued.error.code);
-      return {
-        ok: true,
-        operationRef: command.operationId,
-        result: {
-          outcome: "invitation",
-          value: withoutNote(this.ownerInvitation(issued.value)),
-        },
-      };
-    }
     return storedResult(command.operationId, outcome);
   }
 
@@ -327,112 +259,6 @@ export class BillingOperations {
             }
           : ownerFailure(result.error.code);
       }
-      case "tribute.status": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const result = await this.dependencies.tribute.status(
-          actorId,
-          command.page ?? 0,
-        );
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributeStatus", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tribute.dismissImport": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const { operation: _operation, ...input } = command;
-        const result = await this.dependencies.tribute.dismissImport(
-          actorId,
-          input,
-        );
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributeImportReview", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tribute.savePolicy": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const { operation: _operation, ...input } = command;
-        const result = await this.dependencies.tribute.savePolicy(
-          actorId,
-          input,
-        );
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributePolicy", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tribute.preview": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const { operation: _operation, ...input } = command;
-        const result = await this.dependencies.tribute.preview(actorId, input);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributePreview", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tribute.apply": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const { operation: _operation, ...input } = command;
-        const result = await this.dependencies.tribute.apply(actorId, input);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributeApplied", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tribute.reconcile": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const { operation: _operation, ...input } = command;
-        const result = await this.dependencies.tribute.reconcile(
-          actorId,
-          input,
-        );
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributeSource", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tribute.retryEvent": {
-        if (this.dependencies.tribute === undefined)
-          return ownerFailure("dependency_unavailable");
-        const { operation: _operation, ...input } = command;
-        const result = await this.dependencies.tribute.retryEvent(
-          actorId,
-          input,
-        );
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "tributeEvent", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-
       case "recipients.lookup": {
         const result = await grants.lookupRecipient(
           actorId,
@@ -453,17 +279,6 @@ export class BillingOperations {
               ok: true,
               operationRef,
               result: { outcome: "content", items: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "sources.register": {
-        const { operation: _operation, ...input } = command;
-        const result = await grants.registerSourceEntitlement(actorId, input);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "sourceEntitlement", value: result.value },
             }
           : ownerAccessFailure(result.error.code);
       }
@@ -517,224 +332,8 @@ export class BillingOperations {
             : ownerAccessFailure(result.error.code);
         });
       }
-      case "enrollments.previewExpansion": {
-        const { operation: _operation, ...input } = command;
-        return prisma.$transaction(async (tx) => {
-          await lockBillingPricing(tx);
-          const row = await tx.billingOffer.findUnique({
-            where: { id: command.tierId },
-          });
-          if (row === null) return ownerFailure("not_found");
-          if (row.revision !== command.tierRevision)
-            return ownerFailure("revision_conflict");
-          if (offerGrantsWithheld(row)) return ownerFailure("state_conflict");
-          const result = await grants.previewEnrollmentExpansion(
-            actorId,
-            input,
-            {
-              id: row.id,
-              revision: row.revision,
-              name: row.name,
-              benefits: row.benefits,
-              benefitPeriods: row.benefitPeriods,
-              coverage: row.coverage ?? {
-                productIds: [],
-                materialIds: [],
-              },
-            },
-            transactionHandle(tx),
-          );
-          return result.ok
-            ? {
-                ok: true,
-                operationRef,
-                result: {
-                  outcome: "enrollmentExpansionPreview",
-                  value: result.value,
-                },
-              }
-            : ownerAccessFailure(result.error.code);
-        });
-      }
-      case "enrollments.applyExpansion": {
-        const { operation: _operation, ...input } = command;
-        const result = await grants.applyEnrollmentExpansion(actorId, input);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: {
-                outcome: "enrollmentExpansion",
-                enrollmentIds: result.enrollmentIds,
-              },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "tiers.list": {
-        const rows = await prisma.billingOffer.findMany({
-          where: {
-            ...(command.cursor === undefined
-              ? {}
-              : { id: { gt: command.cursor } }),
-          },
-          orderBy: { id: "asc" },
-          take: command.limit + 1,
-        });
-        const items = rows.slice(0, command.limit).flatMap((row) => {
-          const tier = tierSnapshotSchema.safeParse({
-            id: row.id,
-            revision: row.revision,
-            name: row.name,
-            benefits: row.benefits,
-            benefitPeriods: row.benefitPeriods,
-            coverage: row.coverage ?? { productIds: [], materialIds: [] },
-          });
-          return tier.success
-            ? [
-                {
-                  tier: tier.data,
-                  benefitPeriods: benefitPeriodsSchema.parse(
-                    row.benefitPeriods,
-                  ),
-                  availableForAssignment: row.availableForAssignment,
-                  published: row.published,
-                  archived: row.archived,
-                },
-              ]
-            : [];
-        });
-        return {
-          ok: true,
-          operationRef,
-          result: {
-            outcome: "tiers",
-            items,
-            nextCursor:
-              rows.length > command.limit
-                ? (rows[command.limit - 1]?.id ?? null)
-                : null,
-          },
-        };
-      }
-      case "enrollments.assign": {
-        if (command.origin !== "manual" && command.origin !== "course")
-          return ownerFailure("forbidden");
-        const { operation: _operation, ...requested } = command;
-        if (command.origin === "course" && command.courseSource === undefined)
-          return ownerFailure("invalid_request");
-        const input =
-          command.origin === "course" && command.courseSource !== undefined
-            ? {
-                ...requested,
-                sourceRef: courseSourceRef(
-                  command.courseSource.policyRef,
-                  command.courseSource.verifiedIdentityRef,
-                ),
-              }
-            : requested;
-        const receipt = await grants.readEnrollmentAssignmentReceipt(
-          actorId,
-          input,
-        );
-        if (receipt !== null)
-          return receipt.ok
-            ? {
-                ok: true,
-                operationRef,
-                result: { outcome: "enrollment", value: receipt.value },
-              }
-            : ownerFailure(
-                receipt.error.code === "identity_conflict"
-                  ? "identity_changed"
-                  : receipt.error.code === "invalid_input"
-                    ? "invalid_request"
-                    : receipt.error.code === "unavailable"
-                      ? "dependency_unavailable"
-                      : receipt.error.code,
-              );
-        return prisma.$transaction(async function assignEnrollmentWithTier(tx) {
-          await lockBillingPricing(tx);
-          const row = await tx.billingOffer.findUnique({
-            where: { id: command.tierId },
-          });
-          if (row === null || row.archived || !row.availableForAssignment)
-            return ownerFailure("not_found");
-          if (row.revision !== command.tierRevision)
-            return ownerFailure("revision_conflict");
-          // Тариф без состава дал бы чат без материалов, а отдельный материал и `reviews` не выдаются.
-          if (
-            tierLacksComposition(row) ||
-            offerGrantsWithheld(row) ||
-            productSupportTermMissing(row)
-          )
-            return ownerFailure("state_conflict");
-          const tier = tierSnapshotSchema.safeParse({
-            id: row.id,
-            revision: row.revision,
-            name: row.name,
-            benefits: row.benefits,
-            benefitPeriods: row.benefitPeriods,
-            coverage: row.coverage ?? { productIds: [], materialIds: [] },
-          });
-          if (!tier.success) return ownerFailure("invalid_request");
-          const result = await grants.assignEnrollment(
-            actorId,
-            input,
-            tier.data,
-            transactionHandle(tx),
-          );
-          return result.ok
-            ? {
-                ok: true,
-                operationRef,
-                result: { outcome: "enrollment", value: result.value },
-              }
-            : ownerFailure(
-                result.error.code === "identity_conflict"
-                  ? "identity_changed"
-                  : result.error.code === "invalid_input"
-                    ? "invalid_request"
-                    : result.error.code === "unavailable"
-                      ? "dependency_unavailable"
-                      : result.error.code,
-              );
-        });
-      }
-      case "enrollments.change": {
-        const { operation: _operation, ...input } = command;
-        const result = await grants.changeEnrollment(actorId, input);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "enrollment", value: result.value },
-            }
-          : ownerFailure(
-              result.error.code === "identity_conflict"
-                ? "identity_changed"
-                : result.error.code === "invalid_input"
-                  ? "invalid_request"
-                  : result.error.code === "unavailable"
-                    ? "dependency_unavailable"
-                    : result.error.code,
-            );
-      }
-      case "enrollments.list": {
-        const result = await grants.listEnrollments(actorId, command.accountId);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "enrollments", items: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "offers.save":
-      case "offers.archive":
-      case "offers.publish":
-      case "offers.unpublish":
-      case "paymentOptions.save":
-      case "paymentOptions.archive":
+      case "productPrices.save":
+      case "productPrices.archive":
       case "promotions.save":
       case "promotions.archive":
       case "cohorts.save": {
@@ -744,23 +343,6 @@ export class BillingOperations {
               ok: true,
               operationRef,
               result: { outcome: "catalog", value: result.value },
-            }
-          : ownerFailure(result.error.code);
-      }
-      case "offers.list": {
-        const result = await this.dependencies.pricing.ownerCatalog({
-          cursor: command.cursor,
-          limit: command.limit,
-        });
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: {
-                outcome: "catalogOffers",
-                items: [...result.value.items],
-                nextCursor: result.value.nextCursor,
-              },
             }
           : ownerFailure(result.error.code);
       }
@@ -798,26 +380,6 @@ export class BillingOperations {
           },
         };
       }
-      case "subscriptions.cancel": {
-        // Владелец отменяет продление тем же use case, что и покупатель: правила и revision общие.
-        const result = await this.dependencies.subscriptions.cancel(
-          command.accountId,
-          {
-            operationId: command.operationId,
-            expectedRevision: command.expectedRevision,
-          },
-        );
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "subscription", value: result.value },
-            }
-          : ownerPaymentFailure(result.error.code);
-      }
-      case "refunds.decide":
-      case "refunds.execute":
-        return ownerFailure("method_unavailable");
       case "refunds.read": {
         const purchase = await prisma.billingPurchase.findUnique({
           where: { id: command.purchaseRef },
@@ -839,104 +401,6 @@ export class BillingOperations {
             decisions: await refundDecisionViews(prisma, purchase.id),
           },
         };
-      }
-      case "grants.read": {
-        const result = await grants.listGrants(actorId, {
-          accountId: command.accountId,
-        });
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "grants", value: result.value },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "grants.readClassification": {
-        const result = await grants.readClassification(
-          actorId,
-          command.accountId,
-        );
-        return result.ok
-          ? classificationOutcome(operationRef, command.accountId, result)
-          : ownerAccessFailure(result.error.code);
-      }
-      case "grants.classify": {
-        // Ответ собирается из применённой команды: повтор проходит только при совпадении
-        // fingerprint, поэтому команда и есть записанное решение.
-        const { operation: _operation, ...rest } = command;
-        const result = await grants.classifyLegacy(actorId, rest);
-        return result.ok
-          ? classificationOutcome(operationRef, command.accountId, {
-              classification: command.classification,
-              revision: result.revision,
-              recurringAllowed: recurringAllowedFor(command),
-            })
-          : ownerAccessFailure(result.error.code);
-      }
-      case "grants.previewBatch": {
-        const { operation: _operation, ...rest } = command;
-        const result = await grants.previewBatch(actorId, rest);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: {
-                outcome: "grantPreview",
-                previewRef: result.previewRef,
-                revision: result.revision,
-                expiresAt: result.expiresAt,
-                rows: [...result.rows],
-              },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "grants.applyBatch": {
-        const { operation: _operation, ...rest } = command;
-        const result = await grants.applyBatch(actorId, rest);
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: { outcome: "grantBatch", rows: [...result.rows] },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "grants.extend": {
-        const { operation: _operation, ...rest } = command;
-        const result = await grants.changeGrant(actorId, {
-          ...rest,
-          action: "extend",
-        });
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: {
-                outcome: "grant",
-                grantRef: result.grantRef,
-                revision: result.revision,
-              },
-            }
-          : ownerAccessFailure(result.error.code);
-      }
-      case "grants.revoke": {
-        const { operation: _operation, ...rest } = command;
-        const result = await grants.changeGrant(actorId, {
-          ...rest,
-          action: "revoke",
-        });
-        return result.ok
-          ? {
-              ok: true,
-              operationRef,
-              result: {
-                outcome: "grant",
-                grantRef: result.grantRef,
-                revision: result.revision,
-              },
-            }
-          : ownerAccessFailure(result.error.code);
       }
       case "respondents.import": {
         const result = await importRespondents(prisma, command, this.clock());
@@ -972,55 +436,6 @@ export class BillingOperations {
             value: await readRespondents(prisma),
           },
         };
-      case "invitations.issue": {
-        const row = await prisma.billingOffer.findUnique({
-          where: { id: command.offerId },
-        });
-        if (row === null || row.archived) return ownerFailure("not_found");
-        if (!subscriptionOfferForInvitation(row))
-          return ownerFailure("state_conflict");
-        const { operation: _operation, ...requested } = command;
-        const result = await grants.issueInvitation(actorId, requested, {
-          id: row.id,
-          revision: row.revision,
-        });
-        if (!result.ok) return invitationFailure(result.error.code);
-        return {
-          ok: true,
-          operationRef,
-          result: {
-            outcome: "invitation",
-            value: withoutNote(this.ownerInvitation(result.value)),
-          },
-        };
-      }
-      case "invitations.revoke": {
-        const { operation: _operation, ...requested } = command;
-        const result = await grants.revokeInvitation(actorId, requested);
-        if (!result.ok) return invitationFailure(result.error.code);
-        return {
-          ok: true,
-          operationRef,
-          result: {
-            outcome: "invitation",
-            value: withoutNote(this.ownerInvitation(result.value)),
-          },
-        };
-      }
-      case "invitations.list": {
-        const { operation: _operation, ...requested } = command;
-        const result = await grants.listInvitations(actorId, requested);
-        if (!result.ok) return invitationFailure(result.error.code);
-        return {
-          ok: true,
-          operationRef,
-          result: {
-            outcome: "invitations",
-            items: result.value.items.map((item) => this.ownerInvitation(item)),
-            nextCursor: result.value.nextCursor,
-          },
-        };
-      }
       case "people.list":
         return await listPeople({ prisma, grants }, actorId, command);
       case "access.summary":
@@ -1038,59 +453,6 @@ export class BillingOperations {
       }
     }
   }
-
-  /** Приглашение с готовой ссылкой в бота, если процессу известен адрес бота. */
-  private ownerInvitation(view: InvitationView): OwnerInvitation {
-    const base = this.dependencies.botStartUrl;
-    let link: string | null = null;
-    if (base !== undefined) {
-      const url = new URL(base);
-      url.searchParams.set("start", view.startParameter);
-      link = url.toString();
-    }
-    return {
-      id: view.id,
-      code: view.code,
-      startParameter: view.startParameter,
-      offerId: view.offerId,
-      offerRevision: view.offerRevision,
-      mode: view.mode,
-      note: view.note,
-      state: view.state,
-      issuedAt: view.issuedAt,
-      expiresAt: view.expiresAt,
-      claimedAt: view.claimedAt,
-      redeemedAt: view.redeemedAt,
-      revokedAt: view.revokedAt,
-      accountId: view.accountId,
-      revision: view.revision,
-      link,
-    };
-  }
-}
-
-type InvitationView = z.infer<typeof invitationViewSchema>;
-type OwnerInvitation = z.infer<typeof ownerInvitationSchema>;
-
-/** Итог выдачи и отзыва без заметки владельца о человеке. */
-function withoutNote(invitation: OwnerInvitation) {
-  return {
-    id: invitation.id,
-    code: invitation.code,
-    startParameter: invitation.startParameter,
-    offerId: invitation.offerId,
-    offerRevision: invitation.offerRevision,
-    mode: invitation.mode,
-    state: invitation.state,
-    issuedAt: invitation.issuedAt,
-    expiresAt: invitation.expiresAt,
-    claimedAt: invitation.claimedAt,
-    redeemedAt: invitation.redeemedAt,
-    revokedAt: invitation.revokedAt,
-    accountId: invitation.accountId,
-    revision: invitation.revision,
-    link: invitation.link,
-  };
 }
 
 /**
@@ -1119,56 +481,6 @@ function auditedOutcome(outcome: OwnerOutcome): OwnerOutcome {
   };
 }
 
-/** Отказ приглашения: отзыв погашённого или сгоревшего — конфликт состояния, остальное — как у прав. */
-function invitationFailure(
-  code: AccessFailureCode | "state_conflict",
-): Extract<OwnerResult, { ok: false }> {
-  return code === "state_conflict"
-    ? ownerFailure("state_conflict")
-    : ownerAccessFailure(code);
-}
-
-/**
- * Состояние покупателя одной формой: чтение и записанное решение отвечают одинаково. Поля
- * перечислены поимённо: источник может нести служебные поля, а в ответ уходит ровно вид.
- */
-function classificationOutcome(
-  operationRef: string,
-  accountId: string,
-  state: {
-    readonly classification: "confirmed_legacy" | "confirmed_new" | "unknown";
-    readonly revision: number;
-    readonly recurringAllowed: boolean;
-  },
-): OwnerResult {
-  return {
-    ok: true,
-    operationRef,
-    result: {
-      outcome: "classification",
-      value: {
-        accountId,
-        classification: state.classification,
-        revision: state.revision,
-        recurringAllowed: state.recurringAllowed,
-      },
-    },
-  };
-}
-
-/**
- * Основание команды. Исполнение возврата наследует основание своего решения, поэтому запись
- * аудита объясняет деньги, а не повторяет имя операции. Для каталога основанием остаётся операция.
- */
-function reasonOf(command: OwnerOperation, outcome: OwnerOutcome): string {
-  if (outcome.outcome === "refundDecision") return outcome.value.reason;
-  return "reason" in command ? command.reason : command.operation;
-}
-
-/**
- * Сохранённый результат применённой команды. Нечитаемая запись — внутреннее несоответствие,
- * а не разрешение повторить внешний эффект.
- */
 function storedResult(operationRef: string, stored: unknown): OwnerResult {
   const parsed = ownerSuccessSchema.safeParse(stored);
   return parsed.success
@@ -1177,103 +489,9 @@ function storedResult(operationRef: string, stored: unknown): OwnerResult {
 }
 
 /** Аудит собирается по объекту операции: решение и исполнение возврата ведут к своему платежу. */
-function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
-  switch (command.operation) {
-    case "paymentLinks.create":
-      return outcome.outcome === "paymentLink"
-        ? outcome.value.id
-        : command.operationId;
-    case "paymentLinks.revoke":
-      return command.id;
-    case "paymentLinks.list":
-      return command.operationId;
-    case "tribute.dismissImport":
-    case "tribute.status":
-    case "tribute.savePolicy":
-    case "tribute.preview":
-    case "tribute.apply":
-    case "tribute.reconcile":
-    case "tribute.retryEvent":
-      return command.operationId;
-    case "offers.save":
-    case "paymentOptions.save":
-    case "promotions.save":
-      return command.value.id;
-    // Поток адресуется своим продуктом.
-    case "cohorts.save":
-      return command.value.productId;
-    case "offers.archive":
-    case "offers.publish":
-    case "offers.unpublish":
-    case "paymentOptions.archive":
-    case "promotions.archive":
-      return command.id;
-    case "sources.register":
-      return command.operationId;
-    case "activationRules.save":
-      return command.value.id;
-    case "activationRules.list":
-      return command.operationId;
-    case "enrollments.previewExpansion":
-    case "enrollments.applyExpansion":
-      return command.operationId;
-    case "recipients.lookup":
-    case "content.list":
-    case "tiers.list":
-    case "offers.list":
-      return command.operationId;
-    case "enrollments.assign":
-    case "enrollments.list":
-      return command.accountId;
-    case "enrollments.change":
-      return command.enrollmentId;
-    case "payments.list":
-      return command.accountId ?? command.operationId;
-    case "payments.read":
-    case "payments.reconcile":
-    case "refunds.decide":
-    case "refunds.read":
-      return command.purchaseRef;
-    // Исполнение возврата ведёт к платежу своего решения.
-    case "refunds.execute":
-      return outcome.outcome === "refundDecision"
-        ? outcome.value.purchaseRef
-        : command.decisionRef;
-    case "subscriptions.cancel":
-    case "grants.read":
-    case "grants.readClassification":
-    case "grants.classify":
-      return command.accountId;
-    case "grants.previewBatch":
-      return command.operationId;
-    case "grants.applyBatch":
-      return command.previewRef;
-    case "grants.extend":
-    case "grants.revoke":
-      return command.grantRef;
-    // Журнал не называет ник: импорт ведёт к своей операции, выдача — к личной акции.
-    case "respondents.import":
-    case "respondents.status":
-      return command.operationId;
-    case "respondents.issue":
-      return outcome.outcome === "respondentLink"
-        ? outcome.value.promotionId
-        : command.operationId;
-    // Выдача адресуется своим приглашением: его id и есть operationId команды.
-    case "invitations.issue":
-    case "invitations.list":
-      return command.operationId;
-    // Чтения журнал не пишет (`isOwnerReadOperation`); ветка нужна полноте выбора.
-    case "people.list":
-    case "access.summary":
-      return command.operationId;
-    case "invitations.revoke":
-      return command.invitationId;
-    default: {
-      const exhaustive: never = command;
-      throw new Error(
-        `Unknown billing operation ${JSON.stringify(exhaustive)}`,
-      );
-    }
-  }
+function targetOf(command: OwnerOperation, _outcome: OwnerOutcome): string {
+  if ("purchaseRef" in command) return command.purchaseRef;
+  if ("productId" in command) return command.productId;
+  if ("id" in command) return command.id;
+  return command.operationId;
 }

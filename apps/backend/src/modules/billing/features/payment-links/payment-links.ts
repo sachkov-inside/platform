@@ -1,13 +1,14 @@
-import type { z } from "zod";
+import { isProductCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
-import type { Accounts } from "../../../accounts/index.js";
+import type { z } from "zod";
+import { canonicalJson } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
   type BillingPrisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import { canonicalJson } from "../../../../infrastructure/contracts/canonical-digest.js";
+import type { Accounts } from "../../../accounts/index.js";
 import {
   discountedPrice,
   failure,
@@ -20,20 +21,18 @@ import {
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import {
-  selectPricesForOptions,
   selectPrice,
+  selectPricesForOptions,
 } from "../../shared/select-price.js";
 import {
   offerGrantsWithheld,
-  productSupportTermMissing,
   tierLacksComposition,
 } from "../../shared/tier-composition.js";
-import { isProductCapability } from "@inside/access-capabilities";
 import {
-  paymentLinksListSchema,
-  type paymentLinksPageSchema,
   paymentLinkCommandSchema,
+  paymentLinksListSchema,
   paymentLinkViewSchema,
+  type paymentLinksPageSchema,
   type PaymentLinkView,
 } from "./payment-links.contract.js";
 
@@ -91,14 +90,14 @@ export async function managePaymentLink(
           if (!dependencies.sale.payments) return failure("method_unavailable");
           const price = await selectPrice(
             tx,
-            command.paymentOptionId,
+            command.productId,
             now,
             undefined,
             { allowUnpublished: true },
           );
           if (!price.ok) return price;
           const source = price.value;
-          if (source.paymentOption.revision !== command.optionRevision)
+          if (source.paymentOption.revision !== command.priceRevision)
             return failure("quote_changed");
           const products = source.offer.benefits.filter(isProductCapability);
           if (
@@ -107,10 +106,6 @@ export async function managePaymentLink(
             tierLacksComposition({
               ...source.offer,
               coverage: source.offer.coverage,
-            }) ||
-            productSupportTermMissing({
-              ...source.offer,
-              benefitPeriods: source.offer.benefitPeriods,
             }) ||
             offerGrantsWithheld(source.offer)
           )
@@ -303,8 +298,15 @@ export async function selectPaymentLinkPrice(
   if (result.value.snapshot.paymentOption.id !== optionId)
     return failure("not_found");
   switch (result.value.state) {
-    case "active":
+    case "active": {
+      const current = await selectPrice(
+        tx,
+        result.value.snapshot.product?.id ?? optionId,
+        now,
+      );
+      if (!current.ok) return failure("not_found");
       return { ok: true, value: result.value.snapshot };
+    }
     case "pending":
     case "unknown":
     case "paid":
@@ -365,9 +367,8 @@ export async function listPaymentLinks(
           [...snapshots.values()].map((snapshot) => snapshot.paymentOption.id),
         ),
       ];
-      const options = await tx.billingPaymentOption.findMany({
-        where: { id: { in: optionIds } },
-        include: { offer: true },
+      const options = await tx.billingProductPrice.findMany({
+        where: { productId: { in: optionIds } },
       });
       const prices = await selectPricesForOptions(tx, options, now, undefined, {
         allowUnpublished: true,
