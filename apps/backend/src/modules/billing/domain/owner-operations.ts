@@ -148,9 +148,9 @@ export const paymentViewSchema = z.strictObject({
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
   /** Готовность доступа отделена от банковского состояния. */
-  access: z.enum(["awaiting_payment", "preparing", "ready"]),
-  refundedKopecks: z.int().nonnegative(),
-  refundableKopecks: z.int().nonnegative(),
+  access: z.enum(["awaiting_payment", "preparing", "review_required", "ready"]),
+  refundedKopecks: z.int().nonnegative().nullable(),
+  refundableKopecks: z.int().nonnegative().nullable(),
 });
 export const paymentEventViewSchema = z.strictObject({
   kind: z.string(),
@@ -262,8 +262,8 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("refunds"),
     purchaseRef: idSchema,
-    refundedKopecks: z.int().nonnegative(),
-    refundableKopecks: z.int().nonnegative(),
+    refundedKopecks: z.int().nonnegative().nullable(),
+    refundableKopecks: z.int().nonnegative().nullable(),
     decisions: z.array(refundDecisionViewSchema),
   }),
   z.strictObject({

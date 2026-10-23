@@ -182,6 +182,7 @@ export const ownPaymentSchema = z.object({
         access: z.enum([
           "awaiting_payment",
           "preparing",
+          "review_required",
           "ready",
           "unavailable",
         ]),
@@ -191,7 +192,13 @@ export const ownPaymentSchema = z.object({
   content: z.array(coverageEntrySchema).optional(),
   snapshot: priceSnapshotSchema.optional(),
   access: z
-    .enum(["awaiting_payment", "preparing", "ready", "unavailable"])
+    .enum([
+      "awaiting_payment",
+      "preparing",
+      "review_required",
+      "ready",
+      "unavailable",
+    ])
     .optional(),
   kind: attemptKindSchema,
   state: attemptStateSchema,
@@ -202,7 +209,7 @@ export const ownPaymentSchema = z.object({
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
-  refundedKopecks: z.number().int().nonnegative(),
+  refundedKopecks: z.number().int().nonnegative().nullable(),
   refundedAt: z.iso.datetime().nullable(),
 });
 export const ownedProductSchema = z.object({
@@ -229,8 +236,14 @@ export const purchaseStatusSchema = z.object({
   state: attemptStateSchema,
   paymentUrl: z.url().nullable(),
   snapshot: priceSnapshotSchema,
-  access: z.enum(["awaiting_payment", "preparing", "ready", "unavailable"]),
-  refundedKopecks: z.number().int().nonnegative().optional(),
+  access: z.enum([
+    "awaiting_payment",
+    "preparing",
+    "review_required",
+    "ready",
+    "unavailable",
+  ]),
+  refundedKopecks: z.number().int().nonnegative().nullable().optional(),
   fiscalization: z.enum(["not_configured", "pending", "confirmed", "failed"]),
   confirmedAt: z.iso.datetime().nullable(),
   periodEndsAt: z.iso.datetime().nullable(),

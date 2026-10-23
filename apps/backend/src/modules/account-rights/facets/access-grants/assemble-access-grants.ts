@@ -129,6 +129,36 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     }
   }
   return Object.freeze({
+    /** Acquisition and withdrawal are lifetime state; an inactive capability is not a new buyer. */
+    async hasProductAcquisition(
+      targetAccountId: string,
+      productId: string,
+      handle?: TransactionHandle,
+    ) {
+      if (
+        !z.uuid().safeParse(targetAccountId).success ||
+        !z.uuid().safeParse(productId).success
+      )
+        return accessFailure("invalid_input");
+      try {
+        return await inTransaction(handle, async (tx) => ({
+          ok: true as const,
+          acquired:
+            (await tx.productAccess.findUnique({
+              where: {
+                accountId_productId: { accountId: targetAccountId, productId },
+              },
+              select: { accountId: true },
+            })) !== null,
+        }));
+      } catch (error) {
+        return dependencyFailure(
+          { module: "account-rights", operation: "hasProductAcquisition" },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
     issueManualProductAccess: (
       actorId: string,
       input: unknown,

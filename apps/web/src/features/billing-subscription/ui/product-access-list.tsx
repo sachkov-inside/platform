@@ -29,6 +29,7 @@ function accessLabel(
   if (access === "ready") return "Доступ открыт";
   if (payment === undefined && retainedState !== undefined)
     return retainedState === "revoked" ? "Доступ отозван" : "Доступ неактивен";
+  if (access === "review_required") return "Нужна проверка оплаченного заказа";
   if (access === "preparing") return "Подготавливаем доступ";
   if (access === "unavailable" || payment === undefined)
     return "Доступ неактивен";
@@ -87,13 +88,19 @@ export function ProductAccessList({
               <p className="mt-3 text-sm text-muted-foreground">
                 {accessLabel(access, payment, ownership?.materials.state)}
               </p>
-              {(payment?.refundedKopecks ?? 0) > 0 ? (
+              {payment?.refundedKopecks === null ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Сумма частичного возврата уточняется в банке.
+                </p>
+              ) : (payment?.refundedKopecks ?? 0) > 0 ? (
                 <p className="mt-2 text-sm text-muted-foreground">
                   Возвращено {formatKopecks(payment?.refundedKopecks ?? 0)}
                 </p>
               ) : null}
               {product.slug === null ||
               !product.available ||
+              access === "review_required" ||
+              ownership?.materials.state === "revoked" ||
               (access !== "ready" && payment === undefined) ? null : (
                 <Button
                   asChild
@@ -158,7 +165,11 @@ export function ProductAccessList({
                         . Сумма относится ко всему набору.
                       </p>
                     ) : null}
-                    {purchase.refundedKopecks > 0 ? (
+                    {purchase.refundedKopecks === null ? (
+                      <p className="text-sm text-muted-foreground">
+                        Сумма частичного возврата уточняется в банке.
+                      </p>
+                    ) : purchase.refundedKopecks > 0 ? (
                       <p className="mt-2">
                         Возвращено {formatKopecks(purchase.refundedKopecks)}
                       </p>

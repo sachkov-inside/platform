@@ -104,7 +104,10 @@ export async function selectPricesForOptions(
           applicablePromotion(p, option, now, promoCode) &&
           (p.usageLimit === null || (usage.get(p.id) ?? 0) < p.usageLimit),
       )
-      .sort((a, b) => b.percent - a.percent || a.id.localeCompare(b.id))[0];
+      .sort((a, b) => {
+        const difference = b.percent - a.percent;
+        return difference !== 0 ? difference : a.id.localeCompare(b.id);
+      })[0];
     const firstPriceKopecks = discountedPrice(
       option.priceKopecks,
       best?.percent ?? 0,

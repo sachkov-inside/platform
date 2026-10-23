@@ -1,3 +1,4 @@
+import { MATERIAL_PUBLICATION } from "../src/modules/materials/index.js";
 import type { INestApplicationContext } from "@nestjs/common";
 import { ModulesContainer, NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -284,6 +285,10 @@ describe("backend process composition", () => {
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
     expect(application.get(VIDEO_DELETION_MAINTENANCE)).toBeDefined();
+    expect(
+      application.get<{ containsVideoReference: unknown }>(MATERIAL_PUBLICATION)
+        .containsVideoReference,
+    ).toBeTypeOf("function");
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {

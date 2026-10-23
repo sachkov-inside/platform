@@ -281,10 +281,14 @@ export function PaymentsSection({
                 {formatKopecks(payment.value.amountKopecks)}
               </AdminRow>
               <AdminRow label="Возвращено">
-                {formatKopecks(payment.value.refundedKopecks)}
+                {payment.value.refundedKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(payment.value.refundedKopecks)}
               </AdminRow>
               <AdminRow label="Доступно к возврату">
-                {formatKopecks(payment.value.refundableKopecks)}
+                {payment.value.refundableKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(payment.value.refundableKopecks)}
               </AdminRow>
               <AdminRow label="Чек">{payment.value.fiscalization}</AdminRow>
               <AdminRow label="Терминал">
@@ -359,8 +363,15 @@ export function PaymentsSection({
               <p>
                 По платежу{" "}
                 <span className="font-mono text-xs">{refunds.purchaseRef}</span>{" "}
-                возвращено {formatKopecks(refunds.refundedKopecks)} из доступных{" "}
-                {formatKopecks(refunds.refundableKopecks)}.
+                возвращено{" "}
+                {refunds.refundedKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(refunds.refundedKopecks)}{" "}
+                из доступных{" "}
+                {refunds.refundableKopecks === null
+                  ? "Сумма уточняется в банке"
+                  : formatKopecks(refunds.refundableKopecks)}
+                .
               </p>
               <ul className="mt-3 grid gap-2">
                 {refunds.decisions.map((decision) => (
@@ -439,6 +450,7 @@ function paymentAccessLabel(value: PaymentView["access"]): string {
   const labels = {
     awaiting_payment: "Ожидает оплаты",
     preparing: "Готовится",
+    review_required: "Нужна проверка оплаченного заказа",
     ready: "Готов",
   };
   return labels[value];

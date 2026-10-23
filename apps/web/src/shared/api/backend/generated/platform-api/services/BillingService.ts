@@ -37,7 +37,7 @@ export class BillingService {
       state: 'current' | 'superseded';
     }>;
     payments: Array<{
-      access?: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+      access?: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
       amountKopecks: number;
       confirmedAt: string | null;
       content?: Array<{
@@ -54,12 +54,12 @@ export class BillingService {
       offerName: string;
       periodEndsAt: string | null;
       productAccess?: Array<{
-        access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
         productId: string;
       }>;
       purchaseRef: string;
       refundedAt: string | null;
-      refundedKopecks: number;
+      refundedKopecks: number | null;
       snapshot?: {
         communityPolicy?: 'explicit';
         currency: 'RUB';
@@ -142,13 +142,13 @@ export class BillingService {
     productId: string,
     purchaseRef?: string,
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
-    refundedKopecks?: number;
+    refundedKopecks?: number | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -234,13 +234,13 @@ export class BillingService {
       quoteRef: string;
     },
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
-    refundedKopecks?: number;
+    refundedKopecks?: number | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -315,13 +315,13 @@ export class BillingService {
   }: {
     purchaseRef: string,
   }): CancelablePromise<{
-    access: 'awaiting_payment' | 'preparing' | 'ready' | 'unavailable';
+    access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready' | 'unavailable';
     confirmedAt: string | null;
     fiscalization: 'not_configured' | 'pending' | 'confirmed' | 'failed';
     paymentUrl: string | null;
     periodEndsAt: string | null;
     purchaseRef: string;
-    refundedKopecks?: number;
+    refundedKopecks?: number | null;
     snapshot: {
       communityPolicy?: 'explicit';
       currency: 'RUB';
@@ -854,7 +854,7 @@ export class BillingService {
       outcome: 'catalogOffers';
     } | {
       items: Array<{
-        access: 'awaiting_payment' | 'preparing' | 'ready';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
         accountId: string;
         amountKopecks: number;
         confirmedAt: string | null;
@@ -866,8 +866,8 @@ export class BillingService {
         periodEndsAt: string | null;
         periodIndex: number | null;
         purchaseRef: string;
-        refundableKopecks: number;
-        refundedKopecks: number;
+        refundableKopecks: number | null;
+        refundedKopecks: number | null;
         snapshot: {
           communityPolicy?: 'explicit';
           currency: 'RUB';
@@ -968,7 +968,7 @@ export class BillingService {
       } | null;
       outcome: 'payment';
       value: {
-        access: 'awaiting_payment' | 'preparing' | 'ready';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
         accountId: string;
         amountKopecks: number;
         confirmedAt: string | null;
@@ -980,8 +980,8 @@ export class BillingService {
         periodEndsAt: string | null;
         periodIndex: number | null;
         purchaseRef: string;
-        refundableKopecks: number;
-        refundedKopecks: number;
+        refundableKopecks: number | null;
+        refundedKopecks: number | null;
         snapshot: {
           communityPolicy?: 'explicit';
           currency: 'RUB';
@@ -1041,7 +1041,7 @@ export class BillingService {
     } | {
       outcome: 'reconciled';
       value: {
-        access: 'awaiting_payment' | 'preparing' | 'ready';
+        access: 'awaiting_payment' | 'preparing' | 'review_required' | 'ready';
         accountId: string;
         amountKopecks: number;
         confirmedAt: string | null;
@@ -1053,8 +1053,8 @@ export class BillingService {
         periodEndsAt: string | null;
         periodIndex: number | null;
         purchaseRef: string;
-        refundableKopecks: number;
-        refundedKopecks: number;
+        refundableKopecks: number | null;
+        refundedKopecks: number | null;
         snapshot: {
           communityPolicy?: 'explicit';
           currency: 'RUB';
@@ -1137,8 +1137,8 @@ export class BillingService {
       }>;
       outcome: 'refunds';
       purchaseRef: string;
-      refundableKopecks: number;
-      refundedKopecks: number;
+      refundableKopecks: number | null;
+      refundedKopecks: number | null;
     } | {
       outcome: 'respondentImport';
       value: {

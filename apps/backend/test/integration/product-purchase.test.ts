@@ -1,3 +1,6 @@
+import { CoverageCatalog } from "../../src/modules/materials/index.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
+import type { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
 import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { randomUUID } from "node:crypto";
@@ -428,73 +431,10 @@ test.each(["product_capabilities", "explicit_coverage"] as const)(
         coverage: { productIds: [s.productId, secondProduct], materialIds: [] },
       },
     };
-    const purchase = { purchaseRef: randomUUID() };
-    const historicalPaymentId = `historical-${purchase.purchaseRef}`;
-    const quoteRef = randomUUID();
-    const instant = new Date("2030-01-31T10:00:00Z");
-    await db.prisma.billingPriceQuote.create({
-      data: {
-        id: quoteRef,
-        accountId: s.buyer,
-        operationId: randomUUID(),
-        fingerprint: "historical-bundle",
-        snapshot,
-        createdAt: instant,
-        expiresAt: new Date("2030-02-01T00:00:00Z"),
-      },
-    });
-    await db.prisma.billingPurchase.create({
-      data: {
-        id: purchase.purchaseRef,
-        accountId: s.buyer,
-        quoteRef,
-        kind: "one_time",
-        state: "unknown",
-        lifecycleActive: false,
-        environment: s.config.environment,
-        terminalRef: s.config.terminalKey,
-        paymentId: historicalPaymentId,
-        amountKopecks: 200000,
-        snapshot,
-        acceptance: { historical: true },
-        contact: { email: "historical@example.test" },
-        fiscalization: "pending",
-        createdAt: instant,
-        updatedAt: instant,
-      },
-    });
-    await db.prisma.billingPromoReservation.create({
-      data: {
-        purchaseRef: purchase.purchaseRef,
-        accountId: s.buyer,
-        quoteRef,
-        state: "unknown",
-        snapshot,
-      },
-    });
-    const historicalPayments = new BillingPayments({
-      prisma: db.prisma,
-      contact: s.contact,
-      grants: s.grants,
-      clock: () => instant,
-      bank: new Tbank(s.config, (url) => {
-        if (!url.endsWith("/GetState"))
-          throw new Error(
-            "Historical recovery cannot send a new Init or charge",
-          );
-        return Promise.resolve(
-          Response.json({
-            TerminalKey: s.config.terminalKey,
-            OrderId: purchase.purchaseRef,
-            PaymentId: historicalPaymentId,
-            Amount: 200000,
-            Status: "CONFIRMED",
-            Success: true,
-            ErrorCode: "0",
-          }),
-        );
-      }),
-    });
+    const { purchase, historicalPayments } = await historicalOneTime(
+      s,
+      snapshot,
+    );
     expect(
       await historicalPayments.reconcile(purchase.purchaseRef),
     ).toMatchObject({ ok: true });
@@ -535,7 +475,7 @@ test.each(["product_capabilities", "explicit_coverage"] as const)(
   },
 );
 
-test.each(["initial", "renewal", "upgrade"])(
+test.each(["initial", "renewal", "upgrade", "other_terminal", "no_terminal"])(
   "an unsent historical %s attempt is retired once without starving a current one-time purchase",
   async (kind) => {
     const retired = await scenario();
@@ -567,11 +507,17 @@ test.each(["initial", "renewal", "upgrade"])(
         quoteRef: kind === "initial" ? retired.quote.quoteRef : null,
         subscriptionRef,
         periodIndex: 1,
-        kind,
+        kind:
+          kind === "other_terminal" || kind === "no_terminal"
+            ? "renewal"
+            : kind,
         state: "prepared",
         lifecycleActive: false,
         environment: retired.config.environment,
-        terminalRef: retired.config.terminalKey,
+        terminalRef:
+          kind === "other_terminal"
+            ? "HISTORICAL_TERMINAL"
+            : retired.config.terminalKey,
         amountKopecks: 200000,
         snapshot: retired.quote.snapshot,
         acceptance: {},
@@ -586,7 +532,17 @@ test.each(["initial", "renewal", "upgrade"])(
       await current.payments.purchase(current.buyer, current.command),
     ).purchaseRef;
     await current.notify("CONFIRMED");
-    const first = value(await retired.payments.recover());
+    const recovery =
+      kind === "no_terminal"
+        ? new BillingPayments({
+            prisma: db.prisma,
+            bank: undefined,
+            contact: retired.contact,
+            grants: retired.grants,
+            clock: () => instant,
+          })
+        : retired.payments;
+    const first = value(await recovery.recover());
     expect(first.applied).toBe(1);
     expect(
       (
@@ -598,7 +554,7 @@ test.each(["initial", "renewal", "upgrade"])(
     const after = await db.prisma.billingPurchase.findUniqueOrThrow({
       where: { id: oldRef },
     });
-    expect(await retired.payments.recover()).toMatchObject({ ok: true });
+    expect(await recovery.recover()).toMatchObject({ ok: true });
     expect(
       await db.prisma.billingPurchase.findUniqueOrThrow({
         where: { id: oldRef },
@@ -613,5 +569,467 @@ test.each(["initial", "renewal", "upgrade"])(
       await current.payments.status(current.buyer, currentRef),
     ).toMatchObject({ ok: true, value: { access: "ready" } });
     expect(retired.initCalls()).toBe(0);
+  },
+);
+
+async function historicalOneTime(
+  s: Awaited<ReturnType<typeof scenario>>,
+  snapshot: Prisma.InputJsonValue,
+) {
+  const purchase = { purchaseRef: randomUUID() };
+  const historicalPaymentId = `historical-${purchase.purchaseRef}`;
+  const quoteRef = randomUUID();
+  const instant = new Date("2030-01-31T10:00:00Z");
+  await db.prisma.billingPriceQuote.create({
+    data: {
+      id: quoteRef,
+      accountId: s.buyer,
+      operationId: randomUUID(),
+      fingerprint: "historical-bundle",
+      snapshot,
+      createdAt: instant,
+      expiresAt: new Date("2030-02-01T00:00:00Z"),
+    },
+  });
+  await db.prisma.billingPurchase.create({
+    data: {
+      id: purchase.purchaseRef,
+      accountId: s.buyer,
+      quoteRef,
+      kind: "one_time",
+      state: "unknown",
+      lifecycleActive: false,
+      environment: s.config.environment,
+      terminalRef: s.config.terminalKey,
+      paymentId: historicalPaymentId,
+      amountKopecks: 200000,
+      snapshot,
+      acceptance: { historical: true },
+      contact: { email: "historical@example.test" },
+      fiscalization: "pending",
+      createdAt: instant,
+      updatedAt: instant,
+    },
+  });
+  await db.prisma.billingPromoReservation.create({
+    data: {
+      purchaseRef: purchase.purchaseRef,
+      accountId: s.buyer,
+      quoteRef,
+      state: "unknown",
+      snapshot,
+    },
+  });
+  const historicalPayments = new BillingPayments({
+    prisma: db.prisma,
+    contact: s.contact,
+    grants: s.grants,
+    clock: () => instant,
+    bank: new Tbank(s.config, (url) => {
+      if (!url.endsWith("/GetState"))
+        throw new Error("Historical recovery cannot send a new Init or charge");
+      return Promise.resolve(
+        Response.json({
+          TerminalKey: s.config.terminalKey,
+          OrderId: purchase.purchaseRef,
+          PaymentId: historicalPaymentId,
+          Amount: 200000,
+          Status: "CONFIRMED",
+          Success: true,
+          ErrorCode: "0",
+        }),
+      );
+    }),
+  });
+  return { purchase, historicalPayments };
+}
+
+test.each(["support", "community"])(
+  "historical %s-only coverage does not invent Product content rights and receives durable manual review",
+  async (benefit) => {
+    const s = await scenario();
+    const {
+      product: _product,
+      supportMonths: _supportMonths,
+      ...legacy
+    } = s.quote.snapshot;
+    const snapshot = {
+      ...legacy,
+      offer: {
+        ...legacy.offer,
+        benefits: [benefit],
+        coverage: { productIds: [s.productId], materialIds: [] },
+      },
+    };
+    const { purchase, historicalPayments } = await historicalOneTime(
+      s,
+      snapshot,
+    );
+    expect(
+      await historicalPayments.reconcile(purchase.purchaseRef),
+    ).toMatchObject({ ok: true });
+    await historicalPayments.recover();
+    expect(
+      await s.grants.readProductAccess(owner, {
+        accountId: s.buyer,
+        productId: s.productId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "not_found" } });
+    expect(
+      await historicalPayments.status(s.buyer, purchase.purchaseRef),
+    ).toMatchObject({ ok: true, value: { access: "review_required" } });
+    const outbox = await db.prisma.billingFulfillment.findFirstOrThrow({
+      where: { purchaseRef: purchase.purchaseRef },
+    });
+    await historicalPayments.recover();
+    expect(
+      await db.prisma.billingFulfillment.findFirstOrThrow({
+        where: { purchaseRef: purchase.purchaseRef },
+      }),
+    ).toEqual(outbox);
+    expect(
+      await db.prisma.billingPaymentEvent.count({
+        where: {
+          purchaseRef: purchase.purchaseRef,
+          kind: "fulfillment_review_required",
+        },
+      }),
+    ).toBe(1);
+  },
+);
+
+test.each(["confirmed_first", "partial_first"] as const)(
+  "a verified partial refund (%s) is retained once with unresolved amount and never revokes Product rights",
+  async (order) => {
+    const fixture = createProductCommerceFixture(db, owner);
+    const s = await fixture.scenario();
+    const purchase = value(await s.payments.purchase(s.buyer, s.command));
+    if (order === "confirmed_first") {
+      await s.notify("CONFIRMED");
+      await s.payments.recover();
+    }
+    expect(
+      await s.notify("PARTIAL_REFUNDED", { PaymentId: "foreign-payment" }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_notification" } });
+    expect(
+      await s.notify("PARTIAL_REFUNDED", { Success: false }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_notification" } });
+    expect(await s.notify("PARTIAL_REFUNDED")).toMatchObject({ ok: true });
+    expect(await s.notify("PARTIAL_REFUNDED")).toMatchObject({ ok: true });
+    expect(
+      await s.payments.status(s.buyer, purchase.purchaseRef),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        refundedKopecks: null,
+        ...(order === "partial_first"
+          ? { state: "unknown", access: "awaiting_payment" }
+          : { access: "ready" }),
+      },
+    });
+    const observed = await db.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchase.purchaseRef },
+    });
+    fixture.setTime(new Date("2030-02-01T10:00:00Z"));
+    await s.payments.recover();
+    expect(
+      await db.prisma.billingPurchase.findUniqueOrThrow({
+        where: { id: purchase.purchaseRef },
+      }),
+    ).toEqual(observed);
+    expect(
+      await db.prisma.billingPaymentEvent.count({
+        where: {
+          purchaseRef: purchase.purchaseRef,
+          kind: { startsWith: "partial_refund_observed:" },
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db.prisma.billingRefund.count({
+        where: { purchaseRef: purchase.purchaseRef },
+      }),
+    ).toBe(0);
+    // A later exact full-capture proof permits fulfillment independently of unresolved refund amount.
+    await s.notify("CONFIRMED");
+    await s.payments.recover();
+    expect(
+      await s.payments.status(s.buyer, purchase.purchaseRef),
+    ).toMatchObject({
+      ok: true,
+      value: { access: "ready", refundedKopecks: null },
+    });
+    await s.notify("REFUNDED");
+    // A late distinct partial observation cannot erase an already proven full refund amount.
+    await s.notify("PARTIAL_REFUNDED", { Amount: 50000 });
+    expect(
+      await s.payments.status(s.buyer, purchase.purchaseRef),
+    ).toMatchObject({
+      ok: true,
+      value: { access: "ready", refundedKopecks: 200000 },
+    });
+    expect(s.initCalls()).toBe(1);
+  },
+);
+test("a committed manual Product issuance between the initial rights read and purchase admission prevents Init", async () => {
+  const s = await scenario();
+  let firstRead = true;
+  const racing = new BillingPayments({
+    prisma: db.prisma,
+    bank: s.bank,
+    contact: s.contact,
+    contentCatalog: new CoverageCatalog(
+      db.prisma,
+      new ProductDiscovery(db.prisma),
+    ),
+    clock: () => new Date("2030-01-31T10:00:00Z"),
+    grants: {
+      ...s.grants,
+      resolveCapabilities: async (
+        ...args: Parameters<typeof s.grants.resolveCapabilities>
+      ) => {
+        const result = await s.grants.resolveCapabilities(...args);
+        if (firstRead) {
+          firstRead = false;
+          expect(
+            await s.grants.issueManualProductAccess(owner, {
+              accountId: s.buyer,
+              productId: s.productId,
+              sourceRef: randomUUID(),
+              reason: "Concurrent real owner issuance",
+            }),
+          ).toMatchObject({ ok: true });
+        }
+        return result;
+      },
+    },
+  });
+  expect(await racing.purchase(s.buyer, s.command)).toMatchObject({
+    ok: false,
+    error: { code: "existing_access" },
+  });
+  expect(s.initCalls()).toBe(0);
+  expect(
+    await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } }),
+  ).toBe(0);
+});
+
+test("historical mixed Product capability and non-content coverage grants only the saved content Product", async () => {
+  const s = await scenario();
+  const other = await scenario();
+  const {
+    product: _product,
+    supportMonths: _supportMonths,
+    ...legacy
+  } = s.quote.snapshot;
+  const snapshot = {
+    ...legacy,
+    offer: {
+      ...legacy.offer,
+      benefits: [`product:${s.productId}`, "support"],
+      coverage: { productIds: [other.productId], materialIds: [] },
+    },
+  };
+  const { purchase, historicalPayments } = await historicalOneTime(s, snapshot);
+  expect(
+    await historicalPayments.reconcile(purchase.purchaseRef),
+  ).toMatchObject({ ok: true });
+  expect(value(await historicalPayments.recover()).applied).toBe(1);
+  expect(
+    await s.grants.readProductAccess(owner, {
+      accountId: s.buyer,
+      productId: s.productId,
+    }),
+  ).toMatchObject({ ok: true, value: { access: "active" } });
+  expect(
+    await s.grants.readProductAccess(owner, {
+      accountId: s.buyer,
+      productId: other.productId,
+    }),
+  ).toMatchObject({ ok: false, error: { code: "not_found" } });
+});
+
+test("a crash after historical Product issuance preserves an owner revoke when pending fulfillment replays", async () => {
+  const s = await scenario();
+  const other = await scenario();
+  const {
+    product: _product,
+    supportMonths: _supportMonths,
+    ...legacy
+  } = s.quote.snapshot;
+  const snapshot = {
+    ...legacy,
+    offer: {
+      ...legacy.offer,
+      benefits: [`product:${s.productId}`, `product:${other.productId}`],
+      coverage: { productIds: [], materialIds: [] },
+    },
+  };
+  const { purchase, historicalPayments } = await historicalOneTime(s, snapshot);
+  expect(
+    await historicalPayments.reconcile(purchase.purchaseRef),
+  ).toMatchObject({ ok: true });
+  const confirmedAt = (
+    await db.prisma.billingPurchase.findUniqueOrThrow({
+      where: { id: purchase.purchaseRef },
+    })
+  ).confirmedAt;
+  if (confirmedAt === null) throw new Error("Capture time missing");
+  // Same owning source as the first write before a process crash, outbox still pending.
+  expect(
+    await s.grants.issueProductAccess(
+      { source: "purchase" },
+      {
+        accountId: s.buyer,
+        productId: s.productId,
+        sourceRef: `payment:${purchase.purchaseRef}:product:${s.productId}`,
+        issuedAt: confirmedAt.toISOString(),
+        reason: "payment_confirmed",
+      },
+    ),
+  ).toMatchObject({ ok: true });
+  const prior = value(
+    await s.grants.readProductAccess(owner, {
+      accountId: s.buyer,
+      productId: s.productId,
+    }),
+  );
+  expect(
+    await s.grants.revokeProductAccess(owner, {
+      accountId: s.buyer,
+      productId: s.productId,
+      operationId: randomUUID(),
+      expectedRevision: prior.revision,
+      reason: "Owner revocation while fulfillment is pending",
+    }),
+  ).toMatchObject({ ok: true });
+  expect(value(await historicalPayments.recover()).applied).toBe(1);
+  expect(
+    await s.grants.readProductAccess(owner, {
+      accountId: s.buyer,
+      productId: s.productId,
+    }),
+  ).toMatchObject({ ok: true, value: { access: "revoked" } });
+  expect(
+    await s.grants.readProductAccess(owner, {
+      accountId: s.buyer,
+      productId: other.productId,
+    }),
+  ).toMatchObject({ ok: true, value: { access: "active" } });
+  expect(
+    await db.prisma.productAccessSource.count({
+      where: { accountId: s.buyer, source: "purchase" },
+    }),
+  ).toBe(2);
+});
+
+test("partial Amount is preserved as an observation without weakening full capture proof or binding an unknown PaymentId", async () => {
+  const s = await scenario();
+  s.loseInit();
+  const lost = await s.payments.purchase(s.buyer, s.command);
+  expect(lost).toMatchObject({ ok: true, value: { state: "unknown" } });
+  const purchase = await db.prisma.billingPurchase.findFirstOrThrow({
+    where: { accountId: s.buyer },
+  });
+  expect(purchase.paymentId).toBeNull();
+  expect(await s.notify("PARTIAL_REFUNDED", { Amount: 50000 })).toMatchObject({
+    ok: true,
+  });
+  const observed = await db.prisma.billingPurchase.findUniqueOrThrow({
+    where: { id: purchase.id },
+  });
+  expect(observed.paymentId).toBeNull();
+  expect(observed.refundReviewRequired).toBe(true);
+  expect(await s.notify("CONFIRMED", { Amount: 50000 })).toMatchObject({
+    ok: false,
+    error: { code: "invalid_notification" },
+  });
+  expect(await s.notify("REFUNDED", { Amount: 50000 })).toMatchObject({
+    ok: false,
+    error: { code: "invalid_notification" },
+  });
+  expect(
+    await db.prisma.billingFulfillment.count({
+      where: { purchaseRef: purchase.id },
+    }),
+  ).toBe(0);
+  expect(await s.notify("CONFIRMED")).toMatchObject({ ok: true });
+  await s.payments.recover();
+  expect(await s.payments.status(s.buyer, purchase.id)).toMatchObject({
+    ok: true,
+    value: { access: "ready", refundedKopecks: null },
+  });
+  expect(s.initCalls()).toBe(1);
+});
+
+test("a fresh Product purchase continues an unknown historical materials purchase with explicit Product scope without another Init", async () => {
+  const s = await scenario();
+  const {
+    product: _product,
+    supportMonths: _supportMonths,
+    ...legacy
+  } = s.quote.snapshot;
+  const snapshot = {
+    ...legacy,
+    offer: {
+      ...legacy.offer,
+      benefits: ["materials"],
+      coverage: { productIds: [s.productId], materialIds: [] },
+    },
+  };
+  const { purchase } = await historicalOneTime(s, snapshot);
+  // Current fake bank disagrees with the saved provider id, but must never be asked for fresh Init.
+  await s.payments.purchase(s.buyer, s.command);
+  expect(s.initCalls()).toBe(0);
+  expect(
+    await db.prisma.billingPurchase.count({ where: { accountId: s.buyer } }),
+  ).toBe(1);
+  expect(
+    await s.payments.restoreProductPurchase(
+      s.buyer,
+      s.productId,
+      purchase.purchaseRef,
+    ),
+  ).toMatchObject({ ok: true, value: { purchaseRef: purchase.purchaseRef } });
+});
+
+test.each(["manual", "purchase"] as const)(
+  "a previously acquired then revoked Product (%s) cannot be sold again",
+  async (source) => {
+    const s = await scenario();
+    if (source === "manual") {
+      expect(
+        await s.grants.issueManualProductAccess(owner, {
+          accountId: s.buyer,
+          productId: s.productId,
+          sourceRef: randomUUID(),
+          reason: "Owner Product acquisition",
+        }),
+      ).toMatchObject({ ok: true });
+    } else {
+      expect(await s.payments.purchase(s.buyer, s.command)).toMatchObject({
+        ok: true,
+      });
+      await s.notify("CONFIRMED");
+      await s.payments.recover();
+    }
+    const pair = { accountId: s.buyer, productId: s.productId };
+    const prior = value(await s.grants.readProductAccess(owner, pair));
+    expect(
+      await s.grants.revokeProductAccess(owner, {
+        ...pair,
+        operationId: randomUUID(),
+        expectedRevision: prior.revision,
+        reason: "Owner withdrawal must not enable a second sale",
+      }),
+    ).toMatchObject({ ok: true });
+    const initBefore = s.initCalls();
+    expect(
+      await s.payments.purchase(s.buyer, {
+        ...s.command,
+        operationId: randomUUID(),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "existing_access" } });
+    expect(s.initCalls()).toBe(initBefore);
   },
 );

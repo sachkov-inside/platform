@@ -48,7 +48,8 @@ export function accountProducts(
       history.find(
         (item) =>
           item.state === "confirmed" &&
-          item.refundedKopecks < item.amountKopecks,
+          (item.refundedKopecks === null ||
+            item.refundedKopecks < item.amountKopecks),
       ) ?? history[0];
     const granted = bases.some(
       (ground) =>

@@ -8237,6 +8237,7 @@
                             "enum": [
                               "awaiting_payment",
                               "preparing",
+                              "review_required",
                               "ready",
                               "unavailable"
                             ],
@@ -8340,6 +8341,7 @@
                                   "enum": [
                                     "awaiting_payment",
                                     "preparing",
+                                    "review_required",
                                     "ready",
                                     "unavailable"
                                   ],
@@ -8373,6 +8375,7 @@
                           "refundedKopecks": {
                             "maximum": 9007199254740991,
                             "minimum": 0,
+                            "nullable": true,
                             "type": "integer"
                           },
                           "snapshot": {
@@ -10927,6 +10930,7 @@
                       "enum": [
                         "awaiting_payment",
                         "preparing",
+                        "review_required",
                         "ready",
                         "unavailable"
                       ],
@@ -10966,6 +10970,7 @@
                     "refundedKopecks": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
+                      "nullable": true,
                       "type": "integer"
                     },
                     "snapshot": {
@@ -11897,6 +11902,7 @@
                       "enum": [
                         "awaiting_payment",
                         "preparing",
+                        "review_required",
                         "ready",
                         "unavailable"
                       ],
@@ -11936,6 +11942,7 @@
                     "refundedKopecks": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
+                      "nullable": true,
                       "type": "integer"
                     },
                     "snapshot": {
@@ -12824,6 +12831,7 @@
                       "enum": [
                         "awaiting_payment",
                         "preparing",
+                        "review_required",
                         "ready",
                         "unavailable"
                       ],
@@ -12863,6 +12871,7 @@
                     "refundedKopecks": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
+                      "nullable": true,
                       "type": "integer"
                     },
                     "snapshot": {
@@ -73861,6 +73870,7 @@
                                     "enum": [
                                       "awaiting_payment",
                                       "preparing",
+                                      "review_required",
                                       "ready"
                                     ],
                                     "type": "string"
@@ -73938,11 +73948,13 @@
                                   "refundableKopecks": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
+                                    "nullable": true,
                                     "type": "integer"
                                   },
                                   "refundedKopecks": {
                                     "maximum": 9007199254740991,
                                     "minimum": 0,
+                                    "nullable": true,
                                     "type": "integer"
                                   },
                                   "snapshot": {
@@ -74591,6 +74603,7 @@
                                   "enum": [
                                     "awaiting_payment",
                                     "preparing",
+                                    "review_required",
                                     "ready"
                                   ],
                                   "type": "string"
@@ -74668,11 +74681,13 @@
                                 "refundableKopecks": {
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
+                                  "nullable": true,
                                   "type": "integer"
                                 },
                                 "refundedKopecks": {
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
+                                  "nullable": true,
                                   "type": "integer"
                                 },
                                 "snapshot": {
@@ -75074,6 +75089,7 @@
                                   "enum": [
                                     "awaiting_payment",
                                     "preparing",
+                                    "review_required",
                                     "ready"
                                   ],
                                   "type": "string"
@@ -75151,11 +75167,13 @@
                                 "refundableKopecks": {
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
+                                  "nullable": true,
                                   "type": "integer"
                                 },
                                 "refundedKopecks": {
                                   "maximum": 9007199254740991,
                                   "minimum": 0,
+                                  "nullable": true,
                                   "type": "integer"
                                 },
                                 "snapshot": {
@@ -75704,11 +75722,13 @@
                             "refundableKopecks": {
                               "maximum": 9007199254740991,
                               "minimum": 0,
+                              "nullable": true,
                               "type": "integer"
                             },
                             "refundedKopecks": {
                               "maximum": 9007199254740991,
                               "minimum": 0,
+                              "nullable": true,
                               "type": "integer"
                             }
                           },

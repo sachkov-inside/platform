@@ -159,6 +159,10 @@ import {
   statement as productPricesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0108-product-prices.js";
 import {
+  name as paymentReviewName,
+  statement as paymentReviewStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0109-payment-review-dispositions.js";
+import {
   name as bookmarksName,
   statement as bookmarksStatement,
 } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
@@ -700,6 +704,7 @@ export const platformMigrations = [
   },
   { name: courseActivationName, statement: courseActivationStatement },
   { name: productPricesName, statement: productPricesStatement },
+  { name: paymentReviewName, statement: paymentReviewStatement },
 ] as const;
 
 export function migrateToLatest(

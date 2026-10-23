@@ -152,12 +152,12 @@ export class BillingOperations {
     }
   }
 
-  private async replay(
+  private replay(
     _actorId: string,
     command: OwnerOperation,
     outcome: unknown,
   ): Promise<OwnerResult> {
-    return storedResult(command.operationId, outcome);
+    return Promise.resolve(storedResult(command.operationId, outcome));
   }
 
   /**
@@ -368,8 +368,12 @@ export class BillingOperations {
           result: {
             outcome: "refunds",
             purchaseRef: purchase.id,
-            refundedKopecks: totals.refundedKopecks,
-            refundableKopecks: totals.refundableKopecks,
+            refundedKopecks: purchase.refundReviewRequired
+              ? null
+              : totals.refundedKopecks,
+            refundableKopecks: purchase.refundReviewRequired
+              ? null
+              : totals.refundableKopecks,
             decisions: await refundDecisionViews(prisma, purchase.id),
           },
         };

@@ -16,6 +16,10 @@ export async function acceptBankRefund(
   purchase: Purchase,
   now: Date,
 ): Promise<void> {
+  await tx.billingPurchase.update({
+    where: { id: purchase.id },
+    data: { refundReviewRequired: false },
+  });
   const kind = "full_refund_confirmed";
   if (
     await tx.billingPaymentEvent.findUnique({

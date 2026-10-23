@@ -6,7 +6,7 @@ import {
   productCapability,
   productIdFromCapability,
 } from "@inside/access-capabilities";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
@@ -15,9 +15,11 @@ import {
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
 import {
+  lockAccountEntitlementChanges,
   lockBillingPricing,
   lockBillingPurchase,
   type BillingPrismaClient,
+  type Prisma,
 } from "../../../../infrastructure/prisma/index.js";
 import type {
   AccessGrants,
@@ -29,7 +31,11 @@ import {
   attemptKindSchema,
   isQuotedPurchase,
 } from "../../domain/payment-attempt.js";
-import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
+import {
+  paymentMode,
+  priceSnapshotSchema,
+  type PriceSnapshot,
+} from "../../domain/pricing.js";
 import {
   saleCapability,
   type SaleCapability,
@@ -71,7 +77,10 @@ interface Dependencies {
   readonly contact: Pick<BillingContact, "read" | "readConsents">;
   readonly grants: Pick<
     AccessGrants,
-    "resolveCapabilities" | "resolveCapabilitiesMany" | "issueProductAccess"
+    | "resolveCapabilities"
+    | "resolveCapabilitiesMany"
+    | "issueProductAccess"
+    | "hasProductAcquisition"
   >;
   readonly contentCatalog?: Pick<CoverageCatalog, "resolve" | "resolveMany">;
   readonly bank: Tbank | undefined;
@@ -140,7 +149,6 @@ export class BillingPayments {
         )
       )
         return paymentFailure("method_unavailable");
-      let capabilities = initialCapabilities.capabilities;
       let settledPurchaseRef: string | undefined;
       const admission = paymentAdmission({
         snapshot,
@@ -218,24 +226,9 @@ export class BillingPayments {
                 accountId,
                 kind: "one_time",
                 state: { in: inFlightStates },
-                OR: [
-                  {
-                    snapshot: {
-                      path: ["product", "id"],
-                      equals: snapshot.product?.id ?? snapshot.paymentOption.id,
-                    },
-                  },
-                  {
-                    snapshot: {
-                      path: ["offer", "benefits"],
-                      array_contains: [
-                        productCapability(
-                          snapshot.product?.id ?? snapshot.paymentOption.id,
-                        ),
-                      ],
-                    },
-                  },
-                ],
+                ...savedContentProductWhere(
+                  snapshot.product?.id ?? snapshot.paymentOption.id,
+                ),
               },
               orderBy: { createdAt: "desc" },
             });
@@ -245,25 +238,9 @@ export class BillingPayments {
                   accountId,
                   kind: "one_time",
                   state: "confirmed",
-                  OR: [
-                    {
-                      snapshot: {
-                        path: ["product", "id"],
-                        equals:
-                          snapshot.product?.id ?? snapshot.paymentOption.id,
-                      },
-                    },
-                    {
-                      snapshot: {
-                        path: ["offer", "benefits"],
-                        array_contains: [
-                          productCapability(
-                            snapshot.product?.id ?? snapshot.paymentOption.id,
-                          ),
-                        ],
-                      },
-                    },
-                  ],
+                  ...savedContentProductWhere(
+                    snapshot.product?.id ?? snapshot.paymentOption.id,
+                  ),
                 },
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               });
@@ -289,6 +266,24 @@ export class BillingPayments {
               });
               return { ok: true, value: continuingPurchase.id };
             }
+            // Product -> Account lock order matches manual and Course issuance.
+            if (
+              !(await productSaleAvailable(
+                this.dependencies.contentCatalog,
+                snapshot,
+                transactionHandle(tx),
+              ))
+            )
+              return paymentFailure("not_found");
+            await lockAccountEntitlementChanges(tx, accountId);
+            const acquired =
+              await this.dependencies.grants.hasProductAcquisition(
+                accountId,
+                snapshot.product?.id ?? snapshot.paymentOption.id,
+                transactionHandle(tx),
+              );
+            if (!acquired.ok) return paymentFailure("dependency_unavailable");
+            if (acquired.acquired) return paymentFailure("existing_access");
             const purchaseRef = randomUUID();
             const reservation = await reservePurchaseInTransaction(
               tx,
@@ -320,17 +315,6 @@ export class BillingPayments {
                 where: { purchaseRef },
               });
               return paymentFailure(admission.error.code);
-            }
-            if (
-              capabilities.some((value) =>
-                reservation.value.offer.benefits.includes(value.capability),
-              )
-            ) {
-              // No external effect exists; release the pricing capacity in this transaction.
-              await tx.billingPromoReservation.delete({
-                where: { purchaseRef },
-              });
-              return paymentFailure("existing_access");
             }
             await tx.billingPurchase.create({
               data: {
@@ -383,7 +367,6 @@ export class BillingPayments {
         const refreshed =
           await this.dependencies.grants.resolveCapabilities(accountId);
         if (!refreshed.ok) return paymentFailure("dependency_unavailable");
-        capabilities = refreshed.capabilities;
         prepared = await prepare();
       }
       return prepared;
@@ -442,6 +425,8 @@ export class BillingPayments {
     const bank = this.dependencies.bank;
     if (!bank) return paymentFailure("method_unavailable");
     const dispatched = await this.dispatch(purchaseRef);
+    if (dispatched === "already_owned")
+      return paymentFailure("existing_access");
     await this.awaitBankAnswer(purchaseRef);
     if (dispatched === "skipped") {
       const reconciled = await this.reconcile(purchaseRef);
@@ -479,26 +464,7 @@ export class BillingPayments {
           where: {
             accountId,
             ...(purchaseRef === undefined ? {} : { id: purchaseRef }),
-            OR: [
-              {
-                snapshot: {
-                  path: ["offer", "benefits"],
-                  array_contains: [productCapability(productId)],
-                },
-              },
-              {
-                snapshot: {
-                  path: ["offer", "coverage", "productIds"],
-                  array_contains: [productId],
-                },
-              },
-              {
-                snapshot: {
-                  path: ["offer", "coverage", "wholePlatform"],
-                  equals: true,
-                },
-              },
-            ],
+            ...savedContentProductWhere(productId),
           },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           select: { id: true },
@@ -533,25 +499,19 @@ export class BillingPayments {
         where: { id: purchaseRef, accountId },
       });
       if (!row) return paymentFailure("not_found");
-      const waiting = await this.dependencies.prisma.billingFulfillment.count({
-        where: { purchaseRef, appliedAt: null },
-      });
+      const outstanding =
+        await this.dependencies.prisma.billingFulfillment.findMany({
+          where: { purchaseRef, appliedAt: null },
+          select: { reviewRequiredAt: true },
+        });
+      const waiting = outstanding.length;
+      const reviewRequired = outstanding.some(
+        (entry) => entry.reviewRequiredAt !== null,
+      );
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
       const productIds =
         productId === undefined
-          ? [
-              ...new Set([
-                ...(snapshot.offer.coverage?.productIds ?? []),
-                ...snapshot.offer.benefits
-                  .filter(isProductCapability)
-                  .map(
-                    (value) =>
-                      productIdFromCapability(
-                        accessCapabilitySchema.parse(value),
-                      ) ?? "",
-                  ),
-              ]),
-            ]
+          ? savedContentProductIds(snapshot)
           : [productId];
       const capabilities =
         row.state === "confirmed" && waiting === 0 && productIds.length > 0
@@ -577,10 +537,12 @@ export class BillingPayments {
         value: purchaseStatusSchema.parse({
           purchaseRef,
           state: row.state,
-          refundedKopecks: Number(refunds._sum.amountKopecks ?? 0),
+          refundedKopecks: row.refundReviewRequired
+            ? null
+            : Number(refunds._sum.amountKopecks ?? 0),
           paymentUrl: row.state === "pending" ? row.paymentUrl : null,
           snapshot: row.snapshot,
-          access: purchaseAccess(row.state, waiting, ready),
+          access: purchaseAccess(row.state, waiting, ready, reviewRequired),
           fiscalization: row.fiscalization,
           confirmedAt: row.confirmedAt?.toISOString() ?? null,
           periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
@@ -634,6 +596,7 @@ export class BillingPayments {
           by: ["purchaseRef"],
           where: { purchaseRef: { in: purchaseRefs }, appliedAt: null },
           _count: { _all: true },
+          _max: { reviewRequiredAt: true },
         }),
         this.dependencies.contentCatalog?.resolveMany(scopes),
       ]);
@@ -643,18 +606,13 @@ export class BillingPayments {
       const waitingByPurchase = new Map(
         fulfillment.map((row) => [row.purchaseRef, row._count._all]),
       );
-      const statusProductIds = snapshots.map((snapshot) => [
-        ...new Set([
-          ...(snapshot.offer.coverage?.productIds ?? []),
-          ...snapshot.offer.benefits
-            .filter(isProductCapability)
-            .map(
-              (value) =>
-                productIdFromCapability(accessCapabilitySchema.parse(value)) ??
-                "",
-            ),
+      const reviewByPurchase = new Map(
+        fulfillment.map((row) => [
+          row.purchaseRef,
+          row._max.reviewRequiredAt !== null,
         ]),
-      ]);
+      );
+      const statusProductIds = snapshots.map(savedContentProductIds);
       const productIds = [
         ...new Set([
           ...statusProductIds.flat(),
@@ -701,7 +659,13 @@ export class BillingPayments {
           const ready =
             ids.length === 0 ||
             ids.some((id) => readyByProduct.get(id) === true);
-          const access = purchaseAccess(row.state, waiting, ready);
+          const reviewRequired = reviewByPurchase.get(row.id) === true;
+          const access = purchaseAccess(
+            row.state,
+            waiting,
+            ready,
+            reviewRequired,
+          );
           const content = contents?.[index];
           const productEntries = content?.filter(
             (entry) => entry.kind === "product",
@@ -720,6 +684,7 @@ export class BillingPayments {
                       row.state,
                       waiting,
                       readyByProduct.get(entry.id) === true,
+                      reviewRequired,
                     ),
                   })),
                 }),
@@ -732,7 +697,9 @@ export class BillingPayments {
             confirmedAt: row.confirmedAt?.toISOString() ?? null,
             periodEndsAt: row.periodEndsAt?.toISOString() ?? null,
             createdAt: row.createdAt.toISOString(),
-            refundedKopecks: Number(refunded?._sum.amountKopecks ?? 0),
+            refundedKopecks: row.refundReviewRequired
+              ? null
+              : Number(refunded?._sum.amountKopecks ?? 0),
             refundedAt: refunded?._max.updatedAt?.toISOString() ?? null,
           });
         }),
@@ -754,17 +721,11 @@ export class BillingPayments {
 
   async reconcile(purchaseRef: string): Promise<PaymentResult<true>> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return paymentFailure("method_unavailable");
     try {
       const row = await prisma.billingPurchase.findUnique({
         where: { id: purchaseRef },
       });
       if (!row) return paymentFailure("not_found");
-      if (
-        row.environment !== bank.config.environment ||
-        row.terminalRef !== bank.config.terminalKey
-      )
-        return paymentFailure("method_unavailable");
       if (row.state === "prepared" && row.kind !== "one_time") {
         await prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
@@ -805,6 +766,12 @@ export class BillingPayments {
         });
         return { ok: true, value: true };
       }
+      if (!bank) return paymentFailure("method_unavailable");
+      if (
+        row.environment !== bank.config.environment ||
+        row.terminalRef !== bank.config.terminalKey
+      )
+        return paymentFailure("method_unavailable");
       if (row.state === "prepared") {
         const outcome = await this.dispatch(row.id);
         if (outcome === "configuration_idle")
@@ -848,18 +815,19 @@ export class BillingPayments {
     try {
       let idle = this.dependencies.bank === undefined;
       let failed = 0;
-      const rows =
-        this.dependencies.bank === undefined
-          ? []
-          : await this.dependencies.prisma.billingPurchase.findMany({
-              where: {
+      const rows = await this.dependencies.prisma.billingPurchase.findMany({
+        where:
+          this.dependencies.bank === undefined
+            ? { state: "prepared", kind: { not: "one_time" } }
+            : {
+                refundReviewRequired: false,
                 state: {
                   in: ["prepared", "sent", "unknown", "pending", "authorized"],
                 },
               },
-              orderBy: { updatedAt: "asc" },
-              take: limit,
-            });
+        orderBy: { updatedAt: "asc" },
+        take: limit,
+      });
       for (const row of rows) {
         const reconciled = await this.reconcile(row.id);
         if (!reconciled.ok) {
@@ -873,7 +841,11 @@ export class BillingPayments {
       }
       const pending =
         await this.dependencies.prisma.billingFulfillment.findMany({
-          where: { appliedAt: null, nextAttemptAt: { lte: this.clock() } },
+          where: {
+            appliedAt: null,
+            reviewRequiredAt: null,
+            nextAttemptAt: { lte: this.clock() },
+          },
           orderBy: [{ nextAttemptAt: "asc" }, { eventRef: "asc" }],
           take: limit,
         });
@@ -905,22 +877,39 @@ export class BillingPayments {
           continue;
         }
         const snapshot = priceSnapshotSchema.parse(purchase.snapshot);
-        const productIds = [
-          ...new Set(
-            (snapshot.product === undefined
-              ? [
-                  ...snapshot.offer.benefits
-                    .filter(isProductCapability)
-                    .map(productIdFromCapability)
-                    .filter((id): id is string => id !== null),
-                  ...(snapshot.offer.coverage?.productIds ?? []),
-                ]
-              : [snapshot.product.id]
-            ).map((id) => id.toLowerCase()),
-          ),
-        ].sort();
+        const productIds = savedContentProductIds(snapshot);
         if (productIds.length === 0 || purchase.confirmedAt === null) {
-          failed += 1;
+          const reason =
+            productIds.length === 0
+              ? "historical_scope_unresolved"
+              : "capture_time_unresolved";
+          await this.dependencies.prisma.$transaction(async (tx) => {
+            await lockBillingPurchase(tx, purchase.id);
+            const current = await tx.billingFulfillment.findUniqueOrThrow({
+              where: { eventRef: row.eventRef },
+            });
+            if (current.appliedAt !== null || current.reviewRequiredAt !== null)
+              return;
+            const now = this.clock();
+            await tx.billingFulfillment.update({
+              where: { eventRef: row.eventRef },
+              data: { reviewRequiredAt: now, reviewReason: reason },
+            });
+            await tx.billingPaymentEvent.create({
+              data: {
+                id: randomUUID(),
+                purchaseRef: purchase.id,
+                kind: "fulfillment_review_required",
+                payload: {
+                  reason,
+                  savedBenefits: snapshot.offer.benefits,
+                  savedCoverage: snapshot.offer.coverage ?? null,
+                },
+                occurredAt: now,
+                recordedAt: now,
+              },
+            });
+          });
           continue;
         }
         let completed = true;
@@ -984,7 +973,9 @@ export class BillingPayments {
 
   async dispatch(
     attemptRef: string,
-  ): Promise<"dispatched" | "skipped" | "failed" | "configuration_idle"> {
+  ): Promise<
+    "dispatched" | "skipped" | "failed" | "configuration_idle" | "already_owned"
+  > {
     const { prisma, bank } = this.dependencies;
     if (!bank) return "configuration_idle";
     const prepared = await prisma.$transaction(async (tx) => {
@@ -1060,6 +1051,30 @@ export class BillingPayments {
         });
         return { status: "retired" } as const;
       }
+      await lockAccountEntitlementChanges(tx, row.accountId);
+      const acquired = await this.dependencies.grants.hasProductAcquisition(
+        row.accountId,
+        current.productId,
+        transactionHandle(tx),
+      );
+      if (!acquired.ok)
+        throw new Error("Current Product acquisition is unavailable");
+      if (acquired.acquired) {
+        await tx.billingPurchase.update({
+          where: { id: attemptRef },
+          data: {
+            state: "failed",
+            lifecycleActive: false,
+            paymentUrl: null,
+            updatedAt: this.clock(),
+          },
+        });
+        await tx.billingPromoReservation.updateMany({
+          where: { purchaseRef: attemptRef },
+          data: { state: "failed" },
+        });
+        return { status: "already_owned" } as const;
+      }
       const now = this.clock();
       await tx.billingPurchase.update({
         where: { id: attemptRef },
@@ -1073,6 +1088,7 @@ export class BillingPayments {
       return { status: "prepared", row, kind } as const;
     });
     if (prepared?.status === "retired") return "skipped";
+    if (prepared?.status === "already_owned") return "already_owned";
     if (!prepared) return "skipped";
     const { row, kind } = prepared;
     try {
@@ -1164,7 +1180,8 @@ export class BillingPayments {
           row.environment !== bank.config.environment ||
           row.terminalRef !== payment.TerminalKey ||
           row.terminalRef !== bank.config.terminalKey ||
-          Number(row.amountKopecks) !== payment.Amount ||
+          (payment.Status !== "PARTIAL_REFUNDED" &&
+            Number(row.amountKopecks) !== payment.Amount) ||
           (row.paymentId !== null && row.paymentId !== payment.PaymentId) ||
           row.state === "prepared"
         )
@@ -1204,6 +1221,55 @@ export class BillingPayments {
                 recordedAt: observedAt,
               },
             });
+          }
+          return { ok: true, value: true };
+        }
+        if (payment.Status === "PARTIAL_REFUNDED") {
+          if (!payment.Success || payment.ErrorCode !== "0")
+            return paymentFailure("invalid_notification");
+          // The authenticated status is known. Its Amount is NOT an authoritative refunded sum.
+          // Preserve the observation and stop automatic reconciliation until owning evidence resolves it.
+          const observation = {
+            status: payment.Status,
+            paymentId: payment.PaymentId,
+            orderId: payment.OrderId,
+            observedAmountKopecks: payment.Amount,
+            resolution: "amount_unresolved",
+          };
+          const kind = `partial_refund_observed:${createHash("sha256").update(JSON.stringify(observation)).digest("hex")}`;
+          if (
+            !(await tx.billingPaymentEvent.findUnique({
+              where: { purchaseRef_kind: { purchaseRef: row.id, kind } },
+            }))
+          ) {
+            await tx.billingPaymentEvent.create({
+              data: {
+                id: randomUUID(),
+                purchaseRef: row.id,
+                kind,
+                payload: observation,
+                occurredAt: now,
+                recordedAt: now,
+              },
+            });
+            const fullRefundKnown = await tx.billingPaymentEvent.findUnique({
+              where: {
+                purchaseRef_kind: {
+                  purchaseRef: row.id,
+                  kind: "full_refund_confirmed",
+                },
+              },
+            });
+            if (fullRefundKnown === null)
+              await tx.billingPurchase.update({
+                where: { id: row.id },
+                data: {
+                  refundReviewRequired: true,
+                  ...(row.state === "confirmed"
+                    ? {}
+                    : { state: "unknown", paymentUrl: null }),
+                },
+              });
           }
           return { ok: true, value: true };
         }
@@ -1363,12 +1429,63 @@ function purchaseAccess(
   state: string,
   waiting: number,
   ready: boolean,
+  reviewRequired = false,
 ): PurchaseStatus["access"] {
   return state !== "confirmed"
     ? "awaiting_payment"
-    : waiting > 0
-      ? "preparing"
-      : ready
-        ? "ready"
-        : "unavailable";
+    : reviewRequired
+      ? "review_required"
+      : waiting > 0
+        ? "preparing"
+        : ready
+          ? "ready"
+          : "unavailable";
+}
+
+/** Only immutable content authority names Products. Support/community coverage does not. */
+function savedContentProductIds(snapshot: PriceSnapshot): string[] {
+  return [
+    ...new Set(
+      [
+        ...snapshot.offer.benefits
+          .filter(isProductCapability)
+          .map(productIdFromCapability)
+          .filter((id): id is string => id !== null),
+        ...(snapshot.offer.benefits.includes("materials")
+          ? (snapshot.offer.coverage?.productIds ?? [])
+          : []),
+      ].map((id) => id.toLowerCase()),
+    ),
+  ].sort();
+}
+
+function savedContentProductWhere(
+  productId: string,
+): Prisma.BillingPurchaseWhereInput {
+  return {
+    OR: [
+      {
+        snapshot: {
+          path: ["offer", "benefits"],
+          array_contains: [productCapability(productId)],
+        },
+      },
+      {
+        AND: [
+          {
+            snapshot: {
+              path: ["offer", "benefits"],
+              array_contains: ["materials"],
+            },
+          },
+          {
+            snapshot: {
+              path: ["offer", "coverage", "productIds"],
+              array_contains: [productId],
+            },
+          },
+        ],
+      },
+    ],
+  };
 }

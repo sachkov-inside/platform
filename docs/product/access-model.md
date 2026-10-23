@@ -656,3 +656,26 @@ Platform в одной поставке меняет спецификацию, �
   участника.
 - Мастерской нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Право `reviews` не выдаётся ни одним основанием.
 - Кто считается участником для профилей участников, не решено; это после релиза.
+
+### Historical payment review
+
+Only saved Product capabilities, or a saved materials benefit with explicit Product coverage,
+provide content authority for an already sent one-time payment. Support or community coverage,
+whole-platform coverage and Material membership never create new lifetime Product rights.
+Unmappable confirmed purchases retain their immutable financial facts and enter a durable
+`review_required` fulfillment disposition. Recovery does not repeatedly retry that disposition.
+Per-Product payment source identities preserve owner withdrawal across a partially completed replay.
+
+An authenticated `PARTIAL_REFUNDED` observation records the exact observed provider fields without
+interpreting `Amount` as a refunded amount. Refund totals remain unknown (`null`) and automatic
+payment reconciliation pauses for review. The observation never binds an unknown PaymentId,
+proves capture, issues rights or revokes access. An independently verified exact `CONFIRMED`
+can finish saved fulfillment; an exact full `REFUNDED` can resolve the financial amount.
+Late partial observations cannot erase an already proven full refund. Current provider evidence
+does not establish partial-notification Amount semantics, so no difference or zero is fabricated.
+See the [provider refund scenario](https://developer.tbank.ru/eacq/scenarios/cancel_confirm/).
+
+Fresh purchase admission and dispatch read Product acquisition state through Account Rights on the
+same transaction handle under the Account entitlement lock. Both active and owner-revoked lifetime
+state prevent another sale. Already sent attempts continue their saved recovery without another Init.
+Unsent historical recurring attempts retire once, independently of current terminal configuration.

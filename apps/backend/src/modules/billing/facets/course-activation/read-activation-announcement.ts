@@ -28,8 +28,7 @@ export async function readActivationAnnouncement(
     );
     if (rule === null) return unavailable;
     const productId = rule.productId;
-    if (productId === null || dependencies.contentCatalog === undefined)
-      return unavailable;
+    if (dependencies.contentCatalog === undefined) return unavailable;
     const products = await dependencies.contentCatalog.resolve({
       productIds: [productId],
       materialIds: [],

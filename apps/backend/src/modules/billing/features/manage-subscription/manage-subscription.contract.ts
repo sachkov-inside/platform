@@ -34,7 +34,7 @@ export const ownPaymentSchema = z.strictObject({
   periodEndsAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   /** Возвращено банком по этому платежу; неподтверждённые попытки не считаются. */
-  refundedKopecks: z.int().nonnegative(),
+  refundedKopecks: z.int().nonnegative().nullable(),
   refundedAt: z.iso.datetime().nullable(),
 });
 export type OwnPayment = z.infer<typeof ownPaymentSchema>;

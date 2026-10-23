@@ -53,6 +53,10 @@ export function createProductCommerceFixture(db: TestDatabase, owner: string) {
     const grants = assembleAccessGrants({
       prisma: db.prisma,
       accounts,
+      contentCatalog: new CoverageCatalog(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       clock: () => now,
     });
     const pricing = new BillingPricing({

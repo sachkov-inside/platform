@@ -131,9 +131,9 @@ export const paymentViewSchema = z.object({
   periodEndsAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
-  access: z.enum(["awaiting_payment", "preparing", "ready"]),
-  refundedKopecks: z.number().int().nonnegative(),
-  refundableKopecks: z.number().int().nonnegative(),
+  access: z.enum(["awaiting_payment", "preparing", "review_required", "ready"]),
+  refundedKopecks: z.number().int().nonnegative().nullable(),
+  refundableKopecks: z.number().int().nonnegative().nullable(),
 });
 export const refundDecisionViewSchema = z.object({
   decisionRef: z.uuid(),
@@ -198,8 +198,8 @@ export const refundsOutcomeSchema = envelope(
   z.object({
     outcome: z.literal("refunds"),
     purchaseRef: z.uuid(),
-    refundedKopecks: z.number().int().nonnegative(),
-    refundableKopecks: z.number().int().nonnegative(),
+    refundedKopecks: z.number().int().nonnegative().nullable(),
+    refundableKopecks: z.number().int().nonnegative().nullable(),
     decisions: z.array(refundDecisionViewSchema),
   }),
 );

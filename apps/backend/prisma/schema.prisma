@@ -1413,6 +1413,7 @@ model NotificationEmailInbox {
 }
 
 model BillingPurchase {
+  refundReviewRequired Boolean @default(false) @map("refund_review_required")
   bindingCiphertext String? @map("binding_ciphertext")
   lifecycleActive Boolean @default(true) @map("lifecycle_active")
   id String @id @db.Uuid
@@ -1462,6 +1463,8 @@ model BillingPaymentEvent {
   @@schema("billing")
 }
 model BillingFulfillment {
+  reviewRequiredAt DateTime? @map("review_required_at") @db.Timestamptz
+  reviewReason String? @map("review_reason")
   nextAttemptAt DateTime @default(now()) @map("next_attempt_at") @db.Timestamptz
   eventRef String @id @map("event_ref") @db.Uuid
   purchaseRef String @map("purchase_ref") @db.Uuid
