@@ -1,12 +1,11 @@
 # Inside and Platform
 
-Platform sells access to Inside Products and shows free Materials to everyone in the Public Feed
-([ADR 0033](docs/adr/0033-product-tariff-payment-model.md)). The
-[current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
+Platform sells access to Inside Products and shows free Materials to everyone in the Public Feed.
+The [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
 between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
 [Telegram application terms](apps/telegram/GLOSSARY.md) owns only the bot-specific language.
 [The shared brief](docs/product/README.md) owns overall product scope;
-[the access model](docs/product/access-model.md) owns commercial composition and independent right terms.
+[the access model](docs/product/access-model.md) owns Product acquisition and access conditions.
 
 ## Language
 
@@ -14,7 +13,7 @@ between editorial originals and published application state. This glossary owns 
 A durable, independently discoverable unit of Inside content with one current mutable body,
 metadata, access class and publication state. A Material is either free or closed; a closed
 Material belongs to at least one Product. In Russian product language: «Материал».
-_Avoid_: Post, publication, lesson, публикация
+_Avoid_: Post, publication, публикация
 
 **PublicationState**:
 The current visibility lifecycle of a Material: Draft has never been published, Published is
@@ -27,16 +26,13 @@ The current structured content owned by a Material. In Russian product language:
 _Avoid_: MaterialDocumentV1, HTML blob, editor state
 
 **Material Block Registry**:
-The single description of every block a MaterialBody may contain: node type, fields, field rules,
-rendered shape, search text and headings. It lives in `@inside/material-blocks`; the server, the
-editor and the reading client all read the same entry instead of keeping their own copy.
+The shared vocabulary of allowed Material Block kinds, their meaning and the content each kind
+can carry. It keeps authoring and reading consistent across Materials.
 _Avoid_: Block schema copy, editor extension list, ContentSchema capability
 
-**Lesson Block**:
-A typed block a lesson is assembled from, beyond running text: a callout of a named kind, an
-external resource card, an agent prompt, the takeaways of a lesson, a labeled list of terms and a
-key point. The platform owns how each one looks, so the same block reads the same in every
-Material. In Russian product language: «блок урока».
+**Material Block**:
+A structured part of a MaterialBody, such as a callout, resource card, agent prompt or key point.
+Its kind defines its meaning and consistent presentation; in Russian product language: «Блок материала».
 _Avoid_: Custom layout, embedded HTML, per-lesson styling
 
 **Callout Kind**:
@@ -47,15 +43,13 @@ _Avoid_: Callout color, callout style, callout severity
 
 **Public Material Projection**:
 The indexable body-free view of a Published Material: title, description, cover, author, taxonomy
-and publication date. A membership Material remains discoverable through this projection while its
+and publication date. A closed Material remains discoverable through this projection while its
 body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
 **Content Cover**:
-A dedicated public image owned by exactly one Material, Topic or Product. Platform keeps only
-normalized responsive renditions; replacement and removal detach the old cover, and API
-projections never expose originals, storage keys or checksums. In Russian product language:
-«Обложка».
+A dedicated public image belonging to one Material, Topic or Product, distinct from its body and
+private resources. In Russian product language: «Обложка».
 _Avoid_: MaterialAsset, shared media-library image, original upload
 
 **Link Preview**:
@@ -65,6 +59,16 @@ exists and a generated card with the page title otherwise. A closed Material kee
 while its body stays protected. In Russian product language: «Карточка ссылки».
 _Avoid_: OG tags, meta preview, share image
 
+**Related Material Pin**:
+An author's ordered recommendation of one Material from another, taking priority over inferred
+recommendations. It changes discovery, not content ownership, programme membership or access.
+_Avoid_: Product membership, prerequisite, Material copy
+
+**Featured Product**:
+The single Product selected for prominent placement on Home, provided it is not archived and has
+published Materials. This selection does not grant access or open sales.
+_Avoid_: Product Catalogue, current Cohort, Home Series
+
 **Topic**:
 The single subject area to which a Material belongs. Topics are one level deep in v1 and have an
 immutable slug plus mutable name and summary. Archiving removes a Topic from new assignments and
@@ -72,11 +76,8 @@ public discovery while preserving existing Material relations and its canonical 
 _Avoid_: Category, section
 
 **Format**:
-The single primary way a Material is consumed. The Materials domain defines the closed values
-`video` (Видео), `guide` (Гайд), and `note` (Заметка). A Material stores that value directly;
-there is no editable Format dictionary or separate database entity. Format is independent of
-Topic and is not the kind of an attached file. Drafts may leave it unassigned; publication requires it.
-The domain schema and material-format integration tests enforce this contract.
+The primary way a Material is consumed: `video` (Видео), `guide` (Гайд), or `note` (Заметка),
+independent of Topic and attached file types. A Draft may have none; publication requires one.
 _Avoid_: Content type, asset type
 
 **Tag**:
@@ -87,7 +88,7 @@ _Avoid_: Free-form keyword, hashtag
 **Public Feed**:
 The stream of free published Materials that every visitor, signed in or not, can read. Closed
 Materials are not in it; their locked cards appear in a Product's programme, search and Topic
-pages. A free Material of a Product appears both in the Public Feed and in the Product's programme. In Russian
+pages. A free programme Material appears both in the Public Feed and in that programme. In Russian
 product language: «лента».
 _Avoid_: Library subscription, Product, closed Material
 
@@ -105,8 +106,9 @@ and sale: holders keep reading its programme and Materials, and others get «not
 _Avoid_: Subscription, «руководство» as the product name, using course as the universal category
 
 **Product Intake**:
-A particular upcoming admission to a Product, with an identity that remains stable when its
-presentation or dates change. A later admission is a different intake.
+A particular admission round for one Product, with an identity that remains stable when its
+presentation or dates change. A later round is a different intake, without automatic transfer
+of the earlier waitlist.
 In Russian product language: «набор».
 _Avoid_: Product, ProductCohort revision, sales opening date
 
@@ -120,34 +122,45 @@ _Avoid_: Bot start, marketing consent, reservation, purchase
 **ProductProgramme**:
 The reader-facing surface that carries a Product's Materials, their chapters, access states and
 progress, and the Product's own price. It is separate from the product page, which explains the
-Product and does not sell it by itself; only a Product with a Cohort names the stage and, when it is
+Product and does not sell it by itself; a Product's sales state names the stage and, when it is
 on sale, the price on its first screen.
 _Avoid_: Product page, route, catalog
 
+**Product Catalogue**:
+The distinct Materials included in one Product, whether used in its main programme or as references.
+Including a Material does not by itself choose its position in the programme.
+_Avoid_: Programme, copied Materials, public Product catalogue
+
+**Lesson**:
+A Material used as a step of a Product's learning programme; in Russian product language: «Урок».
+It is the same reusable Material, not another content entity or Format.
+_Avoid_: Material copy, Product Task, separate access unit
+
 **ProgrammePlacement**:
-One position of a Material in a Product's programme. Repeated positions share the same Material and studied mark.
+One ordered occurrence of a Material from a Product Catalogue in that Product's programme,
+optionally within a Product Chapter. Repeated occurrences share the same body and reading state.
 _Avoid_: Material copy, catalogue membership
 
 **ChapterAttachment**:
-An additional Material linked to a Product chapter outside its mandatory programme.
-_Avoid_: Mandatory step, additional chapter
+An ordered reference from a Product Chapter to a Material in the Product Catalogue, independent
+of programme placements. The same Material may be referenced by several chapters and also appear
+in the programme; in Russian product language: «Дополнительный материал главы».
+_Avoid_: Mandatory step, additional chapter, copied Material
 
 **ProductOnboarding**:
 The Product's initial learner path through Telegram linking, community joining and starting learning.
-It applies only to a buyer with current paid access to that Product and its community.
+It applies to a holder of current Product Access, independently of how they received it.
 _Avoid_: Global community setup, payment confirmation
 
 **ProductAccessRevocation**:
-An operator's withdrawal of one Account's access to a selected Product across its existing grounds.
-It preserves other Products, financial history and learning progress.
+The owner's explicit withdrawal of one Account's Product Access, separate from closing sales or
+refunding a Payment. It preserves other Products, financial history and learning progress.
 _Avoid_: Refund, selecting one grant source, Account ban
 
 **Product Page Description**:
-The author-written description of a Product, kept in its Engineering Content original and transferred to
-Platform as an ordered list of typed blocks — a lead, cards, plain text, numbered steps, a short
-list, an invitation to the free lessons — plus an optional Home-card caption. The Product's own
-`presentation` field names which set of page and Home-card components draws the description; access
-terms stay substitutions the site fills from the current Tariff.
+The author's explanation of a Product on its public page, with an optional short Home caption and
+an explicitly chosen presentation. Its editorial original is separate from the published page;
+neither the description nor the address determines access conditions.
 _Avoid_: Product introduction, landing copy in code, presentation chosen by address
 
 **Product Chapter**:
@@ -156,30 +169,20 @@ _Avoid_: Video chapter, Material, separately purchased Product
 
 **Product Introduction**:
 The author's own answer, on the Product, to what a reader will be able to do, who the Product is
-written for, what they need beforehand and what it leaves outside. Its four fields carry the
-authoring base wording unchanged, an unwritten field is absent rather than empty, and none of it
-is an access decision. In Russian product language: «О продукте».
+written for, what they need beforehand and what it leaves outside. It is separate from access
+conditions and the marketing description; in Russian product language: «О продукте».
 _Avoid_: Summary, marketing page, access condition, price
 
 **Product Artifact**:
-A standalone practical result a reader takes away — a template, configuration or checklist — with
-a permanent identity, a version history and either stored bytes or one explicitly external
-address. It lives outside every MaterialBody, is reused across Products through separate placements
-rather than copies, and its `origin` says whether the Platform editor or the Engineering Content
-authoring base owns the record. Replacement opens a new version and keeps the identity and the
-placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
+A reusable practical asset, such as a template, configuration or checklist, with its own identity
+and version history, supplied as a file or an explicit external reference. Products include it
+through placements rather than copies; in Russian product language: «Артефакт».
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
 **Product Task**:
-A checkable part of a Product Chapter's result that the learner builds and submits. Its requirements
-include an introduction or situation, required and additional criteria, and the freedom the learner keeps.
-It belongs to exactly one chapter of one Product, has its own order inside that chapter, its own
-access class and a short permanent code. A standalone Task appears after its authored Material
-anchor or at the chapter's start. Embedded practice binds one Task to one main Material of its
-chapter and renders its submission workspace within that Material. Legacy Tasks keep direct access
-and history without a programme row. It is not a Material and not a step of
-the Product's main path, so it carries no lesson number and Product Progress does not count it. In
-Russian product language: «Задание».
+A checkable part of one Product Chapter's result, with versioned requirements, required and
+additional criteria, and learner submissions. It may stand alone or form the practice within one
+Material, independently of reading state and Material progress; in Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task
 
 **Task Version**:
@@ -190,27 +193,21 @@ publication do not. In Russian product language: «Версия требован
 _Avoid_: Revision, content version, edition
 
 **Task Submission**:
-A learner's record of work on one Task Version, with an optional Review Report, the learner's
-note and an optional service mark of the reviewed repository, branch and commit. It comes from the
-learner's agent over the learning MCP or from the task page form; a form submission carries no
-Review Report, only an optional report as plain text. Submissions are
-only added; a new submission never replaces an earlier one. It is not a grade or an acceptance
-status. In Russian product language: «Сдача».
+A learner's immutable record of work on one Task Version, with their note, an optional Review
+Report and an optional reference to the reviewed work. It is neither a grade nor author acceptance;
+in Russian product language: «Сдача».
 _Avoid_: Attempt, grade, acceptance, solution upload
 
 **Review Report**:
-The learner's own agent's report inside a Task Submission: exactly one status per criterion of its
-Task Version — confirmed, violation or not verified — with the evidence, the remaining gap and
-whether the evidence came from running a command, with an optional short summary. It is the agent's statement, untrusted text for
-the author, never a Platform verdict. In Russian product language: «Отчёт проверки».
+The learner agent's statement about each criterion of a Task Version, with evidence and remaining
+gaps. It is neither a Platform verdict nor author acceptance; in Russian product language:
+«Отчёт проверки».
 _Avoid_: Grade, verdict, test result, Platform check
 
 **Self-check Attempt**:
-A saved Review Report of one learner on one Product Task. A new saved report adds the next attempt,
-including an unsuccessful report. The first successful attempt confirms every required criterion of
-its Task Version. A submission without a Review Report and a repeat of the same saved submission
-add no attempt. The result describes the learner agent's self-check, never acceptance by the author.
-In Russian product language: «Попытка самопроверки».
+A learner agent's saved Review Report on one Product Task, numbered across Task Versions and
+evaluated against the required criteria of its own version. It records a self-check, including
+an unsuccessful one, rather than author acceptance; in Russian: «Попытка самопроверки».
 _Avoid_: Agent session, grade, author acceptance
 
 **Author Feedback**:
@@ -219,9 +216,14 @@ the submission and changed only by the author. It is not a grade. In Russian pro
 «Комментарий автора».
 _Avoid_: Grade, acceptance, review status
 
+**Task Review Progress**:
+The learner agent's current account of an unfinished self-check of one Task Version, separate
+from saved submissions and Author Feedback. It is not yet a Self-check Attempt.
+_Avoid_: Product Progress, author review, Task Submission
+
 **Product Mode**:
 One of the two ways a reader goes through a Product: on the worked example the author prepared, or
-on the reader's own project. It belongs to the reader, not to a Material: one stored choice covers
+on the reader's own project. It belongs to the reader, not to a Material: one choice covers
 every Product, and it changes only what a Variant Step shows, never access, order or progress. In
 Russian product language: «Режим прохождения», with «Учебный проект» and «Свой проект».
 _Avoid_: Difficulty, access class, Product Step Sequence, separate Product copy
@@ -234,16 +236,14 @@ stored. Both branches stay in the lesson's search text, and the step — not a b
 progress and bookmarks address. In Russian product language: «Вариантный шаг».
 _Avoid_: Callout, separate Material, access variant, A/B test
 
-**Lesson Difficulty**:
-How hard one lesson is for the reader who opens it: basic, intermediate or advanced. It is the
-Material's own fact, so a lesson reused in two Products keeps one answer, and a Material that
-declares none simply shows none. In Russian product language: «Сложность».
+**Material Difficulty**:
+The basic, intermediate or advanced difficulty of one Material, independent of the Product that
+uses it. An unspecified difficulty makes no claim; in Russian product language: «Сложность».
 _Avoid_: Product Mode, access class, Product-level rating
 
-**Lesson Outcomes**:
-What the reader can do after one lesson: two to four written points, or none at all. They come
-from the Material's data and are not repeated in its body; a published lesson carries either no
-points or a real list, never a single one. In Russian product language: «Чему научишься».
+**Material Outcomes**:
+The authored abilities a reader should gain from one Material, independent of its Product
+placements. In Russian product language: «Чему научишься».
 _Avoid_: Product Introduction, Summary, Takeaways block
 
 **Product Step Sequence**:
@@ -260,33 +260,35 @@ the Russian product interface.
 _Avoid_: Material, generated index
 
 **ContentLibrary**:
-The read capability that builds coherent, body-free projections of current Published Materials,
-Topics and Products for Home, Library and discovery pages. Home is a bounded projection of this same
-model, not an editorial copy or a second content store.
+The reader-facing collection of published Material, Topic and Product presentations for
+discovery, including Home and the Library. It does not own another copy of the content.
 _Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
+**Product Reader State**:
+The current position of a visitor or Account relative to one Product: learning, available to buy,
+waiting, being checked or unavailable. It presents existing facts rather than creating Product Access.
+_Avoid_: Product Sales State, Product Progress, stored enrollment
+
 **MaterialAsset**:
-An immutable non-video image or downloadable file owned by exactly one Material and referenced
-inline from its current MaterialBody. It inherits the Material access class and is deliverable only
-while ready and currently authorized.
+An immutable non-video image or downloadable file belonging to one Material and referenced from
+its body. Its availability follows the Material publication and access rules.
 _Avoid_: Media library item, attachment URL, mutable file
 
 **Video**:
-A local identity for one Kinescope object owned by exactly one Material. A Material may select at
-most one ready Video through nullable `primaryVideoId` outside MaterialBody; provider IDs, embed
-locators, status and errors remain Video facts and never enter the document. Its immutable origin
-distinguishes a Platform Upload, which an author may explicitly delete, from an External
-Attachment, which Platform may only detach. A Platform Upload its Material has not selected, and
-whose outcome Platform has not settled, stays that Material's unselected upload and returns to its
-author; a settled outcome the author already saw, and a Video the author removed, are their own
-decision, whatever the provider reports afterwards.
+A recording belonging to one Material, with its own identity, readiness and origin. A Material
+selects at most one ready Video; Platform-uploaded recordings may be explicitly deleted by the
+author, while externally attached recordings may only be detached.
 _Avoid_: Inline video node, iframe block, provider URL as Material content
 
 **VideoDeletion**:
-A durable request to delete one Platform Upload after a successful Material Save has removed every
-current and published reference. It remains observable through requested, deleting, deleted or
-failed state; ordinary detach and replacement never create it.
+The author's explicit request to permanently delete a Platform-uploaded Video once no Material
+references it. Ordinary detachment or replacement does not itself authorize deletion.
 _Avoid_: Automatic cleanup, remove button, external video deletion
+
+**Video Chapter**:
+A named timestamp in a Material's selected Video, used to navigate within that recording.
+It belongs to that Video's presentation, not to the Product programme.
+_Avoid_: Product Chapter, Material, programme step
 
 ## Access and activity
 
@@ -295,48 +297,51 @@ Platform's stable private identity for one authenticated human. It owns Platform
 is independent of profile presentation and Account Rights.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
+**Sign-in Identity**:
+The authentication provider's verified identity that establishes or resolves one Account.
+Email and Telegram sign-in are ways to prove it, separate from profile presentation and Product Access.
+_Avoid_: Username, Billing Contact, Order Email, public profile
+
+**Sign-in Email**:
+A verified email accepted by the authentication provider as a way to sign in to an Account.
+It is independent of Billing Contact and Order Email.
+_Avoid_: Receipt contact, unverified purchase email, profile identity
+
 **Billing Contact**:
-An optional Account-owned verified email for service notifications and subsequent subscription receipts, independent of its sign-in identity.
+An optional Account-owned verified email for service notifications, independent of its sign-in identity.
 A pending replacement becomes the contact only after verification.
 _Avoid_: login email, email fingerprint, Account identity
 
 **Order Email**:
 The email chosen for one purchase and its receipt, without proof of ownership or a change to the purchasing Account.
-It is the fallback for purchase messages and subscription renewals when the Account has no Billing Contact.
+It is the fallback for purchase messages when the Account has no Billing Contact.
 _Avoid_: Billing Contact, login email, verified identity
 
 **Legal Edition**:
-One published version of a legal document, identified by its document key, version number,
-effective date and the SHA-256 of its exact text. A published edition never changes: a correction
-is the next version, and the earlier text stays readable at its own address.
+One published, unchangeable version of a legal document, with its own identity and effective date.
+Acceptance refers to its exact text; a correction is a new edition, while the earlier one remains readable.
 _Avoid_: draft, current page content, document without a version
 
 **Legal Acceptance**:
-An immutable journal record of one Account accepting an exact legal edition by pressing a labelled
-button: the first sign-in screen accepts the terms of use, a payment button accepts its offer, and a
-subscription or resumption button also records the renewal terms shown next to it. Recurring
-acceptance is distinct from other kinds and does not itself authorize a charge; a first sign-in
-acceptance never stands in for payment consent.
+An immutable record of an Account accepting an exact legal edition through an explicitly labelled
+action, such as accepting terms at sign-in or an offer when buying a Product. Sign-in acceptance
+does not stand in for acceptance of purchase conditions.
 _Avoid_: consent checkbox, current legal text, payment permission, preselected checkbox
 
 **Platform Administrator**:
-An Account explicitly granted all known Platform operations through `platform:admin`.
-Its authority is read from current Account grants, never inferred from author access or provider roles.
+An Account explicitly authorized for all known Platform operations. Its current authority is not
+inferred from author access or authentication-provider roles.
 _Avoid_: author, member, Telegram administrator
 
-**Member Profile**:
-The owner's own presentation of an Account: display name, bio and avatar visible only to that
-Account. It is never shown to other members or visitors and never grants identity, Account Rights or
-content access.
+**Account Profile**:
+The Account holder's private presentation: display name, biography and avatar, separate from
+sign-in identity and access. An authorized author may read its active display name for Task
+submissions, without a public profile, biography or avatar projection.
 _Avoid_: Account, public internet profile, identity record
 
-**MembershipEvidence**:
-A time-limited statement about an Account's Membership in the canonical closed Telegram chat.
-_Avoid_: Account Rights, Tribute subscription
-
 **Account Rights**:
-Platform's current conclusion about which Products and which community and support rights an
-Account holds, each live until its term ends or for life.
+Platform's current conclusion about which Products an Account holds and the participation in
+community that comes with those Products.
 _Avoid_: Subscription, Telegram membership status, library access
 
 **ContentAccess**:
@@ -355,8 +360,13 @@ An Account's private material acknowledgement and opening activity. Opening and 
 read are different facts.
 _Avoid_: Product analytics, ContentAccess, learning assessment
 
+**Product Learning Started**:
+The lasting fact that an Account has opened an available published Material belonging to a
+Product. It is independent of purchase, a manual read mark and the Product's current programme.
+_Avoid_: Product Access, Product Progress, completed lesson
+
 **Product Progress**:
-The number of currently published Materials in a Product's programme that an Account has marked
+The number of unique currently published Materials in a Product's programme that an Account has marked
 read. Progress, continuation, the programme and chapter tables of contents count the same
 composition. A non-empty Product is currently all read only when every such Material is marked.
 _Avoid_: Historical completion certificate, stored course percentage
@@ -371,96 +381,68 @@ A private `Account ↔ Material` relation recording that the Account saved the M
 later. It is the presence of the relation, not access: it never grants the right to read a body or
 its linked resources, survives the loss of Account Rights and adds no public field. In Russian product
 language: «Закладка».
-_Avoid_: AccessGrant, ReadingState, collection, favorite
+_Avoid_: Product Access, ReadingState, collection, favorite
 
-## Tariffs, payment and access
+## Product purchases and access
 
-**Subscription**:
-A separate offering with scheduled payments. Subscriptions are not currently sold and do not
-provide Product access in the current model. A Product purchase or free Product assignment is
-not a Subscription.
-_Avoid_: Product access, Payment, Tariff Assignment, «подписка» for a course assignment
-
-**Tariff** (code name: `Offer`):
-A versioned description of what an Account receives: a Coverage and rights, each with its own term
-in months or none (Materials, community, Support). Its Payment Options state how it is paid. It can
-be available for assignment without being published for sale. A Tariff may allow sale to everyone
-or restrict it to Accounts with a proven ground, such as a redeemed Invitation; under a
-restriction, others neither see nor buy it. It carries a reversible `published` (for-sale) state,
-separate from permanent archival; archival withdraws it from sale and assignment for good, while
-existing assignments keep their snapshot. Rights already granted keep the terms of their purchase.
-A new Tariff is needed only when the Coverage, rights or terms change.
-In Russian product language: «тариф».
-_Avoid_: Order, AccessGrant, Payment Option, a «subscription tariff» as a separate kind
-
-**Payment Option**:
-The price of a one-time purchase of one Tariff. A price change with the same rights
-changes the Payment Option's price. In Russian product language: «вариант оплаты».
-_Avoid_: Tariff, monthly instalment, payment attempt
-
-**Cohort**:
-The current sales run of a Product: a name, a sales stage (announcement, preorder, running, between
-cohorts), a calendar start date and the next event. The owner switches it in the catalogue. The stage
-decides what the product page promises; money is taken only while a Tariff of the Product is on
-sale. A new price after the start changes the Payment Option's price, not rights already sold. In
-Russian product language: «Поток».
-_Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel period, prior participants
-
-**Tariff Assignment**:
-An Account's holding of a promised version of a Tariff, with its own origin and term. A free
-assignment is always for life; its origins are the bot's verification of a prior course participant
-and the owner's decision. An assignment without payment is not a Subscription or consent to renewal. In Russian
-product language: «назначение тарифа».
-_Avoid_: Subscription, gift subscription, temporary free access, Payment
-
-**Coverage**:
-The Products a Tariff opens: named Products, or the whole platform. A named Product includes its
-evolving published Materials; the whole platform also includes Products published later. It names
-no individual Materials. Historical grants retain the terms already promised to their holders. A
-Tariff without Coverage is neither assigned nor sold.
-_Avoid_: Library access, catalogue, price
+**Product Sales State**:
+The current sales presentation of one Product: its name, stage, announced start date and next event.
+The owner changes it explicitly; neither a date nor a presentation stage by itself opens payments,
+changes the price or creates a new Product Intake.
+_Avoid_: Product Intake, learner group, Subscription period, funnel period
 
 **Product Removal**:
-The confirmed withdrawal of a published Material from a Product whose buyers or tier holders still
-hold access. The author confirms each such Product explicitly, and the removal is journaled with the
+The confirmed withdrawal of a published Material from a Product whose holders still have access. The author confirms each such Product explicitly, and the removal is journaled with the
 number of holders; a Product without holders needs no confirmation. In Russian product language:
 «снятие из продукта».
 _Avoid_: Unpublish, reorder, access revocation
 
 **ActivationRule**:
 A published or paused path through the bot from a verified prior-course source, such as membership
-in the prior course group, to a lifetime Tariff Assignment of the course. Its code selects the path;
+in the prior course group, to lifetime access to the course Product. Its code selects the path;
 possession of the code does not prove entitlement.
 _Avoid_: Invite link, payment proof, grant, Tribute subscription
 
-**Invitation**:
-The owner's personal one-time admission of one person to buy one Tariff, sent as a link to the bot.
-It is the only admission to a subscription Payment Option. The first Telegram account that opens it owns it; an
-unopened Invitation expires after 14 days and the owner can revoke it before it is used. It gives no
-access by itself, is not an ActivationRule, which anyone may open, and not a Promotion, which gives a
-discount. In Russian product language: «приглашение».
-_Avoid_: ActivationRule, promo code, Invite link to the chat, gift
-
 **SourceEntitlement**:
 A verified external basis identified by its source policy and person, which can exist before an Account is linked.
-Repeated verification of the same source policy and identity does not create another assignment.
-The only source for new assignments is membership in the prior course group.
+Repeated verification of the same source policy and identity does not create another access grant.
+The prior course group is the source for course activation.
 _Avoid_: Telegram presence, Account, Tariff Assignment
 
 **AdmissionRestriction**:
 A moderation or externally reported restriction on admission to the community, independent of content rights.
 _Avoid_: Expired tariff, revoked materials, failed payment
 
-**OneTimePurchase**:
-A one-time payment for a Tariff, independent of the payment and the
-resulting AccessGrants. It creates no Subscription, renewal schedule or recurring consent. Its
-AccessGrants carry their own terms and outlive any Subscription.
+**Product Purchase**:
+An Account's purchase of one Product under agreed conditions. Its confirmed Payment and the
+resulting access are distinct facts; it creates no renewal or scheduled charge.
 _Avoid_: Subscription, paid period, renewal
 
-**AccessScope**:
-A particular Product, Support or the shared community chat covered by an AccessGrant. It is
-independent of a Tariff's name, price and payment way.
-_Avoid_: Payment status, Telegram presence, subscription duration, library
+**Product Price**:
+The current one-time price of a Product before any applicable discount. A completed Product
+Purchase keeps its agreed amount independently of later price changes.
+_Avoid_: Tariff, Payment Option, recurring charge
+
+**Promotion**:
+A discount for eligible Product purchases, with an availability period and any code or usage limit.
+Eligible discounts compete for the best single result rather than adding together.
+_Avoid_: Product Access, Tariff, proof of buyer identity
+
+**PriceQuote**:
+An Account's time-limited calculation of the Product, price and applicable discount before purchase.
+It is neither a Payment nor acceptance of legal conditions, and its validity is checked before payment.
+_Avoid_: Product Price, Payment Link, discount reservation, Payment
+
+**Payment Link**:
+An owner-created, transferable link for one successful Product purchase at a saved price, with
+optional expiry or withdrawal. It differs from an ordinary Product checkout address and proves
+neither buyer identity nor payment; it cannot bypass closed Product sales.
+_Avoid_: Bank return URL, Product Access, Invitation, ordinary promo checkout address
+
+**Survey Respondent**:
+A person in the owner's survey-participant list for whom a personal discount code can be issued.
+The list does not establish an Account's identity or make the resulting code non-transferable.
+_Avoid_: Account, prior buyer classification, marketing consent
 
 **PaymentAttempt**:
 One recorded attempt to obtain a specific payment outcome, including an unresolved outcome after
@@ -469,71 +451,62 @@ _Avoid_: Retry, paid period, confirmed payment
 
 **Payment**:
 A confirmed transfer associated with one Account and agreed purchase conditions.
-Its refund is a separate fact, and the refund's basis decides whether the purchase's access ends.
+Its refund and the owner's decision to withdraw Product access are separate facts.
 _Avoid_: Browser return, grant, subscription
 
 **RefundDecision**:
-The owner's recorded decision about one Payment: how much to return, on which basis, and whether
-renewal stops. A withdrawal from the contract revokes the purchase's access once the refund is
-confirmed; a compensation without withdrawal keeps access. It is separate from the bank attempt that executes it, and an
-unresolved or failed attempt is never presented as executed.
+The owner's decision, following a personal request, about the amount and basis of a Payment refund.
+The owner performs the refund through the bank and withdraws Product access separately.
 _Avoid_: Refund attempt, access revocation, dispute
 
-**PaymentMethodBinding**:
-A proven bank permission to charge a saved payment method for one Account's later attempts.
-Forbidding its use stops new sends and does not delete the buyer's card at the bank.
-_Avoid_: Card, CustomerKey, refund permission
+**Refund**:
+A confirmed bank return of all or part of a Payment. It is distinct from the owner's withdrawal
+of Product Access.
+_Avoid_: Refund request, failed bank operation, automatic access revocation
 
-**ScheduledChange**:
-An accepted option change that starts with the next period and leaves the paid term unchanged.
-An upgrade inside the paid term is a separate payment, not a scheduled change.
-_Avoid_: Pending payment, price change, promotion
-
-**AccessGrant**:
-One independent reason an Account has specified Inside capabilities for a finite term or for life.
-Payment, an owner's manual decision and a confirmed prior entitlement are distinct sources.
-_Avoid_: Telegram presence, single global paid flag
+**Product Access**:
+One Account's lifetime access to one Product, including its evolving published Materials and
+community, with a history of receipt, withdrawal and restoration. Purchase, verified course
+activation and owner issuance establish the same access; receiving it again does not restart Support.
+_Avoid_: Tariff Assignment, Direct Right, Lifetime Access Grant, independent grants for the same Product
 
 **CommunityEntitlement**:
 An Account's effective right to participate in a Product's configured community, distinct from
 actual Telegram membership. Several Products can share one group; their valid community rights combine.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
+**Community Group**:
+The Telegram group in which Product holders participate. Several Products may use the same group;
+its actual roster neither creates Product Access nor proves a purchase.
+_Avoid_: Subscription, Canonical Membership Chat, activation source
+
+**Product Community**:
+The association between one Product and the Community Group it opens to its holders.
+It identifies the destination, separately from an Account's right or actual presence there.
+_Avoid_: Configurable tariff benefit, CommunityEntitlement, Activation Source
+
 **CommunityDelivery**:
 One attempt to make a CommunityEntitlement real in Telegram. Its desired state, the provider's
 acceptance and the observed membership are separate facts.
 _Avoid_: Queue acknowledgement as membership, entitlement revision as proof of admission
 
-**RenewalConsent**:
-An Account's explicit agreement to future charges under identified terms and a confirmed payment
-method. Ending it preserves the already paid term.
-_Avoid_: Saved card, current chat membership, completed payment
-
 **BillingNotice**:
-One occurrence in a Subscription's paid life that is worth a service message: an upcoming charge, a
-confirmed or declined payment, a cancelled renewal, an ended access term or a resolved refund. Any
-access term that will not renew adds an access ending in three days. It is a
-Billing fact with its own revisions, not the message, the channel or the delivery.
+A fact about a Product purchase or its Payment that calls for a service message to the buyer.
+It is distinct from the message and its delivery.
 _Avoid_: Notification, Delivery, email, reminder job
-
-**BuyerClassification**:
-The owner's recorded decision about who an Account is for billing: a confirmed new buyer, a
-confirmed prior buyer, or still undecided. Only a recorded decision or a redeemed Invitation allows
-recurring charges, and only a confirmed prior buyer carries the Tribute transition facts.
-_Avoid_: AccessGrant, MembershipEvidence, guessed status
 
 **Prior Participants**:
 People who took part in the previous Inside course and are verified by the bot through the prior
-course group. Each receives the course through a lifetime Tariff Assignment. A new Inside-driven
+course group. Each receives lifetime access to the course Product. A new Inside-driven
 join does not add a participant.
 _Avoid_: Current chat roster, all new members, Cohort
 
 ## Notifications
 
 **Notification**:
-Сообщение для одного Account по определённому событию продукта. Оно имеет назначение и может
-доставляться по нескольким каналам независимо.
-_Avoid_: Событие продукта, рассылка, попытка отправки
+A message for one Account about a specific product event, with a stated purpose and independent
+delivery through eligible channels.
+_Avoid_: Product event, Broadcast, delivery attempt
 
 **Notification Delivery**:
 Delivery of one Notification through one channel to an eligible recipient: a verified channel contact or the Order Email for purchase messages.
@@ -541,21 +514,29 @@ One channel result neither determines another channel result nor proves that the
 _Avoid_: Notification, broker acknowledgement, прочтение
 
 **Publication Announcement**:
-Повод сообщить читателям о материале: он возникает один раз, когда Material публикуется впервые,
-и принадлежит самому материалу, а не его месту в продукте. Повторная публикация,
-переименование, перестановка и включение в другой продукт его не создают. В русском языке
-продукта: «анонс первой публикации».
-_Avoid_: Publication event, рассылка, повторный анонс
+The once-only occasion to tell readers about a Material's first publication, independent of its
+Product placements. Republishing, renaming and moving it create no second occasion; in Russian:
+«Анонс первой публикации».
+_Avoid_: Publication event, Broadcast, repeated announcement
+
+**Broadcast**:
+One explicitly launched communication to a selected audience, with its own message snapshot and
+delivery history. It is distinct from a reusable Communication Sequence and an individual service notification.
+_Avoid_: Sales Funnel, Publication Announcement, Notification
+
+**Tracking Hit**:
+An observed opening of a communication's tracked link, distinct from reading its destination,
+proving a human visit or identifying an Account. It is not proof that the message caused a purchase.
+_Avoid_: Product Progress, ReadingActivity, conversion, human click
 
 ## Sales funnel
 
 **Sales Funnel**:
-The owner's aggregated view of how far the people who first entered the bot in a period have got
-towards buying one Product: entered, gave marketing consent, opened the chosen chapter, reached
-checkout, paid. The period chooses the cohort; later steps count who of it has reached them so far.
-Bot steps count bot contacts, the later steps count Accounts. In Russian product language:
-«Воронка продаж».
-_Avoid_: Events of the period, conversion of one person, the Product's Cohort
+The owner's aggregated view of how far people who first entered the bot in a chosen period have
+got towards buying one Product: entry, consent, chosen chapter, checkout and payment.
+The entry period selects the people, whose later progress is counted through the present;
+in Russian product language: «Воронка продаж».
+_Avoid_: Events of the period, conversion of one person, Product Intake, Product Sales State
 
 **Source Label**:
 The label of the bot link a person first entered the bot through, such as `m_survey`. An Account
@@ -567,47 +548,20 @@ _Avoid_: UTM, campaign, attribution model, referrer
 
 ## Shared Inside terms
 
-**Offer Eligibility**:
-A restriction that makes a Tariff visible and purchasable only to Accounts holding a named basis,
-such as a redeemed Invitation; in Russian, «Допуск к предложению». It does not change rights
-already granted.
-_Avoid_: Sale flag, assignability, hidden Tariff
-
 **Support**:
-The right to ask the author for help within a stated term; in Russian, «Сопровождение».
-_Avoid_: Personal mentoring, guaranteed answer, community participation
-
-**Lifetime Access Grant**:
-An AccessGrant without a scheduled end date, for a defined set of Inside benefits. It is the only
-form of free access. It does not promise every future separate paid Product.
-_Avoid_: Never-expiring subscription, future all-access purchase, permanent Telegram membership
-
-**Direct Right**:
-A right an Account holds independently of a Tariff Assignment or Product purchase: an owner-granted
-lifetime AccessGrant or a carried-over AccessGrant. In Russian product language: «Прямое право».
-_Avoid_: Tariff Assignment, gift subscription, purchase
+The author's help with a Product promised for a stated term, independent of lifetime Product Access.
+In Russian product language: «Сопровождение».
+_Avoid_: Lifetime personal support, separately purchased renewal, community participation
 
 **TelegramIdentity**:
 The provider-verified Telegram identity from which bot updates originate; it may be linked to an
 Account through the Telegram application. It is independent of an Account, BotContact and username.
 _Avoid_: Username, BotContact, Account
 
-**Membership Signal**:
-The current presence of a linked TelegramIdentity in the Canonical Membership Chat.
-_Avoid_: Tribute subscription, payment status
-
 **MembershipObservation**:
-A Telegram-owned observation of a Membership Signal at a specific time.
-_Avoid_: Permanent member flag, entitlement
-
-**Canonical Membership Chat**:
-The single closed Telegram chat whose current roster is the Membership Signal for Inside.
-_Avoid_: Community directory, Tribute roster, audience segment
-
-**Supplementary Material**:
-A Material associated with a Product outside its main reading path, for reference or additional study.
-Its role is specific to that Product and does not change the Material's Format.
-_Avoid_: Product Chapter, copied Material, automatically free content
+A Telegram-owned observation of a person's presence or absence in a particular group at a specific
+time, including an unknown result. It is neither Product Access nor a verified prior-course basis.
+_Avoid_: Permanent member flag, entitlement, Membership Signal, payment proof
 
 **Subject**:
 The anonymous visitor or authenticated Account whose access is being decided.
@@ -627,13 +581,14 @@ These names refer to the same concept; they do not introduce another right or pr
 
 | Compatibility name | Canonical term |
 |---|---|
-| Subscription Tier | Tariff |
-| Subscription Option | Payment Option |
-| Inside Subscription | Subscription |
-| Product Purchase | OneTimePurchase |
-| Access Scope | AccessScope |
-| Access Grant | AccessGrant |
+| Access Grant | Product Access |
 | Community Entitlement | CommunityEntitlement |
 | Admission Restriction | AdmissionRestriction |
-| Product Purchase | OneTimePurchase |
+| OneTimePurchase | Product Purchase |
 | BillingContact | Billing Contact |
+| Supplementary Material | ChapterAttachment |
+| Lesson Block | Material Block |
+| Lesson Difficulty | Material Difficulty |
+| Lesson Outcomes | Material Outcomes |
+| Member Profile | Account Profile |
+| ProductCohort | Product Sales State |

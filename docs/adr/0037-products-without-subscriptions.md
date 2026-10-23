@@ -4,6 +4,11 @@ status: accepted
 
 # Products without subscription commerce
 
+The [owner's 2026-10-23 access decision](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+supersedes the six-month Support term, configurable Tariffs, and the dormant-subscription policy below.
+The target model gives the whole Product and removes subscription functionality altogether.
+The original decision is retained as history.
+
 The owner decided on 2026-10-20 that Platform currently sells access to Products only by
 one-time payment. Course activation and owner assignment grant Product access without creating
 a Subscription. Subscriptions may become a separate offering later; they have no relationship

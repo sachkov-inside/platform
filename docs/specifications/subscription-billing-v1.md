@@ -1,5 +1,10 @@
 # Platform billing v1: локальный контракт реализации
 
+Текущие правила выдачи доступа и срока сопровождения определяет
+[решение владельца от 23.10.2026](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026).
+Шестимесячные примеры поставки #775 ниже описывают прежнюю конфигурацию. Новая целевая
+конфигурация курса использует срок из текущей модели доступа; её реализация входит в план рефакторинга.
+
 [ADR 0037](../adr/0037-products-without-subscriptions.md), accepted 2026-10-20, supersedes the
 subscription-commerce paths below for the current runtime. Product purchases are one-time;
 subscription quote/purchase/resume/paid changes and new recurring effects are unavailable.

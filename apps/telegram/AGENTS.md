@@ -27,9 +27,11 @@ only in `NOTIFICATION_TEST_AMQP_URL`; keep `NOTIFICATION_TEST_MANAGEMENT_URL` cr
 
 ## Boundaries
 
-Telegram owns BotContact lifecycle, linking, identity invariants, Membership observations,
-reconciliation, MembershipEvidence and communication templates. Platform application capabilities
+Telegram owns BotContact lifecycle, provider-side linking, identity invariants, observed community
+membership, provider reconciliation and communication templates. Platform application capabilities
 own Accounts, permissions, entitlements, profiles and content-access decisions.
+The [current access model](../../docs/product/access-model.md) defines Product acquisition and
+supersedes the historical membership-evidence bridge in older integration documents.
 Use authenticated runtime interfaces and the repository-local corpora in
 [`@inside/contracts`](../../docs/contracts/README.md) across that boundary.
 Keep provider payloads, credentials and user data out of Git and redacted from evidence.
