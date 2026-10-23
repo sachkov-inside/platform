@@ -324,7 +324,11 @@ export async function seedLocalDevelopment(
     slug,
   });
 
-  await ensureMembershipCatalogMaterial(seed);
+  const membershipMaterialId = await ensureMembershipCatalogMaterial(seed);
+  await ensureDevelopmentSeriesOrder(authoring, seriesId, [
+    overview.materialId,
+    membershipMaterialId,
+  ]);
   // Related pins join readable pages; hidden demo drafts have no public address to pin.
   if (demo === "published") await ensureRelatedPin(prisma, overview.materialId);
   // Каталог заводится последним: разовое предложение продаёт уже засеянное руководство.
@@ -1003,7 +1007,7 @@ const localDevelopmentVideoProvider: VideoProvider = {
 
 async function ensureMembershipCatalogMaterial(
   seed: SeedContext,
-): Promise<void> {
+): Promise<string> {
   const metadata = {
     title: "Developer Pipeline без потери контекста",
     summary: "Закрытый Material с публичным безопасным описанием для каталога.",
@@ -1030,13 +1034,14 @@ async function ensureMembershipCatalogMaterial(
       ],
     },
   } as const;
-  await ensureSeededMaterial(seed, {
+  const material = await ensureSeededMaterial(seed, {
     body,
     createIdempotencyKey: membershipCreateIdempotencyKey,
     metadata,
     saveIdempotencyKeyPrefix: "local-membership-publish",
     slug: membershipSlug,
   });
+  return material.materialId;
 }
 
 async function ensureRelatedPin(
