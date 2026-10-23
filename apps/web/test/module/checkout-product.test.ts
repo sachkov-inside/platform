@@ -11,24 +11,24 @@ const products = [
   { id: id ?? "", slug: "inside-course" },
 ];
 
-it("resolves the selected tariff to its covered product rather than the first catalog entry", () => {
+it("resolves the selected Product price to its actual Product", () => {
   expect(
     checkoutProductSlug(
       products,
       [productWithSupportOffer],
-      productWithSupportOffer.offer.id,
+      productWithSupportOffer.product?.id,
     ),
   ).toBe("inside-course");
   expect(
     checkoutProductSlug(
       products.slice(0, 1),
       [productWithSupportOffer],
-      productWithSupportOffer.offer.id,
+      productWithSupportOffer.product?.id,
     ),
   ).toBeUndefined();
 });
 
-it("opens whole-platform tariffs through a published product and tolerates an empty catalog", () => {
+it("does not grant a whole-platform tariff authority and tolerates an empty catalog", () => {
   const offer = {
     ...productWithSupportOffer,
     offer: {
@@ -41,12 +41,14 @@ it("opens whole-platform tariffs through a published product and tolerates an em
       },
     },
   };
-  expect(checkoutProductSlug(products, [offer], offer.offer.id)).toBe("other");
-  expect(checkoutProductSlug([], [offer], offer.offer.id)).toBeUndefined();
+  expect(checkoutProductSlug(products, [offer], offer.product?.id)).toBe(
+    "inside-course",
+  );
+  expect(checkoutProductSlug([], [offer], offer.product?.id)).toBeUndefined();
 });
 
 it("does not substitute another product when the chosen tariff is hidden or unavailable", () => {
   expect(
-    checkoutProductSlug(products, [], productWithSupportOffer.offer.id),
+    checkoutProductSlug(products, [], productWithSupportOffer.product?.id),
   ).toBeUndefined();
 });

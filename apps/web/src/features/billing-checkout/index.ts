@@ -13,10 +13,6 @@ export {
   type OneTimeOfferTerms,
 } from "./model/one-time-terms";
 export {
-  CheckoutPanel,
-  type CheckoutPanelProps,
-} from "./ui/checkout-panel.client";
-export {
   PurchaseReturnPanel,
   PurchaseReturnView,
   type PurchaseReturnPanelProps,

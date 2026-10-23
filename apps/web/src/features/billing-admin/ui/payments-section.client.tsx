@@ -9,7 +9,6 @@ import {
 import { Button } from "@/shared/ui/button";
 
 import type {
-  CancelSubscriptionInput,
   ListPaymentsInput,
   PaymentOutcome,
   PaymentView,
@@ -22,17 +21,18 @@ import {
   AdminField,
   AdminSection,
   AdminSelect,
-  AdminTextArea,
   formText,
   onAdminSubmit,
   optionalFormText,
-  reasonMaxLength,
 } from "./admin-form.client";
 import { presentText } from "@/shared/lib/text";
 
 /** Основание возврата словами владельца и его последствие: одна карта для выбора и для истории решений. */
 const refundBases = {
-  withdrawal: { label: "отказ от договора", consequence: "права прекращаются" },
+  withdrawal: {
+    label: "отказ от договора",
+    consequence: "отзыв доступа отдельно",
+  },
   compensation: {
     label: "компенсация без отказа",
     consequence: "доступ сохраняется",
@@ -51,9 +51,6 @@ export interface PaymentsSectionProps {
     input: AdminCommand<PurchaseCommandInput>,
   ) => void;
   readonly onReadRefunds: (input: AdminCommand<PurchaseCommandInput>) => void;
-  readonly onCancelSubscription: (
-    input: AdminCommand<CancelSubscriptionInput>,
-  ) => void;
 }
 
 export function PaymentsSection({
@@ -67,7 +64,6 @@ export function PaymentsSection({
   onReadPayment,
   onReconcilePayment,
   onReadRefunds,
-  onCancelSubscription,
 }: PaymentsSectionProps) {
   return (
     <>
@@ -394,48 +390,6 @@ export function PaymentsSection({
               </ul>
             </div>
           )}
-        </AdminSection>
-      </details>
-      <details className="authoring-disclosure">
-        <summary>Отменить продление подписки участника</summary>
-        <AdminSection
-          description="Отмена продления владельцем выполняет тот же use case, что и команда покупателя: оплаченный срок сохраняется."
-          title="Подписка участника"
-        >
-          <form
-            className="grid gap-4"
-            onSubmit={onAdminSubmit((form) => {
-              onCancelSubscription({
-                accountId: formText(form.get("cancelAccount")),
-                expectedRevision: Number(formText(form.get("cancelRevision"))),
-                reason: formText(form.get("cancelReason")),
-              });
-            })}
-          >
-            <AdminField label="Account" name="cancelAccount" required />
-            <AdminField
-              inputMode="numeric"
-              label="Ожидаемая редакция"
-              name="cancelRevision"
-              required
-            />
-            <AdminTextArea
-              label="Основание"
-              maxLength={reasonMaxLength}
-              name="cancelReason"
-              required
-            />
-            <p>
-              <Button
-                className={billingActionClass}
-                disabled={pending}
-                type="submit"
-                variant="outline"
-              >
-                Отменить продление
-              </Button>
-            </p>
-          </form>
         </AdminSection>
       </details>
     </>

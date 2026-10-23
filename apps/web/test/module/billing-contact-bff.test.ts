@@ -198,8 +198,8 @@ it("maps an unknown backend code to the bounded unavailable outcome", async () =
 it("keeps the exact document editions the checkout must present", async () => {
   const documents = [
     {
-      kind: "recurring",
-      appliesTo: ["subscription"],
+      kind: "terms",
+      appliesTo: ["one_time"],
       documentId: "recurring",
       version: "2026-09-01",
       digest: "b".repeat(64),

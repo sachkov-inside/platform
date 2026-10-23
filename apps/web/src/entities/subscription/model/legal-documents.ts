@@ -8,7 +8,6 @@ import { paymentModeSchema, type PaymentMode } from "./billing-contract";
  */
 export const legalDocumentKindSchema = z.enum([
   "terms",
-  "recurring",
   "personal_data",
   "marketing",
 ]);
@@ -45,8 +44,6 @@ export function legalDocumentLabel(kind: LegalDocumentKind): string {
   switch (kind) {
     case "terms":
       return "Оферта и условия";
-    case "recurring":
-      return "Согласие на регулярные списания";
     case "personal_data":
       return "Обработка персональных данных";
     case "marketing":
@@ -61,30 +58,18 @@ export interface ConsentPolicy {
   readonly applicable: readonly LegalDocument[];
 }
 
-/**
- * Какие согласия нужны перед оплатой. Подписка требует принятых `terms` и `recurring`; разовая
- * покупка — только `terms`. Что вообще показать, решает область применения документа: согласие
- * на регулярные списания относится к подписке, и в разовой покупке его нет.
- */
+/** Product purchase accepts its exact current one-time terms. */
 export function purchaseConsentPolicy(
   documents: readonly LegalDocument[],
-  mode: PaymentMode,
+  _mode: PaymentMode,
 ): ConsentPolicy {
   const applicable = documents.filter((document) =>
-    document.appliesTo.includes(mode),
+    document.appliesTo.includes("one_time"),
   );
-  return mode === "one_time"
-    ? { required: ["terms"], applicable }
-    : { required: ["terms", "recurring"], applicable };
+  return { required: ["terms"], applicable };
 }
 
-/** Возобновление списаний требует только нового явного согласия на них. */
-export const resumeConsentKinds: readonly LegalDocumentKind[] = ["recurring"];
-
-/**
- * Условия продления, показанные рядом с кнопкой подписки или возобновления: сумма и день
- * следующего списания и период. Журнал принятия хранит их такими, какими их показала страница.
- */
+/** Passive decoder for immutable historical legal evidence, never a purchase command. */
 export const shownRenewalTermsSchema = z.strictObject({
   amountKopecks: z.number().int().positive(),
   nextChargeOn: z.iso.date(),
@@ -99,9 +84,8 @@ export type ShownRenewalTerms = z.infer<typeof shownRenewalTermsSchema>;
 export const consentsInputSchema = z.strictObject({
   operationId: z.uuid(),
   contextRef: z.uuid(),
-  screen: z.enum(["checkout", "subscription-resume"]),
+  screen: z.literal("checkout"),
   buttonLabel: z.string().trim().min(1).max(200),
-  shownTerms: shownRenewalTermsSchema.optional(),
   documents: z.array(acceptedDocumentSchema).min(1).max(4),
 });
 export const consentsValueSchema = z.object({

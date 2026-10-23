@@ -32,6 +32,8 @@ function withPeriods(
 ): PriceSnapshot {
   return {
     ...productWithSupportOffer,
+    product: undefined,
+    supportMonths: undefined,
     offer: { ...productWithSupportOffer.offer, benefits, benefitPeriods },
   };
 }
@@ -55,11 +57,19 @@ const fixedTerm = withPeriods(
 
 describe("условия разовой покупки до оплаты", () => {
   it("does not promise community in terms of a Product-only purchase", () => {
-    expect(oneTimeOfferTerms(productOnlyOffer).chatMonths).toBeUndefined();
     expect(
-      oneTimePurchaseInclusions(productOnlyOffer).some((item) =>
-        /сообщество|чат/u.test(item.caption),
-      ),
+      oneTimeOfferTerms({
+        ...productOnlyOffer,
+        product: undefined,
+        supportMonths: undefined,
+      }).chatMonths,
+    ).toBeUndefined();
+    expect(
+      oneTimePurchaseInclusions({
+        ...productOnlyOffer,
+        product: undefined,
+        supportMonths: undefined,
+      }).some((item) => /сообщество|чат/u.test(item.caption)),
     ).toBe(false);
   });
 
@@ -77,7 +87,14 @@ describe("условия разовой покупки до оплаты", () =>
     ).toBe("Из них поровну: материалы — 1 250 ₽, сопровождение — 1 250 ₽");
     // Без сопровождения вся цена — материалы и чат: делить нечего.
     expect(
-      oneTimePriceSharesLine(250_000, oneTimeOfferTerms(productOnlyOffer)),
+      oneTimePriceSharesLine(
+        250_000,
+        oneTimeOfferTerms({
+          ...productOnlyOffer,
+          product: undefined,
+          supportMonths: undefined,
+        }),
+      ),
     ).toBe("Вся цена относится к материалам");
   });
 
@@ -93,7 +110,13 @@ describe("условия разовой покупки до оплаты", () =>
       supportMonths: 12,
     });
     // Предложение без сопровождения срок сопровождения не называет вовсе.
-    expect(oneTimeOfferTerms(productOnlyOffer)).toEqual({
+    expect(
+      oneTimeOfferTerms({
+        ...productOnlyOffer,
+        product: undefined,
+        supportMonths: undefined,
+      }),
+    ).toEqual({
       materialsMonths: null,
       chatMonths: undefined,
     });
@@ -124,9 +147,9 @@ describe("условия разовой покупки до оплаты", () =>
   it("сводит условия предложения курса: материалы и материалы без срока", () => {
     expect(oneTimeTermsSummary(oneTimeOfferTerms(course))).toEqual([
       "Материалы — без ограничения срока.",
-      "Сопровождение — 6 месяцев: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
+      "Сопровождение с подтверждения оплаты: 6 месяцев: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
       "Отказ в первые 7 дней или до открытия доступа — полный возврат. Позже — за вычетом истекшего времени: сопровождение — из его срока, материалы — из расчётного срока 12 месяцев, но не меньше положенного по закону.",
-      "После отказа доступ по этой покупке закрывается.",
+      "Возврат оплаты и отзыв доступа выполняются отдельно.",
       "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
     ]);
   });
@@ -138,7 +161,7 @@ describe("условия разовой покупки до оплаты", () =>
     expect(materials).toBe(
       "Материалы — 2 года гарантированно, дальше без гарантии срока.",
     );
-    expect(support).toContain("Сопровождение — 1 год:");
+    expect(support).toContain("Сопровождение с подтверждения оплаты: 1 год:");
     expect(refund).toBe(
       "Отказ в первые 7 дней или до открытия доступа — полный возврат. Позже — за вычетом истекшего времени, но не меньше положенного по закону.",
     );
@@ -170,7 +193,11 @@ describe("условия разовой покупки до оплаты", () =>
     ]);
     // Сопровождения в предложении нет — строки о нём в составе тоже нет.
     expect(
-      oneTimePurchaseInclusions(productOnlyOffer).map(({ kind }) => kind),
+      oneTimePurchaseInclusions({
+        ...productOnlyOffer,
+        product: undefined,
+        supportMonths: undefined,
+      }).map(({ kind }) => kind),
     ).toEqual(["composition", "materials"]);
   });
 
@@ -227,4 +254,17 @@ describe("условия разовой покупки до оплаты", () =>
       "Доступ — по условиям предложения, помощь — по условиям предложения.",
     );
   });
+});
+
+it("new Product purchase always promises lifetime materials/community and three calendar months from confirmation", () => {
+  expect(oneTimeOfferTerms(productWithSupportOffer)).toEqual({
+    materialsMonths: null,
+    chatMonths: null,
+    supportMonths: 3,
+  });
+  expect(
+    oneTimeTermsSummary(oneTimeOfferTerms(productWithSupportOffer)),
+  ).toContain(
+    "Сопровождение с подтверждения оплаты: 3 месяца: ответы и помощь автора. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.",
+  );
 });

@@ -405,7 +405,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
         });
         const courseReads = courseTrace.filter(
           (record) =>
-            record.path.startsWith("/billing/offers?") ||
+            record.path.startsWith("/billing/product-prices?") ||
             record.path.startsWith("/billing/cohorts"),
         );
         await save(`course-count-${info.project.name}-${role}-${path}`, {
@@ -423,7 +423,7 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
           const publicTermsOffers =
             path === "cold" &&
             role === "guest" &&
-            identity.includes("/billing/offers?")
+            identity.includes("/billing/product-prices?")
               ? 1
               : 0;
           expect(
@@ -911,7 +911,7 @@ for (const role of ["guest", "non-owner"] as const) {
       await expect(status).toContainText("декабря");
       const after = await backendRecords(request);
       const offers = after.filter((record) =>
-        record.path.startsWith("/billing/offers?"),
+        record.path.startsWith("/billing/product-prices?"),
       );
       const cohorts = after.filter((record) =>
         record.path.startsWith("/billing/cohorts"),

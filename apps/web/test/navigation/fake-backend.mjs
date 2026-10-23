@@ -785,12 +785,19 @@ function route(method, url, entitled) {
   if (/^\/accounts\/current\/billing\/products\/[^/]+\/purchase$/u.test(path))
     return json(null);
   if (path === "/accounts/current/billing")
-    return json({ subscription: null, notices: [], grounds: [], payments: [] });
+    return json({
+      products: [],
+      notices: [],
+      access: { grounds: [] },
+      payments: [],
+    });
   if (path === "/accounts/current/billing/contact")
     return json({ ok: true, contact: null, documents: [] });
-  if (path === "/billing/offers") {
+  if (path === "/billing/product-prices") {
     const offerId = "66666666-6666-4666-8666-666666666601";
     const publicPrice = {
+      product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
+      supportMonths: 3,
       currency: "RUB",
       firstPriceKopecks: 990_000,
       offer: {
@@ -815,46 +822,9 @@ function route(method, url, entitled) {
       renewalPriceKopecks: 990_000,
       timezone: "Europe/Moscow",
     };
-    const alternatePrice = {
-      ...publicPrice,
-      offer: {
-        ...publicPrice.offer,
-        id: "66666666-6666-4666-8666-666666666605",
-        name: "Второй проверочный тариф",
-      },
-      paymentOption: {
-        ...publicPrice.paymentOption,
-        id: "66666666-6666-4666-8666-666666666606",
-        offerId: "66666666-6666-4666-8666-666666666605",
-      },
-    };
-    const invitedOfferId = "66666666-6666-4666-8666-666666666603";
-    const invitedPrice = {
-      ...publicPrice,
-      offer: {
-        ...publicPrice.offer,
-        id: invitedOfferId,
-        name: "Тариф по приглашению",
-        benefits: [`product:${modesProductId}`],
-        benefitPeriods: [
-          { capability: `product:${modesProductId}`, months: null },
-        ],
-      },
-      paymentOption: {
-        ...publicPrice.paymentOption,
-        id: "66666666-6666-4666-8666-666666666604",
-        offerId: invitedOfferId,
-      },
-    };
-    const capability = url.searchParams.get("capability");
+    const selected = url.searchParams.get("productId");
     return json({
-      items: (entitled
-        ? [publicPrice, alternatePrice, invitedPrice]
-        : [publicPrice, alternatePrice]
-      ).filter(
-        (snapshot) =>
-          capability === null || snapshot.offer.benefits.includes(capability),
-      ),
+      items: selected === null || selected === productId ? [publicPrice] : [],
       nextCursor: null,
     });
   }

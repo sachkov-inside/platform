@@ -61,8 +61,7 @@ export const savePromotionInputSchema = z.strictObject({
     code: z.string().trim().min(1).max(100).nullable(),
     startsAt: instant,
     endsAt: instant,
-    offerIds: z.array(z.uuid()).max(100),
-    paymentOptionIds: z.array(z.uuid()).max(100),
+    productIds: z.array(z.uuid()).max(100),
     usageLimit: revision.nullable(),
   }),
 });

@@ -1,22 +1,13 @@
-import { tariffCoverage } from "@inside/access-capabilities";
 import type { PriceSnapshot } from "@/entities/subscription";
-
-/** A whole-platform tariff opens checkout through any published product in its coverage. */
 export function checkoutProductSlug(
   products: readonly { readonly id: string; readonly slug: string }[],
   offers: readonly PriceSnapshot[],
-  offerId: string | undefined,
+  productId: string | undefined,
 ): string | undefined {
-  const offer = offers.find((item) => item.offer.id === offerId)?.offer;
-  if (offer === undefined)
-    return offerId === undefined ? products[0]?.slug : undefined;
-  const coverage = tariffCoverage(
-    offer.benefits,
-    offer.coverage ?? { productIds: [], materialIds: [] },
+  const price = offers.find(
+    (item) =>
+      item.product !== undefined &&
+      (productId === undefined || item.product.id === productId),
   );
-  return products.find(
-    (product) =>
-      coverage.wholePlatform === true ||
-      coverage.productIds.includes(product.id),
-  )?.slug;
+  return products.find((item) => item.id === price?.product?.id)?.slug;
 }

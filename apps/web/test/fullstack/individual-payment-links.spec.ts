@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { productCapability } from "@inside/access-capabilities";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
@@ -28,9 +27,7 @@ test("individual payment link shows its fixed price and terms, revokes across op
     },
   );
   await page.goto("/authoring/billing");
-  await page
-    .getByRole("tab", { name: "Ссылки на оплату", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "Личные ссылки", exact: true }).click();
   const content = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/content/list",
@@ -59,51 +56,55 @@ test("individual payment link shows its fixed price and terms, revokes across op
   );
   if (product === undefined)
     throw new Error("Seeded published Product is missing");
-  const offerId = randomUUID(),
-    optionId = randomUUID();
-  const saved = await fullStackBrowserJsonRequest(
+  const catalogResponse = await fullStackBrowserRequest(
     page,
-    "/api/authoring/billing/offers/save",
-    "POST",
-    {
-      operationId: randomUUID(),
-      value: {
-        id: offerId,
-        name: `Private synthetic ${offerId}`,
-        benefits: [productCapability(product.id), "support"],
-        benefitPeriods: [
-          { capability: productCapability(product.id), months: null },
-          { capability: "support", months: 6 },
-        ],
-        coverage: { productIds: [product.id], materialIds: [] },
-      },
-    },
+    "/api/authoring/billing/catalog",
   );
-  expect(await saved.json()).toMatchObject({ ok: true });
+  const catalog = z
+    .object({
+      ok: z.literal(true),
+      value: z.array(
+        z.object({
+          product: z
+            .object({ id: z.uuid(), priceRevision: z.int() })
+            .optional(),
+        }),
+      ),
+    })
+    .parse(await catalogResponse.json());
+  const revision = catalog.value.find((item) => item.product?.id === product.id)
+    ?.product?.priceRevision;
   const priced = await fullStackBrowserJsonRequest(
     page,
-    "/api/authoring/billing/payment-options/save",
+    "/api/authoring/billing/product-prices/save",
     "POST",
     {
       operationId: randomUUID(),
+      ...(revision === undefined ? {} : { expectedRevision: revision }),
       value: {
-        id: optionId,
-        offerId,
-        mode: "one_time",
-        months: 6,
+        productId: product.id,
+        name: product.title,
         priceKopecks: 2900000,
+        published: false,
       },
     },
   );
-  expect(await priced.json()).toMatchObject({ ok: true });
+  const priceRevision = z
+    .object({
+      ok: z.literal(true),
+      value: z.object({
+        result: z.object({ value: z.object({ revision: z.int().positive() }) }),
+      }),
+    })
+    .parse(await priced.json()).value.result.value.revision;
   const created = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/billing/payment-links/create",
     "POST",
     {
       operationId: randomUUID(),
-      paymentOptionId: optionId,
-      optionRevision: 1,
+      productId: product.id,
+      priceRevision,
       price: { kind: "discount", percent: 10 },
       expiresAt: null,
     },
@@ -119,24 +120,7 @@ test("individual payment link shows its fixed price and terms, revokes across op
     })
     .parse(await created.json()).value.result.value;
   await page.reload();
-  await page
-    .getByRole("tab", { name: "Ссылки на оплату", exact: true })
-    .click();
-  await page
-    .getByText("Архив анкетных скидок", { exact: true })
-    .first()
-    .click();
-  const heading = page.getByRole("heading", {
-    name: "Ссылки на оплату",
-    exact: true,
-  });
-  await heading.scrollIntoViewIfNeeded();
-  await expect(
-    page.getByRole("heading", { name: "Архив анкетных скидок" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Выдать ссылку", exact: true }),
-  ).toHaveCount(0);
+  await page.getByRole("tab", { name: "Личные ссылки", exact: true }).click();
   await expect(
     page.getByText("26 100", { exact: false }).first(),
   ).toBeVisible();
@@ -146,7 +130,7 @@ test("individual payment link shows its fixed price and terms, revokes across op
   });
   await ownerRegion
     .getByLabel("Продукт", { exact: true })
-    .selectOption(optionId);
+    .selectOption(product.id);
   expect(
     await ownerRegion.evaluate(
       (element) => element.scrollWidth <= element.clientWidth,
@@ -187,7 +171,7 @@ test("individual payment link shows its fixed price and terms, revokes across op
     ).toBeVisible();
     await buyer.getByText("Все условия покупки", { exact: true }).click();
     await expect(
-      buyer.getByText(/Сопровождение автора — 6 месяцев/),
+      buyer.getByText(/Сопровождение автора.*3 месяца/),
     ).toBeVisible();
     expect(
       (
@@ -216,7 +200,9 @@ test("individual payment link shows its fixed price and terms, revokes across op
     }
     await signInFullStack(guest, "NON_MEMBER");
     await buyer.reload();
-    await expect(buyer.getByRole("button", { name: /Оплатить/ })).toBeVisible();
+    await expect(
+      buyer.getByRole("button", { name: /Оплатить/ }),
+    ).toBeDisabled();
     await buyer
       .getByText("Условия и документы покупки", { exact: true })
       .click();
@@ -257,7 +243,7 @@ test("individual payment link shows its fixed price and terms, revokes across op
     );
     await secondOwner.goto("/authoring/billing");
     await secondOwner
-      .getByRole("tab", { name: "Ссылки на оплату", exact: true })
+      .getByRole("tab", { name: "Личные ссылки", exact: true })
       .click();
     const secondRegion = secondOwner.getByRole("region", {
       name: "Ссылки на оплату",

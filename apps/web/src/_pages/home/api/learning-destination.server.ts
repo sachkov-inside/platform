@@ -29,7 +29,7 @@ export async function readLearningDestination(): Promise<string> {
     const parsed = currentBillingSchema.safeParse(billing.body);
     const pinned = home.kind === "ready" ? home.value.pinnedSeries : null;
     if (!parsed.success) return "/";
-    const active = parsed.data.grounds.filter((ground) => ground.active);
+    const active = parsed.data.access.grounds.filter((ground) => ground.active);
     if (
       pinned !== null &&
       active.some((ground) =>

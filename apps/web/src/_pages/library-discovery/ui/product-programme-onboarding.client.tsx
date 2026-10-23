@@ -45,7 +45,7 @@ export function ProductProgrammeOnboarding({
     currentAccountId !== null &&
     productId !== undefined &&
     billing.data?.ok === true &&
-    hasPaidProductAccess(billing.data.value.grounds, productId);
+    hasPaidProductAccess(billing.data.value.access.grounds, productId);
   const query = useProductCommunityEntry(
     productId ?? "",
     currentAccountId,
