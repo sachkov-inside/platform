@@ -108,6 +108,7 @@ const BILLING_BANK = Symbol("BillingBank");
         PLATFORM_CONFIG,
         ACCESS_GRANTS,
         COVERAGE_CATALOG,
+        BillingContact,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -115,6 +116,7 @@ const BILLING_BANK = Symbol("BillingBank");
         config: PlatformConfig,
         grants: AccessGrants,
         contentCatalog: CoverageCatalog,
+        contact: BillingContact,
       ) =>
         new BillingPricing({
           contentCatalog,
@@ -123,7 +125,8 @@ const BILLING_BANK = Symbol("BillingBank");
           grants,
           sale: saleCapability(
             config.tbank,
-            config.billingContact !== undefined,
+            config.billingContact !== undefined &&
+              contact.hasApprovedProductTerms(),
           ),
         }),
     },

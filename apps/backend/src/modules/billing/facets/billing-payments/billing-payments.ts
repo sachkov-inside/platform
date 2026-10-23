@@ -136,6 +136,14 @@ export class BillingPayments {
       ]);
       if (!contact.ok || !initialCapabilities.ok)
         return paymentFailure("dependency_unavailable");
+      if (
+        !contact.documents.some(
+          (document) =>
+            document.kind === "terms" &&
+            document.commercialModel === "product-lifetime-v1",
+        )
+      )
+        return paymentFailure("method_unavailable");
       let capabilities = initialCapabilities.capabilities;
       let settledPurchaseRef: string | undefined;
       const admission = paymentAdmission({
@@ -348,7 +356,11 @@ export class BillingPayments {
                 terminalRef: bank.config.terminalKey,
                 amountKopecks: reservation.value.firstPriceKopecks,
                 snapshot: reservation.value,
-                acceptance: { command: storedCommand, evidence },
+                acceptance: {
+                  commercialModel: "product-lifetime-v1",
+                  command: storedCommand,
+                  evidence,
+                },
                 contact: {
                   ...(orderEmail === undefined && contact.contact !== null
                     ? {
@@ -946,6 +958,9 @@ export class BillingPayments {
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
       if (
+        !z
+          .object({ commercialModel: z.literal("product-lifetime-v1") })
+          .safeParse(row.acceptance).success ||
         !isQuotedPurchase(kind) ||
         paymentMode(priceSnapshotSchema.parse(row.snapshot).paymentOption) !==
           "one_time"

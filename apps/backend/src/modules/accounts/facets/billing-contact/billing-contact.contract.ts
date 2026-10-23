@@ -38,6 +38,7 @@ export const consentKindSchema = z.enum([
  */
 export const consentPaymentModeSchema = z.enum(paymentModes);
 export const legalDocumentSchema = z.strictObject({
+  commercialModel: z.literal("product-lifetime-v1").optional(),
   kind: consentKindSchema,
   appliesTo: z
     .array(consentPaymentModeSchema)

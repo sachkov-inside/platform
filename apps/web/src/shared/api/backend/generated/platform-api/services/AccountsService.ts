@@ -88,6 +88,7 @@ export class AccountsService {
       buttonLabel: string | null;
       contextRef: string;
       document: {
+        commercialModel?: 'product-lifetime-v1';
         digest: string;
         documentId: string;
         kind: 'terms' | 'recurring' | 'personal_data' | 'marketing';
@@ -130,6 +131,7 @@ export class AccountsService {
     } | null;
     documents: Array<{
       readonly appliesTo: Array<'one_time' | 'subscription'>;
+      commercialModel?: 'product-lifetime-v1';
       digest: string;
       documentId: string;
       kind: 'terms' | 'recurring' | 'personal_data' | 'marketing';

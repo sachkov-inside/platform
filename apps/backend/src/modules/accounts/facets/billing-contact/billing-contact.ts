@@ -79,6 +79,14 @@ export class BillingContact {
     }
   }
 
+  hasApprovedProductTerms(): boolean {
+    return this.documents.some(
+      (document) =>
+        document.kind === "terms" &&
+        document.commercialModel === "product-lifetime-v1",
+    );
+  }
+
   async read(accountId: string): Promise<ReadContactResult> {
     if (!z.uuid().safeParse(accountId).success)
       return contactFailure("forbidden");
