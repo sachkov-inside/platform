@@ -1,9 +1,10 @@
 # Sachkov Dev — brief первой версии платформы
 
-Current commerce follows [ADR 0037](../adr/0037-products-without-subscriptions.md): Products are
-purchased once or granted without payment. There is no current subscription sale, renewal or
-subscription-based Product access. Future subscriptions are separate from Products. The account
-shows Products, their access and payment history. Telegram connection success is shown once,
+Текущая коммерческая модель следует [решению владельца от 23.10.2026](access-model.md#единая-выдача-доступа-решение-владельца-23102026):
+человек получает конкретный продукт целиком и бессрочно, покупкой или бесплатной выдачей.
+Тарифы и подписочная функциональность исключены из целевой модели. Возврат и отзыв доступа
+выполняет владелец вручную; закрытие продаж сохраняет доступ получивших продукт людей.
+The account shows Products, their access and payment history. Telegram connection success is shown once,
 without repeated setup confirmations. The header fallback is a neutral user icon on white.
 
 
@@ -40,6 +41,10 @@ Telegram сохраняется явный выбор входа в сущест
 [контракт входа](../specifications/idp-application-flow-v1.md#browser-and-bff-boundary).
 
 ## Продукты и подписки
+
+Коммерческие правила этого раздела о тарифах, подписках, настройке прав и автоматическом
+отзыве по возврату заменены текущей моделью доступа по ссылке выше. Они сохраняются здесь
+как контекст прежних поставок до сверки остальных вопросов карты; это не целевые возможности.
 
 По решению владельца [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181)
 общая пользовательская сущность называется «продукт»: отдельная программа из материалов.

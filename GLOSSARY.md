@@ -296,13 +296,13 @@ is independent of profile presentation and Account Rights.
 _Avoid_: Principal, External Identity, Platform Account, Platform Session, user
 
 **Billing Contact**:
-An optional Account-owned verified email for service notifications and subsequent subscription receipts, independent of its sign-in identity.
+An optional Account-owned verified email for service notifications, independent of its sign-in identity.
 A pending replacement becomes the contact only after verification.
 _Avoid_: login email, email fingerprint, Account identity
 
 **Order Email**:
 The email chosen for one purchase and its receipt, without proof of ownership or a change to the purchasing Account.
-It is the fallback for purchase messages and subscription renewals when the Account has no Billing Contact.
+It is the fallback for purchase messages when the Account has no Billing Contact.
 _Avoid_: Billing Contact, login email, verified identity
 
 **Legal Edition**:
@@ -312,11 +312,9 @@ is the next version, and the earlier text stays readable at its own address.
 _Avoid_: draft, current page content, document without a version
 
 **Legal Acceptance**:
-An immutable journal record of one Account accepting an exact legal edition by pressing a labelled
-button: the first sign-in screen accepts the terms of use, a payment button accepts its offer, and a
-subscription or resumption button also records the renewal terms shown next to it. Recurring
-acceptance is distinct from other kinds and does not itself authorize a charge; a first sign-in
-acceptance never stands in for payment consent.
+An immutable record of an Account accepting an exact legal edition through an explicitly labelled
+action, such as accepting terms at sign-in or an offer when buying a Product. Sign-in acceptance
+does not stand in for acceptance of purchase conditions.
 _Avoid_: consent checkbox, current legal text, payment permission, preselected checkbox
 
 **Platform Administrator**:
@@ -335,8 +333,8 @@ A time-limited statement about an Account's Membership in the canonical closed T
 _Avoid_: Account Rights, Tribute subscription
 
 **Account Rights**:
-Platform's current conclusion about which Products and which community and support rights an
-Account holds, each live until its term ends or for life.
+Platform's current conclusion about which Products an Account holds and the participation in
+community that comes with those Products.
 _Avoid_: Subscription, Telegram membership status, library access
 
 **ContentAccess**:
@@ -373,77 +371,32 @@ its linked resources, survives the loss of Account Rights and adds no public fie
 language: «Закладка».
 _Avoid_: AccessGrant, ReadingState, collection, favorite
 
-## Tariffs, payment and access
-
-**Subscription**:
-A separate offering with scheduled payments. Subscriptions are not currently sold and do not
-provide Product access in the current model. A Product purchase or free Product assignment is
-not a Subscription.
-_Avoid_: Product access, Payment, Tariff Assignment, «подписка» for a course assignment
-
-**Tariff** (code name: `Offer`):
-A versioned description of what an Account receives: a Coverage and rights, each with its own term
-in months or none (Materials, community, Support). Its Payment Options state how it is paid. It can
-be available for assignment without being published for sale. A Tariff may allow sale to everyone
-or restrict it to Accounts with a proven ground, such as a redeemed Invitation; under a
-restriction, others neither see nor buy it. It carries a reversible `published` (for-sale) state,
-separate from permanent archival; archival withdraws it from sale and assignment for good, while
-existing assignments keep their snapshot. Rights already granted keep the terms of their purchase.
-A new Tariff is needed only when the Coverage, rights or terms change.
-In Russian product language: «тариф».
-_Avoid_: Order, AccessGrant, Payment Option, a «subscription tariff» as a separate kind
-
-**Payment Option**:
-The price of a one-time purchase of one Tariff. A price change with the same rights
-changes the Payment Option's price. In Russian product language: «вариант оплаты».
-_Avoid_: Tariff, monthly instalment, payment attempt
+## Product purchases and access
 
 **Cohort**:
 The current sales run of a Product: a name, a sales stage (announcement, preorder, running, between
 cohorts), a calendar start date and the next event. The owner switches it in the catalogue. The stage
-decides what the product page promises; money is taken only while a Tariff of the Product is on
-sale. A new price after the start changes the Payment Option's price, not rights already sold. In
+decides what the product page promises; money is taken only while the Product is on sale.
+A new price does not change access already received. In
 Russian product language: «Поток».
 _Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel period, prior participants
 
-**Tariff Assignment**:
-An Account's AccessGrant based on an agreed version of a Tariff, preserving its rights and their
-individual terms whether obtained by purchase, verified course activation, or an owner's decision.
-In Russian product language: «назначение тарифа».
-_Avoid_: Subscription, gift subscription, Payment
-
-**Coverage**:
-The Products a Tariff opens: named Products, or the whole platform. A named Product includes its
-evolving published Materials; the whole platform also includes Products published later. It names
-no individual Materials. Historical grants retain the terms already promised to their holders. A
-Tariff without Coverage is neither assigned nor sold.
-_Avoid_: Library access, catalogue, price
-
 **Product Removal**:
-The confirmed withdrawal of a published Material from a Product whose buyers or tier holders still
-hold access. The author confirms each such Product explicitly, and the removal is journaled with the
+The confirmed withdrawal of a published Material from a Product whose holders still have access. The author confirms each such Product explicitly, and the removal is journaled with the
 number of holders; a Product without holders needs no confirmation. In Russian product language:
 «снятие из продукта».
 _Avoid_: Unpublish, reorder, access revocation
 
 **ActivationRule**:
 A published or paused path through the bot from a verified prior-course source, such as membership
-in the prior course group, to an AccessGrant with the course Tariff's rights and terms. Its code selects the path;
+in the prior course group, to lifetime access to the course Product. Its code selects the path;
 possession of the code does not prove entitlement.
 _Avoid_: Invite link, payment proof, grant, Tribute subscription
 
-**Invitation**:
-The owner's personal one-time admission of one person to buy one Tariff, sent as a link to the bot.
-It is the only admission to a subscription Payment Option. The first Telegram account that opens it owns it; an
-unopened Invitation expires after 14 days and the owner can revoke it before it is used. It gives no
-access by itself, is not an ActivationRule, which anyone may open, and not a Promotion, which gives a
-discount. In Russian product language: «приглашение».
-_Avoid_: ActivationRule, promo code, Invite link to the chat, gift
-
 **SourceEntitlement**:
 A verified external basis identified by its source policy and person, which can exist before an Account is linked.
-Repeated verification of the same source policy and identity does not create another assignment.
-The only source for new assignments is membership in the prior course group.
+Repeated verification of the same source policy and identity does not create another access grant.
+The prior course group is the source for course activation.
 _Avoid_: Telegram presence, Account, Tariff Assignment
 
 **AdmissionRestriction**:
@@ -451,15 +404,9 @@ A moderation or externally reported restriction on admission to the community, i
 _Avoid_: Expired tariff, revoked materials, failed payment
 
 **OneTimePurchase**:
-A one-time payment for a Tariff, independent of the payment and the
-resulting AccessGrants. It creates no Subscription, renewal schedule or recurring consent. Its
-AccessGrants carry their own terms and outlive any Subscription.
+An Account's purchase of one Product under agreed conditions. Its confirmed Payment and the
+resulting access are distinct facts; it creates no renewal or scheduled charge.
 _Avoid_: Subscription, paid period, renewal
-
-**AccessScope**:
-A particular Product, Support or the shared community chat covered by an AccessGrant. It is
-independent of a Tariff's name, price and payment way.
-_Avoid_: Payment status, Telegram presence, subscription duration, library
 
 **PaymentAttempt**:
 One recorded attempt to obtain a specific payment outcome, including an unresolved outcome after
@@ -468,30 +415,18 @@ _Avoid_: Retry, paid period, confirmed payment
 
 **Payment**:
 A confirmed transfer associated with one Account and agreed purchase conditions.
-Its refund is a separate fact, and the refund's basis decides whether the purchase's access ends.
+Its refund and the owner's decision to withdraw Product access are separate facts.
 _Avoid_: Browser return, grant, subscription
 
 **RefundDecision**:
-The owner's recorded decision about one Payment: how much to return, on which basis, and whether
-renewal stops. A withdrawal from the contract revokes the purchase's access once the refund is
-confirmed; a compensation without withdrawal keeps access. It is separate from the bank attempt that executes it, and an
-unresolved or failed attempt is never presented as executed.
+The owner's decision, following a personal request, about the amount and basis of a Payment refund.
+The owner performs the refund through the bank and withdraws Product access separately.
 _Avoid_: Refund attempt, access revocation, dispute
 
-**PaymentMethodBinding**:
-A proven bank permission to charge a saved payment method for one Account's later attempts.
-Forbidding its use stops new sends and does not delete the buyer's card at the bank.
-_Avoid_: Card, CustomerKey, refund permission
-
-**ScheduledChange**:
-An accepted option change that starts with the next period and leaves the paid term unchanged.
-An upgrade inside the paid term is a separate payment, not a scheduled change.
-_Avoid_: Pending payment, price change, promotion
-
 **AccessGrant**:
-One independent issuance of access to an Account, with its own origin, preserved agreed conditions,
-and a set of rights, each with its own finite or lifetime term. A purchase, verified course activation,
-and an owner's decision produce the same kind of issuance; in Russian product language: «выдача доступа».
+One recorded issuance of lifetime access to one Product for one Account, with its origin and agreed
+conditions. Purchase, verified course activation, and an owner's decision produce the same kind of
+access; in Russian product language: «выдача доступа».
 _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
@@ -504,27 +439,14 @@ One attempt to make a CommunityEntitlement real in Telegram. Its desired state, 
 acceptance and the observed membership are separate facts.
 _Avoid_: Queue acknowledgement as membership, entitlement revision as proof of admission
 
-**RenewalConsent**:
-An Account's explicit agreement to future charges under identified terms and a confirmed payment
-method. Ending it preserves the already paid term.
-_Avoid_: Saved card, current chat membership, completed payment
-
 **BillingNotice**:
-One occurrence in a Subscription's paid life that is worth a service message: an upcoming charge, a
-confirmed or declined payment, a cancelled renewal, an ended access term or a resolved refund. Any
-access term that will not renew adds an access ending in three days. It is a
-Billing fact with its own revisions, not the message, the channel or the delivery.
+A fact about a Product purchase or its Payment that calls for a service message to the buyer.
+It is distinct from the message and its delivery.
 _Avoid_: Notification, Delivery, email, reminder job
-
-**BuyerClassification**:
-The owner's recorded decision about who an Account is for billing: a confirmed new buyer, a
-confirmed prior buyer, or still undecided. Only a recorded decision or a redeemed Invitation allows
-recurring charges, and only a confirmed prior buyer carries the Tribute transition facts.
-_Avoid_: AccessGrant, MembershipEvidence, guessed status
 
 **Prior Participants**:
 People who took part in the previous Inside course and are verified by the bot through the prior
-course group. Each receives the course through a lifetime Tariff Assignment. A new Inside-driven
+course group. Each receives lifetime access to the course Product. A new Inside-driven
 join does not add a participant.
 _Avoid_: Current chat roster, all new members, Cohort
 
@@ -567,25 +489,9 @@ _Avoid_: UTM, campaign, attribution model, referrer
 
 ## Shared Inside terms
 
-**Offer Eligibility**:
-A restriction that makes a Tariff visible and purchasable only to Accounts holding a named basis,
-such as a redeemed Invitation; in Russian, «Допуск к предложению». It does not change rights
-already granted.
-_Avoid_: Sale flag, assignability, hidden Tariff
-
 **Support**:
 The right to ask the author for help within a stated term; in Russian, «Сопровождение».
 _Avoid_: Personal mentoring, guaranteed answer, community participation
-
-**Lifetime Access Grant**:
-An AccessGrant whose rights have no scheduled end date, for a defined set of Inside benefits.
-It does not promise every future separate paid Product.
-_Avoid_: Never-expiring subscription, future all-access purchase, permanent Telegram membership
-
-**Direct Right**:
-A right an Account holds independently of a Tariff Assignment or Product purchase: an owner-granted
-lifetime AccessGrant or a carried-over AccessGrant. In Russian product language: «Прямое право».
-_Avoid_: Tariff Assignment, gift subscription, purchase
 
 **TelegramIdentity**:
 The provider-verified Telegram identity from which bot updates originate; it may be linked to an
@@ -627,11 +533,6 @@ These names refer to the same concept; they do not introduce another right or pr
 
 | Compatibility name | Canonical term |
 |---|---|
-| Subscription Tier | Tariff |
-| Subscription Option | Payment Option |
-| Inside Subscription | Subscription |
-| Product Purchase | OneTimePurchase |
-| Access Scope | AccessScope |
 | Access Grant | AccessGrant |
 | Community Entitlement | CommunityEntitlement |
 | Admission Restriction | AdmissionRestriction |

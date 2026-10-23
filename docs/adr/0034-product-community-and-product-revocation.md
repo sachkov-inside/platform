@@ -4,6 +4,11 @@ status: accepted
 
 # Explicit Product community rights and whole-Product revocation
 
+The [owner's 2026-10-23 access decision](../product/access-model.md#единая-выдача-доступа-решение-владельца-23102026)
+supersedes configurable Offer benefits and automatic purchase-scoped access revocation on a bank
+refund. The owner handles refunds and access withdrawal manually; closing sales preserves access.
+The original decision below remains as history for the refactoring audit.
+
 Current subscription commerce and course terms follow [ADR 0037](0037-products-without-subscriptions.md)
 (owner decision 2026-10-20). Its explicit supersessions take precedence over the historical decisions below.
 
