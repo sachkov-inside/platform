@@ -804,11 +804,12 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
 
     // The right itself never waits for the community provider.
-    expect(await grants.resolveCapabilities(account)).toMatchObject({
-      ok: true,
-      capabilities: expect.arrayContaining([
-        { capability: "community", validUntil: null },
-      ]),
+    const capabilities = await grants.resolveCapabilities(account);
+    expect(capabilities.ok).toBe(true);
+    if (!capabilities.ok) throw new Error("Expected Account capabilities");
+    expect(capabilities.capabilities).toContainEqual({
+      capability: "community",
+      validUntil: null,
     });
   });
 
@@ -872,11 +873,12 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       result: { decision: { status: "allowed" } },
     });
     // Removing a chat member never touches the right that was granted.
-    expect(await grants.resolveCapabilities(account)).toMatchObject({
-      ok: true,
-      capabilities: expect.arrayContaining([
-        { capability: "community", validUntil: null },
-      ]),
+    const capabilities = await grants.resolveCapabilities(account);
+    expect(capabilities.ok).toBe(true);
+    if (!capabilities.ok) throw new Error("Expected Account capabilities");
+    expect(capabilities.capabilities).toContainEqual({
+      capability: "community",
+      validUntil: null,
     });
 
     const other = await member();
@@ -1648,11 +1650,12 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
     expect(await app.project(account)).toMatchObject({ issued: [] });
     expect(await operations(account)).toHaveLength(0);
-    expect(await grants.resolveCapabilities(account)).toMatchObject({
-      ok: true,
-      capabilities: expect.arrayContaining([
-        { capability: "community", validUntil: null },
-      ]),
+    const capabilities = await grants.resolveCapabilities(account);
+    expect(capabilities.ok).toBe(true);
+    if (!capabilities.ok) throw new Error("Expected Account capabilities");
+    expect(capabilities.capabilities).toContainEqual({
+      capability: "community",
+      validUntil: null,
     });
   });
 

@@ -107,7 +107,7 @@ describe("independent product, library, support and shared chat rights", () => {
     _source: "manual" | "legacy" = "manual",
   ) {
     const productId = capabilities[0]?.replace("product:", "");
-    if (!productId) throw new Error("Expected Product target");
+    if (productId === undefined) throw new Error("Expected Product target");
     return {
       grantRef: await grantProductFixture(db.prisma, buyer, productId),
       revision: 1,

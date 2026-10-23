@@ -106,7 +106,7 @@ describe("Billing pricing HTTP", () => {
         },
       },
     });
-    if (permission)
+    if (permission !== undefined)
       await database.prisma.accountPermission.create({
         data: { accountId: account.id, permission },
       });

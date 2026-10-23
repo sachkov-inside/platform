@@ -51,7 +51,6 @@ describe("ReadingActivity on PostgreSQL", () => {
   let materials: ReturnType<typeof assembleMaterials>;
   let membership: ReturnType<typeof assemblePriorParticipantsFixture>;
   let composition: PublishedSeriesComposition;
-  let membershipNow: Date | undefined;
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
@@ -67,7 +66,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-      clock: () => membershipNow ?? new Date(),
+      clock: () => new Date(),
     });
     composition = new PublishedSeriesComposition(
       database.prisma,
@@ -93,7 +92,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         },
         accountRights: membership,
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
-        clock: () => membershipNow ?? new Date(),
+        clock: () => new Date(),
       }),
       composition,
     });
@@ -331,7 +330,7 @@ describe("ReadingActivity on PostgreSQL", () => {
       where: { materialId: protectedId },
     });
     const productId = products[0]?.seriesId;
-    if (!productId) throw new Error("Missing Product fixture");
+    if (productId === undefined) throw new Error("Missing Product fixture");
     const target = await grantProductFixture(
       database.prisma,
       memberId,

@@ -2,10 +2,9 @@ import { CoverageCatalog } from "../../../src/modules/materials/facets/coverage-
 import { ProductDiscovery } from "../../../src/modules/products/index.js";
 import { BillingPricing } from "../../../src/modules/billing/index.js";
 import type { Accounts } from "../../../src/modules/accounts/index.js";
-import { assembleAccessGrants } from "../../../src/modules/account-rights/index.js";
 import type { PlatformPrisma } from "../../../src/infrastructure/prisma/index.js";
 
-/** Проверки каталога читают реальные основания Account, даже когда проверяется только цена. */
+/** Pricing reads its real owning Product catalogue through the same port as production. */
 export function assembleTestBillingPricing(
   dependencies: Omit<
     ConstructorParameters<typeof BillingPricing>[0],
@@ -18,6 +17,5 @@ export function assembleTestBillingPricing(
       new ProductDiscovery(dependencies.prisma),
     ),
     ...dependencies,
-    grants: dependencies.grants ?? assembleAccessGrants(dependencies),
   });
 }

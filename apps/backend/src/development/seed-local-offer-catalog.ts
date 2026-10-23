@@ -1,5 +1,5 @@
 import { assembleAccounts } from "../modules/accounts/index.js";
-import { CoverageCatalog } from "../modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { CoverageCatalog } from "../modules/materials/index.js";
 import { ProductDiscovery } from "../modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
@@ -46,7 +46,7 @@ export async function seedLocalOfferCatalog(
   });
   const name = "Руководство «Создание Platform Inside»",
     priceKopecks = 3000;
-  if (current?.archived) return;
+  if (current?.archived === true) return;
   const published =
     target.onSale === false ? false : (current?.published ?? true);
   if (

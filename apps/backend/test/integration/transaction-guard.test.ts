@@ -59,7 +59,7 @@ describe("тестовая база отказывает второму соед
     expect(guarded.refused.at(-1)).toBeInstanceOf(
       SecondConnectionInTransactionError,
     );
-    expect(guarded.refused.at(-1)?.message).toContain("productAccess.findMany");
+    expect(guarded.refused.at(-1)?.message).toContain("$transaction");
   });
 
   test("запрос, $queryRaw и вложенная $transaction через корневой client падают с именованной ошибкой", async () => {

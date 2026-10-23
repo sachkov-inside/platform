@@ -428,7 +428,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     capabilities: AccessCapability[],
   ): Promise<string> {
     const productId = capabilities[0]?.replace("product:", "");
-    if (!productId) throw new Error("Expected Product target");
+    if (productId === undefined) throw new Error("Expected Product target");
     return grantProductFixture(db.prisma, subject.accountId, productId);
   }
   async function revoke(target: string) {

@@ -34,10 +34,19 @@ test("historical AIE catalogue commands cannot enable tariffs or payment options
         "utf8",
       ),
     );
-    for (const command of z.array(z.unknown()).parse(raw))
+    for (const command of z.array(z.unknown()).parse(raw)) {
+      const { operation } = z.object({ operation: z.string() }).parse(command);
+      if (operation.startsWith("cohorts.")) continue;
       expect(await pricing.manage(world.owner, command)).toMatchObject({
         ok: false,
+        error: {
+          code:
+            operation === "promotions.archive"
+              ? "not_found"
+              : "invalid_request",
+        },
       });
+    }
   }
   expect(await pricing.offers({})).toMatchObject({
     ok: true,

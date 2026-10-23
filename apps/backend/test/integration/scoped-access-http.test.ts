@@ -187,7 +187,7 @@ describe("scoped Account access over Nest HTTP", () => {
         headers: { ...headers(bearer), "idempotency-key": randomUUID() },
         payload: draft,
       });
-    const offerId = randomUUID();
+    const offerId = world.productA.productId;
     const saveOffer = (
       bearer: string,
       name: string,
@@ -198,17 +198,14 @@ describe("scoped Account access over Nest HTTP", () => {
         url: "/billing/admin",
         headers: headers(bearer),
         payload: {
-          operation: "offers.save",
+          operation: "productPrices.save",
           operationId: randomUUID(),
           ...(expectedRevision === undefined ? {} : { expectedRevision }),
           value: {
-            id: offerId,
+            productId: offerId,
             name,
-            benefits: ["materials"],
-            coverage: {
-              productIds: [world.productA.productId],
-              materialIds: [],
-            },
+            priceKopecks: 100000,
+            published: false,
           },
         },
       });
@@ -219,9 +216,10 @@ describe("scoped Account access over Nest HTTP", () => {
       (await saveOffer(billingOnly.bearer, "Тариф Billing-only")).statusCode,
     ).toBe(200);
     const materialsBefore = await database.prisma.material.count();
-    const offerBefore = await database.prisma.billingOffer.findUniqueOrThrow({
-      where: { id: offerId },
-    });
+    const offerBefore =
+      await database.prisma.billingProductPrice.findUniqueOrThrow({
+        where: { productId: offerId },
+      });
 
     // Чужая операция — валидный запрос; к существующему Offer — с его текущей редакцией.
     const deniedDraft = await createDraft(billingOnly.bearer);
@@ -238,8 +236,8 @@ describe("scoped Account access over Nest HTTP", () => {
     // Отказ не оставил durable следа.
     expect(await database.prisma.material.count()).toBe(materialsBefore);
     expect(
-      await database.prisma.billingOffer.findUniqueOrThrow({
-        where: { id: offerId },
+      await database.prisma.billingProductPrice.findUniqueOrThrow({
+        where: { productId: offerId },
       }),
     ).toEqual(offerBefore);
   });

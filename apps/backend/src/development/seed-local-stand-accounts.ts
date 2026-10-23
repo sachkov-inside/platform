@@ -1,4 +1,4 @@
-import { CoverageCatalog } from "../modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { CoverageCatalog } from "../modules/materials/index.js";
 import { ProductDiscovery } from "../modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
