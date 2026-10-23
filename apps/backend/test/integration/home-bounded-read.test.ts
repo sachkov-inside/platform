@@ -170,6 +170,7 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
   const publishedMemberships: Prisma.PublishedMaterialProductMembershipCreateManyInput[] =
     [];
   const videos: Prisma.VideoCreateManyInput[] = [];
+  const programme: Prisma.ProductProgrammePlacementCreateManyInput[] = [];
   for (let n = start; n < end; n += 1) {
     const group = Math.floor(n / 9);
     const materialId = id(n + 1);
@@ -218,8 +219,14 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
       [seriesId, (n % 9) + 1],
       [product, n + 1],
     ] as const) {
-      memberships.push({ materialId, seriesId: groupId, ordinal });
-      publishedMemberships.push({ materialId, seriesId: groupId, ordinal });
+      memberships.push({ materialId, seriesId: groupId });
+      publishedMemberships.push({ materialId, seriesId: groupId });
+      programme.push({
+        id: id(800000 + n * 2 + (groupId === seriesId ? 0 : 1)),
+        productId: groupId,
+        materialId,
+        ordinal,
+      });
     }
     if (formatId === "video")
       videos.push({
@@ -258,6 +265,9 @@ async function seed(prisma: PrismaClient, start: number, end: number) {
     });
     await prisma.publishedMaterialProductMembership.createMany({
       data: publishedMemberships.slice(offset, offset + 300),
+    });
+    await prisma.productProgrammePlacement.createMany({
+      data: programme.slice(offset, offset + 300),
     });
   }
 }
@@ -425,16 +435,12 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         },
       ],
     });
-    await prisma.publishedMaterialProductMembership.update({
-      where: {
-        materialId_seriesId: { materialId: id(46), seriesId: id(200005) },
-      },
+    await prisma.productProgrammePlacement.updateMany({
+      where: { materialId: id(46), productId: id(200005) },
       data: { ordinal: 100 },
     });
-    await prisma.publishedMaterialProductMembership.update({
-      where: {
-        materialId_seriesId: { materialId: id(52), seriesId: id(200005) },
-      },
+    await prisma.productProgrammePlacement.updateMany({
+      where: { materialId: id(52), productId: id(200005) },
       data: { ordinal: 1 },
     });
     await prisma.material.update({
