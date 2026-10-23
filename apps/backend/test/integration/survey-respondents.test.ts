@@ -125,7 +125,11 @@ describe("скидка респондентам анкеты: список ни�
     const manage = (input: object) =>
       pricing.manage(owner, { operationId: randomUUID(), ...input });
     await db.prisma.product.create({
-      data: { id: productId, slug: productId, name: "Курс" },
+      data: {
+        id: productId,
+        slug: "synthetic-course",
+        name: "Синтетический курс",
+      },
     });
     value(
       await manage({

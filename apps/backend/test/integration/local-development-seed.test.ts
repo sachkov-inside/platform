@@ -1,3 +1,6 @@
+import { assembleAccounts } from "../../src/modules/accounts/index.js";
+import { CoverageCatalog } from "../../src/modules/materials/facets/coverage-catalog/coverage-catalog.js";
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -233,20 +236,32 @@ describe("local development offer catalog", () => {
         where: { slug: "platform-inside" },
       });
       productId = product.id;
-      owner = new BillingPricing({
+      await testDatabase.prisma.account.upsert({
+        where: { id: ownerActor },
+        create: {
+          id: ownerActor,
+          logtoIssuer: "https://seed.fixture.invalid",
+          logtoSubject: ownerActor,
+        },
+        update: {},
+      });
+      await testDatabase.prisma.accountPermission.create({
+        data: { accountId: ownerActor, permission: "billing:manage" },
+      });
+      const dependencies = {
         prisma: testDatabase.prisma,
         sale: { payments: true },
-        accounts: {
-          checkPermission: () => Promise.resolve({ ok: true, allowed: true }),
-        },
-      });
-      storefront = new BillingPricing({
-        prisma: testDatabase.prisma,
-        sale: { payments: true },
-        accounts: {
-          checkPermission: () => Promise.resolve({ ok: true, allowed: false }),
-        },
-      });
+        accounts: assembleAccounts({
+          prisma: testDatabase.prisma,
+          emailFingerprintKey: "local-catalogue-test-fingerprint-key-000",
+        }),
+        contentCatalog: new CoverageCatalog(
+          testDatabase.prisma,
+          new ProductDiscovery(testDatabase.prisma),
+        ),
+      };
+      owner = new BillingPricing(dependencies);
+      storefront = new BillingPricing(dependencies);
     });
   });
 
@@ -283,7 +298,7 @@ describe("local development offer catalog", () => {
       })),
     ).toEqual([
       {
-        benefits: [`product:${productId}`, "support"],
+        benefits: [`product:${productId}`],
         firstPriceKopecks: 3_000,
         mode: "one_time",
         name: "Руководство «Создание Platform Inside»",
@@ -291,19 +306,27 @@ describe("local development offer catalog", () => {
       },
     ]);
     // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
-    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(2);
+    await expect(testDatabase.prisma.billingProductPrice.count()).resolves.toBe(
+      1,
+    );
+    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(0);
     await expect(
       testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
   });
 
   test("leaves an offer the owner took off sale off the storefront", async () => {
     const seeded = await seededOffer();
     const unpublished = await owner.manage(ownerActor, {
-      expectedRevision: seeded.offer.revision,
-      id: seeded.offer.id,
-      operation: "offers.unpublish",
+      operation: "productPrices.save",
       operationId: randomUUID(),
+      expectedRevision: seeded.offer.revision,
+      value: {
+        productId,
+        name: seeded.offer.name,
+        priceKopecks: seeded.firstPriceKopecks,
+        published: false,
+      },
     });
     if (!unpublished.ok) throw new Error(unpublished.error.code);
     try {
@@ -314,21 +337,24 @@ describe("local development offer catalog", () => {
       ).not.toContain(seeded.offer.id);
     } finally {
       await owner.manage(ownerActor, {
-        expectedRevision: unpublished.value.revision,
-        id: seeded.offer.id,
-        operation: "offers.publish",
+        operation: "productPrices.save",
         operationId: randomUUID(),
+        expectedRevision: unpublished.value.revision,
+        value: {
+          productId,
+          name: seeded.offer.name,
+          priceKopecks: seeded.firstPriceKopecks,
+          published: true,
+        },
       });
     }
   });
 
-  test("restores a seeded offer left without a payment option", async () => {
+  test("restores a missing atomic Product price on the next seed", async () => {
     const seeded = await seededOffer();
-    // Прошлый запуск мог оборваться между созданием предложения и его варианта оплаты. Продавать
-    // в таком каталоге нечего, и сам по себе он не выправится: предложение уже есть, поэтому
-    // следующий запуск не может завести его заново.
-    await testDatabase.prisma.billingPaymentOption.delete({
-      where: { id: seeded.paymentOption.id },
+    // Следующий seed восстанавливает единственную атомарную цену Product после её удаления.
+    await testDatabase.prisma.billingProductPrice.delete({
+      where: { productId },
     });
     expect(
       (await forSale()).map((snapshot) => snapshot.offer.id),
@@ -341,23 +367,22 @@ describe("local development offer catalog", () => {
     );
     expect(restored?.paymentOption.id).toBe(seeded.paymentOption.id);
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
-    await expect(
-      testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(1);
+    await expect(testDatabase.prisma.billingProductPrice.count()).resolves.toBe(
+      1,
+    );
   });
 
   test("brings a changed price back to the seeded catalog on the next run", async () => {
     const seeded = await seededOffer();
     const repriced = await owner.manage(ownerActor, {
-      expectedRevision: seeded.paymentOption.revision,
-      operation: "paymentOptions.save",
+      operation: "productPrices.save",
       operationId: randomUUID(),
+      expectedRevision: seeded.offer.revision,
       value: {
-        id: seeded.paymentOption.id,
-        mode: seeded.paymentOption.mode,
-        months: seeded.paymentOption.months,
-        offerId: seeded.offer.id,
-        priceKopecks: 777_000,
+        productId,
+        name: seeded.offer.name,
+        priceKopecks: 777000,
+        published: true,
       },
     });
     expect(repriced.ok).toBe(true);
@@ -370,9 +395,9 @@ describe("local development offer catalog", () => {
       (snapshot) => snapshot.paymentOption.id === seeded.paymentOption.id,
     );
     expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
-    await expect(
-      testDatabase.prisma.billingPaymentOption.count(),
-    ).resolves.toBe(1);
+    await expect(testDatabase.prisma.billingProductPrice.count()).resolves.toBe(
+      1,
+    );
   });
 });
 

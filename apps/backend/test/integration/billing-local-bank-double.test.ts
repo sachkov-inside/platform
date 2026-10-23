@@ -24,7 +24,6 @@ test.each([
   async (outcome, state) => {
     const s = await world.scenario();
     const config = localTbankConfig({});
-    let payments: BillingPayments;
     const double = createLocalBankDouble({
       config,
       notify: async (_url, payload) => {
@@ -41,7 +40,7 @@ test.each([
         }),
       ),
     );
-    payments = new BillingPayments({
+    const payments = new BillingPayments({
       prisma: world.db.prisma,
       bank,
       contact: s.contact,
@@ -53,7 +52,7 @@ test.each([
       ),
     });
     const purchase = value(await payments.purchase(s.buyer, s.command));
-    if (!purchase.paymentUrl) throw new Error("Missing bank form");
+    if (purchase.paymentUrl === null) throw new Error("Missing bank form");
     expect(
       (
         await double.handle(

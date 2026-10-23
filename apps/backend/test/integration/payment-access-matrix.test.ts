@@ -502,7 +502,8 @@ describe("оплата, выдача прав и доступ к материа�
     const productId = input.benefits
       .find((c) => c.startsWith("product:"))
       ?.slice(8);
-    if (!productId) throw new Error("Expected Product price target");
+    if (productId === undefined)
+      throw new Error("Expected Product price target");
     const current = await db.prisma.billingProductPrice.findUnique({
       where: { productId },
     });

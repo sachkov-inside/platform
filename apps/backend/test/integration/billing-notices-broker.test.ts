@@ -283,7 +283,7 @@ test("подтверждённая оплата доходит до обоих �
       subject: "Оплата Inside подтверждена",
       email: "broker-proof@example.test",
     });
-    expect(sent[0]?.text).toContain("Материалы + сопровождение");
+    expect(sent[0]?.text).toContain("Материалы");
     expect(sent[0]?.text).toContain("Сумма: 3500.00 ₽.");
     // Событие покинуло outbox Billing только после подтверждения брокера, а команда Telegram
     // ждёт своего приложения в собственной очереди.
