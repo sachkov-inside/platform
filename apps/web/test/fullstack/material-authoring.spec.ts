@@ -20,7 +20,6 @@ import {
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { z } from "zod";
-import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 declare global {
   interface Window {
@@ -138,46 +137,14 @@ for (const access of ["public", "closed"] as const) {
     ).toBeVisible({ timeout: 15_000 });
 
     if (access === "closed") {
-      // The member's bridge already opens every product; this all-products tier keeps the scenario independent
-      // of the short bridge evidence lifetime. It does not prove the tier path on its own.
-      const tierId = crypto.randomUUID();
-      const saved = await fullStackBrowserJsonRequest(
-        page,
-        "/api/authoring/billing/offers/save",
-        "POST",
-        {
-          operationId: crypto.randomUUID(),
-          value: {
-            id: tierId,
-            name: `Media acceptance ${suffix}`,
-            benefits: ["materials"],
-            availableForAssignment: true,
-            coverage: {
-              productIds: [],
-              materialIds: [],
-              wholePlatform: true,
-            },
-          },
-        },
-      );
-      expect(await saved.json()).toMatchObject({ ok: true });
       const assigned = await fullStackBrowserJsonRequest(
         page,
-        "/api/authoring/billing/enrollments/assign",
+        "/api/authoring/access/products/issue",
         "POST",
         {
-          operationId: crypto.randomUUID(),
           accountId: recipientAccountId,
-          origin: "manual",
+          productId: "72000000-0000-4000-8000-000000000007",
           sourceRef: `media-proof-${suffix}`,
-          tierId,
-          tierRevision: 1,
-          terms: {
-            startsAt: await backendFixtureInstant(request),
-            endsAt: null,
-            endPolicy: "fixed",
-          },
-          billingRef: null,
           reason: "Synthetic scoped media acceptance",
         },
       );
