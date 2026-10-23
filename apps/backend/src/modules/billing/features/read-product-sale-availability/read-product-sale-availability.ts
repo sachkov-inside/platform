@@ -6,7 +6,6 @@ import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
-import { noPurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { selectPricesForOptions } from "../../shared/select-price.js";
 import type { ListOffersOptions } from "../list-offers/list-offers.js";
@@ -64,11 +63,8 @@ export async function readProductSaleAvailability(
         if (
           !price.ok ||
           !paymentAdmission({
-            context: "storefront",
             snapshot: price.value,
-            grounds: options.grounds ?? noPurchaseGrounds,
             sale: options.sale ?? { payments: false },
-            recurringAllowed: options.recurringAllowed ?? true,
           }).ok
         )
           continue;

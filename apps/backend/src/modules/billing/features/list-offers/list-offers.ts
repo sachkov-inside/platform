@@ -12,8 +12,6 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import type { SaleCapability } from "../../domain/sale-capability.js";
-import { type PurchaseGrounds } from "../../shared/offer-eligibility.js";
-import { paymentAdmission } from "../../shared/payment-admission.js";
 import { selectPricesForOptions } from "../../shared/select-price.js";
 
 export const listOffersSchema = z.strictObject({
@@ -32,13 +30,7 @@ export interface ListOffersOptions {
   readonly contentCatalog?: CoverageCatalog | undefined;
   /** Публичная витрина видит только предложения, включённые в продажу; владелец — весь непустой каталог. */
   readonly publishedOnly?: boolean;
-  /**
-   * Основания читателя витрины: Offer с ограничением допуска виден только допущенному Account.
-   * Владельческий каталог их не передаёт и видит всё.
-   */
-  readonly grounds?: PurchaseGrounds;
   readonly sale?: SaleCapability;
-  readonly recurringAllowed?: boolean;
 }
 export async function listOffers(
   prisma: BillingPrismaClient,
@@ -92,18 +84,7 @@ export async function listOffers(
         continue;
       const price = prices.get(row.productId);
       if (price === undefined) continue;
-      if (
-        price.ok &&
-        (options.grounds === undefined ||
-          paymentAdmission({
-            context: "storefront",
-            snapshot: price.value,
-            grounds: options.grounds,
-            sale: options.sale ?? { payments: false },
-            recurringAllowed: options.recurringAllowed ?? true,
-          }).ok)
-      )
-        items.push(price.value);
+      if (price.ok) items.push(price.value);
     }
     return {
       ok: true,

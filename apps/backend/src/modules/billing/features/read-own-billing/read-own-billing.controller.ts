@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, UseFilters } from "@nestjs/common";
+import { Controller, Get, Inject, UseFilters, UseGuards } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -8,6 +8,7 @@ import {
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
 import {
+  AccountGuard,
   AccountProblemDetailsFilter,
   ApiAccountErrors,
   CurrentAccount,
@@ -24,6 +25,7 @@ import { readOwnBilling, ownBillingSchema } from "./read-own-billing.js";
 @ApiTags("Billing")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
+@UseGuards(AccountGuard)
 @UseFilters(AccountProblemDetailsFilter)
 @ApiAccountErrors(400, 401, 403, 500)
 @Controller("accounts/current/billing")

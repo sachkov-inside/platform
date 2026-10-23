@@ -47,10 +47,7 @@ export const productAccessChangeResultSchema = z.strictObject({
 });
 export const productRevocationResultSchema = z.strictObject({
   ok: z.literal(true),
-  value: productRevocationTargetSchema.extend({
-    revision: z.int().positive(),
-    access: z.literal("revoked"),
-  }),
+  value: productAccessViewSchema.extend({ access: z.literal("revoked") }),
 });
 
 export async function previewProductRevocation(
