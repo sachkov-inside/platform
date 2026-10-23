@@ -197,6 +197,7 @@ export class AccessService {
     value: {
       access: 'revoked';
       accountId: string;
+      firstIssuedAt: string;
       productId: string;
       revision: number;
     };

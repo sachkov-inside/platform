@@ -64,7 +64,6 @@ const ownPaymentHistoryLimit = 50;
 // Derived from the bank's own timeout, so a caller outlives exactly one honest round-trip.
 const inFlightAnswerBudgetMilliseconds = bankTimeoutMs + 2_000;
 const inFlightAnswerPollMilliseconds = 200;
-// Первая покупка сохраняет привязку, повышение инициирует покупатель, продление — merchant recurring.
 // Разовая покупка не просит банк сохранять привязку: инициатор без card-on-file.
 
 interface Dependencies {
@@ -119,9 +118,7 @@ export class BillingPayments {
         return fingerprint.recognizes(replay.fingerprint)
           ? await this.continuePurchase(accountId, replay.purchaseRef)
           : paymentFailure("operation_conflict");
-      // Режим приходит из сохранённого расчёта: он решает, нужно ли согласие на списания и
-      // появляется ли вообще подписка. Пропавший расчёт отсекается здесь тем же ответом,
-      // что и в резерве цены.
+      // Only one-time Product quotes admit a new purchase; historical recurring snapshots stay passive.
       const quote = await this.dependencies.prisma.billingPriceQuote.findFirst({
         where: { id: command.quoteRef, accountId },
       });
@@ -129,7 +126,6 @@ export class BillingPayments {
       const snapshot = priceSnapshotSchema.parse(quote.snapshot);
       const mode = paymentMode(snapshot.paymentOption);
       if (mode !== "one_time") return paymentFailure("method_unavailable");
-      const recurring = false;
       const [contact, initialCapabilities] = await Promise.all([
         this.dependencies.contact.read(accountId),
         this.dependencies.grants.resolveCapabilities(accountId),
@@ -147,11 +143,8 @@ export class BillingPayments {
       let capabilities = initialCapabilities.capabilities;
       let settledPurchaseRef: string | undefined;
       const admission = paymentAdmission({
-        context: "purchase",
         snapshot,
         sale: this.sale,
-        grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
-        recurringAllowed: false,
       });
       if (!admission.ok) return paymentFailure(admission.error.code);
       const orderEmail = receiptEmail ?? command.email;
@@ -179,7 +172,7 @@ export class BillingPayments {
       const evidence = consents.flatMap((result) =>
         result.ok ? [result.evidence] : [],
       );
-      const requiredConsents = recurring ? ["terms", "recurring"] : ["terms"];
+      const requiredConsents = ["terms"];
       if (
         new Set(evidence.map((value) => value.document.kind)).size !==
           evidence.length ||
@@ -195,8 +188,7 @@ export class BillingPayments {
             ),
         ) ||
         // Разовая покупка не принимает согласие на списания даже добровольно: списаний не будет.
-        (!recurring &&
-          evidence.some((value) => value.document.kind === "recurring")) ||
+        evidence.some((value) => value.document.kind === "recurring") ||
         !requiredConsents.every((kind) =>
           evidence.some((value) => value.document.kind === kind),
         )
@@ -247,7 +239,7 @@ export class BillingPayments {
               },
               orderBy: { createdAt: "desc" },
             });
-            if (continuingPurchase === null && !recurring) {
+            if (continuingPurchase === null) {
               const confirmed = await tx.billingPurchase.findFirst({
                 where: {
                   accountId,
@@ -320,11 +312,8 @@ export class BillingPayments {
               );
             // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
             const admission = paymentAdmission({
-              context: "purchase",
               snapshot: reservation.value,
               sale: this.sale,
-              grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
-              recurringAllowed: false,
             });
             if (!admission.ok) {
               await tx.billingPromoReservation.delete({
@@ -1212,15 +1201,13 @@ export class BillingPayments {
           const paidAt = now;
           const eventRef = randomUUID();
           const snapshot = priceSnapshotSchema.parse(row.snapshot);
-          const period = { startsAt: paidAt, subscriptionRef: null };
-          const paidUntil = null;
           await tx.billingPurchase.update({
             where: { id: row.id },
             data: {
               ...common,
               state: "confirmed",
               confirmedAt: paidAt,
-              periodEndsAt: paidUntil,
+              periodEndsAt: null,
               paymentUrl: null,
             },
           });
@@ -1238,7 +1225,7 @@ export class BillingPayments {
                 accountId: row.accountId,
                 amountKopecks: payment.Amount,
                 periodRef: row.id,
-                startsAt: period.startsAt.toISOString(),
+                startsAt: paidAt.toISOString(),
                 endsAt: null,
                 snapshot,
               },
@@ -1253,12 +1240,6 @@ export class BillingPayments {
               kind: "payment_succeeded",
               accountId: row.accountId,
               sourceRef: attemptSourceRef(row.id),
-              ...(period.subscriptionRef === null || paidUntil === null
-                ? {}
-                : {
-                    subscriptionRef: period.subscriptionRef,
-                    dueAt: paidUntil,
-                  }),
               attemptRef: row.id,
               title: snapshot.offer.name,
               amountKopecks: payment.Amount,
