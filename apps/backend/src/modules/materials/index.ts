@@ -41,7 +41,7 @@ export {
   type ContentCoverOwner,
   type ContentCoverProjection,
 } from "./facets/content-covers/content-covers.js";
-export { assembleMaterials, type Materials } from "./assemble-materials.js";
+
 export {
   contentCoverProjectionHttpSchema,
   publishedMaterialProblemHttpSchema,

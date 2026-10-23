@@ -5,7 +5,7 @@ import {
   ProductCoverSelection,
 } from "../../src/modules/products/index.js";
 import { transactionHandle } from "../../src/infrastructure/prisma/transaction-handle.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,

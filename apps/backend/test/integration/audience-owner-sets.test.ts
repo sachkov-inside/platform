@@ -1,3 +1,4 @@
+import { ProductCatalogue } from "../../src/modules/products/index.js";
 import {
   afterAll,
   beforeAll,
@@ -309,6 +310,7 @@ describe("authorizes 25 Accounts for one Material using shared resource and scop
         materialResourceFacts: assembleMaterialResourceFacts(
           assembleMaterialContent({
             prisma: observer.prisma,
+            productCatalogue: new ProductCatalogue(observer.prisma),
             materialBodyOperations,
           }),
         ),
@@ -532,6 +534,7 @@ describe("25-recipient Material expansion owner cost", () => {
       materialResourceFacts: assembleMaterialResourceFacts(
         assembleMaterialContent({
           prisma: observer.prisma,
+          productCatalogue: new ProductCatalogue(observer.prisma),
           materialBodyOperations,
         }),
       ),
@@ -1047,6 +1050,7 @@ describe("Account-set empty, missing and unavailable contracts", () => {
       materialResourceFacts: assembleMaterialResourceFacts(
         assembleMaterialContent({
           prisma: observer.prisma,
+          productCatalogue: new ProductCatalogue(observer.prisma),
           materialBodyOperations,
         }),
       ),

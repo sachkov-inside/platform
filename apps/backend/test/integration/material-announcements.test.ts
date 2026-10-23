@@ -8,10 +8,8 @@ import {
   lanes,
   MATERIAL_EVENT_LIFETIME_MS,
 } from "../../src/infrastructure/notification-transport/wire.js";
-import {
-  assembleMaterials,
-  MaterialAnnouncements,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { MaterialAnnouncements } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
   createMigratedTestDatabase,

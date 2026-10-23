@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   createMigratedTestDatabase,

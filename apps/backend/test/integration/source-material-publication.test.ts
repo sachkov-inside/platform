@@ -8,7 +8,7 @@ import type {
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,

@@ -1,3 +1,4 @@
+import { ProductDiscovery, ProductsModule } from "../products/index.js";
 import {
   PRODUCT_ACCESS_HOLDERS,
   type ProductAccessHolders,
@@ -85,6 +86,7 @@ import {
 @Module({
   imports: [
     PrismaModule,
+    ProductsModule,
     ObjectStorageModule,
     AccountsModule,
     AssetsModule,
@@ -232,6 +234,7 @@ import {
       provide: PUBLISHED_MATERIAL_READER,
       inject: [
         PrismaClientProvider,
+        ProductDiscovery,
         CONTENT_ACCESS,
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
@@ -240,6 +243,7 @@ import {
       ],
       useFactory: (
         prisma: PrismaClientProvider,
+        products: ProductDiscovery,
         contentAccess: ContentAccess,
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
@@ -248,6 +252,7 @@ import {
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
+          products,
           contentAccess,
           materialContent,
           materialBodyOperations,

@@ -1,3 +1,8 @@
+import {
+  ProductCatalogue,
+  ProductDiscovery,
+  ProductsModule,
+} from "../products/index.js";
 import { PublicMaterialAnnouncements } from "./facets/public-material-announcements/public-material-announcements.js";
 import { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
 import { ProductDirectory } from "./features/read-product-directory/read-product-directory.js";
@@ -19,7 +24,7 @@ import {
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, ProductsModule],
   providers: [
     {
       provide: PublicMaterialAnnouncements,
@@ -34,9 +39,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
     },
     {
       provide: PublishedMaterialSelection,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new PublishedMaterialSelection(prisma),
+      inject: [PrismaClientProvider, ProductDiscovery],
+      useFactory: (prisma: PrismaClientProvider, products: ProductDiscovery) =>
+        new PublishedMaterialSelection({ prisma, products }),
     },
     {
       provide: PublishedSeriesComposition,
@@ -63,9 +68,16 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
     },
     {
       provide: MATERIAL_CONTENT,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider): MaterialContent =>
-        assembleMaterialContent({ prisma, materialBodyOperations }),
+      inject: [PrismaClientProvider, ProductCatalogue],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        productCatalogue: ProductCatalogue,
+      ): MaterialContent =>
+        assembleMaterialContent({
+          prisma,
+          productCatalogue,
+          materialBodyOperations,
+        }),
     },
   ],
   exports: [

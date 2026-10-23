@@ -20,9 +20,9 @@ import {
   type LearningTasks,
 } from "../../src/modules/product-tasks/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   ProductDirectory,
 } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";

@@ -151,6 +151,12 @@ function referencesFromSql(sqlText) {
   return [...sqlText.matchAll(sqlTableReference)].flatMap((match) => {
     if (match[1] === undefined) return [];
     const reference = normalizeSqlIdentifier(match[1]);
+    // PostgreSQL recordset expansion consumes query-local JSON values, not a table.
+    if (
+      reference === "jsonb_to_recordset" &&
+      /^\s*\(/u.test(sqlText.slice(match.index + match[0].length))
+    )
+      return [];
     const visibleCte = ctes.some(
       (cte) =>
         cte.name === reference &&

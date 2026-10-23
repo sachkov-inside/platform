@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
 import { createQueryEventClient } from "./setup/query-events.js";
 

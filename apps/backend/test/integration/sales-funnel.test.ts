@@ -21,10 +21,8 @@ import {
   BillingProductSales,
   BillingSurveyRespondentSales,
 } from "../../src/modules/billing/index.js";
-import {
-  assembleMaterials,
-  ProductOutlines,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { ProductOutlines } from "../../src/modules/materials/index.js";
 import { MaterialFirstOpens } from "../../src/modules/reading-activity/index.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/facets/sales-funnel/sales-funnel.js";
 import { RecordBotEventsController } from "../../src/modules/sales-funnel/features/record-bot-events/record-bot-events.controller.js";

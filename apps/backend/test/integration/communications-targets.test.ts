@@ -7,7 +7,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 
 describe("communications promised public targets against Materials PostgreSQL", () => {
   let database: TestDatabase;

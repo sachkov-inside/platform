@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
@@ -8,9 +9,9 @@ import {
 } from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleMaterialResourceFacts,
-  assembleMaterials,
   PublishedMaterialSelection,
 } from "../../src/modules/materials/index.js";
 import { Bookmarks } from "../../src/modules/bookmarks/index.js";
@@ -78,7 +79,10 @@ describe("Bookmarks on PostgreSQL", () => {
         },
         accountRights: membership,
       }),
-      selection: new PublishedMaterialSelection(prisma),
+      selection: new PublishedMaterialSelection({
+        prisma: prisma,
+        products: new ProductDiscovery(prisma),
+      }),
       videos: {
         loadReadyDurations: () =>
           Promise.resolve({ ok: true as const, value: [] }),

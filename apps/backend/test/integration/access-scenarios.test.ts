@@ -35,11 +35,11 @@ import {
   type Resource,
 } from "../../src/modules/content-access/index.js";
 import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
   assembleMaterialResourceFacts,
-  assembleMaterials,
   materialId as checkedMaterialId,
   type MaterialId,
 } from "../../src/modules/materials/index.js";

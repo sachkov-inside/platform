@@ -3,7 +3,7 @@ import { z } from "zod";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { declaredServer } from "../support/declared-api.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { listPublicSiteIndex } from "../../src/modules/content-library/features/list-public-site-index/list-public-site-index.js";
 import { createQueryEventClient } from "./setup/query-events.js";

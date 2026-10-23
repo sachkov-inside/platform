@@ -1,23 +1,27 @@
-import type { MaterialsPrismaClient } from "../../infrastructure/prisma/index.js";
-import type { MaterialAssets } from "../assets/index.js";
+import {
+  ProductCatalogue,
+  ProductDiscovery,
+} from "../../modules/products/index.js";
+import type { PlatformPrisma } from "../../infrastructure/prisma/index.js";
+import type { MaterialAssets } from "../../modules/assets/index.js";
 import {
   assembleContentAccess,
   assembleDeterministicAccountRights,
   type ContentAccess,
-} from "../content-access/index.js";
-import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
-import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
-import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
+} from "../../modules/content-access/index.js";
+import { assembleMaterialResourceFacts } from "../../modules/materials/adapters/content-access/material-resource-facts.js";
+import { assembleMaterialAuthoring } from "../../modules/materials/facets/material-authoring/assemble-material-authoring.js";
+import type { MaterialAuthoring } from "../../modules/materials/facets/material-authoring/material-authoring.js";
 import {
   assembleMaterialContent,
   type MaterialContent,
-} from "./facets/material-content/material-content.js";
-import { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
-import type { PublishedMaterialReader } from "./facets/published-material-reader/published-material-reader.js";
-import type { AuthorPolicy } from "./ports/author-policy.js";
-import type { ProductAccessHolders } from "./ports/product-access-holders.js";
-import type { Videos } from "../videos/index.js";
-import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
+} from "../../modules/materials/facets/material-content/material-content.js";
+import { assemblePublishedMaterialReader } from "../../modules/materials/facets/published-material-reader/assemble-published-material-reader.js";
+import type { PublishedMaterialReader } from "../../modules/materials/facets/published-material-reader/published-material-reader.js";
+import type { AuthorPolicy } from "../../modules/materials/ports/author-policy.js";
+import type { ProductAccessHolders } from "../../modules/materials/ports/product-access-holders.js";
+import type { Videos } from "../../modules/videos/index.js";
+import { materialBodyOperations } from "../../modules/materials/infrastructure/tiptap/index.js";
 
 export interface Materials {
   readonly authoring: MaterialAuthoring;
@@ -27,7 +31,7 @@ export interface Materials {
 }
 
 export function assembleMaterials(dependencies: {
-  readonly prisma: MaterialsPrismaClient;
+  readonly prisma: PlatformPrisma;
   readonly authorPolicy: AuthorPolicy;
   readonly contentAccess?: ContentAccess;
   readonly materialAssets?: Pick<
@@ -47,6 +51,7 @@ export function assembleMaterials(dependencies: {
   const materialContent = assembleMaterialContent({
     prisma: dependencies.prisma,
     materialBodyOperations,
+    productCatalogue: new ProductCatalogue(dependencies.prisma),
   });
   const contentAccess =
     dependencies.contentAccess ??
@@ -79,6 +84,7 @@ export function assembleMaterials(dependencies: {
     materialContent,
     publishedMaterialReader: assemblePublishedMaterialReader({
       prisma: dependencies.prisma,
+      products: new ProductDiscovery(dependencies.prisma),
       contentAccess,
       materialContent,
       materialBodyOperations,

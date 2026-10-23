@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { createLearningStartedRead } from "../../src/modules/reading-activity/shared/learning-started.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { afterAll, beforeAll, expect, test, vi } from "vitest";
@@ -10,8 +11,8 @@ import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
 } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   PublishedMaterialSelection,
   PublishedSeriesComposition,
@@ -127,7 +128,10 @@ async function prepare() {
     videos,
     contentAccess,
   });
-  const selectionOwner = new PublishedMaterialSelection(observer.prisma);
+  const selectionOwner = new PublishedMaterialSelection({
+    prisma: observer.prisma,
+    products: new ProductDiscovery(observer.prisma),
+  });
   const selectionRead = vi.fn(selectionOwner.read.bind(selectionOwner));
   const compositionOwner = new PublishedSeriesComposition(observer.prisma);
   const compositionRead = vi.fn(compositionOwner.read.bind(compositionOwner));

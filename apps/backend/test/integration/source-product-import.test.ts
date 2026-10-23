@@ -4,10 +4,10 @@ import sharp from "sharp";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleContentCovers,
   assembleProductArtifacts,
-  assembleMaterials,
 } from "../../src/modules/materials/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { readHomeContent } from "../../src/modules/content-library/features/read-home-content/read-home-content.js";

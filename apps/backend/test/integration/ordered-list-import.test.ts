@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { renderedMaterialBodySchema } from "@inside/material-blocks";
 
 import { convertMarkdown } from "../../../../tools/authoring/markdown.mjs";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { materialBodyOperations } from "../../src/modules/materials/infrastructure/tiptap/index.js";
 import {
   createMigratedTestDatabase,

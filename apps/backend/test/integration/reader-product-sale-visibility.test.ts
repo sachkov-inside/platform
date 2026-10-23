@@ -13,8 +13,8 @@ import {
   assembleCurrentAccountPermissions,
   anonymousSubject,
 } from "../../src/modules/content-access/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   ProductDirectory,
   PublishedSeriesComposition,

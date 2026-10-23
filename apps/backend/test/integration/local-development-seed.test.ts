@@ -23,9 +23,11 @@ import { BillingPricing } from "../../src/modules/billing/index.js";
 import { emptyCatalogVideos } from "../support/catalog-videos.js";
 import {
   assembleMaterials,
+  type Materials,
+} from "../../src/entrypoints/composition/assemble-materials.js";
+import {
   type MaterialMetadataDto,
   type MaterialMetadataSelectionInput,
-  type Materials,
 } from "../../src/modules/materials/index.js";
 import {
   createMigratedTestDatabase,

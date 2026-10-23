@@ -9,3 +9,4 @@ export {
   loadMaterialProductAccessFacts,
   type ProductComposition,
 } from "./facets/product-compositions/product-compositions.js";
+export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";

@@ -4,8 +4,8 @@ import { assembleLearningTasks } from "../../src/modules/product-tasks/index.js"
 import { assembleProductTaskResourceFacts } from "../../src/modules/product-tasks/adapters/content-access/product-task-resource-facts.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
-  assembleMaterials,
   assembleMaterialResourceFacts,
   ProductDirectory,
 } from "../../src/modules/materials/index.js";

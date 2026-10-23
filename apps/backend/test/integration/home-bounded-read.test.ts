@@ -4,10 +4,8 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { PrismaClient } from "../../src/infrastructure/prisma/generated/client.js";
 import { createPrismaPgAdapter } from "../../src/infrastructure/prisma/prisma-adapter.js";
 import type { Prisma } from "../../src/infrastructure/prisma/index.js";
-import {
-  assembleMaterials,
-  assembleMaterialResourceFacts,
-} from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.js";
 import type {
   ListPublishedMaterialsQuery,

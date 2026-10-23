@@ -28,12 +28,12 @@ import {
   assembleAccountRights,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import {
   assembleProductArtifactDelivery,
   assembleProductArtifactResourceFacts,
   assembleProductArtifacts,
   assembleMaterialResourceFacts,
-  assembleMaterials,
   type ProductArtifactDelivery,
   type ProductArtifacts,
 } from "../../src/modules/materials/index.js";

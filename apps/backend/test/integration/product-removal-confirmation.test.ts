@@ -9,7 +9,7 @@ import {
   assembleAccessGrants,
   type AccessCapability,
 } from "../../src/modules/account-rights/index.js";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import {

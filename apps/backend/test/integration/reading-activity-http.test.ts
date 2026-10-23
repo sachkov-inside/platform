@@ -1,7 +1,7 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { createServer, type Server } from "node:http";
 
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
