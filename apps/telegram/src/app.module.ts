@@ -327,16 +327,10 @@ export class AppModule {
                         applicationConfig.communityRemovalsEnabled,
                     }
                   : {}),
-                ...(hasText(applicationConfig.communityTributeBotTelegramUserId)
-                  ? {
-                      tributeBotTelegramUserId:
-                        applicationConfig.communityTributeBotTelegramUserId,
-                      readmission: {
-                        replies,
-                        text: applicationConfig.communityTexts.readmission,
-                      },
-                    }
-                  : {}),
+                readmission: {
+                  replies,
+                  text: applicationConfig.communityTexts.readmission,
+                },
                 welcome: {
                   replies,
                   text: applicationConfig.communityTexts.welcome,

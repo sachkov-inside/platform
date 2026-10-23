@@ -87,7 +87,7 @@ Git; зашифруйте файлы для host и отдельного recover
 | Communications API | `PLATFORM_COMMUNICATIONS_SECRET` | отдельный секрет; без него API отвечает 401 | `TELEGRAM_COMMUNICATIONS_SECRET`; `TELEGRAM_COMMUNICATIONS_ENDPOINT=https://<telegram>/integrations/platform/v1/communications` |
 | Membership Evidence | `TELEGRAM_MEMBERSHIP_MODE`, `TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS`, `TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS`, `PLATFORM_EVIDENCE_DELIVERY_MODE`, `PLATFORM_EVIDENCE_DELIVERY_URL`, `PLATFORM_EVIDENCE_DELIVERY_SECRET` | `live`, `240000`, `90`, `live`, `https://<platform>/integrations/telegram/v1/membership-evidence` | `TELEGRAM_EVIDENCE_INGRESS_SECRET` |
 | Вход через бота | `TELEGRAM_SIGN_IN_ENABLED`, `TELEGRAM_SIGN_IN_INTEGRATION_SECRET`, `TELEGRAM_SIGN_IN_RETURN_URL` | `false` до готовности Logto и Platform; optional публичный URL сайта для «Открыть Inside» после успеха | `TELEGRAM_SIGN_IN_INTEGRATION_SECRET` |
-| Сообщество v2 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION`, `TELEGRAM_COMMUNITY_MODE`, `TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS`, `TELEGRAM_COMMUNITY_REMOVALS_ENABLED`, `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID` | `inside.community-entitlement.v2`, `live`, `60000`, `true` (решение владельца 04.10.2026), id бота Tribute | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2` |
+| Сообщество v2 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION`, `TELEGRAM_COMMUNITY_MODE`, `TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS`, `TELEGRAM_COMMUNITY_REMOVALS_ENABLED` | `inside.community-entitlement.v2`, `live`, `60000`, `true` (решение владельца 04.10.2026) | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2` |
 | Сообщество: входящие команды | `PLATFORM_COMMUNITY_INTEGRATION_SECRET` | секрет | `TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET`, `TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT=https://<telegram>/integrations/platform/v1/community-entitlements` |
 | Сообщество: разрешение эффекта | `PLATFORM_COMMUNITY_DISPATCH_URL`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` | `https://<platform>/internal/billing-dispatch/authorize` | `TELEGRAM_COMMUNITY_DISPATCH_SECRET` |
 | Сообщество: дата старта в приветствии | `PLATFORM_COHORTS_URL`, `PLATFORM_COHORT_PRODUCT_ID` ([приветствие](../integrations/community-entitlements-v1.md)) | `https://<platform>/billing/cohorts`; UUID продукта курса в каталоге Platform. Без обеих — приветствие без даты | — (публичное чтение без секрета) |
@@ -108,7 +108,7 @@ Git; зашифруйте файлы для host и отдельного recover
 - только одна из `PLATFORM_COHORTS_URL` и `PLATFORM_COHORT_PRODUCT_ID`, или `PLATFORM_COHORT_PRODUCT_ID`
   не UUID;
 - неполный набор из трёх текстов согласия `TELEGRAM_MARKETING_CONSENT_*`;
-- `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`, совпадающий с id самого бота или не числовой;
+- непустой `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`: live Tribute recognition удалено;
 - один и тот же секрет в двух направлениях: ошибка называет обе переменные;
 - флаг, отличный от `true`/`false`: ошибка называет переменную.
 
@@ -238,12 +238,12 @@ Membership Evidence.
 **Бот Inside в группах-источниках курса** — administrator без дополнительных прав. Он только читает
 членство (`getChatMember`) и ничего в этих группах не меняет.
 
-**Бот Tribute** остаётся в общей группе с прежними правами до переноса участников
-([#150](https://github.com/sachkov-inside/workspace/issues/150)). Кто кого исключает и что делает бот
-Inside после исключения, описано в [схеме двух ботов](course-activation.md#два-бота-в-общей-группе).
-Числовой id бота Tribute владелец берёт из списка администраторов группы и записывает в
-`TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`. Без него каждое исключение ботом Tribute считается неизвестным,
-и участник с правом Platform остаётся вне группы до решения владельца.
+**Live Tribute recognition удалено.** Не задавайте
+`TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`: непустое значение останавливает запуск.
+Новые удаления внешним ботом получают `external_unknown`; подтверждённые исторические
+причины и безопасное возвращение сохранены в
+[правилах восстановления](course-activation.md#два-бота-в-общей-группе).
+Изменение состава администраторов боевой группы остаётся действием владельца.
 
 Права проверяются через `getMe`, `getChat` и `getChatMember` для самого бота. Изменение прав в боевой
 группе — действие владельца.
@@ -675,7 +675,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 порядок исключает эффекты до их готовности.
 
 1. **Подготовка.** Версии Telegram и Platform (`vN`, SHA и образ по digest из их release manifest),
-   сгенерированные секреты для каждой пары из таблицы, id бота Tribute, реестр групп курса.
+   сгенерированные секреты для каждой пары из таблицы, реестр групп курса.
    [Разовая установка](#разовая-установка) Telegram выполнена. Telegram migrations этого выпуска —
    `016-notifications` … `030-invitation-redemptions`.
 2. **Community mutations на паузе.** В новом `application.env` сначала:
@@ -702,7 +702,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 8. **Привязка и Evidence.** Владелец выполняет `/start` и привязку из Platform session.
 9. **Сообщество.** Telegram: `TELEGRAM_COMMUNITY_MODE=live` вместе с
    `TELEGRAM_COMMUNITY_REMOVALS_ENABLED=true`, оба community secret, dispatch URL,
-   `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`, рестарт `app`. Удаления включены по решению владельца
+   без удалённой `TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID`, рестарт `app`. Удаления включены по решению владельца
    04.10.2026 (спецификация [platform#907](https://github.com/sachkov-inside/platform/issues/907)):
    Platform присылает `denied` в момент окончания доступа, без запаса, и бот исключает человека из
    общей группы. Прежний запрет удалений больше не действует. Затем Platform: три community settings и явный
@@ -737,7 +737,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 Удаления останавливает отдельно `TELEGRAM_COMMUNITY_REMOVALS_ENABLED=false` с рестартом `app`.
 Данные, receipts и выданные права сохраняются. Версия v1 и downgrade migrations не используются.
 
-Только на production проверяются: права ботов в боевой группе, id бота Tribute, доставка Bot API/webhook,
+Только на production проверяются: права ботов в боевой группе, доставка Bot API/webhook,
 TLS и ACL брокера, настоящие сообщения и вступление.
 
 ## Проверка и восстановление
