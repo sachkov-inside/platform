@@ -103,14 +103,37 @@ describe("backend process composition", () => {
   });
 
   it("loads and validates the process environment through Nest composition", async () => {
-    const api = await createApiApplication(undefined, { logger: false });
+    const api = await createApiApplication(undefined, {
+      logger: false,
+      abortOnError: false,
+    });
     application = api;
 
     expect(api.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
   });
 
+  it("assembles ContentAccess above the content owners", async () => {
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
+    application = api;
+    const modules = api.get(ModulesContainer);
+    const owners = [...modules.values()].filter((module) =>
+      [...module.providers.keys()].some(
+        (token) => String(token) === "Symbol(CONTENT_ACCESS)",
+      ),
+    );
+    expect(owners.map((module) => module.metatype.name)).toEqual([
+      "ContentAccessCompositionModule",
+    ]);
+  });
+
   it("binds one immutable config and one Prisma lifecycle in the API", async () => {
-    const api = await createApiApplication(config, { logger: false });
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = api;
 
     expect(api.get(PLATFORM_CONFIG)).toBe(config);
@@ -128,7 +151,10 @@ describe("backend process composition", () => {
   });
 
   it("gives billing and community one access grant provider", async () => {
-    const api = await createApiApplication(config, { logger: false });
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = api;
 
     expect(accessGrantFacets(api)).toHaveLength(1);
@@ -137,7 +163,10 @@ describe("backend process composition", () => {
   });
 
   it("registers Materials controllers with Materials, only in the API", async () => {
-    const api = await createApiApplication(config, { logger: false });
+    const api = await createApiApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     const apiControllers = registeredControllers(api);
     await api.close();
     const materialsControllers =
@@ -157,7 +186,10 @@ describe("backend process composition", () => {
         ?.filter((name) => materialsControllers.includes(name)),
     ).toEqual([]);
 
-    const mcp = await createMcpApplication(config, { logger: false });
+    const mcp = await createMcpApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = mcp;
     const mcpControllers = [...registeredControllers(mcp).values()].flat();
     expect(
@@ -166,7 +198,10 @@ describe("backend process composition", () => {
   });
 
   it("uses the same required bindings for the MCP context", async () => {
-    const mcp = await createMcpApplication(config, { logger: false });
+    const mcp = await createMcpApplication(config, {
+      logger: false,
+      abortOnError: false,
+    });
     application = mcp;
 
     expect(mcp.get(PLATFORM_CONFIG)).toBe(config);
@@ -187,7 +222,7 @@ describe("backend process composition", () => {
   it("binds the Billing worker to readiness and its access consumers", async () => {
     application = await NestFactory.createApplicationContext(
       BillingWorkerModule.forRoot(config),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
@@ -214,7 +249,7 @@ describe("backend process composition", () => {
   it("loads and validates worker config through Nest composition", async () => {
     application = await NestFactory.createApplicationContext(
       MaterialAssetsWorkerModule.forRoot(),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toEqual(config);
@@ -223,7 +258,7 @@ describe("backend process composition", () => {
   it("binds the Avatar maintenance worker to the same typed config", async () => {
     application = await NestFactory.createApplicationContext(
       ProfileAvatarsWorkerModule.forRoot(config),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
@@ -233,7 +268,7 @@ describe("backend process composition", () => {
   it("binds the Video deletion worker to stored provider configuration", async () => {
     application = await NestFactory.createApplicationContext(
       VideoDeletionsWorkerModule.forRoot(config),
-      { logger: false },
+      { logger: false, abortOnError: false },
     );
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);

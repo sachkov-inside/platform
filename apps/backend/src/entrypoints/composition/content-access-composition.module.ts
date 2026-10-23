@@ -1,0 +1,103 @@
+import { Global, Module } from "@nestjs/common";
+import {
+  ACCOUNTS,
+  AccountsModule,
+  type Accounts,
+} from "../../modules/accounts/index.js";
+import {
+  ACCESS_GRANTS,
+  ACCOUNT_RIGHTS,
+  AccountRightsModule,
+  type AccountRights,
+} from "../../modules/account-rights/index.js";
+import { BillingModule, BillingPricing } from "../../modules/billing/index.js";
+import {
+  MATERIAL_ASSETS,
+  AssetsModule,
+  type MaterialAssets,
+} from "../../modules/assets/index.js";
+import {
+  VIDEOS,
+  VideosModule,
+  type Videos,
+} from "../../modules/videos/index.js";
+import {
+  assembleContentAccess,
+  assembleCurrentAccountPermissions,
+  CONTENT_ACCESS,
+  PRODUCT_TASK_RESOURCE_FACTS,
+  type ContentAccess,
+  type ProductTaskResourceFactsAdapter,
+} from "../../modules/content-access/index.js";
+import { ProductTaskResourceFactsModule } from "../../modules/product-tasks/index.js";
+import {
+  MaterialsModule,
+  MaterialContentModule,
+  MATERIAL_CONTENT,
+  PRODUCT_ARTIFACTS,
+  PRODUCT_ACCESS_HOLDERS,
+  PRODUCT_SALE_AVAILABILITY,
+  assembleAssetResourceFacts,
+  assembleVideoResourceFacts,
+  assembleMaterialResourceFacts,
+  assembleProductArtifactResourceFacts,
+  type MaterialContent,
+  type ProductArtifacts,
+} from "../../modules/materials/index.js";
+
+/** Process composition owns access policy wiring above the independent content owners. */
+@Global()
+@Module({
+  imports: [
+    AccountsModule,
+    AccountRightsModule,
+    BillingModule,
+    AssetsModule,
+    VideosModule,
+    MaterialsModule,
+    MaterialContentModule,
+    ProductTaskResourceFactsModule,
+  ],
+  providers: [
+    { provide: PRODUCT_ACCESS_HOLDERS, useExisting: ACCESS_GRANTS },
+    {
+      provide: PRODUCT_SALE_AVAILABILITY,
+      inject: [BillingPricing],
+      useFactory: (pricing: BillingPricing) => (accountId?: string) =>
+        pricing.hasOffersForSale(accountId),
+    },
+    {
+      provide: CONTENT_ACCESS,
+      inject: [
+        MATERIAL_CONTENT,
+        MATERIAL_ASSETS,
+        PRODUCT_ARTIFACTS,
+        VIDEOS,
+        ACCOUNTS,
+        ACCOUNT_RIGHTS,
+        PRODUCT_TASK_RESOURCE_FACTS,
+      ],
+      useFactory: (
+        materialContent: MaterialContent,
+        materialAssets: MaterialAssets,
+        productArtifacts: ProductArtifacts,
+        videos: Videos,
+        accounts: Accounts,
+        accountRights: AccountRights,
+        productTaskResourceFacts: ProductTaskResourceFactsAdapter,
+      ): ContentAccess =>
+        assembleContentAccess({
+          assetResourceFacts: assembleAssetResourceFacts(materialAssets),
+          productArtifactResourceFacts:
+            assembleProductArtifactResourceFacts(productArtifacts),
+          productTaskResourceFacts,
+          videoResourceFacts: assembleVideoResourceFacts(videos),
+          materialResourceFacts: assembleMaterialResourceFacts(materialContent),
+          accountPermissions: assembleCurrentAccountPermissions(accounts),
+          accountRights,
+        }),
+    },
+  ],
+  exports: [CONTENT_ACCESS, PRODUCT_ACCESS_HOLDERS, PRODUCT_SALE_AVAILABILITY],
+})
+export class ContentAccessCompositionModule {}

@@ -1,3 +1,8 @@
+import {
+  PRODUCT_ACCESS_HOLDERS,
+  type ProductAccessHolders,
+} from "./ports/product-access-holders.js";
+import { PRODUCT_SALE_AVAILABILITY } from "./ports/product-sale-availability.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -15,20 +20,10 @@ import {
   type Accounts,
 } from "../accounts/index.js";
 import {
-  assembleContentAccess,
   assembleCurrentAccountPermissions,
   CONTENT_ACCESS,
-  PRODUCT_TASK_RESOURCE_FACTS,
   type ContentAccess,
-  type ProductTaskResourceFactsAdapter,
 } from "../content-access/index.js";
-import {
-  ACCESS_GRANTS,
-  ACCOUNT_RIGHTS,
-  AccountRightsModule,
-  type AccessGrants,
-  type AccountRights,
-} from "../account-rights/index.js";
 import {
   AssetsModule,
   MATERIAL_ASSETS,
@@ -40,11 +35,6 @@ import {
   type ObjectStorage,
 } from "../../infrastructure/object-storage/index.js";
 import { VIDEOS, VideosModule, type Videos } from "../videos/index.js";
-import { BillingModule, BillingPricing } from "../billing/index.js";
-import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
-import { assembleAssetResourceFacts } from "./adapters/content-access/asset-resource-facts.js";
-import { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
-import { assembleVideoResourceFacts } from "./adapters/content-access/video-resource-facts.js";
 import { assembleMaterialAuthoring } from "./facets/material-authoring/assemble-material-authoring.js";
 import type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
 import { MATERIAL_AUTHORING } from "./facets/material-authoring/material-authoring.token.js";
@@ -99,9 +89,7 @@ import {
     AccountsModule,
     AssetsModule,
     MaterialContentModule,
-    AccountRightsModule,
     VideosModule,
-    BillingModule,
   ],
   providers: [
     {
@@ -112,7 +100,7 @@ import {
         CONTENT_ACCESS,
         MATERIAL_ASSETS,
         VIDEOS,
-        ACCESS_GRANTS,
+        PRODUCT_ACCESS_HOLDERS,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -120,7 +108,7 @@ import {
         contentAccess: ContentAccess,
         materialAssets: MaterialAssets,
         videos: Videos,
-        grants: AccessGrants,
+        grants: ProductAccessHolders,
       ): MaterialAuthoring => {
         const accountPermissions = assembleCurrentAccountPermissions(accounts);
         const authorPolicy: AuthorPolicy = {
@@ -241,37 +229,6 @@ import {
         }),
     },
     {
-      provide: CONTENT_ACCESS,
-      inject: [
-        MATERIAL_CONTENT,
-        MATERIAL_ASSETS,
-        PRODUCT_ARTIFACTS,
-        VIDEOS,
-        ACCOUNTS,
-        ACCOUNT_RIGHTS,
-        PRODUCT_TASK_RESOURCE_FACTS,
-      ],
-      useFactory: (
-        materialContent: MaterialContent,
-        materialAssets: MaterialAssets,
-        productArtifacts: ProductArtifacts,
-        videos: Videos,
-        accounts: Accounts,
-        accountRights: AccountRights,
-        productTaskResourceFacts: ProductTaskResourceFactsAdapter,
-      ): ContentAccess =>
-        assembleContentAccess({
-          assetResourceFacts: assembleAssetResourceFacts(materialAssets),
-          productArtifactResourceFacts:
-            assembleProductArtifactResourceFacts(productArtifacts),
-          productTaskResourceFacts,
-          videoResourceFacts: assembleVideoResourceFacts(videos),
-          materialResourceFacts: assembleMaterialResourceFacts(materialContent),
-          accountPermissions: assembleCurrentAccountPermissions(accounts),
-          accountRights,
-        }),
-    },
-    {
       provide: PUBLISHED_MATERIAL_READER,
       inject: [
         PrismaClientProvider,
@@ -279,7 +236,7 @@ import {
         MATERIAL_CONTENT,
         MATERIAL_ASSETS,
         VIDEOS,
-        BillingPricing,
+        PRODUCT_SALE_AVAILABILITY,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -287,7 +244,7 @@ import {
         materialContent: MaterialContent,
         materialAssets: MaterialAssets,
         videos: Videos,
-        pricing: BillingPricing,
+        subscriptionForSale: (accountId?: string) => Promise<boolean>,
       ): PublishedMaterialReader =>
         assemblePublishedMaterialReader({
           prisma,
@@ -296,8 +253,7 @@ import {
           materialBodyOperations,
           materialAssets,
           videos,
-          subscriptionForSale: (accountId) =>
-            pricing.hasOffersForSale(accountId),
+          subscriptionForSale,
         }),
     },
     {
@@ -317,7 +273,6 @@ import {
     },
   ],
   exports: [
-    CONTENT_ACCESS,
     CONTENT_COVERS,
     MaterialAnnouncements,
     PRODUCT_ARTIFACTS,

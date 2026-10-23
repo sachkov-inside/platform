@@ -1,3 +1,5 @@
+export const PRODUCT_ACCESS_HOLDERS = Symbol("PRODUCT_ACCESS_HOLDERS");
+
 import type { MaterialsPrisma } from "../../../infrastructure/prisma/index.js";
 
 /**
