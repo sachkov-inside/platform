@@ -1,7 +1,14 @@
 // @ts-check
 import { spawnOwned, stopOwned } from "./owned-process.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -179,6 +186,9 @@ const developmentHealthSchema = z
 
 /** @type {ProcessEntry[]} */
 const processes = [];
+const fixtureDirectory = mkdtempSync(
+  resolve(tmpdir(), "inside-fullstack-fixtures-"),
+);
 /** @type {Set<ProcessEntry>} */
 const activeProcesses = new Set();
 /** @type {Promise<void> | undefined} */
@@ -313,6 +323,64 @@ try {
     apiBaseUrl,
     browserAccessToken.token,
   );
+  const memberIdentityResponse = await fetch(`${apiBaseUrl}/accounts/current`, {
+    headers: { authorization: `Bearer ${memberAccessToken.token}` },
+  });
+  if (!memberIdentityResponse.ok)
+    throw new Error("Cannot resolve practice fixture Account");
+  const memberIdentity = z
+    .object({ account: z.object({ accountId: z.uuid() }) })
+    .parse(await memberIdentityResponse.json());
+  const practiceAccess = await fetch(
+    `${apiBaseUrl}/admin/access/products/issue`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${browserAccessToken.token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        accountId: memberIdentity.account.accountId,
+        productId: practiceFixture.productId,
+        sourceRef: "synthetic:fullstack-practice-access",
+        reason: "Explicit access to the isolated practice Product",
+      }),
+    },
+  );
+  if (!practiceAccess.ok)
+    throw new Error(`Practice Product access: HTTP ${practiceAccess.status}`);
+  z.object({ ok: z.literal(true), outcome: z.literal("issued") }).parse(
+    await practiceAccess.json(),
+  );
+  const paymentLinksFixturePath = resolve(
+    fixtureDirectory,
+    "payment-links.json",
+  );
+  await runPnpm(
+    [
+      "--filter",
+      "@inside/backend",
+      "exec",
+      "tsx",
+      "scripts/full-stack-payment-links-fixture.ts",
+    ],
+    {
+      ...childEnvironment,
+      FULLSTACK_FIXTURE_API_ORIGIN: apiBaseUrl,
+      FULLSTACK_FIXTURE_OWNER_TOKEN: browserAccessToken.token,
+      FULLSTACK_PAYMENT_LINKS_FIXTURE_FILE: paymentLinksFixturePath,
+    },
+  );
+  const paymentLinksFixture = z
+    .record(
+      z.enum(["desktop-chromium", "mobile-chromium"]),
+      z.object({
+        productId: z.uuid(),
+        linkId: z.uuid(),
+        revision: z.int().positive(),
+      }),
+    )
+    .parse(JSON.parse(readFileSync(paymentLinksFixturePath, "utf8")));
   const freePracticeFixture = await seedFullStackPractice(
     apiBaseUrl,
     browserAccessToken.token,
@@ -333,6 +401,7 @@ try {
   const browserEnvironment = {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
+    FULLSTACK_PAYMENT_LINKS_FIXTURE: JSON.stringify(paymentLinksFixture),
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,
@@ -398,6 +467,7 @@ try {
   }
 } finally {
   const cleanupStartedAt = performance.now();
+  rmSync(fixtureDirectory, { recursive: true, force: true });
   await cleanup();
   await fullStackIdentity.close();
   await practiceReadProxy?.close();
