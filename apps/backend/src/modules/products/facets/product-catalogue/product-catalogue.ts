@@ -17,8 +17,11 @@ export class ProductCatalogue {
   ): Promise<ReadonlyMap<string, MaterialProductAccessFacts>> {
     const prisma =
       handle === undefined ? this.prisma : productsTransaction(handle);
+    const canonicalIds = [
+      ...new Set(materialIds.map((id) => id.toLowerCase())),
+    ];
     const memberships = await prisma.productMembership.findMany({
-      where: { materialId: { in: [...materialIds] } },
+      where: { materialId: { in: canonicalIds } },
       select: { materialId: true, seriesId: true },
     });
     const products = await prisma.product.findMany({
@@ -32,16 +35,20 @@ export class ProductCatalogue {
         .filter((product) => product.archivedAt !== null)
         .map((product) => product.id),
     );
+    const productsByMaterial = new Map<string, string[]>();
+    for (const membership of memberships) {
+      const productIds = productsByMaterial.get(membership.materialId) ?? [];
+      productIds.push(membership.seriesId);
+      productsByMaterial.set(membership.materialId, productIds);
+    }
     return new Map(
-      materialIds.flatMap((materialId) => {
-        const productIds = memberships
-          .filter((entry) => entry.materialId === materialId)
-          .map((entry) => entry.seriesId);
-        return productIds.length === 0
+      materialIds.flatMap((requestedId) => {
+        const productIds = productsByMaterial.get(requestedId.toLowerCase());
+        return productIds === undefined
           ? []
           : [
               [
-                materialId,
+                requestedId,
                 {
                   productIds,
                   ...(productIds.every((id) => archived.has(id))
