@@ -10,6 +10,20 @@ import type {
 import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { productsTransaction } from "../../infrastructure/transaction.js";
 
+export interface ProductMetadataFact {
+  readonly id: string;
+  readonly createdAt: Date;
+  readonly name: string;
+  readonly slug: string;
+  readonly summary: string;
+  readonly archivedAt: Date | null;
+  readonly coverId: string | null;
+}
+export interface ProductCatalogueMembershipFact {
+  readonly seriesId: string;
+  readonly materialId: string;
+}
+
 /** Current discovery facts. Consumers combine these values with their own publication snapshot. */
 export class ProductDiscovery {
   constructor(private readonly prisma: ProductsPrismaClient) {}
@@ -37,11 +51,11 @@ export class ProductDiscovery {
     };
   }
 
-  metadata(query?: {
+  async metadata(query?: {
     readonly ids?: readonly string[];
     readonly slugs?: readonly string[];
     readonly includeActive?: boolean;
-  }) {
+  }): Promise<ProductMetadataFact[]> {
     return this.prisma.product.findMany({
       ...(query === undefined
         ? {}
@@ -94,7 +108,9 @@ export class ProductDiscovery {
       );
   }
 
-  catalogueMemberships(productIds: readonly string[]) {
+  async catalogueMemberships(
+    productIds: readonly string[],
+  ): Promise<ProductCatalogueMembershipFact[]> {
     return this.prisma.productMembership.findMany({
       where: { seriesId: { in: [...productIds] } },
       select: { seriesId: true, materialId: true },

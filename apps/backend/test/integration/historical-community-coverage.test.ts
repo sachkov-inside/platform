@@ -71,7 +71,7 @@ const historicalProducts: Pick<ProductDiscovery, "metadata"> = {
     const where =
       query === undefined
         ? Prisma.empty
-        : Prisma.sql`where id = any(${[...query.ids]}::uuid[]) or (${query.includeActive} and archived_at is null)`;
+        : Prisma.sql`where id = any(${[...(query.ids ?? [])]}::uuid[]) or (${query.includeActive === true} and archived_at is null)`;
     return db.prisma.$queryRaw<
       Awaited<ReturnType<ProductDiscovery["metadata"]>>
     >(Prisma.sql`

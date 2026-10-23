@@ -7,7 +7,11 @@ export {
   productCompositionChapters,
   readProductCompositionAccess,
 } from "./facets/product-compositions/product-compositions.js";
-export { ProductDiscovery } from "./facets/product-catalogue/product-discovery.js";
+export {
+  ProductDiscovery,
+  type ProductMetadataFact,
+  type ProductCatalogueMembershipFact,
+} from "./facets/product-catalogue/product-discovery.js";
 export {
   productPresentations,
   productPresentationSchema,
