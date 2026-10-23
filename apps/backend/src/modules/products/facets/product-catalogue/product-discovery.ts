@@ -86,17 +86,19 @@ export class ProductDiscovery {
         select: { seriesId: true, materialId: true },
       }),
     ]);
+    const ordinalByPair = new Map(
+      memberships.map((entry) => [
+        `${entry.seriesId}/${entry.materialId}`,
+        entry.ordinal,
+      ]),
+    );
     return {
       products,
       memberships,
       publishedMemberships: publishedMemberships.map((entry) => ({
         ...entry,
         ordinal:
-          memberships.find(
-            (membership) =>
-              membership.seriesId === entry.seriesId &&
-              membership.materialId === entry.materialId,
-          )?.ordinal ?? 1,
+          ordinalByPair.get(`${entry.seriesId}/${entry.materialId}`) ?? 1,
       })),
     };
   }
