@@ -60,7 +60,7 @@ export async function grantProductFixture(
 export async function revokeProductFixture(
   prisma: PlatformPrisma,
   target: string,
-): Promise<void> {
+) {
   const [accountId, productId] = target.split(":");
   const grants = await fixtureGrants(prisma);
   const current = await grants.readProductAccess(owner, {
@@ -76,4 +76,5 @@ export async function revokeProductFixture(
     reason: "Synthetic owner withdrawal",
   });
   if (!result.ok) throw new Error(result.error.code);
+  return result;
 }
