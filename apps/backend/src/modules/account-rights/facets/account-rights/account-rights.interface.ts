@@ -86,19 +86,4 @@ export interface AccountRights {
     transaction: TransactionHandle,
     accountId: AccountId,
   ): Promise<MembershipAccessState>;
-  /** The optional caller transaction keeps its receipt and the Membership binding atomic. */
-  bindPrincipal(
-    command: {
-      readonly accountId: AccountId;
-      readonly principalRef: string;
-    },
-    transaction?: TransactionHandle,
-  ): Promise<MembershipPrincipalBinding>;
-  /**
-   * Applies normalized evidence monotonically. Only link-time observed evidence may establish a
-   * missing Account binding; events and reconciliation wait for it, and mismatches fail closed.
-   */
-  acceptEvidence(
-    command: AcceptMembershipEvidenceCommand,
-  ): Promise<MembershipEvidenceAcceptance>;
 }
