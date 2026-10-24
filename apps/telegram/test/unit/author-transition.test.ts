@@ -41,11 +41,11 @@ function broadcast(overrides: Partial<AuthorBroadcast> = {}): AuthorBroadcast {
   };
 }
 
-function funnel(
+function sequence(
   overrides: Partial<CommunicationSequenceSnapshot> = {},
 ): CommunicationSequenceSnapshot {
   return {
-    funnelId: uuid(800),
+    sequenceId: uuid(800),
     name: "Прогрев",
     isDefault: false,
     entryResponse: {
@@ -146,7 +146,7 @@ describe("main menu", () => {
     );
     expect(dialog.state.actions).toEqual([
       { kind: "broadcasts" },
-      { kind: "f:list" },
+      { kind: "seq:list" },
       { kind: "overview" },
     ]);
   });
@@ -177,20 +177,20 @@ describe("main menu", () => {
     ).toThrow("malformed");
   });
 
-  it("keeps an edited funnel as a draft when the author goes home", () => {
-    const edited = { funnel: funnel(), dirty: true };
+  it("keeps an edited sequence as a draft when the author goes home", () => {
+    const edited = { sequence: sequence(), dirty: true };
     const dialog = new Dialog({
       ...emptyAuthorState("menu"),
       actions: [{ kind: "home" }],
-      funnelAuthor: edited,
+      sequenceAuthor: edited,
     }).send({ kind: "callback", data: "author:menu:0" });
 
     expect(dialog.effects[0]).toEqual({
-      kind: "retain-funnel-draft",
-      funnelAuthor: edited,
+      kind: "retain-sequence-draft",
+      sequenceAuthor: edited,
     });
     expect(required(dialog.menu).text).toBe("Админка коммуникаций");
-    expect(dialog.state.funnelAuthor).toBeUndefined();
+    expect(dialog.state.sequenceAuthor).toBeUndefined();
   });
 
   it("answers text outside any prompt with the home menu", () => {
@@ -624,15 +624,15 @@ describe("composer", () => {
   });
 });
 
-describe("funnel", () => {
-  it("lists saved funnels and unsaved drafts", () => {
+describe("sequence", () => {
+  it("lists saved sequences and unsaved drafts", () => {
     const dialog = new Dialog()
       .send({ kind: "open" })
       .click("Последовательности");
-    expect(dialog.kinds()).toEqual(["retain-funnel-draft", "list-funnels"]);
+    expect(dialog.kinds()).toEqual(["retain-sequence-draft", "list-sequences"]);
 
     dialog.send({
-      kind: "funnels-listed",
+      kind: "sequences-listed",
       items: [
         { id: uuid(800), name: "Прогрев", status: "edited" },
         { id: uuid(810), name: "Курс", status: "published" },
@@ -644,67 +644,67 @@ describe("funnel", () => {
       "Курс · Опубликована",
       "В меню",
     ]);
-    expect(dialog.state.funnelAuthor).toEqual({});
+    expect(dialog.state.sequenceAuthor).toEqual({});
   });
 
-  it("creates a funnel whose first message arrives at entry", () => {
+  it("creates a sequence whose first message arrives at entry", () => {
     const dialog = new Dialog({
       ...emptyAuthorState("menu"),
-      actions: [{ kind: "f:new" }],
+      actions: [{ kind: "seq:new" }],
     }).send({ kind: "callback", data: "author:menu:0" });
-    const funnelId = required(
-      required(dialog.state.funnelAuthor).funnel,
-    ).funnelId;
-    expect(required(dialog.state.funnelAuthor).prompt).toBeUndefined();
+    const sequenceId = required(
+      required(dialog.state.sequenceAuthor).sequence,
+    ).sequenceId;
+    expect(required(dialog.state.sequenceAuthor).prompt).toBeUndefined();
 
     dialog.write("Вход");
     expect(dialog.labels()).toEqual(["Сразу", "Не добавлять это сообщение"]);
     dialog.click("Сразу");
-    const save = dialog.query("save-funnel");
-    expect(save.funnel.name).toBe("Вход");
-    expect(save.funnel.entryResponse.parts).toMatchObject([
+    const save = dialog.query("save-sequence");
+    expect(save.sequence.name).toBe("Вход");
+    expect(save.sequence.entryResponse.parts).toMatchObject([
       { content: text("Вход") },
     ]);
 
     dialog.send({
-      kind: "funnel-saved",
-      funnel: { ...save.funnel, revision: 1 },
+      kind: "sequence-saved",
+      sequence: { ...save.sequence, revision: 1 },
       then: save.then,
     });
     expect(dialog.effects[0]).toEqual({
       kind: "discard-composition",
-      id: funnelId,
+      id: sequenceId,
     });
     expect(required(dialog.state.composing).sequence).toEqual({
       lastOffset: 0,
       firstEntry: false,
     });
-    expect(required(dialog.state.funnelAuthor).dirty).toBe(false);
+    expect(required(dialog.state.sequenceAuthor).dirty).toBe(false);
   });
 
-  it("stops a sequence whose funnel the contract rejects", () => {
+  it("stops a sequence whose sequence the contract rejects", () => {
     const dialog = new Dialog({
       ...emptyAuthorState("menu"),
-      funnelAuthor: { funnel: funnel() },
+      sequenceAuthor: { sequence: sequence() },
     });
     expect(() =>
       dialog.send({
-        kind: "funnel-invalid",
+        kind: "sequence-invalid",
         then: { kind: "next-message", destinationId: uuid(800) },
       }),
     ).toThrow("malformed");
 
-    dialog.send({ kind: "funnel-invalid", then: { kind: "card" } });
+    dialog.send({ kind: "sequence-invalid", then: { kind: "card" } });
     expect(required(dialog.menu).text).toBe(
       "Добавьте хотя бы один пост в первый ответ и в каждый шаг, затем сохраните черновик.",
     );
   });
 
-  it("pauses a published funnel and forgets its draft", () => {
+  it("pauses a published sequence and forgets its draft", () => {
     const dialog = new Dialog({
       ...emptyAuthorState("menu"),
-      actions: [{ kind: "f:show" }],
-      funnelAuthor: { funnel: funnel(), dirty: false },
+      actions: [{ kind: "seq:show" }],
+      sequenceAuthor: { sequence: sequence(), dirty: false },
     }).send({ kind: "callback", data: "author:menu:0" });
     expect(dialog.labels()).toEqual([
       "Добавить сообщение",
@@ -716,15 +716,15 @@ describe("funnel", () => {
     ]);
 
     dialog.click("Ещё →").click("Приостановить");
-    expect(dialog.query("change-funnel")).toEqual({
-      kind: "change-funnel",
-      funnelId: uuid(800),
+    expect(dialog.query("change-sequence")).toEqual({
+      kind: "change-sequence",
+      sequenceId: uuid(800),
       revision: 2,
       action: "pause",
     });
     dialog.send({
-      kind: "funnel-changed",
-      funnel: funnel({ lifecycle: "paused", revision: 3 }),
+      kind: "sequence-changed",
+      sequence: sequence({ lifecycle: "paused", revision: 3 }),
     });
     expect(dialog.kinds()).toEqual(["remove-draft", "menu"]);
     expect(dialog.click("Ещё →").labels()).toContain("Продолжить");
@@ -734,29 +734,29 @@ describe("funnel", () => {
     const start = () =>
       new Dialog({
         ...emptyAuthorState("menu"),
-        actions: [{ kind: "f:preview" }],
-        funnelAuthor: { funnel: funnel(), dirty: false },
+        actions: [{ kind: "seq:preview" }],
+        sequenceAuthor: { sequence: sequence(), dirty: false },
       }).send({ kind: "callback", data: "author:menu:0" });
 
-    expect(start().query("lock-funnel")).toEqual({
-      kind: "lock-funnel",
-      funnelId: uuid(800),
+    expect(start().query("lock-sequence")).toEqual({
+      kind: "lock-sequence",
+      sequenceId: uuid(800),
       publish: false,
     });
     const changed = start();
     expect(() =>
-      changed.send({ kind: "funnel-locked", publish: false, revision: 3 }),
+      changed.send({ kind: "sequence-locked", publish: false, revision: 3 }),
     ).toThrow("revision_conflict");
 
     const dialog = start().send({
-      kind: "funnel-locked",
+      kind: "sequence-locked",
       publish: false,
       revision: 2,
     });
     expect(dialog.query("validate-content").purpose).toBe("preview");
 
     const denied = start()
-      .send({ kind: "funnel-locked", publish: false, revision: 2 })
+      .send({ kind: "sequence-locked", publish: false, revision: 2 })
       .send({
         kind: "content-validated",
         purpose: "preview",
@@ -771,16 +771,16 @@ describe("funnel", () => {
       purpose: "preview",
       result: { status: "ok", targetErrors: [] },
     });
-    expect(dialog.query("publish-funnel")).toEqual({
-      kind: "publish-funnel",
-      funnelId: uuid(800),
+    expect(dialog.query("publish-sequence")).toEqual({
+      kind: "publish-sequence",
+      sequenceId: uuid(800),
       revision: 2,
       publish: false,
     });
     dialog.send({
       kind: "publication-previewed",
       preview: {
-        funnelId: uuid(800),
+        sequenceId: uuid(800),
         revision: 2,
         addedStepIds: [],
         editedStepIds: [],
@@ -798,7 +798,7 @@ describe("funnel", () => {
   });
 
   it("moves a delayed message to entry only when it was never published there", () => {
-    const delayed = funnel({
+    const delayed = sequence({
       steps: [
         {
           stepId: uuid(803),
@@ -813,13 +813,13 @@ describe("funnel", () => {
     const start = () =>
       new Dialog({
         ...emptyAuthorState("menu"),
-        actions: [{ kind: "f:timing-entry", id: uuid(804) }],
-        funnelAuthor: { funnel: delayed, timingPartId: uuid(804) },
+        actions: [{ kind: "seq:timing-entry", id: uuid(804) }],
+        sequenceAuthor: { sequence: delayed, timingPartId: uuid(804) },
       }).send({ kind: "callback", data: "author:menu:0" });
 
     expect(start().query("read-part-history")).toEqual({
       kind: "read-part-history",
-      funnelId: uuid(800),
+      sequenceId: uuid(800),
       partId: uuid(804),
       delaySeconds: null,
     });
@@ -833,7 +833,7 @@ describe("funnel", () => {
     expect(required(published.menu).text).toContain(
       "Его перенос изменил бы историю",
     );
-    expect(required(published.state.funnelAuthor).funnel).toEqual(delayed);
+    expect(required(published.state.sequenceAuthor).sequence).toEqual(delayed);
 
     const moved = start().send({
       kind: "part-history-read",
@@ -841,7 +841,7 @@ describe("funnel", () => {
       delaySeconds: null,
       published: false,
     });
-    const f = required(required(moved.state.funnelAuthor).funnel);
+    const f = required(required(moved.state.sequenceAuthor).sequence);
     expect(f.entryResponse.parts.map((p) => p.partId)).toEqual([
       uuid(802),
       uuid(804),
@@ -849,21 +849,21 @@ describe("funnel", () => {
     expect(required(f.steps[0]).parts.map((p) => p.partId)).toEqual([
       uuid(805),
     ]);
-    expect(required(moved.state.funnelAuthor).dirty).toBe(true);
+    expect(required(moved.state.sequenceAuthor).dirty).toBe(true);
     expect(required(moved.menu).text).toContain("Прогрев · сообщения");
   });
 });
 
-describe("funnel settings", () => {
-  function card(f: CommunicationSequenceSnapshot = funnel(), dirty = false) {
+describe("sequence settings", () => {
+  function card(f: CommunicationSequenceSnapshot = sequence(), dirty = false) {
     return new Dialog({
       ...emptyAuthorState("menu"),
-      actions: [{ kind: "f:show" }],
-      funnelAuthor: { funnel: f, dirty },
+      actions: [{ kind: "seq:show" }],
+      sequenceAuthor: { sequence: f, dirty },
     }).send({ kind: "callback", data: "author:menu:0" });
   }
 
-  it("opens settings and messages from the funnel card and returns to it", () => {
+  it("opens settings and messages from the sequence card and returns to it", () => {
     const dialog = card();
     expect(dialog.labels()).toEqual([
       "Добавить сообщение",
@@ -900,8 +900,8 @@ describe("funnel settings", () => {
     expect(dialog.labels()).toContain("Настройки");
   });
 
-  it("restores an archived funnel from its settings", () => {
-    const dialog = card(funnel({ lifecycle: "archived" }));
+  it("restores an archived sequence from its settings", () => {
+    const dialog = card(sequence({ lifecycle: "archived" }));
     expect(dialog.labels()).toEqual(["Настройки", "Все последовательности"]);
 
     dialog.click("Настройки");
@@ -911,16 +911,16 @@ describe("funnel settings", () => {
       "К последовательности",
     ]);
     dialog.click("Восстановить");
-    expect(dialog.query("change-funnel")).toEqual({
-      kind: "change-funnel",
-      funnelId: uuid(800),
+    expect(dialog.query("change-sequence")).toEqual({
+      kind: "change-sequence",
+      sequenceId: uuid(800),
       revision: 2,
       action: "restore",
     });
   });
 
   const timed = () =>
-    funnel({
+    sequence({
       steps: [
         {
           stepId: uuid(803),
@@ -937,11 +937,9 @@ describe("funnel settings", () => {
       ],
     });
   const delays = (dialog: Dialog) =>
-    required(required(dialog.state.funnelAuthor).funnel).steps.map((step) => [
-      step.stepId,
-      step.delaySeconds,
-      step.delayAnchor,
-    ]);
+    required(required(dialog.state.sequenceAuthor).sequence).steps.map(
+      (step) => [step.stepId, step.delaySeconds, step.delayAnchor],
+    );
 
   it("keeps steps timed from entry in time order when the author edits them", () => {
     const dialog = card(timed()).click("Настройки").click("Шаги и задержки");
@@ -953,7 +951,7 @@ describe("funnel settings", () => {
     ]);
 
     dialog.click("Добавить шаг");
-    const added = required(required(dialog.state.funnelAuthor).target);
+    const added = required(required(dialog.state.sequenceAuthor).target);
     expect(required(dialog.menu).text).toBe(
       "Шаг 3\nЧерез 26 ч от входа\nСообщений: 0",
     );
@@ -987,11 +985,11 @@ describe("funnel settings", () => {
       [uuid(805), 3600, "entry"],
       [uuid(803), 7200, "entry"],
     ]);
-    expect(required(dialog.state.funnelAuthor).dirty).toBe(true);
+    expect(required(dialog.state.sequenceAuthor).dirty).toBe(true);
   });
 
   it("keeps a chain of steps timed after the previous one", () => {
-    const chained = funnel({
+    const chained = sequence({
       steps: timed().steps.map(({ stepId, delaySeconds, parts }) => ({
         stepId,
         delaySeconds,
@@ -1002,7 +1000,7 @@ describe("funnel settings", () => {
     expect(dialog.labels()).toContain("Шаг 2 · 2 ч после предыдущего шага");
 
     dialog.click("Добавить шаг");
-    const added = required(required(dialog.state.funnelAuthor).target);
+    const added = required(required(dialog.state.sequenceAuthor).target);
     dialog.click("Задержка").write("30 мин");
     dialog.click("Все шаги").click("Шаг 3 · 30 мин после предыдущего шага");
     dialog.click("Поднять шаг");
@@ -1016,7 +1014,7 @@ describe("funnel settings", () => {
   it("times a message from entry and keeps the steps in time order", () => {
     const f = timed();
     const dialog = card(
-      funnel({
+      sequence({
         ...f,
         entryResponse: {
           ...f.entryResponse,
@@ -1061,7 +1059,9 @@ describe("funnel settings", () => {
       delaySeconds: 5400,
       published: false,
     });
-    const steps = required(required(dialog.state.funnelAuthor).funnel).steps;
+    const steps = required(
+      required(dialog.state.sequenceAuthor).sequence,
+    ).steps;
     expect(steps.map((step) => [step.delaySeconds, step.delayAnchor])).toEqual([
       [1800, "entry"],
       [3600, "entry"],
@@ -1071,15 +1071,15 @@ describe("funnel settings", () => {
     expect(dialog.labels()).toContain("4. Через 90 мин · 📝 Текст · Бонус");
   });
 
-  it("renames the funnel, sets it as the main one and manages its sources", () => {
+  it("renames the sequence, sets it as the main one and manages its sources", () => {
     const dialog = card().click("Настройки").click("Название");
     dialog.write("Весенний прогрев");
     expect(required(dialog.menu).text).toMatch(/^Весенний прогрев\n/);
 
     dialog.click("Настройки").click("Ещё →").click("Сделать основной");
-    expect(required(required(dialog.state.funnelAuthor).funnel).isDefault).toBe(
-      true,
-    );
+    expect(
+      required(required(dialog.state.sequenceAuthor).sequence).isDefault,
+    ).toBe(true);
     dialog.click("Настройки").click("Ещё →");
     expect(dialog.labels()).toContain("Убрать из основных");
 
@@ -1097,12 +1097,12 @@ describe("funnel settings", () => {
     expect(required(dialog.menu).text).toContain("?start=m_channel");
     dialog.click("Убрать источник");
     expect(
-      required(required(dialog.state.funnelAuthor).funnel).sources,
+      required(required(dialog.state.sequenceAuthor).sequence).sources,
     ).toEqual([]);
 
     dialog.click("К последовательности").click("Сохранить черновик");
-    const save = dialog.query("save-funnel");
-    expect(save.funnel).toMatchObject({
+    const save = dialog.query("save-sequence");
+    expect(save.sequence).toMatchObject({
       name: "Весенний прогрев",
       isDefault: true,
       sources: [],
@@ -1115,12 +1115,13 @@ describe("funnel settings", () => {
     expect(dialog.labels()).toContain("Добавить сохранённый пост");
     dialog.click("Сообщение 1").click("Убрать сообщение");
     expect(
-      required(required(dialog.state.funnelAuthor).funnel).entryResponse.parts,
+      required(required(dialog.state.sequenceAuthor).sequence).entryResponse
+        .parts,
     ).toEqual([]);
 
     dialog.click("К последовательности").click("Настройки").click("Ещё →");
     dialog.click("Общий вводный блок");
-    expect(dialog.kinds()).toEqual(["retain-funnel-draft", "read-intro"]);
+    expect(dialog.kinds()).toEqual(["retain-sequence-draft", "read-intro"]);
     const intro = {
       introId: uuid(700),
       revision: 1,
@@ -1128,7 +1129,7 @@ describe("funnel settings", () => {
     };
     dialog.send({
       kind: "intro-read",
-      funnelAuthor: { intro, target: "intro", dirty: false },
+      sequenceAuthor: { intro, target: "intro", dirty: false },
     });
     expect(required(dialog.menu).text).toMatch(/^Общий вводный блок\n1\. /);
     dialog.click("Сохранить общий блок");
@@ -1158,7 +1159,7 @@ describe("funnel settings", () => {
       code: `m_s${n}`,
       name: `Источник ${n}`,
     }));
-    const dialog = card(funnel({ steps, sources }))
+    const dialog = card(sequence({ steps, sources }))
       .click("Настройки")
       .click("Шаги и задержки");
     expect(dialog.labels()).toHaveLength(7);

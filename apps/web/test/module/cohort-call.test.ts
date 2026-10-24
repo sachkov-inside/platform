@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProductCohort, PriceSnapshot } from "@/entities/subscription";
+import type { ProductSalesState, PriceSnapshot } from "@/entities/subscription";
 import type { ProductAccess } from "@/features/library-discovery";
 import {
   cohortCall,
@@ -8,7 +8,7 @@ import {
 } from "@/_pages/library-discovery/model/cohort-call";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
-const cohort: ProductCohort = {
+const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",
   revision: 1,
   name: "Поток 1",
@@ -20,7 +20,7 @@ const cohort: ProductCohort = {
 const slug = "ai-engineering";
 const call = (
   overrides: Partial<{
-    cohort: ProductCohort | null;
+    cohort: ProductSalesState | null;
     offer: PriceSnapshot | null;
     productAccess: ProductAccess;
     signedIn: boolean;

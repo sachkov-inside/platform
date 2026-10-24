@@ -69,10 +69,6 @@ export class BillingPricing {
   productSalesStates(productId?: string, cursor?: string) {
     return listProductSalesStates(this.dependencies.prisma, productId, cursor);
   }
-  /** Old strict wire reader compatibility until separately built readers migrate (#1712). */
-  cohorts(productId?: string, cursor?: string) {
-    return this.productSalesStates(productId, cursor);
-  }
   ownerCatalog(input: unknown) {
     return listOffers(this.dependencies.prisma, input, this.clock, {
       publishedOnly: false,

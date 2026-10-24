@@ -311,7 +311,7 @@ const platformConfigSchema = z
       .object({
         endpoint: telegramIntegrationEndpointSchema(
           "TELEGRAM_COMMUNICATIONS_ENDPOINT",
-          "/integrations/platform/v1/communications",
+          "/integrations/platform/v2/communications",
         ),
         secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
         publicOrigin: httpUrlSchema(

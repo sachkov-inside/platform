@@ -55,7 +55,7 @@ export async function updateMarketingAvailability(
     for (const delivery of unfinished)
       if (delivery.kind !== "step" || started(delivery))
         await cancelDelivery(tx, delivery, now, "marketing_unavailable");
-    // A cancelled initial response completes its enrollment's entry, as dispatch would.
+    // A cancelled initial response completes its participation's entry, as dispatch would.
     await reconcileSequences(tx, bot, now, { contactId: contact.contact_id });
   }
   await tx

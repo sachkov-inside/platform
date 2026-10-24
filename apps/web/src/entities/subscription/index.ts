@@ -23,7 +23,7 @@ export {
   verifiedContactSchema,
   type AccessCapability,
   type CohortStage,
-  type ProductCohort,
+  type ProductSalesState,
   type AttemptKind,
   type AttemptState,
   type BillingFailure,

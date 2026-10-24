@@ -60,32 +60,32 @@ export class Communications {
     });
     let targetErrors: Awaited<ReturnType<typeof validateTargets>> | undefined;
     if (
-      ["funnels.preview", "funnels.publish"].includes(request.operation) &&
-      "funnelId" in request.payload
+      ["sequences.preview", "sequences.publish"].includes(request.operation) &&
+      "sequenceId" in request.payload
     ) {
       if (!hasText(this.presentation?.publicOrigin))
         return communicationsFailure("provider_unavailable");
       const loaded = await this.provider.execute(
         requestSchema.parse({
           ...providerRequest,
-          operation: "funnels.read",
+          operation: "sequences.read",
           operationId: crypto.randomUUID(),
           expectedRevision: 0,
-          payload: { funnelId: request.payload.funnelId },
+          payload: { sequenceId: request.payload.sequenceId },
         }),
       );
       if (!loaded.ok) return loaded;
-      if (!("funnel" in loaded.value))
+      if (!("sequence" in loaded.value))
         return communicationsFailure("provider_invalid_response");
       // A stale request may be a replay of an already committed publish. The provider owns
       // operation receipts and will either return that receipt or reject the stale revision.
-      if (loaded.value.funnel.revision === request.expectedRevision) {
-        const funnel = loaded.value.funnel;
+      if (loaded.value.sequence.revision === request.expectedRevision) {
+        const sequence = loaded.value.sequence;
         try {
           targetErrors = await validateTargets(
             [
-              ...funnel.entryResponse.parts,
-              ...funnel.steps.flatMap((step) => step.parts),
+              ...sequence.entryResponse.parts,
+              ...sequence.steps.flatMap((step) => step.parts),
             ],
             this.presentation.publicOrigin,
             this.presentation.targets,
@@ -97,7 +97,10 @@ export class Communications {
             communicationsFailure("provider_unavailable"),
           );
         }
-        if (request.operation === "funnels.publish" && targetErrors.length > 0)
+        if (
+          request.operation === "sequences.publish" &&
+          targetErrors.length > 0
+        )
           return communicationsFailure("invalid_targets");
       }
     }

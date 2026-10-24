@@ -27,26 +27,26 @@ import {
   type MessageDestination,
 } from "./author-dialog.js";
 import {
-  answerFunnel,
-  answerFunnelQuery,
+  answerSequence,
+  answerSequenceQuery,
   appendPrepared,
   appendTimed,
-  applyFunnelSave,
-  composeInFunnel,
+  applySequenceSave,
+  composeInSequence,
   formatSequenceDelay,
   isSequenceEditorAction,
-  newFunnel,
+  newSequence,
   performSequence,
-  rejectFunnelSave,
+  rejectSequenceSave,
   selectedParts,
-  showFunnel,
+  showSequence,
 } from "./author-sequences.js";
 import { messageLabel } from "./author-message-view.js";
 import {
   actSequence,
-  answerSequence,
+  answerSequenceComposer,
   beginSequence as beginSequenceComposer,
-  showSequence,
+  showSequenceComposer,
   type SequenceResult,
 } from "./author-sequence-composer.js";
 import {
@@ -99,11 +99,11 @@ type CompositionEntry = Extract<
   {
     kind:
       | "compose:broadcast"
-      | "compose:funnel"
+      | "compose:sequence"
       | "compose:edit-broadcast"
-      | "compose:edit-funnel"
+      | "compose:edit-sequence"
       | "pick-part"
-      | "f:posts";
+      | "seq:posts";
   }
 >;
 
@@ -239,28 +239,30 @@ function step(t: Turn, event: AuthorEvent): void {
     case "composition-restored":
       restoreComposition(t, event.composing);
       if (event.then === "resume")
-        return event.composing.sequence ? showSequence(t) : resumeComposer(t);
+        return event.composing.sequence
+          ? showSequenceComposer(t)
+          : resumeComposer(t);
       if (event.composing.sequence)
         return sequenceResult(t, { kind: "finished" });
       return composeResult(t, actComposer(t, { kind: "compose:cancel" }));
-    case "funnel-saved":
-      applyFunnelSave(t, event.funnel);
-      return afterFunnelSave(t, event.then);
-    case "funnel-invalid":
+    case "sequence-saved":
+      applySequenceSave(t, event.sequence);
+      return afterSequenceSave(t, event.then);
+    case "sequence-invalid":
       if (event.then.kind === "next-message")
         throw new CommunicationsError("malformed");
-      return rejectFunnelSave(t);
-    case "funnels-listed":
-    case "funnel-read":
+      return rejectSequenceSave(t);
+    case "sequences-listed":
+    case "sequence-read":
     case "intro-read":
     case "content-validated":
     case "intro-saved":
-    case "funnel-locked":
-    case "funnel-published":
+    case "sequence-locked":
+    case "sequence-published":
     case "publication-previewed":
-    case "funnel-changed":
+    case "sequence-changed":
     case "part-history-read":
-      return answerFunnelQuery(t, event);
+      return answerSequenceQuery(t, event);
     default:
       return unhandled(event, "author event");
   }
@@ -272,7 +274,7 @@ function close(t: Turn) {
     const kind = s.batch;
     s.batch = undefined;
     if (kind === "broadcast") return broadcastCard(t);
-    return performSequence(t, { kind: "f:show" });
+    return performSequence(t, { kind: "seq:show" });
   }
   if (s.composing?.sequence) return sequenceResult(t, { kind: "finished" });
   if (s.composing)
@@ -302,8 +304,8 @@ function perform(t: Turn, a: AuthorAction): void {
   switch (a.kind) {
     case "sequence:broadcast":
       return beginSequence(t, "broadcast");
-    case "sequence:funnel":
-      return beginSequence(t, "funnel");
+    case "sequence:sequence":
+      return beginSequence(t, "sequence");
     case "sequence:discard":
     case "sequence:done":
     case "sequence:time":
@@ -312,20 +314,20 @@ function perform(t: Turn, a: AuthorAction): void {
       return t.renderMenu(Number(a.value));
     case "batch:broadcast":
       return beginBatch(t, "broadcast");
-    case "batch:funnel":
-      return beginBatch(t, "funnel");
+    case "batch:sequence":
+      return beginBatch(t, "sequence");
     case "batch:done": {
       const kind = s.batch;
       s.batch = undefined;
-      if (kind === "funnel") return performSequence(t, { kind: "f:save" });
+      if (kind === "sequence") return performSequence(t, { kind: "seq:save" });
       return broadcastCard(t);
     }
     case "compose:broadcast":
-    case "compose:funnel":
+    case "compose:sequence":
     case "compose:edit-broadcast":
-    case "compose:edit-funnel":
+    case "compose:edit-sequence":
     case "pick-part":
-    case "f:posts":
+    case "seq:posts":
       return beginComposition(t, a);
     case "compose:resume":
       return t.ask({
@@ -346,9 +348,9 @@ function perform(t: Turn, a: AuthorAction): void {
       return beginSequence(t, "broadcast");
     case "overview":
       return t.ask({ kind: "read-statistics" });
-    case "f:new":
-      newFunnel(t);
-      return beginSequence(t, "funnel");
+    case "seq:new":
+      newSequence(t);
+      return beginSequence(t, "sequence");
     case "home":
       s.batch = undefined;
       t.retainSequenceDraft();
@@ -550,13 +552,13 @@ function performOnBroadcast(
       return t.ask({ kind: "read-statistics", broadcastId: b.broadcastId });
     case "confirm-launch":
     case "confirm-cancel":
-      if (a.kind === "confirm-launch" && b.audience.kind === "funnels") {
+      if (a.kind === "confirm-launch" && b.audience.kind === "sequences") {
         b.audience = { kind: "all" };
         return saveBroadcast(t, { kind: "confirm-launch" });
       }
       return t.reply(
         a.kind === "confirm-launch"
-          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные последовательности: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
+          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "waitlist" ? "список ожидания выбранного набора" : b.audience.kind === "all" ? "все доступные контакты" : `выбранные последовательности: ${b.audience.sequenceIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
           : "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
         [
           [
@@ -597,8 +599,8 @@ function selectedBroadcast(t: Turn): AuthorBroadcast {
   return b;
 }
 
-function selectedFunnel(t: Turn) {
-  const f = t.state.funnelAuthor?.funnel;
+function selectedSequence(t: Turn) {
+  const f = t.state.sequenceAuthor?.sequence;
   if (!f) throw new CommunicationsError("not_found");
   return f;
 }
@@ -674,7 +676,7 @@ function batchMenu(t: Turn) {
   const count =
     t.state.batch === "broadcast"
       ? selectedBroadcast(t).parts.length
-      : selectedFunnel(t).entryResponse.parts.length;
+      : selectedSequence(t).entryResponse.parts.length;
   t.reply(
     isTruthy(count)
       ? `Сохранено сообщений: ${count}.\nПришлите ещё или нажмите «Готово».`
@@ -686,11 +688,11 @@ function batchMenu(t: Turn) {
   );
 }
 
-function beginBatch(t: Turn, kind: "broadcast" | "funnel") {
+function beginBatch(t: Turn, kind: "broadcast" | "sequence") {
   const id =
     kind === "broadcast"
       ? selectedBroadcast(t).broadcastId
-      : selectedFunnel(t).funnelId;
+      : selectedSequence(t).sequenceId;
   const pending = t.compositionButtons(id);
   if (isTruthy(pending.length))
     return t.reply(
@@ -700,12 +702,12 @@ function beginBatch(t: Turn, kind: "broadcast" | "funnel") {
   if (kind === "broadcast") {
     if (!editable(selectedBroadcast(t)))
       throw new CommunicationsError("revision_conflict");
-  } else if (selectedFunnel(t).lifecycle === "archived")
+  } else if (selectedSequence(t).lifecycle === "archived")
     throw new CommunicationsError("revision_conflict");
   t.state.batch = kind;
   t.state.composing = undefined;
   t.state.prompt = undefined;
-  if (t.state.funnelAuthor) t.state.funnelAuthor.prompt = undefined;
+  if (t.state.sequenceAuthor) t.state.sequenceAuthor.prompt = undefined;
   batchMenu(t);
 }
 
@@ -768,11 +770,11 @@ function broadcastCard(t: Turn) {
   );
 }
 
-function beginSequence(t: Turn, kind: "broadcast" | "funnel"): void {
+function beginSequence(t: Turn, kind: "broadcast" | "sequence"): void {
   const id =
     kind === "broadcast"
       ? selectedBroadcast(t).broadcastId
-      : selectedFunnel(t).funnelId;
+      : selectedSequence(t).sequenceId;
   const pending = t.compositionButtons(id);
   if (isTruthy(pending.length))
     return t.reply(
@@ -791,14 +793,14 @@ function beginSequence(t: Turn, kind: "broadcast" | "funnel"): void {
       false,
     );
   }
-  const f = selectedFunnel(t);
+  const f = selectedSequence(t);
   if (
     f.lifecycle === "archived" ||
     f.entryResponse.parts.length +
       f.steps.reduce((n, s) => n + s.parts.length, 0) >=
       100
   )
-    return performSequence(t, { kind: "f:show" });
+    return performSequence(t, { kind: "seq:show" });
   const offset = f.steps.reduce(
     (n, step) =>
       step.delayAnchor === "entry" ? step.delaySeconds : n + step.delaySeconds,
@@ -806,7 +808,7 @@ function beginSequence(t: Turn, kind: "broadcast" | "funnel"): void {
   );
   beginSequenceComposer(
     t,
-    { kind: "funnel", id, target: "entry", expectedRevision: f.revision },
+    { kind: "sequence", id, target: "entry", expectedRevision: f.revision },
     offset,
     f.entryResponse.parts.length === 0,
   );
@@ -841,15 +843,19 @@ function sequenceResult(t: Turn, result: SequenceResult): void {
       });
       return saveBroadcast(t, then);
     }
-    if (selectedFunnel(t).revision !== destination.expectedRevision)
+    if (selectedSequence(t).revision !== destination.expectedRevision)
       throw new CommunicationsError("revision_conflict");
     appendTimed(t, result.content, result.sendAfterSeconds);
-    return t.ask({ kind: "save-funnel", funnel: selectedFunnel(t), then });
+    return t.ask({
+      kind: "save-sequence",
+      sequence: selectedSequence(t),
+      then,
+    });
   }
   t.discardComposition(destination.id);
   t.state.composing = undefined;
   if (destination.kind === "broadcast") return broadcastCard(t);
-  performSequence(t, { kind: "f:show" });
+  performSequence(t, { kind: "seq:show" });
 }
 
 /** Saves the selected broadcast; an empty unsaved one stays only a local draft. */
@@ -881,48 +887,51 @@ function afterBroadcastSave(t: Turn, then: AfterSave): void {
 function nextMessage(
   t: Turn,
   destinationId: string,
-  kind: "broadcast" | "funnel",
+  kind: "broadcast" | "sequence",
 ) {
   t.discardComposition(destinationId);
   t.state.composing = undefined;
   beginSequence(t, kind);
 }
 
-function afterFunnelSave(t: Turn, then: AfterSequenceSave): void {
+function afterSequenceSave(t: Turn, then: AfterSequenceSave): void {
   switch (then.kind) {
     case "card":
-      return showFunnel(t);
+      return showSequence(t);
     case "next-message":
-      return nextMessage(t, then.destinationId, "funnel");
+      return nextMessage(t, then.destinationId, "sequence");
     default:
-      return unhandled(then, "funnel continuation");
+      return unhandled(then, "sequence continuation");
   }
 }
 
-/** Starts a message for a broadcast or funnel, from scratch, a saved post or an existing part. */
+/** Starts a message for a broadcast or sequence, from scratch, a saved post or an existing part. */
 function beginComposition(t: Turn, a: CompositionEntry): void {
   let destination: MessageDestination;
   if (
-    a.kind === "compose:funnel" ||
-    a.kind === "compose:edit-funnel" ||
-    a.kind === "f:posts"
+    a.kind === "compose:sequence" ||
+    a.kind === "compose:edit-sequence" ||
+    a.kind === "seq:posts"
   ) {
-    const f = t.state.funnelAuthor;
+    const f = t.state.sequenceAuthor;
     const block =
       f?.target === "intro"
         ? f.intro && { id: f.intro.introId, revision: f.intro.revision }
-        : f?.funnel && { id: f.funnel.funnelId, revision: f.funnel.revision };
+        : f?.sequence && {
+            id: f.sequence.sequenceId,
+            revision: f.sequence.revision,
+          };
     if (!block || !hasText(f?.target))
       throw new CommunicationsError("not_found");
     destination = {
-      kind: "funnel",
+      kind: "sequence",
       id: block.id,
       expectedRevision: block.revision,
       target: f.target,
       partId:
-        a.kind === "compose:edit-funnel"
+        a.kind === "compose:edit-sequence"
           ? a.id
-          : a.kind === "f:posts"
+          : a.kind === "seq:posts"
             ? a.value
             : undefined,
     };
@@ -945,14 +954,14 @@ function beginComposition(t: Turn, a: CompositionEntry): void {
       "Для этого объекта уже есть незавершённое сообщение. Продолжите его или явно отмените добавление.",
       pending,
     );
-  if (a.kind === "pick-part" || a.kind === "f:posts") {
+  if (a.kind === "pick-part" || a.kind === "seq:posts") {
     t.state.composing = { destination };
     return openLibrary(t);
   }
   const content =
     a.kind === "compose:edit-broadcast"
       ? t.state.broadcast?.parts.find((p) => p.partId === a.id)?.content
-      : a.kind === "compose:edit-funnel"
+      : a.kind === "compose:edit-sequence"
         ? selectedParts(t).find((p) => p.partId === a.id)?.content
         : undefined;
   beginComposer(t, destination, content);
@@ -985,7 +994,7 @@ function composeResult(t: Turn, result: ComposerResult): void {
     }
     broadcastCard(t);
   } else
-    composeInFunnel(
+    composeInSequence(
       t,
       d,
       result.kind === "accepted" ? result.content : undefined,
@@ -993,17 +1002,18 @@ function composeResult(t: Turn, result: ComposerResult): void {
   t.state.composing = undefined;
 }
 
-/** Continues a saved unfinished message, if it still belongs to the open broadcast or funnel. */
+/** Continues a saved unfinished message, if it still belongs to the open broadcast or sequence. */
 function restoreComposition(t: Turn, composer: ComposerState) {
   const d = composer.destination;
   if (d.kind === "broadcast") {
     if (t.state.broadcast?.broadcastId !== d.id)
       throw new CommunicationsError("not_found");
   } else {
-    const f = t.state.funnelAuthor;
+    const f = t.state.sequenceAuthor;
     if (
       !f ||
-      (d.target === "intro" ? f.intro?.introId : f.funnel?.funnelId) !== d.id
+      (d.target === "intro" ? f.intro?.introId : f.sequence?.sequenceId) !==
+        d.id
     )
       throw new CommunicationsError("not_found");
     f.target = d.target;
@@ -1015,7 +1025,8 @@ function restoreComposition(t: Turn, composer: ComposerState) {
 
 function answer(t: Turn, input: { text: string; content: unknown }): void {
   const s = t.state;
-  if (s.composing?.sequence) return sequenceResult(t, answerSequence(t, input));
+  if (s.composing?.sequence)
+    return sequenceResult(t, answerSequenceComposer(t, input));
   if (s.batch !== undefined) {
     const content = input.content;
     try {
@@ -1029,7 +1040,7 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
         ],
       );
     }
-    if (s.batch === "funnel") {
+    if (s.batch === "sequence") {
       appendPrepared(t, structuredClone(content));
       return batchMenu(t);
     }
@@ -1053,7 +1064,7 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
     s.libraryQuery = text;
     return perform(t, { kind: "posts" });
   }
-  if (hasText(s.funnelAuthor?.prompt)) return answerFunnel(t, input);
+  if (hasText(s.sequenceAuthor?.prompt)) return answerSequence(t, input);
   const prompt = s.prompt;
   switch (prompt?.kind) {
     case "replace": {

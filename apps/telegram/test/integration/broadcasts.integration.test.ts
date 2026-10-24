@@ -93,7 +93,7 @@ const authorization = {
   authorize: vi.fn(() => Promise.resolve("allowed")),
 };
 let app: NestFastifyApplication;
-let funnels: CommunicationSequences;
+let sequences: CommunicationSequences;
 let scheduler: SequenceScheduler;
 let entry: MarketingEntry;
 const responseValidator = contractValidator("response");
@@ -123,12 +123,12 @@ beforeAll(async () => {
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  funnels = app.get(CommunicationSequences);
+  sequences = app.get(CommunicationSequences);
   scheduler = app.get(SequenceScheduler);
   entry = app.get(MarketingEntry);
 });
 beforeEach(async () => {
-  await sql`truncate communication_broadcasts, communication_funnels, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
+  await sql`truncate communication_broadcasts, communication_sequences, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
     database,
   );
   now = new Date("2030-01-01T00:00:00Z");
@@ -149,7 +149,7 @@ function part(text: string): MessagePart {
 }
 function draft(name = "general", isDefault = true): CommunicationSequenceDraft {
   return {
-    funnelId: randomUUID(),
+    sequenceId: randomUUID(),
     name,
     isDefault,
     sources: [{ sourceId: randomUUID(), code: `m_${name}`, name }],
@@ -188,18 +188,18 @@ function http(
 ) {
   return app.inject({
     method: "POST",
-    url: "/integrations/platform/v1/communications",
+    url: "/integrations/platform/v2/communications",
     headers: { authorization: `Bearer ${secret}` },
     payload: request,
   });
 }
 async function setup(value = draft()) {
-  await funnels.execute(
+  await sequences.execute(
     command("intro.save", { introId: randomUUID(), parts: [part("intro")] }),
   );
-  await funnels.execute(command("funnels.save", value));
-  await funnels.execute(
-    command("funnels.publish", { funnelId: value.funnelId }, 1),
+  await sequences.execute(command("sequences.save", value));
+  await sequences.execute(
+    command("sequences.publish", { sequenceId: value.sequenceId }, 1),
   );
   return value;
 }
@@ -283,16 +283,16 @@ describe("broadcast audience and lifecycle", () => {
   it("takes scheduled union snapshot only at actual launch; replay, late joiner and pause preserve it", async () => {
     const a = await setup();
     const b = draft("other", false);
-    await funnels.execute(command("funnels.save", b));
-    await funnels.execute(
-      command("funnels.publish", { funnelId: b.funnelId }, 1),
+    await sequences.execute(command("sequences.save", b));
+    await sequences.execute(
+      command("sequences.publish", { sequenceId: b.sequenceId }, 1),
     );
     await start("1", required(a.sources[0]).code);
     await start("2", required(b.sources[0]).code);
     const { value, request, result } = await launch(
       broadcast([part("broadcast")], new Date(+now + 60_000).toISOString(), {
-        kind: "funnels",
-        funnelIds: [a.funnelId, b.funnelId],
+        kind: "sequences",
+        sequenceIds: [a.sequenceId, b.sequenceId],
       }),
     );
     expect(result.state).toBe("scheduled");
@@ -342,7 +342,7 @@ describe("broadcast audience and lifecycle", () => {
       ).statusCode,
     ).toBe(409);
   });
-  it("includes legacy contacts without enrollment, excludes stopped and blocked, and deduplicates concurrent launch", async () => {
+  it("includes legacy contacts without participation, excludes stopped and blocked, and deduplicates concurrent launch", async () => {
     await oldContact();
     await oldContact("43");
     await oldContact("44");
@@ -370,7 +370,7 @@ describe("broadcast audience and lifecycle", () => {
     );
     expect(
       await database
-        .selectFrom("communication_enrollments")
+        .selectFrom("communication_participations")
         .selectAll()
         .execute(),
     ).toHaveLength(0);
@@ -475,7 +475,7 @@ describe("broadcast audience and lifecycle", () => {
       update = 700;
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(now);
-      // This audience contract needs entry replies, but no timed funnel steps.
+      // This audience contract needs entry replies, but no timed sequence steps.
       await setup({ ...draft(), steps: [] });
       await say(51, "/start");
       await say(52, "/start");
@@ -836,7 +836,7 @@ describe("communication analytics and tracking", () => {
     await start("2", required(value.sources[0]).code);
     await start("3");
     let stats = (
-      await http(command("statistics.read", { funnelId: value.funnelId }))
+      await http(command("statistics.read", { sequenceId: value.sequenceId }))
     ).json<CommunicationsBody>().statistics;
     expect(stats.uniqueParticipants).toBe(1);
     expect(required(stats.contacts[0]).entries).toHaveLength(3);
@@ -1051,7 +1051,7 @@ it("orders first/latest and continuation by entry time when a later Telegram upd
 async function seedEntryPage(
   first: number,
   last: number,
-  funnel: CommunicationSequenceDraft,
+  sequence: CommunicationSequenceDraft,
 ) {
   const contact = await database
     .selectFrom("communication_contacts")
@@ -1065,9 +1065,9 @@ async function seedEntryPage(
         bot_identity: "inside",
         update_id: String(first + offset),
         contact_id: contact.contact_id,
-        funnel_id: funnel.funnelId,
-        source_id: required(funnel.sources[0]).sourceId,
-        source_code: required(funnel.sources[0]).code,
+        sequence_id: sequence.sequenceId,
+        source_id: required(sequence.sources[0]).sourceId,
+        source_code: required(sequence.sources[0]).code,
         entered_at: clock.now(),
         outcome: "entered",
       })),

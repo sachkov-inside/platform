@@ -76,7 +76,6 @@ export type TelegramMembershipPrisma = Pick<
   | "telegramLinkTransaction"
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"
-  | "productCommunity"
   | "telegramCommunityDesiredState"
   | "telegramCommunityOperation"
   | "telegramCommunityAuthorization"
@@ -215,7 +214,7 @@ export type ProductsPrisma = Pick<
   | "productMembership"
   | "productProgrammePlacement"
   | "publishedMaterialProductMembership"
-  | "homeSeriesPin"
+  | "homeProductPin"
 >;
 export type ProductsPrismaTransaction = ProductsPrisma;
 export type ProductsPrismaClient = ProductsPrisma &

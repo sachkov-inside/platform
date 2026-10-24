@@ -630,7 +630,7 @@ describe("notification delivery contour", () => {
     const delivery = { NOTIFICATIONS_PLATFORM_ORIGIN: "http://127.0.0.1:3000" };
     const communications = {
       TELEGRAM_COMMUNICATIONS_ENDPOINT:
-        "http://127.0.0.1:3606/integrations/platform/v1/communications",
+        "http://127.0.0.1:3606/integrations/platform/v2/communications",
       TELEGRAM_COMMUNICATIONS_SECRET: "communications-provider-secret-00000",
       TELEGRAM_AUTHOR_AUTHORIZATION_SECRET:
         "author-authorization-secret-0000000",

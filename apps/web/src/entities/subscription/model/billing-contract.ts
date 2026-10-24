@@ -96,7 +96,7 @@ export const cohortStageSchema = z.enum([
   "running",
   "between",
 ]);
-export const productCohortSchema = z.object({
+export const productSalesStateSchema = z.object({
   productId: z.uuid(),
   revision: z.number().int().positive(),
   name: z.string().min(1),
@@ -110,12 +110,12 @@ export const productCohortSchema = z.object({
    */
   priceAfterStartKopecks: z.number().int().positive().nullable().default(null),
 });
-export const productCohortsSchema = z.object({
-  items: z.array(productCohortSchema),
+export const productSalesStatesSchema = z.object({
+  items: z.array(productSalesStateSchema),
   nextCursor: z.uuid().nullable(),
 });
 export type CohortStage = z.infer<typeof cohortStageSchema>;
-export type ProductCohort = z.infer<typeof productCohortSchema>;
+export type ProductSalesState = z.infer<typeof productSalesStateSchema>;
 export const offersPageSchema = z.object({
   items: z.array(priceSnapshotSchema),
   nextCursor: z.uuid().nullable(),

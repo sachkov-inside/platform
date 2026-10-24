@@ -1,7 +1,7 @@
 import {
   formatCohortDate,
   formatKopecks,
-  type ProductCohort,
+  type ProductSalesState,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import {
@@ -36,7 +36,7 @@ export function cohortCall({
   slug,
   continuationMaterialSlug = null,
 }: {
-  readonly cohort: ProductCohort | null;
+  readonly cohort: ProductSalesState | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
   readonly offer: PriceSnapshot | null;
   /** Открыт ли продукт этому человеку по его основаниям; тому, у кого он есть, оплата не нужна. */

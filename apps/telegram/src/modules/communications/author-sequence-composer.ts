@@ -38,16 +38,16 @@ export function beginSequence(
 ) {
   t.state.batch = undefined;
   t.state.prompt = undefined;
-  if (t.state.funnelAuthor) t.state.funnelAuthor.prompt = undefined;
+  if (t.state.sequenceAuthor) t.state.sequenceAuthor.prompt = undefined;
   t.state.composing = {
     destination,
     prompt: "capture",
     sequence: { lastOffset, firstEntry },
   };
-  showSequence(t);
+  showSequenceComposer(t);
 }
 
-export function showSequence(t: Turn) {
+export function showSequenceComposer(t: Turn) {
   const { s, sequence } = sequenceState(t);
   if (!s.content)
     return t.reply(
@@ -76,7 +76,7 @@ export function showSequence(t: Turn) {
   );
 }
 
-export function answerSequence(
+export function answerSequenceComposer(
   t: Turn,
   input: { text: string; content: unknown },
 ): SequenceResult {
@@ -99,7 +99,7 @@ export function answerSequence(
   }
   s.content = structuredClone(input.content);
   s.prompt = undefined;
-  showSequence(t);
+  showSequenceComposer(t);
   return handled;
 }
 
@@ -111,11 +111,11 @@ export function actSequence(t: Turn, a: SequenceStep): SequenceResult {
     case "sequence:discard":
       s.content = undefined;
       s.prompt = "capture";
-      showSequence(t);
+      showSequenceComposer(t);
       return handled;
     case "sequence:done":
       if (!s.content) return { kind: "finished" };
-      showSequence(t);
+      showSequenceComposer(t);
       return handled;
     default:
       return unhandled(a, "sequence action");
@@ -132,7 +132,7 @@ function time(t: Turn, offset: number | undefined): SequenceResult {
     offset > 2147483647 ||
     (sequence.firstEntry && offset !== 0)
   ) {
-    showSequence(t);
+    showSequenceComposer(t);
     return handled;
   }
   return {

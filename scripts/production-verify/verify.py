@@ -174,10 +174,10 @@ def verify_platform(manifest, state, record):
 
 def verify_public_routes(record):
     routes = [('POST', '/integrations/telegram/v1/invitations/redeem', 401, 'unauthorized'),
-              ('GET', '/billing/cohorts', 200, '"items"'),
+              ('GET', '/billing/product-sales-states', 200, '"items"'),
               ('POST', '/billing/tbank/notification', 400, 'invalid_notification'),
-              ('POST', '/integrations/telegram/v1/communications/authorize', 401, 'unauthorized'),
-              ('POST', '/integrations/telegram/v1/communications/validate-content', 401, 'unauthorized'),
+              ('POST', '/integrations/telegram/v2/communications/authorize', 401, 'unauthorized'),
+              ('POST', '/integrations/telegram/v2/communications/validate-content', 401, 'unauthorized'),
               ('POST', '/internal/billing-dispatch/authorize', 401, 'unauthorized'),
               ('POST', '/internal/notifications/dispatch/authorize', 401, 'unauthorized')]
     routes += [('POST', '/integrations/telegram/v1/subscription-activation/' + suffix, 401, 'unauthorized')
@@ -316,7 +316,7 @@ def observe_telegram(seconds):
 
 TELEGRAM_READ = r"""
 import {loadApplicationConfig,botTelegramUserIdFromToken} from '/app/dist/config/application-config.js';
-import {HttpPlatformCohortAdapter} from '/app/dist/adapters/platform/http-platform-cohort.adapter.js';
+import {HttpPlatformProductSalesStateAdapter} from '/app/dist/adapters/platform/http-platform-product-sales-state.adapter.js';
 const env=process.env;
 const config=loadApplicationConfig(env);
 async function api(method,body={}) {
@@ -341,7 +341,7 @@ if(config.communityWelcomeCohort){
   if(validResponse) selected=body.items.find(item=>item.productId.toLowerCase()===config.communityWelcomeCohort.productId.toLowerCase());
   return response;
  };
- const details=await new HttpPlatformCohortAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
+ const details=await new HttpPlatformProductSalesStateAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
  // The owning adapter validates calendar dates; an empty fallback must not hide a rejected date.
  const dateAccepted=selected===undefined || selected.startsOn===null ||
   (typeof selected.startsOn==='string' && details.streamStartsOn===selected.startsOn);
@@ -392,7 +392,7 @@ def verify_telegram(manifest, state, record):
     record.append(check('Telegram readiness', status == 200 and json.loads(ready).get('status') == 'ready', 'expected live ready response'))
     paths = ['/webhooks/telegram', '/integrations/platform/v1/identity-links',
              '/integrations/platform/v1/identity-links/release-probe/confirm',
-             '/integrations/platform/v1/community-entitlements', '/integrations/platform/v1/communications',
+             '/integrations/platform/v1/community-entitlements', '/integrations/platform/v2/communications',
              '/integrations/identity/v1/sign-in']
     paths += ['/integrations/identity/v1/sign-in/release-probe/' + suffix for suffix in ['status', 'consume', 'account-link']]
     routes = [(method, path, 401 if method == 'POST' else 404) for path in paths for method in ['POST', 'GET']]

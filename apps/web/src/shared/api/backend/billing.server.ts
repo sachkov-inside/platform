@@ -43,18 +43,6 @@ export function requestProductSalesStates(productId?: string, cursor?: string) {
     {},
   );
 }
-/** Потоки продуктов публичны: запрос идёт без токена и одинаков для всех. */
-export function requestProductCohorts(productId?: string, cursor?: string) {
-  return executeGeneratedRequest(
-    (request) =>
-      new BillingService(request).billingProductCohorts({
-        ...(productId === undefined ? {} : { productId }),
-        ...(cursor === undefined ? {} : { cursor }),
-      }),
-    200,
-    {},
-  );
-}
 export function requestCurrentBilling(accessToken: string) {
   return executeGeneratedRequest(
     (request) => new BillingService(request).readOwnBilling(),
@@ -190,37 +178,6 @@ export function requestRevokeProductAccess(
   return executeGeneratedRequest(
     (request) =>
       new AccessService(request).revokeProductAccess({ requestBody }),
-    200,
-    { accessToken },
-  );
-}
-
-export function requestReadProductCommunityConfiguration(
-  productId: string,
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new TelegramCommunityService(request).readProductCommunityConfiguration({
-        productId,
-      }),
-    200,
-    { accessToken },
-  );
-}
-export function requestConfigureProductCommunity(
-  productId: string,
-  requestBody: Parameters<
-    TelegramCommunityService["configureProductCommunity"]
-  >[0]["requestBody"],
-  accessToken: string,
-) {
-  return executeGeneratedRequest(
-    (request) =>
-      new TelegramCommunityService(request).configureProductCommunity({
-        productId,
-        requestBody,
-      }),
     200,
     { accessToken },
   );

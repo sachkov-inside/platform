@@ -75,13 +75,13 @@ test("a Product beyond the global hundred-row page retains its true scoped cohor
     clock: () => new Date("2026-10-14T00:00:00.000Z"),
     sale: { payments: true },
   });
-  const legacy = await observer.measure(() => billing.cohorts());
+  const legacy = await observer.measure(() => billing.productSalesStates());
   expect(legacy.statements).toHaveLength(1);
   if (!legacy.result.ok) throw new Error(legacy.result.error.code);
   expect(legacy.result.value.items).toHaveLength(100);
   expect(legacy.result.value.nextCursor).toBe(productId(100));
   const continuation = await observer.measure(() =>
-    billing.cohorts(undefined, productId(100)),
+    billing.productSalesStates(undefined, productId(100)),
   );
   expect(continuation.statements).toHaveLength(1);
   expect(continuation.result).toMatchObject({
@@ -89,7 +89,7 @@ test("a Product beyond the global hundred-row page retains its true scoped cohor
     value: { items: [{ productId: productId(101) }], nextCursor: null },
   });
   const measured = await observer.measure(() =>
-    billing.cohorts(productId(101)),
+    billing.productSalesStates(productId(101)),
   );
   expect(measured.statements).toHaveLength(1);
   const result = measured.result;
@@ -106,32 +106,35 @@ test("a Product beyond the global hundred-row page retains its true scoped cohor
       priceAfterStartKopecks: null,
     },
   ]);
-  expect(await billing.cohorts(productId(1000))).toMatchObject({
+  expect(await billing.productSalesStates(productId(1000))).toMatchObject({
     ok: true,
     value: { items: [] },
   });
-  expect(await billing.cohorts("invalid")).toMatchObject({
+  expect(await billing.productSalesStates("invalid")).toMatchObject({
     ok: false,
     error: { code: "invalid_request" },
   });
 });
 
-test("HTTP scope and continuation preserve the strict products.v1 bot response", async () => {
+test("HTTP scope and continuation use one canonical Product Sales State response", async () => {
   const scoped = await server.inject({
     method: "GET",
-    url: `/billing/cohorts?productId=${productId(101)}`,
+    url: `/billing/product-sales-states?productId=${productId(101)}`,
   });
   expect(scoped.statusCode).toBe(200);
   expect(scoped.json()).toMatchObject({
     items: [{ productId: productId(101), name: "Cohort 101" }],
     nextCursor: null,
   });
-  const first = await server.inject({ method: "GET", url: "/billing/cohorts" });
+  const first = await server.inject({
+    method: "GET",
+    url: "/billing/product-sales-states",
+  });
   expect(first.statusCode).toBe(200);
   expect(first.json()).toMatchObject({ nextCursor: productId(100) });
   const continuation = await server.inject({
     method: "GET",
-    url: `/billing/cohorts?cursor=${productId(100)}`,
+    url: `/billing/product-sales-states?cursor=${productId(100)}`,
   });
   expect(continuation.json()).toMatchObject({
     items: [{ productId: productId(101) }],
@@ -139,29 +142,26 @@ test("HTTP scope and continuation preserve the strict products.v1 bot response",
   });
   const bot = await server.inject({
     method: "GET",
-    url: `/billing/cohorts?productId=${productId(101)}`,
+    url: `/billing/product-sales-states?productId=${productId(101)}`,
     headers: { "x-inside-domain-names": "products.v1" },
   });
   expect(bot.statusCode).toBe(200);
-  expect(bot.json()).toEqual({
-    items: [
-      {
-        productId: productId(101),
-        revision: 1,
-        name: "Cohort 101",
-        stage: "preorder",
-        startsOn: "2026-11-01",
-        nextEvent: "Launch",
-      },
-    ],
-  });
+  expect(bot.json()).toEqual(scoped.json());
+  expect(
+    (await server.inject({ method: "GET", url: "/billing/cohorts" }))
+      .statusCode,
+  ).toBe(404);
   for (const query of [
     "productId=invalid",
     `productId=${productId(101)}&cursor=${productId(100)}`,
   ]) {
     expect(
-      (await server.inject({ method: "GET", url: `/billing/cohorts?${query}` }))
-        .statusCode,
+      (
+        await server.inject({
+          method: "GET",
+          url: `/billing/product-sales-states?${query}`,
+        })
+      ).statusCode,
     ).toBe(400);
   }
 });

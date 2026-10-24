@@ -7,9 +7,9 @@ import type {
 } from "./sequence-types.js";
 import { Ajv, type ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
-import schema from "@inside/contracts/inside-communications-v1/schema.json" with { type: "json" };
+import schema from "@inside/contracts/inside-communications-v2/schema.json" with { type: "json" };
 
-export const COMMUNICATIONS_VERSION = "inside-communications-v1" as const;
+export const COMMUNICATIONS_VERSION = "inside-communications-v2" as const;
 export interface Actor {
   readonly accountRef: string;
 }
@@ -41,7 +41,7 @@ export interface TemplateSnapshot {
 export type BroadcastAudience =
   | { readonly kind: "waitlist"; readonly intakeId: string }
   | { readonly kind: "all" }
-  | { readonly kind: "funnels"; readonly funnelIds: readonly string[] };
+  | { readonly kind: "sequences"; readonly sequenceIds: readonly string[] };
 export interface CommunicationsRequest {
   readonly contractVersion: typeof COMMUNICATIONS_VERSION;
   readonly operation: string;
@@ -49,7 +49,8 @@ export interface CommunicationsRequest {
   readonly expectedRevision: number;
   readonly actor: Actor | { readonly serviceRef: "platform-tracking" };
   readonly payload: {
-    readonly funnelId?: string;
+    readonly sequenceId?: string;
+    readonly receiptOperationId?: string;
     readonly deliveryId?: string;
     readonly partId?: string;
     readonly publishedRevision?: number;

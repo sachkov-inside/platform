@@ -1189,48 +1189,6 @@ export class BillingService {
     });
   }
   /**
-   * Read current Product cohorts, optionally scoped to one Product
-   * @returns any
-   * @throws ApiError
-   */
-  public billingProductCohorts({
-    cursor,
-    productId,
-  }: {
-    cursor?: string,
-    productId?: string,
-  }): CancelablePromise<({
-    items: Array<{
-      name: string;
-      nextEvent: string;
-      productId: string;
-      revision: number;
-      stage: 'announcement' | 'preorder' | 'running' | 'between';
-      startsOn: string | null;
-    }>;
-  } | {
-    items: Array<{
-      guideId: string;
-      name: string;
-      nextEvent: string;
-      priceAfterStartKopecks: number | null;
-      productId: string;
-      revision: number;
-      stage: 'announcement' | 'preorder' | 'running' | 'between';
-      startsOn: string | null;
-    }>;
-    nextCursor: string | null;
-  })> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/billing/cohorts',
-      query: {
-        'cursor': cursor,
-        'productId': productId,
-      },
-    });
-  }
-  /**
    * Read one private payment link without revealing buyer identity or changing public sales
    * @returns any
    * @throws ApiError

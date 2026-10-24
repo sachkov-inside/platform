@@ -71,7 +71,7 @@ export function assembleSetHomePin(
               ],
             });
         }
-        const updated = await transaction.homeSeriesPin.updateMany({
+        const updated = await transaction.homeProductPin.updateMany({
           where: { id: 1, version: command.expectedVersion },
           data: { seriesId: command.seriesId, version: { increment: 1 } },
         });

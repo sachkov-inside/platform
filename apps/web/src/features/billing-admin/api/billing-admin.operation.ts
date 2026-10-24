@@ -26,7 +26,7 @@ export const saveBillingPromotionOperation = defineMutationOperation({
 export const saveBillingCohortOperation = defineMutationOperation({
   input: saveCohortInputSchema,
   method: "POST",
-  path: "/api/authoring/billing/cohorts/save",
+  path: "/api/authoring/billing/product-sales-states/save",
   result: billingCommandResultSchema(catalogOutcomeSchema),
   transportFailure: billingTransportFailure,
 });

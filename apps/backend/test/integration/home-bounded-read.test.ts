@@ -392,7 +392,10 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         },
       },
     });
-    await prisma.homeSeriesPin.update({ where: { id: 1 }, data: { seriesId } });
+    await prisma.homeProductPin.update({
+      where: { id: 1 },
+      data: { seriesId },
+    });
     await prisma.product.create({
       data: { id: id(600000), name: "A-empty", slug: "empty" },
     });
@@ -689,7 +692,7 @@ test("Home preserves membership, feed filters, archived and empty groups, covers
         { ...subject, unexpected: true } as typeof subject,
       ),
     ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
-    await prisma.homeSeriesPin.delete({ where: { id: 1 } });
+    await prisma.homeProductPin.delete({ where: { id: 1 } });
     const broken = await readHomeContent(
       materials.publishedMaterialReader,
       materials.contentAccess,

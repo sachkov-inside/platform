@@ -215,14 +215,14 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         # Mock only the fetch boundary; the deployed probe and owning adapter run unchanged.
         prelude += "globalThis.fetch=async(url)=>new Response(JSON.stringify(String(url).includes('api.telegram.org') ? {ok:true,result:fixtures[String(url).split('/').at(-1)]} : cohortFixture),{headers:{'content-type':'application/json'}});\n"
         source = TELEGRAM_READ.replace('/app/dist/config/application-config.js', (root / 'apps/telegram/src/config/application-config.ts').as_uri())
-        source = source.replace('/app/dist/adapters/platform/http-platform-cohort.adapter.js', (root / 'apps/telegram/src/adapters/platform/http-platform-cohort.adapter.ts').as_uri())
+        source = source.replace('/app/dist/adapters/platform/http-platform-product-sales-state.adapter.js', (root / 'apps/telegram/src/adapters/platform/http-platform-product-sales-state.adapter.ts').as_uri())
         return subprocess.run(['node', str(root / 'apps/telegram/node_modules/tsx/dist/cli.mjs'), '--input-type=module', '-'],
                               input=prelude + source, text=True, capture_output=True, timeout=30)
 
     def test_actual_config_and_probe_accept_logical_identity_with_empty_cohorts(self):
         import json
         from verify import verify_bot_identity, verify_cohort_config
-        result = self.probe({'PLATFORM_COHORTS_URL': '', 'PLATFORM_COHORT_PRODUCT_ID': ''})
+        result = self.probe({'PLATFORM_PRODUCT_SALES_STATES_URL': '', 'PLATFORM_PRODUCT_SALES_PRODUCT_ID': ''})
         self.assertEqual(result.returncode, 0, result.stderr)
         facts = json.loads(result.stdout)
         self.assertEqual(verify_bot_identity(facts)['status'], 'passed')
@@ -237,17 +237,17 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         self.assertEqual(verify_bot_identity(json.loads(result.stdout))['status'], 'failed')
 
     def test_owning_config_rejects_invalid_cohort_url_uuid_and_partial_pair(self):
-        for extra in [{'PLATFORM_COHORTS_URL': 'https://example.invalid/billing/cohorts'},
-                      {'PLATFORM_COHORTS_URL': 'https://user:secret@example.invalid/cohorts',
-                       'PLATFORM_COHORT_PRODUCT_ID': '00000000-0000-4000-8000-000000000001'},
-                      {'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts', 'PLATFORM_COHORT_PRODUCT_ID': 'invalid'}]:
+        for extra in [{'PLATFORM_PRODUCT_SALES_STATES_URL': 'https://example.invalid/billing/product-sales-states'},
+                      {'PLATFORM_PRODUCT_SALES_STATES_URL': 'https://user:secret@example.invalid/cohorts',
+                       'PLATFORM_PRODUCT_SALES_PRODUCT_ID': '00000000-0000-4000-8000-000000000001'},
+                      {'PLATFORM_PRODUCT_SALES_STATES_URL': 'https://example.invalid/cohorts', 'PLATFORM_PRODUCT_SALES_PRODUCT_ID': 'invalid'}]:
             with self.subTest(extra=extra):
                 self.assertNotEqual(self.probe(extra).returncode, 0)
 
     def test_legacy_cohort_variable_uses_the_owning_config_and_new_header(self):
         import json
         from verify import verify_cohort_config
-        result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/billing/cohorts',
+        result = self.probe({'PLATFORM_PRODUCT_SALES_STATES_URL': 'https://example.invalid/billing/product-sales-states',
                              'PLATFORM_COHORT_GUIDE_ID': '00000000-0000-4000-8000-000000000001'})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], 'passed')
@@ -259,8 +259,8 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         for date, expected in [('invalid', 'failed'), ('2026-02-30', 'failed'),
                                ('2026-10-08', 'passed'), (None, 'passed')]:
             with self.subTest(date=date):
-                result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts',
-                                     'PLATFORM_COHORT_PRODUCT_ID': product_id},
+                result = self.probe({'PLATFORM_PRODUCT_SALES_STATES_URL': 'https://example.invalid/cohorts',
+                                     'PLATFORM_PRODUCT_SALES_PRODUCT_ID': product_id},
                                     cohort_body={'items': [{'productId': product_id, 'startsOn': date,
                                                            'name': 'Synthetic cohort', 'stage': 'between',
                                                            'nextEvent': 'Synthetic event', 'revision': 1}]})
@@ -271,8 +271,8 @@ class DeployedTelegramProbeTests(unittest.TestCase):
         import json
         from verify import verify_cohort_config
         product_id = '00000000-0000-4000-8000-000000000001'
-        result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts',
-                             'PLATFORM_COHORT_PRODUCT_ID': product_id},
+        result = self.probe({'PLATFORM_PRODUCT_SALES_STATES_URL': 'https://example.invalid/cohorts',
+                             'PLATFORM_PRODUCT_SALES_PRODUCT_ID': product_id},
                             cohort_body={'items': [{'productId': product_id}]})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], 'failed')
@@ -286,7 +286,7 @@ class PublicRouteTests(unittest.TestCase):
                 if origin == 'sachkov.dev':
                     return 404, 'Ссылка не найдена.'
                 return 302, url.replace('https://inside.sachkov.dev', 'https://sachkov.dev')
-            if '/billing/cohorts' in url:
+            if '/billing/product-sales-states' in url:
                 return 200, '{"items":[]}'
             if '/billing/tbank/notification' in url:
                 return 400, 'invalid_notification'

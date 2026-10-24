@@ -24,13 +24,6 @@ export class CourseActivation {
       grants: AccessGrants;
       bindings: ActivationBindings &
         Pick<RecipientLinks, "findCurrentByIdentity">;
-      readConfiguredProductIds?: (ids: readonly string[]) => Promise<
-        | { readonly ok: true; readonly value: readonly string[] }
-        | {
-            readonly ok: false;
-            readonly error: { readonly code: "unavailable" };
-          }
-      >;
       readAdmission: (
         accountId: string,
         prepareCommunity?: boolean,
@@ -225,26 +218,6 @@ export class CourseActivation {
     ]);
     if (!enrollments.ok || !access.ok || products?.ok === false)
       return { ok: false as const, error: { code: "unavailable" as const } };
-    let configuredProducts: ReadonlySet<string> = new Set();
-    if (
-      products?.ok === true &&
-      this.dependencies.readConfiguredProductIds !== undefined
-    ) {
-      try {
-        const groups = await this.dependencies.readConfiguredProductIds(
-          products.value.map((product) => product.id),
-        );
-        if (!groups.ok)
-          return { ok: false, error: { code: "unavailable" } } as const;
-        configuredProducts = new Set(groups.value);
-      } catch (error: unknown) {
-        return dependencyFailure(
-          { module: "billing", operation: "readOwn" },
-          error,
-          { ok: false, error: { code: "unavailable" } } as const,
-        );
-      }
-    }
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
       const current = await this.dependencies.bindings.readBinding(
@@ -277,11 +250,7 @@ export class CourseActivation {
                   slug: product.slug,
                   name: product.name,
                   materials: product.materials,
-                  community:
-                    product.community.state !== "available" ||
-                    configuredProducts.has(product.id)
-                      ? product.community
-                      : { state: "unavailable" as const },
+                  community: product.community,
                   ...(product.slug === null ||
                   this.dependencies.siteOrigin === undefined
                     ? {}

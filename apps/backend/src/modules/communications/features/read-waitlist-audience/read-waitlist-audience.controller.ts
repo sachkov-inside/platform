@@ -59,7 +59,7 @@ const problemSchema = z.object({
 @ApiTags("Communications")
 @ApiBearerAuth("telegram-communications")
 @PrivateNoStore()
-@Controller("integrations/telegram/v1/communications/waitlist")
+@Controller("integrations/telegram/v2/communications/waitlist")
 export class ReadWaitlistAudienceController {
   constructor(
     @Inject(ACCOUNTS) private readonly accounts: Accounts,

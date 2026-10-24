@@ -1,3 +1,4 @@
+import { decodeStoredSequenceDraft } from "./historical-sequence-decoder.js";
 import { hasText } from "../../shared/text.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
 import { cancelDelivery } from "./sequence-timeline.js";
@@ -138,26 +139,26 @@ export class MarketingEntry {
             .executeTakeFirst()
         : undefined;
       let query = tx
-        .selectFrom("communication_funnels")
+        .selectFrom("communication_sequences")
         .selectAll()
         .where("bot_identity", "=", start.botIdentity)
         .where("lifecycle", "=", "published");
       query = hasText(source)
         ? query.where(
-            "funnel_id",
+            "sequence_id",
             "=",
-            sourceRow?.funnel_id ?? "00000000-0000-0000-0000-000000000000",
+            sourceRow?.sequence_id ?? "00000000-0000-0000-0000-000000000000",
           )
         : query.where("is_default", "=", true);
       const row = await query.executeTakeFirst();
-      const funnel =
+      const sequence =
         row?.published &&
         row.published_revision !== null &&
         (!hasText(source) ||
           row.published.sources.some((s) => s.code === source))
           ? {
-              funnelId: row.funnel_id,
-              draft: row.published,
+              sequenceId: row.sequence_id,
+              draft: decodeStoredSequenceDraft(row.published),
               revision: row.published_revision,
             }
           : undefined;
@@ -168,13 +169,13 @@ export class MarketingEntry {
           bot_identity: start.botIdentity,
           update_id: start.updateId,
           contact_id: contact.contact_id,
-          funnel_id: funnel?.funnelId ?? null,
+          sequence_id: sequence?.sequenceId ?? null,
           source_id: sourceRow?.source_id ?? null,
           source_code: source ?? null,
           entered_at: now,
           outcome: !contact.marketing_enabled
             ? "marketing_off"
-            : funnel
+            : sequence
               ? "entered"
               : "unavailable",
         })
@@ -192,7 +193,7 @@ export class MarketingEntry {
         now,
         dueAt: now,
       };
-      if (!funnel) {
+      if (!sequence) {
         await planDelivery(tx, {
           ...common,
           kind: "fallback",
@@ -234,24 +235,24 @@ export class MarketingEntry {
         await cancelDelivery(tx, intro, now, "marketing_unavailable");
       }
       await tx
-        .insertInto("communication_enrollments")
+        .insertInto("communication_participations")
         .values({
-          enrollment_id: randomUUID(),
+          participation_id: randomUUID(),
           contact_id: contact.contact_id,
-          funnel_id: funnel.funnelId,
-          enrolled_at: now,
+          sequence_id: sequence.sequenceId,
+          participated_at: now,
           initial_entry_key: `entry:${start.botIdentity}:${start.updateId}`,
         })
-        .onConflict((c) => c.columns(["contact_id", "funnel_id"]).doNothing())
+        .onConflict((c) => c.columns(["contact_id", "sequence_id"]).doNothing())
         .execute();
       await planDelivery(tx, {
         ...common,
         kind: "entry",
         key: `entry:${start.botIdentity}:${start.updateId}`,
-        funnelId: funnel.funnelId,
-        stepId: funnel.draft.entryResponse.stepId,
-        parts: funnel.draft.entryResponse.parts,
-        revision: funnel.revision,
+        sequenceId: sequence.sequenceId,
+        stepId: sequence.draft.entryResponse.stepId,
+        parts: sequence.draft.entryResponse.parts,
+        revision: sequence.revision,
       });
     });
   }

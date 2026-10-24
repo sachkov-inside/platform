@@ -88,54 +88,6 @@ export class CommunityEntitlements {
     this.clock = dependencies.clock ?? (() => new Date());
   }
 
-  /** Compatibility adapter: every Product belongs to the existing group; no opt-out is writable. */
-  async configureProductCommunity(
-    actorId: string,
-    input: unknown,
-  ): Promise<
-    | { ok: true }
-    | {
-        ok: false;
-        code: "invalid_input" | "forbidden" | "dependency_unavailable";
-      }
-  > {
-    const parsed = z
-      .strictObject({
-        productId: z.uuid(),
-        groupRef: z.literal("primary"),
-      })
-      .safeParse(input);
-    if (!parsed.success) return { ok: false, code: "invalid_input" };
-    const permission = await this.dependencies.accounts.checkPermission({
-      accountId: actorId,
-      permission: "platform:admin",
-    });
-    if (!permission.ok) return { ok: false, code: "dependency_unavailable" };
-    if (!permission.allowed) return { ok: false, code: "forbidden" };
-    return { ok: true };
-  }
-
-  async readProductCommunityConfiguration(
-    actorId: string,
-    productId: string,
-  ): Promise<
-    | { ok: true; value: { productId: string; groupRef: "primary" | null } }
-    | {
-        ok: false;
-        code: "invalid_input" | "forbidden" | "dependency_unavailable";
-      }
-  > {
-    if (!z.uuid().safeParse(productId).success)
-      return { ok: false, code: "invalid_input" };
-    const permission = await this.dependencies.accounts.checkPermission({
-      accountId: actorId,
-      permission: "platform:admin",
-    });
-    if (!permission.ok) return { ok: false, code: "dependency_unavailable" };
-    if (!permission.allowed) return { ok: false, code: "forbidden" };
-    return { ok: true, value: { productId, groupRef: "primary" } };
-  }
-
   async readOwnProductCommunityEntry(
     accountId: string,
     productId: string,
@@ -210,24 +162,6 @@ export class CommunityEntitlements {
       accountId,
     );
     return this.readOwnAdmission(accountId);
-  }
-
-  /** Compatibility port: every current Product uses the existing group. Rights remain the caller's authority. */
-  readConfiguredProductIds(
-    productIds: readonly string[],
-  ): Promise<
-    | { readonly ok: true; readonly value: readonly string[] }
-    | { readonly ok: false; readonly error: { readonly code: "unavailable" } }
-  > {
-    if (
-      productIds.length > 1000 ||
-      productIds.some((id) => !z.uuid().safeParse(id).success)
-    )
-      return Promise.resolve({ ok: false, error: { code: "unavailable" } });
-    return Promise.resolve({
-      ok: true,
-      value: [...new Set(productIds.map((id) => id.toLowerCase()))],
-    });
   }
 
   async readOwnAdmission(accountId: string): Promise<OwnAdmission> {

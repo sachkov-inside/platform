@@ -68,26 +68,3 @@ it.each([
     ).toEqual({ ok: false, code });
   },
 );
-
-it.each([
-  [403, "forbidden"],
-  [404, "not_found"],
-  [409, "link_required"],
-] as const)(
-  "communications keeps a feature rejection at HTTP %s",
-  async (status, code) => {
-    const { readBroadcasts, readBroadcast } =
-      await import("@/_pages/communications/api/broadcasts.browser");
-    const failure = { kind: "error", code };
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockImplementation(() =>
-          Promise.resolve(Response.json(failure, { status })),
-        ),
-    );
-    expect(await readBroadcasts()).toEqual(failure);
-    expect(await readBroadcast("missing-broadcast")).toEqual(failure);
-  },
-);

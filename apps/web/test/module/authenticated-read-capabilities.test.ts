@@ -9,7 +9,6 @@ import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.serv
 import { handleAccountPresentationRequest } from "@/_pages/account/api/account-presentation-route.server";
 import { handleAccountProfileRequest } from "@/_pages/account/api/account-profile-route.server";
 import { handleAuthoringMaterialsRequest } from "@/_pages/authoring-materials/api/authoring-materials-route.server";
-import { handleSavedPostList } from "@/_pages/communications/api/communications.server";
 import { handleReadBillingContact } from "@/features/billing-contact.server";
 import { handleReadNotificationPreferences } from "@/features/notification-preferences.server";
 import { handleAcceptedDocumentsRequest } from "@/features/accepted-documents.server";
@@ -26,7 +25,6 @@ const capabilities = [
   ["account presentation", handleAccountPresentationRequest],
   ["account profile", handleAccountProfileRequest],
   ["authoring materials", () => handleAuthoringMaterialsRequest(request())],
-  ["communications", () => handleSavedPostList(request())],
   ["billing contact", handleReadBillingContact],
   ["notification preferences", handleReadNotificationPreferences],
   ["accepted documents", handleAcceptedDocumentsRequest],

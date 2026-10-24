@@ -31,7 +31,6 @@ import { BillingPayments } from "./facets/billing-payments/billing-payments.js";
 import { BillingPricing } from "./facets/billing-pricing/billing-pricing.js";
 import { AcceptTbankNotificationController } from "./features/accept-notification/accept-notification.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
-import { ListProductCohortsController } from "./features/list-product-cohorts/list-product-cohorts.controller.js";
 import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 import { PaymentLinksController } from "./features/payment-links/payment-links.controller.js";
 import { PurchaseProductController } from "./features/purchase-product/purchase-product.controller.js";
@@ -53,7 +52,6 @@ const BILLING_BANK = Symbol("BillingBank");
     ManageBillingController,
     QuotePurchaseController,
     ListOffersController,
-    ListProductCohortsController,
     ListProductSalesStatesController,
     PaymentLinksController,
   ],

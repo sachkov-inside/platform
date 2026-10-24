@@ -910,28 +910,28 @@ assert_public_status POST /integrations/telegram/v1/subscription-activation/bind
 assert_public_status POST /integrations/telegram/v1/invitations/redeem 404
 assert_public_status POST /internal/billing-dispatch/authorize 401
 assert_public_status POST /internal/notifications/dispatch/authorize 401
-assert_public_status POST /integrations/telegram/v1/communications/authorize 401
-assert_public_status POST /integrations/telegram/v1/communications/validate-content 401
+assert_public_status POST /integrations/telegram/v2/communications/authorize 401
+assert_public_status POST /integrations/telegram/v2/communications/validate-content 401
 # The private waitlist service route is published only as exact POST on either API hostname.
 # Missing credentials reach the API rejection; other methods and subpaths stay at the edge's 404.
 for host in sachkov.dev inside.sachkov.dev; do
-  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/waitlist 401 "$host" \
+  assert_public_status POST /integrations/telegram/v2/communications/waitlist 401 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/waitlist 401 "$host" \
     --header 'Authorization: Bearer synthetic-wrong-waitlist-service-credential'
-  assert_public_status GET /integrations/telegram/v1/communications/waitlist 404 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/materials 401 "$host"
-  assert_public_status GET /integrations/telegram/v1/communications/materials 404 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/materials/unknown 404 "$host"
-  assert_public_status POST /integrations/telegram/v1/communications/waitlist/unknown 404 "$host"
+  assert_public_status GET /integrations/telegram/v2/communications/waitlist 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/materials 401 "$host"
+  assert_public_status GET /integrations/telegram/v2/communications/materials 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/materials/unknown 404 "$host"
+  assert_public_status POST /integrations/telegram/v2/communications/waitlist/unknown 404 "$host"
 done
-assert_public_status GET /integrations/telegram/v1/communications/authorize 404
+assert_public_status GET /integrations/telegram/v2/communications/authorize 404
 assert_public_status GET /integrations/tribute/v1/webhook 404
 assert_public_status GET /integrations/telegram/v1/subscription-activation/binding 404
 assert_public_status GET /integrations/telegram/v1/invitations/redeem 404
 # The bot reads the cohort start date without a credential; the API answers, not the web page.
-assert_public_status GET /billing/cohorts 200
+assert_public_status GET /billing/product-sales-states 200
 if ! grep -q '"items"' "$runtime_config_dir/public-response-body"; then
-  echo "Expected GET /billing/cohorts to return the API cohort list" >&2
+  echo "Expected GET /billing/product-sales-states to return the API cohort list" >&2
   exit 1
 fi
 for internal_path in /internal/billing-dispatch/authorize /internal/notifications/dispatch/authorize /internal/billing-dispatch/unknown; do

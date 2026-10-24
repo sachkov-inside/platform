@@ -24,7 +24,7 @@ import type {
 
 /** What a transition may read besides the session: facts loaded before it and fresh IDs. */
 export interface DialogEnvironment {
-  /** Broadcasts and funnel blocks that have a saved unfinished message. */
+  /** Broadcasts and sequence blocks that have a saved unfinished message. */
   readonly pendingCompositions: ReadonlySet<string>;
   readonly now: Date;
   newId(): string;
@@ -33,10 +33,10 @@ export interface DialogEnvironment {
 export type StatisticsCounts = StatisticsResult["statistics"]["deliveries"];
 export type LifecycleAction = Extract<
   AuthorAction,
-  { kind: "f:life" }
+  { kind: "seq:life" }
 >["value"];
 
-/** What the dialog shows once a saved funnel comes back. */
+/** What the dialog shows once a saved sequence comes back. */
 export type AfterSequenceSave =
   | { readonly kind: "card" }
   /** The message from the sequence composer is saved; ask for the next one. */
@@ -80,8 +80,8 @@ export type AuthorEffect =
       readonly name: string | undefined;
     }
   | {
-      readonly kind: "retain-funnel-draft";
-      readonly funnelAuthor: AuthorSequenceState | undefined;
+      readonly kind: "retain-sequence-draft";
+      readonly sequenceAuthor: AuthorSequenceState | undefined;
     }
   | { readonly kind: "remove-draft"; readonly id: string }
   | { readonly kind: "discard-composition"; readonly id: string }
@@ -138,16 +138,16 @@ export type AuthorQuery =
       readonly destinationId: string;
       readonly then: "resume" | "discard";
     }
-  /** Answered by `funnels-listed`. */
-  | { readonly kind: "list-funnels"; readonly cursor?: string | undefined }
-  /** Answered by `funnel-read`. */
-  | { readonly kind: "read-funnel"; readonly funnelId: string }
+  /** Answered by `sequences-listed`. */
+  | { readonly kind: "list-sequences"; readonly cursor?: string | undefined }
+  /** Answered by `sequence-read`. */
+  | { readonly kind: "read-sequence"; readonly sequenceId: string }
   /** Answered by `intro-read`. */
   | { readonly kind: "read-intro" }
-  /** Answered by `funnel-saved`, or by `funnel-invalid` when the draft is incomplete. */
+  /** Answered by `sequence-saved`, or by `sequence-invalid` when the draft is incomplete. */
   | {
-      readonly kind: "save-funnel";
-      readonly funnel: CommunicationSequenceSnapshot;
+      readonly kind: "save-sequence";
+      readonly sequence: CommunicationSequenceSnapshot;
       readonly then: AfterSequenceSave;
     }
   /** Answered by `content-validated`. */
@@ -158,30 +158,30 @@ export type AuthorQuery =
     }
   /** Answered by `intro-saved`. */
   | { readonly kind: "save-intro"; readonly intro: IntroSnapshot }
-  /** Locks the saved funnel for publication; answered by `funnel-locked`. */
+  /** Locks the saved sequence for publication; answered by `sequence-locked`. */
   | {
-      readonly kind: "lock-funnel";
-      readonly funnelId: string;
+      readonly kind: "lock-sequence";
+      readonly sequenceId: string;
       readonly publish: boolean;
     }
-  /** Answered by `funnel-published` or `publication-previewed`. */
+  /** Answered by `sequence-published` or `publication-previewed`. */
   | {
-      readonly kind: "publish-funnel";
-      readonly funnelId: string;
+      readonly kind: "publish-sequence";
+      readonly sequenceId: string;
       readonly revision: number;
       readonly publish: boolean;
     }
-  /** Answered by `funnel-changed`. */
+  /** Answered by `sequence-changed`. */
   | {
-      readonly kind: "change-funnel";
-      readonly funnelId: string;
+      readonly kind: "change-sequence";
+      readonly sequenceId: string;
       readonly revision: number;
       readonly action: LifecycleAction;
     }
   /** Answered by `part-history-read`. */
   | {
       readonly kind: "read-part-history";
-      readonly funnelId: string;
+      readonly sequenceId: string;
       readonly partId: string;
       readonly delaySeconds: number | null;
     };
@@ -241,18 +241,24 @@ export type AuthorEvent =
       readonly then: "resume" | "discard";
     }
   | {
-      readonly kind: "funnels-listed";
+      readonly kind: "sequences-listed";
       readonly items: readonly SequenceListItem[];
       readonly nextCursor?: string | undefined;
     }
-  | { readonly kind: "funnel-read"; readonly funnelAuthor: AuthorSequenceState }
-  | { readonly kind: "intro-read"; readonly funnelAuthor: AuthorSequenceState }
   | {
-      readonly kind: "funnel-saved";
-      readonly funnel?: CommunicationSequenceSnapshot | undefined;
+      readonly kind: "sequence-read";
+      readonly sequenceAuthor: AuthorSequenceState;
+    }
+  | {
+      readonly kind: "intro-read";
+      readonly sequenceAuthor: AuthorSequenceState;
+    }
+  | {
+      readonly kind: "sequence-saved";
+      readonly sequence?: CommunicationSequenceSnapshot | undefined;
       readonly then: AfterSequenceSave;
     }
-  | { readonly kind: "funnel-invalid"; readonly then: AfterSequenceSave }
+  | { readonly kind: "sequence-invalid"; readonly then: AfterSequenceSave }
   | {
       readonly kind: "content-validated";
       readonly purpose: ValidationPurpose;
@@ -260,21 +266,21 @@ export type AuthorEvent =
     }
   | { readonly kind: "intro-saved"; readonly intro?: IntroSnapshot | undefined }
   | {
-      readonly kind: "funnel-locked";
+      readonly kind: "sequence-locked";
       readonly publish: boolean;
       readonly revision?: number | undefined;
     }
   | {
-      readonly kind: "funnel-published";
-      readonly funnel: CommunicationSequenceSnapshot;
+      readonly kind: "sequence-published";
+      readonly sequence: CommunicationSequenceSnapshot;
     }
   | {
       readonly kind: "publication-previewed";
       readonly preview: SequencePreview;
     }
   | {
-      readonly kind: "funnel-changed";
-      readonly funnel?: CommunicationSequenceSnapshot | undefined;
+      readonly kind: "sequence-changed";
+      readonly sequence?: CommunicationSequenceSnapshot | undefined;
     }
   | {
       readonly kind: "part-history-read";
@@ -290,7 +296,7 @@ export interface Transition {
 
 export const HOME: AuthorButton[] = [
   ["Рассылки", { kind: "broadcasts" }],
-  ["Последовательности", { kind: "f:list" }],
+  ["Последовательности", { kind: "seq:list" }],
   ["Статистика", { kind: "overview" }],
 ];
 const BACK_HOME: AuthorButton[] = [["В меню", { kind: "home" }]];
@@ -376,8 +382,8 @@ export class Turn {
 
   retainSequenceDraft() {
     this.emit({
-      kind: "retain-funnel-draft",
-      funnelAuthor: this.state.funnelAuthor,
+      kind: "retain-sequence-draft",
+      sequenceAuthor: this.state.sequenceAuthor,
     });
   }
 

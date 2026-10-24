@@ -638,22 +638,13 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     },
   );
 
-  test("Product entry requires its configured group and its own community right", async () => {
+  test("Product entry requires its own current community right", async () => {
     const account = await member();
     const productId = randomUUID();
     await database.prisma.product.create({
       data: { id: productId, name: "Product entry", slug: productId },
     });
     const app = community(new ProviderDouble());
-    expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
-      kind: "none",
-    });
-    expect(
-      await app.configureProductCommunity(owner, {
-        productId,
-        groupRef: "primary",
-      }),
-    ).toMatchObject({ ok: true });
     expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
       kind: "none",
     });
@@ -665,12 +656,6 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(await app.readOwnProductCommunityEntry(account, productId)).toEqual({
       kind: "link_telegram",
     });
-    expect(
-      await app.configureProductCommunity(account, {
-        productId,
-        groupRef: null,
-      }),
-    ).toMatchObject({ ok: false });
   });
 
   test("prepares only the requesting Account community delivery within its action", async () => {
@@ -1687,25 +1672,13 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(
       await app.readOwnProductCommunityEntry(account, productId),
     ).toMatchObject({ kind: "preparing" });
-    await database.prisma.productCommunity.create({
+    await database.prisma.historicalProductCommunityRecord.create({
       data: {
         productId,
         groupRef: null,
         updatedBy: owner,
         updatedAt: now,
       },
-    });
-    expect(
-      await app.readProductCommunityConfiguration(owner, productId),
-    ).toMatchObject({
-      ok: true,
-      value: { groupRef: "primary" },
-    });
-    expect(
-      await app.configureProductCommunity(owner, { productId, groupRef: null }),
-    ).toEqual({
-      ok: false,
-      code: "invalid_input",
     });
     await app.project(account);
     expect(
@@ -1788,7 +1761,7 @@ describe.each([1, 100, 1000, 1001])(
       if (size === 1) {
         const groupProduct = randomUUID();
         const foreignProduct = randomUUID();
-        await isolated.prisma.productCommunity.create({
+        await isolated.prisma.historicalProductCommunityRecord.create({
           data: {
             productId: groupProduct,
             groupRef: "primary",
@@ -1902,7 +1875,7 @@ async function communityGrant(
     const permission = await database.prisma.accountPermission.findFirstOrThrow(
       { where: { permission: "platform:admin" } },
     );
-    await database.prisma.productCommunity.create({
+    await database.prisma.historicalProductCommunityRecord.create({
       data: {
         productId,
         groupRef: "primary",

@@ -109,7 +109,7 @@ export class ProductCompositions {
         product.audience,product.outcome,product.prerequisites,product.scope,
         product.presentation,product.page,product.cover_id as "coverId",
         coalesce((select jsonb_agg(member.material_id order by member.material_id) from (
-          select material_id from products.series_memberships where series_id=product.id
+          select material_id from products.product_memberships where product_id=product.id
           order by material_id limit ${MAX_PRODUCT_MATERIALS + 1}
         ) member),'[]'::jsonb) as catalogue,
         coalesce((select jsonb_agg(jsonb_build_object(
@@ -129,7 +129,7 @@ export class ProductCompositions {
           select id,name,summary,ordinal from products.product_chapters where product_id=product.id
           order by ordinal,id limit ${MAX_PRODUCT_CHAPTERS + 1}
         ) chapter),'[]'::jsonb) as chapters
-      from products.series product where ${condition}
+      from products.products product where ${condition}
       order by product.name,product.id limit ${limit}
     `),
     );

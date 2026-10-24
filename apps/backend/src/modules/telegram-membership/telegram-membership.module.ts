@@ -92,8 +92,6 @@ import {
           contentCatalog,
           grants,
           bindings,
-          readConfiguredProductIds: (ids) =>
-            community.readConfiguredProductIds(ids),
           readAdmission: (accountId, prepareCommunity, expected) =>
             prepareCommunity === true
               ? community.prepareOwnAdmission(accountId, expected)

@@ -23,7 +23,7 @@ interface PayloadSpec {
 const AUTHOR_ACTIONS = {
   "batch:broadcast": {},
   "batch:done": {},
-  "batch:funnel": {},
+  "batch:sequence": {},
   "broadcast-sample": {},
   broadcasts: { id: "optional" },
   button: {},
@@ -61,8 +61,8 @@ const AUTHOR_ACTIONS = {
   "compose:choose": { id: "required" },
   "compose:discard": { id: "required" },
   "compose:edit-broadcast": { id: "required" },
-  "compose:edit-funnel": { id: "required" },
-  "compose:funnel": {},
+  "compose:edit-sequence": { id: "required" },
+  "compose:sequence": {},
   "compose:library": { id: "optional" },
   "compose:preview": {},
   "compose:remove-button": { value: "required" },
@@ -72,44 +72,44 @@ const AUTHOR_ACTIONS = {
   "sequence:broadcast": {},
   "sequence:discard": {},
   "sequence:done": {},
-  "sequence:funnel": {},
+  "sequence:sequence": {},
   "sequence:time": { value: "required" },
-  "f:add-source": {},
-  "f:add-step": {},
-  "f:confirm-archive": {},
-  "f:default": {},
-  "f:delay": {},
-  "f:discard": {},
-  "f:intro": {},
-  "f:life": { value: ["pause", "resume", "archive", "restore"] },
-  "f:list": { id: "optional" },
-  "f:message": { id: "required", value: "required" },
-  "f:messages": { value: "optional" },
-  "f:move-part": { id: "required", value: "required" },
-  "f:move-step": { id: "required", value: "required" },
-  "f:name": {},
-  "f:new": {},
-  "f:part": { id: "required" },
-  "f:parts": { id: "required" },
-  "f:parts-page": { value: "required" },
-  "f:posts": { value: "optional" },
-  "f:preview": {},
-  "f:publish": {},
-  "f:read": { id: "required" },
-  "f:remove-part": { id: "required" },
-  "f:remove-source": { id: "required" },
-  "f:remove-step": { id: "required" },
-  "f:sample": {},
-  "f:save": {},
-  "f:save-intro": {},
-  "f:settings": {},
-  "f:show": {},
-  "f:source": { id: "required" },
-  "f:sources": { value: "optional" },
-  "f:step": { id: "required" },
-  "f:steps": { value: "optional" },
-  "f:timing": { id: "required" },
-  "f:timing-entry": { id: "required" },
+  "seq:add-source": {},
+  "seq:add-step": {},
+  "seq:confirm-archive": {},
+  "seq:default": {},
+  "seq:delay": {},
+  "seq:discard": {},
+  "seq:intro": {},
+  "seq:life": { value: ["pause", "resume", "archive", "restore"] },
+  "seq:list": { id: "optional" },
+  "seq:message": { id: "required", value: "required" },
+  "seq:messages": { value: "optional" },
+  "seq:move-part": { id: "required", value: "required" },
+  "seq:move-step": { id: "required", value: "required" },
+  "seq:name": {},
+  "seq:new": {},
+  "seq:part": { id: "required" },
+  "seq:parts": { id: "required" },
+  "seq:parts-page": { value: "required" },
+  "seq:posts": { value: "optional" },
+  "seq:preview": {},
+  "seq:publish": {},
+  "seq:read": { id: "required" },
+  "seq:remove-part": { id: "required" },
+  "seq:remove-source": { id: "required" },
+  "seq:remove-step": { id: "required" },
+  "seq:sample": {},
+  "seq:save": {},
+  "seq:save-intro": {},
+  "seq:settings": {},
+  "seq:show": {},
+  "seq:source": { id: "required" },
+  "seq:sources": { value: "optional" },
+  "seq:step": { id: "required" },
+  "seq:steps": { value: "optional" },
+  "seq:timing": { id: "required" },
+  "seq:timing-entry": { id: "required" },
 } as const satisfies Record<string, PayloadSpec>;
 
 type ActionSpecs = typeof AUTHOR_ACTIONS;
@@ -146,7 +146,7 @@ export type SequenceAction = Extract<
 >;
 export type CommunicationSequenceAction = Extract<
   AuthorAction,
-  { kind: `f:${string}` }
+  { kind: `seq:${string}` }
 >;
 
 export type AuthorButton = [label: string, action: AuthorAction];
@@ -158,15 +158,20 @@ export interface AuthorMenu {
 
 const AUTHOR_PROMPT_KINDS = ["replace", "button-title", "post-search"] as const;
 
-/** The text the dialog waits for from the author outside a composer or funnel prompt. */
+/** The text the dialog waits for from the author outside a composer or sequence prompt. */
 export type AuthorPrompt =
   | { readonly kind: (typeof AUTHOR_PROMPT_KINDS)[number] }
   | { readonly kind: "button-url"; readonly buttonTitle: string };
 
-/** Where an accepted message goes: a broadcast or one block of a funnel. */
+/** Where an accepted message goes: a broadcast or one block of a sequence. */
 export type MessageDestination = { expectedRevision: number } & (
   | { kind: "broadcast"; id: string; partId?: string | undefined }
-  | { kind: "funnel"; id: string; target: string; partId?: string | undefined }
+  | {
+      kind: "sequence";
+      id: string;
+      target: string;
+      partId?: string | undefined;
+    }
 );
 
 const COMPOSER_PROMPTS = [
@@ -197,12 +202,12 @@ const FUNNEL_PROMPTS = [
   "part-delay",
 ] as const;
 
-/** The funnel or shared intro being edited, with its unsaved changes. */
+/** The sequence or shared intro being edited, with its unsaved changes. */
 export interface AuthorSequenceState {
-  funnel?: CommunicationSequenceSnapshot;
+  sequence?: CommunicationSequenceSnapshot;
   intro?: IntroSnapshot;
   dirty?: boolean;
-  /** `entry`, `intro` or the ID of the selected funnel step. */
+  /** `entry`, `intro` or the ID of the selected sequence step. */
   target?: string;
   replacePartId?: string | undefined;
   prompt?: (typeof FUNNEL_PROMPTS)[number] | undefined;
@@ -222,12 +227,12 @@ export interface AuthorState {
   /** The actions of the latest menu's buttons, by position. */
   actions: AuthorAction[];
   freshMenu?: boolean;
-  batch?: "broadcast" | "funnel" | undefined;
+  batch?: "broadcast" | "sequence" | undefined;
   menu?: AuthorMenu;
   composing?: ComposerState | undefined;
   broadcastName?: string | undefined;
   libraryQuery?: string | undefined;
-  funnelAuthor?: AuthorSequenceState;
+  sequenceAuthor?: AuthorSequenceState;
   template?: TemplateSnapshot;
   broadcast?: AuthorBroadcast;
   prompt?: AuthorPrompt | undefined;
@@ -267,11 +272,11 @@ const CHOICE_KINDS = new Set<AuthorActionKind>([
   "read-post",
   "read-broadcast",
   "show-part",
-  "f:read",
-  "f:part",
-  "f:message",
-  "f:step",
-  "f:source",
+  "seq:read",
+  "seq:part",
+  "seq:message",
+  "seq:step",
+  "seq:source",
 ]);
 const PAGE_SIZE = 4;
 
@@ -307,7 +312,7 @@ export function parseAuthorState(stored: unknown): AuthorState | undefined {
   return isAuthorState(state) ? state : undefined;
 }
 
-/** Reads a stored funnel or intro draft; undefined when its shape is not trusted. */
+/** Reads a stored sequence or intro draft; undefined when its shape is not trusted. */
 export function parseSequenceDraft(
   stored: unknown,
 ): AuthorSequenceState | undefined {
@@ -354,12 +359,12 @@ function isAuthorState(value: unknown): value is AuthorState {
     Array.isArray(value["actions"]) &&
     value["actions"].every(isAuthorAction) &&
     optional(value["freshMenu"], isBoolean) &&
-    optional(value["batch"], (v) => v === "broadcast" || v === "funnel") &&
+    optional(value["batch"], (v) => v === "broadcast" || v === "sequence") &&
     optional(value["menu"], isAuthorMenu) &&
     optional(value["composing"], isComposerState) &&
     optional(value["broadcastName"], isString) &&
     optional(value["libraryQuery"], isString) &&
-    optional(value["funnelAuthor"], isSequenceState) &&
+    optional(value["sequenceAuthor"], isSequenceState) &&
     optional(value["template"], (v) => validTemplate(v)) &&
     optional(value["broadcast"], isBroadcast) &&
     optional(value["prompt"], isAuthorPrompt) &&
@@ -441,7 +446,7 @@ function isDestination(value: unknown): value is MessageDestination {
   return (
     isRecord(value) &&
     (value["kind"] === "broadcast" ||
-      (value["kind"] === "funnel" && isString(value["target"]))) &&
+      (value["kind"] === "sequence" && isString(value["target"]))) &&
     isString(value["id"]) &&
     isNumber(value["expectedRevision"]) &&
     optional(value["partId"], isString)
@@ -451,7 +456,7 @@ function isDestination(value: unknown): value is MessageDestination {
 function isSequenceState(value: unknown): value is AuthorSequenceState {
   return (
     isRecord(value) &&
-    optional(value["funnel"], isFunnel) &&
+    optional(value["sequence"], isSequence) &&
     optional(value["intro"], isIntro) &&
     optional(value["dirty"], isBoolean) &&
     optional(value["target"], isString) &&
@@ -462,10 +467,10 @@ function isSequenceState(value: unknown): value is AuthorSequenceState {
   );
 }
 
-function isFunnel(value: unknown): value is CommunicationSequenceSnapshot {
+function isSequence(value: unknown): value is CommunicationSequenceSnapshot {
   return (
     isRecord(value) &&
-    isString(value["funnelId"]) &&
+    isString(value["sequenceId"]) &&
     isString(value["name"]) &&
     isBoolean(value["isDefault"]) &&
     Array.isArray(value["sources"]) &&

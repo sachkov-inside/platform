@@ -1,4 +1,8 @@
 import {
+  name as canonicalProductStorageName,
+  statement as canonicalProductStorageStatement,
+} from "../modules/products/infrastructure/postgres/migrations/0112-canonical-product-storage.js";
+import {
   name as legacyPracticeTasksName,
   statement as legacyPracticeTasksStatement,
 } from "../modules/product-tasks/infrastructure/postgres/migrations/0111-legacy-practice-tasks.js";
@@ -715,6 +719,10 @@ export const platformMigrations = [
   { name: paymentReviewName, statement: paymentReviewStatement },
   { name: productSalesStateName, statement: productSalesStateStatement },
   { name: legacyPracticeTasksName, statement: legacyPracticeTasksStatement },
+  {
+    name: canonicalProductStorageName,
+    statement: canonicalProductStorageStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

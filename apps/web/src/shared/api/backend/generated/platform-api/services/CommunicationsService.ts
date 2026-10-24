@@ -15,7 +15,7 @@ export class CommunicationsService {
     requestBody,
   }: {
     requestBody: ({
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'templates.read';
       operationId: string;
@@ -23,7 +23,7 @@ export class CommunicationsService {
         templateId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'templates.save';
       operationId: string;
@@ -127,25 +127,25 @@ export class CommunicationsService {
         templateId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.read';
+      operation: 'sequences.read';
       operationId: string;
       payload: {
-        funnelId: string;
+        sequenceId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.list';
+      operation: 'sequences.list';
       operationId: string;
       payload: {
         cursor?: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.save';
+      operation: 'sequences.save';
       operationId: string;
       payload: {
         entryResponse: {
@@ -250,9 +250,9 @@ export class CommunicationsService {
           }>;
           stepId: string;
         };
-        funnelId: string;
         isDefault: boolean;
         name: string;
+        sequenceId: string;
         sources: Array<{
           code: string;
           name: string;
@@ -364,41 +364,41 @@ export class CommunicationsService {
         }>;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.publish';
+      operation: 'sequences.publish';
       operationId: string;
       payload: {
-        funnelId: string;
+        sequenceId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.preview';
+      operation: 'sequences.preview';
       operationId: string;
       payload: {
-        funnelId: string;
+        sequenceId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.lifecycle';
+      operation: 'sequences.lifecycle';
       operationId: string;
       payload: {
         action: 'pause' | 'resume' | 'archive' | 'restore';
-        funnelId: string;
+        sequenceId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
-      operation: 'funnels.rollback';
+      operation: 'sequences.rollback';
       operationId: string;
       payload: {
-        funnelId: string;
         publishedRevision: number;
+        sequenceId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'broadcasts.read';
       operationId: string;
@@ -406,7 +406,7 @@ export class CommunicationsService {
         broadcastId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'broadcasts.save';
       operationId: string;
@@ -414,8 +414,8 @@ export class CommunicationsService {
         audience: ({
           kind: 'all';
         } | {
-          funnelIds: Array<string>;
-          kind: 'funnels';
+          kind: 'sequences';
+          sequenceIds: Array<string>;
         } | {
           intakeId: string;
           kind: 'waitlist';
@@ -524,7 +524,7 @@ export class CommunicationsService {
         scheduledAt: (string | string | null);
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'broadcasts.launch';
       operationId: string;
@@ -532,7 +532,7 @@ export class CommunicationsService {
         broadcastId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'broadcasts.lifecycle';
       operationId: string;
@@ -541,7 +541,7 @@ export class CommunicationsService {
         broadcastId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'delivery.resolve';
       operationId: string;
@@ -552,7 +552,7 @@ export class CommunicationsService {
         partId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'templates.testSend';
       operationId: string;
@@ -560,23 +560,23 @@ export class CommunicationsService {
         templateId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'statistics.read';
       operationId: string;
       payload: {
         broadcastId?: string;
         cursor?: string;
-        funnelId?: string;
+        sequenceId?: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'intro.read';
       operationId: string;
       payload: any;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'intro.save';
       operationId: string;
@@ -683,7 +683,7 @@ export class CommunicationsService {
         }>;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'deliveries.read';
       operationId: string;
@@ -691,10 +691,10 @@ export class CommunicationsService {
         broadcastId?: string;
         cursor?: string;
         deliveryId?: string;
-        funnelId?: string;
+        sequenceId?: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'broadcasts.list';
       operationId: string;
@@ -702,7 +702,7 @@ export class CommunicationsService {
         cursor?: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'entries.read';
       operationId: string;
@@ -711,7 +711,7 @@ export class CommunicationsService {
         cursor?: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'templates.list';
       operationId: string;
@@ -719,12 +719,20 @@ export class CommunicationsService {
         cursor?: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       expectedRevision: number;
       operation: 'broadcasts.preview';
       operationId: string;
       payload: {
         broadcastId: string;
+      };
+    } | {
+      contractVersion: 'inside-communications-v2';
+      expectedRevision: number;
+      operation: 'receipts.read';
+      operationId: string;
+      payload: {
+        receiptOperationId: string;
       };
     }),
   }): CancelablePromise<{
@@ -743,7 +751,7 @@ export class CommunicationsService {
       kind: 'unavailable';
     });
     value: ({
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       template: {
         botIdentity: string;
@@ -847,8 +855,8 @@ export class CommunicationsService {
         templateId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
-      funnel: {
+      contractVersion: 'inside-communications-v2';
+      sequence: {
         entryResponse: {
           parts: Array<{
             content: ({
@@ -951,12 +959,12 @@ export class CommunicationsService {
           }>;
           stepId: string;
         };
-        funnelId: string;
         isDefault: boolean;
         lifecycle: 'draft' | 'published' | 'paused' | 'archived';
         name: string;
         publishedRevision: (number | string | null);
         revision: number;
+        sequenceId: string;
         sources: Array<{
           code: string;
           name: string;
@@ -1069,8 +1077,9 @@ export class CommunicationsService {
       };
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
-      funnels: Array<{
+      contractVersion: 'inside-communications-v2';
+      nextCursor: (string | string | null);
+      sequences: Array<{
         entryResponse: {
           parts: Array<{
             content: ({
@@ -1173,12 +1182,12 @@ export class CommunicationsService {
           }>;
           stepId: string;
         };
-        funnelId: string;
         isDefault: boolean;
         lifecycle: 'draft' | 'published' | 'paused' | 'archived';
         name: string;
         publishedRevision: (number | string | null);
         revision: number;
+        sequenceId: string;
         sources: Array<{
           code: string;
           name: string;
@@ -1289,19 +1298,18 @@ export class CommunicationsService {
           stepId: string;
         }>;
       }>;
-      nextCursor: (string | string | null);
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       preview: {
         addedStepIds: Array<string>;
         completedParticipantsReceivingNewSteps: number;
         deletedStepIds: Array<string>;
         editedStepIds: Array<string>;
         eligibleContacts: number;
-        funnelId: string;
         reorderedStepIds: Array<string>;
         revision: number;
+        sequenceId: string;
         validationErrors: Array<{
           reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
           target: {
@@ -1316,8 +1324,8 @@ export class CommunicationsService {
         audience: ({
           kind: 'all';
         } | {
-          funnelIds: Array<string>;
-          kind: 'funnels';
+          kind: 'sequences';
+          sequenceIds: Array<string>;
         } | {
           intakeId: string;
           kind: 'waitlist';
@@ -1434,20 +1442,20 @@ export class CommunicationsService {
           excluded: number;
         };
       };
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       deliveryId: string;
       outcome: 'skipped' | 'retry_requested';
       partId: string;
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       testDeliveryId: string;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       targets: Array<{
         eligible: boolean;
@@ -1459,16 +1467,16 @@ export class CommunicationsService {
         };
       }>;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       safeUrl: string;
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       eventId: string;
       outcome: 'recorded' | 'duplicate';
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       statistics: {
         analyticsLagSeconds: number;
         blocked: number;
@@ -1476,8 +1484,8 @@ export class CommunicationsService {
           contactId: string;
           entries: Array<{
             enteredAt: string;
-            funnelId: (string | string | null);
             outcome: string;
+            sequenceId: (string | string | null);
             sourceCode: (string | string | null);
             sourceId: (string | string | null);
           }>;
@@ -1506,7 +1514,7 @@ export class CommunicationsService {
       };
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       intro: {
         introId: string;
         parts: Array<{
@@ -1612,14 +1620,13 @@ export class CommunicationsService {
       };
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       deliveries: Array<{
         broadcastId: (string | string | null);
         cancelRequested: boolean;
         completedAt: (string | string | null);
         contactId: string;
         deliveryId: string;
-        funnelId: (string | string | null);
         parts: Array<{
           attempts: Array<{
             attemptedAt: string;
@@ -1634,6 +1641,7 @@ export class CommunicationsService {
         }>;
         publishedRevision: number;
         revision: number;
+        sequenceId: (string | string | null);
         snapshot: Array<{
           content: ({
             buttons: Array<{
@@ -1743,8 +1751,8 @@ export class CommunicationsService {
         audience: ({
           kind: 'all';
         } | {
-          funnelIds: Array<string>;
-          kind: 'funnels';
+          kind: 'sequences';
+          sequenceIds: Array<string>;
         } | {
           intakeId: string;
           kind: 'waitlist';
@@ -1861,22 +1869,22 @@ export class CommunicationsService {
           excluded: number;
         };
       }>;
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       nextCursor: (string | string | null);
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       entries: Array<{
         enteredAt: string;
-        funnelId: (string | string | null);
         outcome: string;
+        sequenceId: (string | string | null);
         sourceCode: (string | string | null);
         sourceId: (string | string | null);
       }>;
       nextCursor: (string | string | null);
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       nextCursor: (string | string | null);
       status: 'ok';
       templates: Array<{
@@ -1981,7 +1989,7 @@ export class CommunicationsService {
         templateId: string;
       }>;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       waitlistPreview: {
         active: number;
@@ -1991,6 +1999,15 @@ export class CommunicationsService {
         revision: number;
         saleOpen: boolean;
       };
+    } | {
+      contractVersion: 'inside-communications-v2';
+      receipt: {
+        createdAt: string;
+        operationId: string;
+        requestJson: string;
+        resultJson: string;
+      };
+      status: 'ok';
     });
   }> {
     return this.httpRequest.request({
@@ -2028,7 +2045,7 @@ export class CommunicationsService {
       kind: 'unavailable';
     });
     value: ({
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       template: {
         botIdentity: string;
@@ -2132,8 +2149,8 @@ export class CommunicationsService {
         templateId: string;
       };
     } | {
-      contractVersion: 'inside-communications-v1';
-      funnel: {
+      contractVersion: 'inside-communications-v2';
+      sequence: {
         entryResponse: {
           parts: Array<{
             content: ({
@@ -2236,12 +2253,12 @@ export class CommunicationsService {
           }>;
           stepId: string;
         };
-        funnelId: string;
         isDefault: boolean;
         lifecycle: 'draft' | 'published' | 'paused' | 'archived';
         name: string;
         publishedRevision: (number | string | null);
         revision: number;
+        sequenceId: string;
         sources: Array<{
           code: string;
           name: string;
@@ -2354,8 +2371,9 @@ export class CommunicationsService {
       };
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
-      funnels: Array<{
+      contractVersion: 'inside-communications-v2';
+      nextCursor: (string | string | null);
+      sequences: Array<{
         entryResponse: {
           parts: Array<{
             content: ({
@@ -2458,12 +2476,12 @@ export class CommunicationsService {
           }>;
           stepId: string;
         };
-        funnelId: string;
         isDefault: boolean;
         lifecycle: 'draft' | 'published' | 'paused' | 'archived';
         name: string;
         publishedRevision: (number | string | null);
         revision: number;
+        sequenceId: string;
         sources: Array<{
           code: string;
           name: string;
@@ -2574,19 +2592,18 @@ export class CommunicationsService {
           stepId: string;
         }>;
       }>;
-      nextCursor: (string | string | null);
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       preview: {
         addedStepIds: Array<string>;
         completedParticipantsReceivingNewSteps: number;
         deletedStepIds: Array<string>;
         editedStepIds: Array<string>;
         eligibleContacts: number;
-        funnelId: string;
         reorderedStepIds: Array<string>;
         revision: number;
+        sequenceId: string;
         validationErrors: Array<{
           reason: 'not_found' | 'not_published' | 'not_free' | 'incomplete';
           target: {
@@ -2601,8 +2618,8 @@ export class CommunicationsService {
         audience: ({
           kind: 'all';
         } | {
-          funnelIds: Array<string>;
-          kind: 'funnels';
+          kind: 'sequences';
+          sequenceIds: Array<string>;
         } | {
           intakeId: string;
           kind: 'waitlist';
@@ -2719,20 +2736,20 @@ export class CommunicationsService {
           excluded: number;
         };
       };
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       deliveryId: string;
       outcome: 'skipped' | 'retry_requested';
       partId: string;
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       testDeliveryId: string;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       targets: Array<{
         eligible: boolean;
@@ -2744,16 +2761,16 @@ export class CommunicationsService {
         };
       }>;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       safeUrl: string;
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       eventId: string;
       outcome: 'recorded' | 'duplicate';
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       statistics: {
         analyticsLagSeconds: number;
         blocked: number;
@@ -2761,8 +2778,8 @@ export class CommunicationsService {
           contactId: string;
           entries: Array<{
             enteredAt: string;
-            funnelId: (string | string | null);
             outcome: string;
+            sequenceId: (string | string | null);
             sourceCode: (string | string | null);
             sourceId: (string | string | null);
           }>;
@@ -2791,7 +2808,7 @@ export class CommunicationsService {
       };
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       intro: {
         introId: string;
         parts: Array<{
@@ -2897,14 +2914,13 @@ export class CommunicationsService {
       };
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       deliveries: Array<{
         broadcastId: (string | string | null);
         cancelRequested: boolean;
         completedAt: (string | string | null);
         contactId: string;
         deliveryId: string;
-        funnelId: (string | string | null);
         parts: Array<{
           attempts: Array<{
             attemptedAt: string;
@@ -2919,6 +2935,7 @@ export class CommunicationsService {
         }>;
         publishedRevision: number;
         revision: number;
+        sequenceId: (string | string | null);
         snapshot: Array<{
           content: ({
             buttons: Array<{
@@ -3028,8 +3045,8 @@ export class CommunicationsService {
         audience: ({
           kind: 'all';
         } | {
-          funnelIds: Array<string>;
-          kind: 'funnels';
+          kind: 'sequences';
+          sequenceIds: Array<string>;
         } | {
           intakeId: string;
           kind: 'waitlist';
@@ -3146,22 +3163,22 @@ export class CommunicationsService {
           excluded: number;
         };
       }>;
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       nextCursor: (string | string | null);
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       entries: Array<{
         enteredAt: string;
-        funnelId: (string | string | null);
         outcome: string;
+        sequenceId: (string | string | null);
         sourceCode: (string | string | null);
         sourceId: (string | string | null);
       }>;
       nextCursor: (string | string | null);
       status: 'ok';
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       nextCursor: (string | string | null);
       status: 'ok';
       templates: Array<{
@@ -3266,7 +3283,7 @@ export class CommunicationsService {
         templateId: string;
       }>;
     } | {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       status: 'ok';
       waitlistPreview: {
         active: number;
@@ -3276,6 +3293,15 @@ export class CommunicationsService {
         revision: number;
         saleOpen: boolean;
       };
+    } | {
+      contractVersion: 'inside-communications-v2';
+      receipt: {
+        createdAt: string;
+        operationId: string;
+        requestJson: string;
+        resultJson: string;
+      };
+      status: 'ok';
     });
   }> {
     return this.httpRequest.request({
@@ -3294,7 +3320,7 @@ export class CommunicationsService {
     requestBody,
   }: {
     requestBody: {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       permission: 'communications:manage';
       requestId: string;
       subject: ({
@@ -3309,17 +3335,17 @@ export class CommunicationsService {
     },
   }): CancelablePromise<({
     accountRef: string;
-    contractVersion: 'inside-communications-v1';
+    contractVersion: 'inside-communications-v2';
     requestId: string;
     status: 'allowed';
   } | {
-    contractVersion: 'inside-communications-v1';
+    contractVersion: 'inside-communications-v2';
     requestId: string;
     status: 'denied';
   })> {
     return this.httpRequest.request({
       method: 'POST',
-      url: '/integrations/telegram/v1/communications/authorize',
+      url: '/integrations/telegram/v2/communications/authorize',
       body: requestBody,
       mediaType: 'application/json',
     });
@@ -3351,7 +3377,7 @@ export class CommunicationsService {
   }> {
     return this.httpRequest.request({
       method: 'POST',
-      url: '/integrations/telegram/v1/communications/materials',
+      url: '/integrations/telegram/v2/communications/materials',
       body: requestBody,
       mediaType: 'application/json',
     });
@@ -3365,7 +3391,7 @@ export class CommunicationsService {
     requestBody,
   }: {
     requestBody: {
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       parts: Array<{
         content: ({
           buttons: Array<{
@@ -3479,7 +3505,7 @@ export class CommunicationsService {
     },
   }): CancelablePromise<({
     accountRef: string;
-    contractVersion: 'inside-communications-v1';
+    contractVersion: 'inside-communications-v2';
     requestId: string;
     status: 'ok';
     targetErrors: Array<{
@@ -3488,13 +3514,13 @@ export class CommunicationsService {
       url: string;
     }>;
   } | {
-    contractVersion: 'inside-communications-v1';
+    contractVersion: 'inside-communications-v2';
     requestId: string;
     status: 'denied';
   })> {
     return this.httpRequest.request({
       method: 'POST',
-      url: '/integrations/telegram/v1/communications/validate-content',
+      url: '/integrations/telegram/v2/communications/validate-content',
       body: requestBody,
       mediaType: 'application/json',
     });
@@ -3509,7 +3535,7 @@ export class CommunicationsService {
   }: {
     requestBody: ({
       actorAccountRef: string;
-      contractVersion: 'inside-communications-v1';
+      contractVersion: 'inside-communications-v2';
       intakeId: string;
       recipient?: {
         accountRef: string;
@@ -3526,7 +3552,7 @@ export class CommunicationsService {
     }),
   }): CancelablePromise<({
     active: number;
-    contractVersion: 'inside-communications-v1';
+    contractVersion: 'inside-communications-v2';
     members: Array<{
       accountRef: string;
       telegramIdentityRef: string;
@@ -3541,7 +3567,7 @@ export class CommunicationsService {
   })> {
     return this.httpRequest.request({
       method: 'POST',
-      url: '/integrations/telegram/v1/communications/waitlist',
+      url: '/integrations/telegram/v2/communications/waitlist',
       body: requestBody,
       mediaType: 'application/json',
     });

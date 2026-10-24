@@ -403,6 +403,7 @@ try {
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PAYMENT_LINKS_FIXTURE: JSON.stringify(paymentLinksFixture),
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
+    FULLSTACK_PRACTICE_PRODUCT_ID: practiceFixture.productId,
     FULLSTACK_PRACTICE_MATERIAL_ID: practiceFixture.materialId,
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,

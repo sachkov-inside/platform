@@ -12,20 +12,20 @@ import { CommunicationsError } from "./communications-contract.js";
 import type { CommunicationSequences } from "./communication-sequences.js";
 
 /**
- * Reads the author's funnels and shared intro, preferring an unsaved draft to the saved version,
+ * Reads the author's sequences and shared intro, preferring an unsaved draft to the saved version,
  * and the delivery history of their steps.
  */
 export class AuthorSequenceDrafts {
-  constructor(private readonly funnels: CommunicationSequences) {}
+  constructor(private readonly sequences: CommunicationSequences) {}
 
-  /** A page of the author's funnels, saved ones and unsaved drafts together. */
+  /** A page of the author's sequences, saved ones and unsaved drafts together. */
   async list(
     c: Context,
     cursor: string | undefined,
   ): Promise<{ items: SequenceListItem[]; nextCursor?: string | undefined }> {
     let saved = c.tx
-      .selectFrom("communication_funnels")
-      .select("funnel_id as id")
+      .selectFrom("communication_sequences")
+      .select("sequence_id as id")
       .where("bot_identity", "=", c.input.botIdentity)
       .where("owner_account_ref", "=", c.accountRef);
     let scratch = c.tx
@@ -33,9 +33,9 @@ export class AuthorSequenceDrafts {
       .select("draft_id as id")
       .where("bot_identity", "=", c.input.botIdentity)
       .where("owner_account_ref", "=", c.accountRef)
-      .where("kind", "=", "funnel");
+      .where("kind", "=", "sequence");
     if (hasText(cursor)) {
-      saved = saved.where("funnel_id", ">", cursor);
+      saved = saved.where("sequence_id", ">", cursor);
       scratch = scratch.where("draft_id", ">", cursor);
     }
     const ids = await saved.union(scratch).orderBy("id").limit(11).execute();
@@ -43,17 +43,17 @@ export class AuthorSequenceDrafts {
     if (pageIds.length === 0) return { items: [], nextCursor: undefined };
     // Context already contains the linked author authorized by AuthorAdmin.
     const savedRows = await c.tx
-      .selectFrom("communication_funnels")
-      .select(["funnel_id", "draft", "lifecycle"])
+      .selectFrom("communication_sequences")
+      .select(["sequence_id", "draft", "lifecycle"])
       .where("bot_identity", "=", c.input.botIdentity)
       .where("owner_account_ref", "=", c.accountRef)
-      .where("funnel_id", "in", pageIds)
+      .where("sequence_id", "in", pageIds)
       .execute();
     const draftRows = await drafts(c)
-      .where("kind", "=", "funnel")
+      .where("kind", "=", "sequence")
       .where("draft_id", "in", pageIds)
       .execute();
-    const savedById = new Map(savedRows.map((row) => [row.funnel_id, row]));
+    const savedById = new Map(savedRows.map((row) => [row.sequence_id, row]));
     const draftsById = new Map(draftRows.map((row) => [row.draft_id, row]));
     const items: SequenceListItem[] = pageIds.map((id) => {
       const draft = draftsById.get(id);
@@ -65,19 +65,19 @@ export class AuthorSequenceDrafts {
     return { items, nextCursor: ids.length > 10 ? ids[9]?.id : undefined };
   }
 
-  async read(c: Context, funnelId: string): Promise<AuthorSequenceState> {
+  async read(c: Context, sequenceId: string): Promise<AuthorSequenceState> {
     const draft = await drafts(c)
-      .where("draft_id", "=", funnelId)
-      .where("kind", "=", "funnel")
+      .where("draft_id", "=", sequenceId)
+      .where("kind", "=", "sequence")
       .executeTakeFirst();
     const snapshot = parseSequenceDraft(draft?.snapshot);
     if (snapshot) return snapshot;
-    const result = await this.funnels.execute(
-      authorRequest(c.accountRef, "funnels.read", { funnelId }),
+    const result = await this.sequences.execute(
+      authorRequest(c.accountRef, "sequences.read", { sequenceId }),
       c.tx,
     );
-    if (!("funnel" in result)) throw new CommunicationsError("malformed");
-    return { funnel: result.funnel, dirty: false };
+    if (!("sequence" in result)) throw new CommunicationsError("malformed");
+    return { sequence: result.sequence, dirty: false };
   }
 
   /** The shared intro; a new empty one when the author has none yet. */
@@ -88,7 +88,7 @@ export class AuthorSequenceDrafts {
     const snapshot = parseSequenceDraft(draft?.snapshot);
     if (snapshot) return snapshot;
     try {
-      const result = await this.funnels.execute(
+      const result = await this.sequences.execute(
         authorRequest(c.accountRef, "intro.read", {}),
         c.tx,
       );
@@ -105,16 +105,16 @@ export class AuthorSequenceDrafts {
     }
   }
 
-  /** Whether any published version of the funnel already delivered this message. */
+  /** Whether any published version of the sequence already delivered this message. */
   async wasPublished(
     c: Context,
-    funnelId: string,
+    sequenceId: string,
     partId: string,
   ): Promise<boolean> {
     const historical = await c.tx
       .selectFrom("communication_step_ids")
       .select("part_ids")
-      .where("funnel_id", "=", funnelId)
+      .where("sequence_id", "=", sequenceId)
       .execute();
     return historical.some((step) => step.part_ids.includes(partId));
   }

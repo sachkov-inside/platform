@@ -86,6 +86,11 @@ function matchesOperation(
   value: Extract<ProviderResponse, { status: "ok" }>,
 ): boolean {
   switch (request.operation) {
+    case "receipts.read":
+      return (
+        "receipt" in value &&
+        sameId(value.receipt.operationId, request.payload.receiptOperationId)
+      );
     case "templates.read":
     case "templates.save":
       return (
@@ -94,24 +99,24 @@ function matchesOperation(
       );
     case "templates.testSend":
       return "testDeliveryId" in value;
-    case "funnels.read":
-    case "funnels.save":
-    case "funnels.publish":
-    case "funnels.lifecycle":
-    case "funnels.rollback":
+    case "sequences.read":
+    case "sequences.save":
+    case "sequences.publish":
+    case "sequences.lifecycle":
+    case "sequences.rollback":
       return (
-        "funnel" in value &&
-        sameId(value.funnel.funnelId, request.payload.funnelId)
+        "sequence" in value &&
+        sameId(value.sequence.sequenceId, request.payload.sequenceId)
       );
-    case "funnels.preview":
+    case "sequences.preview":
       return (
         "preview" in value &&
-        sameId(value.preview.funnelId, request.payload.funnelId)
+        sameId(value.preview.sequenceId, request.payload.sequenceId)
       );
     case "templates.list":
       return "templates" in value;
-    case "funnels.list":
-      return "funnels" in value;
+    case "sequences.list":
+      return "sequences" in value;
     case "broadcasts.preview":
       return (
         "waitlistPreview" in value &&

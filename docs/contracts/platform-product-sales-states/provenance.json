@@ -1,0 +1,8 @@
+{
+  "source": "apps/backend/openapi/platform-api.json, operation billingProductSalesStates (GET /billing/product-sales-states): 200 response schema",
+  "status": "Current canonical Product Sales State projection. Exact provider schema, no legacy header or guide alias. Source-bound final evidence belongs to #1712.",
+  "files": {
+    "schema.json": "f87c5fc9b4f915c40fb9b312e26317a439366256d69ce9411a4ae046829c618a",
+    "fixtures.json": "96516de00ea1266606c443af7cb136a03a699a170d406815a2efe41075d7ac3e"
+  }
+}

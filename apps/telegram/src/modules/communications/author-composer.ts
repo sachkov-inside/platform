@@ -59,7 +59,7 @@ export function beginComposer(
   content?: TemplateContent,
 ) {
   t.state.prompt = undefined;
-  if (t.state.funnelAuthor) t.state.funnelAuthor.prompt = undefined;
+  if (t.state.sequenceAuthor) t.state.sequenceAuthor.prompt = undefined;
   t.state.composing = {
     destination,
     ...(content

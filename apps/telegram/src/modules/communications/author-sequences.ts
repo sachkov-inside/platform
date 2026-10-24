@@ -22,9 +22,9 @@ import type {
 
 type Buttons = AuthorButton[];
 const MAX_DELAY = 2147483647;
-const back: Buttons = [["К последовательности", { kind: "f:show" }]];
+const back: Buttons = [["К последовательности", { kind: "seq:show" }]];
 const root: Buttons = [
-  ["Все последовательности", { kind: "f:list" }],
+  ["Все последовательности", { kind: "seq:list" }],
   ["В меню", { kind: "home" }],
 ];
 const names = {
@@ -34,51 +34,51 @@ const names = {
   archived: "В архиве",
 };
 
-/** Funnel buttons that start a composition; the funnel editor handles the rest. */
-const FUNNEL_ENTRIES = ["f:new", "f:posts"] as const;
+/** Sequence buttons that start a composition; the sequence editor handles the rest. */
+const SEQUENCE_ENTRIES = ["seq:new", "seq:posts"] as const;
 export type SequenceEditorAction = Exclude<
   CommunicationSequenceAction,
-  { kind: (typeof FUNNEL_ENTRIES)[number] }
+  { kind: (typeof SEQUENCE_ENTRIES)[number] }
 >;
 export function isSequenceEditorAction(
   action: AuthorAction,
 ): action is SequenceEditorAction {
   return (
-    action.kind.startsWith("f:") &&
-    !(FUNNEL_ENTRIES as readonly string[]).includes(action.kind)
+    action.kind.startsWith("seq:") &&
+    !(SEQUENCE_ENTRIES as readonly string[]).includes(action.kind)
   );
 }
-/** Funnel buttons that do not leave the current prompt. */
+/** Sequence buttons that do not leave the current prompt. */
 const PROMPT_STEPS = [
-  "f:settings",
-  "f:messages",
-  "f:message",
-  "f:timing",
-  "f:timing-entry",
+  "seq:settings",
+  "seq:messages",
+  "seq:message",
+  "seq:timing",
+  "seq:timing-entry",
 ] as const;
-/** Funnel buttons that leave the prompt and work without an open funnel. */
+/** Sequence buttons that leave the prompt and work without an open sequence. */
 const SELECTIONS = [
-  "f:discard",
-  "f:list",
-  "f:read",
-  "f:show",
-  "f:intro",
-  "f:parts",
-  "f:parts-page",
-  "f:part",
-  "f:move-part",
-  "f:remove-part",
-  "f:sample",
-  "f:save-intro",
+  "seq:discard",
+  "seq:list",
+  "seq:read",
+  "seq:show",
+  "seq:intro",
+  "seq:parts",
+  "seq:parts-page",
+  "seq:part",
+  "seq:move-part",
+  "seq:remove-part",
+  "seq:sample",
+  "seq:save-intro",
 ] as const;
 type PromptStep = Extract<
   SequenceEditorAction,
   { kind: (typeof PROMPT_STEPS)[number] }
 >;
-/** Funnel buttons that need an open funnel; saving the intro may fall through to them. */
+/** Sequence buttons that need an open sequence; saving the intro may fall through to them. */
 type SequenceEdit = Exclude<
   SequenceEditorAction,
-  PromptStep | { kind: Exclude<(typeof SELECTIONS)[number], "f:save-intro"> }
+  PromptStep | { kind: Exclude<(typeof SELECTIONS)[number], "seq:save-intro"> }
 >;
 function isKindOf<Action extends { kind: string }, Kind extends Action["kind"]>(
   kinds: readonly Kind[],
@@ -87,24 +87,24 @@ function isKindOf<Action extends { kind: string }, Kind extends Action["kind"]>(
   return (kinds as readonly string[]).includes(action.kind);
 }
 
-// Funnel composition shares the admin's session, authorization, update receipt and reply outbox.
+// Sequence composition shares the admin's session, authorization, update receipt and reply outbox.
 
-function funnelState(t: Turn): AuthorSequenceState {
-  return (t.state.funnelAuthor ??= {});
+function sequenceState(t: Turn): AuthorSequenceState {
+  return (t.state.sequenceAuthor ??= {});
 }
 
-function openFunnel(s: AuthorSequenceState): CommunicationSequenceSnapshot {
-  if (!s.funnel) throw new CommunicationsError("not_found");
-  return s.funnel;
+function openSequence(s: AuthorSequenceState): CommunicationSequenceSnapshot {
+  if (!s.sequence) throw new CommunicationsError("not_found");
+  return s.sequence;
 }
 
-/** Starts a new funnel; the admin then asks for its first message. */
-export function newFunnel(t: Turn) {
+/** Starts a new sequence; the admin then asks for its first message. */
+export function newSequence(t: Turn) {
   leavePrompts(t);
   t.retainSequenceDraft();
-  t.state.funnelAuthor = {
-    funnel: {
-      funnelId: t.newId(),
+  t.state.sequenceAuthor = {
+    sequence: {
+      sequenceId: t.newId(),
       name: "Новая последовательность",
       isDefault: false,
       entryResponse: { stepId: t.newId(), parts: [] },
@@ -120,13 +120,13 @@ export function newFunnel(t: Turn) {
 }
 
 export function appendPrepared(t: Turn, content: TemplateContent) {
-  const s = funnelState(t);
-  const f = openFunnel(s);
+  const s = sequenceState(t);
+  const f = openSequence(s);
   if (f.lifecycle === "archived")
     throw new CommunicationsError("revision_conflict");
   if (f.entryResponse.parts.length >= 100)
     throw new CommunicationsError("unsupported_content");
-  s.funnel = {
+  s.sequence = {
     ...f,
     name:
       !isTruthy(f.entryResponse.parts.length) &&
@@ -143,8 +143,8 @@ export function appendPrepared(t: Turn, content: TemplateContent) {
 }
 
 export function appendTimed(t: Turn, content: TemplateContent, offset: number) {
-  const s = funnelState(t);
-  const f = openFunnel(s);
+  const s = sequenceState(t);
+  const f = openSequence(s);
   if (
     offset === 0 &&
     !isTruthy(f.steps.length) &&
@@ -153,7 +153,7 @@ export function appendTimed(t: Turn, content: TemplateContent, offset: number) {
     return appendPrepared(t, content);
   if (f.lifecycle === "archived" || !isTruthy(f.entryResponse.parts.length))
     throw new CommunicationsError("revision_conflict");
-  s.funnel = {
+  s.sequence = {
     ...f,
     steps: [
       ...f.steps,
@@ -169,12 +169,12 @@ export function appendTimed(t: Turn, content: TemplateContent, offset: number) {
   s.target = "entry";
 }
 
-export function showFunnel(t: Turn): void {
-  const s = funnelState(t),
-    f = s.funnel;
+export function showSequence(t: Turn): void {
+  const s = sequenceState(t),
+    f = s.sequence;
   s.prompt = undefined;
-  if (!f) return performSequence(t, { kind: "f:list" });
-  const pending = t.compositionButtons(f.funnelId);
+  if (!f) return performSequence(t, { kind: "seq:list" });
+  const pending = t.compositionButtons(f.sequenceId);
   t.reply(
     `${f.name}\n${names[f.lifecycle]}${isTruthy(s.dirty) ? " · есть правки" : ""}\nСообщений: ${f.entryResponse.parts.length + f.steps.reduce((n, step) => n + step.parts.length, 0)}. Основная последовательность: ${f.isDefault ? "да" : "нет"}.\n${f.steps
       .map((step, i) => `${i + 1}. Через ${stepTime(step)}`)
@@ -183,10 +183,15 @@ export function showFunnel(t: Turn): void {
     [
       ...pending,
       ...(f.lifecycle !== "archived" && !isTruthy(pending.length)
-        ? [["Добавить сообщение", { kind: "sequence:funnel" }] as AuthorButton]
+        ? [
+            [
+              "Добавить сообщение",
+              { kind: "sequence:sequence" },
+            ] as AuthorButton,
+          ]
         : []),
       ...(isTruthy(s.dirty)
-        ? [["Сохранить черновик", { kind: "f:save" }] as AuthorButton]
+        ? [["Сохранить черновик", { kind: "seq:save" }] as AuthorButton]
         : []),
       ...(!isTruthy(s.dirty) &&
       f.lifecycle !== "archived" &&
@@ -197,72 +202,79 @@ export function showFunnel(t: Turn): void {
               f.publishedRevision === null
                 ? "Включить последовательность"
                 : "Применить изменения",
-              { kind: "f:preview" },
+              { kind: "seq:preview" },
             ] as AuthorButton,
           ]
         : []),
       ...(f.lifecycle !== "archived"
-        ? [["Сообщения", { kind: "f:messages" }] as AuthorButton]
+        ? [["Сообщения", { kind: "seq:messages" }] as AuthorButton]
         : []),
-      ["Настройки", { kind: "f:settings" }],
+      ["Настройки", { kind: "seq:settings" }],
       ...(f.lifecycle === "draft" && !f.isDefault
-        ? [["Сделать основной", { kind: "f:default" }] as AuthorButton]
+        ? [["Сделать основной", { kind: "seq:default" }] as AuthorButton]
         : []),
       ...(f.lifecycle === "published"
         ? [
             [
               "Приостановить",
-              { kind: "f:life", value: "pause" },
+              { kind: "seq:life", value: "pause" },
             ] as AuthorButton,
           ]
         : []),
       ...(f.lifecycle === "paused"
-        ? [["Продолжить", { kind: "f:life", value: "resume" }] as AuthorButton]
+        ? [
+            [
+              "Продолжить",
+              { kind: "seq:life", value: "resume" },
+            ] as AuthorButton,
+          ]
         : []),
       ...(f.lifecycle !== "archived"
         ? [
             [
               "Отменить последовательность",
               {
-                kind: isTruthy(f.revision) ? "f:confirm-archive" : "f:discard",
+                kind: isTruthy(f.revision)
+                  ? "seq:confirm-archive"
+                  : "seq:discard",
               },
             ] as AuthorButton,
           ]
         : []),
-      ["Все последовательности", { kind: "f:list" }],
+      ["Все последовательности", { kind: "seq:list" }],
     ],
   );
 }
 
 /**
- * The funnel's configuration. Saving, publication and the other lifecycle actions stay on its
- * card; an archived funnel is restored here.
+ * The sequence's configuration. Saving, publication and the other lifecycle actions stay on its
+ * card; an archived sequence is restored here.
  */
 function settings(t: Turn) {
-  const s = funnelState(t),
-    f = openFunnel(s);
+  const s = sequenceState(t),
+    f = openSequence(s);
   t.reply(`Настройки · ${f.name}`, [
-    ...t.compositionButtons(f.funnelId),
+    ...t.compositionButtons(f.sequenceId),
     ...(f.lifecycle !== "archived"
       ? ([
-          ["Название", { kind: "f:name" }],
-          ["Первый ответ", { kind: "f:parts", id: "entry" }],
-          ["Шаги и задержки", { kind: "f:steps" }],
-          ["Источники", { kind: "f:sources" }],
+          ["Название", { kind: "seq:name" }],
+          ["Первый ответ", { kind: "seq:parts", id: "entry" }],
+          ["Шаги и задержки", { kind: "seq:steps" }],
+          ["Источники", { kind: "seq:sources" }],
           [
             f.isDefault ? "Убрать из основных" : "Сделать основной",
-            { kind: "f:default" },
+            { kind: "seq:default" },
           ],
         ] as Buttons)
       : [
           [
             "Восстановить",
-            { kind: "f:life", value: "restore" },
+            { kind: "seq:life", value: "restore" },
           ] as AuthorButton,
         ]),
-    ["Общий вводный блок", { kind: "f:intro" }],
+    ["Общий вводный блок", { kind: "seq:intro" }],
     ...(isTruthy(s.dirty)
-      ? [["Отказаться от правок", { kind: "f:discard" }] as AuthorButton]
+      ? [["Отказаться от правок", { kind: "seq:discard" }] as AuthorButton]
       : []),
     ...back,
   ]);
@@ -270,53 +282,55 @@ function settings(t: Turn) {
 
 function parts(s: AuthorSequenceState): readonly MessagePart[] {
   if (s.target === "intro") return s.intro?.parts ?? [];
-  if (s.target === "entry") return s.funnel?.entryResponse.parts ?? [];
-  return s.funnel?.steps.find((step) => step.stepId === s.target)?.parts ?? [];
+  if (s.target === "entry") return s.sequence?.entryResponse.parts ?? [];
+  return (
+    s.sequence?.steps.find((step) => step.stepId === s.target)?.parts ?? []
+  );
 }
 
 function replaceParts(s: AuthorSequenceState, parts: readonly MessagePart[]) {
   if (s.target === "intro" && s.intro) s.intro = { ...s.intro, parts };
-  else if (s.funnel && s.target === "entry")
-    s.funnel = {
-      ...s.funnel,
-      entryResponse: { ...s.funnel.entryResponse, parts },
+  else if (s.sequence && s.target === "entry")
+    s.sequence = {
+      ...s.sequence,
+      entryResponse: { ...s.sequence.entryResponse, parts },
     };
-  else if (s.funnel)
-    s.funnel = {
-      ...s.funnel,
-      steps: s.funnel.steps.map((step) =>
+  else if (s.sequence)
+    s.sequence = {
+      ...s.sequence,
+      steps: s.sequence.steps.map((step) =>
         step.stepId === s.target ? { ...step, parts } : step,
       ),
     };
   s.dirty = true;
 }
 
-/** The messages of the selected funnel block. */
+/** The messages of the selected sequence block. */
 export function selectedParts(t: Turn) {
-  return parts(funnelState(t));
+  return parts(sequenceState(t));
 }
 
-/** Applies an accepted message to its funnel block, or returns after a cancelled one. */
-export function composeInFunnel(
+/** Applies an accepted message to its sequence block, or returns after a cancelled one. */
+export function composeInSequence(
   t: Turn,
-  destination: Extract<MessageDestination, { kind: "funnel" }>,
+  destination: Extract<MessageDestination, { kind: "sequence" }>,
   content: TemplateContent | undefined,
 ) {
-  const s = funnelState(t);
-  const id = s.target === "intro" ? s.intro?.introId : s.funnel?.funnelId;
+  const s = sequenceState(t);
+  const id = s.target === "intro" ? s.intro?.introId : s.sequence?.sequenceId;
   if (id !== destination.id || s.target !== destination.target)
     throw new CommunicationsError("revision_conflict");
   const missingStep =
     s.target !== "intro" &&
     s.target !== "entry" &&
-    !isTruthy(s.funnel?.steps.some((step) => step.stepId === s.target));
+    !isTruthy(s.sequence?.steps.some((step) => step.stepId === s.target));
   if (content) {
     const revision =
-      s.target === "intro" ? s.intro?.revision : s.funnel?.revision;
+      s.target === "intro" ? s.intro?.revision : s.sequence?.revision;
     if (
       missingStep ||
       revision !== destination.expectedRevision ||
-      (s.funnel?.lifecycle === "archived" && s.target !== "intro")
+      (s.sequence?.lifecycle === "archived" && s.target !== "intro")
     )
       throw new CommunicationsError("revision_conflict");
     const current = parts(s);
@@ -341,14 +355,14 @@ export function composeInFunnel(
     );
   }
   s.replacePartId = undefined;
-  if (missingStep) return showFunnel(t);
+  if (missingStep) return showSequence(t);
   partsMenu(t);
 }
 
 function partsMenu(t: Turn, offset = 0) {
-  const s = funnelState(t);
+  const s = sequenceState(t);
   const current = parts(s);
-  const id = s.target === "intro" ? s.intro?.introId : s.funnel?.funnelId;
+  const id = s.target === "intro" ? s.intro?.introId : s.sequence?.sequenceId;
   const title =
     s.target === "intro"
       ? "Общий вводный блок"
@@ -370,13 +384,13 @@ function partsMenu(t: Turn, offset = 0) {
         .slice(offset, offset + 10)
         .map((part, i): AuthorButton => [
           `Сообщение ${offset + i + 1}`,
-          { kind: "f:part", id: part.partId },
+          { kind: "seq:part", id: part.partId },
         ]),
       ...(offset > 0
         ? ([
             [
               "Предыдущие сообщения",
-              { kind: "f:parts-page", value: String(offset - 10) },
+              { kind: "seq:parts-page", value: String(offset - 10) },
             ],
           ] as Buttons)
         : []),
@@ -384,20 +398,20 @@ function partsMenu(t: Turn, offset = 0) {
         ? ([
             [
               "Следующие сообщения",
-              { kind: "f:parts-page", value: String(offset + 10) },
+              { kind: "seq:parts-page", value: String(offset + 10) },
             ],
           ] as Buttons)
         : []),
-      ["Создать сообщение", { kind: "compose:funnel" }],
-      ["Добавить сохранённый пост", { kind: "f:posts" }],
+      ["Создать сообщение", { kind: "compose:sequence" }],
+      ["Добавить сохранённый пост", { kind: "seq:posts" }],
       ...(isTruthy(current.length)
-        ? ([["Образцы себе", { kind: "f:sample" }]] as Buttons)
+        ? ([["Образцы себе", { kind: "seq:sample" }]] as Buttons)
         : []),
       ...(s.target === "intro"
         ? ([
-            ["Сохранить общий блок", { kind: "f:save-intro" }],
+            ["Сохранить общий блок", { kind: "seq:save-intro" }],
             // One way out keeps the save button on the first page of a short intro.
-            ["Все последовательности", { kind: "f:list" }],
+            ["Все последовательности", { kind: "seq:list" }],
           ] as Buttons)
         : back),
     ],
@@ -407,34 +421,34 @@ function partsMenu(t: Turn, offset = 0) {
 export function performSequence(t: Turn, a: SequenceEditorAction): void {
   if (!isKindOf(PROMPT_STEPS, a)) return performSelection(t, a);
   switch (a.kind) {
-    case "f:settings":
+    case "seq:settings":
       return settings(t);
-    case "f:messages":
+    case "seq:messages":
       return messages(t, Number(a.value ?? 0));
-    case "f:message":
-      funnelState(t).target = a.value;
-      return performSequence(t, { kind: "f:part", id: a.id });
-    case "f:timing": {
-      const s = funnelState(t);
+    case "seq:message":
+      sequenceState(t).target = a.value;
+      return performSequence(t, { kind: "seq:part", id: a.id });
+    case "seq:timing": {
+      const s = sequenceState(t);
       s.timingPartId = a.id;
       s.prompt = "part-delay";
       return t.reply(
-        timingAnchor(openFunnel(s), a.id) === "entry"
+        timingAnchor(openSequence(s), a.id) === "entry"
           ? "Когда отправить это сообщение? Пришлите время от входа: например, 20 минут или 1 день."
           : "Когда отправить это сообщение? Пришлите задержку: например, 20 минут или 1 день. Она отсчитывается после предыдущего шага; для первого отложенного шага — после входа. Новое отложенное сообщение добавится в конец цепочки.",
-        [["Сразу при входе", { kind: "f:timing-entry", id: a.id }], ...back],
+        [["Сразу при входе", { kind: "seq:timing-entry", id: a.id }], ...back],
       );
     }
-    case "f:timing-entry":
+    case "seq:timing-entry":
       return moveTimedPart(t, a.id, null);
     default:
-      return unhandled(a, "funnel prompt step");
+      return unhandled(a, "sequence prompt step");
   }
 }
 
 /** Clears the prompts that a navigation button leaves behind. */
 function leavePrompts(t: Turn) {
-  const s = funnelState(t);
+  const s = sequenceState(t);
   t.state.prompt = undefined;
   s.prompt = undefined;
   return s;
@@ -447,34 +461,35 @@ function performSelection(
   const s = leavePrompts(t);
   if (!isKindOf(SELECTIONS, a)) return performEdit(t, s, a);
   switch (a.kind) {
-    case "f:discard": {
-      const id = s.target === "intro" ? s.intro?.introId : s.funnel?.funnelId;
+    case "seq:discard": {
+      const id =
+        s.target === "intro" ? s.intro?.introId : s.sequence?.sequenceId;
       if (hasText(id)) {
         t.emit({ kind: "remove-draft", id });
         t.discardComposition(id);
       }
-      t.state.funnelAuthor = {};
-      return performSequence(t, { kind: "f:list" });
+      t.state.sequenceAuthor = {};
+      return performSequence(t, { kind: "seq:list" });
     }
-    case "f:list":
+    case "seq:list":
       t.retainSequenceDraft();
-      return t.ask({ kind: "list-funnels", cursor: a.id });
-    case "f:read":
+      return t.ask({ kind: "list-sequences", cursor: a.id });
+    case "seq:read":
       t.retainSequenceDraft();
-      return t.ask({ kind: "read-funnel", funnelId: a.id });
-    case "f:show":
-      return showFunnel(t);
-    case "f:intro":
+      return t.ask({ kind: "read-sequence", sequenceId: a.id });
+    case "seq:show":
+      return showSequence(t);
+    case "seq:intro":
       t.retainSequenceDraft();
-      // Intro edits have their own scratch snapshot; navigation explicitly leaves a funnel draft.
+      // Intro edits have their own scratch snapshot; navigation explicitly leaves a sequence draft.
       return t.ask({ kind: "read-intro" });
-    case "f:parts":
+    case "seq:parts":
       s.target = a.id;
       s.replacePartId = undefined;
       return partsMenu(t);
-    case "f:parts-page":
+    case "seq:parts-page":
       return partsMenu(t, Number(a.value));
-    case "f:part": {
+    case "seq:part": {
       const current = parts(s);
       const index = current.findIndex((p) => p.partId === a.id);
       const part = current[index];
@@ -485,35 +500,44 @@ function performSelection(
         [
           [
             "Изменить сообщение и кнопки",
-            { kind: "compose:edit-funnel", id: part.partId },
+            { kind: "compose:edit-sequence", id: part.partId },
           ],
           ...(s.target !== "intro"
             ? ([
-                ["Когда отправить", { kind: "f:timing", id: part.partId }],
+                ["Когда отправить", { kind: "seq:timing", id: part.partId }],
               ] as Buttons)
             : []),
-          ["Заменить из сохранённых", { kind: "f:posts", value: part.partId }],
+          [
+            "Заменить из сохранённых",
+            { kind: "seq:posts", value: part.partId },
+          ],
           ...(index > 0
             ? ([
-                ["Выше", { kind: "f:move-part", id: part.partId, value: "-1" }],
+                [
+                  "Выше",
+                  { kind: "seq:move-part", id: part.partId, value: "-1" },
+                ],
               ] as Buttons)
             : []),
           ...(index < current.length - 1
             ? ([
-                ["Ниже", { kind: "f:move-part", id: part.partId, value: "1" }],
+                [
+                  "Ниже",
+                  { kind: "seq:move-part", id: part.partId, value: "1" },
+                ],
               ] as Buttons)
             : []),
-          ["Убрать сообщение", { kind: "f:remove-part", id: part.partId }],
-          ["К сообщениям", { kind: "f:parts-page", value: "0" }],
+          ["Убрать сообщение", { kind: "seq:remove-part", id: part.partId }],
+          ["К сообщениям", { kind: "seq:parts-page", value: "0" }],
         ],
       );
     }
-    case "f:move-part":
-    case "f:remove-part": {
+    case "seq:move-part":
+    case "seq:remove-part": {
       const current = [...parts(s)];
       const index = current.findIndex((p) => p.partId === a.id);
       if (index < 0) throw new CommunicationsError("not_found");
-      if (a.kind === "f:remove-part") current.splice(index, 1);
+      if (a.kind === "seq:remove-part") current.splice(index, 1);
       else {
         const next = index + Number(a.value);
         const [part, other] = [current[index], current[next]];
@@ -522,18 +546,18 @@ function performSelection(
       replaceParts(s, current);
       return partsMenu(t);
     }
-    case "f:sample":
+    case "seq:sample":
       for (const part of parts(s))
         t.emit({ kind: "message", content: part.content });
       return t.reply(
         "Образцы выбранных сообщений поставлены в очередь только вам.",
-        [["К сообщениям", { kind: "f:parts-page", value: "0" }]],
+        [["К сообщениям", { kind: "seq:parts-page", value: "0" }]],
       );
-    case "f:save-intro":
+    case "seq:save-intro":
       if (!s.intro) return performEdit(t, s, a);
       if (!isTruthy(s.intro.parts.length))
         return t.reply("Добавьте хотя бы один сохранённый пост.", [
-          ["К сообщениям", { kind: "f:parts-page", value: "0" }],
+          ["К сообщениям", { kind: "seq:parts-page", value: "0" }],
         ]);
       return t.ask({
         kind: "validate-content",
@@ -541,26 +565,27 @@ function performSelection(
         purpose: "intro",
       });
     default:
-      return unhandled(a, "funnel selection");
+      return unhandled(a, "sequence selection");
   }
 }
 
 function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
-  const f = s.funnel;
+  const f = s.sequence;
   if (!f) return t.reply("Сначала откройте последовательность.", root);
-  if (f.lifecycle === "archived" && a.kind !== "f:life") return showFunnel(t);
+  if (f.lifecycle === "archived" && a.kind !== "seq:life")
+    return showSequence(t);
   switch (a.kind) {
-    case "f:name":
+    case "seq:name":
       s.prompt = "name";
       return t.reply(
         "Напишите название последовательности (до 128 символов).",
         back,
       );
-    case "f:default":
-      s.funnel = { ...f, isDefault: !f.isDefault };
+    case "seq:default":
+      s.sequence = { ...f, isDefault: !f.isDefault };
       s.dirty = true;
-      return showFunnel(t);
-    case "f:steps": {
+      return showSequence(t);
+    case "seq:steps": {
       const offset = Number(a.value ?? 0);
       return t.reply(
         timedFromEntry(f.steps)
@@ -571,13 +596,13 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
             .slice(offset, offset + 15)
             .map((step, i): AuthorButton => [
               `Шаг ${offset + i + 1} · ${stepTime(step)}`,
-              { kind: "f:step", id: step.stepId },
+              { kind: "seq:step", id: step.stepId },
             ]),
           ...(offset > 0
             ? ([
                 [
                   "Предыдущие шаги",
-                  { kind: "f:steps", value: String(offset - 15) },
+                  { kind: "seq:steps", value: String(offset - 15) },
                 ],
               ] as Buttons)
             : []),
@@ -585,16 +610,16 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
             ? ([
                 [
                   "Следующие шаги",
-                  { kind: "f:steps", value: String(offset + 15) },
+                  { kind: "seq:steps", value: String(offset + 15) },
                 ],
               ] as Buttons)
             : []),
-          ["Добавить шаг", { kind: "f:add-step" }],
+          ["Добавить шаг", { kind: "seq:add-step" }],
           ...back,
         ],
       );
     }
-    case "f:add-step": {
+    case "seq:add-step": {
       if (f.steps.length >= 100)
         return t.reply("В последовательности может быть до 100 шагов.", back);
       const fromEntry = timedFromEntry(f.steps);
@@ -606,11 +631,11 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
         ...(fromEntry && { delayAnchor: "entry" as const }),
         parts: [],
       };
-      s.funnel = { ...f, steps: [...f.steps, step] };
+      s.sequence = { ...f, steps: [...f.steps, step] };
       s.dirty = true;
-      return performSequence(t, { kind: "f:step", id: step.stepId });
+      return performSequence(t, { kind: "seq:step", id: step.stepId });
     }
-    case "f:step": {
+    case "seq:step": {
       const index = f.steps.findIndex((step) => step.stepId === a.id);
       const step = f.steps[index];
       if (!step) throw new CommunicationsError("not_found");
@@ -618,13 +643,13 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
       return t.reply(
         `Шаг ${index + 1}\nЧерез ${stepTime(step)}\nСообщений: ${step.parts.length}`,
         [
-          ["Сообщения шага", { kind: "f:parts", id: step.stepId }],
-          ["Задержка", { kind: "f:delay" }],
+          ["Сообщения шага", { kind: "seq:parts", id: step.stepId }],
+          ["Задержка", { kind: "seq:delay" }],
           ...(index > 0
             ? ([
                 [
                   "Поднять шаг",
-                  { kind: "f:move-step", id: step.stepId, value: "-1" },
+                  { kind: "seq:move-step", id: step.stepId, value: "-1" },
                 ],
               ] as Buttons)
             : []),
@@ -632,16 +657,16 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
             ? ([
                 [
                   "Опустить шаг",
-                  { kind: "f:move-step", id: step.stepId, value: "1" },
+                  { kind: "seq:move-step", id: step.stepId, value: "1" },
                 ],
               ] as Buttons)
             : []),
-          ["Убрать шаг", { kind: "f:remove-step", id: step.stepId }],
-          ["Все шаги", { kind: "f:steps" }],
+          ["Убрать шаг", { kind: "seq:remove-step", id: step.stepId }],
+          ["Все шаги", { kind: "seq:steps" }],
         ],
       );
     }
-    case "f:delay":
+    case "seq:delay":
       s.prompt = "delay";
       return t.reply(
         f.steps.find((step) => step.stepId === s.target)?.delayAnchor ===
@@ -650,12 +675,12 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
           : "Напишите задержку: 30 мин, 2 ч, 1 д или 0 для отправки сразу после предыдущего шага.",
         back,
       );
-    case "f:move-step":
-    case "f:remove-step": {
+    case "seq:move-step":
+    case "seq:remove-step": {
       const steps = [...f.steps];
       const index = steps.findIndex((step) => step.stepId === a.id);
       if (index < 0) throw new CommunicationsError("not_found");
-      if (a.kind === "f:remove-step") steps.splice(index, 1);
+      if (a.kind === "seq:remove-step") steps.splice(index, 1);
       else {
         const next = index + Number(a.value);
         const [step, other] = [steps[index], steps[next]];
@@ -668,11 +693,11 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
               ]
             : [other, step];
       }
-      s.funnel = { ...f, steps };
+      s.sequence = { ...f, steps };
       s.dirty = true;
-      return performSequence(t, { kind: "f:steps" });
+      return performSequence(t, { kind: "seq:steps" });
     }
-    case "f:sources": {
+    case "seq:sources": {
       const offset = Number(a.value ?? 0);
       return t.reply(
         "Источники входа. Код применяется после публикации. Ссылка бота должна содержать ?start=код.",
@@ -681,13 +706,13 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
             .slice(offset, offset + 15)
             .map((source): AuthorButton => [
               source.name.slice(0, 50),
-              { kind: "f:source", id: source.sourceId },
+              { kind: "seq:source", id: source.sourceId },
             ]),
           ...(offset > 0
             ? ([
                 [
                   "Предыдущие источники",
-                  { kind: "f:sources", value: String(offset - 15) },
+                  { kind: "seq:sources", value: String(offset - 15) },
                 ],
               ] as Buttons)
             : []),
@@ -695,27 +720,30 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
             ? ([
                 [
                   "Следующие источники",
-                  { kind: "f:sources", value: String(offset + 15) },
+                  { kind: "seq:sources", value: String(offset + 15) },
                 ],
               ] as Buttons)
             : []),
-          ["Добавить источник", { kind: "f:add-source" }],
+          ["Добавить источник", { kind: "seq:add-source" }],
           ...back,
         ],
       );
     }
-    case "f:source": {
+    case "seq:source": {
       const source = f.sources.find((item) => item.sourceId === a.id);
       if (!source) throw new CommunicationsError("not_found");
       return t.reply(
         `${source.name}\nКод: ${source.code}\nПараметр ссылки: ?start=${source.code}`,
         [
-          ["Убрать источник", { kind: "f:remove-source", id: source.sourceId }],
-          ["Все источники", { kind: "f:sources" }],
+          [
+            "Убрать источник",
+            { kind: "seq:remove-source", id: source.sourceId },
+          ],
+          ["Все источники", { kind: "seq:sources" }],
         ],
       );
     }
-    case "f:add-source":
+    case "seq:add-source":
       if (f.sources.length >= 100)
         return t.reply(
           "В последовательности может быть до 100 источников.",
@@ -726,17 +754,21 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
         "Как назвать источник? Например: канал или описание видео.",
         back,
       );
-    case "f:remove-source":
-      s.funnel = {
+    case "seq:remove-source":
+      s.sequence = {
         ...f,
         sources: f.sources.filter((item) => item.sourceId !== a.id),
       };
       s.dirty = true;
-      return performSequence(t, { kind: "f:sources" });
-    case "f:save":
-      return t.ask({ kind: "save-funnel", funnel: f, then: { kind: "card" } });
-    case "f:preview":
-    case "f:publish":
+      return performSequence(t, { kind: "seq:sources" });
+    case "seq:save":
+      return t.ask({
+        kind: "save-sequence",
+        sequence: f,
+        then: { kind: "card" },
+      });
+    case "seq:preview":
+    case "seq:publish":
       if (isTruthy(s.dirty) || !isTruthy(f.revision))
         return t.reply(
           "Сначала сохраните черновик. Проверка и публикация относятся к сохранённой версии.",
@@ -745,32 +777,32 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
       // Read locks definition changes through this transaction. Validation is answered for
       // exactly these parts outside the transaction, so it covers precisely the locked revision.
       return t.ask({
-        kind: "lock-funnel",
-        funnelId: f.funnelId,
-        publish: a.kind === "f:publish",
+        kind: "lock-sequence",
+        sequenceId: f.sequenceId,
+        publish: a.kind === "seq:publish",
       });
-    case "f:confirm-archive":
+    case "seq:confirm-archive":
       return t.reply(
         "Отменить последовательность? Новые сообщения больше не будут отправляться. Уже доставленные останутся у получателей.",
-        [["Да, отменить", { kind: "f:life", value: "archive" }], ...back],
+        [["Да, отменить", { kind: "seq:life", value: "archive" }], ...back],
       );
-    case "f:life":
-      if (isTruthy(s.dirty) && a.value !== "archive") return showFunnel(t);
+    case "seq:life":
+      if (isTruthy(s.dirty) && a.value !== "archive") return showSequence(t);
       return t.ask({
-        kind: "change-funnel",
-        funnelId: f.funnelId,
+        kind: "change-sequence",
+        sequenceId: f.sequenceId,
         revision: f.revision,
         action: a.value,
       });
-    case "f:save-intro":
-      return showFunnel(t);
+    case "seq:save-intro":
+      return showSequence(t);
     default:
-      return unhandled(a, "funnel action");
+      return unhandled(a, "sequence action");
   }
 }
 
 function messages(t: Turn, offset: number) {
-  const f = openFunnel(funnelState(t));
+  const f = openSequence(sequenceState(t));
   const entries = [
     ...f.entryResponse.parts.map((p) => ({
       p,
@@ -798,13 +830,13 @@ function messages(t: Turn, offset: number) {
         .slice(offset, offset + 5)
         .map(({ p, target, when }, i): AuthorButton => [
           `${offset + i + 1}. ${when} · ${messageLabel(p.content, 25)}`,
-          { kind: "f:message", id: p.partId, value: target },
+          { kind: "seq:message", id: p.partId, value: target },
         ]),
       ...(offset > 0
         ? [
             [
               "Предыдущие",
-              { kind: "f:messages", value: String(offset - 5) },
+              { kind: "seq:messages", value: String(offset - 5) },
             ] as AuthorButton,
           ]
         : []),
@@ -812,11 +844,11 @@ function messages(t: Turn, offset: number) {
         ? [
             [
               "Следующие",
-              { kind: "f:messages", value: String(offset + 5) },
+              { kind: "seq:messages", value: String(offset + 5) },
             ] as AuthorButton,
           ]
         : []),
-      ["Добавить сообщения", { kind: "batch:funnel" }],
+      ["Добавить сообщения", { kind: "batch:sequence" }],
       ...back,
     ],
   );
@@ -833,8 +865,8 @@ function moveTimedPart(
   delaySeconds: number | null,
   published?: boolean,
 ) {
-  const s = funnelState(t),
-    f = openFunnel(s);
+  const s = sequenceState(t),
+    f = openSequence(s);
   if (f.lifecycle === "archived")
     throw new CommunicationsError("revision_conflict");
   const source = f.steps.find((step) =>
@@ -849,7 +881,7 @@ function moveTimedPart(
       if (published === undefined)
         return t.ask({
           kind: "read-part-history",
-          funnelId: f.funnelId,
+          sequenceId: f.sequenceId,
           partId,
           delaySeconds,
         });
@@ -864,7 +896,7 @@ function moveTimedPart(
     if (delaySeconds !== null && !source && f.entryResponse.parts.length === 1)
       throw new CommunicationsError("malformed");
     if (delaySeconds !== null && source?.parts.length === 1)
-      s.funnel = {
+      s.sequence = {
         ...f,
         steps: inTimeOrder(
           f.steps.map((step) =>
@@ -880,7 +912,7 @@ function moveTimedPart(
           parts: step.parts.filter((p) => p.partId !== partId),
         }))
         .filter((step) => step.parts.length > 0);
-      s.funnel = {
+      s.sequence = {
         ...f,
         entryResponse: {
           ...f.entryResponse,
@@ -906,12 +938,12 @@ function moveTimedPart(
   }
   s.prompt = undefined;
   s.timingPartId = undefined;
-  performSequence(t, { kind: "f:messages" });
+  performSequence(t, { kind: "seq:messages" });
 }
 
-export function answerFunnel(t: Turn, input: { text: string }) {
-  const s = funnelState(t);
-  const f = s.funnel;
+export function answerSequence(t: Turn, input: { text: string }) {
+  const s = sequenceState(t);
+  const f = s.sequence;
   const text = input.text.trim();
   if (!f) return t.reply("Откройте последовательность заново.", root);
   switch (s.prompt) {
@@ -941,9 +973,9 @@ export function answerFunnel(t: Turn, input: { text: string }) {
           back,
         );
       }
-      s.funnel = { ...f, name: text };
+      s.sequence = { ...f, name: text };
       s.dirty = true;
-      return showFunnel(t);
+      return showSequence(t);
     case "source-code":
       if (
         !/^m_[A-Za-z0-9_-]{1,40}$/.test(text) ||
@@ -955,7 +987,7 @@ export function answerFunnel(t: Turn, input: { text: string }) {
         );
       if (s.sourceName === undefined)
         throw new CommunicationsError("malformed");
-      s.funnel = {
+      s.sequence = {
         ...f,
         sources: [
           ...f.sources,
@@ -963,7 +995,7 @@ export function answerFunnel(t: Turn, input: { text: string }) {
         ],
       };
       s.dirty = true;
-      return performSequence(t, { kind: "f:sources" });
+      return performSequence(t, { kind: "seq:sources" });
     case "delay": {
       const delaySeconds = parseSequenceDelay(text);
       if (delaySeconds === undefined)
@@ -971,7 +1003,7 @@ export function answerFunnel(t: Turn, input: { text: string }) {
           "Не удалось понять задержку. Примеры: 30 мин, 2 ч, 1 д, 0.",
           back,
         );
-      s.funnel = {
+      s.sequence = {
         ...f,
         steps: inTimeOrder(
           f.steps.map((step) =>
@@ -981,71 +1013,71 @@ export function answerFunnel(t: Turn, input: { text: string }) {
       };
       s.dirty = true;
       if (!hasText(s.target)) throw new CommunicationsError("not_found");
-      return performSequence(t, { kind: "f:step", id: s.target });
+      return performSequence(t, { kind: "seq:step", id: s.target });
     }
     case undefined:
-      return showFunnel(t);
+      return showSequence(t);
     default:
-      return unhandled(s.prompt, "funnel prompt");
+      return unhandled(s.prompt, "sequence prompt");
   }
 }
 
-/** Continues a funnel step after the executing layer answered its query. */
-export function answerFunnelQuery(
+/** Continues a sequence step after the executing layer answered its query. */
+export function answerSequenceQuery(
   t: Turn,
   event: Extract<
     AuthorEvent,
     {
       kind:
-        | "funnels-listed"
-        | "funnel-read"
+        | "sequences-listed"
+        | "sequence-read"
         | "intro-read"
         | "content-validated"
         | "intro-saved"
-        | "funnel-locked"
-        | "funnel-published"
+        | "sequence-locked"
+        | "sequence-published"
         | "publication-previewed"
-        | "funnel-changed"
+        | "sequence-changed"
         | "part-history-read";
     }
   >,
 ): void {
   switch (event.kind) {
-    case "funnels-listed":
-      t.state.funnelAuthor = {};
+    case "sequences-listed":
+      t.state.sequenceAuthor = {};
       return t.reply(
         "Последовательности · черновики сохраняются при каждом действии",
         [
-          ["Создать последовательность", { kind: "f:new" }],
+          ["Создать последовательность", { kind: "seq:new" }],
           ...event.items.map(({ id, name, status }): AuthorButton => [
             `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
-            { kind: "f:read", id },
+            { kind: "seq:read", id },
           ]),
           ...(hasText(event.nextCursor)
             ? [
                 [
                   "Следующие последовательности",
-                  { kind: "f:list", id: event.nextCursor },
+                  { kind: "seq:list", id: event.nextCursor },
                 ] as AuthorButton,
               ]
             : []),
           ["В меню", { kind: "home" }],
         ],
       );
-    case "funnel-read":
-      t.state.funnelAuthor = event.funnelAuthor;
-      return showFunnel(t);
+    case "sequence-read":
+      t.state.sequenceAuthor = event.sequenceAuthor;
+      return showSequence(t);
     case "intro-read":
-      t.state.funnelAuthor = event.funnelAuthor;
+      t.state.sequenceAuthor = event.sequenceAuthor;
       return partsMenu(t);
     case "content-validated": {
-      const s = funnelState(t);
+      const s = sequenceState(t);
       const result = event.result;
       if (event.purpose === "intro") {
         if (result.status !== "ok" || isTruthy(result.targetErrors.length))
           return t.reply(
             "Общий блок не сохранён: проверка материалов недоступна или ссылки ведут на недоступные материалы.",
-            [["К сообщениям", { kind: "f:parts-page", value: "0" }]],
+            [["К сообщениям", { kind: "seq:parts-page", value: "0" }]],
           );
         if (!s.intro) throw new CommunicationsError("not_found");
         return t.ask({ kind: "save-intro", intro: s.intro });
@@ -1068,16 +1100,16 @@ export function answerFunnelQuery(
             .join("\n")}`,
           back,
         );
-      const f = openFunnel(s);
+      const f = openSequence(s);
       return t.ask({
-        kind: "publish-funnel",
-        funnelId: f.funnelId,
+        kind: "publish-sequence",
+        sequenceId: f.sequenceId,
         revision: f.revision,
         publish: event.purpose === "publish",
       });
     }
     case "intro-saved": {
-      const s = funnelState(t);
+      const s = sequenceState(t);
       if (event.intro) s.intro = event.intro;
       s.dirty = false;
       return t.reply(
@@ -1085,8 +1117,8 @@ export function answerFunnelQuery(
         root,
       );
     }
-    case "funnel-locked": {
-      const f = openFunnel(funnelState(t));
+    case "sequence-locked": {
+      const f = openSequence(sequenceState(t));
       if (event.revision !== f.revision)
         throw new CommunicationsError("revision_conflict");
       return t.ask({
@@ -1098,25 +1130,25 @@ export function answerFunnelQuery(
         purpose: event.publish ? "publish" : "preview",
       });
     }
-    case "funnel-published":
-      funnelState(t).funnel = event.funnel;
-      return showFunnel(t);
+    case "sequence-published":
+      sequenceState(t).sequence = event.sequence;
+      return showSequence(t);
     case "publication-previewed": {
       const p = event.preview;
       return t.reply(
         `Публикация версии ${p.revision}\nНовых шагов: ${p.addedStepIds.length}\nИзменённых: ${p.editedStepIds.length}\nУдалённых: ${p.deletedStepIds.length}\nПорядок изменён: ${p.reorderedStepIds.length}\nПолучателей продолжения: ${p.eligibleContacts}\nИз них уже завершили прежнюю последовательность: ${p.completedParticipantsReceivingNewSteps}\nУже доставленное повторно не отправляется.`,
-        [["Опубликовать последовательность", { kind: "f:publish" }], ...back],
+        [["Опубликовать последовательность", { kind: "seq:publish" }], ...back],
       );
     }
-    case "funnel-changed": {
-      const s = funnelState(t);
-      const f = openFunnel(s);
-      if (event.funnel) {
-        s.funnel = event.funnel;
+    case "sequence-changed": {
+      const s = sequenceState(t);
+      const f = openSequence(s);
+      if (event.sequence) {
+        s.sequence = event.sequence;
         s.dirty = false;
-        t.emit({ kind: "remove-draft", id: f.funnelId });
+        t.emit({ kind: "remove-draft", id: f.sequenceId });
       }
-      return showFunnel(t);
+      return showSequence(t);
     }
     case "part-history-read":
       return moveTimedPart(
@@ -1126,22 +1158,22 @@ export function answerFunnelQuery(
         event.published,
       );
     default:
-      return unhandled(event, "funnel answer");
+      return unhandled(event, "sequence answer");
   }
 }
 
-/** Applies a saved funnel; the caller decides what the author sees next. */
-export function applyFunnelSave(
+/** Applies a saved sequence; the caller decides what the author sees next. */
+export function applySequenceSave(
   t: Turn,
-  funnel: CommunicationSequenceSnapshot | undefined,
+  sequence: CommunicationSequenceSnapshot | undefined,
 ) {
-  const s = funnelState(t);
-  if (funnel) s.funnel = funnel;
+  const s = sequenceState(t);
+  if (sequence) s.sequence = sequence;
   s.dirty = false;
 }
 
 /** The author asked to save a draft that the contract does not accept yet. */
-export function rejectFunnelSave(t: Turn) {
+export function rejectSequenceSave(t: Turn) {
   t.reply(
     "Добавьте хотя бы один пост в первый ответ и в каждый шаг, затем сохраните черновик.",
     back,
@@ -1184,8 +1216,8 @@ function stepTime(step: SequenceStep) {
 }
 
 /**
- * Whether every step counts from entry, as the bot has authored funnels since #43. New steps of
- * such a funnel count from entry too, and its step order follows time.
+ * Whether every step counts from entry, as the bot has authored sequences since #43. New steps of
+ * such a sequence count from entry too, and its step order follows time.
  */
 function timedFromEntry(steps: readonly SequenceStep[]) {
   return steps.every((step) => step.delayAnchor === "entry");

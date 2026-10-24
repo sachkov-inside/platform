@@ -2,7 +2,7 @@ import "server-only";
 
 import { fillProductPageHero } from "@/entities/product-page";
 import { cohortCountdown } from "@/entities/subscription";
-import { loadProductCohort } from "@/entities/subscription.catalog.server";
+import { loadProductSalesState } from "@/entities/subscription.catalog.server";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 
@@ -33,7 +33,9 @@ export async function fillPinnedOfferTerms(
   // Поток читается рядом со сроками: он нужен наклейке «до старта N дней» на анимации курса.
   const [read, cohort] = await Promise.all([
     readPublicProductOfferTerms(pinned.id),
-    pinned.hero === null ? Promise.resolve(null) : loadProductCohort(pinned.id),
+    pinned.hero === null
+      ? Promise.resolve(null)
+      : loadProductSalesState(pinned.id),
   ]);
   return presentPinnedTerms(
     result,

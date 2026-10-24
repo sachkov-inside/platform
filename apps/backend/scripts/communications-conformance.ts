@@ -96,7 +96,7 @@ const app = await createApiApplication(
     LOGTO_ISSUER: issuer,
     LOGTO_AUDIENCE: audience,
     LOGTO_JWKS_URL: `${jwksUrl}/jwks`,
-    TELEGRAM_COMMUNICATIONS_ENDPOINT: `${provider}/integrations/platform/v1/communications`,
+    TELEGRAM_COMMUNICATIONS_ENDPOINT: `${provider}/integrations/platform/v2/communications`,
     TELEGRAM_COMMUNICATIONS_SECRET:
       "synthetic_communications_secret_conformance",
     TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot",
@@ -171,7 +171,7 @@ function command(
   expectedRevision = 0,
 ): ManagementRequest {
   return managementRequestSchema.parse({
-    contractVersion: "inside-communications-v1",
+    contractVersion: "inside-communications-v2",
     operation,
     operationId: randomUUID(),
     expectedRevision,
@@ -276,13 +276,13 @@ const part = (value: string) => ({
   partId: randomUUID(),
   content: text(value),
 });
-async function readFunnel(funnelId: string) {
-  const result = await ok(command("funnels.read", { funnelId }));
-  assert("funnel" in result);
-  return result.funnel;
+async function readSequence(sequenceId: string) {
+  const result = await ok(command("sequences.read", { sequenceId }));
+  assert("sequence" in result);
+  return result.sequence;
 }
-async function deliveries(funnelId: string) {
-  const result = await ok(command("deliveries.read", { funnelId }));
+async function deliveries(sequenceId: string) {
+  const result = await ok(command("deliveries.read", { sequenceId }));
   assert("deliveries" in result);
   return z.array(deliverySchema).parse(result.deliveries);
 }
@@ -428,7 +428,7 @@ try {
   }
   pass("all six media template IDs authored through delegated MCP");
   const draft = {
-    funnelId: randomUUID(),
+    sequenceId: randomUUID(),
     name: "Synthetic standard",
     isDefault: true,
     sources: [
@@ -451,11 +451,17 @@ try {
     },
     steps: [{ stepId: randomUUID(), delaySeconds: 10, parts: mediaParts }],
   };
-  await ok(command("funnels.save", draft));
-  await ok(command("funnels.preview", { funnelId: draft.funnelId }, 1), "mcp");
-  await ok(command("funnels.publish", { funnelId: draft.funnelId }, 1), "mcp");
+  await ok(command("sequences.save", draft));
+  await ok(
+    command("sequences.preview", { sequenceId: draft.sequenceId }, 1),
+    "mcp",
+  );
+  await ok(
+    command("sequences.publish", { sequenceId: draft.sequenceId }, 1),
+    "mcp",
+  );
   const denied = await execute(
-    command("funnels.publish", { funnelId: draft.funnelId }, 2),
+    command("sequences.publish", { sequenceId: draft.sequenceId }, 2),
     "http",
     "ordinary",
   );
@@ -486,7 +492,7 @@ try {
   // Historical target must be checked even when the current draft has no such link.
   await ok(
     command(
-      "funnels.save",
+      "sequences.save",
       {
         ...draft,
         entryResponse: {
@@ -497,7 +503,7 @@ try {
       2,
     ),
   );
-  await ok(command("funnels.publish", { funnelId: draft.funnelId }, 3));
+  await ok(command("sequences.publish", { sequenceId: draft.sequenceId }, 3));
   for (const transport of ["http", "mcp"] as const) {
     for (const unavailable of ["unpublished", "paid"] as const) {
       await saveTarget(
@@ -506,8 +512,8 @@ try {
       );
       const rejected = await execute(
         command(
-          "funnels.rollback",
-          { funnelId: draft.funnelId, publishedRevision: 2 },
+          "sequences.rollback",
+          { sequenceId: draft.sequenceId, publishedRevision: 2 },
           4,
         ),
         transport,
@@ -516,13 +522,13 @@ try {
         !rejected.ok && rejected.error.code === "unsupported_content",
         JSON.stringify(rejected),
       );
-      assert.equal((await readFunnel(draft.funnelId)).revision, 4);
+      assert.equal((await readSequence(draft.sequenceId)).revision, 4);
     }
   }
   await saveTarget("free", "published");
   const rollback = command(
-    "funnels.rollback",
-    { funnelId: draft.funnelId, publishedRevision: 2 },
+    "sequences.rollback",
+    { sequenceId: draft.sequenceId, publishedRevision: 2 },
     4,
   );
   const restored = await ok(rollback, "mcp");
@@ -566,7 +572,7 @@ try {
     "forwarded/repeated opaque tracking token counts hits separately from recipients",
   );
   // A completed participant receives newly published steps; stop suppresses overdue additions.
-  let current = await readFunnel(draft.funnelId);
+  let current = await readSequence(draft.sequenceId);
   const added = {
     stepId: randomUUID(),
     delaySeconds: 30,
@@ -574,21 +580,25 @@ try {
   };
   await ok(
     command(
-      "funnels.save",
+      "sequences.save",
       { ...draft, steps: [...draft.steps, added] },
       current.revision,
     ),
   );
-  current = await readFunnel(draft.funnelId);
+  current = await readSequence(draft.sequenceId);
   await ok(
-    command("funnels.publish", { funnelId: draft.funnelId }, current.revision),
+    command(
+      "sequences.publish",
+      { sequenceId: draft.sequenceId },
+      current.revision,
+    ),
   );
   await controlCall({ advanceSeconds: 29 });
   assert(!(await state()).sent.some((m) => m.content.text === "addition C"));
   await controlCall({ advanceSeconds: 1 });
   assert((await state()).sent.some((m) => m.content.text === "addition C"));
   await entry("/stop");
-  current = await readFunnel(draft.funnelId);
+  current = await readSequence(draft.sequenceId);
   const missed = {
     stepId: randomUUID(),
     delaySeconds: 10,
@@ -596,14 +606,18 @@ try {
   };
   await ok(
     command(
-      "funnels.save",
+      "sequences.save",
       { ...draft, steps: [...draft.steps, added, missed] },
       current.revision,
     ),
   );
-  current = await readFunnel(draft.funnelId);
+  current = await readSequence(draft.sequenceId);
   await ok(
-    command("funnels.publish", { funnelId: draft.funnelId }, current.revision),
+    command(
+      "sequences.publish",
+      { sequenceId: draft.sequenceId },
+      current.revision,
+    ),
   );
   await controlCall({ advanceSeconds: 20 });
   await entry("/resume");
@@ -792,7 +806,7 @@ try {
   pass(
     "waitlist MCP preview derives active membership through authenticated callback; closed sale refuses launch without transport",
   );
-  const snapshot = await deliveries(draft.funnelId);
+  const snapshot = await deliveries(draft.sequenceId);
   assert(snapshot.length > 0);
   const providerState = await state();
   process.stdout.write(
