@@ -21,6 +21,8 @@ BINDING_INPUTS = (*recovery.FOUNDATION_INPUTS,
     'scripts/observability-umami/retention.py', 'scripts/observability-umami/retention.sql',
     'scripts/observability-umami/retention-corpus.sql', 'scripts/observability-umami/retention-proof.sql',
     'scripts/observability-umami/retention_fixture.py',
+    'scripts/observability-umami/native_maintenance.py', 'scripts/observability-umami/maintenance.py',
+    'scripts/observability-umami/setup_database.py',
     'scripts/observability-pilot/pilot.py', 'scripts/observability-pilot/orbstack.py',
     'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/storage_policy.py',
     'infra/observability/pilot/probe.lock.json')
@@ -117,6 +119,14 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         record()
         if cluster['version_num'] != 180004 or cluster['archive_mode'] != 'on':
             raise RuntimeError('unexpected_source_database_version_or_archiving')
+        report['stage'] = 'native_maintenance'
+        record()
+        import native_maintenance
+        report['native_maintenance'] = native_maintenance.exercise(
+            lambda payload, **options: _sql(compose, 'db', payload, execute=execute, **options),
+            lambda: execute(compose, ['exec', '-T', 'db', 'pg_dump', '-U', 'umami', '-d', 'umami',
+                '--data-only', '--no-owner', '--no-privileges'], timeout=30), output / 'maintenance-private')
+        record()
         return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         report['state'] = 'failed'
