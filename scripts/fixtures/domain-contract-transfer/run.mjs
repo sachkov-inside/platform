@@ -275,6 +275,31 @@ try {
     apiBaseUrl: producerOrigin,
     webBaseUrl: "http://127.0.0.1:18514",
   });
+  for (const variant of ["legacy", "current"]) {
+    for (const firstIssuedAt of ["2026-10-01T00:00:00.000Z", null]) {
+      const result = await run({
+        app: "backend",
+        variant,
+        operation: "product-access-parse",
+        input: {
+          accountId: ids.actor,
+          productId: ids.product,
+          firstIssuedAt,
+          access: "active",
+          revision: 1,
+        },
+      });
+      event("product-access-reader", {
+        variant,
+        firstIssuedAt,
+        accepted: result.accepted,
+      });
+      assert.equal(
+        result.accepted,
+        firstIssuedAt !== null || variant === "current",
+      );
+    }
+  }
   postgres = await createRestorePostgres("domain-contract-transfer");
   const backend = await postgres.emptyDatabase();
   const telegram = await postgres.emptyDatabase();

@@ -19,7 +19,14 @@ let close = async () => {};
 try {
   let result;
   if (job.app === "backend") {
-    if (job.operation === "migrate") {
+    if (job.operation === "product-access-parse") {
+      const { productAccessViewSchema } = await load(
+        "modules/account-rights/domain/product-access.js",
+      );
+      result = {
+        accepted: productAccessViewSchema.safeParse(job.input).success,
+      };
+    } else if (job.operation === "migrate") {
       result = await (
         await load("migrations/index.js")
       ).migrateToLatest(job.databaseUrl);
