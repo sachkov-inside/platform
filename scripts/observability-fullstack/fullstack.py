@@ -129,11 +129,7 @@ def seed(compose,output):
     invoke(compose,['up','-d','rabbitmq','provider','loadgen','api'],timeout=30)
     ready(compose,'/health/ready')
     invoke(compose,['exec','-T','api','env','NODE_ENV=development','LOCAL_SEED_DEMO=published','node','dist/development/seed-local.js'],timeout=30)
-    sql(compose,"""DO $$ BEGIN IF current_database()<>'inside' THEN RAISE EXCEPTION 'wrong synthetic database'; END IF; END $$;
-INSERT INTO materials.materials(id,slug,title,summary,body,schema_version,created_by,access,publication_state,content_version,first_published_at,published_at,published_by,format_id,topic_id)
-SELECT md5('resource-material-'||n)::uuid,'resource-material-'||n,'Synthetic '||n,m.summary,m.body,m.schema_version,m.created_by,'free','published',1,now(),now(),m.published_by,m.format_id,m.topic_id
-FROM generate_series(1,512)n CROSS JOIN LATERAL (SELECT * FROM materials.materials WHERE publication_state='published' AND primary_video_id IS NULL LIMIT 1)m;
-""",role='platform',database='inside')
+    sql(compose,(ROOT/'infra/observability/fullstack/corpus.sql').read_text(),role='platform',database='inside')
     from importlib.util import spec_from_file_location,module_from_spec
     spec=spec_from_file_location('fullstack_database_setup',HERE.parent/'observability-umami/setup_database.py');owner=module_from_spec(spec);spec.loader.exec_module(owner)
     password=(output/'monitoring/umami.database.password').read_text().strip()
@@ -146,8 +142,8 @@ FROM generate_series(1,512)n CROSS JOIN LATERAL (SELECT * FROM materials.materia
     established=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
     if (set(established)!={'created','accounts'} or established['created']!=128 or not isinstance(established['accounts'],list) or len(established['accounts'])!=128 or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=128):raise ValueError('all_accounts_required')
     (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
-    corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'));",role='platform',database='inside'))
-    if corpus!={'accounts':128,'materials':512}:raise ValueError('representative_dataset_incomplete')
+    corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'),'public_materials',(SELECT count(*) FROM materials.published_materials WHERE slug LIKE 'resource-material-%'));",role='platform',database='inside'))
+    if corpus!={'accounts':128,'materials':512,'public_materials':512}:raise ValueError('representative_dataset_incomplete')
 
 
 def host():
