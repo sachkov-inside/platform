@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -101,7 +102,7 @@ test("each local path selects the schema its response type names", () => {
     typedKind(`/authoring/videos/${id}/reconcile`, "video"),
     typedKind(`/authoring/materials/${id}`, "material"),
     typedKind(`/authoring/import/content-covers/material/${id}`, "coverChange"),
-    typedKind(`/authoring/import/content-covers/series/${id}`, "coverChange"),
+    typedKind(`/authoring/import/content-covers/product/${id}`, "coverChange"),
     typedKind(`/authoring/import/products/${id}/artifacts`, "artifactOutcome"),
     typedKind(`/authoring/products/${id}/artifacts`, "productArtifacts"),
     typedKind(`/authoring/product-artifacts/${id}/materials`, "artifact"),
@@ -163,7 +164,8 @@ test("malformed injected reservation stops local sync before read or Save", asyn
     syncLocal(packagePath, state, {
       request: async (path) => {
         paths.push(path);
-        if (path.endsWith("/environment")) return { mode: "development" };
+        if (path.endsWith("/environment"))
+          return currentEnvironment("development");
         if (path === "/authoring/collections?kind=topic") return [];
         if (path.endsWith("/validate")) return { valid: true };
         if (path.endsWith("/reserve"))
@@ -217,7 +219,7 @@ test("corrupt recovery entries fail before replay and leave the original journal
         request: async (apiPath) => {
           calls.push(apiPath);
           assert.equal(apiPath, "/authoring/import/materials/environment");
-          return { mode: "development" };
+          return currentEnvironment("development");
         },
       }),
     );

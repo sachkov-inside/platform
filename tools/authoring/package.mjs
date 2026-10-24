@@ -86,7 +86,8 @@ export const materialSchema = z
     stage: z.enum(["idea", "draft", "review", "ready", "published"]),
     topicId: identifier.nullable(),
     access: z.enum(["free", "closed"]).nullable(),
-    showInFeed: z.boolean(),
+    // Historical v1/v2 rows require this byte-bearing field; v3 forbids it.
+    showInFeed: z.boolean().optional(),
     notifyTelegram: z.boolean().optional(),
     difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
     outcomes: z.array(z.string()).nullable(),
@@ -199,7 +200,7 @@ export const productShellScope = z.literal("product-shell");
 
 export const manifestSchema = z
   .object({
-    schemaVersion: z.union([z.literal(1), z.literal(2)]),
+    schemaVersion: z.union([z.literal(1), z.literal(2), z.literal(3)]),
     requiredFeatures: z.array(z.string().min(1)).optional(),
     sourceNamespace: identifier,
     practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
@@ -432,7 +433,7 @@ function checkTasks(manifest) {
     tasks.some((task) => task.programmeVisibility !== undefined);
   if (
     usesBindings &&
-    (manifest.schemaVersion !== 2 ||
+    (manifest.schemaVersion < 2 ||
       !manifest.requiredFeatures?.includes("material-task-v1"))
   )
     throw new Error("Task bindings require material-task-v1");
@@ -547,12 +548,17 @@ export function checkCapabilities(value) {
       requiredFeatures: z.array(z.string()).optional(),
     })
     .parse(value);
-  if (![1, 2].includes(envelope.schemaVersion))
+  if (![1, 2, 3].includes(envelope.schemaVersion))
     throw new Error(
       `Unsupported package schemaVersion: ${envelope.schemaVersion}`,
     );
-  if (envelope.schemaVersion === 2 && envelope.requiredFeatures === undefined)
-    throw new Error("Package v2 requires requiredFeatures");
+  if (envelope.schemaVersion >= 2 && envelope.requiredFeatures === undefined)
+    throw new Error("Package v2/v3 requires requiredFeatures");
+  if (
+    envelope.schemaVersion === 3 &&
+    !envelope.requiredFeatures?.includes("canonical-product-source-v2")
+  )
+    throw new Error("Package v3 requires canonical-product-source-v2");
   if (envelope.schemaVersion === 1 && envelope.requiredFeatures !== undefined)
     throw new Error("Package v1 cannot declare requiredFeatures");
   for (const feature of envelope.requiredFeatures ?? [])
@@ -572,7 +578,13 @@ export async function loadPackage(path) {
   /** @type {unknown} */
   const original = JSON.parse(bytes.toString("utf8"));
   checkCapabilities(original);
-  const decoded = decodePackageV1(original);
+  const decoded =
+    typeof original === "object" &&
+    original !== null &&
+    "schemaVersion" in original &&
+    original.schemaVersion === 3
+      ? original
+      : decodePackageV1(original);
   const manifest = manifestSchema.parse(decoded);
   if (
     bytes.toString("utf8") !== canonical(original) ||
@@ -581,6 +593,31 @@ export async function loadPackage(path) {
     throw new Error(
       "Package must use canonical JSON; rebuild it from originals",
     );
+  // Validate historical revision inputs before deriving any executable current projection.
+  // A feed toggle was part of every accepted old row hash, even after it lost feed authority.
+  const pages = [
+    ...manifest.materials,
+    ...(manifest.tasks ?? []).flatMap((task) =>
+      task.page === undefined ? [] : [task.page],
+    ),
+  ];
+  for (const row of pages) {
+    if (
+      manifest.schemaVersion === 3
+        ? Object.hasOwn(row, "showInFeed")
+        : row.showInFeed === undefined
+    )
+      throw new Error(
+        manifest.schemaVersion === 3
+          ? "Package v3 forbids showInFeed"
+          : "Historical package requires showInFeed for its original revision",
+      );
+  }
+  if (
+    manifest.schemaVersion === 3 &&
+    Object.hasOwn(manifest, "practiceDefinitions")
+  )
+    throw new Error("Package v3 accepts Tasks, not legacy Practice writes");
   unique(
     manifest.materials.map((item) => item.sourceId),
     "Material identity",
@@ -650,7 +687,7 @@ export async function loadPackage(path) {
       )
         throw new Error("Multiple-answer quizzes require quiz-multiple-v1");
       if (
-        manifest.schemaVersion !== 2 ||
+        manifest.schemaVersion < 2 ||
         !manifest.requiredFeatures?.includes("quiz-v1") ||
         !manifest.requiredFeatures.includes("github-anchors-v1")
       )
@@ -667,7 +704,7 @@ export async function loadPackage(path) {
     }
     if (material.imageVariants !== undefined) {
       if (
-        manifest.schemaVersion !== 2 ||
+        manifest.schemaVersion < 2 ||
         !manifest.requiredFeatures?.includes("image-variants-v1")
       )
         throw new Error(
@@ -765,7 +802,7 @@ export async function loadPackage(path) {
       );
   }
   checkTasks(manifest);
-  if (manifest.schemaVersion === 2) {
+  if (manifest.schemaVersion >= 2) {
     const taskIds = manifest.selection.taskIds;
     const tasks = manifest.tasks ?? [];
     if (taskIds === undefined)

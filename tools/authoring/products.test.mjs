@@ -37,7 +37,7 @@ test("the product list shows the permanent key, address, look, Home pin and less
         version: 1,
       },
     ],
-    "/authoring/home-pin": { seriesId: uuid(1), version: 4 },
+    "/authoring/home-pin": { productId: uuid(1), version: 4 },
   };
   const products = await listProducts(
     async (/** @type {string} */ path) => responses[path],
@@ -77,7 +77,7 @@ test("a response of another shape stops the listing", async () => {
   await assert.rejects(
     listProducts(async (/** @type {string} */ path) =>
       path === "/authoring/home-pin"
-        ? { seriesId: null }
+        ? { productId: null }
         : [{ id: "not-a-uuid" }],
     ),
   );

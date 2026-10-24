@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -244,6 +245,16 @@ test("v1 source revisions keep practice sidecars valid and task fingerprints sur
     ),
     taskFingerprint,
   );
+  const tampered = structuredClone(original);
+  itemAt(tampered.materials, 0).showInFeed = true;
+  await writeFile(path, canonical(tampered));
+  await assert.rejects(loadPackage(path), /Practice reference does not match/u);
+  Reflect.deleteProperty(itemAt(tampered.materials, 0), "showInFeed");
+  await writeFile(path, canonical(tampered));
+  await assert.rejects(
+    loadPackage(path),
+    /Historical package requires showInFeed/u,
+  );
   await writeFile(path, canonical(pkg.manifest));
   const exported = await loadPackage(path);
   assert.equal(
@@ -327,98 +338,37 @@ test("continuing a canonical task request reuses the legacy key and original req
   assert.deepEqual(saved.operations[key]?.request, old);
 });
 
-test("local-sync replays legacy material and task receipts over canonical requests after a lost response", async (t) => {
+test("uncertain legacy Task aliases require explicit recovery without replaying any writable command", async (t) => {
   const { path, state } = await fixture(t);
   await writeFile(path, canonical(legacyPackage()));
-  const materialRequest = legacyApply();
-  const taskRequest = {
+  const request = {
     path: "/authoring/import/tasks/apply",
-    body: {
-      sourceId: "inside-content:build",
-      code: "build",
-      title: "Build",
-      guideId: id,
-      chapterId: id,
-      position: 1,
-      access: "membership",
-      definition: opaque,
-      relatedMaterialSourceIds: [],
-      publicationState: "unpublished",
-      expectedRevision: null,
-      provenance,
-    },
+    body: { guideId: id, access: "membership", definition: opaque },
   };
-  const materialKey = `authoring:${checksum(canonical(materialRequest))}`;
-  const taskKey = `authoring:${checksum(canonical(taskRequest))}`;
+  const key = `authoring:${checksum(canonical(request))}`;
   const original = {
     ...legacyJournal(),
-    operations: {
-      [materialKey]: { status: "pending", request: materialRequest },
-      [taskKey]: { status: "pending", request: taskRequest },
-    },
+    operations: { [key]: { status: "pending", request } },
   };
   await writeFile(join(state, "journal.json"), canonical(original));
-  let loseResponse = true;
   /** @type {string[]} */
-  const sentKeys = [];
-  const options = {
-    reconcileOnly: true,
-    /** @type {import("./target.mjs").LocalTransport} */
-    request: async (apiPath, body, key) => {
-      if (apiPath.endsWith("/environment")) return { mode: "development" };
-      assert.ok(key !== undefined);
-      sentKeys.push(key);
-      if (apiPath === materialRequest.path) {
-        assert.equal(key, materialKey);
-        assert.deepEqual(body, {
-          ...materialRequest.body,
-          metadata: { ...materialRequest.body.metadata, access: "closed" },
-        });
-        if (loseResponse) {
-          loseResponse = false;
-          throw new Error("Lost response after legacy receipt committed");
-        }
-        return { materialId: id, contentVersion: 2 };
-      }
-      assert.equal(apiPath, taskRequest.path);
-      assert.equal(key, taskKey);
-      const { guideId, ...oldBody } = taskRequest.body;
-      assert.deepEqual(body, {
-        ...oldBody,
-        productId: guideId,
-        access: "closed",
-      });
-      return {
-        taskId: id,
-        code: "build",
-        revision: 1,
-        currentVersion: 1,
-        definitionDigest: "c".repeat(64),
-        publicationState: "unpublished",
-      };
-    },
-  };
-  await assert.rejects(syncLocal(path, state, options), /Lost response/u);
-  assert.deepEqual(
-    parseJournal(
-      JSON.parse(await readFile(join(state, "journal.json"), "utf8")),
-    ).operations,
-    original.operations,
+  const calls = [];
+  await assert.rejects(
+    syncLocal(path, state, {
+      reconcileOnly: true,
+      request: async (apiPath) => {
+        calls.push(apiPath);
+        assert.equal(apiPath, "/authoring/import/materials/environment");
+        return currentEnvironment("development");
+      },
+    }),
+    /explicit recovery required before effects/u,
   );
-  await syncLocal(path, state, options);
+  assert.deepEqual(calls, ["/authoring/import/materials/environment"]);
   const saved = parseJournal(
     JSON.parse(await readFile(join(state, "journal.json"), "utf8")),
   );
-  assert.deepEqual(
-    Object.keys(saved.operations).sort(),
-    [materialKey, taskKey].sort(),
-  );
-  assert.deepEqual(saved.operations[materialKey]?.request, materialRequest);
-  assert.deepEqual(saved.operations[taskKey]?.request, taskRequest);
-  assert.equal(saved.operations[materialKey]?.status, "applied");
-  assert.equal(saved.operations[taskKey]?.status, "applied");
-  await syncLocal(path, state, options);
-  assert.deepEqual(sentKeys, [materialKey, materialKey, taskKey]);
+  assert.deepEqual(saved.operations, original.operations);
 });
 
 test("a saved guide-shell package loads as a Product shell with its original artifact identity", async (t) => {

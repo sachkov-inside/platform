@@ -10,6 +10,8 @@ import { imageSourceKey, resolveImageVariants } from "./image-variants.mjs";
 import { materialImageAssetIds } from "./package.mjs";
 import { importTaskPage, preflightTaskPages, taskLinks } from "./task-page.mjs";
 import { imageUpload } from "./image-upload.mjs";
+import { assertReceiverContract } from "./contract.mjs";
+import { recoverHistoricalReceipt } from "./historical-receipts.mjs";
 import { replayPracticeImports } from "./practice-import.mjs";
 import {
   replayTaskImports,
@@ -193,7 +195,14 @@ function materialDigest({
     canonical({
       revision,
       metadata: {
-        ...metadata,
+        // Local receipts predate the Product wire. Preserve that one command's digest lineage;
+        // the unrelated pre-Product guide codec is not the membership fingerprint format.
+        ...Object.fromEntries(
+          Object.entries(metadata).map(([key, value]) => [
+            key === "productIds" ? "seriesIds" : key,
+            value,
+          ]),
+        ),
         access: fingerprintAccess(metadata["access"]),
       },
       ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}),
@@ -302,7 +311,7 @@ export function desiredMaterial(
     topicId: row.topicId === null ? null : topicIds.get(row.topicId),
     formatId: row.kind,
     tagIds: [],
-    seriesIds: productsOf(manifest, row).map((product) =>
+    productIds: productsOf(manifest, row).map((product) =>
       productIds.get(product.sourceId),
     ),
   };
@@ -310,15 +319,15 @@ export function desiredMaterial(
     const existing = z
       .array(
         z
-          .object({ seriesId: z.uuid(), ordinal: z.number().int().positive() })
+          .object({ productId: z.uuid(), ordinal: z.number().int().positive() })
           .strict(),
       )
       .max(100)
       .parse(currentMembership)
-      .map((item) => item.seriesId);
+      .map((item) => item.productId);
     if (
       canonical([...existing].sort()) !==
-      canonical([...metadata.seriesIds].sort())
+      canonical([...metadata.productIds].sort())
     )
       throw new Error(
         `${row.sourceId}: bounded content refuses Product membership changes`,
@@ -712,6 +721,7 @@ export async function syncLocal(
     throw new Error("A Product shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
+  assertReceiverContract(environment, pkg.manifest);
   const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   const publicationOfKey = publicationPolicy(pkg.manifest, publish);
   /** @param {Pick<ManifestMaterial, "sourceId">} row */
@@ -721,11 +731,47 @@ export async function syncLocal(
     if (!pkg.manifest.selection.contentOnly)
       await validateProductPages(pkg.manifest, send);
   }
-  if (!reconcileOnly || pkg.manifest.schemaVersion === 2)
+  if (!reconcileOnly || pkg.manifest.schemaVersion >= 2)
     await validateSourceTasks(pkg.manifest, request);
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
     assertLegacyTaskReplay(journal, preservedLegacyTasks);
+    // These old shapes have no immutable receipt lookup. Keep uncertain outcomes pending:
+    // translating them into today's mutable command would invent a recovery guarantee.
+    for (const entry of Object.values(journal.operations)) {
+      if (!isJournalOperation(entry) || entry.status !== "pending") continue;
+      const raw = z
+        .object({
+          path: z.string(),
+          body: z.record(z.string(), z.unknown()).optional(),
+        })
+        .passthrough()
+        .safeParse(entry.request);
+      if (
+        !raw.success ||
+        raw.data.path === "/authoring/import/materials/apply" ||
+        raw.data.path === "/authoring/import/practices/apply"
+      )
+        continue;
+      const normalized = canonicalAuthoringRequest(raw.data);
+      if (
+        [
+          "seriesId",
+          "seriesIds",
+          "guideId",
+          "guideIds",
+          "guideSourceId",
+          "guideSourceIds",
+          "confirmedGuideRemovals",
+        ].some((field) => Object.hasOwn(raw.data.body ?? {}, field)) ||
+        /\/content-covers\/series\//u.test(raw.data.path) ||
+        canonical(raw.data) !== canonical(normalized)
+      )
+        throw new Error(
+          "Historical authoring command has no receipt lookup; explicit recovery required before effects",
+        );
+    }
+
     if (pkg.legacyPractices.length) {
       const resources = (journal.resources ??= {});
       const key = `legacy-practice-package:${pkg.id}`;
@@ -753,7 +799,7 @@ export async function syncLocal(
       throw new Error(
         "Bounded content requires a reviewed stand or production update without pending operations, archive, Home or Product changes",
       );
-    if (pkg.manifest.schemaVersion === 2)
+    if (pkg.manifest.schemaVersion >= 2)
       assertTaskReplayAccess(pkg.manifest, journal);
     for (const task of contentTasks(pkg.manifest))
       if (
@@ -824,7 +870,7 @@ export async function syncLocal(
       id: sourceId(row.sourceId),
       path: row.sourcePath,
       revision: materialRevision(pkg.manifest, row),
-      showInFeed: row.showInFeed,
+      version: /** @type {const} */ (2),
       ...(recordedCommit === undefined ? {} : { commit: recordedCommit }),
     });
     /** @param {ManifestAsset} asset */
@@ -882,11 +928,19 @@ export async function syncLocal(
           materialReceiptSchema.parse(entry.result).contentVersion
       )
         continue;
-      const saved = materialReceiptSchema.parse(
-        await applyJournaled(context, operation, (replayed, key) =>
-          request(replayed.path, replayed.body, key),
-        ),
-      );
+      const recovered =
+        "showInFeed" in body.source
+          ? await recoverHistoricalReceipt(
+              context,
+              operation,
+              request,
+              "/authoring/history/material-receipts",
+            )
+          : await applyJournaled(context, operation, (replayed, key) =>
+              request(replayed.path, replayed.body, key),
+            );
+      if (recovered === undefined) continue;
+      const saved = materialReceiptSchema.parse(recovered);
       journal.materials[body.source.id] = {
         ...previous,
         materialId: saved.materialId,
@@ -952,7 +1006,7 @@ export async function syncLocal(
      *     contentVersion: number;
      *     primaryVideoId: string | null;
      *     cover?: { coverId: string } | null | undefined;
-     *     metadata: { slug?: string | undefined; seriesMemberships?: unknown };
+     *     metadata: { slug?: string | undefined; productMemberships?: unknown };
      *     publicationState?: PublicationState | undefined;
      *   }
      * >}
@@ -1129,7 +1183,7 @@ export async function syncLocal(
      * Ставит обложку урока или продукта через source-scoped маршрут. У маршрута нет ключа
      * идемпотентности, поэтому перед запросом пишется пометка: повтор после потерянного ответа
      * принимает конфликт 409 с тем же файлом как ту самую загрузку.
-     * @param {{ route: `/authoring/import/content-covers/${"material" | "series"}/${string}`, pendingKey: string, sourceKey: string, expectedCoverId: string | null, asset: Parameters<typeof readAsset>[0] & { sha256: string } }} upload
+     * @param {{ route: `/authoring/import/content-covers/${"material" | "product"}/${string}`, pendingKey: string, sourceKey: string, expectedCoverId: string | null, asset: Parameters<typeof readAsset>[0] & { sha256: string } }} upload
      * @returns {Promise<string | null>}
      */
     async function uploadCover({
@@ -1193,7 +1247,7 @@ export async function syncLocal(
       const asset = valueAt(assets, coverAssetId);
       if (entry.coverSha256 === asset.sha256) return;
       const coverId = await uploadCover({
-        route: `/authoring/import/content-covers/series/${current.id}`,
+        route: `/authoring/import/content-covers/product/${current.id}`,
         pendingKey: `cover-pending:product:${current.id}`,
         sourceKey: key,
         expectedCoverId: knownCoverId,
@@ -1314,7 +1368,7 @@ export async function syncLocal(
         // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
         await applyComposition({
           sourceId: sourceId(product.sourceId),
-          seriesId: current.id,
+          productId: current.id,
           ...(confirmedProductRemovals.includes(current.id)
             ? { confirmedProductRemovals: [current.id] }
             : {}),
@@ -1356,7 +1410,7 @@ export async function syncLocal(
         primaryVideoId,
         publicationState: publicationOf(row),
         currentMembership: currentMaterials.get(row.sourceId)?.metadata
-          .seriesMemberships,
+          .productMemberships,
       });
     // Validate every document before changing any previously correct Material; only empty Product shells
     // and private reservations exist so far.
@@ -1679,7 +1733,7 @@ export async function syncLocal(
         await applyComposition({
           programmePlacements,
           sourceId: sourceId(product.sourceId),
-          seriesId: current.id,
+          productId: current.id,
           ...(confirmedProductRemovals.includes(current.id)
             ? { confirmedProductRemovals: [current.id] }
             : {}),
@@ -1869,7 +1923,7 @@ export async function syncLocal(
         ...body,
         expectedContentVersion: entry.contentVersion,
         publicationState: "unpublished",
-        metadata: { ...body.metadata, seriesIds: [] },
+        metadata: { ...body.metadata, productIds: [] },
       };
       const saved = materialReceiptSchema.parse(
         await applyJournaled(
@@ -1913,10 +1967,10 @@ export async function syncLocal(
         );
       const productId = valueAt(products, product.sourceId).id;
       const pin = await request("/authoring/home-pin");
-      if (pin.seriesId !== productId)
+      if (pin.productId !== productId)
         await request(
           "/authoring/home-pin",
-          { seriesId: productId, expectedVersion: pin.version },
+          { productId: productId, expectedVersion: pin.version },
           undefined,
           { method: "PUT" },
         );

@@ -1,4 +1,5 @@
 // @ts-check
+import { assertReceiverContract } from "./contract.mjs";
 import {
   assertLegacyTaskReplay,
   assertLegacyTaskTargets,
@@ -69,7 +70,6 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {string} title
  * @property {string} access
  * @property {boolean} [notifyTelegram]
- * @property {boolean} showInFeed
  * @property {string | null} video
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
@@ -79,7 +79,6 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {{ current: string | null; desired: string }} [contentReplacement]
  * @property {{ current: string | null; desired: string | null }} [sourceCommit] Content commits of the target row and the package
  * @property {string} [conflictReason]
- * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
  * @typedef {object} ProductChange
  * @property {string} sourceId
@@ -218,6 +217,7 @@ export async function previewRelease(
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
+  assertReceiverContract(environment, manifest);
   const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   if (!manifest.selection.contentOnly)
     await validateProductPages(manifest, send);
@@ -277,7 +277,6 @@ export async function previewRelease(
       sourceId: row.sourceId,
       title: row.title,
       access: row.access ?? defaultAccess,
-      showInFeed: row.showInFeed,
       ...(row.notifyTelegram === undefined
         ? {}
         : { notifyTelegram: row.notifyTelegram }),
@@ -316,7 +315,7 @@ export async function previewRelease(
       defaultAccess,
       primaryVideoId: attached,
       publicationState: item.publication,
-      currentMembership: current.metadata["seriesMemberships"],
+      currentMembership: current.metadata["productMemberships"],
     });
     const currentPublication = targetPublication(
       current.publicationState,
@@ -386,12 +385,6 @@ export async function previewRelease(
         : {}),
       ...(coverSha !== null && coverSha !== (entry.coverSha256 ?? null)
         ? { coverChange: true }
-        : {}),
-      ...(current.source?.showInFeed !== undefined &&
-      current.source.showInFeed !== row.showInFeed
-        ? {
-            feedChange: { from: current.source.showInFeed, to: row.showInFeed },
-          }
         : {}),
       ...(currentAccess !== undefined && currentAccess !== item.access
         ? { accessChange: { from: currentAccess, to: item.access } }
