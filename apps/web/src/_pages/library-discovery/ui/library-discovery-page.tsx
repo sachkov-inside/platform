@@ -78,17 +78,52 @@ export async function PublishedSeriesPage({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
-  const [artifacts, offerTerms] = await Promise.all([
-    publicArtifactsOf(result),
-    publicOfferTermsOf(result),
-  ]);
+  const artifacts = await publicArtifactsOf(result);
+  const returnTarget = parseMaterialReaderReturnTarget(query.from);
+  const landing = { artifacts, result, returnTarget };
   const view = (
+    <Suspense fallback={<ProductLanding {...landing} offerTerms={null} />}>
+      <ProductLandingOfferTerms {...landing} />
+    </Suspense>
+  );
+  return result.reference.id !== undefined ? (
+    <WaitlistProvider
+      productId={result.reference.id}
+      productSlug={result.reference.slug}
+    >
+      {view}
+    </WaitlistProvider>
+  ) : (
+    view
+  );
+}
+
+type ProductLandingProps = Required<
+  Pick<Parameters<typeof LibraryDiscoveryView>[0], "artifacts" | "returnTarget">
+> & { readonly result: ResolvedSeries };
+
+/** Public price placeholders are auxiliary to the Product and its personal learning actions. */
+async function ProductLandingOfferTerms(props: ProductLandingProps) {
+  return (
+    <ProductLanding
+      {...props}
+      offerTerms={await publicOfferTermsOf(props.result)}
+    />
+  );
+}
+function ProductLanding({
+  artifacts,
+  result,
+  returnTarget,
+  offerTerms,
+}: ProductLandingProps & { readonly offerTerms: OneTimeOfferTerms | null }) {
+  return (
     <LibraryDiscoveryView
       artifacts={artifacts}
       // Действие обучения участника или поток и кнопка продаж — личная часть страницы продукта. Её рисует
       // только оформление, у которого она есть; остальные продукты её не запрашивают (#814).
       heroCall={
-        <Suspense fallback={<PendingCohortCall slug={slug} />}>
+        <Suspense fallback={<PendingCohortCall slug={result.reference.slug} />}>
           <PersonalCohortCall result={result} />
         </Suspense>
       }
@@ -104,18 +139,8 @@ export async function PublishedSeriesPage({
       }
       offerTerms={offerTerms}
       result={result}
-      returnTarget={parseMaterialReaderReturnTarget(query.from)}
+      returnTarget={returnTarget}
     />
-  );
-  return result.reference.id !== undefined ? (
-    <WaitlistProvider
-      productId={result.reference.id}
-      productSlug={result.reference.slug}
-    >
-      {view}
-    </WaitlistProvider>
-  ) : (
-    view
   );
 }
 
@@ -224,7 +249,8 @@ async function PersonalProgramme({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
-  const sale = readerState?.sale ?? null;
+  const sale =
+    readerState?.kind === "learning" ? null : (readerState?.sale ?? null);
   return (
     <PersonalSeries
       artifacts={artifacts}

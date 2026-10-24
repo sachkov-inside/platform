@@ -1,5 +1,10 @@
 // @ts-check
-import { productReaderStateRoute } from "./product-reader-state-backend.mjs";
+import {
+  productReaderStateRoute,
+  holdReaderOptionalResponses,
+  readerOptionalResponseState,
+  waitReaderOptionalResponse,
+} from "./product-reader-state-backend.mjs";
 /**
  * Подставной backend для проверок переходов на production-сборке (#670).
  *
@@ -974,10 +979,23 @@ const server = createServer(async (request, response) => {
     send(200, { hold });
     return;
   }
+  if (url.pathname === "/__reader-optional-hold" && request.method === "POST") {
+    holdReaderOptionalResponses(
+      url.searchParams.get("held") === "true",
+      url.searchParams.get("target") ?? "all",
+    );
+    send(200, readerOptionalResponseState());
+    return;
+  }
+  if (url.pathname === "/__reader-optional-hold" && request.method === "GET") {
+    send(200, readerOptionalResponseState());
+    return;
+  }
   const readerState = productReaderStateRoute(request, url, {
     baseRoute: route,
   });
   if (readerState !== null) {
+    await waitReaderOptionalResponse(url, response);
     send(readerState.status, readerState.value);
     return;
   }

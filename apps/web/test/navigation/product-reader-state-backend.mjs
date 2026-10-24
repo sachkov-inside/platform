@@ -13,6 +13,63 @@ const scenarios = [
 let reads = [];
 /** @type {ReturnType<typeof fixture>} */
 let pinned = null;
+/** @type {Promise<void> | null} */
+let optionalHold = null;
+/** @type {(() => void) | null} */
+let releaseOptional = null;
+let abortedOptional = 0;
+let optionalTarget = "all";
+/** @type {Map<import("node:http").ServerResponse, string>} */
+const blockedOptional = new Map();
+/** Explicit response barrier, released by each owning test in finally. */
+/** @param {boolean} hold @param {string} [target] */
+export function holdReaderOptionalResponses(hold, target = "all") {
+  releaseOptional?.();
+  releaseOptional = null;
+  optionalTarget = target;
+  if (hold) abortedOptional = 0;
+  optionalHold = hold
+    ? new Promise((resolve) => {
+        releaseOptional = resolve;
+      })
+    : null;
+}
+/** @param {URL} url @param {import("node:http").ServerResponse} response */
+export async function waitReaderOptionalResponse(url, response) {
+  if (
+    url.pathname.startsWith("/billing/product-") ||
+    url.pathname.startsWith("/product-waitlists/") ||
+    url.pathname === "/accounts/current/billing" ||
+    url.pathname.includes("community-entry")
+  )
+    if (
+      optionalHold !== null &&
+      (optionalTarget === "all" || url.pathname.includes("community-entry"))
+    ) {
+      const held = optionalHold;
+      const onClose = () => {
+        if (optionalHold === held) abortedOptional += 1;
+      };
+      response.once("close", onClose);
+      blockedOptional.set(response, url.pathname);
+      try {
+        await held;
+      } finally {
+        response.off("close", onClose);
+        blockedOptional.delete(response);
+      }
+    }
+}
+export function readerOptionalResponseState() {
+  return {
+    held: optionalHold !== null,
+    aborted: abortedOptional,
+    blocked: [...blockedOptional]
+      .filter(([response]) => !response.destroyed)
+      .map(([, path]) => path),
+  };
+}
+
 const envelope = z.object({
   status: z.number(),
   value: z.record(z.string(), z.unknown()),

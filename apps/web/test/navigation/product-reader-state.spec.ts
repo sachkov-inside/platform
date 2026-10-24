@@ -273,3 +273,103 @@ test("Home displays the same Product learning state while its shared pin stays p
     await owner.close();
   }
 });
+
+for (const optional of ["all", "community"] as const) {
+  for (const surface of ["Product", "Home", "Programme"] as const) {
+    test(`held ${optional} optional responses do not block learning on ${surface}`, async ({
+      page,
+      context,
+      request,
+      baseURL,
+    }, info) => {
+      if (baseURL === undefined) throw new Error("Web origin required");
+      const slug = `reader-state-paid${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
+      await signIn(context, baseURL, slug);
+      await request.post(`${backend}/__product-reader-state?pin=${slug}`);
+      await page.request.put(`${baseURL}/api/authoring/home-pin`, {
+        headers: { origin: baseURL },
+        data: { expectedVersion: 1, seriesId: null },
+      });
+      await request.delete(`${backend}/__product-reader-state`);
+      await request.post(
+        `${backend}/__reader-optional-hold?held=true&target=${optional}`,
+      );
+      let documentResponse;
+      try {
+        documentResponse = await page.goto(
+          surface === "Home"
+            ? "/"
+            : `/products/${slug}${surface === "Programme" ? "/programme" : ""}`,
+          { waitUntil: "commit" },
+        );
+        if (surface === "Product") {
+          await expect(
+            page
+              .locator(".aie-learning-film")
+              .getByRole("link", { name: "Продолжить обучение" }),
+          ).toBeVisible();
+          await expect(
+            page
+              .locator(".aie-learning-status")
+              .getByRole("link", { name: "Продолжить обучение" }),
+          ).toBeVisible();
+        } else if (surface === "Home") {
+          await expect(
+            page.getByRole("link", { name: "Продолжить обучение" }),
+          ).toHaveAttribute("href", `/products/${slug}/programme`);
+        } else {
+          await expect(
+            page.getByRole("link", { name: "Продолжить", exact: true }),
+          ).toBeVisible();
+        }
+        const gate = z
+          .object({
+            held: z.boolean(),
+            aborted: z.number(),
+            blocked: z.array(z.string()),
+          })
+          .parse(
+            await (
+              await request.get(`${backend}/__reader-optional-hold`)
+            ).json(),
+          );
+        expect(gate.held).toBe(true);
+        expect(gate.aborted).toBe(0);
+        expect(
+          gate.blocked.some((path) =>
+            optional === "all"
+              ? path.startsWith("/billing/product-prices")
+              : path.includes("community-entry"),
+          ),
+        ).toBe(true);
+        const reads = journal.parse(
+          await (await request.get(`${backend}/__product-reader-state`)).json(),
+        ).reads;
+        expect(
+          reads.filter((row) => row.path.endsWith("/access")),
+        ).toHaveLength(1);
+        expect(
+          reads.filter((row) =>
+            row.path.startsWith("/reading-activity/product-continuation/"),
+          ),
+        ).toHaveLength(1);
+        expect(
+          reads.some((row) => row.path.startsWith("/billing/product-prices")),
+        ).toBe(true);
+        await saveEvidence(
+          info,
+          `${surface}-${optional}-held-optional-http.json`,
+          JSON.stringify({ gate, reads }, null, 2),
+        );
+      } finally {
+        await request.post(`${backend}/__reader-optional-hold?held=false`);
+        await documentResponse?.finished();
+        await request.post(`${backend}/__product-reader-state?pin=`);
+        await page.request.put(`${baseURL}/api/authoring/home-pin`, {
+          headers: { origin: baseURL },
+          data: { expectedVersion: 1, seriesId: null },
+        });
+      }
+    });
+  }
+}

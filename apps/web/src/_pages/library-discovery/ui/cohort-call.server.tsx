@@ -1,4 +1,6 @@
 import "server-only";
+import { Suspense } from "react";
+import type { ProductSale } from "@/entities/subscription.sale.server";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
 
 import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
@@ -122,18 +124,38 @@ export async function PersonalCourseFilmOverlay({
   const { id: productId, slug } = result.reference;
   if (productId === undefined) return null;
   const state = await readProductReaderState(productId, slug);
-  const countdown =
-    state.sale.kind === "ready" && state.sale.cohortKnown
-      ? cohortCountdown(state.sale.cohort)
-      : null;
   return (
     <>
-      {countdown === null ? null : <StartCountdownBadge text={countdown} />}
       {state.kind === "learning" ? (
-        <CourseLearningLink slug={slug} placement="film" />
-      ) : null}
+        <>
+          <CourseLearningLink slug={slug} placement="film" />
+          <Suspense fallback={null}>
+            <OptionalLearningCountdown presentation={state.presentation} />
+          </Suspense>
+        </>
+      ) : (
+        <SaleCountdown sale={state.sale} />
+      )}
     </>
   );
+}
+
+async function OptionalLearningCountdown({
+  presentation,
+}: {
+  readonly presentation: Extract<
+    Awaited<ReturnType<typeof readProductReaderState>>,
+    { kind: "learning" }
+  >["presentation"];
+}) {
+  return <SaleCountdown sale={(await presentation).sale} />;
+}
+function SaleCountdown({ sale }: { readonly sale: ProductSale }) {
+  const countdown =
+    sale.kind === "ready" && sale.cohortKnown
+      ? cohortCountdown(sale.cohort)
+      : null;
+  return countdown === null ? null : <StartCountdownBadge text={countdown} />;
 }
 
 function withoutCohort(slug: string): CohortCall {

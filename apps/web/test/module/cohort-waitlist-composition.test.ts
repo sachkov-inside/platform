@@ -1,5 +1,5 @@
 import { createElement, Fragment } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { renderToStaticMarkup, renderToReadableStream } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { ProductSale } from "@/entities/subscription.sale.server";
@@ -82,7 +82,11 @@ function readerState(access: "open" | "closed") {
           kind: "ready",
           continuation: { materialSlug: "introduction" },
         },
-        onboarding: { kind: "none" },
+        onboarding: Promise.resolve({ kind: "none" }),
+        presentation: Promise.resolve({
+          sale: common.sale,
+          waitlist: common.waitlist,
+        }),
       }
     : { ...common, kind: "sale" };
 }
@@ -144,9 +148,11 @@ test("active membership is hidden when learning is available", async () => {
 });
 test("the film displays the same learning state and sales countdown", async () => {
   fakes.state.mockResolvedValue(readerState("open"));
-  const html = renderToStaticMarkup(
+  const stream = await renderToReadableStream(
     await PersonalCourseFilmOverlay({ result }),
   );
+  await stream.allReady;
+  const html = await new Response(stream).text();
   expect(html).toContain("aie-learning-film");
   expect(html).toContain("Продолжить обучение");
   expect(html).toContain("/products/ai-engineering/programme");

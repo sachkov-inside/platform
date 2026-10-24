@@ -4,7 +4,10 @@ import { connection } from "next/server";
 import { z } from "zod";
 import { productCapability } from "@inside/access-capabilities";
 import { currentBillingSchema } from "@/entities/subscription";
-import { readProductSaleFacts } from "@/entities/subscription.sale.server";
+import {
+  readProductAccess,
+  readProductSalePresentation,
+} from "@/entities/subscription.sale.server";
 import { getSeriesContinuation } from "@/features/reading-progress.server";
 import { communityEntrySchema } from "@/features/community-entry";
 import {
@@ -24,33 +27,36 @@ export const readProductReaderState = cache(
   async (productId: string, slug: string) => {
     await connection();
     const token = await getOptionalPlatformAccessToken();
-    const [{ sale, access }, waitlist] = await Promise.all([
-      readProductSaleFacts(productId, token),
+    const access =
+      token === undefined
+        ? "closed"
+        : await readProductAccess(productId, token);
+    const presentation = Promise.all([
+      readProductSalePresentation(productId, access, token),
       readWaitlist(productId, token),
-    ]);
-    const common = {
-      productId,
-      slug,
-      sale,
-      access,
-      signedIn: token !== undefined,
-      waitlist,
-    };
-    if (access === "unknown") return { ...common, kind: "checking" } as const;
+    ]).then(([sale, waitlist]) => ({ sale, waitlist }));
+    const common = { productId, slug, access, signedIn: token !== undefined };
     if (access === "open" && token !== undefined) {
-      const [continuation, onboarding] = await Promise.all([
-        getSeriesContinuation(slug, token),
-        readOnboarding(productId, token),
-      ]);
-      return { ...common, kind: "learning", continuation, onboarding } as const;
+      const onboarding = readOnboarding(productId, token);
+      const continuation = await getSeriesContinuation(slug, token);
+      return {
+        ...common,
+        kind: "learning",
+        continuation,
+        onboarding,
+        presentation,
+      } as const;
     }
+    const { sale, waitlist } = await presentation;
+    const selling = { ...common, sale, waitlist };
+    if (access === "unknown") return { ...selling, kind: "checking" } as const;
     if (sale.kind === "unavailable")
-      return { ...common, kind: "unavailable" } as const;
-    if (sale.sold) return { ...common, kind: "sale" } as const;
+      return { ...selling, kind: "unavailable" } as const;
+    if (sale.sold) return { ...selling, kind: "sale" } as const;
     if (waitlist.kind === "ready")
-      return { ...common, kind: "waitlist" } as const;
+      return { ...selling, kind: "waitlist" } as const;
     return {
-      ...common,
+      ...selling,
       kind: waitlist.kind === "unavailable" ? "unavailable" : "sale",
     } as const;
   },
