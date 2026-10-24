@@ -90,7 +90,7 @@ import {
   TELEGRAM_CALLBACK_ANSWERS,
   DisabledTelegramCallbackAnswers,
 } from "./modules/bot-sign-in/telegram-callback-answers.js";
-import { HttpPlatformCohortAdapter } from "./adapters/platform/http-platform-cohort.adapter.js";
+import { HttpPlatformProductSalesStateAdapter } from "./adapters/platform/http-platform-product-sales-state.adapter.js";
 import { HttpSalesFunnelAdapter } from "./adapters/platform/http-sales-funnel.adapter.js";
 import {
   SALES_FUNNEL_DELIVERY,
@@ -341,7 +341,7 @@ export class AppModule {
                 },
                 ...(applicationConfig.communityWelcomeCohort
                   ? {
-                      welcomeDetails: new HttpPlatformCohortAdapter(
+                      welcomeDetails: new HttpPlatformProductSalesStateAdapter(
                         applicationConfig.communityWelcomeCohort.url,
                         applicationConfig.communityWelcomeCohort.productId,
                       ),

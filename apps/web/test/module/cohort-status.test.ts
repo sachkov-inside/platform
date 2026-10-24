@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { ProductCohort } from "@/entities/subscription";
+import type { ProductSalesState } from "@/entities/subscription";
 import { cohortStatus } from "@/_pages/library-discovery/model/cohort-status";
 import { formatDaysUntilStart } from "@/entities/subscription";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
-const cohort: ProductCohort = {
+const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",
   revision: 1,
   name: "Поток 1",

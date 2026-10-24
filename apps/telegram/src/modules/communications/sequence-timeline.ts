@@ -1,3 +1,4 @@
+import { decodeStoredSequenceDraft } from "./historical-sequence-decoder.js";
 import { isDeepStrictEqual } from "node:util";
 import { sql, type Selectable, type Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
@@ -57,22 +58,22 @@ export async function cancelDelivery(
     .executeTakeFirstOrThrow();
 }
 
-// An event replans one BotContact; a publication replans one funnel's audience.
+// An event replans one BotContact; a publication replans one sequence's audience.
 export type PlanScope =
-  { readonly contactId: string } | { readonly funnelId: string };
+  { readonly contactId: string } | { readonly sequenceId: string };
 const PLAN_BATCH = 500;
 type SequenceParticipation = Selectable<
-  DatabaseSchema["communication_enrollments"]
+  DatabaseSchema["communication_participations"]
 > & {
   published: CommunicationSequenceDraft | null;
   published_revision: number | null;
 };
 type StepDefinition = Pick<
   Selectable<DatabaseSchema["communication_step_ids"]>,
-  "funnel_id" | "step_id" | "first_published_at"
+  "sequence_id" | "step_id" | "first_published_at"
 >;
 
-// A contact scope runs under that contact's lock. A funnel scope runs under the bot scheduler
+// A contact scope runs under that contact's lock. A sequence scope runs under the bot scheduler
 // lock and locks each batch's contact rows. Only a resume suppresses missed steps: it computes
 // the virtual timeline once, using the current order; ordinary replanning never consumes them.
 export async function reconcileSequences(
@@ -83,8 +84,8 @@ export async function reconcileSequences(
   { suppressMissed = false }: { suppressMissed?: boolean } = {},
 ): Promise<void> {
   let query = tx
-    .selectFrom("communication_enrollments as e")
-    .innerJoin("communication_funnels as f", "f.funnel_id", "e.funnel_id")
+    .selectFrom("communication_participations as e")
+    .innerJoin("communication_sequences as f", "f.sequence_id", "e.sequence_id")
     .selectAll("e")
     .select(["f.published", "f.published_revision"])
     .where("f.bot_identity", "=", bot)
@@ -92,27 +93,27 @@ export async function reconcileSequences(
   query =
     "contactId" in scope
       ? query.where("e.contact_id", "=", scope.contactId)
-      : query.where("e.funnel_id", "=", scope.funnelId);
-  const participations = await query.orderBy("e.enrollment_id").execute();
+      : query.where("e.sequence_id", "=", scope.sequenceId);
+  const participations = await query.orderBy("e.participation_id").execute();
   for (let i = 0; i < participations.length; i += PLAN_BATCH) {
     const batch = participations.slice(i, i + PLAN_BATCH);
     const contactIds = [...new Set(batch.map((e) => e.contact_id))];
-    const funnelIds = [...new Set(batch.map((e) => e.funnel_id))];
-    if ("funnelId" in scope) await lockContactRows(tx, contactIds);
+    const sequenceIds = [...new Set(batch.map((e) => e.sequence_id))];
+    if ("sequenceId" in scope) await lockContactRows(tx, contactIds);
     const histories = new Map<string, Delivery[]>();
     for (const delivery of await tx
       .selectFrom("communication_deliveries")
       .selectAll()
       .where(sql<boolean>`contact_id = any(${contactIds}::uuid[])`)
-      .where(sql<boolean>`funnel_id = any(${funnelIds}::uuid[])`)
+      .where(sql<boolean>`sequence_id = any(${sequenceIds}::uuid[])`)
       .execute()) {
-      const key = `${delivery.contact_id}:${delivery.funnel_id}`;
+      const key = `${delivery.contact_id}:${delivery.sequence_id}`;
       histories.set(key, [...(histories.get(key) ?? []), delivery]);
     }
     const definitions = await tx
       .selectFrom("communication_step_ids")
-      .select(["funnel_id", "step_id", "first_published_at"])
-      .where(sql<boolean>`funnel_id = any(${funnelIds}::uuid[])`)
+      .select(["sequence_id", "step_id", "first_published_at"])
+      .where(sql<boolean>`sequence_id = any(${sequenceIds}::uuid[])`)
       .execute();
     for (const participation of batch)
       await replanParticipation(
@@ -121,7 +122,7 @@ export async function reconcileSequences(
         now,
         participation,
         histories.get(
-          `${participation.contact_id}:${participation.funnel_id}`,
+          `${participation.contact_id}:${participation.sequence_id}`,
         ) ?? [],
         definitions,
         suppressMissed,
@@ -138,10 +139,13 @@ async function replanParticipation(
   definitions: readonly StepDefinition[],
   suppressMissed: boolean,
 ): Promise<void> {
-  const draft = participation.published;
+  const draft =
+    participation.published === null
+      ? null
+      : decodeStoredSequenceDraft(participation.published);
   const revision = participation.published_revision;
   if (!draft || revision === null)
-    throw new Error("Only a published funnel is replanned");
+    throw new Error("Only a published sequence is replanned");
   const history: Delivery[] = [];
   for (const delivery of stored)
     history.push(
@@ -171,14 +175,14 @@ async function replanParticipation(
     );
     if (old?.completed_at) continue;
     const definition = definitions.find(
-      (d) => d.funnel_id === draft.funnelId && d.step_id === step.stepId,
+      (d) => d.sequence_id === draft.sequenceId && d.step_id === step.stepId,
     );
     if (!definition) throw new Error("Published step has no identity record");
     const due =
       step.delayAnchor === "entry"
-        ? new Date(+participation.enrolled_at + step.delaySeconds * 1000)
+        ? new Date(+participation.participated_at + step.delaySeconds * 1000)
         : relativeDue(
-            participation.enrolled_at,
+            participation.participated_at,
             definition.first_published_at,
             previous,
             step.delaySeconds,
@@ -194,10 +198,10 @@ async function replanParticipation(
       await planDelivery(tx, {
         bot,
         contactId: participation.contact_id,
-        funnelId: draft.funnelId,
+        sequenceId: draft.sequenceId,
         stepId: step.stepId,
         kind: "step",
-        key: `step:${participation.enrollment_id}:${step.stepId}`,
+        key: `step:${participation.participation_id}:${step.stepId}`,
         parts: step.parts,
         revision,
         now,
@@ -224,7 +228,7 @@ async function replanParticipation(
         .where(
           "dedup_key",
           "=",
-          `step:${participation.enrollment_id}:${step.stepId}`,
+          `step:${participation.participation_id}:${step.stepId}`,
         )
         .execute();
     }
@@ -238,7 +242,7 @@ export function deliveryView(r: Delivery) {
     deliveryId: r.delivery_id,
     revision: r.revision,
     contactId: r.contact_id,
-    funnelId: r.funnel_id,
+    sequenceId: r.sequence_id,
     broadcastId: r.broadcast_id,
     stepId: r.step_id,
     publishedRevision: r.published_revision,

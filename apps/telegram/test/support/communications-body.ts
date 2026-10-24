@@ -20,7 +20,7 @@ export interface CommunicationsBody {
   readonly broadcasts: ReturnType<typeof broadcastView>[];
   readonly deliveries: DeliverySnapshot[];
   readonly entries: EntriesResult["entries"];
-  readonly funnel: CommunicationSequenceSnapshot;
+  readonly sequence: CommunicationSequenceSnapshot;
   readonly intro: IntroSnapshot;
   readonly nextCursor: string | null;
   readonly outcome: "skipped" | "retry_requested";

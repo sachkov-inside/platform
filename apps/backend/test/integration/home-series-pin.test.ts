@@ -213,7 +213,7 @@ test("only Series can be pinned: author choice persists, competing writes confli
   ).toEqual({ ok: true, value: { seriesId: null, version: version + 2 } });
   expect(await home()).toBeNull();
   await expect(
-    database.prisma.homeSeriesPin.create({ data: { id: 2 } }),
+    database.prisma.homeProductPin.create({ data: { id: 2 } }),
   ).rejects.toThrow();
-  expect(await database.prisma.homeSeriesPin.count()).toBe(1);
+  expect(await database.prisma.homeProductPin.count()).toBe(1);
 });

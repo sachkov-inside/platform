@@ -5,7 +5,7 @@ import type { DatabaseSchema } from "../../database/database.js";
 import type { CommunicationSequenceDraft } from "./sequence-types.js";
 
 export interface SequencePreview {
-  funnelId: string;
+  sequenceId: string;
   revision: number;
   addedStepIds: string[];
   editedStepIds: string[];
@@ -34,7 +34,7 @@ export async function previewSequence(
     .filter((step) => !oldById.has(step.stepId))
     .map((step) => step.stepId);
   const participants = await tx
-    .selectFrom("communication_enrollments as e")
+    .selectFrom("communication_participations as e")
     .innerJoin("communication_contacts as c", "c.contact_id", "e.contact_id")
     .innerJoin(botContactRows(tx).as("b"), (join) =>
       join
@@ -42,7 +42,7 @@ export async function previewSequence(
         .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
     )
     .select(["e.contact_id", "e.initial_entry_key"])
-    .where("e.funnel_id", "=", draft.funnelId)
+    .where("e.sequence_id", "=", draft.sequenceId)
     .where("c.bot_identity", "=", bot)
     .where("c.marketing_enabled", "=", true)
     .where("c.unavailable_since", "is", null)
@@ -52,7 +52,7 @@ export async function previewSequence(
     .selectFrom("communication_deliveries")
     .select(["contact_id", "step_id", "completed_at", "dedup_key", "kind"])
     .where("bot_identity", "=", bot)
-    .where("funnel_id", "=", draft.funnelId)
+    .where("sequence_id", "=", draft.sequenceId)
     .execute();
   const historyByContact = new Map<string, typeof history>();
   for (const delivery of history) {
@@ -90,7 +90,7 @@ export async function previewSequence(
     }
   }
   return {
-    funnelId: draft.funnelId,
+    sequenceId: draft.sequenceId,
     revision,
     addedStepIds,
     editedStepIds: draft.steps

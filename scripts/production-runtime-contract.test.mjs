@@ -27,7 +27,7 @@ const activationPaths = ["course-activation", "subscription-activation"]
 /** @type {[string, string, string][]} */
 const callbackRoutes = [
   ["tbank_notification", "POST", "/billing/tbank/notification"],
-  ["billing_cohorts", "GET", "/billing/cohorts"],
+  ["billing_cohorts", "GET", "/billing/product-sales-states"],
   ["telegram_activation", "POST", activationPaths],
   ["community_dispatch", "POST", "/internal/billing-dispatch/authorize"],
   [
@@ -38,22 +38,22 @@ const callbackRoutes = [
   [
     "communications_authorize",
     "POST",
-    "/integrations/telegram/v1/communications/authorize",
+    "/integrations/telegram/v2/communications/authorize",
   ],
   [
     "communications_waitlist",
     "POST",
-    "/integrations/telegram/v1/communications/waitlist",
+    "/integrations/telegram/v2/communications/waitlist",
   ],
   [
     "communications_materials",
     "POST",
-    "/integrations/telegram/v1/communications/materials",
+    "/integrations/telegram/v2/communications/materials",
   ],
   [
     "communications_validate",
     "POST",
-    "/integrations/telegram/v1/communications/validate-content",
+    "/integrations/telegram/v2/communications/validate-content",
   ],
 ];
 
@@ -75,7 +75,10 @@ const httpMethods = new Set(["get", "put", "post", "delete", "head", "patch"]);
 // External callers also use these API operations outside the integration prefixes.
 const externalPublicRoutes = new Map([
   ["POST /billing/tbank/notification", "the bank's payment notification"],
-  ["GET /billing/cohorts", "the Telegram bot reads the cohort start date"],
+  [
+    "GET /billing/product-sales-states",
+    "the Telegram bot reads the cohort start date",
+  ],
 ]);
 // Integration operations that stay unpublished on purpose; the production smoke expects 404 for them.
 const unpublishedIntegrationRoutes = new Map([

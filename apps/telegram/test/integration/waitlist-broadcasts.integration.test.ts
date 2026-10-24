@@ -79,10 +79,10 @@ let intakeId: string;
 function command(operation: string, payload: unknown, expectedRevision = 0) {
   return app.inject({
     method: "POST",
-    url: "/integrations/platform/v1/communications",
+    url: "/integrations/platform/v2/communications",
     headers: { authorization: `Bearer ${config.communicationsSecret}` },
     payload: {
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       operation,
       operationId: randomUUID(),
       expectedRevision,
@@ -115,7 +115,7 @@ beforeAll(async () => {
   await app.getHttpAdapter().getInstance().ready();
 });
 async function clearOwnedHistory() {
-  await sql`truncate waitlist_confirmations, communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_funnels, communication_intro, platform_links, link_transactions cascade`.execute(
+  await sql`truncate waitlist_confirmations, communication_broadcasts, communication_contacts, communication_preferences, communication_operations, bot_contacts, bot_contact_events, telegram_transport_slots, telegram_transport_fairness, start_response_deliveries, telegram_updates, communication_sequences, communication_intro, platform_links, link_transactions cascade`.execute(
     database,
   );
 }
@@ -841,7 +841,7 @@ test("fixed service receipts require service authentication and reject caller te
   const post = (body: object, authorization?: string) =>
     app.inject({
       method: "POST",
-      url: "/integrations/platform/v1/communications",
+      url: "/integrations/platform/v2/communications",
       headers: authorization === undefined ? {} : { authorization },
       payload: body,
     });

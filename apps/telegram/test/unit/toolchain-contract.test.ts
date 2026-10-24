@@ -199,7 +199,7 @@ describe("toolchain contract", () => {
     const overrides = overridesOf(config);
     for (const file of [
       "apps/telegram/test/unit/toolchain-contract.test.ts",
-      "apps/telegram/test/integration/funnels.integration.test.ts",
+      "apps/telegram/test/integration/sequences.integration.test.ts",
       "apps/telegram/test/support/community-chat.ts",
       "apps/telegram/test/local/course-activation-provider.ts",
     ]) {

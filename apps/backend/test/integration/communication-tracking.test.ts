@@ -20,7 +20,7 @@ registerFixedClock();
 const origin = "https://inside.test";
 const token = "a".repeat(43);
 const config = {
-  endpoint: "https://telegram.test/integrations/platform/v1/communications",
+  endpoint: "https://telegram.test/integrations/platform/v2/communications",
   secret: "synthetic-secret",
   authorizationSecret: "synthetic-authorization",
   botIdentity: "test-bot",
@@ -40,7 +40,7 @@ const fetcher: typeof fetch = (_url, init) => {
   if (request.operation === "tracking.resolve")
     return Promise.resolve(
       Response.json({
-        contractVersion: "inside-communications-v1",
+        contractVersion: "inside-communications-v2",
         status: "ok",
         safeUrl: target,
       }),
@@ -55,7 +55,7 @@ const fetcher: typeof fetch = (_url, init) => {
   if (loseAck) return Promise.reject(new Error("Lost ACK after commit"));
   return Promise.resolve(
     Response.json({
-      contractVersion: "inside-communications-v1",
+      contractVersion: "inside-communications-v2",
       status: "ok",
       eventId: request.payload.eventId,
       outcome: duplicate ? "duplicate" : "recorded",

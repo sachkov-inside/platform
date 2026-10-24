@@ -7,9 +7,9 @@ import {
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import {
-  productCohortsSchema,
+  productSalesStatesSchema,
   offersPageSchema,
-  type ProductCohort,
+  type ProductSalesState,
   type PriceSnapshot,
 } from "../model/billing-contract";
 
@@ -90,18 +90,18 @@ export async function loadProductOffers(
  * Текущие потоки продуктов. Поток не кешируется, как и цены: владелец переключает этап в
  * каталоге, и страница показывает его со следующего запроса.
  */
-export async function loadProductCohorts(): Promise<
-  | { readonly kind: "ready"; readonly cohorts: readonly ProductCohort[] }
+export async function loadProductSalesStates(): Promise<
+  | { readonly kind: "ready"; readonly cohorts: readonly ProductSalesState[] }
   | { readonly kind: "unavailable" }
 > {
   try {
-    const cohorts: ProductCohort[] = [];
+    const cohorts: ProductSalesState[] = [];
     const seen = new Set<string>();
     let cursor: string | undefined;
     for (;;) {
       const result = await requestProductSalesStates(undefined, cursor);
       if (!result.ok) return { kind: "unavailable" };
-      const parsed = productCohortsSchema.safeParse(result.body);
+      const parsed = productSalesStatesSchema.safeParse(result.body);
       if (!parsed.success) return { kind: "unavailable" };
       cohorts.push(...parsed.data.items);
       const nextCursor = parsed.data.nextCursor;
@@ -116,16 +116,16 @@ export async function loadProductCohorts(): Promise<
 }
 
 /** Поток одного продукта. Продукт без потока — обычное состояние: страница зовёт в программу. */
-export async function loadProductCohort(
+export async function loadProductSalesState(
   productId: string,
 ): Promise<
-  | { readonly kind: "ready"; readonly cohort: ProductCohort | null }
+  | { readonly kind: "ready"; readonly cohort: ProductSalesState | null }
   | { readonly kind: "unavailable" }
 > {
   try {
     const result = await requestProductSalesStates(productId);
     if (!result.ok) return { kind: "unavailable" };
-    const parsed = productCohortsSchema.safeParse(result.body);
+    const parsed = productSalesStatesSchema.safeParse(result.body);
     return parsed.success
       ? {
           kind: "ready",

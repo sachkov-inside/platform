@@ -327,7 +327,7 @@ export interface DatabaseSchema
     bot_identity: string;
     owner_account_ref: string;
     draft_id: string;
-    kind: "broadcast" | "funnel" | "intro";
+    kind: "broadcast" | "sequence" | "intro";
     name: string;
     snapshot: unknown;
   };
@@ -429,8 +429,8 @@ export interface DatabaseSchema
     received_at: Timestamp;
     traffic: "unknown" | "known_automation";
   };
-  communication_funnels: {
-    funnel_id: string;
+  communication_sequences: {
+    sequence_id: string;
     bot_identity: string;
     owner_account_ref: string;
     revision: number;
@@ -445,7 +445,7 @@ export interface DatabaseSchema
     is_default: boolean;
   };
   communication_publications: {
-    funnel_id: string;
+    sequence_id: string;
     revision: number;
     snapshot: JsonColumn<CommunicationSequenceDraft>;
     published_at: Timestamp;
@@ -454,10 +454,10 @@ export interface DatabaseSchema
     bot_identity: string;
     source_id: string;
     code: string;
-    funnel_id: string;
+    sequence_id: string;
   };
   communication_step_ids: {
-    funnel_id: string;
+    sequence_id: string;
     step_id: string;
     first_published_at: Timestamp;
     part_ids: JsonColumn<readonly string[]>;
@@ -485,18 +485,18 @@ export interface DatabaseSchema
     enabled: boolean;
     observed_at: Timestamp;
   };
-  communication_enrollments: {
-    enrollment_id: string;
+  communication_participations: {
+    participation_id: string;
     contact_id: string;
-    funnel_id: string;
-    enrolled_at: Timestamp;
+    sequence_id: string;
+    participated_at: Timestamp;
     initial_entry_key: string;
   };
   communication_entries: {
     bot_identity: string;
     update_id: BigIntColumn;
     contact_id: string;
-    funnel_id: string | null;
+    sequence_id: string | null;
     source_id: string | null;
     source_code: string | null;
     entered_at: Timestamp;
@@ -507,7 +507,7 @@ export interface DatabaseSchema
     dedup_key: string;
     bot_identity: string;
     contact_id: string;
-    funnel_id: string | null;
+    sequence_id: string | null;
     step_id: string | null;
     kind: "intro" | "entry" | "step" | "fallback" | "broadcast";
     broadcast_id: ColumnType<

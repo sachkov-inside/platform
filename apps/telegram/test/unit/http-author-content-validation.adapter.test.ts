@@ -20,7 +20,7 @@ const parts = [
   },
 ];
 const endpoint =
-  "https://platform.test/integrations/telegram/v1/communications/validate-content";
+  "https://platform.test/integrations/telegram/v2/communications/validate-content";
 
 describe("Platform content snapshot validation seam", () => {
   it("sends the exact snapshot with the confirmed author and retains validation reasons", async () => {
@@ -44,7 +44,7 @@ describe("Platform content snapshot validation seam", () => {
       expect(request["parts"]).toEqual(parts);
       return Promise.resolve(
         Response.json({
-          contractVersion: "inside-communications-v1",
+          contractVersion: "inside-communications-v2",
           requestId: request["requestId"],
           status: "ok",
           accountRef: subject.accountRef,
@@ -79,7 +79,7 @@ describe("Platform content snapshot validation seam", () => {
         return Promise.resolve(
           Response.json({
             contractVersion:
-              mode === "version" ? "v0" : "inside-communications-v1",
+              mode === "version" ? "v0" : "inside-communications-v2",
             requestId:
               mode === "stale"
                 ? "33333333-3333-4333-8333-333333333333"

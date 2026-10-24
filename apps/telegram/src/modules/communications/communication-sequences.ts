@@ -1,3 +1,4 @@
+import { decodeStoredSequenceDraft } from "./historical-sequence-decoder.js";
 import {
   WAITLIST_AUTHORIZATION,
   DisabledWaitlistAuthorization,
@@ -65,12 +66,20 @@ import type {
 } from "./sequence-types.js";
 
 export type SequenceResult =
+  | {
+      receipt: {
+        operationId: string;
+        requestJson: string;
+        resultJson: string;
+        createdAt: string;
+      };
+    }
   | { preview: SequencePreview }
   | BroadcastResult
   | StatisticsResult
   | EntriesResult
-  | { funnel: CommunicationSequenceSnapshot }
-  | { funnels: CommunicationSequenceSnapshot[]; nextCursor: string | null }
+  | { sequence: CommunicationSequenceSnapshot }
+  | { sequences: CommunicationSequenceSnapshot[]; nextCursor: string | null }
   | { intro: IntroSnapshot }
   | {
       deliveryId: string;
@@ -141,9 +150,10 @@ export class CommunicationSequences {
       const result = await this.apply(tx, request, actor);
       if (
         ![
-          "funnels.read",
-          "funnels.list",
-          "funnels.preview",
+          "receipts.read",
+          "sequences.read",
+          "sequences.list",
+          "sequences.preview",
           "intro.read",
           "deliveries.read",
           "broadcasts.read",
@@ -177,6 +187,25 @@ export class CommunicationSequences {
     actor: string,
   ): Promise<SequenceResult> {
     const { operation, payload, expectedRevision } = request;
+    if (operation === "receipts.read") {
+      const receipt = await tx
+        .selectFrom("communication_operations")
+        .selectAll()
+        .where("bot_identity", "=", this.config.botIdentity)
+        .where("actor_account_ref", "=", actor)
+        .where("operation_id", "=", requiredField(payload.receiptOperationId))
+        .executeTakeFirst();
+      if (!receipt) throw new CommunicationsError("not_found");
+      return {
+        receipt: {
+          operationId: receipt.operation_id,
+          requestJson: JSON.stringify(receipt.request),
+          resultJson: JSON.stringify(receipt.result),
+          createdAt: receipt.created_at.toISOString(),
+        },
+      };
+    }
+
     const bot = this.config.botIdentity;
     if (operation.startsWith("broadcasts."))
       return applyBroadcast(
@@ -229,24 +258,28 @@ export class CommunicationSequences {
         .execute();
       return { intro };
     }
-    if (operation === "funnels.list") {
+    if (operation === "sequences.list") {
       let query = tx
-        .selectFrom("communication_funnels")
+        .selectFrom("communication_sequences")
         .selectAll()
         .where("bot_identity", "=", bot)
         .where("owner_account_ref", "=", actor);
       if (hasText(payload.cursor))
-        query = query.where("funnel_id", ">", requireCursor(payload.cursor));
-      const rows = await query.orderBy("funnel_id").limit(101).execute();
+        query = query.where("sequence_id", ">", requireCursor(payload.cursor));
+      const rows = await query.orderBy("sequence_id").limit(101).execute();
       return {
-        funnels: rows.slice(0, 100).map(funnelView),
-        nextCursor: nextCursor(rows, 100, (row) => row.funnel_id),
+        sequences: rows.slice(0, 100).map(sequenceView),
+        nextCursor: nextCursor(rows, 100, (row) => row.sequence_id),
       };
     }
     if (operation === "deliveries.read") {
       let query = tx
         .selectFrom("communication_deliveries as d")
-        .leftJoin("communication_funnels as f", "f.funnel_id", "d.funnel_id")
+        .leftJoin(
+          "communication_sequences as f",
+          "f.sequence_id",
+          "d.sequence_id",
+        )
         .leftJoin(
           "communication_broadcasts as b",
           "b.broadcast_id",
@@ -260,8 +293,8 @@ export class CommunicationSequences {
         .selectAll("d")
         .where("d.bot_identity", "=", bot)
         .where(deliveryOwnerPredicate(actor));
-      if (hasText(payload.funnelId))
-        query = query.where("d.funnel_id", "=", payload.funnelId);
+      if (hasText(payload.sequenceId))
+        query = query.where("d.sequence_id", "=", payload.sequenceId);
       if (hasText(payload.deliveryId))
         query = query.where("d.delivery_id", "=", payload.deliveryId);
       if (hasText(payload.broadcastId))
@@ -283,7 +316,11 @@ export class CommunicationSequences {
       await lockDeliveryContact(tx, bot, requiredField(payload.deliveryId));
       const row = await tx
         .selectFrom("communication_deliveries as d")
-        .leftJoin("communication_funnels as f", "f.funnel_id", "d.funnel_id")
+        .leftJoin(
+          "communication_sequences as f",
+          "f.sequence_id",
+          "d.sequence_id",
+        )
         .leftJoin(
           "communication_broadcasts as b",
           "b.broadcast_id",
@@ -346,34 +383,34 @@ export class CommunicationSequences {
     }
     if (
       ![
-        "funnels.rollback",
-        "funnels.preview",
-        "funnels.save",
-        "funnels.read",
-        "funnels.publish",
-        "funnels.lifecycle",
+        "sequences.rollback",
+        "sequences.preview",
+        "sequences.save",
+        "sequences.read",
+        "sequences.publish",
+        "sequences.lifecycle",
       ].includes(operation)
     )
       throw new CommunicationsError("not_implemented");
     const existing = await tx
-      .selectFrom("communication_funnels")
+      .selectFrom("communication_sequences")
       .selectAll()
-      .where("funnel_id", "=", requiredField(payload.funnelId))
+      .where("sequence_id", "=", requiredField(payload.sequenceId))
       .executeTakeFirst();
     if (
       existing &&
       (existing.bot_identity !== bot || existing.owner_account_ref !== actor)
     )
       throw new CommunicationsError("not_found");
-    if (operation === "funnels.read") {
+    if (operation === "sequences.read") {
       if (!existing) throw new CommunicationsError("not_found");
-      return { funnel: funnelView(existing) };
+      return { sequence: sequenceView(existing) };
     }
     if ((existing?.revision ?? 0) !== expectedRevision)
       throw new CommunicationsError("revision_conflict");
-    if (operation === "funnels.save") {
+    if (operation === "sequences.save") {
       const draft: CommunicationSequenceDraft = {
-        funnelId: requiredField(payload.funnelId),
+        sequenceId: requiredField(payload.sequenceId),
         name: requiredField(payload.name),
         steps: requiredField(payload.steps),
         sources: requiredField(payload.sources),
@@ -392,9 +429,9 @@ export class CommunicationSequences {
         throw new CommunicationsError("malformed");
       const revision = expectedRevision + 1;
       await tx
-        .insertInto("communication_funnels")
+        .insertInto("communication_sequences")
         .values({
-          funnel_id: draft.funnelId,
+          sequence_id: draft.sequenceId,
           bot_identity: bot,
           owner_account_ref: actor,
           revision,
@@ -406,7 +443,7 @@ export class CommunicationSequences {
         })
         .onConflict((c) =>
           c
-            .column("funnel_id")
+            .column("sequence_id")
             .doUpdateSet({ revision, draft: JSON.stringify(draft) }),
         )
         .execute();
@@ -425,7 +462,7 @@ export class CommunicationSequences {
         if (
           reserved.some(
             (r) =>
-              r.funnel_id !== draft.funnelId ||
+              r.sequence_id !== draft.sequenceId ||
               r.source_id !== source.sourceId ||
               r.code !== source.code,
           )
@@ -437,13 +474,13 @@ export class CommunicationSequences {
             bot_identity: bot,
             source_id: source.sourceId,
             code: source.code,
-            funnel_id: draft.funnelId,
+            sequence_id: draft.sequenceId,
           })
           .onConflict((c) => c.doNothing())
           .execute();
       }
       return {
-        funnel: {
+        sequence: {
           ...draft,
           revision,
           publishedRevision: existing?.published_revision ?? null,
@@ -452,7 +489,7 @@ export class CommunicationSequences {
       };
     }
     if (!existing) throw new CommunicationsError("not_found");
-    if (operation === "funnels.preview") {
+    if (operation === "sequences.preview") {
       return {
         preview: await previewSequence(
           tx,
@@ -463,7 +500,7 @@ export class CommunicationSequences {
         ),
       };
     }
-    if (operation === "funnels.lifecycle") {
+    if (operation === "sequences.lifecycle") {
       const action = payload.action;
       if (
         (action !== "pause" &&
@@ -478,29 +515,29 @@ export class CommunicationSequences {
           ? "draft"
           : LIFECYCLE_AFTER[action];
       await tx
-        .updateTable("communication_funnels")
+        .updateTable("communication_sequences")
         .set({ lifecycle, revision: expectedRevision + 1 })
-        .where("funnel_id", "=", existing.funnel_id)
+        .where("sequence_id", "=", existing.sequence_id)
         .execute();
       return {
-        funnel: {
-          ...funnelView(existing),
+        sequence: {
+          ...sequenceView(existing),
           lifecycle,
           revision: expectedRevision + 1,
         },
       };
     }
     let draft = existing.draft;
-    const rollback = operation === "funnels.rollback";
+    const rollback = operation === "sequences.rollback";
     if (rollback) {
       const publication = await tx
         .selectFrom("communication_publications")
         .select("snapshot")
-        .where("funnel_id", "=", existing.funnel_id)
+        .where("sequence_id", "=", existing.sequence_id)
         .where("revision", "=", requiredField(payload.publishedRevision))
         .executeTakeFirst();
       if (!publication) throw new CommunicationsError("not_found");
-      draft = publication.snapshot;
+      draft = decodeStoredSequenceDraft(publication.snapshot);
       // Validate the immutable historical snapshot under the definition lock. Receipts and
       // expectedRevision were checked first, so replay never re-publishes changed content.
       const validation = await validateAuthorContent(
@@ -528,7 +565,7 @@ export class CommunicationSequences {
     const historicalSteps = await tx
       .selectFrom("communication_step_ids")
       .selectAll()
-      .where("funnel_id", "=", draft.funnelId)
+      .where("sequence_id", "=", draft.sequenceId)
       .execute();
     if (
       previous &&
@@ -540,7 +577,7 @@ export class CommunicationSequences {
       const saved = await tx
         .selectFrom("communication_step_ids")
         .selectAll()
-        .where("funnel_id", "=", draft.funnelId)
+        .where("sequence_id", "=", draft.sequenceId)
         .where("step_id", "=", step.stepId)
         .executeTakeFirst();
       if (
@@ -569,21 +606,21 @@ export class CommunicationSequences {
       await tx
         .insertInto("communication_step_ids")
         .values({
-          funnel_id: draft.funnelId,
+          sequence_id: draft.sequenceId,
           step_id: step.stepId,
           first_published_at: now,
           part_ids: JSON.stringify(partIds),
         })
         .onConflict((c) =>
           c
-            .columns(["funnel_id", "step_id"])
+            .columns(["sequence_id", "step_id"])
             .doUpdateSet({ part_ids: JSON.stringify(partIds) }),
         )
         .execute();
     }
     if (draft.isDefault)
       await tx
-        .updateTable("communication_funnels")
+        .updateTable("communication_sequences")
         .set({ is_default: false })
         .where("bot_identity", "=", bot)
         .where("is_default", "=", true)
@@ -592,14 +629,14 @@ export class CommunicationSequences {
     await tx
       .insertInto("communication_publications")
       .values({
-        funnel_id: draft.funnelId,
+        sequence_id: draft.sequenceId,
         revision,
         snapshot: JSON.stringify(draft),
         published_at: now,
       })
       .execute();
     await tx
-      .updateTable("communication_funnels")
+      .updateTable("communication_sequences")
       .set({
         revision,
         published_revision: revision,
@@ -608,14 +645,14 @@ export class CommunicationSequences {
         lifecycle: "published",
         is_default: draft.isDefault,
       })
-      .where("funnel_id", "=", draft.funnelId)
+      .where("sequence_id", "=", draft.sequenceId)
       .execute();
     if (rollback) {
       // Only never-attempted deletion cancellations can return. Sent, skipped and
       // subscriber suppression remain durable markers across every revision.
       const revivable = tx
         .selectFrom("communication_deliveries")
-        .where("funnel_id", "=", draft.funnelId)
+        .where("sequence_id", "=", draft.sequenceId)
         .where("cancel_requested", "=", true);
       await lockContactRows(
         tx,
@@ -653,9 +690,9 @@ export class CommunicationSequences {
             .execute();
       }
     }
-    await reconcileSequences(tx, bot, now, { funnelId: draft.funnelId });
+    await reconcileSequences(tx, bot, now, { sequenceId: draft.sequenceId });
     return {
-      funnel: {
+      sequence: {
         ...draft,
         revision,
         publishedRevision: revision,
@@ -664,14 +701,14 @@ export class CommunicationSequences {
     };
   }
 }
-function funnelView(row: {
+function sequenceView(row: {
   draft: CommunicationSequenceDraft;
   revision: number;
   published_revision: number | null;
   lifecycle: CommunicationSequenceSnapshot["lifecycle"];
 }): CommunicationSequenceSnapshot {
   return {
-    ...row.draft,
+    ...decodeStoredSequenceDraft(row.draft),
     revision: row.revision,
     publishedRevision: row.published_revision,
     lifecycle: row.lifecycle,

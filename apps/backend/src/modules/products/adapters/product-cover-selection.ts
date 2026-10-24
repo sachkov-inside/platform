@@ -11,7 +11,7 @@ export class ProductCoverSelection {
     if (owner.kind !== "series") return undefined;
     const prisma = productsTransaction(handle);
     await prisma.$queryRaw(
-      Prisma.sql`select id from products.series where id = ${owner.id}::uuid for update`,
+      Prisma.sql`select id from products.products where id = ${owner.id}::uuid for update`,
     );
     return (
       (await prisma.product.findUnique({

@@ -197,7 +197,7 @@ describe("communication transport", () => {
       expect(!!result.value.signInToken).toBe(lane === "sign-in");
     }
   });
-  it("counts delay from the latest enrollment/publication/completion without catch-up acceleration", () => {
+  it("counts delay from the latest participation/publication/completion without catch-up acceleration", () => {
     const d = (seconds: number) => new Date(seconds * 1000);
     expect(relativeDue(d(1), d(100), d(10), 20)).toEqual(d(120));
     expect(relativeDue(d(1), d(100), d(500), 20)).toEqual(d(520));

@@ -9,7 +9,7 @@ import { expect, userEvent, within } from "storybook/test";
 
 import {
   StartCountdownBadge,
-  type ProductCohort,
+  type ProductSalesState,
 } from "@/entities/subscription";
 import {
   CohortCallView,
@@ -228,7 +228,7 @@ export const Tablet: Story = {
   },
 };
 
-const cohort: ProductCohort = {
+const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",
   revision: 1,
   name: "Поток 1",
@@ -239,7 +239,7 @@ const cohort: ProductCohort = {
 };
 
 /** Набор на первый поток: предложение продаётся по цене предзаказа, цена после старта — у потока. */
-const preorderCohort: ProductCohort = {
+const preorderCohort: ProductSalesState = {
   ...cohort,
   startsOn: "2026-11-09",
   priceAfterStartKopecks: 3_990_000,

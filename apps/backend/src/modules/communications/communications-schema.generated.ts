@@ -86,8 +86,8 @@ z.strictObject({
   "kind": z.literal("all"),
 }),
 z.strictObject({
-  "kind": z.literal("funnels"),
-  "funnelIds": z.array(z.guid()).min(1).max(100),
+  "kind": z.literal("sequences"),
+  "sequenceIds": z.array(z.guid()).min(1).max(100),
 }),
 z.strictObject({
   "kind": z.literal("waitlist"),
@@ -124,7 +124,7 @@ export const trackingActorSchema = z.strictObject({
 
 export const requestSchema = z.union([
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("templates.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -134,7 +134,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("templates.save"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -145,18 +145,18 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.read"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.list"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.list"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
@@ -165,13 +165,13 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.save"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.save"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
   "name": z.string().min(1).max(128),
   "steps": z.array(stepSchema).min(0).max(100),
   "sources": z.array(sourceSchema).min(0).max(100),
@@ -180,49 +180,49 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.publish"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.publish"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.preview"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.preview"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.lifecycle"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.lifecycle"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
   "action": z.enum(["pause","resume","archive","restore"]),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
-  "operation": z.literal("funnels.rollback"),
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("sequences.rollback"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
   "publishedRevision": z.number().int().min(0).max(2147483647),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("broadcasts.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -232,7 +232,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("broadcasts.save"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -245,7 +245,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("broadcasts.launch"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -255,7 +255,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("broadcasts.lifecycle"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -266,7 +266,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("delivery.resolve"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -279,7 +279,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("templates.testSend"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -289,7 +289,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("eligibility.check"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -299,7 +299,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("tracking.resolve"),
   "operationId": z.guid(),
   "actor": trackingActorSchema,
@@ -309,7 +309,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("tracking.recordHit"),
   "operationId": z.guid(),
   "actor": trackingActorSchema,
@@ -322,19 +322,19 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("statistics.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
-  "funnelId": z.guid().optional(),
+  "sequenceId": z.guid().optional(),
   "broadcastId": z.guid().optional(),
   "cursor": z.string().min(1).max(128).optional(),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("intro.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -344,7 +344,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("intro.save"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -355,20 +355,20 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("deliveries.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
   "expectedRevision": z.number().int().min(0).max(2147483647),
   "payload": z.strictObject({
   "deliveryId": z.guid().optional(),
-  "funnelId": z.guid().optional(),
+  "sequenceId": z.guid().optional(),
   "broadcastId": z.guid().optional(),
   "cursor": z.string().max(128).optional(),
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("broadcasts.list"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -378,7 +378,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("entries.read"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -389,7 +389,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("templates.list"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -399,7 +399,7 @@ z.strictObject({
 }),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "operation": z.literal("broadcasts.preview"),
   "operationId": z.guid(),
   "actor": actorSchema,
@@ -407,11 +407,21 @@ z.strictObject({
   "payload": z.strictObject({
   "broadcastId": z.guid(),
 }),
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v2"),
+  "operation": z.literal("receipts.read"),
+  "operationId": z.guid(),
+  "actor": actorSchema,
+  "expectedRevision": z.number().int().min(0).max(2147483647),
+  "payload": z.strictObject({
+  "receiptOperationId": idSchema,
+}),
 })
 ]);
 
 export const authorizationRequestSchema = z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "permission": z.literal("communications:manage"),
   "subject": z.union([
@@ -430,31 +440,31 @@ z.strictObject({
 
 export const authorizationResponseSchema = z.union([
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "status": z.literal("allowed"),
   "accountRef": z.string().min(1).max(128),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "status": z.literal("denied"),
 })
 ]);
 
 export const errorSchema = z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.enum(["unauthorized","forbidden","not_found","malformed","unsupported_content","revision_conflict","operation_conflict","authorization_unavailable","not_implemented"]),
 });
 
 export const templateResponseSchema = z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "template": templateSchema,
 });
 
-export const funnelSchema = z.strictObject({
-  "funnelId": z.guid(),
+export const sequenceSchema = z.strictObject({
+  "sequenceId": z.guid(),
   "revision": z.number().int().min(0).max(2147483647),
   "publishedRevision": z.union([z.number().int().min(1), z.null()]),
   "lifecycle": z.enum(["draft","published","paused","archived"]),
@@ -466,7 +476,7 @@ export const funnelSchema = z.strictObject({
 });
 
 export const publishPreviewSchema = z.strictObject({
-  "funnelId": z.guid(),
+  "sequenceId": z.guid(),
   "revision": z.number().int().min(0).max(2147483647),
   "addedStepIds": z.array(z.guid()).min(0).max(100),
   "editedStepIds": z.array(z.guid()).min(0).max(100),
@@ -510,7 +520,7 @@ export const countsSchema = z.strictObject({
 export const sourceEntrySchema = z.strictObject({
   "sourceId": z.union([z.guid(), z.null()]),
   "sourceCode": z.union([z.string().max(64), z.null()]),
-  "funnelId": z.union([z.guid(), z.null()]),
+  "sequenceId": z.union([z.guid(), z.null()]),
   "enteredAt": z.iso.datetime({ offset: true }),
   "outcome": z.string().max(64),
 });
@@ -561,7 +571,7 @@ export const deliverySchema = z.strictObject({
   "deliveryId": z.guid(),
   "revision": z.number().int().min(0),
   "contactId": z.guid(),
-  "funnelId": z.union([z.guid(), z.null()]),
+  "sequenceId": z.union([z.guid(), z.null()]),
   "broadcastId": z.union([z.guid(), z.null()]),
   "stepId": z.union([z.guid(), z.null()]),
   "publishedRevision": z.number().int().min(0),
@@ -580,44 +590,51 @@ export const waitlistPreviewSchema = z.strictObject({
   "revision": z.number().int().min(0).max(2147483647),
 });
 
+export const historicalReceiptSchema = z.strictObject({
+  "operationId": idSchema,
+  "requestJson": z.string(),
+  "resultJson": z.string(),
+  "createdAt": z.iso.datetime({ offset: true }),
+});
+
 export const responseSchema = z.union([
 errorSchema,
 templateResponseSchema,
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
-  "funnel": funnelSchema,
+  "sequence": sequenceSchema,
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
-  "funnels": z.array(funnelSchema).min(0).max(100),
+  "sequences": z.array(sequenceSchema).min(0).max(100),
   "nextCursor": z.union([z.string().max(128), z.null()]),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "preview": publishPreviewSchema,
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "broadcast": broadcastSchema,
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "deliveryId": z.guid(),
   "partId": z.guid(),
   "outcome": z.enum(["skipped","retry_requested"]),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "testDeliveryId": z.guid(),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "targets": z.array(z.strictObject({
   "target": targetSchema,
@@ -627,59 +644,64 @@ z.strictObject({
 })).min(0).max(100),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "safeUrl": z.url().max(2048).regex(new RegExp("^https://")),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "eventId": z.guid(),
   "outcome": z.enum(["recorded","duplicate"]),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "statistics": statisticsSchema,
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "intro": introSchema,
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "deliveries": z.array(deliverySchema).max(100),
   "nextCursor": z.union([z.string().max(128), z.null()]),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "nextCursor": z.union([z.string().max(128), z.null()]),
   "broadcasts": z.array(broadcastSchema).min(0).max(100),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "nextCursor": z.union([z.string().max(128), z.null()]),
   "entries": z.array(sourceEntrySchema).min(0).max(100),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "nextCursor": z.union([z.string().max(128), z.null()]),
   "templates": z.array(templateSchema).min(0).max(100),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "status": z.literal("ok"),
   "waitlistPreview": waitlistPreviewSchema,
+}),
+z.strictObject({
+  "contractVersion": z.literal("inside-communications-v2"),
+  "status": z.literal("ok"),
+  "receipt": historicalReceiptSchema,
 })
 ]);
 
 export const contentValidationRequestSchema = z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "permission": z.literal("communications:manage"),
   "subject": z.union([
@@ -708,14 +730,14 @@ z.null()
 
 export const contentValidationResponseSchema = z.union([
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "status": z.literal("ok"),
   "accountRef": z.string().min(1).max(128),
   "targetErrors": z.array(contentTargetErrorSchema),
 }),
 z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "status": z.literal("denied"),
 })
@@ -727,7 +749,7 @@ export const waitlistMemberSchema = z.strictObject({
 });
 
 export const waitlistAudienceRequestSchema = z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "actorAccountRef": z.string().min(1).max(256),
   "intakeId": z.guid(),
@@ -735,7 +757,7 @@ export const waitlistAudienceRequestSchema = z.strictObject({
 });
 
 export const waitlistAudienceResponseSchema = z.strictObject({
-  "contractVersion": z.literal("inside-communications-v1"),
+  "contractVersion": z.literal("inside-communications-v2"),
   "requestId": z.guid(),
   "status": z.literal("ok"),
   "saleOpen": z.boolean(),

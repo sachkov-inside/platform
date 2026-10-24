@@ -20,7 +20,7 @@ export function assembleLoadHomePin(
     );
     if (!authorization.ok) return authorization;
     try {
-      const pin = await dependencies.prisma.homeSeriesPin.findUniqueOrThrow({
+      const pin = await dependencies.prisma.homeProductPin.findUniqueOrThrow({
         where: { id: 1 },
         select: { seriesId: true, version: true },
       });

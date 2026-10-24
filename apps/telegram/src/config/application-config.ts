@@ -50,8 +50,8 @@ export const DEFAULT_SENDER_RATE: SenderRate = Object.freeze({
 });
 
 /** Where the welcome reads the course's current stream in Platform. */
-export interface CommunityWelcomeCohort {
-  /** Public `GET /billing/cohorts` of Platform. */
+export interface CommunityWelcomeSalesState {
+  /** Public `GET /billing/product-sales-states` of Platform. */
   readonly url: string;
   /** The course's product UUID in Platform: the response names products only by it. */
   readonly productId: string;
@@ -72,7 +72,7 @@ export interface ApplicationConfig {
   readonly communityReconciliationCadenceMilliseconds: number;
   readonly communityTexts: CommunityTexts;
   /** Platform's public current streams and the course's product UUID; absent: no start date. */
-  readonly communityWelcomeCohort?: CommunityWelcomeCohort | undefined;
+  readonly communityWelcomeCohort?: CommunityWelcomeSalesState | undefined;
   /** Authenticates Platform calls to the communications API; absent keeps that API closed. */
   readonly communicationsSecret?: string | undefined;
   readonly databaseUrl: string;
@@ -308,7 +308,7 @@ export function loadApplicationConfig(
       "PLATFORM_COMMUNITY_DISPATCH_URL",
     );
   }
-  const communityWelcomeCohort = loadCommunityWelcomeCohort(environment);
+  const communityWelcomeCohort = loadCommunityWelcomeSalesState(environment);
   if (communityMode === "live") {
     if (!hasText(botToken)) {
       throw new Error(
@@ -626,26 +626,36 @@ function parseBoundedInteger(
   return parsed;
 }
 
-function loadCommunityWelcomeCohort(
+function loadCommunityWelcomeSalesState(
   environment: NodeJS.ProcessEnv,
-): CommunityWelcomeCohort | undefined {
+): CommunityWelcomeSalesState | undefined {
+  if (
+    [
+      "PLATFORM_COHORTS_URL",
+      "PLATFORM_COHORT_PRODUCT_ID",
+      "PLATFORM_COHORT_GUIDE_ID",
+    ].some((key) => hasText(environment[key]))
+  )
+    throw new Error(
+      "Retired cohort configuration; configure PLATFORM_PRODUCT_SALES_STATES_URL and PLATFORM_PRODUCT_SALES_PRODUCT_ID",
+    );
   const url =
-    presentText(environment["PLATFORM_COHORTS_URL"]?.trim()) ?? undefined;
+    presentText(environment["PLATFORM_PRODUCT_SALES_STATES_URL"]?.trim()) ??
+    undefined;
   const productId =
-    presentText(environment["PLATFORM_COHORT_PRODUCT_ID"]?.trim()) ??
-    presentText(environment["PLATFORM_COHORT_GUIDE_ID"]?.trim()) ??
+    presentText(environment["PLATFORM_PRODUCT_SALES_PRODUCT_ID"]?.trim()) ??
     undefined;
   if (!hasText(url) && !hasText(productId)) return undefined;
   if (!hasText(url) || !hasText(productId))
     throw new Error(
-      "PLATFORM_COHORTS_URL and PLATFORM_COHORT_PRODUCT_ID are set together",
+      "PLATFORM_PRODUCT_SALES_STATES_URL and PLATFORM_PRODUCT_SALES_PRODUCT_ID are set together",
     );
-  assertServiceEndpoint(url, "PLATFORM_COHORTS_URL");
+  assertServiceEndpoint(url, "PLATFORM_PRODUCT_SALES_STATES_URL");
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       productId,
     )
   )
-    throw new Error("PLATFORM_COHORT_PRODUCT_ID must be a UUID");
+    throw new Error("PLATFORM_PRODUCT_SALES_PRODUCT_ID must be a UUID");
   return { url, productId };
 }

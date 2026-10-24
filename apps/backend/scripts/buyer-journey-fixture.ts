@@ -36,7 +36,6 @@ const appId = "inside-web-buyer-journey";
 const telegramSecret = "synthetic-buyer-journey-telegram-sign-in-775";
 const apiBaseUrl = `http://127.0.0.1:${String(environment.BUYER_JOURNEY_API_PORT)}`;
 const bankOrigin = `http://127.0.0.1:${String(environment.BUYER_JOURNEY_BANK_PORT)}`;
-const productId = "72000000-0000-4000-8000-000000000007";
 
 async function listen(server: Server): Promise<string> {
   await new Promise<void>((resolve) =>
@@ -333,25 +332,11 @@ await app.listen(environment.BUYER_JOURNEY_API_PORT, "127.0.0.1");
 
 // Продукт «Создание Platform Inside» с бесплатной и закрытой главой из сида стенда.
 await seedLocalDevelopment(prisma, { demo: "published" });
-const owner = await bootstrapOwnerAccount(
+await bootstrapOwnerAccount(
   prisma,
   { issuer: issuer(), subject: "buyer-journey-owner" },
   "platform:admin",
 );
-await prisma.productCommunity.upsert({
-  where: { productId },
-  create: {
-    productId,
-    groupRef: "primary",
-    updatedBy: owner.accountId,
-    updatedAt: new Date(),
-  },
-  update: {
-    groupRef: "primary",
-    updatedBy: owner.accountId,
-    updatedAt: new Date(),
-  },
-});
 // The real local seed creates a direct Product Price. Current immutable v6 is deliberately
 // unapproved for the new model; this fixture must exercise honest unavailable admission.
 // Positive approved-model payment proof uses the distinct synthetic owning legal-provider seam.

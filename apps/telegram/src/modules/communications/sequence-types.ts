@@ -20,7 +20,7 @@ export interface SequenceSource {
   readonly name: string;
 }
 export interface CommunicationSequenceDraft {
-  readonly funnelId: string;
+  readonly sequenceId: string;
   readonly name: string;
   readonly isDefault: boolean;
   readonly sources: readonly SequenceSource[];
@@ -62,7 +62,7 @@ export interface DeliverySnapshot {
   readonly deliveryId: string;
   readonly revision: number;
   readonly contactId: string;
-  readonly funnelId: string | null;
+  readonly sequenceId: string | null;
   readonly broadcastId: string | null;
   readonly stepId: string | null;
   readonly publishedRevision: number;

@@ -10,9 +10,10 @@ import { templateReferenceSchema } from "../../features/manage-communications/te
 const readOperations = new Set([
   "templates.list",
   "templates.read",
-  "funnels.read",
-  "funnels.list",
-  "funnels.preview",
+  "receipts.read",
+  "sequences.read",
+  "sequences.list",
+  "sequences.preview",
   "broadcasts.read",
   "broadcasts.preview",
   "broadcasts.list",
@@ -105,7 +106,7 @@ function description(operation: string, readOnly: boolean): string {
     return "Explicitly send the template only to the confirmed Telegram author. This is an external send, unlike read or preview. Reuse operationId on retry.";
   if (operation === "delivery.resolve")
     return "Explicitly skip or retry one delivery part with expectedRevision. Retrying an unknown outcome risks a duplicate and requires duplicateRiskAccepted=true. Preserve operationId on retry.";
-  if (operation === "funnels.preview")
+  if (operation === "sequences.preview")
     return "Preview the publication diff and audience impact. Sends no messages and does not publish.";
-  return `${readOnly ? "Read" : "Execute"} ${operation} with the current communications permission. ${readOnly ? "Sends no messages." : "May change published communications or trigger audience delivery; no additional UI approval gate."} Preserve operationId and expectedRevision when repeating the same request. sources are part of funnels.save.`;
+  return `${readOnly ? "Read" : "Execute"} ${operation} with the current communications permission. ${readOnly ? "Sends no messages." : "May change published communications or trigger audience delivery; no additional UI approval gate."} Preserve operationId and expectedRevision when repeating the same request. sources are part of sequences.save.`;
 }

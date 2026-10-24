@@ -6,7 +6,7 @@ import {
   formatKopecks,
   type BillingCommandResult,
   type PriceSnapshot,
-  type ProductCohort,
+  type ProductSalesState,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
@@ -41,7 +41,7 @@ import { CohortSection } from "./cohort-section.client";
 
 export interface BillingAdminPanelProps {
   readonly offers: readonly PriceSnapshot[];
-  readonly cohorts: readonly ProductCohort[] | null;
+  readonly cohorts: readonly ProductSalesState[] | null;
 }
 export function BillingAdminPanel({
   offers,

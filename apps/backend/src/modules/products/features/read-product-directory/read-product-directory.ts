@@ -99,11 +99,11 @@ export class ProductDirectory {
           await this.prisma.$queryRaw(Prisma.sql`
         select product.id, product.archived_at as "archivedAt", (
           select count(*)::int from (
-            select 1 from products.series_memberships membership
-            where membership.series_id = product.id limit ${MAX_PRODUCT_MATERIALS + 1}
+            select 1 from products.product_memberships membership
+            where membership.product_id = product.id limit ${MAX_PRODUCT_MATERIALS + 1}
           ) placement
         ) as "placementCount"
-        from products.series product where product.id = any(${ids}::uuid[])
+        from products.products product where product.id = any(${ids}::uuid[])
       `),
         );
       const sizes = new Map(
@@ -226,7 +226,7 @@ export class ProductDirectory {
   ): Promise<DirectoryPlacement | null> {
     const transaction = productsTransaction(handle);
     await transaction.$queryRaw(
-      Prisma.sql`select id from products.series where id = ${productId}::uuid for update`,
+      Prisma.sql`select id from products.products where id = ${productId}::uuid for update`,
     );
     const [product] = await this.compositions.load(
       { ids: [productId] },

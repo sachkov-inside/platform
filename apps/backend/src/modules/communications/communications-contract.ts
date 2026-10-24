@@ -7,7 +7,7 @@ import {
   type authorizationRequestSchema,
 } from "./communications-schema.generated.js";
 
-export const COMMUNICATIONS_VERSION = "inside-communications-v1" as const;
+export const COMMUNICATIONS_VERSION = "inside-communications-v2" as const;
 // Service-only tracking and eligibility never belong to delegated management.
 export const managementSchemas = requestSchema.options
   .filter(

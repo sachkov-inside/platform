@@ -1,6 +1,6 @@
 import { fixedTestInstant } from "../support/fixed-clock.js";
 import { describe, expect, it } from "vitest";
-import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v2/fixtures.json" with { type: "json" };
 import {
   contractValidator,
   validateContent,

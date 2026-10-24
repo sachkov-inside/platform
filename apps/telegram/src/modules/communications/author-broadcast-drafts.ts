@@ -9,7 +9,7 @@ import type { CommunicationSequences } from "./communication-sequences.js";
 
 /** Reads the author's broadcasts, including the unsaved ones that exist only as drafts. */
 export class AuthorBroadcastDrafts {
-  constructor(private readonly funnels: CommunicationSequences) {}
+  constructor(private readonly sequences: CommunicationSequences) {}
   async read(
     c: Context,
     id: string,
@@ -20,7 +20,7 @@ export class AuthorBroadcastDrafts {
       .executeTakeFirst();
     let broadcast: AuthorBroadcast;
     try {
-      const response = await this.funnels.execute(
+      const response = await this.sequences.execute(
         authorRequest(c.accountRef, "broadcasts.read", { broadcastId: id }),
         c.tx,
       );

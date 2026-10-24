@@ -20,7 +20,7 @@ describe("Platform author authorization seam", () => {
       expect(contractValidator("authorizationRequest")(request)).toBe(true);
       return Promise.resolve(
         Response.json({
-          contractVersion: "inside-communications-v1",
+          contractVersion: "inside-communications-v2",
           requestId: request["requestId"],
           status: "allowed",
           accountRef: subject.accountRef,
@@ -53,7 +53,7 @@ describe("Platform author authorization seam", () => {
         return Promise.resolve(
           Response.json({
             contractVersion:
-              mode === "malformed" ? "v0" : "inside-communications-v1",
+              mode === "malformed" ? "v0" : "inside-communications-v2",
             requestId:
               mode === "stale"
                 ? "11111111-1111-4111-8111-111111111111"

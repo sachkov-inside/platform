@@ -91,7 +91,7 @@ async function product(accountId: string, nullMapping = false) {
   });
   const grant = await grantProductFixture(db.prisma, accountId, id);
   if (nullMapping)
-    await db.prisma.productCommunity.create({
+    await db.prisma.historicalProductCommunityRecord.create({
       data: {
         productId: id,
         groupRef: null,
@@ -159,4 +159,16 @@ test("production own-access assembly exposes every Product community without opt
   const other = await own(stranger);
   if (!other.ok) throw new Error("Expected separate Account own-access");
   expect(other.value.products?.map((p) => p.id)).toEqual([foreign.id]);
+});
+
+test("retired configurable community endpoints cannot read or mutate Product membership", async () => {
+  const productId = randomUUID();
+  for (const method of ["GET", "PUT"] as const) {
+    const response = await app.inject({
+      method,
+      url: `/admin/products/${productId}/community`,
+      ...(method === "PUT" ? { payload: { groupRef: null } } : {}),
+    });
+    expect(response.statusCode).toBe(404);
+  }
 });

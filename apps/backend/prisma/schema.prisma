@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "member_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "product_tasks", "products", "content_covers", "materials", "account_profiles", "reading_activity", "sales_funnel", "account_rights", "telegram_membership", "videos"]
 }
 
 model Account {
@@ -47,7 +47,7 @@ model AccountAuditEvent {
 
 model MemberProfile {
   accountId       String   @id @map("account_id") @db.Uuid
-  publicProfileId String   @unique(map: "member_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
+  publicProfileId String   @unique(map: "account_profiles_public_profile_id_unique") @map("public_profile_id") @db.Uuid
   displayName     String   @map("display_name") @db.VarChar(80)
   bio             String?  @db.VarChar(500)
   avatarId        String?  @map("avatar_id") @db.Uuid
@@ -58,9 +58,9 @@ model MemberProfile {
   avatar          ProfileAvatar? @relation("CurrentProfileAvatar", fields: [avatarId, accountId], references: [id, accountId])
   ownedAvatars    ProfileAvatar[] @relation("ProfileOwnedAvatars")
 
-  @@unique([avatarId, accountId], map: "member_profiles_avatar_account_unique")
+  @@unique([avatarId, accountId], map: "account_profiles_avatar_account_unique")
   @@map("profiles")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model ProfileAvatar {
@@ -81,7 +81,7 @@ model ProfileAvatar {
   @@unique([id, accountId], map: "profile_avatars_id_account_unique")
   @@index([orphanedAt, updatedAt], map: "profile_avatars_cleanup_idx")
   @@map("avatars")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model ProfileAvatarRendition {
@@ -95,7 +95,7 @@ model ProfileAvatarRendition {
 
   @@id([avatarId, size], map: "profile_avatar_renditions_primary")
   @@map("avatar_renditions")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model MemberProfileAuditEvent {
@@ -107,7 +107,7 @@ model MemberProfileAuditEvent {
 
   @@index([accountId, createdAt(sort: Desc)], map: "member_profile_audit_account_created_idx")
   @@map("audit_events")
-  @@schema("member_profiles")
+  @@schema("account_profiles")
 }
 
 model MembershipBinding {
@@ -200,9 +200,9 @@ model Tag {
 }
 
 model Product {
-  sourceId String? @unique(map: "series_source_id_unique") @map("source_id")
+  sourceId String? @unique(map: "product_source_id_unique") @map("source_id")
   id            String    @id @db.Uuid
-  slug          String    @unique(map: "series_slug_unique")
+  slug          String    @unique(map: "product_slug_unique")
   name          String
   summary       String    @default("")
   audience      String    @default("")
@@ -217,7 +217,7 @@ model Product {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz
 
-  @@map("series")
+  @@map("products")
   @@schema("products")
 }
 
@@ -338,12 +338,12 @@ model ProductChapterSupplementaryMaterial {
   @@schema("products")
 }
 
-model HomeSeriesPin {
+model HomeProductPin {
   id       Int     @id
-  seriesId String? @map("series_id") @db.Uuid
+  seriesId String? @map("product_id") @db.Uuid
   version  Int     @default(1)
 
-  @@map("home_series_pin")
+  @@map("home_product_pin")
   @@schema("products")
 }
 
@@ -392,11 +392,11 @@ model MaterialTag {
 }
 
 model ProductMembership {
-  seriesId   String @map("series_id") @db.Uuid
+  seriesId   String @map("product_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid
 
-  @@id([seriesId, materialId], map: "series_memberships_primary")
-  @@map("series_memberships")
+  @@id([seriesId, materialId], map: "product_memberships_primary")
+  @@map("product_memberships")
   @@schema("products")
 }
 
@@ -444,7 +444,7 @@ model ContentCover {
   id                  String    @id @db.Uuid
   materialId          String?   @map("material_id") @db.Uuid
   topicId             String?   @map("topic_id") @db.Uuid
-  seriesId            String?   @map("series_id") @db.Uuid
+  seriesId            String?   @map("product_id") @db.Uuid
   state               String
   failureCode         String?   @map("failure_code") @db.VarChar(64)
   currentlyReferenced Boolean   @default(false) @map("currently_referenced")
@@ -457,7 +457,7 @@ model ContentCover {
 
   @@unique([id, materialId], map: "content_covers_material_identity")
   @@unique([id, topicId], map: "content_covers_topic_identity")
-  @@unique([id, seriesId], map: "content_covers_series_identity")
+  @@unique([id, seriesId], map: "content_covers_product_identity")
   @@index([currentlyReferenced, orphanedAt, updatedAt], map: "content_covers_orphan_idx")
   @@map("content_covers")
   @@schema("content_covers")
@@ -489,10 +489,10 @@ model PublishedMaterialTag {
 
 model PublishedMaterialProductMembership {
   materialId String @map("material_id") @db.Uuid
-  seriesId   String @map("series_id") @db.Uuid
+  seriesId   String @map("product_id") @db.Uuid
 
-  @@id([materialId, seriesId], map: "published_material_series_primary")
-  @@map("published_material_series_memberships")
+  @@id([materialId, seriesId], map: "published_material_product_primary")
+  @@map("published_material_product_memberships")
   @@schema("products")
 }
 
@@ -1944,13 +1944,13 @@ model ProductTaskAuthorFeedback {
   @@schema("product_tasks")
 }
 
-model ProductCommunity {
+model HistoricalProductCommunityRecord {
   productId String @id @map("product_id") @db.Uuid
   groupRef String? @map("group_ref") @db.VarChar(100)
   updatedBy String @map("updated_by") @db.Uuid
   updatedAt DateTime @map("updated_at") @db.Timestamptz
 
-  @@map("product_communities")
+  @@map("historical_product_community_records")
   @@schema("telegram_membership")
 }
 

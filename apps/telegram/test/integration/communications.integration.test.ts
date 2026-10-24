@@ -59,7 +59,7 @@ import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-upd
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import { TELEGRAM_MESSAGES } from "../../src/modules/outbound/telegram-messages.js";
-import scenarios from "@inside/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
+import scenarios from "@inside/contracts/inside-communications-v2/scenarios.json" with { type: "json" };
 import type { CommunicationsBody } from "../support/communications-body.js";
 import { required } from "../support/required.js";
 registerFixedClock();
@@ -243,7 +243,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   setAuthorStep("reset fixture");
-  await sql`truncate communication_author_compositions, communication_author_drafts, communication_funnels, communication_intro, communication_sources, communication_author_sessions, communication_author_receipts, communication_author_outbox, communication_broadcasts, telegram_transport_slots, communication_intake_receipts, communication_operations, communication_templates, communication_author_modes,
+  await sql`truncate communication_author_compositions, communication_author_drafts, communication_sequences, communication_intro, communication_sources, communication_author_sessions, communication_author_receipts, communication_author_outbox, communication_broadcasts, telegram_transport_slots, communication_intake_receipts, communication_operations, communication_templates, communication_author_modes,
     link_transactions, platform_links, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries restart identity cascade`.execute(
     database,
   );
@@ -295,7 +295,7 @@ function http(
   return trackCaseWork(() =>
     app.inject({
       method: "POST",
-      url: "/integrations/platform/v1/communications",
+      url: "/integrations/platform/v2/communications",
       payload: JSON.stringify(body),
       headers: {
         "content-type": "application/json",
@@ -489,8 +489,8 @@ describe("versioned HTTP scenarios shared with consumer", () => {
       (
         await http({
           ...request(),
-          operation: "funnels.rollback",
-          payload: { funnelId: randomUUID(), publishedRevision: 1 },
+          operation: "sequences.rollback",
+          payload: { sequenceId: randomUUID(), publishedRevision: 1 },
         })
       ).statusCode,
     ).toBe(404);
@@ -1347,18 +1347,21 @@ describe("simple sequential authoring", () => {
     await authorMessage(109, "/cancel");
     expect(required((await sessionState()).broadcast).parts).toEqual(parts);
   });
-  it("saves a funnel as entry plus offsets from enrollment and allows a terminal agent to configure the same draft", async () => {
+  it("saves a sequence as entry plus offsets from participation and allows a terminal agent to configure the same draft", async () => {
     await beginSequence("Последовательности");
     await authorMessage(103, "Вход");
     await authorMessage(104, "1 час");
     expect(
-      required(required((await sessionState()).funnelAuthor).funnel).revision,
+      required(required((await sessionState()).sequenceAuthor).sequence)
+        .revision,
     ).toBe(0);
     await authorClick(105, "Сразу");
     await acceptPost(106, "Урок", "1 час");
     await acceptPost(107, "Предложение", "2 часа");
     await authorClick(108, "Готово");
-    const f = required(required((await sessionState()).funnelAuthor).funnel);
+    const f = required(
+      required((await sessionState()).sequenceAuthor).sequence,
+    );
     expect(f.entryResponse.parts).toHaveLength(1);
     expect(f.steps.map((s) => [s.delayAnchor, s.delaySeconds])).toEqual([
       ["entry", 3600],
@@ -1367,8 +1370,8 @@ describe("simple sequential authoring", () => {
     expect(f.publishedRevision).toBeNull();
     const r = await http({
       ...request(),
-      operation: "funnels.read",
-      payload: { funnelId: f.funnelId },
+      operation: "sequences.read",
+      payload: { sequenceId: f.sequenceId },
     });
     expect(r.statusCode).toBe(200);
     expect(contractValidator("response")(r.json<CommunicationsBody>())).toBe(
@@ -1376,10 +1379,10 @@ describe("simple sequential authoring", () => {
     );
     const saved = await http({
       ...request(),
-      operation: "funnels.save",
+      operation: "sequences.save",
       expectedRevision: f.revision,
       payload: {
-        funnelId: f.funnelId,
+        sequenceId: f.sequenceId,
         name: f.name,
         sources: f.sources,
         isDefault: f.isDefault,
@@ -1392,14 +1395,15 @@ describe("simple sequential authoring", () => {
     await authorClick(110, "Последовательности");
     await authorClick(111, "Вход · Черновик");
     expect(
-      required(required((await sessionState()).funnelAuthor).funnel).steps.map(
-        (s) => s.delaySeconds,
-      ),
+      required(
+        required((await sessionState()).sequenceAuthor).sequence,
+      ).steps.map((s) => s.delaySeconds),
     ).toEqual([7200, 7200]);
     await authorClick(112, "Отменить последовательность");
     await authorClick(113, "Да, отменить");
     expect(
-      required(required((await sessionState()).funnelAuthor).funnel).lifecycle,
+      required(required((await sessionState()).sequenceAuthor).sequence)
+        .lifecycle,
     ).toBe("archived");
   });
 });
@@ -1483,7 +1487,7 @@ it("restores the author menu below the delivered broadcast messages and never ex
 });
 
 it.each(["/cancel", "discard"])(
-  "sequence cancellation %s keeps the simple funnel card",
+  "sequence cancellation %s keeps the simple sequence card",
   async (mode) => {
     await beginSequence("Последовательности");
     await acceptPost(103, "Keep this entry", "сразу");
@@ -1498,7 +1502,7 @@ it.each(["/cancel", "discard"])(
     const state = await sessionState();
     expect(state.composing).toBeUndefined();
     expect(
-      required(required(state.funnelAuthor).funnel).entryResponse.parts,
+      required(required(state.sequenceAuthor).sequence).entryResponse.parts,
     ).toHaveLength(1);
     expect(required(state.menu).buttons.map(([label]) => label)).toContain(
       "Все последовательности",
@@ -1511,26 +1515,26 @@ it.each(["/cancel", "discard"])(
   },
 );
 
-describe("funnel settings in the bot", () => {
-  /** A saved bot funnel: «Вход» at entry, «Урок» one hour and «Задание» two hours after entry. */
-  async function savedFunnel() {
+describe("sequence settings in the bot", () => {
+  /** A saved bot sequence: «Вход» at entry, «Урок» one hour and «Задание» two hours after entry. */
+  async function savedSequence() {
     await beginSequence("Последовательности");
     await acceptPost(103, "Вход", "сразу");
     await acceptPost(104, "Урок", "1 час");
     await acceptPost(105, "Задание", "2 часа");
     await authorClick(106, "Готово");
-    return required(required((await sessionState()).funnelAuthor).funnel)
-      .funnelId;
+    return required(required((await sessionState()).sequenceAuthor).sequence)
+      .sequenceId;
   }
-  /** The funnel as the API and MCP read it. */
-  async function apiFunnel(funnelId: string) {
+  /** The sequence as the API and MCP read it. */
+  async function apiSequence(sequenceId: string) {
     const response = await http({
       ...request(),
-      operation: "funnels.read",
-      payload: { funnelId },
+      operation: "sequences.read",
+      payload: { sequenceId },
     });
     expect(response.statusCode).toBe(200);
-    return response.json<CommunicationsBody>().funnel;
+    return response.json<CommunicationsBody>().sequence;
   }
   const texts = (parts: readonly MessagePart[]) =>
     parts.map((p) => p.content.text);
@@ -1541,8 +1545,8 @@ describe("funnel settings in the bot", () => {
     await authorClick(id + 0.2, "Добавить в блок");
   }
 
-  it("saves the name, the main funnel and sources", async () => {
-    const funnelId = await savedFunnel();
+  it("saves the name, the main sequence and sources", async () => {
+    const sequenceId = await savedSequence();
     await authorClick(110, "Настройки");
     await authorClick(111, "Название");
     await authorMessage(112, "Весна");
@@ -1563,7 +1567,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(125, "К последовательности");
     await authorClick(126, "Сохранить черновик");
 
-    expect(await apiFunnel(funnelId)).toMatchObject({
+    expect(await apiSequence(sequenceId)).toMatchObject({
       name: "Весна",
       isDefault: true,
       sources: [{ name: "Канал", code: "m_channel" }],
@@ -1572,11 +1576,11 @@ describe("funnel settings in the bot", () => {
     await authorClick(127, "Настройки");
     await authorClick(128, "Убрать из основных");
     await authorClick(129, "Сохранить черновик");
-    expect((await apiFunnel(funnelId)).isDefault).toBe(false);
+    expect((await apiSequence(sequenceId)).isDefault).toBe(false);
   });
 
   it("saves added, retimed, moved and removed steps", async () => {
-    const funnelId = await savedFunnel();
+    const sequenceId = await savedSequence();
     await authorClick(110, "Настройки");
     await authorClick(111, "Шаги и задержки");
     await authorClick(112, "Добавить шаг");
@@ -1596,7 +1600,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(126, "К последовательности");
     await authorClick(127, "Сохранить черновик");
 
-    const f = await apiFunnel(funnelId);
+    const f = await apiSequence(sequenceId);
     expect(
       f.steps.map((s) => [texts(s.parts), s.delaySeconds, s.delayAnchor]),
     ).toEqual([
@@ -1606,21 +1610,21 @@ describe("funnel settings in the bot", () => {
   });
 
   it("saves the first response", async () => {
-    const funnelId = await savedFunnel();
+    const sequenceId = await savedSequence();
     await authorClick(110, "Настройки");
     await authorClick(111, "Первый ответ");
     await composeMessage(112, "Приветствие");
     await authorClick(113, "К последовательности");
     await authorClick(114, "Сохранить черновик");
 
-    expect(texts((await apiFunnel(funnelId)).entryResponse.parts)).toEqual([
+    expect(texts((await apiSequence(sequenceId)).entryResponse.parts)).toEqual([
       "Вход",
       "Приветствие",
     ]);
   });
 
   it("saves the time of a message", async () => {
-    const funnelId = await savedFunnel();
+    const sequenceId = await savedSequence();
     await authorClick(110, "Сообщения");
     await authorClick(111, "2. Через 1 ч · 📝 Текст · Урок");
     await authorClick(112, "Когда отправить");
@@ -1628,7 +1632,7 @@ describe("funnel settings in the bot", () => {
     await authorClick(114, "К последовательности");
     await authorClick(115, "Сохранить черновик");
 
-    const f = await apiFunnel(funnelId);
+    const f = await apiSequence(sequenceId);
     expect(f.steps.map((s) => [texts(s.parts), s.delaySeconds])).toEqual([
       [["Задание"], 7200],
       [["Урок"], 10800],
@@ -1636,7 +1640,7 @@ describe("funnel settings in the bot", () => {
   });
 
   it("saves the shared intro", async () => {
-    await savedFunnel();
+    await savedSequence();
     await authorClick(110, "Настройки");
     await authorClick(111, "Общий вводный блок");
     await composeMessage(112, "Добро пожаловать");
@@ -1838,9 +1842,9 @@ it.each(["Последовательности", "Рассылки"])(
     const id = "40000000-0000-4000-8000-000000000001";
     if (label === "Последовательности")
       await database
-        .insertInto("communication_funnels")
+        .insertInto("communication_sequences")
         .values({
-          funnel_id: id,
+          sequence_id: id,
           bot_identity: "inside",
           owner_account_ref: "synthetic-author",
           revision: 1,
@@ -1849,7 +1853,7 @@ it.each(["Последовательности", "Рассылки"])(
           is_default: false,
           published: null,
           draft: JSON.stringify({
-            funnelId: id,
+            sequenceId: id,
             name: "Synthetic list",
             isDefault: false,
             sources: [],

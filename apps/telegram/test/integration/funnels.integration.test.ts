@@ -104,7 +104,7 @@ const contentValidation = {
   ),
 };
 let app: NestFastifyApplication;
-let funnels: CommunicationSequences;
+let sequences: CommunicationSequences;
 let scheduler: SequenceScheduler;
 let entry: MarketingEntry;
 const responseValidator = contractValidator("response");
@@ -136,12 +136,12 @@ beforeAll(async () => {
   );
   await app.init();
   await app.getHttpAdapter().getInstance().ready();
-  funnels = app.get(CommunicationSequences);
+  sequences = app.get(CommunicationSequences);
   scheduler = app.get(SequenceScheduler);
   entry = app.get(MarketingEntry);
 });
 beforeEach(async () => {
-  await sql`truncate sign_in_requests, communication_funnels, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
+  await sql`truncate sign_in_requests, communication_sequences, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
     database,
   );
   now = new Date("2030-01-01T00:00:00Z");
@@ -172,7 +172,7 @@ function part(text: string): MessagePart {
 }
 function draft(name = "general", isDefault = true): CommunicationSequenceDraft {
   return {
-    funnelId: randomUUID(),
+    sequenceId: randomUUID(),
     name,
     isDefault,
     sources: [{ sourceId: randomUUID(), code: `m_${name}`, name }],
@@ -211,18 +211,18 @@ function http(
 ) {
   return app.inject({
     method: "POST",
-    url: "/integrations/platform/v1/communications",
+    url: "/integrations/platform/v2/communications",
     headers: { authorization: `Bearer ${secret}` },
     payload: request,
   });
 }
 async function setup(value = draft()) {
-  await funnels.execute(
+  await sequences.execute(
     command("intro.save", { introId: randomUUID(), parts: [part("intro")] }),
   );
-  await funnels.execute(command("funnels.save", value));
-  await funnels.execute(
-    command("funnels.publish", { funnelId: value.funnelId }, 1),
+  await sequences.execute(command("sequences.save", value));
+  await sequences.execute(
+    command("sequences.publish", { sequenceId: value.sequenceId }, 1),
   );
   return value;
 }
@@ -249,10 +249,14 @@ function deliveries() {
     .execute();
 }
 
-describe("funnel author contract", () => {
+describe("sequence author contract", () => {
   it("publishes immutable snapshots with competing revisions and replay after edits", async () => {
     const value = await setup();
-    const publish = command("funnels.publish", { funnelId: value.funnelId }, 2);
+    const publish = command(
+      "sequences.publish",
+      { sequenceId: value.sequenceId },
+      2,
+    );
     const responses = await Promise.all([http(publish), http(publish)]);
     for (const res of responses) {
       expect(res.statusCode).toBe(200);
@@ -267,8 +271,8 @@ describe("funnel author contract", () => {
       entryResponse: { ...value.entryResponse, parts: [part("edited")] },
     };
     const races = await Promise.all([
-      http(command("funnels.save", changed, 3)),
-      http(command("funnels.save", changed, 3)),
+      http(command("sequences.save", changed, 3)),
+      http(command("sequences.save", changed, 3)),
     ]);
     expect(races.map((r) => r.statusCode).sort()).toEqual([200, 409]);
     expect((await http(publish)).json<CommunicationsBody>()).toEqual(
@@ -277,7 +281,7 @@ describe("funnel author contract", () => {
     const persisted = await database
       .selectFrom("communication_publications")
       .select("snapshot")
-      .where("funnel_id", "=", value.funnelId)
+      .where("sequence_id", "=", value.sequenceId)
       .where("revision", "=", 3)
       .executeTakeFirstOrThrow();
     expect(persisted.snapshot).toEqual(value);
@@ -289,7 +293,7 @@ describe("funnel author contract", () => {
     expect(
       (
         await http({
-          ...command("funnels.read", { funnelId: value.funnelId }),
+          ...command("sequences.read", { sequenceId: value.sequenceId }),
           actor: { accountRef: "other" },
         })
       ).statusCode,
@@ -298,7 +302,7 @@ describe("funnel author contract", () => {
       (
         await http(
           command(
-            "funnels.save",
+            "sequences.save",
             {
               ...value,
               steps: [required(value.steps[0]), required(value.steps[0])],
@@ -311,7 +315,7 @@ describe("funnel author contract", () => {
     expect(
       (
         await http(
-          command("funnels.save", {
+          command("sequences.save", {
             ...draft("other", false),
             sources: value.sources,
           }),
@@ -321,7 +325,7 @@ describe("funnel author contract", () => {
     expect(
       (
         await http(
-          command("funnels.save", {
+          command("sequences.save", {
             ...draft(),
             sources: [
               {
@@ -337,7 +341,7 @@ describe("funnel author contract", () => {
     expect(
       (
         await http(
-          command("funnels.read", { funnelId: value.funnelId }),
+          command("sequences.read", { sequenceId: value.sequenceId }),
           "forged-secret",
         )
       ).statusCode,
@@ -359,7 +363,7 @@ describe("durable marketing entry and scheduling", () => {
     ).toHaveLength(2);
     expect(
       await database
-        .selectFrom("communication_enrollments")
+        .selectFrom("communication_participations")
         .selectAll()
         .execute(),
     ).toHaveLength(1);
@@ -383,12 +387,12 @@ describe("durable marketing entry and scheduling", () => {
       1,
     );
   });
-  it("advances from actual multipart completion across restarts and has no shared funnel daily cap", async () => {
+  it("advances from actual multipart completion across restarts and has no shared sequence daily cap", async () => {
     const a = await setup();
     const b = draft("topic", false);
-    await funnels.execute(command("funnels.save", b));
-    await funnels.execute(
-      command("funnels.publish", { funnelId: b.funnelId }, 1),
+    await sequences.execute(command("sequences.save", b));
+    await sequences.execute(
+      command("sequences.publish", { sequenceId: b.sequenceId }, 1),
     );
     await start("1");
     await start("2", "m_topic");
@@ -470,7 +474,7 @@ describe("durable marketing entry and scheduling", () => {
       ),
     ).toBe(true);
   });
-  it("keeps auth and malformed sign-in out of marketing and offers a fallback without enrollment", async () => {
+  it("keeps auth and malformed sign-in out of marketing and offers a fallback without participation", async () => {
     await setup();
     const webhook = app.get(TelegramWebhook);
     const processor = app.get(TelegramUpdateProcessor);
@@ -502,20 +506,20 @@ describe("durable marketing entry and scheduling", () => {
     expect(sent.at(-1)?.offerStart).toBe(true);
     expect(
       await database
-        .selectFrom("communication_enrollments")
+        .selectFrom("communication_participations")
         .selectAll()
         .execute(),
     ).toHaveLength(0);
   });
-  it("archives a source without resetting its enrollment history", async () => {
+  it("archives a source without resetting its participation history", async () => {
     const value = await setup();
     await start();
     await scheduler.processAvailable();
     await tick();
-    await funnels.execute(
+    await sequences.execute(
       command(
-        "funnels.lifecycle",
-        { funnelId: value.funnelId, action: "archive" },
+        "sequences.lifecycle",
+        { sequenceId: value.sequenceId, action: "archive" },
         2,
       ),
     );
@@ -525,7 +529,7 @@ describe("durable marketing entry and scheduling", () => {
     expect(sent.some((m) => m.content.text === "general:step1")).toBe(false);
     expect(
       await database
-        .selectFrom("communication_enrollments")
+        .selectFrom("communication_participations")
         .selectAll()
         .execute(),
     ).toHaveLength(1);
@@ -984,15 +988,15 @@ describe("recovery and completion serialization", () => {
 
 async function publish(value: CommunicationSequenceDraft) {
   const current = await database
-    .selectFrom("communication_funnels")
+    .selectFrom("communication_sequences")
     .select("revision")
-    .where("funnel_id", "=", value.funnelId)
+    .where("sequence_id", "=", value.sequenceId)
     .executeTakeFirstOrThrow();
-  await funnels.execute(command("funnels.save", value, current.revision));
-  return funnels.execute(
+  await sequences.execute(command("sequences.save", value, current.revision));
+  return sequences.execute(
     command(
-      "funnels.publish",
-      { funnelId: value.funnelId },
+      "sequences.publish",
+      { sequenceId: value.sequenceId },
       current.revision + 1,
     ),
   );
@@ -1139,8 +1143,8 @@ describe("published audience updates and subscriber preferences #29", () => {
     expect(required(deleted.parts[0]).state).toBe("cancelled");
     const res = await http(
       command(
-        "funnels.rollback",
-        { funnelId: value.funnelId, publishedRevision: 2 },
+        "sequences.rollback",
+        { sequenceId: value.sequenceId, publishedRevision: 2 },
         4,
       ),
     );
@@ -1278,9 +1282,9 @@ describe("published audience updates and subscriber preferences #29", () => {
   it("resume before any due preserves the existing deadline; stop does not remove themes or block requested navigation", async () => {
     const a = await initialComplete();
     const b = draft("topic", false);
-    await funnels.execute(command("funnels.save", b));
-    await funnels.execute(
-      command("funnels.publish", { funnelId: b.funnelId }, 1),
+    await sequences.execute(command("sequences.save", b));
+    await sequences.execute(
+      command("sequences.publish", { sequenceId: b.sequenceId }, 1),
     );
     await preference(false, "10");
     await start("11", "m_topic");
@@ -1303,7 +1307,7 @@ describe("published audience updates and subscriber preferences #29", () => {
     expect(pending.due_at).toEqual(new Date("2030-01-01T00:00:11Z"));
     expect(
       await database
-        .selectFrom("communication_enrollments")
+        .selectFrom("communication_participations")
         .selectAll()
         .execute(),
     ).toHaveLength(2);
@@ -1336,8 +1340,8 @@ describe("published audience updates and subscriber preferences #29", () => {
     ).toEqual(new Date("2030-01-01T00:02:11Z"));
     const rollback = await http(
       command(
-        "funnels.rollback",
-        { funnelId: value.funnelId, publishedRevision: 4 },
+        "sequences.rollback",
+        { sequenceId: value.sequenceId, publishedRevision: 4 },
         4,
       ),
     );
@@ -1372,19 +1376,19 @@ describe("published audience updates and subscriber preferences #29", () => {
         ).parts[0],
       ).state,
     ).toBe("suppressed");
-    await funnels.execute(
+    await sequences.execute(
       command(
-        "funnels.lifecycle",
-        { funnelId: value.funnelId, action: "pause" },
+        "sequences.lifecycle",
+        { sequenceId: value.sequenceId, action: "pause" },
         2,
       ),
     );
     await tick(100);
     expect(sent).toHaveLength(2);
-    await funnels.execute(
+    await sequences.execute(
       command(
-        "funnels.lifecycle",
-        { funnelId: value.funnelId, action: "resume" },
+        "sequences.lifecycle",
+        { sequenceId: value.sequenceId, action: "resume" },
         3,
       ),
     );
@@ -1578,7 +1582,7 @@ describe("preference and publication crash/race boundaries #29", () => {
   });
 });
 
-it("keeps first-entry intro suppressed when the subscriber stopped before enrollment", async () => {
+it("keeps first-entry intro suppressed when the subscriber stopped before participation", async () => {
   const value = await setup();
   await app.get(BotContacts).observeStart(
     {
@@ -1627,9 +1631,9 @@ describe("publication preview #34", () => {
         added,
       ],
     };
-    await funnels.execute(command("funnels.save", edited, 2));
+    await sequences.execute(command("sequences.save", edited, 2));
     const before = await database
-      .selectFrom("communication_funnels")
+      .selectFrom("communication_sequences")
       .selectAll()
       .execute();
     const operations = await database
@@ -1638,7 +1642,7 @@ describe("publication preview #34", () => {
       .execute();
     const sendCount = sent.length;
     const response = await http(
-      command("funnels.preview", { funnelId: value.funnelId }, 3),
+      command("sequences.preview", { sequenceId: value.sequenceId }, 3),
     );
     expect(response.statusCode).toBe(200);
     expect(responseValidator(response.json<CommunicationsBody>())).toBe(true);
@@ -1656,7 +1660,10 @@ describe("publication preview #34", () => {
     });
     expect(await deliveries()).toEqual(oldHistory);
     expect(
-      await database.selectFrom("communication_funnels").selectAll().execute(),
+      await database
+        .selectFrom("communication_sequences")
+        .selectAll()
+        .execute(),
     ).toEqual(before);
     expect(
       await database
@@ -1670,7 +1677,7 @@ describe("publication preview #34", () => {
       .set({ marketing_enabled: false })
       .execute();
     const stopped = await http(
-      command("funnels.preview", { funnelId: value.funnelId }, 3),
+      command("sequences.preview", { sequenceId: value.sequenceId }, 3),
     );
     expect(stopped.json<CommunicationsBody>().preview).toMatchObject({
       eligibleContacts: 0,
@@ -1686,23 +1693,29 @@ describe("publication preview #34", () => {
       ...value,
       steps: [{ ...required(value.steps[0]), parts: [part("edit")] }],
     };
-    await funnels.execute(command("funnels.save", edited, 2));
+    await sequences.execute(command("sequences.save", edited, 2));
     expect(
-      (await http(command("funnels.preview", { funnelId: value.funnelId }, 2)))
-        .statusCode,
+      (
+        await http(
+          command("sequences.preview", { sequenceId: value.sequenceId }, 2),
+        )
+      ).statusCode,
     ).toBe(409);
     const foreign = {
-      ...command("funnels.preview", { funnelId: value.funnelId }, 3),
+      ...command("sequences.preview", { sequenceId: value.sequenceId }, 3),
       actor: { accountRef: "synthetic-other" },
     };
     expect((await http(foreign)).statusCode).toBe(404);
     authorization.authorize.mockResolvedValueOnce("denied");
     expect(
-      (await http(command("funnels.preview", { funnelId: value.funnelId }, 3)))
-        .statusCode,
+      (
+        await http(
+          command("sequences.preview", { sequenceId: value.sequenceId }, 3),
+        )
+      ).statusCode,
     ).toBe(403);
     const result = await http(
-      command("funnels.preview", { funnelId: value.funnelId }, 3),
+      command("sequences.preview", { sequenceId: value.sequenceId }, 3),
     );
     expect(result.json<CommunicationsBody>().preview).toMatchObject({
       eligibleContacts: 0,
@@ -1721,15 +1734,15 @@ it("preview does not call a removed unknown lane completed", async () => {
   const withoutUnknown = { ...value, steps: [required(value.steps[0])] };
   await publish(withoutUnknown);
   const added = { stepId: randomUUID(), delaySeconds: 10, parts: [part("C")] };
-  await funnels.execute(
+  await sequences.execute(
     command(
-      "funnels.save",
+      "sequences.save",
       { ...withoutUnknown, steps: [...withoutUnknown.steps, added] },
       4,
     ),
   );
   const response = await http(
-    command("funnels.preview", { funnelId: value.funnelId }, 5),
+    command("sequences.preview", { sequenceId: value.sequenceId }, 5),
   );
   expect(response.statusCode).toBe(200);
   expect(response.json<CommunicationsBody>().preview).toMatchObject({
@@ -1738,7 +1751,7 @@ it("preview does not call a removed unknown lane completed", async () => {
   });
 });
 
-describe("entry-anchored funnel schedule", () => {
+describe("entry-anchored sequence schedule", () => {
   it("keeps +1h/+2h anchored to entry even when the first hour delivery is late", async () => {
     const value: CommunicationSequenceDraft = {
       ...draft("anchored"),
@@ -1771,27 +1784,27 @@ describe("entry-anchored funnel schedule", () => {
   });
   it("archives and restores an unpublished draft without activating it", async () => {
     const value = draft();
-    await http(command("funnels.save", value));
+    await http(command("sequences.save", value));
     const archived = await http(
       command(
-        "funnels.lifecycle",
-        { funnelId: value.funnelId, action: "archive" },
+        "sequences.lifecycle",
+        { sequenceId: value.sequenceId, action: "archive" },
         1,
       ),
     );
     expect(archived.statusCode).toBe(200);
-    expect(archived.json<CommunicationsBody>().funnel.lifecycle).toBe(
+    expect(archived.json<CommunicationsBody>().sequence.lifecycle).toBe(
       "archived",
     );
     const restored = await http(
       command(
-        "funnels.lifecycle",
-        { funnelId: value.funnelId, action: "restore" },
+        "sequences.lifecycle",
+        { sequenceId: value.sequenceId, action: "restore" },
         2,
       ),
     );
     expect(restored.statusCode).toBe(200);
-    expect(restored.json<CommunicationsBody>().funnel).toMatchObject({
+    expect(restored.json<CommunicationsBody>().sequence).toMatchObject({
       lifecycle: "draft",
       publishedRevision: null,
     });
@@ -1799,7 +1812,7 @@ describe("entry-anchored funnel schedule", () => {
     await tick(7200);
     expect(
       await database
-        .selectFrom("communication_enrollments")
+        .selectFrom("communication_participations")
         .selectAll()
         .execute(),
     ).toHaveLength(0);
@@ -1819,13 +1832,13 @@ describe("historical rollback content validation", () => {
           parts: [part("current safe target")],
         },
       };
-      await funnels.execute(command("funnels.save", current, 2));
-      await funnels.execute(
-        command("funnels.publish", { funnelId: old.funnelId }, 3),
+      await sequences.execute(command("sequences.save", current, 2));
+      await sequences.execute(
+        command("sequences.publish", { sequenceId: old.sequenceId }, 3),
       );
       const rollback = command(
-        "funnels.rollback",
-        { funnelId: old.funnelId, publishedRevision: 2 },
+        "sequences.rollback",
+        { sequenceId: old.sequenceId, publishedRevision: 2 },
         4,
       );
       contentValidation.validate.mockResolvedValue({
@@ -1843,11 +1856,11 @@ describe("historical rollback content validation", () => {
         { kind: "account", accountRef: "synthetic-author" },
         [old.entryResponse, ...old.steps].flatMap((step) => step.parts),
       );
-      const read = await funnels.execute(
-        command("funnels.read", { funnelId: old.funnelId }),
+      const read = await sequences.execute(
+        command("sequences.read", { sequenceId: old.sequenceId }),
       );
       expect(read).toMatchObject({
-        funnel: {
+        sequence: {
           revision: 4,
           publishedRevision: 4,
           entryResponse: current.entryResponse,
@@ -1857,7 +1870,7 @@ describe("historical rollback content validation", () => {
         await database
           .selectFrom("communication_publications")
           .selectAll()
-          .where("funnel_id", "=", old.funnelId)
+          .where("sequence_id", "=", old.sequenceId)
           .execute(),
       ).toHaveLength(2);
       expect(
@@ -1874,7 +1887,7 @@ describe("historical rollback content validation", () => {
       const success = await http(rollback);
       expect(success.statusCode).toBe(200);
       expect(success.json<CommunicationsBody>()).toMatchObject({
-        funnel: {
+        sequence: {
           revision: 5,
           publishedRevision: 5,
           entryResponse: old.entryResponse,
@@ -1902,18 +1915,92 @@ describe("historical rollback content validation", () => {
         (
           await http(
             command(
-              "funnels.rollback",
-              { funnelId: old.funnelId, publishedRevision: 2 },
+              "sequences.rollback",
+              { sequenceId: old.sequenceId, publishedRevision: 2 },
               2,
             ),
           )
         ).statusCode,
       ).toBe(status === "denied" ? 403 : 503);
       expect(
-        await funnels.execute(
-          command("funnels.read", { funnelId: old.funnelId }),
+        await sequences.execute(
+          command("sequences.read", { sequenceId: old.sequenceId }),
         ),
-      ).toMatchObject({ funnel: { revision: 2 } });
+      ).toMatchObject({ sequence: { revision: 2 } });
     },
   );
+});
+
+it("reads an immutable historical operation receipt without executing its retired command or crossing the author boundary", async () => {
+  const originalId = randomUUID();
+  const { sequenceId, ...facts } = draft("Historical receipt");
+  const originalRequest = {
+    contractVersion: "inside-communications-v1",
+    operation: "funnels.save",
+    operationId: originalId,
+    expectedRevision: 0,
+    actor: { accountRef: "synthetic-author" },
+    payload: { ...facts, funnelId: sequenceId },
+  };
+  const originalResult = {
+    funnel: {
+      ...facts,
+      funnelId: sequenceId,
+      revision: 1,
+      publishedRevision: null,
+      lifecycle: "draft",
+    },
+  };
+  await database
+    .insertInto("communication_operations")
+    .values({
+      bot_identity: config.botIdentity,
+      operation_id: originalId,
+      actor_account_ref: "synthetic-author",
+      request: JSON.stringify(originalRequest),
+      result: JSON.stringify(originalResult),
+      created_at: now,
+    })
+    .execute();
+  const query = command("receipts.read", { receiptOperationId: originalId });
+  for (let i = 0; i < 2; i++) {
+    const response = await http(query);
+    expect(response.statusCode).toBe(200);
+    const validReceipt = contractValidator<{
+      receipt: { operationId: string; requestJson: string; resultJson: string };
+    }>("response");
+    const body: unknown = response.json();
+    if (!validReceipt(body))
+      throw new Error("Invalid historical receipt response");
+    expect(body.receipt.operationId).toBe(originalId);
+    expect(JSON.parse(body.receipt.requestJson)).toEqual(originalRequest);
+    expect(JSON.parse(body.receipt.resultJson)).toEqual(originalResult);
+  }
+  expect(
+    (await http({ ...query, actor: { accountRef: "other" } })).statusCode,
+  ).toBe(404);
+  expect(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/integrations/platform/v2/communications",
+        headers: { authorization: `Bearer ${config.communicationsSecret}` },
+        payload: originalRequest,
+      })
+    ).statusCode,
+  ).toBe(400);
+  expect(
+    (
+      await app.inject({
+        method: "POST",
+        url: "/integrations/platform/v1/communications",
+        headers: { authorization: `Bearer ${config.communicationsSecret}` },
+        payload: originalRequest,
+      })
+    ).statusCode,
+  ).toBe(404);
+  expect(
+    await database.selectFrom("communication_sequences").selectAll().execute(),
+  ).toEqual([]);
+  expect(sent).toEqual([]);
 });

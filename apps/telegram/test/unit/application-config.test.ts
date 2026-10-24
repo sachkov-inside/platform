@@ -39,7 +39,7 @@ describe("application configuration", () => {
         "synthetic-authorization-secret-for-tests",
     };
     const url =
-      "https://platform.test/integrations/telegram/v1/communications/validate-content";
+      "https://platform.test/integrations/telegram/v2/communications/validate-content";
     expect(
       loadApplicationConfig({
         ...authorization,
@@ -406,39 +406,54 @@ describe("application configuration", () => {
     expect(
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_PRODUCT_ID: productId,
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
+        PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId,
       }).communityWelcomeCohort,
-    ).toEqual({ url: "https://platform.test/billing/cohorts", productId });
+    ).toEqual({
+      url: "https://platform.test/billing/product-sales-states",
+      productId,
+    });
     // Existing deployment configuration stays valid when Platform ships first.
     expect(
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
         PLATFORM_COHORT_GUIDE_ID: productId,
       }).communityWelcomeCohort,
-    ).toEqual({ url: "https://platform.test/billing/cohorts", productId });
+    ).toEqual({
+      url: "https://platform.test/billing/product-sales-states",
+      productId,
+    });
     for (const partial of [
-      { PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts" },
-      { PLATFORM_COHORT_PRODUCT_ID: productId },
+      {
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
+      },
+      { PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId },
     ])
       expect(() =>
         loadApplicationConfig({ ...validEnvironment, ...partial }),
-      ).toThrow("PLATFORM_COHORTS_URL and PLATFORM_COHORT_PRODUCT_ID");
+      ).toThrow(
+        "PLATFORM_PRODUCT_SALES_STATES_URL and PLATFORM_PRODUCT_SALES_PRODUCT_ID",
+      );
     expect(() =>
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_PRODUCT_ID: "ai-engineering",
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "https://platform.test/billing/product-sales-states",
+        PLATFORM_PRODUCT_SALES_PRODUCT_ID: "ai-engineering",
       }),
-    ).toThrow("PLATFORM_COHORT_PRODUCT_ID must be a UUID");
+    ).toThrow("PLATFORM_PRODUCT_SALES_PRODUCT_ID must be a UUID");
     expect(() =>
       loadApplicationConfig({
         ...validEnvironment,
-        PLATFORM_COHORTS_URL: "http://platform.test/billing/cohorts",
-        PLATFORM_COHORT_PRODUCT_ID: productId,
+        PLATFORM_PRODUCT_SALES_STATES_URL:
+          "http://platform.test/billing/product-sales-states",
+        PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId,
       }),
-    ).toThrow("PLATFORM_COHORTS_URL");
+    ).toThrow("PLATFORM_PRODUCT_SALES_STATES_URL");
   });
 
   it("keeps membership check history for the owner's 90 days unless configured within bounds", () => {

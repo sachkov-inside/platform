@@ -29,7 +29,7 @@ export class ProductDiscovery {
   constructor(private readonly prisma: ProductsPrismaClient) {}
 
   async homePin() {
-    const pin = await this.prisma.homeSeriesPin.findUniqueOrThrow({
+    const pin = await this.prisma.homeProductPin.findUniqueOrThrow({
       where: { id: 1 },
       select: { seriesId: true },
     });
@@ -106,8 +106,8 @@ export class ProductDiscovery {
         select product.id, product.slug, product.name,
           coalesce(array_agg(membership.material_id order by membership.material_id)
             filter (where membership.material_id is not null), array[]::uuid[]) as "materialIds"
-        from products.series as product
-        left join products.published_material_series_memberships as membership on membership.series_id = product.id
+        from products.products as product
+        left join products.published_material_product_memberships as membership on membership.product_id = product.id
         where product.archived_at is null
         group by product.id
         order by product.name, product.id
@@ -144,37 +144,37 @@ export class ProductDiscovery {
         select product_id, max(ordinal) as ordinal
         from products.product_programme_placements group by product_id
       ), catalogue as (
-        select membership.series_id, membership.material_id,
+        select membership.product_id, membership.material_id,
           coalesce(placement.ordinal,
             coalesce(maximum.ordinal, 0) + row_number() over (
-              partition by membership.series_id, placement.id is null
+              partition by membership.product_id, placement.id is null
               order by membership.material_id
             ))::integer as ordinal,
           placement.chapter_id, placement.step_group
-        from products.series_memberships membership
+        from products.product_memberships membership
         left join primary_programme placement
-          on placement.product_id = membership.series_id
+          on placement.product_id = membership.product_id
           and placement.material_id = membership.material_id
-        left join programme_maximum maximum on maximum.product_id = membership.series_id
+        left join programme_maximum maximum on maximum.product_id = membership.product_id
       )
       select
         coalesce((select jsonb_agg(jsonb_build_object(
           'id', product.id, 'createdAt', product.created_at, 'name', product.name,
           'slug', product.slug, 'summary', product.summary,
           'archivedAt', product.archived_at, 'coverId', product.cover_id
-        ) order by product.id) from products.series product), '[]'::jsonb) as products,
+        ) order by product.id) from products.products product), '[]'::jsonb) as products,
         coalesce((select jsonb_agg(jsonb_build_object(
-          'seriesId', membership.series_id, 'materialId', membership.material_id,
+          'seriesId', membership.product_id, 'materialId', membership.material_id,
           'ordinal', membership.ordinal, 'chapterId', membership.chapter_id,
           'stepGroup', membership.step_group
-        ) order by membership.series_id, membership.material_id)
+        ) order by membership.product_id, membership.material_id)
           from catalogue membership), '[]'::jsonb) as memberships,
         coalesce((select jsonb_agg(jsonb_build_object(
-          'seriesId', published.series_id, 'materialId', published.material_id,
+          'seriesId', published.product_id, 'materialId', published.material_id,
           'ordinal', coalesce(membership.ordinal, 1)
-        ) order by published.series_id, published.material_id)
-          from products.published_material_series_memberships published
-          left join catalogue membership on membership.series_id = published.series_id
+        ) order by published.product_id, published.material_id)
+          from products.published_material_product_memberships published
+          left join catalogue membership on membership.product_id = published.product_id
             and membership.material_id = published.material_id), '[]'::jsonb) as "publishedMemberships"
     `),
     );

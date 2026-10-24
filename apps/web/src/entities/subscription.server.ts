@@ -11,8 +11,8 @@ export { handleBillingConsents } from "./subscription/api/billing-consents.serve
 export {
   loadBillingOffers,
   loadViewerBillingOffers,
-  loadProductCohort,
-  loadProductCohorts,
+  loadProductSalesState,
+  loadProductSalesStates,
   loadProductOffers,
   type CatalogQuery,
   type OffersResult,

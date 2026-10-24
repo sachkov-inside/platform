@@ -128,7 +128,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  await sql`truncate sales_funnel_event_outbox, communication_funnels, communication_intro, communication_operations, communication_contacts, communication_preferences, communication_entries, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries, membership_checks, identity_link_recoveries, identity_link_events, platform_links, link_transactions, telegram_identity_reservations cascade`.execute(
+  await sql`truncate sales_funnel_event_outbox, communication_sequences, communication_intro, communication_operations, communication_contacts, communication_preferences, communication_entries, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries, membership_checks, identity_link_recoveries, identity_link_events, platform_links, link_transactions, telegram_identity_reservations cascade`.execute(
     database,
   );
   now = new Date("2030-01-01T00:00:00.000Z");
@@ -144,13 +144,13 @@ afterAll(async () => {
   await database.destroy();
 });
 
-async function publishDefaultFunnel(): Promise<void> {
+async function publishDefaultSequence(): Promise<void> {
   const part = (text: string) => ({
     partId: randomUUID(),
     content: { type: "text" as const, text, entities: [], buttons: [] },
   });
-  const funnel: CommunicationSequenceDraft = {
-    funnelId: randomUUID(),
+  const sequence: CommunicationSequenceDraft = {
+    sequenceId: randomUUID(),
     name: "survey",
     isDefault: true,
     sources: [{ sourceId: randomUUID(), code: "m_survey", name: "survey" }],
@@ -169,13 +169,13 @@ async function publishDefaultFunnel(): Promise<void> {
     actor: { accountRef: "synthetic-author" },
     payload,
   });
-  const funnels = app.get(CommunicationSequences);
-  await funnels.execute(
+  const sequences = app.get(CommunicationSequences);
+  await sequences.execute(
     command("intro.save", { introId: randomUUID(), parts: [part("intro")] }),
   );
-  await funnels.execute(command("funnels.save", funnel));
-  await funnels.execute(
-    command("funnels.publish", { funnelId: funnel.funnelId }, 1),
+  await sequences.execute(command("sequences.save", sequence));
+  await sequences.execute(
+    command("sequences.publish", { sequenceId: sequence.sequenceId }, 1),
   );
 }
 
@@ -254,9 +254,9 @@ async function link(user: string, account = "account-ref-a") {
   });
 }
 
-describe("sales funnel events", () => {
+describe("sales sequence events", () => {
   it("reports a labelled and an unlabelled /start once each, even when an update replays", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start m_survey", 42, 1);
     await send(privateStartUpdate(1, 42, { text: "/start m_survey" }), 1);
     await text("/start", 42, 2);
@@ -280,7 +280,7 @@ describe("sales funnel events", () => {
   });
 
   it("reports explicit commands while retired consent buttons cannot restore stop", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start");
     await text("/stop");
     await consentPress();
@@ -312,7 +312,7 @@ describe("sales funnel events", () => {
   });
 
   it("starts the published sequence without a consent prompt or a synthetic consent fact", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start m_survey");
     const result = await app.get(CommunicationSequences).execute({
       contractVersion: COMMUNICATIONS_VERSION,
@@ -425,7 +425,7 @@ describe("sales funnel events", () => {
   );
 
   it("reports a confirmed link, including one of a bot contact from before communication records", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start", 42);
     const linked = await link("42");
     if (linked.status !== "linked") throw new Error("not linked");
@@ -541,7 +541,7 @@ describe("sales funnel events", () => {
   });
 
   it("delivers every event to Platform once, retries through a Platform failure and never sends Telegram ids", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start m_survey", 987654321);
     await text("/stop", 987654321);
     await link("987654321");
@@ -568,7 +568,7 @@ describe("sales funnel events", () => {
   });
 
   it("recognises a repeated delivery as a duplicate and logs a changed one as a contract conflict", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start m_survey");
     const delivery = app.get(SalesFunnelDeliveryProcessor);
     await expect(delivery.processNext(now)).resolves.toBe("delivered");
@@ -613,7 +613,7 @@ describe("migration 029 backfill", () => {
   afterAll(() => migrateToLatest(database));
 
   it("queues past entries, explicit preferences and links under the application's event ids", async () => {
-    await publishDefaultFunnel();
+    await publishDefaultSequence();
     await text("/start m_survey", 42, 7);
     await text("/stop", 42, 8);
     const linked = await link("42");

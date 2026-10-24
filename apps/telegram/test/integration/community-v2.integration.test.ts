@@ -245,7 +245,7 @@ describe("community v2 exact target, moderation and durable effects", () => {
   ])(
     "removes a member whose finite access ended only when removals are enabled (%s)",
     async (removalsEnabled, bans) => {
-      // A gift or manual Enrollment ends: Platform sends denied at the boundary (Platform #909).
+      // A gift or manual Participation ends: Platform sends denied at the boundary (Platform #909).
       const s = await stand({ removalsEnabled });
       s.chat.membership = "member";
       await s.set({ kind: "finite", validUntil: "2099-01-01T00:00:00Z" });

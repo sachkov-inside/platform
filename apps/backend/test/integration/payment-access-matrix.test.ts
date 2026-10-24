@@ -523,7 +523,7 @@ describe("оплата, выдача прав и доступ к материа�
     return { offerId: productId, optionId: productId };
   }
   async function productOffer() {
-    await db.prisma.productCommunity.upsert({
+    await db.prisma.historicalProductCommunityRecord.upsert({
       where: { productId: productA },
       create: {
         productId: productA,

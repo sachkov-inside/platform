@@ -8,7 +8,7 @@ import {
   type ComposerState,
 } from "./author-dialog.js";
 
-type Kind = "broadcast" | "funnel" | "intro";
+type Kind = "broadcast" | "sequence" | "intro";
 export function drafts(c: Context) {
   return c.tx
     .selectFrom("communication_author_drafts")
@@ -49,7 +49,7 @@ export async function removeAuthorDraft(c: Context, id: string) {
     .where("draft_id", "=", id)
     .execute();
 }
-/** Keeps an edited funnel or intro as a draft, and drops the draft of an unchanged one. */
+/** Keeps an edited sequence or intro as a draft, and drops the draft of an unchanged one. */
 export async function retainSequenceDraft(
   c: Context,
   s: AuthorSequenceState | undefined,
@@ -61,10 +61,10 @@ export async function retainSequenceDraft(
           kind: "intro" as const,
           name: "Общий вводный блок",
         }
-      : s?.funnel && {
-          id: s.funnel.funnelId,
-          kind: "funnel" as const,
-          name: s.funnel.name,
+      : s?.sequence && {
+          id: s.sequence.sequenceId,
+          kind: "sequence" as const,
+          name: s.sequence.name,
         };
   if (!s || !draft) return;
   if (isTruthy(s.dirty))

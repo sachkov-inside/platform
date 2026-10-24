@@ -129,9 +129,9 @@ export class SequenceScheduler {
   ) {}
   async assertConfigured(): Promise<void> {
     if (!this.config.marketingEnabled) return;
-    const defaultFunnel = await this.database
-      .selectFrom("communication_funnels")
-      .select("funnel_id")
+    const defaultSequence = await this.database
+      .selectFrom("communication_sequences")
+      .select("sequence_id")
       .where("bot_identity", "=", this.config.botIdentity)
       .where("is_default", "=", true)
       .where("lifecycle", "=", "published")
@@ -141,9 +141,9 @@ export class SequenceScheduler {
       .select("bot_identity")
       .where("bot_identity", "=", this.config.botIdentity)
       .executeTakeFirst();
-    if (!defaultFunnel || !intro)
+    if (!defaultSequence || !intro)
       throw new Error(
-        "Marketing requires a published default funnel and common intro",
+        "Marketing requires a published default sequence and common intro",
       );
   }
   async processAvailable(limit = 25, signal?: AbortSignal): Promise<number> {
@@ -231,7 +231,7 @@ export class SequenceScheduler {
           offerStart: claimed.delivery.kind === "fallback",
         });
       } catch (error) {
-        reportFailure("communications.funnel-send", error, {
+        reportFailure("communications.sequence-send", error, {
           delivery_id: claimed.delivery.delivery_id,
         });
         result = { kind: "transport_unknown" };
@@ -247,7 +247,7 @@ export class SequenceScheduler {
     return processed;
   }
   // Once per cycle and outside claims: recover lost claims, launch armed broadcasts and complete
-  // finished ones. Funnel timelines are replanned by the events that change them, so no claim
+  // finished ones. Sequence timelines are replanned by the events that change them, so no claim
   // scans the audience.
   private async plan(): Promise<void> {
     await this.materialAnnouncements?.plan();
@@ -363,12 +363,12 @@ export class SequenceScheduler {
       )
       .where((eb) =>
         eb.or([
-          eb("d.funnel_id", "is", null),
+          eb("d.sequence_id", "is", null),
           eb.exists(
             eb
-              .selectFrom("communication_funnels as f")
-              .select("f.funnel_id")
-              .whereRef("f.funnel_id", "=", "d.funnel_id")
+              .selectFrom("communication_sequences as f")
+              .select("f.sequence_id")
+              .whereRef("f.sequence_id", "=", "d.sequence_id")
               .where("f.lifecycle", "=", "published"),
           ),
         ]),
@@ -418,7 +418,7 @@ export class SequenceScheduler {
           )
         )
           return { kind: "capacity_busy" } as const;
-        // Replies to a contact's own /start go ahead of the funnel and broadcast backlog.
+        // Replies to a contact's own /start go ahead of the sequence and broadcast backlog.
         for (const queue of [REPLY_KINDS, BACKLOG_KINDS]) {
           const outcome = await this.claimFrom(tx, resumeAfter, queue, now);
           if (outcome.kind !== "skipped") return outcome;
@@ -825,7 +825,7 @@ export class SequenceScheduler {
         );
     });
   }
-  // The part to send now, or undefined while broadcast offsets, the funnel lane or the intro
+  // The part to send now, or undefined while broadcast offsets, the sequence lane or the intro
   // hold this delivery.
   private async nextPart(
     tx: Transaction<DatabaseSchema>,
@@ -852,21 +852,21 @@ export class SequenceScheduler {
       )
         return undefined;
     }
-    if (hasText(delivery.funnel_id)) {
-      const funnel = await tx
-        .selectFrom("communication_funnels")
+    if (hasText(delivery.sequence_id)) {
+      const sequence = await tx
+        .selectFrom("communication_sequences")
         .selectAll()
-        .where("funnel_id", "=", delivery.funnel_id)
+        .where("sequence_id", "=", delivery.sequence_id)
         .forShare()
         .executeTakeFirstOrThrow();
       if (delivery.kind === "step" && !started(delivery)) {
-        const draft = funnel.published;
+        const draft = sequence.published;
         if (!draft) return undefined;
         const history = await tx
           .selectFrom("communication_deliveries")
           .selectAll()
           .where("contact_id", "=", delivery.contact_id)
-          .where("funnel_id", "=", delivery.funnel_id)
+          .where("sequence_id", "=", delivery.sequence_id)
           .execute();
         if (
           history.some(
