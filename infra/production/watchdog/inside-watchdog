@@ -98,6 +98,34 @@ run_dir="$(mktemp -d "$state_dir/run.XXXXXX")"
 trap 'rm -r "$run_dir"' EXIT
 observations="$run_dir/observations"
 mkdir "$observations"
+metrics_enabled=true
+mkdir "$run_dir/metrics" || metrics_enabled=false
+
+# Closed numeric cache of observations ALREADY read below. Never export SQL rows, log text,
+# credentials, container names or user identifiers. Missing checks remain unknown; zero is
+# published only when a source actually returned that zero. No extra acquisition is performed.
+snapshot_value() {
+  local check="$1" value="$2"
+  [[ "$metrics_enabled" == true ]] || return 0
+  [[ "$value" =~ ^[0-9]+$ && ${#value} -le 15 ]] || return 0
+  case "$check" in
+    purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|\
+    web_telemetry_growth|web_telemetry_digest|web_telemetry_size|web_telemetry_dropped|web_telemetry_retention|\
+    community_operations|telegram_ready|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|\
+    telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset|\
+    telegram_webhook_pending|telegram_webhook_last_error_timestamp_seconds|backup_last_success_timestamp_seconds|\
+    backup_timer_incr|backup_timer_diff|backup_timer_full|backup_success_incr|backup_success_diff|backup_success_full|\
+    host_available_memory_bytes|host_disk_used_percent|container_down|container_unhealthy|container_oom|\
+    source_containers|source_backups|source_platform_database|source_telegram_database|source_telegram_metrics|source_telegram_webhook)
+      printf 'inside_watchdog_value{check="%s"} %s\ninside_watchdog_observed_at_seconds{check="%s"} %s\n' \
+        "$check" "$value" "$check" "$now" >"$run_dir/metrics/$check" || metrics_enabled=false ;;
+
+  esac
+  return 0
+}
+for source in containers backups platform_database telegram_database telegram_metrics telegram_webhook; do
+  snapshot_value "source_$source" 0
+done
 
 # observe KEY CONFIRM TEXT [LEVEL]: условие отказа выполнено в этом запуске. Сигнал уходит, когда
 # условие держится CONFIRM запусков подряд. LEVEL — число, например зависших покупок: его рост при
@@ -125,12 +153,16 @@ held() {
 # Платформа и foundation: контейнер не работает, unhealthy или убит по памяти. Одноразовые службы,
 # завершившиеся с кодом 0 (например, migrations Logto), — норма.
 check_containers() {
-  local project listing name state status ids oom_listing oom_name oom
+  local project listing name state status ids oom_listing oom_name oom down=0 unhealthy=0 killed=0 complete=true
   for project in $WATCHDOG_PROJECTS; do
     if ! listing="$(docker ps --all --filter "label=com.docker.compose.project=$project" \
       --format '{{.Names}}	{{.State}}	{{.Status}}' 2>/dev/null)"; then
       hold container.
       return
+    fi
+    if [[ -z "$listing" ]]; then
+      complete=false
+      continue
     fi
     while IFS=$'\t' read -r name state status; do
       [[ -n "$name" ]] || continue
@@ -139,16 +171,19 @@ check_containers() {
           if [[ "$status" == *"(unhealthy)"* ]]; then
             # Docker ставит unhealthy после двух сбоев проверки за 30 секунд (#654); короткий сбой
             # базы даёт такую отметку на минуту, поэтому сигнал ждёт второго запуска подряд.
+            unhealthy=$((unhealthy + 1))
             observe "container.$name.unhealthy" 2 "Контейнер $name: unhealthy"
           fi
           ;;
         created) ;;
         exited)
           if [[ "$status" != "Exited (0)"* ]]; then
+            down=$((down + 1))
             observe "container.$name.down" 1 "Контейнер $name: $status"
           fi
           ;;
         *)
+          down=$((down + 1))
           observe "container.$name.down" 1 "Контейнер $name: $state"
           ;;
       esac
@@ -157,7 +192,10 @@ check_containers() {
       hold container.
       return
     fi
-    [[ -n "$ids" ]] || continue
+    if [[ -z "$ids" ]]; then
+      complete=false
+      continue
+    fi
     # shellcheck disable=SC2086
     if ! oom_listing="$(docker inspect --format '{{.Name}} {{.State.OOMKilled}}' $ids 2>/dev/null)"; then
       hold container.
@@ -165,16 +203,24 @@ check_containers() {
     fi
     while read -r oom_name oom; do
       if [[ "$oom" == true ]]; then
+        killed=$((killed + 1))
         observe "container.${oom_name#/}.oom" 1 "Контейнер ${oom_name#/}: OOMKilled, память на пределе"
       fi
     done <<<"$oom_listing"
   done
+  if [[ "$complete" == true ]]; then
+    snapshot_value source_containers 1
+    snapshot_value container_down "$down"
+    snapshot_value container_unhealthy "$unhealthy"
+    snapshot_value container_oom "$killed"
+  fi
 }
 
 check_host() {
   local available_kib used_percent
   available_kib="$(awk '/^MemAvailable:/ { print $2 }' "$host_root/proc/meminfo" 2>/dev/null || true)"
   if [[ "$available_kib" =~ ^[0-9]+$ ]]; then
+    snapshot_value host_available_memory_bytes "$((available_kib * 1024))"
     if (( available_kib / 1024 < WATCHDOG_MEMORY_MIN_MIB )); then
       observe host.memory 2 "Доступно $((available_kib / 1024)) MiB памяти, порог $WATCHDOG_MEMORY_MIN_MIB MiB"
     fi
@@ -183,6 +229,7 @@ check_host() {
   fi
   used_percent="$(df -P / 2>/dev/null | awk 'NR == 2 { sub(/%/, "", $5); print $5 }' || true)"
   if [[ "$used_percent" =~ ^[0-9]+$ ]]; then
+    snapshot_value host_disk_used_percent "$used_percent"
     if (( used_percent > WATCHDOG_DISK_MAX_PERCENT )); then
       observe host.disk 1 "Диск занят на $used_percent%, порог $WATCHDOG_DISK_MAX_PERCENT%"
     fi
@@ -194,34 +241,44 @@ check_host() {
 # Бэкап: последний запуск каждого вида завершился успехом, таймеры включены, а самый свежий успешный
 # бэкап моложе порога. После перезагрузки systemd не помнит прошлых запусков; тогда возраст неизвестен.
 check_backup() {
-  local kind properties result exited newest=0
+  local kind properties result exited newest=0 complete=true
   local timer
   for kind in incr diff full; do
     # is-active печатает состояние и при ненулевом коде; пустой вывод значит, что systemd не ответил.
     timer="$(systemctl is-active "inside-pgbackrest-$kind.timer" 2>/dev/null || true)"
     if [[ -z "$timer" ]]; then
+      complete=false
       hold "backup.timer.$kind"
     elif [[ "$timer" != active ]]; then
+      snapshot_value "backup_timer_$kind" 0
       observe "backup.timer.$kind" 1 "Таймер бэкапа $kind: $timer"
+    else
+      snapshot_value "backup_timer_$kind" 1
     fi
     if ! properties="$(systemctl show "inside-pgbackrest-backup@$kind.service" \
       --property=Result --property=ExecMainExitTimestamp --timestamp=unix 2>/dev/null)"; then
+      complete=false
       hold backup.
       return
     fi
     result="$(sed -n 's/^Result=//p' <<<"$properties")"
     exited="$(sed -n 's/^ExecMainExitTimestamp=@\{0,1\}//p' <<<"$properties")"
     if [[ ! "$exited" =~ ^[0-9]+$ ]]; then
+      complete=false
       # После перезагрузки systemd не помнит прошлый запуск: итог неизвестен до следующего.
       hold "backup.failed.$kind"
       continue
     fi
     if [[ "$result" != success ]]; then
+      snapshot_value "backup_success_$kind" 0
       observe "backup.failed.$kind" 1 "Бэкап $kind завершился с результатом $result"
-    elif (( exited > newest )); then
-      newest="$exited"
+    else
+      snapshot_value "backup_success_$kind" 1
+      if (( exited > newest )); then newest="$exited"; fi
     fi
   done
+  if [[ "$complete" == true ]]; then snapshot_value source_backups 1; fi
+  if (( newest > 0 && newest <= now )); then snapshot_value backup_last_success_timestamp_seconds "$newest"; fi
   if (( newest == 0 )); then
     hold backup.age
   elif (( now - newest > WATCHDOG_BACKUP_MAX_AGE_HOURS * 3600 )); then
@@ -290,8 +347,10 @@ check_database() {
     observe watchdog.database 2 "Сторож не может прочитать базу Platform"
     return
   fi
+  snapshot_value source_platform_database 1
   while IFS='|' read -r name value; do
     [[ "$value" =~ ^[0-9]+$ ]] || continue
+    snapshot_value "$name" "$value"
     (( value > 0 )) || continue
     case "$name" in
       purchases) observe db.purchases 1 "Покупок без итога дольше порога: $value" "$value" ;;
@@ -311,7 +370,9 @@ check_database() {
     observe watchdog.telegram_database 2 "Сторож не может прочитать базу Telegram"
     return
   fi
+  snapshot_value source_telegram_database 1
   value="$(sed -n 's/^community_operations|//p' <<<"$rows")"
+  snapshot_value community_operations "$value"
   if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 0 )); then
     observe telegram.db.community_operations 1 "Операций вступления в группу failed или unknown за 10 минут: $value" "$value"
   fi
@@ -323,6 +384,14 @@ counter_rose() {
   local name="$1" value="$2" file="$state_dir/counters/$1" previous=0 rose_at=0
   if [[ -f "$file" ]]; then
     read -r previous rose_at <"$file" || true
+    if [[ "$value" =~ ^[0-9]+$ && "$previous" =~ ^[0-9]+$ ]]; then
+      local reset=0
+      (( value >= previous )) || reset=1
+      case "$name" in
+        update_failed_total) snapshot_value telegram_update_failed_reset "$reset" ;;
+        delivery_api_rejected_total) snapshot_value telegram_delivery_rejected_reset "$reset" ;;
+      esac
+    fi
   fi
   if [[ "$value" =~ ^[0-9]+$ && "$previous" =~ ^[0-9]+$ ]] && (( value > previous )) && [[ -f "$file" ]]; then
     rose_at="$now"
@@ -334,25 +403,33 @@ counter_rose() {
 check_telegram() {
   local metrics value
   if ! curl --fail --silent --max-time 5 --output /dev/null "$WATCHDOG_TELEGRAM_APP_URL/ready"; then
+    snapshot_value telegram_ready 0
     observe telegram.ready 2 "Telegram /ready не отвечает 200"
+  else
+    snapshot_value telegram_ready 1
   fi
   if ! metrics="$(curl --fail --silent --max-time 5 "$WATCHDOG_TELEGRAM_APP_URL/metrics")"; then
     hold telegram.metrics.
     return
   fi
+  snapshot_value source_telegram_metrics 1
   value="$(awk '$1 == "inside_telegram_community_oldest_due_seconds" { printf "%d", $2 }' <<<"$metrics")"
+  snapshot_value telegram_community_oldest_due_seconds "$value"
   if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 600 )); then
     observe telegram.metrics.community 1 "Вступление в группу ждёт $((value / 60)) мин"
   fi
   value="$(awk '$1 == "inside_telegram_activation_oldest_pending_seconds" { printf "%d", $2 }' <<<"$metrics")"
+  snapshot_value telegram_activation_oldest_pending_seconds "$value"
   if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 600 )); then
     observe telegram.metrics.activation 1 "Активация подписки в боте ждёт $((value / 60)) мин"
   fi
   value="$(awk '$1 == "inside_telegram_update_failed_total" { printf "%d", $2 }' <<<"$metrics")"
+  snapshot_value telegram_update_failed_total "$value"
   if [[ -n "$value" ]] && counter_rose update_failed_total "$value"; then
     observe telegram.metrics.update_failed 1 "Бот не обработал обновления Telegram за последние 10 минут"
   fi
   value="$(awk '$1 == "inside_telegram_delivery_api_rejected_total" { printf "%d", $2 }' <<<"$metrics")"
+  snapshot_value telegram_delivery_rejected_total "$value"
   if [[ -n "$value" ]] && counter_rose delivery_api_rejected_total "$value"; then
     observe telegram.metrics.delivery_rejected 1 "Telegram отклонил сообщения бота за последние 10 минут"
   fi
@@ -383,6 +460,9 @@ check_telegram_webhook() {
     observe telegram.api 2 "Сторож не получил getWebhookInfo"
     return
   fi
+  snapshot_value source_telegram_webhook 1
+  snapshot_value telegram_webhook_pending "$pending"
+  snapshot_value telegram_webhook_last_error_timestamp_seconds "$last_error"
   if [[ "$last_error" =~ ^[0-9]+$ ]] && (( last_error > 0 && now - last_error < 600 )); then
     observe telegram.webhook.delivery 1 "Webhook бота: ошибка доставки за последние 10 минут, в очереди $pending"
   fi
@@ -457,6 +537,24 @@ check_database
 check_telegram
 check_telegram_webhook
 check_logs
+
+# Publish only a completed check cycle. Interrupted or deployment-skipped cycles preserve the
+# previous timestamp so readers can mark it stale. This directory contains ONLY public aggregates.
+publish_snapshot() {
+  [[ "$metrics_enabled" == true ]] || return 1
+  install -d -m 755 "$state_dir/metrics" || return 1
+  {
+    printf '# TYPE inside_watchdog_value gauge\n# TYPE inside_watchdog_observed_at_seconds gauge\n'
+    cat "$run_dir/metrics/"*
+    printf 'inside_watchdog_completed_at_seconds %s\n' "$now"
+  } >"$state_dir/metrics/owner.prom.tmp" || return 1
+  chmod 644 "$state_dir/metrics/owner.prom.tmp" || return 1
+  mv "$state_dir/metrics/owner.prom.tmp" "$state_dir/metrics/owner.prom"
+}
+if ! publish_snapshot; then
+  # A new optional dashboard cache must not suppress the existing alert path.
+  echo "Owner metrics publication failed; previous snapshot remains stale" >&2
+fi
 
 release="$(jq --raw-output '.current.version // "unknown"' "$deployment_state" 2>/dev/null || echo unknown)"
 messages="$run_dir/messages"

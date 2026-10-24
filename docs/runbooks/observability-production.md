@@ -213,3 +213,64 @@ Linux CI запускает этот публичный путь с теми ж�
 host/container metrics, queue/dependency/export symptoms. Его production data и визуальная приёмка
 проверяются отдельно. NoData не заменяется нулём. Семь суток production-наблюдений и измерения
 Timeweb этим документом не объявляются выполненными.
+
+## Обзор владельца и наблюдения действующих владельцев
+
+Один `Platform production overview` содержит HTTP before/after для API, Platform MCP и
+Telegram, ресурсы, queue samples, closed cached business conditions и переходы к ограниченным
+отчётам Platform MCP/Umami. Общий HTTP quality mask не показывает скорость/доли при недостатке
+samples, reset, сбое collection или неразличимых SHA. Это оценка сохранённых наблюдений, не
+доказательство причинности или полноты всех запросов.
+
+Таблица ожидаемых источников сохраняет строку при отсутствии series: `1` означает наблюдаемый
+источник, `0` означает наблюдаемый отказ, `-1` означает UNKNOWN/stale/missing. Для SDK и core
+collection допускается возраст до 10 s, host scrape до 45 s, Watchdog до 180 s. Будущее время
+не принимается. Успешное чтение источника не заменяет проверку наличия нужных полей. Отсутствующий
+queue sample не становится нулём, а sample очереди не доказывает liveness worker.
+
+Действующий `inside-watchdog` атомарно сохраняет `/var/lib/inside/watchdog/metrics/owner.prom`.
+Это отдельный каталог с числовыми агрегатами, доступный host-agent только через точный read-only
+bind с `create_host_path: false`. Секреты, active/streak/outbox, SQL results, текст журналов,
+container names и идентификаторы людей туда не попадают. Сохраняются только уже выполненные reads,
+дополнительных запросов к БД, Telegram или журналам панель не делает. Панели требуют совпадения
+времени поля с последним completed-cycle timestamp, поэтому прежний sample из lookback окна
+не заменяет неизвестное поле нового цикла. Нулевые counts публикуются
+при реально прочитанном нуле. При ошибке источник получает `0`, а неизвестные значения исчезают.
+Пропущенный во время deploy или прерванный запуск не освежает timestamp. После reboot неизвестный
+last backup result остаётся UNKNOWN. Telegram counter decrease имеет отдельный reset marker;
+первое наблюдение не доказывает отсутствие пропуска.
+
+В production старый Watchdog сначала обновляется подготовленным пакетом по существующему
+процессу выпуска. До старта `host-metrics` выполнить один обычный завершённый цикл Watchdog и
+проверить наличие безопасного `metrics/owner.prom`. Compose отказывает при отсутствии каталога,
+не создаёт на хосте каталог автоматически. При выключенном/старом Watchdog источник UNKNOWN.
+Порядок уведомлений, пороги, подтверждение отказа и восстановление действующего Watchdog сохранены.
+
+| Наблюдение | Значение и граница |
+|---|---|
+| purchases | `unknown/authorized` старше 15 min или `sent/pending` старше 25 h. Это исключения, не все покупки. |
+| fulfillment | Не применённая выдача доступа старше 5 min. |
+| notification_outbox / email_effects | Существующие условия без итога старше 10 min. |
+| billing_queue_idle | `1`: нет completed `billing.payment-recovery` за 5 min. |
+| Telegram queues | Возраст pending/due, native webhook pending count; failed/unknown community operations за 10 min. |
+| backup timer / success | Наблюдаемые active/last-result состояния; latest success age по systemd. Это не restore proof. |
+| containers | Агрегированные down/unhealthy/OOM существующих проектов; неизвестны при ошибке inspect. Пустой listing не доказывает наличие ожидаемой службы. |
+
+Факты оплаты, paid grounds, effective access и sales funnel остаются у узких владельцев модулей.
+Переход в [существующий Platform MCP](production-diagnostics.md) использует прежний
+`platform:admin`, ограниченное окно, limit и continuation. Нельзя помещать приватные примеры
+в Grafana metrics или суммировать returned-page/cohort counts. Переход к
+[Umami native read-only](observability-umami-pilot.md) требует отдельного read key и ограниченного
+окна. Выключенная аналитика не означает нулевую активность. Tracker не включается этим обзором.
+
+При полном удалении отдельно включённого host-agent указывать профиль и для остановки:
+
+```bash
+docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
+  --profile host-metrics down
+```
+
+Проверить отсутствие контейнера host-agent именно этого monitoring project. Не использовать
+`--volumes` для остановки production. Disposable Linux measurement при явном `--host-metrics`
+снимает profile только в своём временном плане, чтобы общий supervisor/recover видел эту службу
+без повторного указания флага. Production default OFF при этом сохраняется.

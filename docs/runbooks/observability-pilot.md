@@ -1974,6 +1974,13 @@ that a test stopped, not that it passed. The first HTTP/identity group and third
 real backend corpus group remain unchanged. These source diagnostics do not explain
 earlier hosted timeouts, increase a budget, or establish native capacity acceptance.
 
+Collection privacy and controlled Docker-command faults use the existing private real-Git source
+fixture. Build-command fixtures additionally copy the actual pinned image manifest into their
+own commit. Git identity, byte hashes, source-drift refusal, ownership and cleanup remain real;
+no production source cache or hash oracle replacement is used. The independent full-repository
+input test and workflow-route closure still read the complete application, including Web.
+All 114 inventoried methods and their process, output and cleanup limits are retained.
+
 ### Prepared ordinary-role PostgreSQL server source
 
 The independent `postgres-source` job in `observability-tracking-storage.yml` prepares an opt-in,

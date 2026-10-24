@@ -91,7 +91,9 @@ def compose(output, data, project):
         'pids_limit': 128, 'tmpfs': ['/tmp:size=32m'], 'networks': ['hostsource'], 'logging': {'driver': 'none'},
         'volumes': [f'{CONFIG / "host.alloy"}:/etc/alloy/host.alloy:ro', '/:/rootfs:ro,rslave',
             '/proc:/host/proc:ro', '/sys:/sys:ro', '/var/run:/var/run:rw',
-            '/var/lib/docker:/var/lib/docker:ro', '/dev/disk:/dev/disk:ro']}
+            '/var/lib/docker:/var/lib/docker:ro', '/dev/disk:/dev/disk:ro',
+            {'type': 'bind', 'source': '/var/lib/inside/watchdog/metrics', 'target': '/watchdog-metrics',
+             'read_only': True, 'bind': {'create_host_path': False}}]}
     return stack
 
 
@@ -106,8 +108,31 @@ def dashboard():
         result['dashboard']['panels'].append({'id': index, 'type': 'timeseries', 'title': panel['title'],
             'datasource': {'type': 'prometheus', 'uid': 'pilot-metrics'},
             'gridPos': {'x': (index % 2) * 12, 'y': 52 + ((index-100)//2)*8, 'w': 12, 'h': 8},
+            'description': panel.get('description', ''),
             'targets': [{'refId': 'A', 'expr': panel['query']}],
             'fieldConfig': {'defaults': {'noValue': 'Unknown / source unavailable'}, 'overrides': []}})
+    # Fixed expectation rows survive absent series, so missing sources are visibly UNKNOWN.
+    rows = []
+    for source in overview['sources']:
+        age = '(time() - (' + source['observed_at'] + '))'
+        state = ('((' + source['value'] + ') and on() (' + age + ' >= 0 and ' + age + ' <= ' +
+                 str(source['maximum_age_seconds']) + ')) or on() vector(-1)')
+        rows.append('label_set((' + state + '),"source",' + json.dumps(source['name']) + ')')
+    end_y = max(panel['gridPos']['y'] + panel['gridPos']['h'] for panel in result['dashboard']['panels'])
+    result['dashboard']['panels'].append({'id': 200, 'type': 'table', 'title': 'Every expected source: 1 observed,0 down,-1 UNKNOWN/stale',
+        'gridPos': {'x': 0, 'y': end_y, 'w': 24, 'h': 12},
+        'datasource': {'type': 'prometheus', 'uid': 'pilot-metrics'},
+        'targets': [{'refId': 'A', 'expr': ' or '.join(rows), 'instant': True, 'range': False, 'format': 'table'}],
+        'fieldConfig': {'defaults': {'noValue': 'UNKNOWN', 'mappings': [{'type': 'value', 'options': {
+            '-1': {'text': 'UNKNOWN / stale'}, '0': {'text': 'DOWN / read failed'}, '1': {'text': 'Observed / up'}}}]}, 'overrides': []}})
+    result['dashboard']['panels'].append({'id': 201, 'type': 'text', 'title': 'Bounded owner investigations and analytics',
+        'gridPos': {'x': 0, 'y': end_y + 12, 'w': 24, 'h': 5}, 'options': {'mode': 'markdown', 'content':
+        '[Payment/access and sales-funnel owner reports](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/production-diagnostics.md): '
+        'use existing Platform MCP platform:admin session, last24h UTC, limit20, follow nextCursor. Counts describe the bounded returned cohort/page; '
+        'do not sum pagination or infer effective access from paid grant. Private examples stay out of dashboard. '
+        '[Native Umami read-only analytics](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/observability-umami-pilot.md): '
+        'separate read key and fixed window; missing/disabled analytics is UNKNOWN, not zero. '
+        '[Investigation and trace links](https://github.com/sachkov-inside/platform/blob/main/docs/runbooks/observability-investigation.md).'}})
     return result
 
 

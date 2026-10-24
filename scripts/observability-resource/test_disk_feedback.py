@@ -8,6 +8,7 @@ import unittest
 from types import FunctionType,SimpleNamespace
 from unittest.mock import Mock,patch
 import hosted
+from test_hosted import _synthetic_source_checkout
 
 
 class SameReadGuard(unittest.TestCase):
@@ -253,6 +254,7 @@ class Artifact(unittest.TestCase):
             with self.assertRaises(ValueError):numeric.read(path,'a'*40)
             with self.assertRaises(ValueError):numeric.write(path,value,'a'*40)
 
+    @_synthetic_source_checkout()
     def test_invalid_present_is_refused_before_generic_collection_and_missing_is_unavailable(self):
         import disk_feedback as numeric
         from test_hosted import metadata

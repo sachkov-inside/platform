@@ -1,5 +1,5 @@
 {
-  "coverage": "Production observations. Missing series, stale samples and stopped collection are UNKNOWN, never healthy. Host/container panels require the explicit Linux host-metrics profile. HTTP comparison below covers API/MCP. Structured stdout is an allowlisted projection; arbitrary messages are replaced. Queue gauges are cached observations, not worker liveness. Business facts and backup freshness remain authoritative through Platform MCP and Watchdog. See docs/runbooks/observability-production.md for source gaps, rollout and key revocation. Analytics is separately controlled; this technical stack does not activate tracking.",
+  "coverage": "Stored production observations. Every expected source has an explicit state: 1 observed/up, 0 read failure/down, -1 UNKNOWN/stale/missing. NoData never means healthy. Host/container and cached owner observations require the explicit host-metrics profile. HTTP before/after covers API/MCP/Telegram with the same quality mask, no causal claim. Watchdog values come from its existing bounded reads, are not a business ledger and expire after 180s. SDK/native source snapshots expire after 10s (host scrapes after45s). Missing telemetry does not prove business inactivity. Source readiness is not worker liveness. Technical monitoring does not activate browser analytics.",
   "panels": [
     {
       "title": "Host available memory (fraction, keep at least 0.25)",
@@ -30,12 +30,13 @@
       "query": "increase(container_oom_events_total{job=\"platform-containers\"}[1h])"
     },
     {
-      "title": "Source age seconds",
-      "query": "time() - timestamp(up{job=~\"platform-host|platform-containers\"})"
+      "title": "Collection scrape sample age seconds",
+      "query": "time() - timestamp(up{job=~\"platform-collector|platform-trace-store|platform-stdout|platform-host|platform-containers\"})"
     },
     {
       "title": "Queue state observations",
-      "query": "{__name__=\"pgboss.queue.jobs\"}"
+      "query": "{__name__=\"pgboss.queue.jobs\"} and ((time() - timestamp({__name__=\"pgboss.queue.jobs\"})) >= 0 and (time() - timestamp({__name__=\"pgboss.queue.jobs\"})) <= 10)",
+      "description": "Last owner queue sample only. Missing or >10s old is UNKNOWN; zero is observed zero. Does not prove worker liveness."
     },
     {
       "title": "Dependency failures (observed)",
@@ -48,6 +49,162 @@
     {
       "title": "Stdout parsing and export failures",
       "query": "{__name__=~\"loki_source_syslog_parsing_errors_total|loki_write_dropped_entries_total\"}"
+    },
+    {
+      "title": "Business exceptions observed by existing Watchdog",
+      "query": "inside_watchdog_value{check=~\"purchases|fulfillment|notification_outbox|email_effects\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"purchases|fulfillment|notification_outbox|email_effects\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"purchases|fulfillment|notification_outbox|email_effects\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"purchases|fulfillment|notification_outbox|email_effects\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "Counts beyond existing operational thresholds, not totals or successful purchases. purchases: unknown/authorized >15m or sent/pending >25h; fulfillment >5m; outbox/email >10m. Owner payment/access diagnostics remain authoritative."
+    },
+    {
+      "title": "Telegram business queues and failed community operations",
+      "query": "inside_watchdog_value{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"community_operations|telegram_community_oldest_due_seconds|telegram_activation_oldest_pending_seconds|telegram_webhook_pending\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "community_operations: failed/unknown updates in last10m. Ages in seconds. Webhook pending is native Telegram backlog, not app delivery proof."
+    },
+    {
+      "title": "Telegram readiness, observed errors and reset markers",
+      "query": "inside_watchdog_value{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"telegram_ready|telegram_update_failed_total|telegram_delivery_rejected_total|telegram_update_failed_reset|telegram_delivery_rejected_reset\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "Counters are native snapshots; reset=1 means decrease since previous successful observation. Missing initial/reset interval is UNKNOWN. Ready HTTP200 does not establish business success."
+    },
+    {
+      "title": "Backup timer and last-result state",
+      "query": "inside_watchdog_value{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"backup_timer_(incr|diff|full)|backup_success_(incr|diff|full)\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "1 active/success,0 inactive/failure; absent last result after reboot is UNKNOWN. Latest successful timestamp is shown separately; successful backup is not restore proof."
+    },
+    {
+      "title": "Cached container/host exceptions",
+      "query": "inside_watchdog_value{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"container_(down|unhealthy|oom)|host_disk_used_percent\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "Across existing Watchdog projects. All counts withheld if Docker inspection fails. Empty listing is not proof every expected service exists."
+    },
+    {
+      "title": "Existing recovery/telemetry operating conditions",
+      "query": "inside_watchdog_value{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds))",
+      "description": "billing_queue_idle=1 means no completed payment-recovery task in5m. Web telemetry names follow existing health view conditions and units; these are operational conditions, not user activity."
+    },
+    {
+      "title": "Owner observation age seconds (stale >180)",
+      "query": "time() - inside_watchdog_observed_at_seconds",
+      "description": "Timestamp belongs to actual completed Watchdog read cycle. Interrupted/deploy-skipped cycles do not refresh it. Future/negative age is invalid."
+    },
+    {
+      "title": "Backup last-success age seconds",
+      "query": "time() - (inside_watchdog_value{check=~\"backup_last_success_timestamp_seconds\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds)))",
+      "description": "Age since latest successful systemd backup completion, unknown after reboot until known completion. Threshold8h. No backup storage inspection or restore proof."
+    }
+  ],
+  "sources": [
+    {
+      "name": "collector",
+      "value": "max(up{job=\"platform-collector\",instance=\"pilot\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-collector\",instance=\"pilot\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "trace-store",
+      "value": "max(up{job=\"platform-trace-store\",instance=\"pilot\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-trace-store\",instance=\"pilot\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "stdout",
+      "value": "max(up{job=\"platform-stdout\",instance=\"production\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-stdout\",instance=\"production\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "host",
+      "value": "max(up{job=\"platform-host\",instance=\"production-host\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-host\",instance=\"production-host\"}))",
+      "maximum_age_seconds": 45
+    },
+    {
+      "name": "containers",
+      "value": "max(up{job=\"platform-containers\",instance=\"production-host\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-containers\",instance=\"production-host\"}))",
+      "maximum_age_seconds": 45
+    },
+    {
+      "name": "platform-api",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-api\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-api\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-mcp",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-mcp\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-mcp\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-material-assets-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-material-assets-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-material-assets-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-profile-avatars-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-profile-avatars-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-profile-avatars-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-video-deletions-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-video-deletions-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-video-deletions-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-billing-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-billing-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-billing-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "platform-notifications-worker",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-notifications-worker\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"platform-notifications-worker\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "inside-telegram",
+      "value": "group({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"inside-telegram\"})",
+      "observed_at": "max(timestamp({__name__=\"telemetry.trace.sampling.ratio\",\"service.name\"=\"inside-telegram\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "watchdog-containers",
+      "value": "max(inside_watchdog_value{check=\"source_containers\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_containers\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-backups",
+      "value": "max(inside_watchdog_value{check=\"source_backups\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_backups\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-platform_database",
+      "value": "max(inside_watchdog_value{check=\"source_platform_database\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_platform_database\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-telegram_database",
+      "value": "max(inside_watchdog_value{check=\"source_telegram_database\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_database\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-telegram_metrics",
+      "value": "max(inside_watchdog_value{check=\"source_telegram_metrics\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_metrics\"})",
+      "maximum_age_seconds": 180
+    },
+    {
+      "name": "watchdog-telegram_webhook",
+      "value": "max(inside_watchdog_value{check=\"source_telegram_webhook\"})",
+      "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_webhook\"})",
+      "maximum_age_seconds": 180
     }
   ]
 }
