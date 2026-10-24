@@ -122,10 +122,13 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         report['stage'] = 'native_maintenance'
         record()
         import native_maintenance
+        def maintenance_progress(value):
+            report['native_maintenance_operation']=value
+            record()
         report['native_maintenance'] = native_maintenance.exercise(
             lambda payload, **options: _sql(compose, 'db', payload, execute=execute, **options),
             lambda: execute(compose, ['exec', '-T', 'db', 'pg_dump', '-U', 'umami', '-d', 'umami',
-                '--data-only', '--no-owner', '--no-privileges'], timeout=30), output / 'maintenance-private')
+                '--data-only', '--no-owner', '--no-privileges'], timeout=30), output / 'maintenance-private',progress=maintenance_progress)
         record()
         return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
@@ -596,7 +599,7 @@ INSERT INTO public.recovery_probe VALUES('synthetic-1566-preserved');""", role='
     sql('db', f"""INSERT INTO public.website_event(event_id,website_id,session_id,visit_id,url_path,event_type,event_name)
 SELECT '{recovery.DELETE_EVENT}',website_id,session_id,visit_id,'/synthetic/delete',2,'recovery_delete_probe'
 FROM public.website_event WHERE website_id='{recovery.SITE}' AND event_name='ttl_recent';""")
-    report.update(pgbackrest_version='2.57.0', source_fixture_cutoff=source_cutoff,
+    report.update(pgbackrest_version=expected, source_fixture_cutoff=source_cutoff,
                   source_system_identifier_sha256=hashlib.sha256(source['system_identifier'].encode()).hexdigest())
     stage('encrypted_backup')
     for backup_command in ('stanza-create', 'check'):

@@ -249,3 +249,27 @@ class Records(unittest.TestCase):
                 bad['cases']=[{'phase':phase,'freshness':'fresh','continuity':'same_epoch',
                     'count_complete':True,'points':7,'age_seconds':0}]
                 with self.assertRaises(ValueError):record.validate(bad,'a'*40)
+
+
+    def test_upload_diagnostic_curation_refuses_unbounded_provider_or_exception_fields(self):
+        import postgres_source
+        from test_public import AdmissionComposition
+        value={'schema':1,'phase':'baseline_first_upload','step':'http_open','outcome':'failed','error':'http_status','http_status':400,'returncode':None}
+        for control in ('valid','exception','status','step'):
+            with self.subTest(control=control),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory).resolve();output=root/'private';output.mkdir(mode=0o700);metadata=root/'metadata';public=root/'public'
+                with AdmissionComposition().external_reads(root):
+                    postgres_source.admission(metadata);record.write(output,self.value())
+                    record.persist_upload(output,value)
+                    if control!='valid':
+                        path=output/'postgres-upload.json';raw=json.loads(path.read_text())
+                        if control=='exception':raw['exception']='private-sentinel'
+                        elif control=='status':raw['http_status']=True
+                        else:raw['step']='private-sentinel'
+                        path.write_text(json.dumps(raw))
+                    if control=='valid':
+                        postgres_source.collect(output,metadata,public)
+                        self.assertEqual(json.loads((public/'postgres-upload.json').read_text()),value)
+                    else:
+                        with self.assertRaises(ValueError):postgres_source.collect(output,metadata,public)
+                        self.assertFalse(public.exists())

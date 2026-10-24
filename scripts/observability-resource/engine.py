@@ -25,7 +25,7 @@ def fetch(endpoint, container):
     connection.sock.settimeout(SOCKET_SECONDS)
     try:
         connection.sock.connect(endpoint[len('unix://'):])
-        connection.request('GET', '/v1.51/containers/' + container + '/stats?stream=false&one-shot=true', headers={'Connection':'close'})
+        connection.request('GET', '/v1.48/containers/' + container + '/stats?stream=false&one-shot=true', headers={'Connection':'close'})
         response = connection.getresponse()
         if response.status != 200:
             raise RuntimeError('engine_status')

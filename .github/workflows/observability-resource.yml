@@ -9,7 +9,7 @@ on:
       - .github/workflows/ci.yml
       - .github/actions/setup-platform/**
       - apps/backend/**
-      - apps/web/package.json
+      - apps/web/**
       - apps/telegram/package.json
       - packages/**
       - docs/contracts/**
@@ -90,5 +90,53 @@ jobs:
         with:
           name: observability-resource-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/inside-resource-public
+          if-no-files-found: warn
+          retention-days: 7
+
+  fullstack:
+    name: Representative whole-process monitoring OFF/ON resource proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify whole-stack admission, ownership and acceptance contracts
+        timeout-minutes: 2
+        run: bash scripts/heavy-check.sh python3 -B -m unittest discover -s scripts/observability-fullstack -p 'test_*.py'
+      - name: Bind complete source and existing disk admission
+        timeout-minutes: 1
+        run: python3 scripts/observability-resource/hosted.py admission --metadata "$RUNNER_TEMP/fullstack-metadata"
+      - name: Build source-bound Web, backend and PostgreSQL images under existing storage guard
+        timeout-minutes: 30
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/prepare.py
+          --metadata "$RUNNER_TEMP/fullstack-metadata" --images "$RUNNER_TEMP/fullstack-images.json"
+          --consumer "$RUNNER_TEMP/fullstack-private"
+      - name: Measure paired full-process corpus through unchanged 600-second supervisor
+        timeout-minutes: 12
+        run: >-
+          bash scripts/heavy-check.sh python3 scripts/observability-fullstack/fullstack.py run
+          --output "$RUNNER_TEMP/fullstack-private" --images "$RUNNER_TEMP/fullstack-images.json"
+      - name: Recover only the registered project and preparation images
+        if: ${{ always() }}
+        timeout-minutes: 5
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py recover
+          --output "$RUNNER_TEMP/fullstack-private" --images "$RUNNER_TEMP/fullstack-images.json"
+      - name: Collect bounded numerical evidence only
+        if: ${{ always() }}
+        timeout-minutes: 1
+        run: >-
+          python3 scripts/observability-fullstack/fullstack.py collect
+          --output "$RUNNER_TEMP/fullstack-private" --metadata "$RUNNER_TEMP/fullstack-metadata"
+          --public "$RUNNER_TEMP/fullstack-public"
+      - name: Upload curated resource results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: observability-fullstack-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fullstack-public
           if-no-files-found: warn
           retention-days: 7

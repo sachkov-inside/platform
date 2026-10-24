@@ -6,6 +6,7 @@ import json
 import math
 import subprocess
 import urllib.request
+import urllib.error
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-pilot'))
 import pilot
 import source_status_query
@@ -30,7 +31,7 @@ class Scenario:
     def __init__(self,targets,compose,token,oracle):
         self.targets,self.compose,self.token,self.oracle=targets,compose,token,oracle
         self.phase='acquisition';self.clock_deadline=None;self.end=None;self.cleanup_end=None;self.last_attempt=None
-        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None
+        self.actors=fixture.Fixture();self.ledger=frame.Ledger();self.cases=[];self.oracle_failure_reason=None;self.upload_operation=None
 
     def remaining(self,cap=10):
         value=min(cap,self.end-time.monotonic())
@@ -104,11 +105,32 @@ class Scenario:
         self.remaining()
 
     def upload(self,value,*,deadline=None):
+        self.upload_operation={'schema':1,'phase':self.phase,'step':'deadline','outcome':'running','error':None,'http_status':None,'returncode':None}
+        try:
+            self._upload(value,deadline=deadline)
+            self.upload_operation.update(outcome='passed')
+        except BaseException as error:
+            code=getattr(error,'returncode',None)
+            status=error.code if isinstance(error,urllib.error.HTTPError) else self.upload_operation['http_status']
+            category=('timeout' if isinstance(error,(TimeoutError,subprocess.TimeoutExpired)) else
+                'http_status' if isinstance(error,urllib.error.HTTPError) else
+                'transport' if isinstance(error,(urllib.error.URLError,OSError)) else
+                'command_failed' if isinstance(error,subprocess.CalledProcessError) else
+                'interrupted' if isinstance(error,(KeyboardInterrupt,SystemExit)) else
+                'invalid_result' if isinstance(error,ValueError) else 'operation_failed')
+            self.upload_operation.update(outcome='failed',error=category,
+                http_status=status if type(status) is int and 100<=status<=599 else None,
+                returncode=code if type(code) is int and -128<=code<=255 else None)
+            raise
+
+    def _upload(self,value,*,deadline=None):
         now=time.monotonic()
         if deadline is None:deadline=min(self.end,now+10)
         if type(deadline) not in (int,float) or not math.isfinite(deadline) or deadline>self.end or deadline-now>10:raise ValueError('collector')
         if deadline<=now:raise TimeoutError()
+        self.upload_operation['step']='owner_before'
         self.verify_storage(deadline)
+        self.upload_operation['step']='payload'
         body=json.dumps(value,separators=(',',':'),allow_nan=False).encode()
         if len(body)>65536:raise ValueError('malformed')
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),source_status_query.NoRedirect())
@@ -118,9 +140,14 @@ class Scenario:
         with source_status_query._deadline(remaining):
             remaining=deadline-time.monotonic()
             if remaining<=0:raise TimeoutError()
+            self.upload_operation['step']='http_open'
             with opener.open(request,timeout=remaining) as response:
+                self.upload_operation['http_status']=response.status if type(response.status) is int and 100<=response.status<=599 else None
+                self.upload_operation['step']='http_body'
                 if response.status!=200 or len(response.read(4097))>4096:raise ValueError('collector')
+        self.upload_operation['step']='owner_after'
         self.verify_storage(deadline)
+        self.upload_operation['step']='complete'
         if time.monotonic()>=deadline:raise TimeoutError()
 
     def stored(self,value,*,_baseline=None):

@@ -382,6 +382,7 @@ class CorpusCallbackContinuity(unittest.TestCase):
                 report, calls = self.run_corpus(failure, whole_controller=True)
                 self.assertEqual(report['state'], 'failed')
                 self.assertEqual(report['stage'], 'native_maintenance')
+                self.assertEqual(report['native_maintenance_operation'], {'schema':1,'step':'foreign_membership_setup','outcome':'failed','error':'timeout' if failure=='maintenance_timeout' else 'command_failed','returncode':None if failure=='maintenance_timeout' else 1})
                 self.assertEqual(report['reader_gate'], 'closed')
                 self.assertNotIn('private-sentinel', json.dumps(report))
                 self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in

@@ -35,3 +35,18 @@ class MembershipRefusal(unittest.TestCase):
                 if wanted is not None:
                     with native_maintenance.expected_membership_refusal():
                         raise failed.exception
+
+
+    def test_failed_progress_write_preserves_original_sql_failure_and_traceback(self):
+        from pathlib import Path
+        primary=runtime.FixtureCommandFailed(returncode=3)
+        def sql(*args,**kwargs):raise primary
+        def progress(value):
+            if value['outcome']=='failed':raise OSError('closed write failed')
+        try:native_maintenance.exercise(sql,lambda:None,Path('/unused'),progress=progress)
+        except BaseException as error:
+            self.assertIs(error,primary)
+            frames=[];tb=error.__traceback__
+            while tb is not None:frames.append(tb.tb_frame.f_code.co_name);tb=tb.tb_next
+            self.assertIn('sql',frames)
+        else:self.fail('SQL failure became successful maintenance')
