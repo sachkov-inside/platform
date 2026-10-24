@@ -71,6 +71,9 @@ receipt storage, strict parsing, Task validation и HTTP BFF выполняют�
 1. Старые built providers создают Task, Material Source и communication receipt в реальных базах.
    Старые читатели принимают исходные данные и отклоняют несовместимые nullable даты, новые source
    enums, неизвестную сумму частичного возврата, Task result 16000 и definition между 128/130 KiB.
+   Отдельно проверяется nullable `ProductAccess.firstIssuedAt` текущим built Backend. На trusted
+   исходнике до Product Access этот контракт отсутствует целиком. Это записывается как отсутствие
+   capability, а не выдаётся за старый date parser или rolling compatibility.
 2. Все старые процессы завершаются. Полные custom-format архивы обеих баз восстанавливаются в
    новые пустые базы. Все tables и sequence state совпадают. Dispatch остаётся удержанным.
 3. Текущие built migrators обновляют исходные и восстановленные базы. Первоначальные Task и

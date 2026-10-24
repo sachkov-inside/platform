@@ -1,5 +1,6 @@
 /** Runs an owning capability from an independently built artifact, in its own process. */
 import { pathToFileURL } from "node:url";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 const chunks = [];
 for await (const chunk of process.stdin) chunks.push(chunk);
@@ -20,12 +21,15 @@ try {
   let result;
   if (job.app === "backend") {
     if (job.operation === "product-access-parse") {
-      const { productAccessViewSchema } = await load(
-        "modules/account-rights/domain/product-access.js",
-      );
-      result = {
-        accepted: productAccessViewSchema.safeParse(job.input).success,
-      };
+      const path = "modules/account-rights/domain/product-access.js";
+      if (!existsSync(resolve(job.dist, path))) {
+        result = { accepted: false, reason: "product_access_contract_absent" };
+      } else {
+        const { productAccessViewSchema } = await load(path);
+        result = {
+          accepted: productAccessViewSchema.safeParse(job.input).success,
+        };
+      }
     } else if (job.operation === "migrate") {
       result = await (
         await load("migrations/index.js")

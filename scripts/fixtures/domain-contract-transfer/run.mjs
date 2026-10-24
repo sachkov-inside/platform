@@ -293,11 +293,11 @@ try {
         variant,
         firstIssuedAt,
         accepted: result.accepted,
+        reason: result.reason,
       });
-      assert.equal(
-        result.accepted,
-        firstIssuedAt !== null || variant === "current",
-      );
+      assert.equal(result.accepted, variant === "current");
+      if (variant === "legacy")
+        assert.equal(result.reason, "product_access_contract_absent");
     }
   }
   postgres = await createRestorePostgres("domain-contract-transfer");
