@@ -1274,7 +1274,7 @@ The authoring MCP remains at `MCP_SERVER_URL`. A separate participant surface at
 - `learning_materials_list` and `learning_material_read` discover and read materials
   ([#782](https://github.com/sachkov-inside/platform/issues/782), course source
   [ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105));
-- `learning_practice_read` reads lesson practice context and its review procedure;
+- `learning_practice_read` retains historical lesson practice context compatibility during ordered contraction;
 - `learning_tasks_list`, `learning_task_read`, `learning_task_submit` and
   `learning_task_submissions` list and read Product Tasks, record the learner's submission and
   read their own submissions ([Product Tasks contract](#product-tasks-on-the-participant-surface)).
@@ -1600,7 +1600,11 @@ is distinct from author acceptance of the course.
 
 The old `learning_practice_read`, `GET /library/materials/:slug/practices` and authoring Practice
 receipt/read adapters remain compatibility surfaces for the ordered contraction in#1712. They do not
-supply the current importer or native review matrix. The production access pass uses Task reads for
+supply the current importer, native review matrix or Material Reader. Both public and private Material
+routes use only the explicit Material-bound Task descriptor and the existing Task workspace, even
+when the historical Practice row still exists. Current setup instructions direct learners to Task
+reads and submissions; legacy protocol tests remain separate from current UI/Storybook claims.
+The production access pass uses Task reads for
 positive assignment coverage and retains an explicitly named retired-Practice denial probe. Its
 unpublished free-Task case stays deferred rather than republishing a retired source as a fixture.
 

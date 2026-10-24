@@ -265,6 +265,7 @@ let practiceGate;
 let releasePractice;
 let practiceHeld = false;
 let practiceUnavailable = false;
+let coexistingPracticeTask = false;
 
 /**
  * @param {Lesson} lesson
@@ -1052,6 +1053,14 @@ const server = createServer(async (request, response) => {
     send(200, { requests: state.requests });
     return;
   }
+  if (
+    url.pathname === "/__coexisting-practice-task" &&
+    request.method === "POST"
+  ) {
+    coexistingPracticeTask = url.searchParams.get("enabled") === "true";
+    send(200, { enabled: coexistingPracticeTask });
+    return;
+  }
   if (url.pathname === "/__practice-hold") {
     if (request.method === "POST") {
       const { hold, unavailable = false } = z
@@ -1100,18 +1109,67 @@ const server = createServer(async (request, response) => {
       });
     return;
   }
-  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+  const boundTask = /^\/library\/materials\/([^/]+)\/task$/u.exec(url.pathname);
+  if (boundTask !== null) {
     if (authorized && practiceGate !== undefined) {
       practiceHeld = true;
       await practiceGate;
       practiceHeld = false;
     }
-    send(
-      practiceUnavailable ? 503 : 200,
-      practiceUnavailable
-        ? { code: "dependency_unavailable" }
-        : { practices: [] },
-    );
+    if (practiceUnavailable) {
+      send(503, { code: "dependency_unavailable" });
+      return;
+    }
+    const material = lessons.find((item) => item.materialId === boundTask[1]);
+    if (
+      coexistingPracticeTask &&
+      material !== undefined &&
+      ["navigation-lesson-1", "navigation-lesson-3"].includes(material.slug)
+    ) {
+      const code =
+        material.access === "free"
+          ? "navigation-free-task"
+          : "navigation-closed-task";
+      const task = navigationTaskRoute(
+        new URL(`/library/products/navigation-tasks/tasks/${code}`, url),
+        authorized,
+      );
+      if (task === undefined)
+        throw new Error("Missing explicit bound Task fixture");
+      send(task.status, task.value);
+    } else send(404, { code: "task_not_found" });
+    return;
+  }
+  if (
+    coexistingPracticeTask &&
+    /^\/accounts\/current\/product-tasks\/navigation-(free|closed)-task\/submissions$/u.test(
+      url.pathname,
+    )
+  ) {
+    const code = url.pathname.split("/").at(-2);
+    send(200, {
+      code,
+      currentVersion: 1,
+      nextCursor: null,
+      latestSubmittedAt: null,
+      versions: [],
+      submissions: [],
+    });
+    return;
+  }
+  if (/^\/library\/materials\/[^/]+\/practices$/u.test(url.pathname)) {
+    send(200, {
+      practices: coexistingPracticeTask
+        ? [
+            {
+              practiceId: "historical:coexisting-practice",
+              title: "Историческое условие",
+              contextVersion: "a".repeat(64),
+              reviewProtocolVersion: "2",
+            },
+          ]
+        : [],
+    });
     return;
   }
   const result = state.unavailable

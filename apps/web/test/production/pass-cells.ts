@@ -79,7 +79,7 @@ const surfaceChecks: Readonly<Record<string, string>> = {
   "body@learner-mcp": "закрытое тело урока через learning_material_read",
   "assets@browser": "картинка закрытого урока: redirect на хранилище",
   "video@browser": "основное видео: playback session",
-  "practice@browser": "блок «Проверка практики» и id задания на странице урока",
+  "practice@browser": "страница Product Task и код задания",
   "practice@learner-mcp": "часть 0 задания через learning_task_read",
   "materials-authoring@browser":
     "инструменты материалов: GET /api/authoring/materials",
