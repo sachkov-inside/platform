@@ -282,14 +282,22 @@ def evaluate(report):
         'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)})
 
 
+def collect(output, metadata, destination):
+    import preparation_evidence
+    source,_=hosted.metadata_source(metadata)
+    path=metadata/preparation_evidence.NAME
+    evidence=preparation_evidence.read(path,source['checkout_sha']) if path.exists() or path.is_symlink() else None
+    resource_runtime.ci.collect(output,metadata,destination,artifacts=ARTIFACTS)
+    if evidence is not None:pilot.write_json(destination/preparation_evidence.NAME,evidence)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('run','worker','recover','collect'))
     parser.add_argument('--output',type=Path,required=True);parser.add_argument('--images',type=Path)
     parser.add_argument('--metadata',type=Path);parser.add_argument('--public',type=Path);args=parser.parse_args()
     if args.action=='worker':return worker(args.output)
     if args.action=='collect':
-        hosted.metadata_source(args.metadata)
-        return resource_runtime.ci.collect(args.output,args.metadata,args.public,artifacts=ARTIFACTS)
+        return collect(args.output,args.metadata,args.public)
     if args.action=='recover':
         if args.images is None or not preparation.directory(args.images).exists():return resource_runtime.ci.recover(args.output,project_prefix=PREFIX,services=SERVICES)
         stage=preparation.recover_stage(args.images)
