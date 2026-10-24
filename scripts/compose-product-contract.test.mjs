@@ -19,6 +19,7 @@ for (const scenario of [
   "wrong-price",
   "subscription",
   "retired-route-live",
+  "malformed",
 ]) {
   test(`development Compose pricing HTTP proof: ${scenario}`, async () => {
     const server = createServer((request, response) => {
@@ -31,7 +32,19 @@ for (const scenario of [
         if (scenario === "wrong-price") item.firstPriceKopecks = 1;
         if (scenario === "subscription")
           item.paymentOption.mode = "subscription";
-        response.end(JSON.stringify({ items: [item], nextCursor: null }));
+        if (scenario === "malformed") {
+          response.end("{broken");
+          return;
+        }
+        response.end(
+          JSON.stringify({
+            items:
+              scenario === "current" || scenario === "retired-route-live"
+                ? []
+                : [item],
+            nextCursor: null,
+          }),
+        );
       } else {
         response.statusCode = 500;
         response.end("Unexpected smoke request");
@@ -94,3 +107,31 @@ test("production startup-refusal fixture targets the current Product price owner
   );
   assert.match(fixture, /restart billing-worker/u);
 });
+
+for (const snapshot of [
+  "72000000-0000-4000-8000-000000000007:3000:true:false:Руководство «Создание Platform Inside»",
+  "72000000-0000-4000-8000-000000000007:1:true:false:Руководство «Создание Platform Inside»",
+  "72000000-0000-4000-8000-000000000008:3000:true:false:Руководство «Создание Platform Inside»",
+]) {
+  test(`development Compose rejects changed persistent seed: ${snapshot.slice(0, 46)}`, async () => {
+    const source = readFileSync("scripts/compose-stack-smoke.sh", "utf8");
+    const section = source.slice(
+      source.indexOf('seed_price_snapshot="$('),
+      source.indexOf('seed_snapshot="$('),
+    );
+    let succeeded = true;
+    try {
+      await execute(
+        "/bin/bash",
+        ["-euc", 'docker() { printf "%s\\n" "$SEED_RESPONSE"; }\n' + section],
+        { env: { ...process.env, SEED_RESPONSE: snapshot } },
+      );
+    } catch {
+      succeeded = false;
+    }
+    assert.equal(
+      succeeded,
+      snapshot.includes(":3000:") && snapshot.startsWith(productId),
+    );
+  });
+}
