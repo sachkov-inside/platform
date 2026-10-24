@@ -9,7 +9,15 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'observability-resourc
 import hosted
 import preparation
 import binding
-from storage_policy import IMAGE_PREPARATION_GROWTH_BYTES,FLOOR_BYTES,CLEANUP_HEADROOM_BYTES
+from storage_policy import FULLSTACK_IMAGE_PREPARATION_GROWTH_BYTES,FLOOR_BYTES,CLEANUP_HEADROOM_BYTES
+import disk_feedback
+import preparation_evidence
+
+
+def preparation_budget(platform, free):
+    if platform!='linux' or free < FLOOR_BYTES+FULLSTACK_IMAGE_PREPARATION_GROWTH_BYTES+CLEANUP_HEADROOM_BYTES:
+        raise ValueError('fullstack_preparation_disk_admission')
+    return FULLSTACK_IMAGE_PREPARATION_GROWTH_BYTES
 
 
 def prepare(metadata, images, consumer):
@@ -23,22 +31,37 @@ def prepare(metadata, images, consumer):
     pins.update(json.loads((binding.ROOT/'infra/observability/umami/inputs.lock.json').read_text())['images'])
     pins.pop('postgres',None)
     pins['rabbitmq']='ghcr.io/sachkov-inside/rabbitmq:4.2.4-alpine@sha256:83522278ca69414e4895b3ea3c0f943c63ad316c063f9cda9c32fd42fe800f47'
-    if pilot.shutil.disk_usage(identity['storage']).free < FLOOR_BYTES+IMAGE_PREPARATION_GROWTH_BYTES+CLEANUP_HEADROOM_BYTES:
-        raise ValueError('fullstack_preparation_disk_admission')
-    with preparation.acquire(images,source['checkout_sha'],owner,identity,consumer,web=True) as stage:
-        with pilot.disk_budget(Path(identity['storage']),growth_bytes=IMAGE_PREPARATION_GROWTH_BYTES):
-            for role,dockerfile,target,context,seconds in (
-                    ('backend','apps/backend/Dockerfile','backend-production','.',600),
-                    ('foundation','infra/production/database/Dockerfile',None,'infra/production/database',180),
-                    ('web','apps/web/Dockerfile','web-production','.',600)):
-                args=['docker','build','--file',dockerfile,'--label',preparation.LABEL+'='+stage.receipt['token'],
-                    '--iidfile',str(stage.iidfile(role)),'--tag',stage.receipt['tags'][('backend','foundation','web').index(role)]]
-                if target:args+=['--target',target,'--build-arg','INSIDE_RELEASE_VERSION=v1','--build-arg','INSIDE_SOURCE_SHA='+source['checkout_sha']]
-                hosted.command(args+[context],seconds,pass_fds=stage.pass_fds());stage.capture()
-            for image in set(pins.values()):hosted.command(['docker','pull',image],90,pass_fds=stage.pass_fds())
-            value={'schema':2,'source':source['checkout_sha'],'owner':owner}
-            for role in ('backend','foundation','web'):value[role]=stage.iidfile(role).read_text().strip()
-            with os.fdopen(os.open(images,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as stream:json.dump(value,stream)
+    growth=preparation_budget(sys.platform,pilot.shutil.disk_usage(identity['storage']).free)
+    record=disk_feedback.Record(source['checkout_sha'])
+    evidence=preparation_evidence.Record(metadata,source['checkout_sha'],record)
+    try:
+        with preparation.acquire(images,source['checkout_sha'],owner,identity,consumer,web=True) as stage:
+            record.attempt()
+            with pilot.disk_budget(Path(identity['storage']),growth_bytes=growth,observe_samples=True) as samples:
+                record.entered(samples)
+                for role,dockerfile,target,context,seconds in (
+                        ('backend','apps/backend/Dockerfile','backend-production','.',600),
+                        ('foundation','infra/production/database/Dockerfile',None,'infra/production/database',180),
+                        ('web','apps/web/Dockerfile','web-production','.',600)):
+                    evidence.mark('build_'+role)
+                    args=['docker','build','--file',dockerfile,'--label',preparation.LABEL+'='+stage.receipt['token'],
+                        '--iidfile',str(stage.iidfile(role)),'--tag',stage.receipt['tags'][('backend','foundation','web').index(role)]]
+                    if target:args+=['--target',target,'--build-arg','INSIDE_RELEASE_VERSION=v1','--build-arg','INSIDE_SOURCE_SHA='+source['checkout_sha']]
+                    hosted.command(args+[context],seconds,pass_fds=stage.pass_fds());stage.capture()
+                    evidence.completed()
+                    if role=='backend':record.after_backend_build()
+                record.first_pull()
+                for index,image in enumerate(sorted(set(pins.values()))):
+                    evidence.mark('preload_'+str(index))
+                    hosted.command(['docker','pull',image],90,pass_fds=stage.pass_fds())
+                    evidence.completed()
+                evidence.mark('manifest')
+                value={'schema':2,'source':source['checkout_sha'],'owner':owner}
+                for role in ('backend','foundation','web'):value[role]=stage.iidfile(role).read_text().strip()
+                with os.fdopen(os.open(images,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as stream:json.dump(value,stream)
+                evidence.completed()
+            record.require()
+    finally:evidence.persist()
 
 
 if __name__=='__main__':
