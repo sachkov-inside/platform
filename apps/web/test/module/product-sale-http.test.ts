@@ -1,5 +1,4 @@
 import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 import { loadProductOffers } from "@/entities/subscription/api/billing-catalog.server";
@@ -26,12 +25,18 @@ beforeEach(async () => {
     );
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  origin = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`;
+  const address = server.address();
+  if (address === null || typeof address === "string")
+    throw new Error("Synthetic HTTP listener required");
+  origin = `http://127.0.0.1:${String(address.port)}`;
   vi.stubEnv("BACKEND_BASE_URL", origin);
 });
 afterEach(async () => {
   await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error === undefined ? resolve() : reject(error))),
+    server.close((error) => {
+      if (error === undefined) resolve();
+      else reject(error);
+    }),
   );
 });
 test("the actual generated transport keeps the exact Product scope and a stopped Product gets no foreign price", async () => {

@@ -207,7 +207,7 @@ test("an explicit intake continuation returns to its own Product without a speci
       }),
     }),
   );
-  const body = (await result.json()) as { returnTo: string };
+  const body = z.object({ returnTo: z.string() }).parse(await result.json());
   expect(body.returnTo).toMatch(/^\/products\/systems-design\?waitlist=/u);
   await beginWaitlistSignIn(body.returnTo);
   await finishWaitlistSignIn(body.returnTo, "trusted-token");
