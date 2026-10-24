@@ -1,0 +1,24 @@
+[Unit]
+Description=Inside bounded native monitoring source snapshots
+After=docker.service caddy.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=/etc/inside/observability/sources.env
+ExecStart=/usr/bin/python3 ${INSIDE_OBSERVABILITY_SOURCE}/scripts/observability-production/native_sources.py sample
+TimeoutStartSec=8s
+Nice=15
+CPUQuota=20%
+MemoryMax=64M
+TasksMax=16
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+StateDirectory=inside/watchdog
+StateDirectoryMode=0700
+UMask=0077
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
