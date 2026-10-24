@@ -22,7 +22,7 @@ import privacy
 
 SCOPE=record.SCOPE
 ARTIFACTS=('evidence.json','cleanup.json','worker-outcome.json','recovery.json','postgres-source-cleanup.json',
-           'collector-logging.json','postgres-source-logging.json')
+           'collector-logging.json','postgres-source-logging.json','postgres-upload.json')
 
 
 def source_inputs():
@@ -91,6 +91,8 @@ def worker(output):
     finally:
         result['duration_seconds']=time.monotonic()-started
         record.persist(output,result)
+        if driver is not None and driver.upload_operation is not None:
+            record.persist_upload(output,driver.upload_operation)
 
 
 def cleanup_proof(output):
@@ -106,6 +108,7 @@ def collect(output,metadata,destination):
     current=ci.read_command(['git','-C',str(pilot.ROOT),'rev-parse','HEAD'])
     if source!=current:record.refuse()
     projected=record.read(output,source)
+    if (output/'postgres-upload.json').exists():record.upload_operation(record._read(output,'postgres-upload.json',1024))
     ci.collect(output,metadata,destination,artifacts=ARTIFACTS)
     record.write(destination,projected)
 
