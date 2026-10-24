@@ -234,7 +234,7 @@ const webTests = {
   memberVideo:
     "member primary Video denies anonymous and non-member access while authorizing its owner",
   practiceDenied:
-    "practice Reader keeps assignment metadata and protected body out of guest and denied views",
+    "practical Task Reader keeps protected requirements and body out of guest and denied views",
 } as const;
 /** Сценарии отдельных identities через Web/BFF (#904). */
 const identityTests = {
