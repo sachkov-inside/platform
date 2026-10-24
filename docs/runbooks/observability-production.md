@@ -274,3 +274,29 @@ docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
 `--volumes` для остановки production. Disposable Linux measurement при явном `--host-metrics`
 снимает profile только в своём временном плане, чтобы общий supervisor/recover видел эту службу
 без повторного указания флага. Production default OFF при этом сохраняется.
+
+Native PostgreSQL/Caddy projection использует отдельный пятисекундный textfile scrape:
+`job="platform-owner-cache", instance="production-host"`. Старый host scrape раз в 15 s не
+читает эти файлы повторно. `inside_production_source_available{source="postgresql|caddy"}`
+и `inside_production_source_observed_at_seconds` различают наблюдаемый отказ и устаревший cache.
+Приёмка требует оба отдельных источника, значение `1` и возраст от 0 до 10 s; два ряда одного
+источника не заменяют второй. Нельзя использовать общий scraper `up` как доказательство чтения
+PostgreSQL или Caddy. Выключенный producer и отсутствующий mount остаются UNKNOWN.
+
+`source_cache.sample` принимает только два caller-owned read callback, получает фиксированный
+ordinary-role SQL из действующего `query.mjs` и проверяет ответ прежним `frame.decode`.
+Production scope изменён с disposable `tracking` на `inside`; остальные SQL/controls сохранены.
+В cache попадают только числовые `inside_postgresql_server_*` aliases approved native полей,
+включая sample/postmaster/statistics-reset epochs. Privilege flags, неизвестный/нулевой epoch,
+неподходящая версия или просроченный SQL ответ дают unavailable, не ложный ноль waiting locks.
+Не выдаются `pg_monitor`, `pg_read_all_stats`, SELECT прикладных таблиц или права Platform MCP.
+Повторный bootstrap reader принимает только собственный marker и отсутствие посторонней
+ownership/ACL authority, включая CREATE или grant option на базе; отказ имеет SQLSTATE `P1567`.
+
+Caddy public server выбирается по фактическому `caddy adapt` через общий
+`select_caddy_server`, а не по предположению `srv0`. Принимается один public `:443` server,
+включённые global metrics и выключенный либо loopback admin. Native source проверяет labels,
+типы, целостность histogram и excluded roles до удаления; точный vendor server
+`remaining_auto_https_redirects` проверяется и исключается из public counts. Cache сохраняет
+только public/subroute, закрытые method/code/bucket и process epoch. Это не покрывает
+pre-route parse, TCP/TLS/HTTP3 отказы и не означает непрерывность через reset.
