@@ -118,7 +118,6 @@ describe("MCP Streamable HTTP adapter", () => {
       expect(listed.tools.map(({ name }) => name).sort()).toEqual([
         "learning_material_read",
         "learning_materials_list",
-        "learning_practice_read",
         "learning_task_read",
         "learning_task_review_update",
         "learning_task_submissions",
@@ -127,6 +126,9 @@ describe("MCP Streamable HTTP adapter", () => {
       ]);
       await expect(
         client.callTool({ name: "material_create_draft", arguments: {} }),
+      ).rejects.toThrow("not found");
+      await expect(
+        client.callTool({ name: "learning_practice_read", arguments: {} }),
       ).rejects.toThrow("not found");
       const metadata = await fetch(
         new URL("/.well-known/oauth-protected-resource/mcp/learning", endpoint),

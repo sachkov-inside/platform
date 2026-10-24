@@ -36,8 +36,6 @@ describe("Material authoring MCP adapter", () => {
       "content_collection_create",
       "content_collection_update",
       "content_collection_set_archive",
-      "playlist_load_composition",
-      "playlist_save_composition",
       "product_load_composition",
       "product_save_composition",
       "product_set_chapter_attachments",
@@ -48,12 +46,17 @@ describe("Material authoring MCP adapter", () => {
     expect(tools.some(({ name }) => name.includes("sql"))).toBe(false);
   });
 
-  test("Product composition uses the same delegated command as legacy Playlist", async () => {
+  test("Product composition delegates the Account and rejects retired Playlist tools without dispatch", async () => {
     const commands: unknown[] = [];
+    const saveCommands: unknown[] = [];
     ({ client, server } = await connect(
       stubMaterialAuthoring({
         loadProductOrder: (command) => {
           commands.push(command);
+          return Promise.resolve(forbiddenAuthoringResult);
+        },
+        reorderProduct: (command) => {
+          saveCommands.push(command);
           return Promise.resolve(forbiddenAuthoringResult);
         },
       }),
@@ -63,16 +66,28 @@ describe("Material authoring MCP adapter", () => {
       name: "product_load_composition",
       arguments: { productId },
     });
-    const legacy = await client.callTool({
-      name: "playlist_load_composition",
-      arguments: { productId: productId },
+    await expect(
+      client.callTool({
+        name: "playlist_load_composition",
+        arguments: { productId },
+      }),
+    ).rejects.toThrow("not found");
+    await expect(
+      client.callTool({
+        name: "playlist_save_composition",
+        arguments: {
+          productId,
+          expectedOrderVersion: 1,
+          orderedMaterialIds: [],
+        },
+      }),
+    ).rejects.toThrow("not found");
+    expect(commands).toEqual([{ actor: accountId, productId }]);
+    expect(saveCommands).toEqual([]);
+    expect(canonical).toMatchObject({
+      isError: true,
+      structuredContent: { ok: false, error: { code: "forbidden" } },
     });
-    expect(commands).toEqual([
-      { actor: accountId, productId: productId },
-      { actor: accountId, productId: productId },
-    ]);
-    expect(canonical).toEqual(legacy);
-    expect(canonical.isError).toBe(true);
   });
 
   test("injects the delegated Account and preserves application errors", async () => {

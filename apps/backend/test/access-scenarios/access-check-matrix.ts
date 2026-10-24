@@ -79,8 +79,9 @@ export const accessCheckActions = [
 export type AccessCheckAction = (typeof accessCheckActions)[number];
 
 /**
- * Поверхности: защищённые чтения Product (`practice` — список заданий в HTTP и Web, все части
- * контекста задания в learner MCP), записи Materials и Billing, progress чтения и закладки Account.
+ * Поверхности: защищённые чтения Product (`practice` обозначает контекст Task в HTTP,
+ * защищённые требования и тело в Web, все части контекста Task в learner MCP), записи Materials
+ * и Billing, progress чтения и закладки Account.
  */
 export const accessCheckSurfaces = [
   "body",
@@ -181,7 +182,7 @@ const http = integration("scoped-access-http.test.ts");
 const mcp = integration("scoped-learner-access-mcp.test.ts");
 const productAccess = integration("product-access.test.ts");
 const paymentMatrix = integration("payment-access-matrix.test.ts");
-const learningPractice = integration("learning-practice.test.ts");
+const productTasks = integration("product-tasks.test.ts");
 const billingOperations = integration("billing-operations.test.ts");
 const billingHttp = integration("billing-pricing-http.test.ts");
 const accountsApi = integration("accounts-api.test.ts");
@@ -194,9 +195,9 @@ const httpTests = {
   withoutEntitlement:
     "Account without entitlement gets no protected bytes of either Product while the public Material stays open",
   learnerA:
-    "learner of Product A reads its body, asset, video and practice list while Product B stays closed",
+    "learner of Product A reads its body, asset, video and Task context while Product B stays closed",
   learnerB:
-    "learner of Product B reads its body, asset, video and practice list while Product A stays closed",
+    "learner of Product B reads its body, asset, video and Task context while Product A stays closed",
   expired:
     "expired Product A grant exposes no protected bytes while the public Material stays open",
   revoked:
@@ -206,15 +207,15 @@ const httpTests = {
 } as const;
 const mcpTests = {
   anonymous:
-    "material and practice calls without an Account token get 401 and no protected bytes",
+    "Material and Task calls without an Account token get 401 and no protected bytes",
   withoutEntitlement:
-    "Account without entitlement reads the public Material and no protected Material or practice part",
+    "Account without entitlement reads the public Material and no protected Material or Task part",
   learnerA:
-    "learner of Product A reads its Material and every pinned practice part while Product B stays closed",
+    "learner of Product A reads its Material and every pinned Task part while Product B stays closed",
   learnerB:
-    "learner of Product B reads its Material and every pinned practice part while Product A stays closed",
+    "learner of Product B reads its Material and every pinned Task part while Product A stays closed",
   expired:
-    "expired Product A grant reads the public Material and no protected Material or practice part",
+    "expired Product A grant reads the public Material and no protected Material or Task part",
   revoked:
     "revoking Product A closes the Material and every part pinned before revocation while Product B stays open",
 } as const;
@@ -269,7 +270,7 @@ const scopedLearnerBodyOnly =
 const facadeHasOneLearner =
   "Facade-тесты держат одного ученика Product A; ученик Product B проходит тот же facade на PostgreSQL в Nest HTTP";
 const noFacadePracticeAccess =
-  "Facade-теста задания для этого Account нет: `learning-practice.test.ts` отказывает только через подменённый authorize; Nest HTTP проходит настоящий ContentAccess на PostgreSQL";
+  "Отдельного facade-теста контекста Task для этой пары Account и Product нет; Nest HTTP проходит настоящий ContentAccess на PostgreSQL";
 
 // --------------------------------------------------------------------------- строки
 
@@ -376,8 +377,8 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     },
     practice: {
       "facade-postgresql": test(
-        learningPractice,
-        "denies anonymous and revoked readers without protected criteria or body",
+        productTasks,
+        "access matrix: free, paid with a Product right, without right, revoked and unpublished",
       ),
       ...transportLevels("practice", httpTests.anonymous, mcpTests.anonymous),
       "web-bff": test(
@@ -450,7 +451,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "learner-mcp": test(
         mcp,
-        "Account without entitlement reads every pinned part of a free practice while paid Products stay closed",
+        "Account without entitlement reads every pinned part of a free Task while paid Products stay closed",
       ),
       "web-bff": notApplicable(
         "Полный контекст практики читает агент через learner MCP; Reader показывает запрос проверки",

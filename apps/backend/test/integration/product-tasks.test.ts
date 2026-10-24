@@ -1000,7 +1000,8 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     const readCode = async (subject: Subject, code: string) =>
       resultSchema.parse(await tasks.read({ subject, code }));
 
-    for (const subject of [anybody, revoked]) {
+    const anonymous: Subject = { kind: "anonymous" };
+    for (const subject of [anonymous, anybody, revoked]) {
       expect(await listed(subject)).toEqual(
         expect.not.arrayContaining([paid.code, hidden.code]),
       );

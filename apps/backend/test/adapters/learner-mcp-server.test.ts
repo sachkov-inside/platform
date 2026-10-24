@@ -218,7 +218,7 @@ describe("learner MCP read contract", () => {
           committedLearnerToolSurfacePath,
         ),
       );
-      expect(tools).toHaveLength(8);
+      expect(tools).toHaveLength(7);
       // Learner writes are limited to their own review progress and submission.
       for (const tool of tools) {
         const writesOwnTask =
@@ -232,6 +232,9 @@ describe("learner MCP read contract", () => {
       }
       await expect(
         f.client.callTool({ name: "material_save", arguments: {} }),
+      ).rejects.toThrow("not found");
+      await expect(
+        f.client.callTool({ name: "learning_practice_read", arguments: {} }),
       ).rejects.toThrow("not found");
     } finally {
       await f.close();
