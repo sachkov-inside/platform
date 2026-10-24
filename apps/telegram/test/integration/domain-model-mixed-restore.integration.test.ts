@@ -22,7 +22,11 @@ import { seedNotificationRecipient } from "../support/notification-recipient.js"
 import { conforming } from "../support/json.js";
 import { required } from "../support/required.js";
 import { SequenceScheduler } from "../../src/modules/communications/sequence-scheduler.js";
-import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
+import { CommunicationSequences } from "../../src/modules/communications/communication-sequences.js";
+import {
+  parseAuthorState,
+  resolveAuthorCallback,
+} from "../../src/modules/communications/author-dialog.js";
 import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { WaitlistConfirmations } from "../../src/modules/communications/waitlist-confirmations.js";
 import type { WaitlistConfirmation } from "@inside/contracts/waitlist-confirmation";
@@ -55,6 +59,85 @@ const chat = new FakeCommunityChat();
 const sequenceId = randomUUID(),
   stepId = randomUUID(),
   partId = randomUUID();
+const historicalDraft = {
+  funnelId: sequenceId,
+  name: "Retained published sequence",
+  isDefault: false,
+  sources: [],
+  steps: [
+    {
+      stepId,
+      delaySeconds: 10,
+      parts: [
+        {
+          partId,
+          content: {
+            type: "text",
+            text: "Retained sequence text",
+            entities: [],
+            buttons: [],
+          },
+        },
+      ],
+    },
+  ],
+  entryResponse: {
+    stepId: randomUUID(),
+    parts: [
+      {
+        partId: randomUUID(),
+        content: {
+          type: "text",
+          text: "Original entry response",
+          entities: [],
+          buttons: [],
+        },
+      },
+    ],
+  },
+};
+const historicalSnapshot = {
+  ...historicalDraft,
+  revision: 4,
+  publishedRevision: 3,
+  lifecycle: "published",
+};
+const historicalReceipt = {
+  request: {
+    contractVersion: "inside-communications-v1",
+    operation: "funnels.publish",
+    operationId: randomUUID(),
+    actor: { accountRef: "synthetic-owner" },
+    expectedRevision: 3,
+    payload: { funnelId: sequenceId },
+  },
+  result: { funnel: historicalSnapshot },
+};
+const historicalSession = {
+  version: 1,
+  token: "retained-menu",
+  batch: "funnel",
+  actions: [{ kind: "batch:funnel" }, { kind: "f:list" }, { kind: "home" }],
+  menu: {
+    text: "Original author menu",
+    buttons: [["Continue", { kind: "batch:funnel" }]],
+  },
+  composing: {
+    destination: {
+      kind: "funnel",
+      id: sequenceId,
+      target: stepId,
+      expectedRevision: 4,
+    },
+    content: {
+      type: "text",
+      text: "Unsaved original text",
+      entities: [],
+      buttons: [],
+    },
+  },
+  funnelAuthor: { funnel: historicalSnapshot, dirty: true, target: "entry" },
+};
 const contactId = randomUUID(),
   participationId = randomUUID();
 const sequenceUnknownId = randomUUID(),
@@ -287,20 +370,7 @@ async function seedLegacy(database: Database, url: string) {
   // An actual published immutable snapshot uses the old wire and old persistence names.
   const pool = new Pool({ connectionString: url, max: 1 });
   try {
-    const draft = {
-      funnelId: sequenceId,
-      name: "Retained published sequence",
-      isDefault: false,
-      sources: [],
-      steps: [
-        {
-          stepId,
-          delaySeconds: 10,
-          parts: [{ partId, content: { text: "Retained sequence text" } }],
-        },
-      ],
-      entryResponse: { stepId: randomUUID(), parts: [] },
-    };
+    const draft = historicalDraft;
     await pool.query(
       "insert into communication_funnels(funnel_id,bot_identity,owner_account_ref,revision,published_revision,lifecycle,draft,published,is_default) values($1,'inside','synthetic-owner',4,3,'published',$2,$2,false)",
       [sequenceId, draft],
@@ -364,6 +434,48 @@ async function seedLegacy(database: Database, url: string) {
           ),
         ],
       );
+    await pool.query(
+      "insert into communication_preferences(bot_identity,update_id,contact_id,enabled,observed_at) values('inside',700,$1,false,'2020-01-31')",
+      [contactId],
+    );
+    await pool.query(
+      "update communication_contacts set unavailable_since='2020-01-31' where contact_id=$1",
+      [contactId],
+    );
+    await pool.query(
+      "update communication_deliveries set cancel_requested=true,cancellation_reason='marketing_unavailable',completed_at='2020-01-31',parts=$2 where delivery_id=$1",
+      [
+        sequenceStoppedId,
+        JSON.stringify([
+          {
+            partId,
+            state: "cancelled",
+            diagnosticCode: "marketing_unavailable",
+            attempts: [],
+          },
+        ]),
+      ],
+    );
+    await pool.query(
+      "insert into communication_operations(bot_identity,operation_id,actor_account_ref,request,result,created_at) values('inside',$1,'synthetic-owner',$2,$3,'2020-01-31')",
+      [
+        historicalReceipt.request.operationId,
+        historicalReceipt.request,
+        historicalReceipt.result,
+      ],
+    );
+    await pool.query(
+      "insert into communication_author_sessions(bot_identity,telegram_user_id,account_ref,state) values('inside',20000,'synthetic-owner',$1)",
+      [historicalSession],
+    );
+    await pool.query(
+      "insert into communication_author_drafts(bot_identity,owner_account_ref,draft_id,kind,name,snapshot) values('inside','synthetic-owner',$1,'funnel','Original active draft',$2)",
+      [sequenceId, historicalSession.funnelAuthor],
+    );
+    await pool.query(
+      "insert into communication_author_compositions(bot_identity,owner_account_ref,destination_id,state) values('inside','synthetic-owner',$1,$2)",
+      [sequenceId, historicalSession.composing],
+    );
     for (const [index, command] of waitlist.entries())
       await pool.query(
         "insert into waitlist_confirmations(bot_identity,event_id,command,created_at,available_at,state,attempt_count,attempted_at,provider_message_id) values('inside',$1,$2,'2020-01-31','2020-01-31',$3,$4,$5,$6)",
@@ -379,17 +491,6 @@ async function seedLegacy(database: Database, url: string) {
   } finally {
     await pool.end();
   }
-  // Replay the exact historical stop, without resetting an already started attempt.
-  await new MarketingEntry(database, config(url), clock).setPreference(
-    {
-      botIdentity: "inside",
-      telegramUserId: "20000",
-      privateChatId: "20000",
-      updateId: "700",
-      observedAt: clock.now(),
-    },
-    false,
-  );
 }
 async function state(database: RestoreDatabase) {
   const pool = new Pool({ connectionString: database.url, max: 1 });
@@ -399,10 +500,68 @@ async function state(database: RestoreDatabase) {
     await pool.end();
   }
 }
+async function currentReaders(owner: Database, url: string) {
+  const sequences = new CommunicationSequences(
+    owner,
+    config(url),
+    { authorize: () => Promise.resolve("allowed") },
+    clock,
+    { validate: () => Promise.resolve({ status: "ok", targetErrors: [] }) },
+  );
+  const base = {
+    contractVersion: "inside-communications-v2" as const,
+    operationId: randomUUID(),
+    actor: { accountRef: "synthetic-owner" },
+    expectedRevision: 0,
+  };
+  expect(
+    await sequences.execute({
+      ...base,
+      operation: "sequences.read",
+      payload: { sequenceId },
+    }),
+  ).toMatchObject({
+    sequence: { sequenceId, name: "Retained published sequence" },
+  });
+  const receipt = await sequences.execute({
+    ...base,
+    operation: "receipts.read",
+    payload: { receiptOperationId: historicalReceipt.request.operationId },
+  });
+  if (!("receipt" in receipt))
+    throw new Error("Expected passive receipt reader");
+  expect(JSON.parse(receipt.receipt.requestJson)).toEqual(
+    historicalReceipt.request,
+  );
+  expect(JSON.parse(receipt.receipt.resultJson)).toEqual(
+    historicalReceipt.result,
+  );
+  const sessionRow = await owner
+    .selectFrom("communication_author_sessions")
+    .select("state")
+    .where("telegram_user_id", "=", "20000")
+    .executeTakeFirstOrThrow();
+  const session = parseAuthorState(sessionRow.state);
+  expect(session).toMatchObject({
+    token: "retained-menu",
+    batch: "sequence",
+    composing: { destination: { kind: "sequence", id: sequenceId } },
+    sequenceAuthor: { sequence: { sequenceId } },
+  });
+  if (session === undefined)
+    throw new Error(
+      "Current parser must preserve the active legacy author session",
+    );
+  expect(resolveAuthorCallback(session, "author:retained-menu:0")).toEqual({
+    kind: "batch:sequence",
+  });
+}
+
 async function recover(database: RestoreDatabase) {
   const owner = createDatabase(database.url);
   try {
     clock.value = new Date("2030-01-31T10:01:00Z");
+    await currentReaders(owner, database.url);
     const provider = notificationProvider(owner);
     for (const { command } of commands) await receive(provider, command);
     await provider.processCategory("material");
@@ -487,13 +646,13 @@ async function recover(database: RestoreDatabase) {
   }
 }
 
-// Two full archives, three EMPTY restores and real owner reconstruction are the subject here.
+// Two full archives, two EMPTY restores and real owner reconstruction are the subject here.
 // The ordinary five-second unit default does not cover that PostgreSQL process boundary.
 test("full Telegram archives preserve both migration ledger and mixed provider receipts across fresh recovery owners", async () => {
   const source = await postgres.emptyDatabase();
   const legacyOwner = createDatabase(source.url);
   try {
-    await migrateTo(legacyOwner, "036-material-announcements");
+    await migrateTo(legacyOwner, "035-waitlist-confirmations");
     await seedLegacy(legacyOwner, source.url);
   } finally {
     await legacyOwner.destroy();
@@ -513,6 +672,29 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
     }
   };
   await migrate(source);
+  const upgradedOwner = createDatabase(source.url);
+  try {
+    const archive = await upgradedOwner
+      .selectFrom("communication_historical_author_state")
+      .select(["source_table", "original"])
+      .execute();
+    for (const table of [
+      "communication_author_sessions",
+      "communication_author_drafts",
+      "communication_author_compositions",
+    ])
+      expect(
+        archive
+          .filter((row) => row.source_table === table)
+          .map((row) => row.original),
+      ).toEqual(
+        (legacyState.tables[`public.${table}`] ?? []).map((row): unknown =>
+          JSON.parse(row),
+        ),
+      );
+  } finally {
+    await upgradedOwner.destroy();
+  }
   await recover(source);
   expect(external.sends).toEqual([
     "Synthetic retained sent",
@@ -550,6 +732,7 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
   // proves restoration; dispatch requires reconciliation of post-backup external receipts.
   const heldOwner = createDatabase(rollback.url);
   try {
+    await currentReaders(heldOwner, rollback.url);
     const heldConfig = {
       ...config(rollback.url),
       deliveryMode: "disabled" as const,
