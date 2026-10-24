@@ -47,7 +47,7 @@ jobs:
       - name: Run actual generated topology through existing supervisor
         timeout-minutes: 20
         run: >-
-          bash scripts/heavy-check.sh python3 scripts/observability-production/check.py run
+          bash scripts/heavy-check.sh python3 scripts/observability-production/measure.py run --host-metrics
           --output "$RUNNER_TEMP/production-monitoring-private"
       - name: Recover only the registered project
         if: ${{ always() }}
