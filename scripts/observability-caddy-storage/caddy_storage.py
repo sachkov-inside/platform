@@ -157,7 +157,11 @@ def main(argv=None):
         ci.recover(output)
         verify_cleanup(output)
     elif args.action=='verify-fault':native_fault.verify(output,args.case,command_exit=args.exit_code)
-    else:collection.collect(output,args.metadata,args.public)
+    else:
+        collection.collect(output,args.metadata,args.public)
+        value=artifact.read_run(args.public)
+        if value is not None:
+            print(json.dumps({name:value[name] for name in ('state','phase','reason')},sort_keys=True))
     return 0
 
 
