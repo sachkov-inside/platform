@@ -1,3 +1,8 @@
+import { randomUUID } from "node:crypto";
+import {
+  CONTENT_ACCESS_BATCH_SIZE,
+  type Subject,
+} from "../../content-access/index.js";
 import type { MaterialAssetPresentation } from "../../assets/index.js";
 import { hydrateMaterialAssets } from "../../materials/index.js";
 import type { Result } from "./result.js";
@@ -47,6 +52,7 @@ export async function taskPageView(
   dependencies: LearningTaskDependencies,
   task: CurrentTask,
   productSlug: string,
+  subject: Subject,
 ): Promise<
   Result<
     { definition: TaskDefinition; page?: TaskPageView },
@@ -56,7 +62,7 @@ export async function taskPageView(
   const page = task.page;
   if (page === null)
     return { ok: true, value: { definition: task.definition } };
-  const urls = await resolveTaskLinks(dependencies, page);
+  const urls = await resolveTaskLinks(dependencies, page, subject);
   const destinations = new Map(urls);
   for (const [address, image] of Object.entries(page.resolvedImages))
     destinations.set(
@@ -196,6 +202,7 @@ function parseBodyDoc(value: unknown) {
 async function resolveTaskLinks(
   dependencies: LearningTaskDependencies,
   page: StoredTaskPage,
+  subject: Subject,
 ) {
   const ids = [...new Set(Object.values(page.resolvedLinks))];
   const materials = new Map(
@@ -214,6 +221,33 @@ async function resolveTaskLinks(
       })
     ).map((item) => [item.id, item]),
   );
+  const archived = tasks.filter(
+    (task) => products.get(task.productId)?.archived === true,
+  );
+  const visibleArchived = new Set<string>();
+  for (
+    let start = 0;
+    start < archived.length;
+    start += CONTENT_ACCESS_BATCH_SIZE
+  ) {
+    const availability = await dependencies.contentAccess.checkAvailabilityMany(
+      {
+        subject,
+        operations: archived
+          .slice(start, start + CONTENT_ACCESS_BATCH_SIZE)
+          .map((task) => ({
+            itemId: task.id,
+            resource: { kind: "productTask", taskId: task.id },
+            action: "read",
+          })),
+        enforcementPoint: "product_task_read",
+        correlationId: randomUUID(),
+      },
+    );
+    if (!availability.ok) throw new Error(availability.error.code);
+    for (const item of availability.items)
+      if (item.availability === "available") visibleArchived.add(item.itemId);
+  }
   const urls = new Map<string, string | null>();
   for (const [address, sourceId] of Object.entries(page.resolvedLinks)) {
     const fragmentIndex = address.indexOf("#");
@@ -229,7 +263,9 @@ async function resolveTaskLinks(
     // A published closed Task can be linked: its own page enforces access and shows only its place.
     urls.set(
       address,
-      target === undefined || product === undefined || product.archived
+      target === undefined ||
+        product === undefined ||
+        (product.archived && !visibleArchived.has(target.id))
         ? null
         : `/products/${product.slug}/tasks/${target.code}${fragment}`,
     );

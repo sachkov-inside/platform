@@ -53,6 +53,8 @@ export interface ProductTaskResourceFacts {
   readonly published: boolean;
   /** The current Task Version number. */
   readonly version: number;
+  /** Current owning Product archive state; a published programme requires its holder. */
+  readonly archived: boolean;
 }
 
 export interface ProductTaskResourceFactsAdapter {

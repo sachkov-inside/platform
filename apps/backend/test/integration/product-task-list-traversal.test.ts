@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { beforeAll, afterAll, expect, test } from "vitest";
 import { z } from "zod";
@@ -201,7 +202,10 @@ function owners() {
     materialResourceFacts: assembleMaterialResourceFacts(
       materials.materialContent,
     ),
-    productTaskResourceFacts: assembleProductTaskResourceFacts(prisma),
+    productTaskResourceFacts: assembleProductTaskResourceFacts(
+      prisma,
+      new ProductDiscovery(prisma),
+    ),
     accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
     accountRights: assembleAccountRights({ prisma }),
   });

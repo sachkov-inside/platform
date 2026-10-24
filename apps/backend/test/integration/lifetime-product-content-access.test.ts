@@ -107,7 +107,10 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
       ),
       assetResourceFacts: assembleAssetResourceFacts(assets),
       videoResourceFacts: assembleVideoResourceFacts(videos),
-      productTaskResourceFacts: assembleProductTaskResourceFacts(db.prisma),
+      productTaskResourceFacts: assembleProductTaskResourceFacts(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       accountPermissions: assembleCurrentAccountPermissions(accounts),
       accountRights: rights,
       clock: () => now,
@@ -300,10 +303,7 @@ test("ContentAccess uses the same PostgreSQL Product Access for current and futu
     for (const resource of own)
       expect(await authorize(holder, resource)).toMatchObject({
         effect: "deny",
-        reason:
-          resource.kind === "productTask"
-            ? "membership_required"
-            : "resource_not_found",
+        reason: "resource_not_found",
       });
   } finally {
     await db.dispose();

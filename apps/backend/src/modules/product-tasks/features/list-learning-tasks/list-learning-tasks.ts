@@ -161,8 +161,7 @@ export async function listLearningTasks(
       const chapter = product?.chapters.find(
         (item) => item.id === row.chapterId,
       );
-      if (product === undefined || product.archived || chapter === undefined)
-        return [];
+      if (product === undefined || chapter === undefined) return [];
       return [
         {
           code: row.code,

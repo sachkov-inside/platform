@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
@@ -176,6 +177,7 @@ async function corpus(size: number) {
       ),
       productTaskResourceFacts: assembleProductTaskResourceFacts(
         observer.prisma,
+        new ProductDiscovery(observer.prisma),
       ),
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
       accountRights: assembleAccountRights({ prisma: observer.prisma }),

@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -281,6 +282,7 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
       ),
       productTaskResourceFacts: assembleProductTaskResourceFacts(
         database.prisma,
+        new ProductDiscovery(database.prisma),
       ),
       accountRights: assembleAccountRights({ prisma: database.prisma }),
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },

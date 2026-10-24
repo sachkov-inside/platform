@@ -120,6 +120,7 @@ export function decodeProductAccessCursor(
       cursor.data.after[1].toLowerCase(),
     ];
   } catch {
+    // Not a dependency failure: malformed caller cursor data is invalid input.
     return null;
   }
 }

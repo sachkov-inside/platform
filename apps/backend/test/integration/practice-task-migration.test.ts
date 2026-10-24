@@ -1,3 +1,12 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+import { grantProductFixture } from "./setup/product-access.js";
+import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
+import { accountId } from "../../src/modules/accounts/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
+import { assembleContentAccess } from "../../src/modules/content-access/index.js";
+import { assembleMaterialResourceFacts } from "../../src/modules/materials/index.js";
+import { assembleLearningTasks } from "../../src/modules/product-tasks/index.js";
+import { assembleProductTaskResourceFacts } from "../../src/modules/product-tasks/adapters/content-access/product-task-resource-facts.js";
 import { randomUUID } from "node:crypto";
 import { afterEach, expect, test } from "vitest";
 import { z } from "zod";
@@ -7,7 +16,10 @@ import {
   taskDefinitionDigest,
 } from "../../src/modules/product-tasks/domain/task-definition.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
-import { ProductDirectory } from "../../src/modules/products/index.js";
+import {
+  ProductDirectory,
+  ProductDiscovery,
+} from "../../src/modules/products/index.js";
 import { assembleProductTaskImport } from "../../src/modules/product-tasks/facets/product-task-import/product-task-import.js";
 import { practiceDefinitionDigest } from "../../src/modules/materials/domain/practice-definition.js";
 import {
@@ -15,6 +27,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { migrateThrough, upgradeToLatest } from "./setup/historical-upgrade.js";
+
+registerFixedClock();
 
 let database: TestDatabase | undefined;
 afterEach(async () => database?.dispose());
@@ -164,6 +178,171 @@ test("historical Practice migration retains complete requirements, source pins a
       where: { taskId_version: { taskId: task.id, version: 1 } },
     }),
   ).rejects.toThrow(/immutable/u);
+});
+
+test("an actually migrated published Practice remains an embedded Task for its archived Product holder", async () => {
+  database = await createTestDatabase();
+  await migrateThrough(database, "0110_product_sales_state");
+  const productId = randomUUID(),
+    chapterId = randomUUID(),
+    materialId = randomUUID(),
+    topicId = randomUUID(),
+    actor = randomUUID(),
+    holder = randomUUID();
+  await historicalProduct(database, {
+    data: {
+      id: productId,
+      slug: "archived-migration",
+      name: "Archived migration",
+    },
+  });
+  await database.prisma.productChapter.create({
+    data: { id: chapterId, productId, ordinal: 1, name: "Original chapter" },
+  });
+  await database.prisma.topic.create({
+    data: { id: topicId, slug: "archive-migration", name: "Migration" },
+  });
+  const body = {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        attrs: { nodeId: randomUUID() },
+        content: [{ type: "text", text: "Original published lesson" }],
+      },
+    ],
+  };
+  await database.prisma
+    .$executeRaw(Prisma.sql`insert into materials.materials(id,title,summary,slug,access,publication_state,content_version,source_id,source_revision,source_path,schema_version,body,created_by,topic_id,format_id,first_published_at,published_at,published_by)
+    values (${materialId}::uuid,'Original lesson','','archived-lesson','free','published',7,'archive:lesson',${"a".repeat(64)},'lesson.md',1,${JSON.stringify(body)}::jsonb,${actor}::uuid,${topicId}::uuid,'note','2026-10-01','2026-10-01',${actor}::uuid)`);
+  await database.prisma.publishedMaterial.create({
+    data: {
+      materialId,
+      contentVersion: 7n,
+      slug: "archived-lesson",
+      title: "Original lesson",
+      summary: "",
+      access: "free",
+      topicId,
+      formatId: "note",
+      publicSearchText: "Original lesson",
+      publishedBy: actor,
+      publishedAt: new Date("2026-10-01T00:00:00Z"),
+    },
+  });
+  await historicalMembership(database, { data: { productId, materialId } });
+  await database.prisma.$executeRaw(
+    Prisma.sql`insert into products.published_material_series_memberships(series_id,material_id) values (${productId}::uuid,${materialId}::uuid)`,
+  );
+  await database.prisma.productProgrammePlacement.create({
+    data: { id: randomUUID(), productId, materialId, chapterId, ordinal: 1 },
+  });
+  const definition = {
+    schemaVersion: 1 as const,
+    title: "Original task",
+    businessInputs: "Original situation",
+    expectedOutcome: "Original outcome",
+    allowedFreedom: "Original freedom",
+    criteria: [
+      {
+        id: "original",
+        requirement: "Original requirement",
+        acceptableEvidence: ["Original evidence"],
+      },
+    ],
+  };
+  const sourceReference = {
+    materialSourceId: "archive:lesson",
+    materialSourceRevision: "a".repeat(64),
+  };
+  await historicalPractice(database, {
+    data: {
+      practiceId: "archive:requirements",
+      materialId,
+      definition,
+      definitionDigest: practiceDefinitionDigest(definition, sourceReference),
+      practiceVersion: 9n,
+      boundSourceId: sourceReference.materialSourceId,
+      boundSourceRevision: sourceReference.materialSourceRevision,
+      boundContentVersion: 7n,
+      publicationState: "published",
+      sourceRepository: "fixture/original",
+      sourceCommit: "b".repeat(40),
+      sourcePath: "lesson.md",
+      updatedAt: new Date("2026-10-01T00:00:00Z"),
+    },
+  });
+  await upgradeToLatest(database);
+  const migrated = await database.prisma.productTask.findUniqueOrThrow({
+    where: { sourceId: "archive:requirements" },
+  });
+  expect(migrated).toMatchObject({
+    embeddedMaterialId: materialId,
+    programmeVisibility: "embedded",
+    publicationState: "published",
+    currentVersion: 1,
+  });
+  const versions = await database.prisma.productTaskVersion.findMany({
+    where: { taskId: migrated.id },
+  });
+  await grantProductFixture(database.prisma, holder, productId);
+  const materials = assembleMaterials({
+    prisma: database.prisma,
+    authorPolicy: { canManage: () => false },
+  });
+  const contentAccess = assembleContentAccess({
+    materialResourceFacts: assembleMaterialResourceFacts(
+      materials.materialContent,
+    ),
+    productTaskResourceFacts: assembleProductTaskResourceFacts(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
+    accountRights: assembleAccountRights({ prisma: database.prisma }),
+    accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+  });
+  const learning = assembleLearningTasks({
+    prisma: database.prisma,
+    directory: new ProductDirectory(
+      database.prisma,
+      assembleProductMaterialReading(database.prisma),
+    ),
+    contentAccess,
+    materialReader: materials.publishedMaterialReader,
+    submissionsEnabled: true,
+  });
+  await database.prisma.product.update({
+    where: { id: productId },
+    data: { archivedAt: new Date("2026-10-02T00:00:00Z") },
+  });
+  const subject = { kind: "account" as const, accountId: accountId(holder) };
+  expect(await learning.materialTask({ subject, materialId })).toMatchObject({
+    ok: true,
+    value: {
+      access: "open",
+      task: {
+        definition: {
+          situation: "Original situation",
+          result: ["Original outcome"],
+        },
+      },
+    },
+  });
+  expect(await learning.list({ subject })).toMatchObject({
+    ok: true,
+    value: { tasks: [{ code: migrated.code }] },
+  });
+  expect(
+    await learning.materialTask({ subject: { kind: "anonymous" }, materialId }),
+  ).toMatchObject({ ok: false, error: { code: "task_not_found" } });
+  expect(await learning.list({ subject: { kind: "anonymous" } })).toMatchObject(
+    { ok: true, value: { tasks: [] } },
+  );
+  expect(
+    await database.prisma.productTaskVersion.findMany({
+      where: { taskId: migrated.id },
+    }),
+  ).toEqual(versions);
 });
 
 test("unowned, ambiguous and conflicting requirements remain passive with their original bindings", async () => {

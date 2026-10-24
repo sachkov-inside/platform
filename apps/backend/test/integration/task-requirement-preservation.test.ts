@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { createHash, randomUUID } from "node:crypto";
 import { afterEach, expect, test } from "vitest";
 import { z } from "zod";
@@ -49,7 +50,10 @@ test("public Task import and pinned multipart reader preserve a 16000-character 
     materialResourceFacts: assembleMaterialResourceFacts(
       materials.materialContent,
     ),
-    productTaskResourceFacts: assembleProductTaskResourceFacts(database.prisma),
+    productTaskResourceFacts: assembleProductTaskResourceFacts(
+      database.prisma,
+      new ProductDiscovery(database.prisma),
+    ),
     accountRights: assembleAccountRights({ prisma: database.prisma }),
     accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
   });

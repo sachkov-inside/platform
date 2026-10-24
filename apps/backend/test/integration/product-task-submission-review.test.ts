@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { AccountNames } from "../../src/modules/account-profiles/index.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
@@ -98,7 +99,10 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         materialResourceFacts: assembleMaterialResourceFacts(
           materials.materialContent,
         ),
-        productTaskResourceFacts: assembleProductTaskResourceFacts(db.prisma),
+        productTaskResourceFacts: assembleProductTaskResourceFacts(
+          db.prisma,
+          new ProductDiscovery(db.prisma),
+        ),
         accountPermissions: {
           hasMaterialsManage: (id) => Promise.resolve(id === owner),
         },

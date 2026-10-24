@@ -14,6 +14,7 @@ import {
 import { assembleMaterials } from "../../../../apps/backend/src/entrypoints/composition/assemble-materials.js";
 import {
   ProductDirectory,
+  ProductDiscovery,
   ProductCompositionsReading,
 } from "../../../../apps/backend/src/modules/products/index.js";
 import { assembleProductTaskResourceFacts } from "../../../../apps/backend/src/modules/product-tasks/adapters/content-access/product-task-resource-facts.js";
@@ -176,7 +177,10 @@ export async function startChapterStand(
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
       ),
-      productTaskResourceFacts: assembleProductTaskResourceFacts(db),
+      productTaskResourceFacts: assembleProductTaskResourceFacts(
+        db,
+        new ProductDiscovery(db),
+      ),
       accountPermissions: {
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },

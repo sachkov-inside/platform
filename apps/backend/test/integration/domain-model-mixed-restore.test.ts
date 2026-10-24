@@ -1201,7 +1201,10 @@ async function recover(
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
       ),
-      productTaskResourceFacts: assembleProductTaskResourceFacts(prisma),
+      productTaskResourceFacts: assembleProductTaskResourceFacts(
+        prisma,
+        new ProductDiscovery(prisma),
+      ),
       accountRights: rights,
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
     });

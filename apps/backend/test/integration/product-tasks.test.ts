@@ -1,3 +1,4 @@
+import { ProductDiscovery } from "../../src/modules/products/index.js";
 import {
   grantProductFixture,
   revokeProductFixture,
@@ -195,7 +196,10 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       materialResourceFacts: assembleMaterialResourceFacts(
         materials.materialContent,
       ),
-      productTaskResourceFacts: assembleProductTaskResourceFacts(db.prisma),
+      productTaskResourceFacts: assembleProductTaskResourceFacts(
+        db.prisma,
+        new ProductDiscovery(db.prisma),
+      ),
       accountPermissions: {
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },
@@ -2418,7 +2422,10 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         materialResourceFacts: assembleMaterialResourceFacts(
           assembleMaterials({ prisma, authorPolicy }).materialContent,
         ),
-        productTaskResourceFacts: assembleProductTaskResourceFacts(prisma),
+        productTaskResourceFacts: assembleProductTaskResourceFacts(
+          prisma,
+          new ProductDiscovery(prisma),
+        ),
         accountPermissions: {
           hasMaterialsManage: (id) => Promise.resolve(id === owner),
         },
