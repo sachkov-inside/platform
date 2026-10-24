@@ -121,8 +121,10 @@ production recovery are documented in the
 
 The [guarded smoke](local-stand.md#guarded-compose-smoke) proves the live web server adapter can reach API and PostgreSQL, MCP reported
 database-backed readiness, one stable free `kak-ustroen-inside-platform` Material with current
-stored content, one safe closed catalog Material, and the three seeded offers on the public
-storefront. Repeating `docker compose down` and the detached startup preserves the database volume
+stored content, one safe closed catalog Material, and the seeded Product UUID, name and
+3000-kopeck one-time price through `/billing/product-prices`. It also proves the retired
+`/billing/offers` route returns 404. A visible price does not prove legal purchase admission;
+that separate boundary remains covered by the buyer contracts. Repeating `docker compose down` and the detached startup preserves the database volume
 and proves the development seed remains stable.
 
 ## Optional Storybook profile

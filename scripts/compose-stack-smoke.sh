@@ -44,21 +44,29 @@ if [[ "$catalog_response" == *"Закрытое содержимое для уч
   exit 1
 fi
 
-# Публичная витрина отдаёт только включённое в продажу, поэтому один ответ доказывает и то, что
-# каталог засеян, и то, что продажа включена. Лишние предложения владельца проверке не мешают.
-offers_response="$(curl --fail --silent --show-error "$api_base_url/billing/offers")"
-for seeded_offer in '"name":"Руководство «Создание Platform Inside»"' '"mode":"one_time"'; do
-  if [[ "$offers_response" != *"$seeded_offer"* ]]; then
-    echo "Seeded offer catalog is missing $seeded_offer on the public storefront" >&2
-    exit 1
-  fi
-done
-for hidden_subscription in '"name":"Материалы"' '"name":"Материалы + сопровождение"' '"mode":"subscription"'; do
-  if [[ "$offers_response" == *"$hidden_subscription"* ]]; then
-    echo "Subscription sales must remain hidden during enrollment transition: $hidden_subscription" >&2
-    exit 1
-  fi
-done
+# Публичная витрина показывает текущую цену Product. Это не разрешение новой покупки:
+# её отдельная проверка также требует принятой редакции юридических условий.
+retired_offers_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$api_base_url/billing/offers")"
+if [[ "$retired_offers_status" != "404" ]]; then
+  echo "Retired Offer route should return 404, got $retired_offers_status" >&2
+  exit 1
+fi
+prices_response="$(curl --fail --silent --show-error "$api_base_url/billing/product-prices")"
+python3 - "$prices_response" <<'PYTHON'
+import json
+import sys
+
+page = json.loads(sys.argv[1])
+product_id = '72000000-0000-4000-8000-000000000007'
+items = page['items']
+seeded = [item for item in items if item['product']['id'] == product_id]
+assert len(seeded) == 1, 'Expected exactly one seeded Product price'
+price = seeded[0]
+assert price['product']['name'] == 'Руководство «Создание Platform Inside»', 'Wrong seeded Product'
+assert price['firstPriceKopecks'] == 3000, 'Wrong seeded Product price'
+assert price['paymentOption']['priceKopecks'] == 3000, 'Wrong seeded base price'
+assert all(item['paymentOption']['mode'] == 'one_time' for item in items), 'Subscription exposed as current Product sale'
+PYTHON
 
 curl --fail --silent --show-error --output /dev/null "$web_base_url"
 retired_library_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "$web_base_url/library")"
@@ -122,4 +130,4 @@ if [[ "$mail_capture_inbox" != *'"messages"'* ]]; then
   exit 1
 fi
 
-echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded offers on sale, bank double and mail capture ready"
+echo "Compose stack smoke passed: Library/Reader web -> API -> PostgreSQL, MCP metadata/auth boundary ready, seed $seed_snapshot, seeded Product price (purchase admission checked separately), bank double and mail capture ready"
