@@ -282,6 +282,21 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
   ).toBeVisible();
   await topicChip(page, "Platform").click();
   await expect(page).toHaveURL(/topic=platform/u);
+  // The URL changes before the filtered request completes. A skeleton is shorter than the
+  // feed and clamps an early scroll; establish the current visible list before testing Back.
+  const feed = page.getByRole("region", { name: "Материалы", exact: true });
+  await expect(topicChip(page, "Platform")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(feed.getByRole("status")).toHaveText("Материалов: 18");
+  await expect(feed.getByRole("article")).toHaveCount(18);
+  await expect(
+    feed.getByRole("link", { name: "Навигация 18", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    "/materials/navigation-17?from=%2F%3Ftopic%3Dplatform",
+  );
   // Позицию ленты приложение записывает по событию scroll, а браузер доставляет его в следующем кадре:
   // «Назад» в том же кадре уносит несохранённую позицию (#735). Событие рассылается всем обработчикам
   // целиком до следующей команды теста.
