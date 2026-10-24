@@ -1,3 +1,4 @@
+import { AnalyticsSettingsLink } from "@/features/storage-notice";
 import Link from "next/link";
 
 import { legalSeller } from "@inside/legal/seller";
@@ -43,6 +44,7 @@ export function PublicFooter() {
           </li>
         </ul>
       </nav>
+      <AnalyticsSettingsLink />
       <p className="mt-3 text-xs leading-5">
         {legalSeller.name} · ИНН {legalSeller.inn} · ОГРНИП {legalSeller.ogrnip}{" "}
         ·{" "}

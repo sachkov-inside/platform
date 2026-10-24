@@ -1,3 +1,4 @@
+import { AnalyticsObservation } from "@/features/storage-notice";
 import { IndividualPurchaseView } from "./individual-purchase-view";
 import type { PaymentLinkDetail } from "@/entities/subscription";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -79,6 +80,9 @@ export function ProductPurchaseView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem]">
+      {product !== null && !unavailable && !hasPurchase ? (
+        <AnalyticsObservation event="checkout_started" />
+      ) : null}
       {/* Страница покупки, как и страница курса, обходится без общей нижней навигации: путь
           назад — ссылка вверху (решение владельца 09.10.2026). */}
       <HideMobileNavigation />

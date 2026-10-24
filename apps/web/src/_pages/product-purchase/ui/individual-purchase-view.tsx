@@ -1,3 +1,4 @@
+import { AnalyticsObservation } from "@/features/storage-notice";
 import type { ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import { HideMobileNavigation } from "@/shared/ui/hide-mobile-navigation.client";
@@ -31,6 +32,9 @@ export function IndividualPurchaseView({
   const active = link.state === "active" && usable;
   return (
     <section className="mx-auto w-full min-w-0 max-w-[1080px] py-8 pb-20">
+      {active && !hasPurchase ? (
+        <AnalyticsObservation event="checkout_started" />
+      ) : null}
       <HideMobileNavigation />
       <header className="mb-9">
         <h1 className="mb-3 text-[2rem] font-semibold leading-tight tracking-[-0.02em]">
