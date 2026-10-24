@@ -30,12 +30,31 @@ class ContainerOwnership(unittest.TestCase):
 
     def test_owner_cache_admission_refuses_arbitrary_labels_before_projection(self):
         config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
-        rule = config.split('prometheus.relabel "host" {', 1)[1].split('rule {', 1)[1].split('\n  }', 1)[0]
+        rule = config.split('prometheus.relabel "owner_cache" {', 1)[1].split('rule {', 1)[1].split('\n  }', 1)[0]
         expression = json.loads(re.search(r'regex = ("[^\n]+")', rule).group(1))
         for key in ('purchases', 'fulfillment', 'backup_success_full', 'source_platform_database', 'telegram_update_failed_reset'):
-            self.assertIsNotNone(re.fullmatch(expression, 'inside_watchdog_value;' + key))
+            self.assertIsNotNone(re.fullmatch(expression, 'inside_watchdog_value;' + key + ';;;'))
         for key in ('person@example.invalid', 'account_123', 'unrecognized', ''):
-            self.assertIsNone(re.fullmatch(expression, 'inside_watchdog_value;' + key))
+            self.assertIsNone(re.fullmatch(expression, 'inside_watchdog_value;' + key + ';;;'))
+
+    def test_native_cache_has_one_five_second_stream_and_closed_source_identity(self):
+        config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
+        self.assertNotIn('textfile', config.split('prometheus.exporter.cadvisor', 1)[0])
+        cache = config.split('prometheus.scrape "owner_cache" {', 1)[1].split('\n}', 1)[0]
+        self.assertIn('scrape_interval = "5s"', cache)
+        rule = config.split('prometheus.relabel "owner_cache" {', 1)[1].split('rule {', 1)[1].split('\n  }', 1)[0]
+        expression = json.loads(re.search(r'regex = ("[^\n]+")', rule).group(1))
+        for value, accepted in (
+                ('inside_production_source_available;;postgresql;;', True),
+                ('inside_production_source_available;;caddy;;', True),
+                ('inside_production_source_available;;private-person;;', False),
+                ('inside_postgresql_server_waiting_locks;;;;', True),
+                ('inside_postgresql_server_query_text;;;;', False),
+                ('caddy_http_requests_total;;;public;subroute', True),
+                ('caddy_http_requests_total;;;srv0;subroute', False),
+                ('caddy_http_requests_total;;;public;metrics', False)):
+            with self.subTest(value=value):
+                self.assertEqual(re.fullmatch(expression, value) is not None, accepted)
 
 
 if __name__ == '__main__':

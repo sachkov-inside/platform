@@ -89,6 +89,31 @@
       "title": "Backup last-success age seconds",
       "query": "time() - (inside_watchdog_value{check=~\"backup_last_success_timestamp_seconds\"} and on(check,job,instance) ((time() - inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"}) >= 0 and (time() - inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"}) <= 180 and (inside_watchdog_observed_at_seconds{check=~\"backup_last_success_timestamp_seconds\"} == on(job,instance) group_left() inside_watchdog_completed_at_seconds)))",
       "description": "Age since latest successful systemd backup completion, unknown after reboot until known completion. Threshold8h. No backup storage inspection or restore proof."
+    },
+    {
+      "title": "PostgreSQL native counts (ordinary reader)",
+      "query": "{__name__=~\"inside_postgresql_server_(backends|waiting_locks|deadlocks_since_reset)\",job=\"platform-owner-cache\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) <= 10)",
+      "description": "Only validated ordinary-role pg_catalog aggregates for inside DB. Missing stats/reset/role/source is UNKNOWN. No query text, PID, user or SQL is stored."
+    },
+    {
+      "title": "PostgreSQL server/statistics epoch markers",
+      "query": "{__name__=~\"inside_postgresql_server_(postmaster_start_time_microseconds|statistics_reset_time_microseconds|sample_time_microseconds)\",job=\"platform-owner-cache\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"}) <= 10)",
+      "description": "Microseconds. Changed epoch or decreased counter invalidates cross-epoch delta; unavailable intervals are incomplete."
+    },
+    {
+      "title": "Caddy public native HTTP counts",
+      "query": "{__name__=~\"caddy_http_(requests_total|request_errors_total|requests_in_flight)\",job=\"platform-owner-cache\",server=\"public\",handler=\"subroute\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) <= 10)",
+      "description": "Actual adapted public443 server/subroute counted once. Other servers/automatic redirects validated before exclusion. Excludes pre-route parsing/TCP/TLS/HTTP3 failures."
+    },
+    {
+      "title": "Caddy process epoch marker",
+      "query": "caddy_process_start_time_seconds{job=\"platform-owner-cache\"} and on(job,instance) (inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"} == 1 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) >= 0 and (time() - inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"}) <= 10)",
+      "description": "Process epoch in seconds; decreases/reset or changed epoch prevent an uninterrupted interval claim. Missing source is UNKNOWN."
+    },
+    {
+      "title": "Owner cache parsing failure (1 means invalid cache)",
+      "query": "node_textfile_scrape_error{job=\"platform-owner-cache\"}",
+      "description": "Scraper up is separate from source availability and file parsing; missing file/source is UNKNOWN."
     }
   ],
   "sources": [
@@ -205,6 +230,24 @@
       "value": "max(inside_watchdog_value{check=\"source_telegram_webhook\"})",
       "observed_at": "max(inside_watchdog_observed_at_seconds{check=\"source_telegram_webhook\"})",
       "maximum_age_seconds": 180
+    },
+    {
+      "name": "owner-cache-scraper",
+      "value": "max(up{job=\"platform-owner-cache\",instance=\"production-host\"})",
+      "observed_at": "max(timestamp(up{job=\"platform-owner-cache\",instance=\"production-host\"}))",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "native-postgresql",
+      "value": "max(inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"})",
+      "observed_at": "max(inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"postgresql\"})",
+      "maximum_age_seconds": 10
+    },
+    {
+      "name": "native-caddy",
+      "value": "max(inside_production_source_available{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"})",
+      "observed_at": "max(inside_production_source_observed_at_seconds{job=\"platform-owner-cache\",instance=\"production-host\",source=\"caddy\"})",
+      "maximum_age_seconds": 10
     }
   ]
 }
