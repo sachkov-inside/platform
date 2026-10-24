@@ -12,6 +12,7 @@ import runtime
 ARTIFACTS = ('evidence.json', 'cleanup.json', 'worker-outcome.json', 'recovery.json',
              'container-states.json', 'readiness.json', 'storage-host.json', 'storage-vm.json',
              'monitor-failure.json', 'umami-proof.json', 'umami-retention.json', 'browser-analytics-proof.json')
+RECOVERY_ARTIFACTS=(*ARTIFACTS,'recovery-proof.json','recovery-inputs.json')
 
 
 def source_inputs():
@@ -43,13 +44,18 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--metadata', type=Path, required=True)
     parser.add_argument('--public', type=Path, required=True)
+    parser.add_argument('--recovery',action='store_true')
     args = parser.parse_args()
     if args.action == 'admission':
-        return ci.admission(args.metadata, inputs=source_inputs(), scope='synthetic Umami Linux API/MCP compatibility; no production or full resource acceptance')
+        scope='synthetic PG18/current pgBackRest Linux recovery; no production or resource acceptance' if args.recovery else 'synthetic Umami Linux API/MCP compatibility; no production or full resource acceptance'
+        return ci.admission(args.metadata, inputs=source_inputs(), scope=scope)
     if args.action == 'recover':
-        ci.recover(args.output, project_prefix=runtime.PROJECT_PREFIX, services=runtime.SERVICES)
+        if args.recovery:
+            import recovery
+            ci.recover(args.output,project_prefix=recovery.PROJECT_PREFIX,services=recovery.SERVICES)
+        else:ci.recover(args.output, project_prefix=runtime.PROJECT_PREFIX, services=runtime.SERVICES)
     else:
-        ci.collect(args.output, args.metadata, args.public, artifacts=ARTIFACTS)
+        ci.collect(args.output, args.metadata, args.public, artifacts=RECOVERY_ARTIFACTS if args.recovery else ARTIFACTS)
     return 0
 
 

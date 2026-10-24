@@ -109,11 +109,18 @@ class SameReadGuard(unittest.TestCase):
         state={} if state is None else state
         state.update(threads=threads,release=release,finish=finish)
         if join_mode=='normal':finish.set()
+        self_test=self;bounded_joins=[]
         class OwnedThread(real_thread):
             def join(self,timeout=None):
-                if release.is_set():
-                    if join_mode=='timeout':return
-                    if join_mode=='early_error':raise cleanup_failure
+                if not release.is_set():
+                    # The acquired read is deliberately blocked until fixture cleanup.
+                    # Model its exhausted join without spending the real shutdown budget
+                    # in every subcase; the actual thread must still be alive at sealing.
+                    bounded_joins.append(timeout)
+                    self_test.assertTrue(self.is_alive())
+                    return
+                if join_mode=='timeout':return
+                if join_mode=='early_error':raise cleanup_failure
                 super().join(timeout)
                 if release.is_set() and cleanup_failure is not None:raise cleanup_failure
         def create(**kwargs):
@@ -135,6 +142,7 @@ class SameReadGuard(unittest.TestCase):
             try:
                 with pilot.disk_budget(Path('/synthetic'),observe_samples=True) as view:
                     self.assertTrue(started.wait(2))
+                self.assertEqual(bounded_joins,[pilot.MONITOR_SHUTDOWN_SECONDS])
                 frozen=view.final;self.assertTrue(threads[0].is_alive())
                 if early_failure is not None:raise early_failure
             finally:
@@ -344,6 +352,8 @@ class Preparation(unittest.TestCase):
             stack.enter_context(patch.object(hosted.runtime.ci,'read_command',return_value=''))
             stack.enter_context(patch.object(hosted.runtime.pilot.daemon,'identify',return_value={'platform':'linux','storage':'/synthetic','endpoint':'synthetic'}))
             stack.enter_context(patch.object(hosted.runtime.pilot,'disk_budget',side_effect=guard))
+            from types import SimpleNamespace
+            stack.enter_context(patch.object(hosted.runtime.pilot.shutil,'disk_usage',return_value=SimpleNamespace(free=20*1024**3)))
             stack.enter_context(patch.object(hosted,'command',side_effect=command))
             stack.enter_context(patch.object(hosted.runtime.pilot,'assert_docker_identity'))
             stack.enter_context(patch.object(hosted.runtime.pilot,'command',side_effect=lambda args,**options:

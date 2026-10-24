@@ -100,3 +100,21 @@ class HostedBoundaries(unittest.TestCase):
             for name in ('collector_privacy.py',):
                 relative='scripts/observability-pilot/'+name
                 self.assertEqual(proof['inputs'][relative],hashlib.sha256((hosted.ROOT/relative).read_bytes()).hexdigest())
+
+    def test_recovery_job_recovers_only_its_registered_services_and_curates_its_proof(self):
+        import recovery
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);output=root/'private';metadata=root/'metadata';public=root/'public'
+            arguments=['hosted.py','recover','--recovery','--output',str(output),'--metadata',str(metadata),'--public',str(public)]
+            with patch.object(hosted.sys,'argv',arguments),patch.object(hosted.ci,'recover') as recover:
+                self.assertEqual(hosted.main(),0)
+            self.assertEqual(recover.call_args.kwargs,{'project_prefix':recovery.PROJECT_PREFIX,'services':recovery.SERVICES})
+            output.mkdir();metadata.mkdir()
+            for name in ('compose.json','init.sql','pgbackrest.conf','current-deletions.json','foundation-cache.json'):
+                (output/name).write_text('{"private":"must-not-publish"}')
+            (output/'recovery-proof.json').write_text('{"state":"passed","scope":"synthetic_only"}')
+            (output/'recovery-inputs.json').write_text('{"foundation_source":"fixture"}')
+            arguments[1]='collect'
+            with patch.object(hosted.sys,'argv',arguments):self.assertEqual(hosted.main(),0)
+            self.assertEqual(sorted(path.name for path in public.iterdir()),['recovery-inputs.json','recovery-proof.json'])
+            self.assertNotIn('must-not-publish',''.join(path.read_text() for path in public.iterdir()))

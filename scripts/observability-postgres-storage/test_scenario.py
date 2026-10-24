@@ -321,7 +321,7 @@ class Driver(unittest.TestCase):
         from pathlib import Path
         import postgres_source
         import source_status_scenario
-        for fault in (None,'poisoned_state','poisoned_owner','expired','http_failure','expired_response'):
+        for fault in (None,'poisoned_state','poisoned_owner','expired','http_failure','http_status','expired_response'):
             clock=[100.0];requests=[];identity_deadlines=[];stopped=[False];primary=RuntimeError('controlled HTTP first')
             driver=scenario.Scenario(None,['docker','compose','-p','inside-observability-pilot-'+'a'*12,'-f','/task/compose.json'],'fixed',None)
             driver.end=250;driver.clock_deadline=110
@@ -362,6 +362,7 @@ class Driver(unittest.TestCase):
                     self.assertEqual(request.full_url,'http://127.0.0.1:14318/v1/metrics')
                     requests.append(request)
                     if fault=='http_failure':raise primary
+                    if fault=='http_status':raise scenario.urllib.error.HTTPError('private-url',400,'private-body',{},None)
                     return Response()
             with self.subTest(fault=fault),patch.object(scenario.time,'monotonic',side_effect=lambda:clock[0]), \
                  patch.object(scenario.pilot,'command',side_effect=daemon),patch.object(scenario.pilot,'assert_docker_identity',side_effect=identity), \
@@ -371,9 +372,16 @@ class Driver(unittest.TestCase):
                 else:
                     try:driver.stop_postgres()
                     except Exception as error:
-                        if fault=='http_failure':self.assertIs(error,primary)
+                        if fault=='http_status':
+                            self.assertIsInstance(error,scenario.urllib.error.HTTPError)
+                            self.assertEqual(driver.upload_operation,{'schema':1,'phase':'restart_unavailable_upload','step':'http_open','outcome':'failed','error':'http_status','http_status':400,'returncode':None})
+                            self.assertNotIn('private',json.dumps(driver.upload_operation))
+                            error.close()
+                        if fault=='http_failure':
+                            self.assertIs(error,primary)
+                            self.assertEqual(driver.upload_operation,{'schema':1,'phase':'restart_unavailable_upload','step':'http_open','outcome':'failed','error':'operation_failed','http_status':None,'returncode':None})
                     else:self.fail('invalid composed stop returned success')
-            self.assertEqual(requests!=[],fault in (None,'http_failure','expired_response'))
+            self.assertEqual(requests!=[],fault in (None,'http_failure','http_status','expired_response'))
             self.assertTrue(all(deadline==110 for deadline in identity_deadlines))
             self.assertEqual(signal.getitimer(signal.ITIMER_REAL),(0,0))
 
@@ -386,7 +394,7 @@ class Driver(unittest.TestCase):
             if counter[0]<2:
                 self.assertEqual(kwargs,{'_baseline':('first','second')[counter[0]]});phase='baseline'
             else:
-                self.assertEqual(kwargs,{});phase=driver.phase
+                self.assertEqual(kwargs,{});phase='restart' if driver.phase.startswith('restart_') else driver.phase
             observations[phase]=observations.get(phase,0)+1;counter[0]+=1
             value=EXPECTED.copy();value['sample_us']+=counter[0]*1000
             if phase=='deadlocks':value['deadlocks']=EXPECTED['deadlocks']+1
@@ -396,7 +404,7 @@ class Driver(unittest.TestCase):
             return value,{**verdict,'continuity':state['continuity'],'count_complete':state['count_complete']}
         final={**verdict,'age_seconds':.125}
         driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
-        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart' else 'stale'})
+        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart_unavailable_read' else 'stale'})
         with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
                 patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
                 patch.object(scenario.queries,'read',return_value=('','','',0)),patch.object(driver,'stored',side_effect=AssertionError('new stored query forbidden')), \

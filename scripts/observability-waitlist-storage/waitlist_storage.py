@@ -142,12 +142,7 @@ def worker(output):
             token=source_status_query._read_private_token(output)
             pilot.await_fact(lambda:pilot.request('/metrics/api/v1/query?query=1',token=token),lambda row:row[0]==200,output=output,probe='waitlist_storage_query_ready')
             def pg_ready():
-                pilot.assert_docker_identity()
-                try:
-                    pilot.command(['docker','exec',targets.postgres(),'pg_isready','-U','tracking','-d','tracking'],timeout=3)
-                    return True
-                except Exception:
-                    return False
+                return ownership.postgres_ready(targets)
             pilot.await_fact(pg_ready,lambda ready:ready,output=output,probe='waitlist_postgresql_ready')
             result['stage']='producer'
             # No ambient exporter/header/client-certificate credentials or process bootstrap options.

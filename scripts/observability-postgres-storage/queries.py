@@ -41,7 +41,17 @@ def _read(token,verify_owner,*,budget=10,protocol=False,deadline=None):
         _remaining(deadline)
     with nullcontext() if absolute else source_status_query._deadline(budget):
         if not absolute:deadline=time.monotonic()+budget
-        evaluated_at=math.floor(time.time());bodies=[]
+        # The just-published cohort has a subsecond source timestamp. Flooring now
+        # can turn a current read into a historical read of the previous baseline.
+        # Keep the integer oracle contract, but wait for that instant inside the SAME
+        # request deadline. Neither a future evaluation nor a larger freshness window.
+        now=time.time();evaluated_at=math.ceil(now)
+        delay=evaluated_at-now
+        if delay>0:
+            if delay>=_remaining(deadline):raise TimeoutError()
+            time.sleep(delay)
+            if time.time()<evaluated_at:raise ValueError('storage')
+        bodies=[]
         selected=paths(evaluated_at)
         if protocol:
             selected+=('/metrics/api/v1/query?'+urllib.parse.urlencode({'query':GLOBAL,'time':str(evaluated_at),'timeout':'2s','nocache':'1'}),)

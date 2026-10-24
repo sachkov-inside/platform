@@ -118,6 +118,21 @@ class PilotPreparationTest(unittest.TestCase):
             "reason": "pilot requires 16 GiB free: 10 GiB host floor, 4 GiB growth cap, 2 GiB cleanup headroom",
         })
 
+        from storage_policy import assert_budget, StorageBudgetExceeded
+        gib = 1024**3
+        # Build layers and seven downloaded images have a separate bounded budget;
+        # running the monitoring workload keeps its original four-GiB ceiling.
+        assert_budget(32*gib, 27*gib, growth_bytes=8*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(32*gib, 27*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(32*gib, 24*gib, growth_bytes=8*gib)
+        with self.assertRaises(StorageBudgetExceeded):
+            assert_budget(20*gib, 10*gib, growth_bytes=8*gib)
+        for invalid in (True, 0, -1, 13*gib):
+            with self.subTest(growth_bytes=invalid), self.assertRaises(ValueError):
+                assert_budget(32*gib, 31*gib, growth_bytes=invalid)
+
     def test_local_smoke_admission_does_not_require_25_percent_of_entire_mac_disk(self):
         self.assertTrue(check_disk(total=460 * 1024**3, free=16 * 1024**3)["ready"])
 

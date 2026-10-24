@@ -1,5 +1,6 @@
 """Bounded child-only Engine read; no socket or privileged cgroup mount enters a container."""
 import http.client
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import profile as resource_profile
 
 MAX_BYTES = 1_048_576
 SOCKET_SECONDS = 1
+MAX_READERS = 4
 
 
 def fetch(endpoint, container):
@@ -23,7 +25,7 @@ def fetch(endpoint, container):
     connection.sock.settimeout(SOCKET_SECONDS)
     try:
         connection.sock.connect(endpoint[len('unix://'):])
-        connection.request('GET', '/v1.51/containers/' + container + '/stats?stream=false&one-shot=true', headers={'Connection':'close'})
+        connection.request('GET', '/v1.48/containers/' + container + '/stats?stream=false&one-shot=true', headers={'Connection':'close'})
         response = connection.getresponse()
         if response.status != 200:
             raise RuntimeError('engine_status')
@@ -33,6 +35,20 @@ def fetch(endpoint, container):
         return {'counters': measurements.engine(json.loads(body)), 'started': started, 'finished': time.monotonic()}
     finally:
         connection.close()
+
+
+def readings(endpoint, ids):
+    def read(container):
+        started = time.monotonic()
+        try:
+            return container, fetch(endpoint, container)
+        except (OSError, ValueError, RuntimeError, http.client.HTTPException):
+            return container, {'counters': measurements.engine({}),
+                               'started': started, 'finished': time.monotonic()}
+    # At most twelve owned containers and four one-second socket reads in flight.
+    # A slow first stats read cannot consume twelve sequential socket deadlines.
+    with ThreadPoolExecutor(max_workers=MAX_READERS) as pool:
+        return dict(pool.map(read, ids))
 
 
 def main(output, ids):
@@ -50,12 +66,7 @@ def main(output, ids):
     if not isinstance(ids, list) or not 1 <= len(ids) <= 12 or any(not isinstance(value,str) or not re.fullmatch(r'[a-f0-9]{64}',value) for value in ids) or len(set(ids)) != len(ids):
         raise ValueError('engine_container_set')
     endpoint = pilot.FROZEN_DOCKER_ENDPOINT
-    result = {}
-    for container in ids:
-        try:
-            result[container] = fetch(endpoint, container)
-        except (OSError, ValueError, RuntimeError, http.client.HTTPException):
-            result[container] = measurements.engine({})
+    result = readings(endpoint, ids)
     pilot.assert_docker_identity()
     print(json.dumps(result, allow_nan=False))
 

@@ -29,8 +29,11 @@ class CorpusCallbackContinuity(unittest.TestCase):
             calls = []
             batches = iter([batch(1), batch(0)])
             recovery_checks = 0
+            maintenance_active = False
+            maintenance_member = False
+            maintenance_restored = False
             def execute(base, args, *, payload=None, timeout=60, fixture_phase=None):
-                nonlocal recovery_checks
+                nonlocal recovery_checks, maintenance_active, maintenance_member, maintenance_restored
                 calls.append(args)
                 self.assertLess(len(calls), 160, 'bounded fake command budget exhausted')
                 if args[0] == 'create' and (reject_create_service == 'all' or args[-1] == reject_create_service):
@@ -73,6 +76,35 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     if failure == 'postmaster_later' and "'remaining'" in payload:
                         return 'private-sentinel'
                 if payload is not None:
+                    if 'CREATE ROLE umami; CREATE ROLE some_other_app' in payload:
+                        if failure == 'maintenance_membership':
+                            raise runner.runtime.FixtureCommandFailed(returncode=1)
+                        if failure == 'maintenance_timeout':
+                            raise subprocess.TimeoutExpired(['private-sentinel'], timeout)
+                        maintenance_active = True
+                        maintenance_member = True
+                    if 'existing Umami role authority' in payload and maintenance_member:
+                        raise runner.runtime.FixtureCommandFailed({'phase': 'membership_guard', 'error': 'existing_role_authority'}, returncode=3)
+                    if 'REVOKE umami FROM some_other_app' in payload:
+                        maintenance_member = False
+                    if maintenance_active:
+                        if "'database_absent'" in payload:
+                            return json.dumps({'database_absent': True, 'foreign_membership_preserved': True})
+                        if "'identity',has_database_privilege" in payload:
+                            return json.dumps({'inside': False, 'logto': False, 'platform': True, 'identity': True})
+                        if 'cutoff_age_seconds' in payload:
+                            return batch(0)
+                        if "'remaining'" in payload:
+                            maintenance_restored = False
+                            return '{"remaining":false}'
+                        if payload == 'SELECT synthetic_restore_snapshot;':
+                            maintenance_restored = True
+                        if payload.startswith('SELECT count(*) FROM public.'):
+                            return '1' if "ttl_retained" in payload or ("event_name='ttl_recent'" in payload and maintenance_restored) else '0'
+                        if payload.startswith('DROP DATABASE umami;'):
+                            maintenance_active = False
+                    if failure == 'maintenance_membership' and 'CREATE ROLE umami; CREATE ROLE some_other_app' in payload:
+                        raise runner.runtime.FixtureCommandFailed(returncode=1)
                     if 'SELECT 1/0' in payload:
                         raise runner.runtime.FixtureCommandFailed(returncode=1)
                     if "'platform_rows'" in payload:
@@ -98,6 +130,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
                     if "'expired_event_rows'" in payload:
                         return json.dumps({'cutoff': '2025-10-19T12:00:00.000000Z', 'expired_event_rows': 502})
                     return ''  # Preparation writes are not a persistence proof in this contract.
+                if 'pg_dump' in args:
+                    return 'SELECT synthetic_restore_snapshot;'
                 if 'pg_isready' in args:
                     return ''
                 if 'pgbackrest' in args and args[-1] == 'version':
@@ -174,6 +208,8 @@ class CorpusCallbackContinuity(unittest.TestCase):
     def test_pg18_offline_archive_display_reaches_replay_before_opening_readers(self):
         report, _calls = self.run_corpus(whole_controller=True)
         self.assertEqual(report['state'], 'passed')
+        self.assertEqual(report['native_maintenance'], {'foreign_membership_refused': True,
+            'role_isolation': True, 'journal_replayed_after_restore': True, 'multiple_child_batches': True})
         self.assertEqual(report['recovered_postmaster']['outcome'], 'passed')
         self.assertEqual(report['restored_platform'], {'platform_rows': 1, 'platform_untouched': True})
         self.assertEqual(report['reader_gate'], 'opened_after_replay_and_current_ttl')
@@ -339,3 +375,15 @@ class CorpusCallbackContinuity(unittest.TestCase):
                 'recovery_ended': True, 'error': None}})
         self.assertFalse(any(args[0] in ('create', 'up', 'start') and args[-1] in
             ('read-db', 'reader', 'ingest') for args in calls))
+
+    def test_native_maintenance_failure_or_timeout_keeps_backup_and_reader_actors_absent(self):
+        for failure in ('maintenance_membership', 'maintenance_timeout'):
+            with self.subTest(failure=failure):
+                report, calls = self.run_corpus(failure, whole_controller=True)
+                self.assertEqual(report['state'], 'failed')
+                self.assertEqual(report['stage'], 'native_maintenance')
+                self.assertEqual(report['native_maintenance_operation'], {'schema':1,'step':'foreign_membership_setup','outcome':'failed','error':'timeout' if failure=='maintenance_timeout' else 'command_failed','returncode':None if failure=='maintenance_timeout' else 1})
+                self.assertEqual(report['reader_gate'], 'closed')
+                self.assertNotIn('private-sentinel', json.dumps(report))
+                self.assertFalse(any(args[0] in ('up', 'start', 'create') and args[-1] in
+                    ('backup', 'restore', 'recovered', 'read-db', 'reader', 'ingest') for args in calls))

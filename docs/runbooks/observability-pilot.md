@@ -2114,6 +2114,14 @@ Final success additionally requires both the original Core7/4/2 and complete PG8
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
 
+Перед текущим чтением целочисленная query time достигается на ближайшей границе секунды
+внутри того же убывающего срока запроса (не более 10 секунд). Округление назад могло исключить
+уже сохранённый frame с дробной секундой и вернуть старый baseline, который oracle правильно
+считает stale. Запрос в будущее не выполняется; одинаковая временная граница используется
+для values, timestamps и контрольного global vector. Предел свежести 10 секунд и проверки
+полноты/cohort не меняются. Детерминированный тест воспроизводит этот отказ чтения;
+причинная связь с конкретным native CI требует нового source-bound прогона.
+
 ### PostgreSQL: завершение текущей проверки приватности
 
 Изолированный PostgreSQL-прогон создаёт собственную копию конфигурации Alloy.
@@ -2330,3 +2338,7 @@ native MCP описаны в [инструкции расследования](o
 Provisioned vendor dashboard остаётся временным semantic UI внутри #1566.
 Native grammar, latency/cost, Grafana variable/time semantics и визуальная приёмка
 ещё обязательны; этот source unit не означает полного покрытия #1565 или production GO.
+
+Полный воспроизводимый resource corpus для #1566 описан в
+[отдельном runbook](observability-fullstack-resource.md). Short SDK-only эксперимент сохраняется
+как узкая проверка, его `partial` и неизвестные counters не подтверждают размер production.

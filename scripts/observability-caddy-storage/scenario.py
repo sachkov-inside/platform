@@ -6,6 +6,7 @@ import artifact
 import caddy_mcp
 import caddy_query
 import caddy_status as status
+import evidence
 import inflight
 import mcp_snapshot
 import native_source
@@ -120,7 +121,18 @@ class Scenario:
     def matching(self,canonical,*,previous=None):
         report,mcp=mcp_snapshot.read_snapshot(self.executable,self.token,evaluated_at=canonical['evaluated_at'],
             previous=previous,progress=lambda phase:self.phase(phase))
-        if report['state']!='observed' or status.acquire(**canonical)!=status.acquire(**mcp):status.refuse()
+        self.phase('mcp_compare')
+        if report['state']!='observed':
+            phase='mcp_compare_'+report['state']
+            if phase in evidence.MCP_COMPARE_PHASES:self.phase(phase)
+            status.refuse()
+        expected_values,expected_stamps=status.acquire(**canonical)
+        actual_values,actual_stamps=status.acquire(**mcp)
+        for differs,phase in ((expected_values.keys()!=actual_values.keys(),'keys'),
+                              (expected_values!=actual_values,'values'),
+                              (expected_stamps!=actual_stamps,'timestamps')):
+            if differs:
+                self.phase('mcp_compare_'+phase);status.refuse()
         report['transport']['canonical']='passed'
         self.last_report=artifact.validate(report)
         return mcp

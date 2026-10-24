@@ -14,6 +14,16 @@ PG_IMAGE = 'ghcr.io/sachkov-inside/postgres:18.4-alpine@sha256:9a8afca54e7861fd9
 PG_READY_COMMAND=('pg_isready','-h','127.0.0.1','-p','5432','-t','1','-U','tracking','-d','tracking')
 
 
+def postgres_ready(targets):
+    """Readiness follows the same TCP endpoint as the application connection."""
+    pilot.assert_docker_identity()
+    try:
+        pilot.command(['docker','exec',targets.postgres(),*PG_READY_COMMAND],timeout=3)
+        return True
+    except Exception:
+        return False
+
+
 def plan(output):
     auth = (output/'auth.json').stat()
     images = json.loads((pilot.CONFIG/'inputs.lock.json').read_text())['images']
