@@ -12,6 +12,7 @@ import maintenance
 import recovery
 import retention_fixture
 import setup_database
+from runtime import FixtureCommandFailed
 
 SITE='00000000-0000-4000-8000-000000001566'
 
@@ -25,8 +26,9 @@ def expect(actual, expected):
 def expected_membership_refusal():
     try:
         yield
-    except RuntimeError:
-        # The expected rejection is verified by unchanged database/membership state next.
+    except FixtureCommandFailed as error:
+        if error.returncode != 3 or error.diagnostic != {'phase': 'membership_guard', 'error': 'existing_role_authority'}:
+            raise
         return
     raise ValueError('native_maintenance_foreign_membership_accepted')
 
@@ -37,7 +39,7 @@ def exercise(sql, dump, directory):
     # Refuse before creating the database or changing that existing role.
     sql('CREATE ROLE umami; CREATE ROLE some_other_app LOGIN; GRANT umami TO some_other_app;',role='pilot_bootstrap',database='postgres')
     with expected_membership_refusal():
-        sql(setup_database.sql('synthetic-'+'x'*32),role='pilot_bootstrap',database='postgres')
+        sql(setup_database.sql('synthetic-'+'x'*32),role='pilot_bootstrap',database='postgres',fixture_phase='membership_guard')
     untouched=json.loads(sql("SELECT json_build_object('database_absent',NOT EXISTS(SELECT 1 FROM pg_database WHERE datname='umami'),'foreign_membership_preserved',pg_has_role('some_other_app','umami','MEMBER'));",role='pilot_bootstrap',database='postgres'))
     expect(untouched,{'database_absent':True,'foreign_membership_preserved':True})
     sql('REVOKE umami FROM some_other_app; DROP ROLE some_other_app; DROP ROLE umami;',role='pilot_bootstrap',database='postgres')

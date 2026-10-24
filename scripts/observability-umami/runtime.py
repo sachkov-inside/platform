@@ -65,6 +65,11 @@ def invoke(compose, args, *, payload=None, timeout=pilot.COMMAND_TIMEOUT_SECONDS
                     and result.stderr in ('no containers for project "' + project + '"',
                                           'no containers for project "' + project + '"\n')):
                 diagnostic = {'phase': 'compose_wait_probe', 'error': 'no_running_containers'}
+        if (fixture_phase == 'membership_guard' and result.returncode == 3
+                and args == ['exec', '-T', 'db', 'psql', '-X', '-qAt', '-U', 'pilot_bootstrap',
+                             '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=sqlstate']
+                and result.stderr in ('ERROR:  P1566\n', 'ERROR: P1566\n')):
+            diagnostic = {'phase': 'membership_guard', 'error': 'existing_role_authority'}
         raise FixtureCommandFailed(diagnostic, returncode=result.returncode)
     if len(result.stdout.encode()) > FIXTURE_BYTES:
         raise RuntimeError('owned fixture response exceeds budget')
