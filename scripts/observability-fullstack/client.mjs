@@ -3,6 +3,7 @@
 import { request } from "node:http";
 import { readFileSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
+import { accountId, operationOk, readiness } from "./responses.mjs";
 /** @param {unknown} value @returns {value is Record<string, unknown>} */
 function record(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -30,6 +31,16 @@ const privateTokens = () => {
   )
     throw new Error("128 private tokens required");
   return raw["tokens"];
+};
+const privateAccounts = () => {
+  const raw = parse(readFileSync("/private/accounts.json", "utf8"));
+  if (
+    !Array.isArray(raw) ||
+    raw.length !== 128 ||
+    !raw.every((value) => typeof value === "string")
+  )
+    throw new Error("128 private Account identities required");
+  return raw;
 };
 const analytics = () => {
   const raw = parse(readFileSync("/private/umami.json", "utf8"));
@@ -61,6 +72,25 @@ function vector(raw) {
     return null;
   const number = Number(rows[0]["value"][1]);
   return Number.isFinite(number) ? number : null;
+}
+/** @param {unknown} raw */
+function queryOne(raw) {
+  if (vector(raw) === 1) return true;
+  if (
+    !record(raw) ||
+    raw["status"] !== "success" ||
+    !record(raw["data"]) ||
+    raw["data"]["resultType"] !== "scalar" ||
+    !Array.isArray(raw["data"]["result"])
+  )
+    return false;
+  const pair = raw["data"]["result"];
+  return (
+    pair.length === 2 &&
+    typeof pair[0] === "number" &&
+    Number.isFinite(pair[0]) &&
+    pair[1] === "1"
+  );
 }
 /** @param {string} host @param {number} port @param {string} path @param {string} [method] @param {unknown} [body] @param {Record<string,string>} [headers] */
 async function call(
@@ -141,7 +171,7 @@ async function call(
             try {
               value = parse(text);
             } catch {
-              value = null;
+              value = text;
             }
             finish(response.statusCode ?? 0, value);
           });
@@ -179,7 +209,7 @@ async function readMonitoring() {
     );
     if (
       result.status !== 200 ||
-      (index === 0 && vector(result.value) !== 1) ||
+      (index === 0 && !queryOne(result.value)) ||
       (index === 2 &&
         (!record(result.value) || !Array.isArray(result.value["data"])))
     )
@@ -429,7 +459,15 @@ async function load(definition, enabled, pair) {
         return await operation(index, enabled);
       })()
         .then((value) => {
-          if (value.status < 200 || value.status >= 300) unexpected++;
+          const expected =
+            value.label === "api_account"
+              ? (privateAccounts()[index % profile.accounts] ?? "")
+              : value.label === "web_material"
+                ? "Synthetic " + String((index % profile.materials) + 1)
+                : value.label === "mcp_discovery"
+                  ? String(index + 1)
+                  : "";
+          if (!operationOk(value, value.label, expected)) unexpected++;
           else success++;
           if (
             ["web_home", "web_material", "api_catalog", "api_account"].includes(
@@ -512,18 +550,25 @@ function argument(index) {
 }
 if (action === "ready") {
   const response = await call(argument(0), Number(argument(1)), argument(2));
-  console.log(JSON.stringify({ ok: response.status === 200 }));
+  console.log(
+    JSON.stringify({ ok: readiness(response, argument(0), argument(3)) }),
+  );
 } else if (action === "establish") {
   let created = 0;
+  /** @type {string[]} */ const accounts = [];
   for (const bearer of privateTokens()) {
     const result = await call("api", 3001, "/accounts", "POST", undefined, {
       authorization: "Bearer " + bearer,
     });
     if (result.status !== 201)
       throw new Error("synthetic Account creation failed");
+    const identity = accountId(result.value);
+    if (typeof identity !== "string")
+      throw new Error("synthetic Account identity missing");
+    accounts.push(identity);
     created++;
   }
-  console.log(JSON.stringify({ created }));
+  console.log(JSON.stringify({ created, accounts }));
 } else if (action === "load") {
   console.log(
     JSON.stringify(

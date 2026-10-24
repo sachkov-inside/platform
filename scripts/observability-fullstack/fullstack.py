@@ -95,12 +95,12 @@ def inputs(output, images):
         plan['services'][name]=item
     for item in plan['services'].values():item['pull_policy']='never';item.pop('restart',None)
     for name in ('loadgen','provider'):
-        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
+        plan['services'][name]['volumes'] += [str(HERE/'client.mjs')+':/resource/fullstack.mjs:ro',str(HERE/'responses.mjs')+':/resource/responses.mjs:ro',str(HERE/'test-responses.mjs')+':/resource/test-responses.mjs:ro',str(PROFILE)+':/resource/full-profile.json:ro']
         plan['services'][name]['networks']=['pilot','telemetry',*(['storage'] if name=='loadgen' else [])]
     pilot.write_json(output/'compose.json',plan)
     (output/'compose.json').chmod(0o600)
     pilot.write_json(output/'fullstack-source.json',{'source':source,'images':pins,'profile':settings,
-        'capacity_scope':'isolated Linux workload; physical Timeweb verification and seven days remain rollout gates'})
+        'capacity_scope':'isolated application subset; Telegram/Logto/Caddy, physical Timeweb verification and seven days remain open'})
 
 
 def mode(output,enabled):
@@ -113,8 +113,9 @@ def mode(output,enabled):
 
 
 def ready(compose,path,host='api',port=3001):
+    source=pilot.command(['git','-C',str(ROOT),'rev-parse','HEAD']).strip()
     def check():
-        try:return json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','ready',host,str(port),path],timeout=4))['ok'] is True
+        try:return json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','ready',host,str(port),path,source],timeout=4))['ok'] is True
         except (ValueError,RuntimeError,subprocess.SubprocessError):return False
     pilot.await_fact(check,bool,probe='fullstack_ready')
 
@@ -143,7 +144,8 @@ FROM generate_series(1,512)n CROSS JOIN LATERAL (SELECT * FROM materials.materia
     (output/'provider/umami.json').write_text(json.dumps(seeded));(output/'provider/umami.json').chmod(0o600)
     (output/'monitoring/umami.reader.key').write_text(seeded['key']+'\n')
     established=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','establish'],timeout=45))
-    if established!={'created':128}:raise ValueError('all_accounts_required')
+    if (set(established)!={'created','accounts'} or established['created']!=128 or not isinstance(established['accounts'],list) or len(established['accounts'])!=128 or any(not isinstance(value,str) or re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',value) is None for value in established['accounts']) or len(set(established['accounts']))!=128):raise ValueError('all_accounts_required')
+    (output/'provider/accounts.json').write_text(json.dumps(established['accounts']));(output/'provider/accounts.json').chmod(0o600)
     corpus=json.loads(sql(compose,"SELECT json_build_object('accounts',(SELECT count(*) FROM accounts.accounts WHERE logto_subject LIKE 'resource-corpus-account-%'),'materials',(SELECT count(*) FROM materials.materials WHERE slug LIKE 'resource-material-%' AND publication_state='published'));",role='platform',database='inside'))
     if corpus!={'accounts':128,'materials':512}:raise ValueError('representative_dataset_incomplete')
 
@@ -156,7 +158,9 @@ def host():
     io=next((list(map(int,row.split()[3:])) for row in Path('/proc/diskstats').read_text().splitlines()
         if row.split()[:2]==[str(major),str(minor)]),None)
     fs=os.statvfs('/var/lib/docker')
-    return {'cpu_total':sum(cpu[:8]),'cpu_busy':sum(cpu[:8])-cpu[3]-cpu[4],
+    return {'cpu_logical_count':os.cpu_count(),'cpu_total':sum(cpu[:8]),'cpu_busy':sum(cpu[:8])-cpu[3]-cpu[4],
+        'memory_total_bytes':memory['MemTotal'],'memory_available_bytes':memory['MemAvailable'],
+        'disk_total_bytes':disk.total,'disk_free_bytes':disk.free,
         'memory_free_fraction':memory['MemAvailable']/memory['MemTotal'],'used_bytes':memory['MemTotal']-memory['MemAvailable'],
         'disk_free_fraction':disk.free/disk.total,'disk_used_bytes':disk.total-disk.free,
         'free_inodes':fs.f_favail,'total_inodes':fs.f_files,'device_io_reads':io[0] if io else None,'device_io_writes':io[4] if io else None}
@@ -184,18 +188,23 @@ def phase(compose,project,definition,active,enabled,pair):
     return {'name':definition['name'],'mode':'on' if enabled else 'off','pair':pair,'load':value,'samples':samples,'errors':errors}
 
 
+def await_collector(output):
+    pilot.await_fact(lambda:technical.check.read_ready((output/'monitoring/reader.key').read_text().strip()),technical.check.query_one,probe='collector_recovery_query')
+
+
 def worker(output):
     if sys.platform!='linux':raise ValueError('fullstack_linux_required')
     owner=json.loads((output/'owner.json').read_text())
     if owner['supervisor_pid']!=os.getppid():raise ValueError('external_supervisor_required')
     compose=['docker','compose','-p',owner['project'],'-f',str(output/'compose.json')]
     profile=acceptance.validate_profile(json.loads(PROFILE.read_text()))
-    report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'controlled_outage':None}
+    report={'schema':1,'state':'running','profile':profile,'phases':[],'acceptance':{'state':'incomplete'},'application_subset_acceptance':{'state':'incomplete'},'missing':['Telegram/Logto/Caddy processes and workload','physical Timeweb host verification','seven days'],'controlled_outage':None}
     pilot.write_json(output/'fullstack-proof.json',report)
     try:
         with pilot.worker_storage_guard(owner,compose,output):
             mode(output,False)
             invoke(compose,['up','-d','postgres','provider','loadgen'],timeout=30)
+            invoke(compose,['exec','-T','loadgen','node','--test','/resource/test-responses.mjs'],timeout=10)
             seed(compose,output)
             grafana_uid=json.loads((output/'compose.json').read_text())['services']['grafana']['user']
             if not re.fullmatch(r'[0-9]+:[0-9]+',grafana_uid):raise ValueError('invalid_grafana_fixture_identity')
@@ -234,12 +243,12 @@ def worker(output):
             invoke(compose,['stop','--timeout','2','alloy'],timeout=10)
             lost=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','loss'],timeout=10))
             invoke(compose,['up','-d','alloy'],timeout=15)
-            pilot.await_fact(lambda: technical.query_one(technical.check.read_ready((output/'monitoring/reader.key').read_text().strip())),bool,probe='collector_recovery_query')
+            await_collector(output)
             reconciled=json.loads(invoke(compose,['exec','-T','loadgen','node','/resource/fullstack.mjs','recover-probe'],timeout=65))
             report['controlled_outage']={**lost,**reconciled}
             report['state']='measured'
-            report['acceptance']=evaluate(report)
-            if report['acceptance']['state']!='passed':raise ValueError('fullstack_resource_acceptance_failed')
+            report['application_subset_acceptance']=evaluate(report)
+            if report['application_subset_acceptance']['state']!='passed':raise ValueError('fullstack_resource_acceptance_failed')
     except BaseException:
         report['state']='failed';raise
     finally:pilot.write_json(output/'fullstack-proof.json',report)
@@ -274,7 +283,7 @@ def evaluate(report):
         'additional_host_cpu_fraction':max(0,on-off) if on is not None and off is not None else None,
         'minimum_host_memory_free_fraction':min((row['memory_free_fraction'] for row in hosts),default=None),
         'minimum_host_disk_free_fraction':min((row['disk_free_fraction'] for row in hosts),default=None),
-        'peak_charged_bytes':max((row['used_bytes'] for row in hosts),default=None)})
+        'peak_host_used_bytes':max((row['used_bytes'] for row in hosts),default=None)})
 
 
 def main():
@@ -300,7 +309,7 @@ def main():
         stage.require_consumer(str(args.output.resolve()))
         pilot.run(args.output,prepare_inputs=lambda output:inputs(output,args.images),worker_script=Path(__file__).resolve(),
             ports=(18427,13000,14318,1514,13301),services=SERVICES,project_prefix=PREFIX,
-            scope='representative whole-process resource corpus',missing=['physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
+            scope='representative application subset resource corpus; full acceptance incomplete',missing=['Telegram/Logto/Caddy processes and workload','physical Timeweb verification and seven days'],worker_pass_fds=stage.pass_fds())
 
 
 if __name__=='__main__':

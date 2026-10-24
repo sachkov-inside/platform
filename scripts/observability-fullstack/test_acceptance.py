@@ -8,7 +8,7 @@ class Acceptance(unittest.TestCase):
         evidence={'complete':True,'oom':False,'enospc':False,'unexplained_loss':0,
             'query_max_seconds':1,'ingestion_lag_seconds':2,'http_p95_overhead_percent':2,
             'additional_host_cpu_fraction':.02,'minimum_host_memory_free_fraction':.3,
-            'minimum_host_disk_free_fraction':.4,'peak_charged_bytes':3*1024**3}
+            'minimum_host_disk_free_fraction':.4,'peak_host_used_bytes':3*1024**3}
         result=acceptance.assess(evidence)
         self.assertEqual(result['state'],'passed')
         self.assertEqual(result['minimum_candidate_gib'],4)
