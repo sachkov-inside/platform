@@ -37,6 +37,18 @@ class Preparation(unittest.TestCase):
             self.assertEqual(stack['services']['grafana']['user'], f'{secret.st_uid}:{secret.st_gid}')
             self.assertEqual(secret.st_mode & 0o777, 0o600)
 
+    def test_overview_has_every_expected_source_and_owner_business_projection(self):
+        view = production.dashboard()['dashboard']
+        content = json.dumps(view)
+        self.assertIn('inside-telegram', view['templating']['list'][0]['query'])
+        self.assertIn('inside_watchdog_value', content)
+        self.assertIn('backup_last_success_timestamp_seconds', content)
+        self.assertIn('vector(-1)', content)
+        self.assertIn('source_platform_database', content)
+        self.assertIn('sales-funnel', content)
+        self.assertIn('Native Umami read-only', content)
+        self.assertEqual(len({p['id'] for p in view['panels']}), len(view['panels']))
+
     def test_refuses_replacing_existing_configuration_or_following_a_symlink(self):
         with tempfile.TemporaryDirectory() as parent:
             base = Path(parent).resolve()

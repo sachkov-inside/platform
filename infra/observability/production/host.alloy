@@ -4,7 +4,8 @@ prometheus.exporter.unix "host" {
   procfs_path = "/host/proc"
   sysfs_path = "/sys"
   rootfs_path = "/rootfs"
-  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "stat", "time", "vmstat"]
+  set_collectors = ["cpu", "diskstats", "filesystem", "loadavg", "meminfo", "netdev", "stat", "time", "vmstat", "textfile"]
+  textfile { directory = "/watchdog-metrics" }
   filesystem {
     mount_points_exclude = "^/(dev|proc|sys|run|var/lib/docker)($|/)"
   }
@@ -26,8 +27,13 @@ prometheus.scrape "host" {
 prometheus.relabel "host" {
   forward_to = [prometheus.remote_write.host.receiver]
   rule {
+    source_labels = ["__name__", "check"]
+    regex = "inside_watchdog_completed_at_seconds;|inside_watchdog_(value|observed_at_seconds);(purchases|fulfillment|notification_outbox|email_effects|billing_queue_idle|web_telemetry_(growth|digest|size|dropped|retention)|community_operations|telegram_(ready|community_oldest_due_seconds|activation_oldest_pending_seconds|update_failed_total|delivery_rejected_total|update_failed_reset|delivery_rejected_reset|webhook_pending|webhook_last_error_timestamp_seconds)|backup_(last_success_timestamp_seconds|timer_(incr|diff|full)|success_(incr|diff|full))|host_available_memory_bytes|host_disk_used_percent|container_(down|unhealthy|oom)|source_(containers|backups|platform_database|telegram_database|telegram_metrics|telegram_webhook))|up;|node_.+;"
+    action = "keep"
+  }
+  rule {
     source_labels = ["__name__"]
-    regex = "up|node_(cpu_seconds_total|memory_(MemTotal|MemAvailable|Cached|Buffers)_bytes|filesystem_((size|avail|free)_bytes|files|files_free|readonly)|disk_(reads_completed_total|writes_completed_total|io_time_seconds_total)|network_(receive|transmit)_bytes_total|load(1|5|15)|boot_time_seconds|vmstat_oom_kill)"
+    regex = "inside_watchdog_(value|observed_at_seconds|completed_at_seconds)|up|node_(cpu_seconds_total|memory_(MemTotal|MemAvailable|Cached|Buffers)_bytes|filesystem_((size|avail|free)_bytes|files|files_free|readonly)|disk_(reads_completed_total|writes_completed_total|io_time_seconds_total)|network_(receive|transmit)_bytes_total|load(1|5|15)|boot_time_seconds|vmstat_oom_kill)"
     action = "keep"
   }
   rule {
@@ -40,7 +46,7 @@ prometheus.relabel "host" {
   }
   rule {
     action = "labelkeep"
-    regex = "__name__|instance|job|cpu|mode|device|mountpoint|fstype"
+    regex = "__name__|instance|job|cpu|mode|device|mountpoint|fstype|check"
   }
 }
 prometheus.scrape "containers" {
@@ -53,7 +59,7 @@ prometheus.relabel "containers" {
   forward_to = [prometheus.remote_write.host.receiver]
   rule {
     source_labels = ["__name__", "container_label_com_docker_compose_service", "container_label_com_docker_compose_project"]
-    regex = "up;;|container_.+;(api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|logto|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent);[a-z][a-z0-9-]{0,63}"
+    regex = "up;;|container_.+;(api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|pgbackrest|logto|logto-migrations|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent|umami|query|umami-query|umami-ingest);[a-z][a-z0-9-]{0,63}"
     action = "keep"
   }
   rule {
