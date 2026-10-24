@@ -106,8 +106,10 @@ class TraceReasons(unittest.TestCase):
         parents={child:node for node in ast.walk(function) for child in ast.iter_child_nodes(node)}
         found={}
         for node in ast.walk(function):
-            if not (isinstance(node,ast.Raise) and isinstance(node.exc,ast.Call) and isinstance(node.exc.func,ast.Name) and node.exc.func.id=='TraceGateRefusal'):continue
-            scope,gate=[ast.literal_eval(arg) for arg in node.exc.args]
+            # Diagnostic witnesses may bind an exception before raising it; inspect the
+            # constructor at the same owning predicate instead of only inline raises.
+            if not (isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='TraceGateRefusal'):continue
+            scope,gate=[ast.literal_eval(arg) for arg in node.args]
             if gate=='trace_decode':continue
             self.assertEqual(scope,self.scope);self.assertNotIn(gate,found)
             parent=parents[node]
