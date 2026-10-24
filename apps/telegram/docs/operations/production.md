@@ -609,6 +609,14 @@ Telegram вызывает Platform по публичному HTTPS: `course-acti
 `/integrations/telegram/v2/communications/authorize` и `/validate-content`. Каждый из них должен
 быть опубликован Caddy Platform, иначе соответствующая функция Telegram отказывает закрыто.
 
+Входящий Telegram Communications API публикуется только по POST
+`/integrations/platform/v2/communications`; прежний v1 адрес, GET и вложенные пути получают пустой
+`404` на Caddy. Локальная проверка точного production matcher с собственным routing upstream:
+`node scripts/fixtures/production-runtime/probe-telegram-communications.mjs` из корня репозитория
+(нужен Caddy; по умолчанию свободный порт18515, `CADDY_PROBE_PORT` задаёт другой порт). Она проверяет
+маршрутизацию, без обращений к Telegram или production API.
+
+
 Выпуск Platform #527 публикует в `platform.caddy` точные маршруты для каждого из этих адресов, включая
 `communications/authorize` и `communications/validate-content`; остальные `/integrations/*` отвечают
 `404`. Переходы по ссылкам воронок идут не от Telegram, а от читателя: публичный GET

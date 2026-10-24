@@ -398,7 +398,7 @@ describe("application configuration", () => {
     }
   });
 
-  it("reads the welcome stream date only with both the cohorts endpoint and the course UUID", () => {
+  it("reads the welcome stream date only with both the Product Sales State endpoint and Product UUID", () => {
     const productId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
     expect(
       loadApplicationConfig(validEnvironment).communityWelcomeCohort,
@@ -414,18 +414,24 @@ describe("application configuration", () => {
       url: "https://platform.test/billing/product-sales-states",
       productId,
     });
-    // Existing deployment configuration stays valid when Platform ships first.
-    expect(
-      loadApplicationConfig({
-        ...validEnvironment,
-        PLATFORM_PRODUCT_SALES_STATES_URL:
-          "https://platform.test/billing/product-sales-states",
-        PLATFORM_COHORT_GUIDE_ID: productId,
-      }).communityWelcomeCohort,
-    ).toEqual({
-      url: "https://platform.test/billing/product-sales-states",
-      productId,
-    });
+    for (const key of [
+      "PLATFORM_COHORTS_URL",
+      "PLATFORM_COHORT_PRODUCT_ID",
+      "PLATFORM_COHORT_GUIDE_ID",
+    ]) {
+      expect(() =>
+        loadApplicationConfig({
+          ...validEnvironment,
+          PLATFORM_PRODUCT_SALES_STATES_URL:
+            "https://platform.test/billing/product-sales-states",
+          PLATFORM_PRODUCT_SALES_PRODUCT_ID: productId,
+          [key]:
+            key === "PLATFORM_COHORTS_URL"
+              ? "https://platform.test/billing/cohorts"
+              : productId,
+        }),
+      ).toThrow("Retired cohort configuration");
+    }
     for (const partial of [
       {
         PLATFORM_PRODUCT_SALES_STATES_URL:

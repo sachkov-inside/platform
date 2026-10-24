@@ -46,6 +46,8 @@ describe("production provider routes", () => {
     "/integrations/identity/v1/sign-in/reference/status/extra",
     "/integrations/identity/v1/sign-in/reference/complete",
     "/integrations/platform/v1/identity-links/a/b/confirm",
+    "/integrations/platform/v1/communications",
+    "/integrations/platform/v1/communications/",
     "/integrations/platform/v2/communications/extra",
     "/integrations/platform/v1/telegram-contacts/extra",
     "/integrations/platform/v1/telegram-contacts/",
