@@ -27,7 +27,7 @@ const activationPaths = ["course-activation", "subscription-activation"]
 /** @type {[string, string, string][]} */
 const callbackRoutes = [
   ["tbank_notification", "POST", "/billing/tbank/notification"],
-  ["billing_cohorts", "GET", "/billing/product-sales-states"],
+  ["billing_product_sales_states", "GET", "/billing/product-sales-states"],
   ["telegram_activation", "POST", activationPaths],
   ["community_dispatch", "POST", "/internal/billing-dispatch/authorize"],
   [
@@ -101,6 +101,22 @@ const runtime = {
 };
 
 describe("production runtime architecture contract", () => {
+  it("rejects an additional retired cohort route even when the canonical route remains published", () => {
+    const retired =
+      "@retired_cohorts {\n\t\t\tmethod GET\n\t\t\tpath /billing/cohorts\n\t\t}\n\t\treverse_proxy @retired_cohorts {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\t\t";
+    assert.throws(
+      () =>
+        assertRuntimeContract({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            "@billing_product_sales_states {",
+            `${retired}@billing_product_sales_states {`,
+          ),
+        }),
+      /retired cohort route must not be published/u,
+    );
+  });
+
   it("rejects a verifier marker that external peers can forward", () => {
     for (const caddy of [
       runtime.caddy.replace(
@@ -247,7 +263,7 @@ describe("production runtime architecture contract", () => {
         assertExternalRoutesPublished({
           ...runtime,
           caddy: runtime.caddy.replace(
-            /\t\t@billing_cohorts \{[^}]+\}\n\t\treverse_proxy @billing_cohorts [^\n]+\n/u,
+            /\t\t@billing_product_sales_states \{[^}]+\}\n\t\treverse_proxy @billing_product_sales_states [^\n]+\n/u,
             "",
           ),
         }),
@@ -862,6 +878,13 @@ function assertRuntimeContract(files) {
     );
     if (!route.test(files.caddy))
       throw new Error(`${name} must publish only its exact method and path`);
+  }
+  if (
+    caddyProxiedRoutes(files.caddy).some((route) =>
+      / \/billing\/cohorts(?:$|\/)/u.test(route),
+    )
+  ) {
+    throw new Error("retired cohort route must not be published");
   }
   if (
     caddyProxiedRoutes(files.caddy).some((route) =>

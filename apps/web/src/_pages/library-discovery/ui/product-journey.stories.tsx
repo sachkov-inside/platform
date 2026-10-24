@@ -47,8 +47,8 @@ const titles = [
   "Что улучшать дальше",
 ];
 const materials = titles.map((title, index): MaterialPreview => ({
-  materialId: `product-material-${String(index + 1)}`,
-  slug: `product-material-${String(index + 1)}`,
+  materialId: `series-material-${String(index + 1)}`,
+  slug: `series-material-${String(index + 1)}`,
   title,
   access: index < 3 ? "free" : "closed",
   availability: "available",
@@ -103,7 +103,7 @@ const chapteredResult = {
   chapters,
 } satisfies PublishedProductResult;
 const resume = {
-  materialSlug: "product-material-13",
+  materialSlug: "series-material-13",
   label: "Продолжить с 12:40",
 };
 const register = () => () => undefined;
@@ -347,7 +347,7 @@ export const FreeAccount: Story = {
       read: 2,
       total: 24,
       continuation: {
-        materialSlug: "product-material-3",
+        materialSlug: "series-material-3",
         label: "Продолжить здесь",
       },
     },
@@ -784,7 +784,7 @@ export const ShortProduct: Story = {
   },
 };
 
-const progressResume = { ...resume, materialSlug: "product-material-2" };
+const progressResume = { ...resume, materialSlug: "series-material-2" };
 const confirmedLearning = {
   kind: "ready",
   read: 1,
@@ -837,7 +837,7 @@ async function verifyContinuationRecheck(canvasElement: HTMLElement) {
     canvas.getByRole("link", { name: /^Продолжить$/u }),
   ).toBeVisible();
   const following = canvasElement.querySelector<HTMLElement>(
-    '[data-route-material="product-material-3"]',
+    '[data-route-material="series-material-3"]',
   );
   if (following === null) throw new Error("Missing following lesson");
   await canvasElement.ownerDocument.fonts.ready;
@@ -985,7 +985,7 @@ export const LoadingPreservesRoutePosition: Story = {
       `[data-route-material="${progressResume.materialSlug}"] article`,
     );
     const nextLesson = canvasElement.querySelector<HTMLElement>(
-      '[data-route-material="product-material-3"]',
+      '[data-route-material="series-material-3"]',
     );
     if (currentCard === null || nextLesson === null)
       throw new Error("Missing continuation or following lesson");
@@ -1090,7 +1090,7 @@ const compactRouteArgs = {
     read: 1,
     total: 3,
     continuation: {
-      materialSlug: "product-material-2",
+      materialSlug: "series-material-2",
       label: "Продолжить здесь",
     },
   },
@@ -1109,7 +1109,7 @@ export const CompactMobileRoute: Story = {
     await expect(rows.queryByText("Platform")).not.toBeInTheDocument();
     await expect(
       rows.getByRole("link", { name: "Как устроен релиз моего проекта" }),
-    ).toHaveAttribute("href", expect.stringContaining("product-material-1"));
+    ).toHaveAttribute("href", expect.stringContaining("series-material-1"));
     await expect(rows.queryByText("Просмотрено")).not.toBeInTheDocument();
     await expect(rows.queryAllByText("Бесплатно")).toHaveLength(0);
     await expect(
@@ -1418,7 +1418,7 @@ export const InfiniteScroll: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const first = canvasElement.querySelector(
-      '[data-route-material="product-material-1"]',
+      '[data-route-material="series-material-1"]',
     );
     await expect(
       canvasElement.querySelectorAll("[data-product-ordinal]"),
@@ -1432,7 +1432,7 @@ export const InfiniteScroll: Story = {
       ).toHaveLength(24);
     });
     await expect(
-      canvasElement.querySelector('[data-route-material="product-material-1"]'),
+      canvasElement.querySelector('[data-route-material="series-material-1"]'),
     ).toBe(first);
     await expect(
       canvas.queryByRole("button", { name: "Показать ещё уроки" }),

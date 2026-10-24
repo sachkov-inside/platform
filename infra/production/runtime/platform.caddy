@@ -35,12 +35,12 @@ sachkov.dev, inside.sachkov.dev {
 		}
 		reverse_proxy @tbank_notification {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
-		# Текущие потоки продуктов: публичный факт без входа; бот берёт из него дату старта потока.
-		@billing_cohorts {
+		# Product Sales State: публичный факт без входа; бот читает состояние продаж продукта.
+		@billing_product_sales_states {
 			method GET
-			path /billing/cohorts
+			path /billing/product-sales-states
 		}
-		reverse_proxy @billing_cohorts {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+		reverse_proxy @billing_product_sales_states {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
 		# Course Activation keeps exactly five operations under canonical and receipt-compatible paths.
 		@telegram_activation {

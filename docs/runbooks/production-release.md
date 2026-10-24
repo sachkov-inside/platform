@@ -249,13 +249,13 @@ edge описано в
 | POST | `/integrations/telegram/v1/subscription-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/course-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| GET | `/billing/cohorts` | бот Telegram: дата старта потока | нет: публичный факт | `200` |
+| GET | `/billing/product-sales-states` | бот Telegram: дата старта потока | нет: публичный факт | `200` |
 | POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/communications/waitlist` | бот Telegram: активная аудитория набора и допуск отправки | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/communications/materials` | бот Telegram: публичные анонсы ленты и повторная проверка перед отправкой | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v2/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v2/communications/waitlist` | бот Telegram: активная аудитория набора и допуск отправки | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v2/communications/materials` | бот Telegram: публичные анонсы ленты и повторная проверка перед отправкой | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v2/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/sales-funnel/events` | бот Telegram | bearer `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` | `401 unauthorized` (без настройки — тоже `401`) |
 | любой | `/authoring-api/authoring/*` | перенос из Content (`pnpm authoring:release`) | bearer Logto автора с аудиторией API и право `materials:manage`; префикс снимается до API | `401`, без права — `403` |
 | любой | `/mcp` | MCP-клиенты | bearer Logto с аудиторией API | `401` |
@@ -437,14 +437,14 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
 ```
 
 **Бот достаёт до Platform.** Неподписанные запросы доходят до API. Если маршрута в Caddy нет,
-`course-activation/binding` отвечает пустым `404`, а `billing/cohorts` возвращает страницу web с `404`. Обе команды
+`course-activation/binding` отвечает пустым `404`, а `billing/product-sales-states` возвращает страницу web с `404`. Обе команды
 печатают тело и код одного ответа:
 
 ```bash
 curl --silent --request POST --write-out '\n%{http_code}\n' \
   https://inside.sachkov.dev/integrations/telegram/v1/course-activation/binding
 # тело с "code":"unauthorized", затем 401
-curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/cohorts
+curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/product-sales-states
 # JSON с "items", затем 200
 ```
 
@@ -501,7 +501,7 @@ curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/
 
   ```bash
   curl --silent --request POST --write-out '\n%{http_code}\n' \
-    https://inside.sachkov.dev/integrations/telegram/v1/communications/authorize
+    https://inside.sachkov.dev/integrations/telegram/v2/communications/authorize
   # тело с "code":"unauthorized", затем 401
   curl --silent --write-out '\n%{http_code}\n' \
     "https://sachkov.dev/communications/visit?token=$(printf 'A%.0s' $(seq 43))"

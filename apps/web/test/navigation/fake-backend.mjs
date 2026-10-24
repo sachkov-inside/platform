@@ -501,7 +501,7 @@ function route(method, url, entitled) {
     return json({
       facets: {
         formats: [],
-        product: products
+        products: products
           .filter((item) => item.slug !== archivedProductSlug)
           .map((item) => ({
             id: item.id,
