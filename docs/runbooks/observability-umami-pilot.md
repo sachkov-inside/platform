@@ -661,3 +661,27 @@ restore оставляет readers/ingest выключенными. Только
 повреждённом или неподтверждённом по актуальности источнике оператор сохраняет доступ закрытым. Создавать новый
 пустой журнал вместо потерянного источника нельзя. Настройка production scheduler и
 восстановление в production в рамках подготовки не выполняются.
+
+## Отдельная Linux-проверка текущего pgBackRest restore
+
+В [Umami workflow](../../.github/workflows/observability-umami.yml) добавлен независимый job
+`Isolated PG18 pgBackRest recovery` на отдельном `ubuntu-24.04` runner. Он фиксирует исходный
+commit/tree и измеренный свободный объём Docker filesystem до сборки, собирает текущую
+foundation без публикации, создаёт source-bound receipt и запускает прежний публичный
+supervisor с теми же deadline, daemon/storage проверками, изолированным проектом и обязательным
+cleanup. Получение ARM64 cache с Mac для этого job не требуется. Закреплённый base image имеет
+отдельные AMD64 и ARM64 manifests, а receipt хранит фактическую архитектуру собранного образа.
+
+Даже при отказе выполняется recovery только зарегистрированного project на том же daemon,
+затем публикация закрытого перечня JSON artifacts. Artifact
+`umami-recovery-<run_id>-<attempt>` содержит source/admission, outcome/cleanup и, когда они
+созданы, `recovery-proof.json` и `recovery-inputs.json`. Compose, pgBackRest configuration,
+первоначальные роли/пароли, deletion journal и raw stderr не публикуются. Само наличие artifact
+не означает успешного restore: проверяются состояние job, `recovery-proof.json.state`, source
+binding и успешный cleanup на том же запуске.
+
+Этот job предназначен для полного синтетического PG18/pgBackRest proof на чистом Linux daemon.
+Он не является production S3 recovery, включением аналитики, проверкой systemd на production
+или ресурсной приёмкой. Локальные отказы Mac до VM admission сохраняются отдельно: фоновые
+записи общего OrbStack могут исчерпать bootstrap budget даже без других Docker-команд.
+Такой отказ нельзя считать нехваткой CPU/RAM или успешным доказательством восстановления.
