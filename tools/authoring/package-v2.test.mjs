@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -204,7 +205,7 @@ test("null Task access is a preview decision and apply/sync never infer free", a
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path) => {
     calls.push(path);
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (path.startsWith("/authoring/collections?")) return [];
     if (path === "/authoring/import/products/validate") return { valid: true };
     throw new Error(`Unexpected ${path}`);
@@ -237,7 +238,7 @@ test("preview discovers Material migration without a journal and refuses sync be
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path) => {
     calls.push(path);
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (path.startsWith("/authoring/collections?")) return [];
     if (path === "/authoring/import/products/validate") return { valid: true };
     if (path === "/authoring/import/tasks/validate")
@@ -287,8 +288,8 @@ test("task selection, missing page assets and unsupported versions fail at loadP
     ],
   });
   await assert.rejects(loadPackage(f.path), /missing asset/u);
-  await f.write({ ...manifest, schemaVersion: 3 });
-  await assert.rejects(loadPackage(f.path), /schemaVersion: 3/u);
+  await f.write({ ...manifest, schemaVersion: 4 });
+  await assert.rejects(loadPackage(f.path), /schemaVersion: 4/u);
 });
 
 /** @param {unknown} value */
@@ -372,7 +373,7 @@ test("applyRelease sends rendered Task pages and both source link directions wit
   const applied = [];
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path, body) => {
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (path.startsWith("/authoring/collections?")) return [];
     if (
       path === "/authoring/import/products/validate" ||
@@ -618,7 +619,7 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   const uploadKinds = [];
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path, body) => {
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (path.startsWith("/authoring/collections?")) return [];
     if (path === "/authoring/import/products/validate") return { valid: true };
     if (path === "/authoring/import/tasks/validate")
@@ -702,10 +703,11 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
     Reflect.get(object(reserve["source"]), "id"),
     "inside-task-page:synthetic:task-one",
   );
-  assert.equal(Reflect.get(object(reserve["source"]), "showInFeed"), false);
+  assert.equal(Reflect.get(object(reserve["source"]), "version"), 2);
+  assert.equal(Object.hasOwn(object(reserve["source"]), "showInFeed"), false);
   assert.equal(backing["publicationState"], "draft");
   assert.equal(Reflect.get(object(backing["metadata"]), "access"), "closed");
-  assert.deepEqual(Reflect.get(object(backing["metadata"]), "seriesIds"), []);
+  assert.deepEqual(Reflect.get(object(backing["metadata"]), "productIds"), []);
   assert.ok(canonical(backing["body"]).includes("assetFile"));
   const backingBody = z
     .object({
@@ -815,7 +817,7 @@ test("an interrupted Task apply cannot replay under a different reviewed access 
   const writes = [];
   /** @type {import('./target.mjs').LocalTransport} */
   const request = async (path) => {
-    if (path.endsWith("/environment")) return { mode: "development" };
+    if (path.endsWith("/environment")) return currentEnvironment("development");
     if (path === "/authoring/import/tasks/validate")
       return { valid: true, current: null, migration: null };
     writes.push(path);

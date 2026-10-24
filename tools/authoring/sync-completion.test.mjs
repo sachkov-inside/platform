@@ -1,4 +1,5 @@
 // @ts-check
+import { currentEnvironment } from "./test-support.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -162,7 +163,7 @@ async function fixture(t) {
  * @property {{ id: string }} source
  * @property {string} publicationState
  * @property {unknown} [videoChapters]
- * @property {string[]} [seriesIds]
+ * @property {string[]} [productIds]
  * @typedef {{
  *   videoId: string;
  *   materialId: string;
@@ -209,7 +210,7 @@ const productUpdateBodySchema = z
   })
   .passthrough();
 const homePinBodySchema = z
-  .object({ expectedVersion: z.number(), seriesId: z.string() })
+  .object({ expectedVersion: z.number(), productId: z.string() })
   .passthrough();
 const compositionBodySchema = z
   .object({ orderedMaterialIds: z.array(z.string()) })
@@ -258,7 +259,7 @@ function applicationApi() {
     videos,
     artifacts,
     product,
-    pin: { seriesId: uuid(901), version: 3 },
+    pin: { productId: uuid(901), version: 3 },
     /** @type {string | undefined} */
     rejectValidation: undefined,
     /** @param {RegExp} pattern */
@@ -277,7 +278,7 @@ function applicationApi() {
             : structuredClone(body),
       });
       if (path === "/authoring/import/materials/environment")
-        return { mode: "development" };
+        return currentEnvironment("development");
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/import/materials/validate")
         return { valid: true };
@@ -302,7 +303,7 @@ function applicationApi() {
       if (path === "/authoring/home-pin") {
         const pin = homePinBodySchema.parse(body);
         assert.equal(pin.expectedVersion, api.pin.version);
-        api.pin = { seriesId: pin.seriesId, version: api.pin.version + 1 };
+        api.pin = { productId: pin.productId, version: api.pin.version + 1 };
         return structuredClone(api.pin);
       }
       if (path === "/authoring/import/products/update") {
@@ -383,7 +384,7 @@ function applicationApi() {
           primaryVideoId: command.primaryVideoId,
           videoChapters: command.videoChapters,
           publicationState: command.publicationState,
-          seriesIds: command.metadata.seriesIds,
+          productIds: command.metadata.productIds,
           metadata: { ...current.metadata, access: command.metadata.access },
         });
         return {
@@ -824,7 +825,7 @@ test("a missing original is proposed first and unpublished only on explicit requ
     valueAt(api.materials, "inside-content:old").publicationState,
     "unpublished",
   );
-  assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, []);
+  assert.deepEqual(valueAt(api.materials, "inside-content:old").productIds, []);
   const after = await run(setup, api);
   assert.deepEqual(after.archiveProposals, []);
 });
@@ -856,7 +857,7 @@ test("supplementary originals join the Product after the programme without a cha
     (id) => valueAt(api.materials, `inside-content:${id}`).materialId,
   );
   assert.deepEqual(api.product.members, ids);
-  assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, [
+  assert.deepEqual(valueAt(api.materials, "inside-content:old").productIds, [
     productId,
   ]);
   const composition = api.calls.find(
@@ -1246,7 +1247,7 @@ test("the local product view pins the transferred product on Home once", async (
   const api = applicationApi();
   const report = await run(setup, api, { pinHome: true });
   assert.equal(report.homePinned, productId);
-  assert.deepEqual(api.pin, { seriesId: productId, version: 4 });
+  assert.deepEqual(api.pin, { productId: productId, version: 4 });
   await run(setup, api, { pinHome: true });
   assert.equal(api.pin.version, 4);
 });

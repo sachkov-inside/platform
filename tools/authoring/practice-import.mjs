@@ -1,7 +1,7 @@
 // @ts-check
 import { z } from "zod";
 import { canonical, checksum, sourcePracticeSchema } from "./package.mjs";
-import { applyJournaled } from "./journal.mjs";
+import { recoverHistoricalReceipt } from "./historical-receipts.mjs";
 import {
   isJournalOperation,
   practiceReceiptSchema,
@@ -64,11 +64,14 @@ export async function replayPracticeImports(context, request, publicationOf) {
         practiceReceiptSchema.parse(entry.result).practiceVersion
     )
       continue;
-    const receipt = practiceReceiptSchema.parse(
-      await applyJournaled(context, operation, (replayed, idempotencyKey) =>
-        request(replayed.path, replayed.body, idempotencyKey),
-      ),
+    const recovered = await recoverHistoricalReceipt(
+      context,
+      operation,
+      request,
+      "/authoring/history/practice-receipts",
     );
+    if (recovered === undefined) continue;
+    const receipt = practiceReceiptSchema.parse(recovered);
     resources[key] = {
       practiceVersion: receipt.practiceVersion,
       digest: digest(operation.body),

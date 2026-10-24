@@ -63,7 +63,7 @@ test("historical uncertain Practice replay keeps exact original bytes/key/receip
   /** @type {import('./local-boundaries.mjs').LocalRequest} */
   const request = async (path, body, idempotencyKey) => {
     calls++;
-    assert.equal(path, operation.path);
+    assert.equal(path, "/authoring/history/practice-receipts");
     assert.deepEqual(body, operation.body);
     assert.equal(idempotencyKey, key);
     return parseLocalResponse(path, receipt);
@@ -90,28 +90,26 @@ test("historical uncertain Practice replay keeps exact original bytes/key/receip
   assert.equal(calls, 1);
 });
 
-test("a historical uncertain request that never committed records retired refusal and never invents a replacement key", async (t) => {
+test("a proven absent historical receipt resolves the old request without inventing a replacement key", async (t) => {
   const f = await fixture(t);
   let calls = 0;
   /** @type {import('./local-boundaries.mjs').LocalRequest} */
   const request = async () => {
     calls++;
-    throw Object.assign(new Error("practice_definition_retired"), {
-      status: 409,
+    throw Object.assign(new Error("historical_receipt_not_found"), {
+      status: 404,
+      body: { code: "historical_receipt_not_found" },
     });
   };
-  await assert.rejects(
-    f.journal((context) =>
-      replayPracticeImports(context, request, () => "published"),
-    ),
-    /practice_definition_retired/u,
+  await f.journal((context) =>
+    replayPracticeImports(context, request, () => "published"),
   );
   await f.journal(async (context) => {
     await replayPracticeImports(context, request, () => "published");
     assert.deepEqual(context.journal.operations[key], {
       request: operation,
       status: "rejected",
-      error: { status: 409, message: "practice_definition_retired" },
+      error: { status: 404, message: "historical_receipt_not_found" },
     });
     assert.equal(Object.keys(context.journal.operations).length, 1);
     assert.equal(
