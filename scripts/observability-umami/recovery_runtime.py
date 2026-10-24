@@ -16,19 +16,28 @@ BINDING_INPUTS = (*recovery.FOUNDATION_INPUTS,
     'infra/observability/umami/recovery-cache.lock.json', 'infra/observability/umami/inputs.lock.json',
     'infra/observability/umami/schema-fixture.sql',
     'scripts/observability-umami/recovery.py', 'scripts/observability-umami/recovery_runtime.py',
+    'scripts/observability-umami/foundation.py', 'infra/production/database/libpq-version.c',
     'scripts/observability-umami/prepare.py', 'scripts/observability-umami/runtime.py',
     'scripts/observability-umami/retention.py', 'scripts/observability-umami/retention.sql',
     'scripts/observability-umami/retention-corpus.sql', 'scripts/observability-umami/retention-proof.sql',
     'scripts/observability-umami/retention_fixture.py',
+    'scripts/observability-umami/native_maintenance.py', 'scripts/observability-umami/maintenance.py',
+    'scripts/observability-umami/setup_database.py',
     'scripts/observability-pilot/pilot.py', 'scripts/observability-pilot/orbstack.py',
     'scripts/observability-pilot/daemon.py', 'scripts/observability-pilot/storage_policy.py',
     'infra/observability/pilot/probe.lock.json')
 IMAGE_INSPECT = '{"id":{{json .Id}},"architecture":{{json .Architecture}},"os":{{json .Os}}}'
 
 
-def prepare_bound_inputs(output):
-    cache = recovery.validate_cache(json.loads(recovery.CACHE_LOCK.read_text()))
+def _cache(output):
+    local=output/'foundation-cache.json'
+    return recovery.validate_cache(json.loads((local if local.exists() else recovery.CACHE_LOCK).read_text()))
+
+
+def prepare_bound_inputs(output, *, cache_path=None):
+    cache = recovery.validate_cache(json.loads((cache_path or recovery.CACHE_LOCK).read_text()))
     recovery.prepare_inputs(output, foundation_image=cache['image'])
+    if cache_path is not None:pilot.write_json(output/'foundation-cache.json',cache)
     pilot.write_json(output / 'recovery-inputs.json', {
         'schema': 1, 'foundation_source': cache['source'], 'foundation_image': cache['image'],
         'inputs': {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in BINDING_INPUTS},
@@ -70,7 +79,7 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         record()
     record()
     try:
-        cache = recovery.validate_cache(json.loads(recovery.CACHE_LOCK.read_text()))
+        cache = _cache(output)
         binding = json.loads((output / 'recovery-inputs.json').read_text())
         if (not isinstance(binding, dict) or binding.get('schema') != 1
                 or binding.get('foundation_source') != cache['source'] or binding.get('foundation_image') != cache['image']
@@ -83,6 +92,11 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
             actual = json.loads(execute(['docker'], ['image', 'inspect', reference, '--format', IMAGE_INSPECT]))
             if actual != {'id': cache['image'], 'architecture': cache['architecture'], 'os': 'linux'}:
                 raise RuntimeError('recovery_cache_unavailable_or_changed')
+        if cache['schema']==2:
+            import foundation
+            identity=json.loads(execute(['docker'],['image','inspect',cache['image'],'--format',foundation.INSPECT]))
+            if identity!={'id':cache['image'],'architecture':cache['architecture'],'os':'linux','source':cache['source']}:
+                raise ValueError('recovery_foundation_source_identity')
         report['stage'] = 'fresh_destination'
         record()
         plan = json.loads((output / 'compose.json').read_text())
@@ -105,6 +119,14 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
         record()
         if cluster['version_num'] != 180004 or cluster['archive_mode'] != 'on':
             raise RuntimeError('unexpected_source_database_version_or_archiving')
+        report['stage'] = 'native_maintenance'
+        record()
+        import native_maintenance
+        report['native_maintenance'] = native_maintenance.exercise(
+            lambda payload, **options: _sql(compose, 'db', payload, execute=execute, **options),
+            lambda: execute(compose, ['exec', '-T', 'db', 'pg_dump', '-U', 'umami', '-d', 'umami',
+                '--data-only', '--no-owner', '--no-privileges'], timeout=30), output / 'maintenance-private')
+        record()
         return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         report['state'] = 'failed'
@@ -265,9 +287,14 @@ def _compare_completed_waits(compose, project, service, identity, execute):
             'same_owned_id_exited_zero': True}
 
 
-def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12):
-    return execute(compose, ['exec', '-T', service, 'psql', '-X', '-qAt', '-U', role,
-                   '-d', database, '-v', 'ON_ERROR_STOP=1'], payload=payload, timeout=timeout)
+def _sql(compose, service, payload, *, execute, role='umami', database='umami', timeout=12, fixture_phase=None):
+    args = ['exec', '-T', service, 'psql', '-X', '-qAt', '-U', role, '-d', database, '-v', 'ON_ERROR_STOP=1']
+    options = {}
+    if fixture_phase is not None:
+        if fixture_phase != 'membership_guard': raise ValueError('unknown_sql_fixture_phase')
+        args += ['-v', 'VERBOSITY=sqlstate']
+        options['fixture_phase'] = fixture_phase
+    return execute(compose, args, payload=payload, timeout=timeout, **options)
 
 
 def _await_sql(compose, service, *, execute, tcp=False, progress=None):
@@ -547,7 +574,8 @@ def _database_corpus(output, compose, project, plan, source, report, record, exe
         return _sql(compose, service, payload, execute=execute, role=role, database=database, timeout=timeout)
     stage('source_setup')
     version = execute(compose, ['exec', '-T', 'db', 'pgbackrest', 'version']).strip()
-    if version != 'pgBackRest 2.57.0':
+    expected=_cache(output).get('pgbackrest_version','2.57.0')
+    if version != 'pgBackRest '+expected:
         raise ValueError('unexpected_pgbackrest_version')
     sql('db', (output / 'init.sql').read_text() + """
 REVOKE CONNECT ON DATABASE inside FROM PUBLIC;
@@ -657,6 +685,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('run', 'worker', 'recover'))
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--foundation-cache',type=Path)
     args = parser.parse_args()
     output = args.output.resolve()
     # Explicit service targets still control acquisition. Enrol all profiles for
@@ -666,7 +695,7 @@ def main():
     prepared_here = False
     def prepare_owned(path):
         nonlocal prepared_here
-        prepare_bound_inputs(path)
+        prepare_bound_inputs(path,cache_path=args.foundation_cache)
         prepared_here = True
     try:
         if args.action == 'worker':

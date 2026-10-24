@@ -189,6 +189,9 @@ FOUNDATION_INPUTS = tuple('infra/production/database/' + name for name in
 
 def validate_cache(raw):
     """Bind the existing local cache to unchanged reviewed foundation inputs, never a mutable tag alone."""
+    if isinstance(raw,dict) and raw.get('schema')==2:
+        import foundation
+        return foundation.validate(raw)
     if (not isinstance(raw, dict) or set(raw) != {'schema', 'image', 'cache_owner', 'source', 'architecture', 'inputs'}
             or type(raw['schema']) is not int or raw['schema'] != 1
             or not isinstance(raw['image'], str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', raw['image'])

@@ -1,0 +1,28 @@
+[Unit]
+Description=Replay current Umami deletions and enforce the 365-day horizon
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/inside/umami-maintenance.env
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/inside/umami-maintenance.env
+WorkingDirectory=/opt/inside-platform
+ExecStart=/usr/bin/python3 -B /opt/inside-platform/scripts/observability-umami/maintenance.py run --journal /var/lib/inside-umami-maintenance/deletions.json
+StateDirectory=inside-umami-maintenance
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/inside-umami-maintenance
+MemoryMax=128M
+CPUQuota=25%
+TasksMax=32
+TimeoutStartSec=120
+Restart=no
+RestartForceExitStatus=3
+RestartSec=30s

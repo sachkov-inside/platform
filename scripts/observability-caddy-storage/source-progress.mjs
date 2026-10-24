@@ -71,10 +71,25 @@ export function sourceProgress(stderr) {
 export function assertCaddyContracts(result) {
   const progress =
     result.reason === "output_limit" ? null : sourceProgress(result.stderr);
-  const message =
+  let message =
     progress === null
       ? "Caddy source progress: unknown"
       : `Caddy source progress: lastStarted=${progress.lastStarted}; lastCompleted=${progress.lastCompleted ?? "none"}; completedCount=${progress.completedCount}`;
+  if (
+    typeof result.stderr === "string" &&
+    Buffer.byteLength(result.stderr) <= 1_048_576 &&
+    result.reason !== "output_limit"
+  ) {
+    const lines = new Set(result.stderr.split("\n"));
+    const failed = sourceIds.filter((id) => {
+      const method = id.split(".").at(-1);
+      return (
+        lines.has(`FAIL: ${method} (${id})`) ||
+        lines.has(`ERROR: ${method} (${id})`)
+      );
+    });
+    if (failed.length > 0) message += `; failedTests=${failed.join(",")}`;
+  }
   assert.equal(result.reason, "exit", message);
   assert.equal(result.code, 0, message);
 }

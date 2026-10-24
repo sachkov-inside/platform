@@ -386,7 +386,7 @@ class Driver(unittest.TestCase):
             if counter[0]<2:
                 self.assertEqual(kwargs,{'_baseline':('first','second')[counter[0]]});phase='baseline'
             else:
-                self.assertEqual(kwargs,{});phase=driver.phase
+                self.assertEqual(kwargs,{});phase='restart' if driver.phase.startswith('restart_') else driver.phase
             observations[phase]=observations.get(phase,0)+1;counter[0]+=1
             value=EXPECTED.copy();value['sample_us']+=counter[0]*1000
             if phase=='deadlocks':value['deadlocks']=EXPECTED['deadlocks']+1
@@ -396,7 +396,7 @@ class Driver(unittest.TestCase):
             return value,{**verdict,'continuity':state['continuity'],'count_complete':state['count_complete']}
         final={**verdict,'age_seconds':.125}
         driver.actors=SimpleNamespace(start=lambda:None,close=lambda deadline:None)
-        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart' else 'stale'})
+        driver.oracle=SimpleNamespace(evaluate=lambda *args,**kwargs:{'freshness':'unavailable' if driver.phase=='restart_unavailable_read' else 'stale'})
         with patch.object(driver,'command'),patch.object(driver,'observe',side_effect=observe), \
                 patch.object(driver,'stop_postgres',return_value='a'*64),patch.object(driver,'await_postgres'),patch.object(driver,'read'), \
                 patch.object(scenario.queries,'read',return_value=('','','',0)),patch.object(driver,'stored',side_effect=AssertionError('new stored query forbidden')), \

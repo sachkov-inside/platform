@@ -2114,6 +2114,14 @@ Final success additionally requires both the original Core7/4/2 and complete PG8
 proofs; generic Compose down/residue is insufficient. This source preparation does not authorize
 production rollout, server changes, capacity conclusions, provider messages or #1579 actions.
 
+Перед текущим чтением целочисленная query time достигается на ближайшей границе секунды
+внутри того же убывающего срока запроса (не более 10 секунд). Округление назад могло исключить
+уже сохранённый frame с дробной секундой и вернуть старый baseline, который oracle правильно
+считает stale. Запрос в будущее не выполняется; одинаковая временная граница используется
+для values, timestamps и контрольного global vector. Предел свежести 10 секунд и проверки
+полноты/cohort не меняются. Детерминированный тест воспроизводит этот отказ чтения;
+причинная связь с конкретным native CI требует нового source-bound прогона.
+
 ### PostgreSQL: завершение текущей проверки приватности
 
 Изолированный PostgreSQL-прогон создаёт собственную копию конфигурации Alloy.

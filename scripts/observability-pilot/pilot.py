@@ -140,10 +140,12 @@ def corpus(*, now_ns, sequence):
 
 
 @contextmanager
-def disk_budget(path, *, on_stop=None, on_stop_reason=None, observe_samples=False):
+def disk_budget(path, *, on_stop=None, on_stop_reason=None, observe_samples=False, growth_bytes=None):
     """Bound growth on the identified Docker storage filesystem."""
     if type(observe_samples) is not bool:raise ValueError('closed disk observation flag')
     initial = shutil.disk_usage(path).free
+    if growth_bytes is not None:
+        assert_budget(initial, initial, growth_bytes=growth_bytes)
     stop_reason = None
     stop = threading.Event()
     previous = signal.getsignal(signal.SIGUSR1)
@@ -187,7 +189,10 @@ def disk_budget(path, *, on_stop=None, on_stop_reason=None, observe_samples=Fals
             try:
                 free = shutil.disk_usage(path).free
                 if samples is not None:point=observe('point',free)
-                assert_budget(initial, free)
+                if growth_bytes is None:
+                    assert_budget(initial, free)
+                else:
+                    assert_budget(initial, free, growth_bytes=growth_bytes)
                 if samples is not None:observe('safe',point)
                 continue
             except StorageBudgetExceeded as error:

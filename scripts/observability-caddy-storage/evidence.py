@@ -31,10 +31,13 @@ def ownership_phase(role, gate):
 PARTITION_PHASES = ('partition_initial_acquire', 'partition_initial_state', 'partition_initial_after_cut',
                     'partition_initial_boundary', 'partition_compare_acquire', 'partition_compare_state',
                     'partition_compare_journal', 'partition_compare_after_cut')
+MCP_COMPARE_PHASES = tuple('mcp_compare_' + state for state in
+                          ('missing', 'down', 'stale', 'incomplete', 'malformed', 'query_unavailable',
+                           'keys', 'values', 'timestamps'))
 
 PHASES = ('acquisition', 'ownership', 'identity', 'seed', 'partition',
-          'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps',
-          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES
+          'mcp_initialize', 'mcp_discovery', 'mcp_values', 'mcp_timestamps', 'mcp_evaluate', 'mcp_compare',
+          'inflight', 'gateway_outage', 'alloy_stale', 'reset', 'complete') + OWNERSHIP_PHASES + PARTITION_PHASES + MCP_COMPARE_PHASES
 FAILURES = ('contract', 'timeout', 'transport', 'budget', 'unknown')
 
 

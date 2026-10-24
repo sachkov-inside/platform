@@ -126,6 +126,24 @@ test("Caddy timeout and nonzero assertions publish only closed source progress",
       }
     }
   }
+  const failedId = contracts.sourceIds[0];
+  assert.ok(failedId !== undefined);
+  const method = failedId.split(".").at(-1);
+  assert.throws(
+    () =>
+      contracts.assertCaddyContracts({
+        code: 1,
+        signal: null,
+        pid: undefined,
+        reason: "exit",
+        stdout: "private-canary",
+        stderr: `FAIL: ${method} (${failedId})\nprivate-canary\nFAIL: private (private-canary)\n`,
+      }),
+    (error) =>
+      error instanceof assert.AssertionError &&
+      error.message.includes(failedId) &&
+      !error.message.includes("private-canary"),
+  );
   contracts.assertCaddyContracts({
     code: 0,
     signal: null,
