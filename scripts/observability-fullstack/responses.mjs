@@ -23,6 +23,8 @@ export function accountId(body) {
 export function readiness(response, process, source) {
   if (response.status !== 200 || !record(response.value)) return false;
   const body = response.value;
+  if (process === "telegram") return body["status"] === "ready";
+  if (process === "logto") return operationOk(response, "logto_discovery", "");
   if (process === "umami") return body["ok"] === true;
   return (
     body["status"] === "ready" &&
@@ -44,6 +46,8 @@ export function readiness(response, process, source) {
 /** @param {{status:number,value:unknown}} response @param {string} label @param {string} expected */
 export function operationOk(response, label, expected) {
   const body = response.value;
+  if (label === "telegram_webhook")
+    return response.status === 202 && record(body) && body["accepted"] === true;
   if (label === "analytics_disabled") return response.status === 204;
   if (response.status !== 200) return false;
   if (label === "web_home" || label === "web_material")
@@ -59,6 +63,13 @@ export function operationOk(response, label, expected) {
     );
   if (label === "api_account") return accountId(body) === expected;
   if (!record(body)) return false;
+  if (label === "logto_discovery")
+    return (
+      body["issuer"] === "http://logto:3001/oidc" &&
+      body["jwks_uri"] === "http://logto:3001/oidc/jwks" &&
+      body["authorization_endpoint"] === "http://logto:3001/oidc/auth" &&
+      body["token_endpoint"] === "http://logto:3001/oidc/token"
+    );
   if (label === "api_catalog")
     return (
       Array.isArray(body["items"]) &&

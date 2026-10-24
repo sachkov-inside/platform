@@ -57,7 +57,7 @@ class PreparationBudget(unittest.TestCase):
         source='a'*40
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);images=root/'images.json';calls=[];samples=DiskSamples();samples._baseline(40*GIB)
-            owned=SimpleNamespace(receipt={'token':'owned','tags':['backend','foundation','web']},pass_fds=lambda:(),capture=lambda:None,
+            owned=SimpleNamespace(receipt={'token':'owned','tags':['backend','foundation','web','telegram','logto']},pass_fds=lambda:(),capture=lambda:None,
                 iidfile=lambda role:root/(role+'.iid'))
             @contextmanager
             def guard(path,**kwargs):
@@ -74,6 +74,7 @@ class PreparationBudget(unittest.TestCase):
             identity={'storage':str(root),'endpoint':'owned'}
             with patch.object(prepare.hosted,'metadata_source',return_value=({'checkout_sha':source,'run_id':'1','run_attempt':'1'},{'ready':True})), \
                     patch.object(prepare.hosted.runtime.pilot.daemon,'identify',return_value=identity), \
+                    patch.object(prepare.hosted.runtime.pilot,'FROZEN_DOCKER_ENDPOINT'),patch.object(prepare.hosted.runtime.pilot,'FROZEN_DOCKER_IDENTITY'), \
                     patch.object(prepare.hosted.runtime.pilot.shutil,'disk_usage',return_value=SimpleNamespace(free=40*GIB)), \
                     patch.object(prepare.hosted.runtime.pilot,'disk_budget',side_effect=guard), \
                     patch.object(prepare.preparation,'acquire',side_effect=acquisition), \
@@ -81,8 +82,8 @@ class PreparationBudget(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'actual pull failure'):prepare.prepare(root,images,'consumer')
             self.assertEqual([item for item in calls if item[0]=='guard'],[('guard',{'growth_bytes':16*GIB,'observe_samples':True})])
             report=preparation_evidence.read(root/preparation_evidence.NAME,source)
-            self.assertEqual(report['completed'],['build_backend','build_foundation','build_web'])
+            self.assertEqual(report['completed'],['build_backend','build_foundation','build_web','build_telegram','build_logto'])
             self.assertEqual(report['stage'],'preload_0')
             self.assertEqual(report['disk']['baseline']['free_bytes'],40*GIB)
-            self.assertEqual(report['disk']['latest_safe']['free_bytes'],36*GIB)
+            self.assertEqual(report['disk']['latest_safe']['free_bytes'],34*GIB)
             self.assertFalse(images.exists())

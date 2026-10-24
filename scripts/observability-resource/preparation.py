@@ -118,7 +118,7 @@ class Stage:
                 os.close(descriptor)
 
     def iidfile(self, role):
-        if role not in ('backend', 'foundation', 'web') or role == 'web' and len(self.receipt['tags']) != 3:
+        if role not in ('backend','foundation','web','telegram','logto')[:len(self.receipt['tags'])]:
             raise ValueError('preparation_build_role')
         return self.path / (role + '.iid')
 
@@ -150,7 +150,7 @@ class Stage:
     def _capture(self):
         # Labels are inherited by FROM descendants. Only this producer's fixed build-result
         # files may establish ownership, including later recovery after an uncatchable kill.
-        for role in (('backend', 'foundation', 'web') if len(self.receipt['tags']) == 3 else ('backend', 'foundation')):
+        for role in ('backend','foundation','web','telegram','logto')[:len(self.receipt['tags'])]:
             iidfile = self.iidfile(role)
             if not iidfile.exists() and not iidfile.is_symlink():
                 continue
@@ -291,7 +291,7 @@ class Stage:
         return value
 
 
-def begin(images, source, owner, daemon, consumer, *, docker=docker_command, identify=current_identity, web=False):
+def begin(images, source, owner, daemon, consumer, *, docker=docker_command, identify=current_identity, web=False, applications=False):
     if (not isinstance(source, str) or re.fullmatch(r'[a-f0-9]{40}', source) is None
             or not isinstance(owner, str)
             or re.fullmatch(r'inside-platform-production-smoke-cache-[a-z0-9][a-z0-9-]{0,80}', owner) is None
@@ -300,8 +300,8 @@ def begin(images, source, owner, daemon, consumer, *, docker=docker_command, ide
     preexisting = sorted(set(docker(['image', 'ls', '--quiet', '--no-trunc']).split()))
     if len(preexisting) > 4096 or any(not image_id(value) for value in preexisting):
         raise ValueError('preparation_image_ids')
-    if type(web) is not bool:raise ValueError('preparation_web_flag')
-    tags = [owner + '-backend:v1', owner + '-foundation:local'] + ([owner + '-web:v1'] if web else [])
+    if type(web) is not bool or type(applications) is not bool or applications and not web:raise ValueError('preparation_application_flags')
+    tags = [owner + '-backend:v1', owner + '-foundation:local'] + ([owner + '-web:v1'] if web else []) + ([owner+'-telegram:v1',owner+'-logto:v1'] if applications else [])
     for tag in tags:
         if docker(['image', 'ls', '--quiet', '--no-trunc', '--filter', 'reference=' + tag]).strip():
             raise ValueError('preparation_tag_already_exists')
@@ -317,8 +317,8 @@ def begin(images, source, owner, daemon, consumer, *, docker=docker_command, ide
 
 
 @contextmanager
-def acquire(images, source, owner, daemon, consumer, *, docker=docker_command, identify=current_identity, web=False):
-    stage = begin(images, source, owner, daemon, consumer, docker=docker, identify=identify, web=web)
+def acquire(images, source, owner, daemon, consumer, *, docker=docker_command, identify=current_identity, web=False, applications=False):
+    stage = begin(images, source, owner, daemon, consumer, docker=docker, identify=identify, web=web, applications=applications)
     with stage.in_use():
         stage.require_consumer(consumer)
         try:
@@ -346,6 +346,7 @@ def open_stage(images, *, docker=docker_command, identify=current_identity):
             or not isinstance(receipt['preexisting'], list) or not all(image_id(x) for x in receipt['preexisting'])
             or not isinstance(receipt['daemon'], dict) or not receipt['daemon']
             or receipt['tags'] not in ([receipt['owner'] + '-backend:v1', receipt['owner'] + '-foundation:local'],
-                [receipt['owner'] + '-backend:v1', receipt['owner'] + '-foundation:local', receipt['owner'] + '-web:v1'])):
+                [receipt['owner'] + '-backend:v1', receipt['owner'] + '-foundation:local', receipt['owner'] + '-web:v1'],
+                [receipt['owner'] + '-backend:v1', receipt['owner'] + '-foundation:local', receipt['owner'] + '-web:v1',receipt['owner']+'-telegram:v1',receipt['owner']+'-logto:v1'])):
         raise ValueError('preparation_receipt_contract')
     return Stage(path, receipt, docker, identify)

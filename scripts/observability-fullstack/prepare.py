@@ -35,17 +35,20 @@ def prepare(metadata, images, consumer):
     record=disk_feedback.Record(source['checkout_sha'])
     evidence=preparation_evidence.Record(metadata,source['checkout_sha'],record)
     try:
-        with preparation.acquire(images,source['checkout_sha'],owner,identity,consumer,web=True) as stage:
+        with preparation.acquire(images,source['checkout_sha'],owner,identity,consumer,web=True,applications=True) as stage:
             record.attempt()
             with pilot.disk_budget(Path(identity['storage']),growth_bytes=growth,observe_samples=True) as samples:
                 record.entered(samples)
                 for role,dockerfile,target,context,seconds in (
                         ('backend','apps/backend/Dockerfile','backend-production','.',600),
                         ('foundation','infra/production/database/Dockerfile',None,'infra/production/database',180),
-                        ('web','apps/web/Dockerfile','web-production','.',600)):
+                        ('web','apps/web/Dockerfile','web-production','.',600),
+                        ('telegram','apps/telegram/infra/production/Dockerfile',None,'.',600),
+                        ('logto','infra/identity/logto/Dockerfile',None,'infra/identity/logto',600)):
                     evidence.mark('build_'+role)
                     args=['docker','build','--file',dockerfile,'--label',preparation.LABEL+'='+stage.receipt['token'],
-                        '--iidfile',str(stage.iidfile(role)),'--tag',stage.receipt['tags'][('backend','foundation','web').index(role)]]
+                        '--iidfile',str(stage.iidfile(role)),'--tag',stage.receipt['tags'][('backend','foundation','web','telegram','logto').index(role)]]
+                    if role=='telegram':args+=['--build-arg','SOURCE_COMMIT='+source['checkout_sha'],'--build-arg','RELEASE_VERSION=v1']
                     if target:args+=['--target',target,'--build-arg','INSIDE_RELEASE_VERSION=v1','--build-arg','INSIDE_SOURCE_SHA='+source['checkout_sha']]
                     hosted.command(args+[context],seconds,pass_fds=stage.pass_fds());stage.capture()
                     evidence.completed()
@@ -56,8 +59,8 @@ def prepare(metadata, images, consumer):
                     hosted.command(['docker','pull',image],90,pass_fds=stage.pass_fds())
                     evidence.completed()
                 evidence.mark('manifest')
-                value={'schema':2,'source':source['checkout_sha'],'owner':owner}
-                for role in ('backend','foundation','web'):value[role]=stage.iidfile(role).read_text().strip()
+                value={'schema':3,'source':source['checkout_sha'],'owner':owner}
+                for role in ('backend','foundation','web','telegram','logto'):value[role]=stage.iidfile(role).read_text().strip()
                 with os.fdopen(os.open(images,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600),'w') as stream:json.dump(value,stream)
                 evidence.completed()
             record.require()
