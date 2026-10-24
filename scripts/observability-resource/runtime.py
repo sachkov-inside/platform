@@ -11,6 +11,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 
@@ -520,7 +521,18 @@ def cleanup_private(output, *, acquired=False):
             for name in files:
                 path = private / name
                 if path.is_file() and not path.is_symlink():
-                    path.unlink()
+                    if directory == 'runtime':
+                        # Compose resolves env_file even for ps/down. Retire secrets
+                        # atomically but keep an empty parseable input for repeated
+                        # recovery; replacing the inode cannot truncate a hard link.
+                        with tempfile.NamedTemporaryFile(dir=private, prefix='.retired-', delete=False) as empty:
+                            retired = Path(empty.name)
+                        try:
+                            os.replace(retired, path)
+                        finally:
+                            retired.unlink(missing_ok=True)
+                    else:
+                        path.unlink()
 
 
 def release_preparation(output, images, *, unacquired=False, stage=None):

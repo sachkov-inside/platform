@@ -12,6 +12,7 @@ import acquisition
 import runtime
 import disk_feedback
 import preparation
+from storage_policy import IMAGE_PREPARATION_GROWTH_BYTES, FLOOR_BYTES, CLEANUP_HEADROOM_BYTES
 
 SCOPE = 'hosted short synthetic SDK-only comparison; acceptance pending; not physical-host capacity'
 REPOSITORY = 'sachkov-inside/platform'
@@ -232,8 +233,12 @@ def prepare_images(source, disk, images, recorder, numeric, consumer):
 
 
 def prepare_acquired(source, images, recorder, numeric, identity, owner, pins, stage):
+    free = runtime.pilot.shutil.disk_usage(Path(identity['storage'])).free
+    if free < FLOOR_BYTES + IMAGE_PREPARATION_GROWTH_BYTES + CLEANUP_HEADROOM_BYTES:
+        raise ValueError('resource_image_preparation_requires_20_gib_free')
     numeric.attempt()
-    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop,observe_samples=True) as samples:
+    with runtime.pilot.disk_budget(Path(identity['storage']), on_stop_reason=recorder.storage_stop,observe_samples=True,
+                                  growth_bytes=IMAGE_PREPARATION_GROWTH_BYTES) as samples:
         numeric.entered(samples)
         command(['docker', 'build', '--file', 'apps/backend/Dockerfile', '--target', 'backend-production',
                  '--build-arg', 'INSIDE_RELEASE_VERSION=v1', '--build-arg', 'INSIDE_SOURCE_SHA=' + source['checkout_sha'],

@@ -35,7 +35,7 @@ class NativeRunEvidence(unittest.TestCase):
             (root/'caddy-run.json').write_text(json.dumps({**run.snapshot(),'schema':True}))
             with self.assertRaisesRegex(ValueError,'^closed Caddy artifact refused$'):artifact.read_run(root)
 
-        phases=('partition_initial_acquire','partition_initial_state','partition_initial_after_cut',
+        phases=('mcp_evaluate','mcp_compare','partition_initial_acquire','partition_initial_state','partition_initial_after_cut',
                 'partition_initial_boundary','partition_compare_acquire','partition_compare_state',
                 'partition_compare_journal','partition_compare_after_cut')
         for phase in phases:

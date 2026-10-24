@@ -170,19 +170,25 @@ class Scenario:
     def stop_postgres(self):
         """Only an explicitly owned graceful stop with settled clients may emit controlled-down zero."""
         deadline=time.monotonic()+self.remaining()
+        self.phase='restart_close_clients'
         self.actors.close(deadline)
         if self.actors.process is not None and self.actors.process.poll()!=0:raise ValueError('cleanup')
+        self.phase='restart_stop_identity'
         self.verify_pg(deadline);cid=self.targets.targets['postgres']['id']
         self.clock_deadline=deadline
+        self.phase='restart_stop_command'
         stopped=self.read(['docker','stop','--time','2',cid])
         if type(stopped) is not str or len(stopped.encode('utf-8'))>65 or stopped not in (cid,cid+'\n'):raise ValueError('ownership')
         pilot.assert_docker_identity(deadline=deadline)
+        self.phase='restart_stopped_identity'
         if self.targets.inspect('postgres',cid)!=self.targets.targets['postgres']:raise ValueError('ownership')
+        self.phase='restart_stopped_state'
         state=self.read(['docker','inspect','--format',STOPPED,cid])
         # Logical cap on the fixed daemon-side boolean projection, not a general subprocess allocation cap.
         if type(state) is not str or len(state.encode('utf-8'))>16 or state not in ('stopped','stopped\n'):raise ValueError('ownership')
         if time.monotonic()>=deadline:raise TimeoutError()
         self.remaining()
+        self.phase='restart_unavailable_upload'
         self.upload(frame.unavailable_payload(time.time_ns()//1000),deadline=deadline)
         self.actors=fixture.Fixture()
         return cid
@@ -220,6 +226,7 @@ class Scenario:
             self.case('reset',verdict)
             self.phase='restart'
             cid=self.stop_postgres()
+            self.phase='restart_unavailable_read'
             unavailable_deadline=time.monotonic()+self.remaining()
             while True:
                 if time.monotonic()>=unavailable_deadline:raise TimeoutError()
@@ -229,9 +236,12 @@ class Scenario:
                 if down['freshness'] not in ('fresh','missing'):raise ValueError('storage')
                 # Old retained healthy rows are pending in this controlled down phase, never a successful down verdict.
                 time.sleep(min(.25,max(0,unavailable_deadline-time.monotonic())))
+            self.phase='restart_start_command'
             self.clock_deadline=time.monotonic()+self.remaining();self.read(['docker','start',cid])
+            self.phase='restart_ready'
             self.await_postgres(cid)
             self.actors.start()
+            self.phase='restart_observe'
             restarted,verdict=self.observe(lambda value:value['postmaster_us']!=reset['postmaster_us'])
             if verdict['continuity']!='server_restart' or verdict['count_complete']:raise ValueError('reset')
             self.case('restart',verdict)

@@ -19,8 +19,9 @@ class SourceProgress(unittest.TestCase):
             'test_source_progress.SourceProgress.test_emitters_use_inventory_literals_and_completed_does_not_claim_success',
             'test_source_progress.SourceProgress.test_emitter_faults_do_not_replace_original_outcome'}
         added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_preparation.'))
-        self.assertEqual(len(source_progress.SOURCE_IDS),112)
-        self.assertEqual(len(set(source_progress.SOURCE_IDS)),112)
+        added.update(name for name in source_progress.SOURCE_IDS if name.startswith('test_transport.'))
+        self.assertEqual(len(source_progress.SOURCE_IDS),114)
+        self.assertEqual(len(set(source_progress.SOURCE_IDS)),114)
         self.assertTrue(added<=set(source_progress.SOURCE_IDS))
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),95)
@@ -73,7 +74,7 @@ class SourceProgress(unittest.TestCase):
         unittest.TextTestRunner(stream=stream,resultclass=source_progress.ProgressResult).run(unittest.TestSuite([Foreign()]))
         self.assertNotIn('RESOURCE_SOURCE',stream.getvalue())
 
-        # Pure synthetic source callbacks, never the real112 bodies or item84 process modes.
+        # Pure synthetic source callbacks, never the original bodies or item84 process modes.
         runner=runpy.run_path(str(Path(__file__).with_name('source_runner.py')))
         stream=io.StringIO();origin=1_000_000_000
         ticks=iter([origin]+[origin+value for value in range(100,241,10)])
@@ -91,7 +92,7 @@ class SourceProgress(unittest.TestCase):
                                 if mode=='failure':self.fail('private-synthetic-subtest')
                             source_progress.timing_event('end',mode)
             observed=unittest.TextTestRunner(stream=stream,resultclass=source_progress.ProgressResult).run(
-                unittest.TestSuite([Synthetic(index) for index in range(112)]))
+                unittest.TestSuite([Synthetic(index) for index in range(len(source_progress.SOURCE_IDS))]))
             source_progress.timing_event('end','runner')
             self.assertFalse(observed.wasSuccessful())
             markers=[line for line in stream.getvalue().splitlines() if line.startswith('RESOURCE_TIMING')]
