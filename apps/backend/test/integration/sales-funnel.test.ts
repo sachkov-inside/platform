@@ -1,3 +1,4 @@
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
 import { authorProductProgramme } from "../fixtures/author-product-programme.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
@@ -151,6 +152,7 @@ describe("Sales funnel report on PostgreSQL", () => {
 
     funnel = new SalesFunnel({
       prisma: db.prisma,
+      products: new WaitlistProducts(db.prisma),
       rights: assembleAccountRights({
         prisma: db.prisma,
         clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -589,6 +591,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     const recorded = await withExhaustedPool(db, (prisma) =>
       new SalesFunnel({
         prisma,
+        products: new WaitlistProducts(prisma),
         rights: assembleAccountRights({
           prisma,
           clock: () => new Date("2030-04-02T00:00:00Z"),

@@ -1324,7 +1324,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     });
   });
 
-  test("access is checked at submission; submissions return when access returns", async () => {
+  test("revocation preserves own version-pinned history while refusing fresh protected actions", async () => {
     const tasks = learning();
     const task = await imported({ access: "closed" });
     const subject = await learner();
@@ -1350,7 +1350,19 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
       }),
     ).toMatchObject({ ok: true });
     await revoke(firstGrant);
-    expect(await tasks.submissions({ subject, code: task.code })).toEqual({
+    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
+      {
+        ok: true,
+        value: {
+          versions: [{ version: 1 }],
+          submissions: [{ taskVersion: 1 }],
+        },
+      },
+    );
+    const stranger = await learner();
+    expect(
+      await tasks.submissions({ subject: stranger, code: task.code }),
+    ).toEqual({
       ok: false,
       error: { code: "task_not_available" },
     });

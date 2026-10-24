@@ -11,7 +11,10 @@ import type {
   BillingProductSales,
   BillingSurveyRespondentSales,
 } from "../../../billing/index.js";
-import type { ProductOutlines } from "../../../products/index.js";
+import type {
+  ProductDiscovery,
+  ProductOutlines,
+} from "../../../products/index.js";
 import type { MaterialFirstOpens } from "../../../reading-activity/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import {
@@ -25,6 +28,7 @@ import {
 
 export type ReadFunnelReportDependencies = {
   readonly prisma: SalesFunnelPrismaClient;
+  readonly products: Pick<ProductDiscovery, "metadata">;
   readonly rights: Pick<
     AccountRights,
     "resolveForAccess" | "resolveForAccessAccounts"

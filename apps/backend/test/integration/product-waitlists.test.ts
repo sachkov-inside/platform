@@ -1,3 +1,4 @@
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
 import { outsideTransaction } from "./setup/transaction-guard.js";
 import { eventually } from "./setup/eventually.js";
 import { grantProductFixture } from "./setup/product-access.js";
@@ -58,6 +59,7 @@ beforeAll(async () => {
   });
   waitlists = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -257,6 +259,7 @@ test("migration replay and application reconstruction preserve a confirmed membe
   await migrateToLatest(db.url);
   const reconstructed = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -325,6 +328,7 @@ test("a committed join queues one durable Telegram confirmation across replay an
   const confirmations: unknown[] = [];
   const reconstructed = new ProductWaitlists({
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
@@ -531,5 +535,58 @@ test("joining waits for an access writer without reversing its binding and entit
     expect(await db.prisma.productWaitlistMembership.count()).toBe(0);
   } finally {
     await joining;
+  }
+});
+
+test("archive closes intake discovery, joining and queued audience without deleting withdrawal history", async () => {
+  await waitlists.join(accountId, {
+    intakeId,
+    operationId: randomUUID(),
+    source: "archive",
+  });
+  await db.prisma.product.update({
+    where: { id: productId },
+    data: { archivedAt: new Date() },
+  });
+  try {
+    expect(await waitlists.readIntake(productId)).toMatchObject({
+      ok: false,
+      error: { code: "intake_not_found" },
+    });
+    expect(
+      await waitlists.join(accountId, {
+        intakeId,
+        operationId: randomUUID(),
+        source: null,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "intake_not_found" } });
+    expect(await waitlists.notificationAudience(intakeId)).toMatchObject({
+      ok: true,
+      value: { accountIds: [] },
+    });
+    expect(
+      await waitlists.notificationMembership(intakeId, accountId),
+    ).toMatchObject({ ok: true, value: { active: false } });
+    expect(
+      await waitlists.dispatchConfirmations(() => {
+        throw new Error("Archived Product must suppress delivery");
+      }),
+    ).toBe(1);
+    expect(await waitlists.withdraw(accountId, { intakeId })).toMatchObject({
+      ok: true,
+      value: { active: false },
+    });
+    expect(
+      await waitlists.demand({
+        productId,
+        from: new Date("2030-03-01Z"),
+        to: new Date("2030-04-01Z"),
+      }),
+    ).toMatchObject({ ok: true, value: { joined: 1, withdrawn: 1 } });
+  } finally {
+    await db.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: null },
+    });
   }
 });

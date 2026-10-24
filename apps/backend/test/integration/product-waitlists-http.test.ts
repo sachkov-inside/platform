@@ -1,3 +1,4 @@
+import { ProductDiscovery as WaitlistProducts } from "../../src/modules/products/index.js";
 import { assembleProductMaterialReading } from "../../src/modules/materials/index.js";
 import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { randomUUID } from "node:crypto";
@@ -80,6 +81,7 @@ beforeAll(async () => {
   const links = new TelegramAccountLinks(db.prisma);
   const dependencies = {
     prisma: db.prisma,
+    products: new WaitlistProducts(db.prisma),
     rights: assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-03-05T12:00:00Z"),
