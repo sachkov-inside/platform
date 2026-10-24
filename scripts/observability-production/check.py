@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime, timezone
 import json
+import math
 import os
 from pathlib import Path
 import secrets
@@ -58,6 +59,27 @@ def read_ready(token):
     return request('/metrics/api/v1/query?query=1', token=token)
 
 
+def query_one(response):
+    """Validate status and the known query result from this one HTTP capture."""
+    if response[0] != 200:
+        return False
+    try:
+        payload = json.loads(response[1])
+        if payload.get('status') != 'success':
+            return False
+        data = payload['data']
+        if data['resultType'] == 'scalar':
+            pair = data['result']
+        elif data['resultType'] == 'vector' and len(data['result']) == 1 and data['result'][0]['metric'] == {}:
+            pair = data['result'][0]['value']
+        else:
+            return False
+        return (len(pair) == 2 and type(pair[0]) in (int, float) and math.isfinite(pair[0])
+                and isinstance(pair[1], str) and float(pair[1]) == 1)
+    except (ValueError, KeyError, TypeError, AttributeError, IndexError):
+        return False
+
+
 def denied(response):
     # An upstream failure is not proof of denial.
     if response[0] not in (400, 401, 403, 404, 405):
@@ -92,7 +114,7 @@ def worker(output):
         pilot.command(compose + ['run', '--rm', '--no-deps', 'alloy', 'validate', '/etc/alloy/config.alloy'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
         pilot.command(compose + ['run', '--rm', '--no-deps', 'alloy', 'validate', '/etc/alloy/host.alloy'])
         pilot.command(compose + ['up', '-d'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
-        pilot.await_fact(lambda: read_ready(token), lambda response: response[0] == 200, output=output, probe='production_query')
+        pilot.await_fact(lambda: read_ready(token), query_one, output=output, probe='production_query')
         denied(read_ready(None))
         denied(read_ready('invalid-reader'))
         for path, method in (
@@ -126,7 +148,7 @@ def worker(output):
         auth['users'] = auth['users'][1:]
         pilot.write_json(output / 'auth.json', auth)
         pilot.command(compose + ['restart', 'vmauth'])
-        pilot.await_fact(lambda: read_ready(grafana_token), lambda response: response[0] == 200,
+        pilot.await_fact(lambda: read_ready(grafana_token), query_one,
                          output=output, probe='grafana_reader_after_revocation')
         denied(read_ready(token))
         pilot.write_json(output / 'production-proof.json', {'schema': 1, 'config': 'passed',
