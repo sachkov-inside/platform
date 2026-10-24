@@ -109,11 +109,18 @@ class SameReadGuard(unittest.TestCase):
         state={} if state is None else state
         state.update(threads=threads,release=release,finish=finish)
         if join_mode=='normal':finish.set()
+        self_test=self
         class OwnedThread(real_thread):
             def join(self,timeout=None):
-                if release.is_set():
-                    if join_mode=='timeout':return
-                    if join_mode=='early_error':raise cleanup_failure
+                if not release.is_set():
+                    # The acquired read is deliberately blocked until fixture cleanup.
+                    # Model its exhausted join without spending the real shutdown budget
+                    # in every subcase; the actual thread must still be alive at sealing.
+                    self_test.assertEqual(timeout,pilot.MONITOR_SHUTDOWN_SECONDS)
+                    self_test.assertTrue(self.is_alive())
+                    return
+                if join_mode=='timeout':return
+                if join_mode=='early_error':raise cleanup_failure
                 super().join(timeout)
                 if release.is_set() and cleanup_failure is not None:raise cleanup_failure
         def create(**kwargs):
