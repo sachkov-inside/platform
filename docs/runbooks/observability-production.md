@@ -262,3 +262,15 @@ last backup result остаётся UNKNOWN. Telegram counter decrease имее�
 в Grafana metrics или суммировать returned-page/cohort counts. Переход к
 [Umami native read-only](observability-umami-pilot.md) требует отдельного read key и ограниченного
 окна. Выключенная аналитика не означает нулевую активность. Tracker не включается этим обзором.
+
+При полном удалении отдельно включённого host-agent указывать профиль и для остановки:
+
+```bash
+docker compose -f /srv/inside/observability/releases/COMMIT/compose.json \
+  --profile host-metrics down
+```
+
+Проверить отсутствие контейнера host-agent именно этого monitoring project. Не использовать
+`--volumes` для остановки production. Disposable Linux measurement при явном `--host-metrics`
+снимает profile только в своём временном плане, чтобы общий supervisor/recover видел эту службу
+без повторного указания флага. Production default OFF при этом сохраняется.

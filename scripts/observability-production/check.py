@@ -179,6 +179,48 @@ def worker(output):
         pilot.write_json(output / 'evidence.json', evidence)
 
 
+def feedback(public):
+    """Closed startup facts in job logs as well as artifacts; never read vendor logs or bodies."""
+    for name in ('readiness.json', 'container-states.json', 'cleanup.json'):
+        path = public / name
+        if not path.exists():
+            continue
+        raw = path.read_bytes()
+        if len(raw) > 65536:
+            raise ValueError('feedback_size')
+        value = json.loads(raw)
+        if name == 'container-states.json':
+            if type(value) is not list or len(value) > len(production.SERVICES) + 1:
+                raise ValueError('feedback_states')
+            rows = []
+            for row in value:
+                if type(row) is not dict or row.get('service') not in (*production.SERVICES, 'storage-probe'):
+                    raise ValueError('feedback_service')
+                rows.append({'service': row['service'], 'state': row.get('state') if row.get('state') in (
+                    'created','restarting','running','removing','paused','exited','dead','unknown') else 'unknown',
+                    'exit_code': row.get('exit_code') if type(row.get('exit_code')) is int and 0 <= row['exit_code'] <= 255 else None})
+            print(json.dumps({'container_states': rows}))
+        elif name == 'readiness.json':
+            if type(value) is not list or len(value) > 32:
+                raise ValueError('feedback_readiness')
+            names = ('production_query', 'grafana_requires_login', 'production_stdout_projection',
+                'grafana_reader_after_revocation', 'measured_platform-host', 'measured_platform-containers', 'owned_container_series')
+            rows = []
+            for row in value:
+                if type(row) is not dict or row.get('probe') not in names:
+                    raise ValueError('feedback_probe')
+                rows.append({'probe': row['probe'], 'outcome': row.get('outcome') if row.get('outcome') in (
+                    'failed','passed','timed_out') else 'unknown',
+                    'http_status': row.get('last_http_status') if type(row.get('last_http_status')) is int
+                        and 100 <= row['last_http_status'] <= 599 else None})
+            print(json.dumps({'readiness': rows}))
+        else:
+            if type(value) is not dict:
+                raise ValueError('feedback_cleanup')
+            print(json.dumps({'cleanup': {key: 'passed' if value.get(key) == 'passed' else 'failed_or_unknown'
+                for key in ('diagnostics','down','residue')}}))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('run', 'validate', 'worker', 'admission', 'recover', 'collect'))
@@ -199,6 +241,7 @@ def main():
     elif args.action == 'collect':
         if args.metadata is None or args.public is None: parser.error('--metadata and --public required')
         ci.collect(args.output, args.metadata, args.public, artifacts=ARTIFACTS)
+        feedback(args.public)
     elif args.action == 'worker':
         worker(args.output)
     else:
