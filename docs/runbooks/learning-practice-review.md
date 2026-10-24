@@ -37,11 +37,12 @@ and records mapped Task identities or an explicit passive disposition. Practice 
 of Task Version. Existing Task UUIDs, versions, submissions, feedback and current review snapshots
 remain unchanged. No production inventory or author editorial acceptance follows from this migration.
 
-New `POST /authoring/import/practices/apply` operations fail with409 `practice_definition_retired`.
-An authorized exact historical operation may still replay its original receipt; a reused key with
-changed content conflicts. Replay does not republish, change a row or certify current publication.
-`validate` remains read-only compatibility. The original read/receipt decoder stays until the ordered
-contraction in#1712. Current local sync, release and delivery write only Product Tasks.
+The old `/authoring/import/practices` routes and `learning_practice_read` are removed in #1712.
+Authorized `POST /authoring/history/practice-receipts` reads only an existing receipt with its exact
+actor, operation key and request fingerprint. Missing receipts fail retired; changed requests conflict.
+Replay does not republish, change a row or certify current publication. Migration0113 preserves
+original definitions in historical storage. Current local sync, release, Reader and native review
+use Product Tasks; there is no current Practice validation or learner decoder.
 
 Real authored originals stay in Engineering Content. Provenance records repository, commit and
 relative path as the author's assertion, not independent cryptographic attestation of Git history.
@@ -171,10 +172,10 @@ exists. Content population, chapter count and a calendar date are not technical 
 
 `learning_task_read` returns numbered canonical JSON parts containing the complete authored Task
 requirements and review protocol, with the full pinned Material context for an embedded assignment.
-`learning_practice_read` is only the historical compatibility decoder during ordered contraction. All parts must share
+All Task context parts must share
 `contextVersion` and `contentSha256`; later parts require both pins. The end marker, part count and
 byte count distinguish complete client consumption from server success. Mismatch, withdrawal,
-rebind or unavailable source stops the review. Task Version and Submission history are immutable; the legacy Practice current row has no reconstructed version archive.
+rebind or unavailable source stops the review. Task Version and Submission history are immutable. Historical Practice records do not reconstruct a version archive.
 
 The own learner agent selects one local solution, independently of branch names. Multiple plausible
 worktrees require a scope question. It covers all criteria with confirmed, violation or not_verified,
@@ -229,7 +230,7 @@ Deterministic fixture/import checks run in `pnpm check:unit`. The real PostgreSQ
 permission, source binding, CAS races, withdrawal, ABA, receipt replay and connection ownership.
 MCP protocol tests reconstruct large Unicode contexts and preserve code/table blocks. Real HTTP
 adapter tests validate responses against generated OpenAPI. A separate full-stack stand delays the
-practice read to exercise coherent Reader readiness, checks private access, copying, responsive
+Task read to exercise coherent Reader readiness, checks private access, copying, responsive
 layout and accessibility. Native trials additionally inspect actual client tools, every context
 part, local evidence discovery, reports, discussion/recheck and unchanged project fingerprints.
 
@@ -259,15 +260,15 @@ Before giving participants an endpoint, verify the released configuration and li
 3. The production IdP supports normal OAuth onboarding of any MCP client: verify
    [Universal learner access](#universal-learner-access-938). The local stand client is not a
    production client.
-4. Import the exact committed Content snapshot. Publish only the approved lessons and their practice
-   definitions; a private lesson's definition remains unpublished. For draft originals, definition
+4. Import the exact committed Content snapshot. Publish only the approved lessons and their Product Task
+   definitions; a private lesson's Task remains unpublished. For draft originals, definition
    publication must be explicitly selected in the reviewed package; publishing the lesson alone
    does not publish an unpublished definition.
-5. In a real supported client, sign in and read all parts of each approved practice. Record client
-   version, Content commit, Material version, practice version, `contextVersion`, `contentSha256`,
+5. In a real supported client, sign in and use `learning_task_read` to read all parts of each approved Task. Record client
+   version, Content commit, Material version, Task Version, `contextVersion`, `contentSha256`,
    part count and the end marker. Never record tokens or local learner evidence in the delivery log.
 
-The first chapter's four practice IDs are `inside-content:aie-project-setup`,
+The first chapter's original source IDs, retained when mapping Practice to Tasks, are `inside-content:aie-project-setup`,
 `inside-content:aie-first-task`, `inside-content:aie-project-foundation` and
 `inside-content:aie-github-app`. `aie-first-service` belongs to chapter three and is not part of
 this acceptance. An unavailable MCP blocks self-review, not the independent text transfer or
@@ -333,6 +334,6 @@ curl -si https://inside.sachkov.dev/mcp/learning -X POST | grep -i '^www-authent
 A client acceptance uses a production test account without entitlement
 ([test identities](production-test-identities.md)). For each client record its version, the
 connection path (agent request or manual command), login, refresh after the five-minute access token,
-`learning_materials_list`, the complete read of a free practice and `practice_not_available` on a
-paid one. A client that cannot sign in is recorded with the reason. Never record tokens, callback
+`learning_materials_list`, the complete `learning_task_read` of a free Task and `task_not_available` on a
+protected Task without Product Access. A client that cannot sign in is recorded with the reason. Never record tokens, callback
 URLs or local learner data.
