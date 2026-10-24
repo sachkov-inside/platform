@@ -546,7 +546,7 @@ test("archive closes intake discovery, joining and queued audience without delet
   });
   await db.prisma.product.update({
     where: { id: productId },
-    data: { archivedAt: new Date() },
+    data: { archivedAt: new Date("2030-03-01T00:00:00Z") },
   });
   try {
     expect(await waitlists.readIntake(productId)).toMatchObject({
