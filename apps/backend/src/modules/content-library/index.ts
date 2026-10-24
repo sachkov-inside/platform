@@ -31,3 +31,5 @@ export {
 export { ListPublicSiteIndexController } from "./features/list-public-site-index/list-public-site-index.controller.js";
 
 export { ReadProductSaleAvailabilityController } from "./features/read-product-sale-availability/read-product-sale-availability.controller.js";
+
+export { ReadReaderReferenceController } from "./features/read-reader-reference/read-reader-reference.controller.js";

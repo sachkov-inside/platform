@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { currentLegalEdition } from "@inside/legal";
 
-import { StorageNotice } from "@/features/storage-notice";
+import { StorageAndAnalyticsNotice } from "@/features/storage-notice";
 import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { AuthenticationFeedback } from "@/widgets/auth-control";
 
@@ -23,7 +23,7 @@ export function PublicShellContent({
         <AuthenticationFeedback />
       </Suspense>
       {children}
-      <StorageNotice
+      <StorageAndAnalyticsNotice
         edition={currentLegalEdition("cookies").version}
         policyHref={legalDocumentPath("cookies")}
       />

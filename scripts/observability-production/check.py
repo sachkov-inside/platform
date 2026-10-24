@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import math
 import os
+import re
 from pathlib import Path
 import secrets
 import socket
@@ -19,7 +20,8 @@ import ci
 SCOPE = 'Production generated config, read-key revocation and syslog sanitizer on synthetic owned storage; not Linux host/physical disk or capacity acceptance'
 PREFIX = 'inside-observability-production-check-'
 ARTIFACTS = ('production-proof.json', 'production-validation.json', 'production-measurements.json',
-             'evidence.json', 'cleanup.json', 'worker-outcome.json', 'monitor-failure.json')
+             'evidence.json', 'cleanup.json', 'worker-outcome.json', 'monitor-failure.json',
+             'readiness.json', 'container-states.json')
 
 
 def prepare(output):
@@ -31,7 +33,8 @@ def prepare(output):
     plan['volumes'] = {name: {} for name in ('metrics', 'logs', 'traces', 'grafana')}
     for name in plan['volumes']:
         destination = '/var/lib/grafana' if name == 'grafana' else '/data'
-        plan['services'][name]['user'] = '0:0'
+        if name != 'grafana':
+            plan['services'][name]['user'] = '0:0'
         plan['services'][name]['volumes'][0] = name + ':' + destination
     plan['services']['alloy']['volumes'].append(f'{production.CONFIG / "host.alloy"}:/etc/alloy/host.alloy:ro')
     pilot.write_json(output / 'compose.json', plan)
@@ -113,6 +116,15 @@ def worker(output):
         pilot.command(compose + ['config', '--quiet'])
         pilot.command(compose + ['run', '--rm', '--no-deps', 'alloy', 'validate', '/etc/alloy/config.alloy'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
         pilot.command(compose + ['run', '--rm', '--no-deps', 'alloy', 'validate', '/etc/alloy/host.alloy'])
+        # Preserve the production UID: private 0600 binds are unreadable to root with ALL
+        # capabilities dropped. Only the fresh owned fixture volume needs an initialization.
+        grafana_uid = json.loads((output / 'compose.json').read_text())['services']['grafana']['user']
+        if not re.fullmatch(r'[0-9]+:[0-9]+', grafana_uid):
+            raise ValueError('invalid_grafana_fixture_identity')
+        pilot.command(compose + ['run', '--rm', '--no-deps', '--user', '0:0', '--cap-add', 'CHOWN',
+            '--entrypoint', 'chown', 'grafana', grafana_uid, '/var/lib/grafana'],
+            timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
+        pilot.install_plugin(output)
         pilot.command(compose + ['up', '-d'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
         pilot.await_fact(lambda: read_ready(token), query_one, output=output, probe='production_query')
         denied(read_ready(None))

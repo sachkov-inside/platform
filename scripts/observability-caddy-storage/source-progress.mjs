@@ -80,12 +80,14 @@ export function assertCaddyContracts(result) {
     Buffer.byteLength(result.stderr) <= 1_048_576 &&
     result.reason !== "output_limit"
   ) {
-    const lines = new Set(result.stderr.split("\n"));
+    const lines = result.stderr.split("\n");
     const failed = sourceIds.filter((id) => {
       const method = id.split(".").at(-1);
-      return (
-        lines.has(`FAIL: ${method} (${id})`) ||
-        lines.has(`ERROR: ${method} (${id})`)
+      return lines.some((line) =>
+        ["FAIL", "ERROR"].some((kind) => {
+          const prefix = `${kind}: ${method} (${id})`;
+          return line === prefix || line.startsWith(prefix + " (");
+        }),
       );
     });
     if (failed.length > 0) message += `; failedTests=${failed.join(",")}`;
