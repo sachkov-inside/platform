@@ -37,6 +37,6 @@ def validate_profile(value):
                 {'name':'steady','seconds':40,'requests_per_second':10},{'name':'spike','seconds':10,'requests_per_second':40}]
             or value.get('thresholds')!={'query_seconds':10,'ingestion_lag_seconds':60,'http_p95_overhead_percent':5,
                 'additional_host_cpu_fraction':.1,'application_reserve_fraction':.25}
-            or set(value.get('operations',[]))!={'web_home','web_material','api_catalog','api_account','mcp_discovery','analytics_send'}):
+            or set(value.get('operations',[]))!={'web_home','web_material','api_catalog','api_account','mcp_discovery','analytics_send','telegram_webhook','logto_discovery'}):
         raise ValueError('representative_fullstack_profile_required')
     return value

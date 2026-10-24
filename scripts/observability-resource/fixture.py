@@ -58,7 +58,8 @@ write_disposable_runtime_configuration
     return password
 
 
-def certificates(output):
+def certificates(output, *, telegram=False):
+    if type(telegram) is not bool:raise ValueError('certificate_scope')
     private = output / 'provider-tls'
     private.mkdir(mode=0o700)
     trust = output / 'trust'
@@ -68,7 +69,7 @@ def certificates(output):
     try:
         result = subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec',
             '-pkeyopt', 'ec_paramgen_curve:P-384', '-nodes', '-days', '1',
-            '-subj', '/CN=provider', '-addext', 'subjectAltName=DNS:provider',
+            '-subj', '/CN=provider', '-addext', 'subjectAltName=DNS:provider'+(',DNS:api.telegram.org' if telegram else ''),
             '-keyout', str(private / 'server.key'), '-out', str(private / 'server.pem')],
             capture_output=True, timeout=5, env={'PATH':os.defpath,'LC_ALL':'C'}, umask=0o077)
         if result.returncode:
@@ -88,7 +89,7 @@ def mode(path, value):
     pilot.write_json(path, plan)
 
 
-def prepare(output, cache):
+def prepare(output, cache, *, telegram_provider=False):
     source = pilot.command(['git', '-C', str(ROOT), 'rev-parse', 'HEAD']).strip()
     pins = images(cache, source)
     # Same narrow tag-to-immutable-ID admission as production cache-only smoke; no build/pull fallback.
@@ -99,7 +100,7 @@ def prepare(output, cache):
             raise RuntimeError('owned_cache_identity_mismatch')
     pilot.prepare(output)
     password = configuration(output, source)
-    certificates(output)
+    certificates(output,telegram=telegram_provider)
     plan = json.loads((output / 'compose.json').read_text())
     uid = str(output.stat().st_uid) + ':' + str(output.stat().st_gid)
     shared = {'image': pins['backend'], 'pull_policy': 'never', 'init': True, 'cap_drop': ['ALL'],
