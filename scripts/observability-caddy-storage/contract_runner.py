@@ -1,4 +1,5 @@
 """Run contracts under one outside owner and unwind child cleanup on TERM."""
+from functools import partial
 import json
 import os
 from pathlib import Path
@@ -35,12 +36,15 @@ def main():
                          'CADDY_TEST_BODY_FILE':str(body),'CADDY_TEST_PARENT_PID':str(os.getpid())}
             pilot.stdio_probe(Path(sys.executable),environment,'query',{},'caddy_http_requests_total',
                 argv=[sys.executable,'-B',str(Path(__file__).with_name('fixtures')/'mcp.py')],decode_response=caddy_mcp.decode_response)
-    elif sys.argv[1:]:raise ValueError('closed Caddy contracts')
+    elif sys.argv[1:] and not (len(sys.argv)==3 and sys.argv[1]=='--source-group'):raise ValueError('closed Caddy contracts')
     else:
         suite=unittest.defaultTestLoader.discover(str(Path(__file__).parent),pattern='test_*.py')
         import source_progress
-        source_progress.verify_inventory(suite)
-        if not unittest.TextTestRunner(resultclass=source_progress.ProgressResult).run(suite).wasSuccessful():return 1
+        group=sys.argv[2] if sys.argv[1:] else None
+        if group is None:source_progress.verify_inventory(suite)
+        else:suite=source_progress.select_group(suite,group)
+        resultclass=partial(source_progress.ProgressResult,source_group=group)
+        if not unittest.TextTestRunner(resultclass=resultclass).run(suite).wasSuccessful():return 1
     return 0
 
 

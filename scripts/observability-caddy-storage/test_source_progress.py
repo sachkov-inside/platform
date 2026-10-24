@@ -26,12 +26,27 @@ class SourceProgress(unittest.TestCase):
         baseline=[name for name in source_progress.SOURCE_IDS if name not in added]
         self.assertEqual(len(baseline),73)
         self.assertEqual(hashlib.sha256(json.dumps(baseline).encode()).hexdigest(),'34a7fb8b62c29fdf4980fa775a515fe1917839dfd1bd17cfae82db0b4de1be00')
+        groups=source_progress.SOURCE_GROUPS
+        self.assertEqual(tuple(groups),('contracts','process-owner'))
+        self.assertEqual(tuple(map(len,groups.values())),(77,3))
+        combined=tuple(value for group in groups.values() for value in group)
+        self.assertEqual(len(set(combined)),80)
+        self.assertEqual(tuple(sorted(combined)),source_progress.SOURCE_IDS)
+        for group,expected in groups.items():
+            selected=source_progress.select_group(suite,group)
+            self.assertEqual(tuple(test.id() for test in selected),expected)
+        for group in ('unknown','__proto__',None,[],1):
+            with self.assertRaisesRegex(ValueError,'^closed Caddy source inventory refused$'):
+                source_progress.select_group(suite,group)
         class Case(unittest.TestCase):
             def runTest(self):pass
             def id(self):return source_progress.SOURCE_IDS[0]
         for cases in ((Case(),),(Case(),Case())):
             with self.assertRaisesRegex(ValueError,'^closed Caddy source inventory refused$'):
                 source_progress.verify_inventory(unittest.TestSuite(cases))
+            for group in groups:
+                with self.assertRaisesRegex(ValueError,'^closed Caddy source inventory refused$'):
+                    source_progress.select_group(unittest.TestSuite(cases),group)
 
     def test_emitters_use_inventory_literals_and_completed_does_not_claim_success(self):
         stream=io.StringIO()

@@ -3,6 +3,7 @@ export {
   assertCaddyContracts,
   sourceProgress,
   sourceIds,
+  sourceGroups,
 } from "./source-progress.mjs";
 import { fileURLToPath } from "node:url";
 import { runOwnedProcess } from "../observability-umami/process-owner.mjs";

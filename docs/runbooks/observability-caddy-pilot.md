@@ -253,17 +253,23 @@ establish native acceptance. Fresh source-bound native evidence is still require
 
 ## Source test progress
 
-The source wrapper retains its single `15000ms` suite deadline and existing fixture/cleanup
-budgets. Best-effort start/completed markers identify only fixed inventoried source test IDs in
+The source wrapper runs two separately owned contract groups: 77 pure/protocol methods and
+three process-lifecycle methods that acquire real launchers and listeners. Each invocation keeps
+the existing `15000ms` deadline and fixture/cleanup budgets. Complete discovery must match the
+unchanged 80-method inventory before selection in either process. The checked group union has
+no missing or repeated method; every method executes once across the two invocations.
+Best-effort start/completed markers identify only fixed inventoried source test IDs in
 its private captured stderr. The parent validates the complete ordered marker prefix before
-showing the last started/completed source method and completed count. Missing, malformed or
+showing the last started/completed source method and completed count within that group. A
+successful group also requires its complete marker sequence, independently of exit status.
+Missing, malformed or
 oversized markers give `unknown`. Both timeout and nonzero-exit assertions omit raw captured
 output. `completed` records that a method stopped; it does not report a pass or replace the
 original exit/timeout/interruption result. Inventory checks retain every original source test
 exactly once, along with explicitly added progress controls.
 
-This diagnostic does not explain the earlier baseline source timeout or establish native Caddy
-acceptance. No suite splitting, deadline increase or production configuration change is included.
+These source contracts do not establish native Caddy acceptance. The native cases, workload,
+production configuration and their acceptance deadlines are unchanged.
 
 ### Native-only incomplete detail
 
