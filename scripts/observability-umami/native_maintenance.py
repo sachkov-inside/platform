@@ -52,6 +52,14 @@ class NativeMaintenance(unittest.TestCase):
                     time.sleep(.1)
             def sql(payload,*,timeout=12,role='umami',database='umami'):
                 return docker(['exec','-i',identifier,'psql','-X','-qAt','-U',role,'-d',database,'-v','ON_ERROR_STOP=1'],payload=payload,timeout=timeout)
+            # A foreign member of the Umami group would inherit the new owner role.
+            # Refuse before creating the database or changing that existing role.
+            sql('CREATE ROLE umami; CREATE ROLE some_other_app LOGIN; GRANT umami TO some_other_app;',role='pilot_bootstrap',database='postgres')
+            with self.assertRaisesRegex(RuntimeError,'existing Umami role authority'):
+                sql(setup_database.sql('synthetic-'+'x'*32),role='pilot_bootstrap',database='postgres')
+            untouched=json.loads(sql("SELECT json_build_object('database_absent',NOT EXISTS(SELECT 1 FROM pg_database WHERE datname='umami'),'foreign_membership_preserved',pg_has_role('some_other_app','umami','MEMBER'));",role='pilot_bootstrap',database='postgres'))
+            self.assertEqual(untouched,{'database_absent':True,'foreign_membership_preserved':True})
+            sql('REVOKE umami FROM some_other_app; DROP ROLE some_other_app; DROP ROLE umami;',role='pilot_bootstrap',database='postgres')
             sql(setup_database.sql('synthetic-'+'x'*32),role='pilot_bootstrap',database='postgres')
             endpoint=docker(['context','inspect','--format','{{.Endpoints.docker.Host}}']).strip()
             with patch.dict(os.environ,{'INSIDE_UMAMI_SQL_TRANSPORT':'docker',

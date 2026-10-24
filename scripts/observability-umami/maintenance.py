@@ -5,6 +5,7 @@ separately from PostgreSQL, and never restore an older copy alongside a DB backu
 """
 from contextlib import contextmanager
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -74,16 +75,16 @@ def locked(path):
     finally:os.close(fd)
 
 
-def _read(path):
+def _read_json(path):
     fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
     with os.fdopen(fd,'rb') as stream:
         _private(os.fstat(stream.fileno()));encoded=stream.read(MAX_BYTES+1)
     if len(encoded)>MAX_BYTES:raise ValueError('deletion_authority_size')
-    return validate(json.loads(encoded,object_pairs_hook=_pairs))
+    return json.loads(encoded,object_pairs_hook=_pairs)
 
 
-def _write(path,value):
-    encoded=json.dumps(validate(value),sort_keys=True).encode()+b'\n'
+def _write_json(path,value):
+    encoded=json.dumps(value,sort_keys=True).encode()+b'\n'
     if len(encoded)>MAX_BYTES:raise ValueError('deletion_authority_size')
     temporary=path.with_name('.'+path.name+'.'+uuid.uuid4().hex)
     try:
@@ -95,6 +96,12 @@ def _write(path,value):
         try:os.fsync(directory)
         finally:os.close(directory)
     finally:temporary.unlink(missing_ok=True)
+
+
+def _read(path):return validate(_read_json(path))
+
+
+def _write(path,value):_write_json(path,validate(value))
 
 
 def initialize(path):
@@ -153,45 +160,96 @@ END $$;
 """+'\n'.join(statements)+"\nSELECT json_build_object('remaining',"+' OR '.join(terms)+');\nCOMMIT;\n'
 
 
-def _replay(value,execute,deadline):
-    for row in value['requests']:
-        sql=deletion_sql(row)
+def _authority_hash(rows):
+    return hashlib.sha256(json.dumps(rows,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+
+def _progress(path,value,generation):
+    fresh={'schema':1,'ledger_id':value['ledger_id'],'generation':generation,'step':'replay','next':0,
+        'observed_count':len(value['requests']),'observed_sha256':_authority_hash(value['requests'])}
+    if not path.exists() and not path.is_symlink():return fresh
+    current=_read_json(path)
+    if (type(current) is not dict or set(current)!=set(fresh) or type(current['schema']) is not int or current['schema']!=1
+            or current['ledger_id']!=value['ledger_id'] or current['step'] not in ('replay','recheck','complete')
+            or type(current['next']) is not int or type(current['observed_count']) is not int
+            or not 0<=current['next']<=current['observed_count']<=len(value['requests'])
+            or current['observed_sha256']!=_authority_hash(value['requests'][:current['observed_count']])):
+        raise ValueError('deletion_progress_authority_changed')
+    if current['generation']!='daily':identifier(current['generation'])
+    if current['generation']!=generation or current['step']=='complete':return fresh
+    current.update(observed_count=fresh['observed_count'],observed_sha256=fresh['observed_sha256'])
+    return current
+
+
+def _replay(value,execute,deadline,progress,save,clock):
+    for index in range(progress['next'],len(value['requests'])):
+        sql=deletion_sql(value['requests'][index])
         for _ in range(retention.MAX_BATCHES):
-            remaining=deadline-time.monotonic()
+            remaining=deadline-clock()
             if remaining<=0:return False
             encoded=execute(sql,timeout=min(retention.BATCH_SECONDS,remaining))
             if type(encoded) is not str or len(encoded.encode())>1024:raise ValueError('deletion_replay_result')
             result=json.loads(encoded,object_pairs_hook=_pairs)
             if type(result) is not dict or set(result)!={'remaining'} or type(result['remaining']) is not bool:
                 raise ValueError('deletion_replay_result')
-            if not result['remaining']:break
+            if not result['remaining']:
+                # A lost SQL response never advances. An interrupted checkpoint write
+                # only repeats an already committed, idempotent target on the next run.
+                progress['next']=index+1;save()
+                break
         else:return False
     return True
 
 
-def restore(path,execute,open_readers):
-    """Caller keeps readers/ingest stopped. Their only transition follows current replay+TTL.
-
-    Hold external journal ownership through opening so new accepted requests cannot
-    be omitted between the final replay and the transition. No journal truncation.
-    """
+def _maintain(path,execute,open_readers,*,generation,phase,clock):
     with locked(path) as owned:
         value=_read(owned)
+        checkpoint=owned.with_name(owned.name+'.'+phase+'-progress.json')
+        progress=_progress(checkpoint,value,generation)
+        def save():_write_json(checkpoint,progress)
         result={'schema':1,'state':'partial','stage':'deletion_replay','requests':len(value['requests'])}
         try:
-            if not _replay(value,execute,time.monotonic()+REPLAY_SECONDS):return result
-            result['stage']='current_retention';result['retention']=retention.drain(execute)
+            save()
+            replay_complete=progress['step']=='recheck' or _replay(value,execute,clock()+REPLAY_SECONDS,progress,save,clock)
+            # Even an unfinished deletion corpus receives its independent daily TTL
+            # budget. A long absent prefix cannot permanently starve retention.
+            result['stage']='current_retention';result['retention']=retention.drain(execute,clock=clock)
             if result['retention']['state']!='complete':
                 result['state']='error' if result['retention']['state']=='error' else 'partial'
                 return result
+            if not replay_complete:
+                result.update(stage='deletion_replay',processed=progress['next'])
+                return result
+            if progress['step']=='replay':
+                progress.update(step='recheck',next=0);save()
             result['stage']='deletion_recheck'
-            if not _replay(value,execute,time.monotonic()+REPLAY_SECONDS):return result
+            if not _replay(value,execute,clock()+REPLAY_SECONDS,progress,save,clock):
+                result['processed']=progress['next']
+                return result
+            progress.update(step='complete');save()
             open_readers()
             result.update(state='complete',stage='completed')
             return result
         except (OSError,ValueError,RuntimeError,subprocess.SubprocessError):
             result['state']='error'
             return result
+
+
+def run(path,execute,*,clock=time.monotonic):
+    """Resume a bounded daily sweep, preserving target progress across invocations."""
+    return _maintain(path,execute,lambda:None,generation='daily',phase='daily',clock=clock)
+
+
+def restore(path,execute,open_readers,*,restore_id=None,clock=time.monotonic):
+    """Replay ALL authority for each new restore operation before opening readers.
+
+    The operator keeps readers/ingest stopped, supplies the current external journal
+    and uses a NEW restore_id for each independently restored database. Reuse that
+    ID only to continue the same interrupted operation. An omitted library ID starts
+    a fresh operation; the CLI requires an explicit ID for resumable retries.
+    """
+    generation=identifier(restore_id) if restore_id is not None else str(uuid.uuid4())
+    return _maintain(path,execute,open_readers,generation=generation,phase='restore',clock=clock)
 
 
 def transport(sql,*,timeout):
@@ -203,6 +261,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('initialize','request','run','restore'))
     parser.add_argument('--journal',type=Path,required=True)
+    parser.add_argument('--restore-id')
     for name in ('request-id','website-id','kind','target-id'):parser.add_argument('--'+name)
     args=parser.parse_args()
     if os.environ.get('INSIDE_UMAMI_MAINTENANCE_ENABLED')!='true':raise ValueError('maintenance_disabled')
@@ -212,9 +271,12 @@ def main():
         return 0
     # restore intentionally performs no start command: this exit code is the dependency
     # of the deployment operator's subsequent Umami reader/ingest start.
-    result=restore(args.journal,transport,lambda:None)
+    if args.action=='restore':
+        if args.restore_id is None:raise ValueError('restore_operation_id_required')
+        result=restore(args.journal,transport,lambda:None,restore_id=args.restore_id)
+    else:result=run(args.journal,transport)
     print(json.dumps(result,sort_keys=True))
-    return 0 if result['state']=='complete' else 3
+    return 0 if result['state']=='complete' else 3 if result['state']=='partial' else 1
 
 
 if __name__=='__main__':

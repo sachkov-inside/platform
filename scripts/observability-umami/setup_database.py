@@ -18,7 +18,7 @@ SELECT pg_advisory_lock(1566,366);
 BEGIN;
 DO $$ BEGIN
 IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='umami') AND
-(EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='umami')) OR
+(EXISTS(SELECT 1 FROM pg_auth_members WHERE member=(SELECT oid FROM pg_roles WHERE rolname='umami') OR roleid=(SELECT oid FROM pg_roles WHERE rolname='umami')) OR
  EXISTS(SELECT 1 FROM pg_database WHERE datdba=(SELECT oid FROM pg_roles WHERE rolname='umami') AND datname<>'umami'))
 THEN RAISE EXCEPTION 'existing Umami role authority requires owner review'; END IF;
 IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='umami') THEN CREATE ROLE umami; END IF;
