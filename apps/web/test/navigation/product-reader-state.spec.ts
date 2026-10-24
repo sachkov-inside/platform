@@ -86,9 +86,11 @@ for (const scenario of [
       contentType: "application/json",
     });
 
-    await expect(
-      page.locator(`[data-product-landing="${slug}"]`),
-    ).toBeVisible();
+    const visibleLanding = page
+      .locator(`[data-product-landing="${slug}"]`)
+      .filter({ visible: true });
+    await expect(visibleLanding).toHaveCount(1);
+    await expect(visibleLanding).toBeVisible();
     const holder = ["paid", "manual", "archive"].includes(scenario);
     if (holder) {
       await expect(
