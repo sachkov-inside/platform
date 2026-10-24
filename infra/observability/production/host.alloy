@@ -52,8 +52,8 @@ prometheus.scrape "containers" {
 prometheus.relabel "containers" {
   forward_to = [prometheus.remote_write.host.receiver]
   rule {
-    source_labels = ["container_label_com_docker_compose_service"]
-    regex = "api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|logto|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent|"
+    source_labels = ["__name__", "container_label_com_docker_compose_service", "container_label_com_docker_compose_project"]
+    regex = "up;;|container_.+;(api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|logto|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent);[a-z][a-z0-9-]{0,63}"
     action = "keep"
   }
   rule {
@@ -67,13 +67,7 @@ prometheus.relabel "containers" {
   }
   rule {
     source_labels = ["container_label_com_docker_compose_project"]
-    regex = "[a-z][a-z0-9-]{0,63}"
     target_label = "project"
-  }
-  rule {
-    source_labels = ["project"]
-    regex = ".*"
-    action = "keep"
   }
   rule {
     target_label = "instance"
