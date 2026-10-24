@@ -56,14 +56,20 @@ beforeAll(async () => {
 afterAll(async () => {
   await cleanup();
 });
-const clock = {
-  value: new Date("2030-01-31T10:00:00Z"),
-  now() {
-    return new Date(this.value);
-  },
-};
-const external = { sends: [] as string[], results: new Set<string>() };
-const chat = new FakeCommunityChat();
+const initialInstant = "2030-01-31T10:00:00.000Z";
+function createRecoveryEffects() {
+  return {
+    clock: {
+      value: new Date(initialInstant),
+      now() {
+        return new Date(this.value);
+      },
+    },
+    external: { sends: [] as string[], results: new Set<string>() },
+    chat: new FakeCommunityChat(),
+  };
+}
+type RecoveryEffects = ReturnType<typeof createRecoveryEffects>;
 const sequenceId = randomUUID(),
   stepId = randomUUID(),
   partId = randomUUID();
@@ -172,7 +178,7 @@ const oldCommunityCommand: CommunitySetCommand = {
   entitlementRevision: 6,
   binding: oldCommunityBinding,
   access: { kind: "lifetime" },
-  issuedAt: clock.now().toISOString(),
+  issuedAt: initialInstant,
 };
 const moderation = {
   operationId: randomUUID(),
@@ -192,7 +198,7 @@ const communityCommand: CommunitySetCommand = {
   entitlementRevision: 7,
   binding: communityBinding,
   access: { kind: "lifetime" },
-  issuedAt: clock.now().toISOString(),
+  issuedAt: initialInstant,
 };
 const commands = ["sent", "unknown", "pending"].map((label, index) => {
   const command = conforming(
@@ -213,7 +219,7 @@ const commands = ["sent", "unknown", "pending"].map((label, index) => {
   };
   command.content = { category: "material", kind: "material_published" };
   command.text = `Synthetic retained ${label}`;
-  command.issuedAt = clock.now().toISOString();
+  command.issuedAt = initialInstant;
   command.notAfter = "2030-01-31T10:10:00Z";
   return { command, label, user: String(20000 + index) };
 });
@@ -247,7 +253,8 @@ function config(url: string) {
     TELEGRAM_WELCOME_TEXT: "Synthetic welcome",
   });
 }
-function notificationProvider(database: Database) {
+function notificationProvider(database: Database, effects: RecoveryEffects) {
+  const { clock, external } = effects;
   return new NotificationProvider(
     database,
     "inside",
@@ -294,7 +301,8 @@ function receive(provider: NotificationProvider, command: NotificationCommand) {
     "material",
   );
 }
-function community(database: Database) {
+function community(database: Database, effects: RecoveryEffects) {
+  const { clock, chat } = effects;
   return new CommunityProvider(
     database,
     "inside",
@@ -323,7 +331,12 @@ function community(database: Database) {
     },
   );
 }
-function waitlistProvider(database: Database, url: string) {
+function waitlistProvider(
+  database: Database,
+  url: string,
+  effects: RecoveryEffects,
+) {
+  const { clock, external } = effects;
   return new WaitlistConfirmations(
     database,
     config(url),
@@ -345,7 +358,12 @@ function waitlistProvider(database: Database, url: string) {
     },
   );
 }
-async function seedLegacy(database: Database, url: string) {
+async function seedLegacy(
+  database: Database,
+  url: string,
+  effects: RecoveryEffects,
+) {
+  const { clock, chat } = effects;
   for (const [accountRef, user] of [
     ["synthetic-owner", "40000"],
     ["other-author", "40001"],
@@ -362,7 +380,7 @@ async function seedLegacy(database: Database, url: string) {
       user,
     );
   }
-  const provider = notificationProvider(database);
+  const provider = notificationProvider(database, effects);
   for (const { command, user, label } of commands) {
     await seedNotificationRecipient(database, command, clock.now(), user);
     expect((await receive(provider, command))?.state).toBe("accepted");
@@ -380,16 +398,18 @@ async function seedLegacy(database: Database, url: string) {
     "30001",
   );
   chat.membership = "member";
-  expect((await community(database).handle(oldCommunityCommand)).status).toBe(
-    200,
-  );
-  await community(database).processDueEffects();
+  expect(
+    (await community(database, effects).handle(oldCommunityCommand)).status,
+  ).toBe(200);
+  await community(database, effects).processDueEffects();
   await sql`update platform_links set telegram_identity_ref=${communityBinding.telegramIdentityRef} where telegram_identity_ref=${oldCommunityBinding.telegramIdentityRef}`.execute(
     database,
   );
   chat.membership = "member";
-  expect((await community(database).handle(communityCommand)).status).toBe(200);
-  await community(database).processDueEffects();
+  expect(
+    (await community(database, effects).handle(communityCommand)).status,
+  ).toBe(200);
+  await community(database, effects).processDueEffects();
   expect(
     await new CommunityRestrictions(database, clock).decide(moderation, true),
   ).toBe("applied");
@@ -575,7 +595,12 @@ async function authorizedComposition(owner: Database, user: string) {
   });
 }
 
-async function currentReaders(owner: Database, url: string) {
+async function currentReaders(
+  owner: Database,
+  url: string,
+  effects: RecoveryEffects,
+) {
+  const { clock, external, chat } = effects;
   const beforeEffects = [...external.sends],
     beforeMutations = [...chat.calls];
   const composer = await authorizedComposition(owner, "40000");
@@ -656,12 +681,13 @@ async function currentReaders(owner: Database, url: string) {
   });
 }
 
-async function recover(database: RestoreDatabase) {
+async function recover(database: RestoreDatabase, effects: RecoveryEffects) {
+  const { clock, external } = effects;
   const owner = createDatabase(database.url);
   try {
     clock.value = new Date("2030-01-31T10:01:00Z");
-    await currentReaders(owner, database.url);
-    const provider = notificationProvider(owner);
+    await currentReaders(owner, database.url, effects);
+    const provider = notificationProvider(owner, effects);
     for (const { command } of commands) await receive(provider, command);
     await provider.processCategory("material");
     await provider.publishResults((result) => {
@@ -681,21 +707,23 @@ async function recover(database: RestoreDatabase) {
       signInReplyEligibility,
     );
     await scheduler.processAvailable();
-    const notifications = waitlistProvider(owner, database.url);
+    const notifications = waitlistProvider(owner, database.url, effects);
     for (const command of waitlist) await notifications.receive(command);
     for (const minute of [2, 3]) {
       clock.value = new Date(`2030-01-31T10:0${String(minute)}:00Z`);
       await notifications.processAvailable();
     }
-    expect((await community(owner).handle(oldCommunityCommand)).status).toBe(
-      200,
-    );
-    expect((await community(owner).handle(communityCommand)).status).toBe(200);
+    expect(
+      (await community(owner, effects).handle(oldCommunityCommand)).status,
+    ).toBe(200);
+    expect(
+      (await community(owner, effects).handle(communityCommand)).status,
+    ).toBe(200);
     expect(
       await new CommunityRestrictions(owner, clock).decide(moderation, true),
     ).toBe("duplicate");
-    await community(owner).processDueEffects();
-    await community(owner).reconcileDueStates();
+    await community(owner, effects).processDueEffects();
+    await community(owner, effects).reconcileDueStates();
     expect(
       await owner
         .selectFrom("community_desired_states")
@@ -748,11 +776,14 @@ async function recover(database: RestoreDatabase) {
 // Two full archives, two EMPTY restores and real owner reconstruction are the subject here.
 // The ordinary five-second unit default does not cover that PostgreSQL process boundary.
 test("full Telegram archives preserve both migration ledger and mixed provider receipts across fresh recovery owners", async () => {
+  // Retain this same external ledger across every reconnect and both restore boundaries.
+  const recoveryEffects = createRecoveryEffects();
+  const { clock, external, chat } = recoveryEffects;
   const source = await postgres.emptyDatabase();
   const legacyOwner = createDatabase(source.url);
   try {
     await migrateTo(legacyOwner, "035-waitlist-confirmations");
-    await seedLegacy(legacyOwner, source.url);
+    await seedLegacy(legacyOwner, source.url, recoveryEffects);
   } finally {
     await legacyOwner.destroy();
   }
@@ -798,7 +829,7 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
   } finally {
     await upgradedOwner.destroy();
   }
-  await recover(source);
+  await recover(source, recoveryEffects);
   expect(external.sends).toEqual([
     "Synthetic retained sent",
     "Synthetic retained unknown",
@@ -808,7 +839,7 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
   const recovered = await state(source);
   const effects = [...external.sends],
     mutations = [...chat.calls];
-  await recover(source);
+  await recover(source, recoveryEffects);
   expect(await state(source)).toEqual(recovered);
   expect(external.sends).toEqual(effects);
   expect(chat.calls).toEqual(mutations);
@@ -822,7 +853,7 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
   await migrate(restored);
   expect(await state(restored)).toEqual(recovered);
   for (let pass = 0; pass < 2; pass++) {
-    await recover(restored);
+    await recover(restored, recoveryEffects);
     expect(await state(restored)).toEqual(recovered);
     expect(external.sends).toEqual(effects);
     expect(chat.calls).toEqual(mutations);
@@ -835,7 +866,7 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
   // proves restoration; dispatch requires reconciliation of post-backup external receipts.
   const heldOwner = createDatabase(rollback.url);
   try {
-    await currentReaders(heldOwner, rollback.url);
+    await currentReaders(heldOwner, rollback.url, recoveryEffects);
     const heldConfig = {
       ...config(rollback.url),
       deliveryMode: "disabled" as const,
