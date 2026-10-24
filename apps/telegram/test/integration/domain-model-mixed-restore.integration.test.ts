@@ -674,10 +674,14 @@ test("full Telegram archives preserve both migration ledger and mixed provider r
   await migrate(source);
   const upgradedOwner = createDatabase(source.url);
   try {
-    const archive = await upgradedOwner
-      .selectFrom("communication_historical_author_state")
-      .select(["source_table", "original"])
-      .execute();
+    const archive = (
+      await sql<{
+        source_table: string;
+        original: unknown;
+      }>`select source_table,original from communication_historical_author_state order by source_table,source_key`.execute(
+        upgradedOwner,
+      )
+    ).rows;
     for (const table of [
       "communication_author_sessions",
       "communication_author_drafts",

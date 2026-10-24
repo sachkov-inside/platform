@@ -10,7 +10,7 @@ recovery требует отдельного поручения владельц
 103 неизменяемых migrations. Их registry identity:
 `sha256:4202eac8e733fe5f60198130a06eb9a4b4b46aafa05c7f2ebf642c78cf8e4468`.
 Исторические Product находятся в `materials.series`. Telegram начинает с собственной migration
-`036-material-announcements`, сохраняя настоящий `kysely_migration`, а не выдуманный общий ledger.
+`035-waitlist-confirmations`, до `036-material-announcements`, сохраняя настоящий `kysely_migration`, а не выдуманный общий ledger.
 
 Каждая проверка создаёт собственный PostgreSQL 18.4 по закреплённому digest. `pg_dump` и
 `pg_restore` запускаются внутри этого же контейнера. Базы и имена архивов случайные, подключение

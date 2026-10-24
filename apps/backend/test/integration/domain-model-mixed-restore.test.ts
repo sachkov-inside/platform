@@ -232,6 +232,10 @@ async function seedLegacy(url: string) {
         ],
       );
       await pool.query(
+        "insert into billing.purchase_commands(account_id,operation_id,fingerprint,purchase_ref) values($1,$2,$3,$4)",
+        [buyer, randomUUID(), "a".repeat(64), id(state)],
+      );
+      await pool.query(
         "insert into billing.promo_reservations(purchase_ref,account_id,quote_ref,state,snapshot) values($1,$2,$3,$4,$5)",
         [
           id(state),
@@ -594,9 +598,9 @@ async function preservedFacts(
       bound_content_version: 7,
     });
     expect(existingAudit?.import_receipts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ idempotency_key: "original-practice" }),
-      ]),
+      (before.tables["materials.practice_import_receipts"] ?? []).map(
+        (row): unknown => JSON.parse(row),
+      ),
     );
     const conditions = await pool.query<{ acceptance: unknown }>(
       "select id,account_id,quote_ref,kind,environment,terminal_ref,payment_id,amount_kopecks,snapshot,acceptance,contact from billing.purchases order by id",
