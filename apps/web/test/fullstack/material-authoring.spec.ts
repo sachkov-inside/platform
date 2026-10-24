@@ -1881,6 +1881,21 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     .poll(async () => (await readProductOrder(page, productId)).items.length)
     .toBe(3);
   const catalogue = await readProductOrder(page, productId);
+  const first = catalogue.items.find(
+    ({ title }) => title === "Как устроен Inside Platform",
+  );
+  const second = catalogue.items.find(
+    ({ title }) => title === "Demo #295 · Общий гайд",
+  );
+  const removed = catalogue.items.find(({ title }) =>
+    title.startsWith("Demo #295 · Самостоятельная заметка"),
+  );
+  if (first === undefined || second === undefined || removed === undefined)
+    throw new Error("Keyboard fixture requires its three distinct Materials");
+  const programmeItems = [first, second, removed];
+  expect(new Set(programmeItems.map(({ materialId }) => materialId)).size).toBe(
+    3,
+  );
   const programme = await fullStackBrowserJsonRequest(
     page,
     "/api/authoring/series/order",
@@ -1888,8 +1903,8 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
     {
       seriesId: productId,
       expectedOrderVersion: catalogue.orderVersion,
-      orderedMaterialIds: catalogue.items.map((item) => item.materialId),
-      programmePlacements: catalogue.items.map((item) => ({
+      orderedMaterialIds: programmeItems.map((item) => item.materialId),
+      programmePlacements: programmeItems.map((item) => ({
         id: randomUUID(),
         materialId: item.materialId,
         chapterId: null,

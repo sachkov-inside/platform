@@ -1,5 +1,6 @@
 // @ts-check
 // Isolated full-stack seed through real author APIs; never used by production or the shared stand.
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { convertMarkdown } from "../tools/authoring/markdown.mjs";
 const receipt = z.object({ materialId: z.uuid(), contentVersion: z.number() });
@@ -36,9 +37,9 @@ export async function seedFullStackPractice(
   };
   const product = z.object({ id: z.uuid() }).parse(
     await request("/authoring/import/products/reserve", {
-      sourceId: "synthetic:fullstack-practice-product",
+      sourceId: `synthetic:fullstack-practice-product-${access}`,
       name: "Synthetic practice",
-      slug: "synthetic-practice",
+      slug: `synthetic-practice-${access}`,
       summary: "Isolated imported practice fixture",
     }),
   );
@@ -74,16 +75,38 @@ export async function seedFullStackPractice(
       ),
     }),
   );
-  await request("/authoring/import/practices/apply", {
-    practiceId,
-    materialId: saved.materialId,
-    expectedContentVersion: saved.contentVersion,
-    expectedPracticeVersion: null,
+  const chapterId = randomUUID();
+  const order = z
+    .object({ orderVersion: z.string() })
+    .loose()
+    .parse(await request(`/authoring/products/${product.id}/order`));
+  await request("/authoring/import/products/composition", {
+    sourceId: `synthetic:fullstack-practice-product-${access}`,
+    seriesId: product.id,
+    expectedOrderVersion: order.orderVersion,
+    orderedMaterialIds: [saved.materialId],
+    chapters: [{ id: chapterId, name: "Практика", summary: "" }],
+    programmePlacements: [
+      {
+        id: randomUUID(),
+        materialId: saved.materialId,
+        chapterId,
+        stepGroup: null,
+      },
+    ],
+  });
+  const code = `fullstack-practice-${access}`;
+  await request("/authoring/import/tasks/apply", {
+    sourceId: `synthetic-task:${code}`,
+    code,
+    productId: product.id,
+    chapterId,
+    position: 1,
+    title: "Бриф консультаций",
+    access,
+    programmeVisibility: "embedded",
+    embeddedMaterialSourceId: source.id,
     publicationState: "published",
-    sourceReference: {
-      materialSourceId: source.id,
-      materialSourceRevision: source.revision,
-    },
     provenance: {
       repository: "synthetic/fullstack",
       commit: "b".repeat(40),
@@ -91,18 +114,20 @@ export async function seedFullStackPractice(
     },
     definition: {
       schemaVersion: 1,
-      title: "Бриф консультаций",
-      businessInputs: "Участник видит только свою заявку.",
-      expectedOutcome: "Самостоятельный бриф.",
-      allowedFreedom: "Любой формат документа.",
+      situation: "Участник видит только свою заявку.",
+      result: ["Самостоятельный бриф."],
+      freedom: "Любой формат документа.",
       criteria: [
         {
           id: "ownership",
+          level: "required",
           requirement: "Чужая заявка не раскрывается.",
           acceptableEvidence: ["Явное бизнес-ограничение."],
         },
       ],
     },
+    relatedMaterialSourceIds: [source.id],
+    expectedRevision: null,
   });
   const material = z
     .object({ metadata: z.object({ slug: z.string() }) })
@@ -111,7 +136,7 @@ export async function seedFullStackPractice(
     productId: product.id,
     materialId: saved.materialId,
     slug: material.metadata.slug,
-    practiceId,
+    code,
   };
 }
 
@@ -122,7 +147,7 @@ export async function startPracticeReadProxy(upstream, delayMs) {
   const { setTimeout: delay } = await import("node:timers/promises");
   const proxy = createServer((incoming, outgoing) => {
     void (async () => {
-      if (incoming.url?.endsWith("/practices") === true) await delay(delayMs);
+      if (incoming.url?.endsWith("/task") === true) await delay(delayMs);
       const forwarded = request(
         new URL(incoming.url ?? "/", upstream),
         {

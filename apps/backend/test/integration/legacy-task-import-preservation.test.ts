@@ -398,13 +398,15 @@ test.each(["matching", "divergent", "wrong-material"] as const)(
     );
     expect(writes).toBe(0);
     if (scenario === "matching") expect(failure).toBeUndefined();
-    else
-      expect(failure).toMatchObject({
-        message: expect.stringMatching(
-          scenario === "divergent"
-            ? /existing Task definition differs/u
-            : /ownership\/source binding conflicts/u,
-        ),
-      });
+    else {
+      expect(failure).toBeInstanceOf(Error);
+      if (!(failure instanceof Error))
+        throw new Error("Expected an import refusal");
+      expect(failure.message).toMatch(
+        scenario === "divergent"
+          ? /existing Task definition differs/u
+          : /ownership\/source binding conflicts/u,
+      );
+    }
   },
 );
