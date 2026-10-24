@@ -32,6 +32,7 @@ def validate(raw):
             or type(raw['image']) is not str or re.fullmatch(r'sha256:[a-f0-9]{64}',raw['image']) is None
             or type(raw['source']) is not str or re.fullmatch(r'[a-f0-9]{40}',raw['source']) is None
             or type(raw['cache_owner']) is not str or re.fullmatch(r'inside-observability-recovery-foundation-[a-f0-9]{12}-[a-f0-9]{12}:local',raw['cache_owner']) is None
+            or not raw['cache_owner'].startswith('inside-observability-recovery-foundation-'+raw['source'][:12]+'-')
             or raw['architecture'] not in ('arm64','amd64') or raw['inputs']!=hashes()
             or raw['pgbackrest_version']!=version()):
         raise ValueError('foundation_cache_source_or_identity')
