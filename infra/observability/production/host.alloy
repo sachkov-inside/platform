@@ -53,12 +53,12 @@ prometheus.relabel "containers" {
   forward_to = [prometheus.remote_write.host.receiver]
   rule {
     source_labels = ["container_label_com_docker_compose_service"]
-    regex = "api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|logto|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent"
+    regex = "api|mcp|web|material-assets-worker|profile-avatars-worker|video-deletions-worker|billing-worker|notifications-worker|rabbitmq|postgres|logto|app|metrics|logs|traces|alloy|vmauth|gateway|grafana|host-agent|"
     action = "keep"
   }
   rule {
     source_labels = ["__name__"]
-    regex = "container_(cpu_usage_seconds_total|cpu_cfs_(periods|throttled_periods|throttled_seconds)_total|memory_(usage_bytes|working_set_bytes|rss|cache|failcnt)|network_(receive|transmit)_bytes_total|fs_(reads|writes)_total|oom_events_total|start_time_seconds|last_seen)"
+    regex = "up|container_(cpu_usage_seconds_total|cpu_cfs_(periods|throttled_periods|throttled_seconds)_total|memory_(usage_bytes|working_set_bytes|rss|cache|failcnt)|network_(receive|transmit)_bytes_total|fs_(reads|writes)_total|oom_events_total|start_time_seconds|last_seen)"
     action = "keep"
   }
   rule {
@@ -72,7 +72,7 @@ prometheus.relabel "containers" {
   }
   rule {
     source_labels = ["project"]
-    regex = ".+"
+    regex = ".*"
     action = "keep"
   }
   rule {

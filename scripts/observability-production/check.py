@@ -13,7 +13,12 @@ import urllib.parse
 import production
 
 pilot = production.pilot
+sys.path.insert(0, str(production.HERE.parent / 'observability-pilot'))
+import ci
 SCOPE = 'Production generated config, read-key revocation and syslog sanitizer on synthetic owned storage; not Linux host/physical disk or capacity acceptance'
+PREFIX = 'inside-observability-production-check-'
+ARTIFACTS = ('production-proof.json', 'production-validation.json', 'production-measurements.json',
+             'evidence.json', 'cleanup.json', 'worker-outcome.json', 'monitor-failure.json')
 
 
 def prepare(output):
@@ -136,16 +141,31 @@ def worker(output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('run', 'validate', 'worker'))
+    parser.add_argument('action', choices=('run', 'validate', 'worker', 'admission', 'recover', 'collect'))
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--metadata', type=Path)
+    parser.add_argument('--public', type=Path)
     args = parser.parse_args()
-    if args.action == 'worker':
+    if args.action == 'admission':
+        if args.metadata is None: parser.error('--metadata required')
+        names = ci.read_command(['git', '-C', str(production.ROOT), 'ls-files']).splitlines()
+        inputs = tuple(production.ROOT / name for name in names if name.startswith((
+            'scripts/observability-production', 'infra/observability/production/', 'infra/observability/pilot/',
+            'scripts/observability-pilot/', 'scripts/observability-umami/', 'scripts/heavy-check/'))
+            or name in ('.github/workflows/observability-production.yml', 'scripts/heavy-check.sh'))
+        sys.exit(ci.admission(args.metadata, inputs=inputs, scope=SCOPE))
+    elif args.action == 'recover':
+        print(json.dumps(ci.recover(args.output, project_prefix=PREFIX, services=production.SERVICES)))
+    elif args.action == 'collect':
+        if args.metadata is None or args.public is None: parser.error('--metadata and --public required')
+        ci.collect(args.output, args.metadata, args.public, artifacts=ARTIFACTS)
+    elif args.action == 'worker':
         worker(args.output)
     else:
         validation = args.action == 'validate'
         pilot.run(args.output, prepare_inputs=prepare_validation if validation else prepare,
             worker_script=Path(__file__).resolve(), ports=() if validation else (18427, 1514, 13000),
-            project_prefix='inside-observability-production-check-',
+            project_prefix=PREFIX,
             services=('alloy',) if validation else production.SERVICES,
             scope='Stateless no-network Alloy parser validation only' if validation else SCOPE,
             missing=['production rollout', 'Linux host metrics', 'full resource acceptance', 'seven days'])
