@@ -7,15 +7,15 @@ import {
   announcementQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
-  ownSubscriptionAccessQuerySchema,
+  ownCourseAccessQuerySchema,
 } from "../src/modules/account-rights/index.js";
 import {
   announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
-  ownSubscriptionAccessResponseSchema,
+  ownCourseAccessResponseSchema,
   invitationRedeemResponseSchema,
-} from "../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+} from "../src/modules/telegram-membership/domain/course-activation-wire.js";
 const directory = fileURLToPath(
   new URL(
     "../../../docs/contracts/subscription-activation-v1/",
@@ -29,8 +29,8 @@ const definitions = Object.fromEntries(
     begin: beginActivationSchema,
     evidence: activationEvidenceSchema,
     activationResponse: activationResponseSchema,
-    ownAccessQuery: ownSubscriptionAccessQuerySchema,
-    ownAccessResponse: ownSubscriptionAccessResponseSchema,
+    ownAccessQuery: ownCourseAccessQuerySchema,
+    ownAccessResponse: ownCourseAccessResponseSchema,
     bindingQuery: bindingLookupQuerySchema,
     bindingResponse: bindingLookupResponseSchema,
     invitationRedeem: historicalInvitationRequestSchema,

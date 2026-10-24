@@ -4,9 +4,9 @@ import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-c
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
 import {
   activationResponseSchema,
-  ownSubscriptionAccessResponseSchema,
+  ownCourseAccessResponseSchema,
   bindingLookupResponseSchema,
-} from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+} from "../../src/modules/telegram-membership/domain/course-activation-wire.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -123,7 +123,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     payload: object,
     credential: string | null = secret,
   ) {
-    const url = `/integrations/telegram/v1/subscription-activation/${path}`;
+    const url = `/integrations/telegram/v1/course-activation/${path}`;
     const response = await http.inject({
       method: "POST",
       url,
@@ -191,7 +191,24 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     ).toMatchObject({ ok: true });
     return { id, identityRef, policy, product, rule };
   }
-  test("both rollout routes authenticate only the source authority and keep private exact response shape", async () => {
+  test("retired subscription integration paths are absent even with the valid source credential", async () => {
+    for (const path of [
+      "binding",
+      "own-access",
+      "attempts",
+      "evidence",
+      "announcement",
+    ]) {
+      const response = await http.inject({
+        method: "POST",
+        url: `/integrations/telegram/v1/subscription-activation/${path}`,
+        headers: { authorization: `Bearer ${secret}` },
+        payload: { contractVersion: version, identityRef: "retired-probe" },
+      });
+      expect(response.statusCode).toBe(404);
+    }
+  });
+  test("canonical Course Activation authenticates only the source authority and replays the original request", async () => {
     const f = await setup();
     const payload = {
       contractVersion: version,
@@ -208,14 +225,14 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       expect((await send("attempts", payload, credential)).statusCode).toBe(
         401,
       );
-    const legacy = await send("attempts", payload);
+    const original = await send("attempts", payload);
     const canonical = await http.inject({
       method: "POST",
       url: "/integrations/telegram/v1/course-activation/attempts",
       headers: { authorization: `Bearer ${secret}` },
       payload,
     });
-    expect(canonical.json()).toEqual(legacy.json());
+    expect(canonical.json()).toEqual(original.json());
     expect(canonical.headers["cache-control"]).toBe("private, no-store");
     expect(
       (
@@ -295,7 +312,7 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ok: true,
       value: { state: "active", enrollment: null },
     });
-    const own = ownSubscriptionAccessResponseSchema.parse(
+    const own = ownCourseAccessResponseSchema.parse(
       (
         await send("own-access", {
           contractVersion: version,
@@ -304,14 +321,36 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
         })
       ).json(),
     );
-    expect(ownSubscriptionAccessResponseSchema.safeParse(own).success).toBe(
-      true,
-    );
+    expect(ownCourseAccessResponseSchema.safeParse(own).success).toBe(true);
+    const receiptBefore = await db.prisma.accessReceipt.findUniqueOrThrow({
+      where: {
+        scope_operationId: {
+          scope: "source-evidence",
+          operationId: fresh.evidenceRef,
+        },
+      },
+    });
+    const accessBefore = await db.prisma.productAccess.findMany({
+      where: { accountId: f.id },
+    });
     await db.prisma.telegramLinkTransaction.updateMany({
       where: { accountId: f.id },
       data: { status: "expired" },
     });
     expect((await send("evidence", fresh)).json()).toEqual(accepted);
+    expect(
+      await db.prisma.accessReceipt.findUniqueOrThrow({
+        where: {
+          scope_operationId: {
+            scope: "source-evidence",
+            operationId: fresh.evidenceRef,
+          },
+        },
+      }),
+    ).toEqual(receiptBefore);
+    expect(
+      await db.prisma.productAccess.findMany({ where: { accountId: f.id } }),
+    ).toEqual(accessBefore);
     expect(
       (
         await send("own-access", { contractVersion: version, ...current })

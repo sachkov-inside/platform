@@ -53,7 +53,7 @@ export const bindingLookupResponseSchema = z.union([
     }),
   }),
 ]);
-export const ownSubscriptionAccessResponseSchema = z.union([
+export const ownCourseAccessResponseSchema = z.union([
   z.strictObject({
     ok: z.literal(true),
     value: z.strictObject({

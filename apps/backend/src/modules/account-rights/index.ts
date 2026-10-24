@@ -40,7 +40,7 @@ export {
   type ActivationBindings,
 } from "./domain/course-activation.js";
 
-export { ownSubscriptionAccessQuerySchema } from "./domain/course-activation.js";
+export { ownCourseAccessQuerySchema } from "./domain/course-activation.js";
 export {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,

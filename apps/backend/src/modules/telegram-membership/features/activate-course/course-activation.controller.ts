@@ -6,8 +6,8 @@ import {
   announcementResponseSchema,
   bindingLookupResponseSchema,
   activationResponseSchema,
-  ownSubscriptionAccessResponseSchema,
-} from "../../domain/subscription-activation-wire.js";
+  ownCourseAccessResponseSchema,
+} from "../../domain/course-activation-wire.js";
 import {
   Body,
   Controller,
@@ -42,22 +42,19 @@ import {
 import {
   announcementQuerySchema,
   bindingLookupQuerySchema,
-  ownSubscriptionAccessQuerySchema,
+  ownCourseAccessQuerySchema,
   beginActivationSchema,
   activationEvidenceSchema,
 } from "../../../account-rights/index.js";
 import { CourseActivation } from "../../../billing/index.js";
 @ApiTags("Course Activation integration")
-@ApiBearerAuth("subscription-activation")
+@ApiBearerAuth("course-activation")
 @PrivateNoStore()
 @ApiResponse({
   status: 401,
   content: problemDetailsContent(problemDetailsSchema(401, ["unauthorized"])),
 })
-@Controller([
-  "integrations/telegram/v1/course-activation",
-  "integrations/telegram/v1/subscription-activation",
-])
+@Controller("integrations/telegram/v1/course-activation")
 export class CourseActivationController {
   constructor(
     @Inject(CourseActivation)
@@ -111,13 +108,13 @@ export class CourseActivationController {
   @Post("own-access")
   @HttpCode(200)
   @ApiOperation({
-    operationId: "readOwnSubscriptionAccess",
+    operationId: "readOwnCourseAccess",
     summary:
       "Read every independent access ground for the exact authenticated Telegram binding",
   })
-  @ApiBody({ schema: toOpenApiSchema(ownSubscriptionAccessQuerySchema) })
+  @ApiBody({ schema: toOpenApiSchema(ownCourseAccessQuerySchema) })
   @ApiOkResponse({
-    schema: toOpenApiSchema(ownSubscriptionAccessResponseSchema),
+    schema: toOpenApiSchema(ownCourseAccessResponseSchema),
   })
   async own(
     @Headers(BOT_DOMAIN_NAMES_HEADER) domainNames: string | undefined,

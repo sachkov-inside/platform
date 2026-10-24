@@ -150,7 +150,7 @@ export const sourceEntitlementViewSchema = z.strictObject({
   checkedAt: z.iso.datetime(),
 });
 
-export const ownSubscriptionAccessQuerySchema = z.strictObject({
+export const ownCourseAccessQuerySchema = z.strictObject({
   contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION),
   accountRef: sourceRefSchema,
   identityRef: sourceRefSchema,

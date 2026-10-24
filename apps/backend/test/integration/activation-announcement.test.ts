@@ -13,7 +13,7 @@ import {
   PLATFORM_CONFIG,
 } from "../../src/config/platform-config.js";
 import { CourseActivationController } from "../../src/modules/telegram-membership/features/activate-course/course-activation.controller.js";
-import { announcementResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+import { announcementResponseSchema } from "../../src/modules/telegram-membership/domain/course-activation-wire.js";
 import { assertDeclaredResponse } from "../support/declared-api.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -162,8 +162,7 @@ describe("trusted private announcement metadata", () => {
   });
   test("authenticates announcement metadata and returns the declared private read-only contract", async () => {
     const { rule } = await setup();
-    const url =
-      "/integrations/telegram/v1/subscription-activation/announcement";
+    const url = "/integrations/telegram/v1/course-activation/announcement";
     const payload = { contractVersion: version, code: rule.code };
     for (const credential of [
       undefined,

@@ -42,10 +42,10 @@ sachkov.dev, inside.sachkov.dev {
 		}
 		reverse_proxy @billing_product_sales_states {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
-		# Course Activation keeps exactly five operations under canonical and receipt-compatible paths.
+		# Course Activation exposes exactly five canonical operations; retired aliases fail closed.
 		@telegram_activation {
 			method POST
-			path /integrations/telegram/v1/course-activation/binding /integrations/telegram/v1/course-activation/own-access /integrations/telegram/v1/course-activation/attempts /integrations/telegram/v1/course-activation/evidence /integrations/telegram/v1/course-activation/announcement /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence /integrations/telegram/v1/subscription-activation/announcement
+			path /integrations/telegram/v1/course-activation/binding /integrations/telegram/v1/course-activation/own-access /integrations/telegram/v1/course-activation/attempts /integrations/telegram/v1/course-activation/evidence /integrations/telegram/v1/course-activation/announcement
 		}
 		reverse_proxy @telegram_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 

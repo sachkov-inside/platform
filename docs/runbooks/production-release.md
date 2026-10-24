@@ -240,15 +240,10 @@ edge описано в
 | любой | `/integrations/kinescope/v1/authorize` | Kinescope DRM | Basic `KINESCOPE_CALLBACK_USERNAME` и `KINESCOPE_CALLBACK_PASSWORD` | `401 invalid_basic_credentials` |
 | POST | `/billing/tbank/notification` | банк | подпись `Token` паролем терминала | `400 invalid_notification` |
 | POST | `/integrations/telegram/v1/course-activation/binding` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/subscription-activation/binding` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/course-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/subscription-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/course-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/subscription-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/course-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/subscription-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/course-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
-| POST | `/integrations/telegram/v1/subscription-activation/announcement` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | GET | `/billing/product-sales-states` | бот Telegram: дата старта потока | нет: публичный факт | `200` |
 | POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |

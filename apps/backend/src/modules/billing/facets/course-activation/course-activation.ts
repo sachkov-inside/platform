@@ -7,7 +7,7 @@ import {
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import {
-  ownSubscriptionAccessQuerySchema,
+  ownCourseAccessQuerySchema,
   activationEvidenceSchema,
   type AccessGrants,
   type ActivationBindings,
@@ -173,7 +173,7 @@ export class CourseActivation {
     }
   }
   async readOwn(input: unknown) {
-    const parsed = ownSubscriptionAccessQuerySchema.safeParse(input);
+    const parsed = ownCourseAccessQuerySchema.safeParse(input);
     if (!parsed.success)
       return { ok: false as const, error: { code: "invalid_input" as const } };
     const query = parsed.data;

@@ -8,9 +8,9 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import {
-  ownSubscriptionAccessResponseSchema,
+  ownCourseAccessResponseSchema,
   bindingLookupResponseSchema,
-} from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+} from "../../src/modules/telegram-membership/domain/course-activation-wire.js";
 import { CommunityEntitlements } from "../../src/modules/telegram-membership/index.js";
 import {
   createMigratedTestDatabase,
@@ -51,7 +51,7 @@ afterAll(async () => {
 async function send(path: string, payload: object) {
   const response = await app.inject({
     method: "POST",
-    url: `/integrations/telegram/v1/subscription-activation/${path}`,
+    url: `/integrations/telegram/v1/course-activation/${path}`,
     headers: {
       authorization: `Bearer ${secret}`,
       "x-inside-domain-names": "products.v1",
@@ -103,7 +103,7 @@ async function product(accountId: string, nullMapping = false) {
 }
 async function own(binding: Awaited<ReturnType<typeof holder>>) {
   const { accountId: _accountId, ...query } = binding;
-  return ownSubscriptionAccessResponseSchema.parse(
+  return ownCourseAccessResponseSchema.parse(
     (
       await send("own-access", {
         contractVersion: version,

@@ -92,7 +92,7 @@ export function createApiOpenApiDocument(
         description:
           "Dedicated course-source activation authority; not the community dispatch credential.",
       },
-      "subscription-activation",
+      "course-activation",
     )
     .addBearerAuth(
       {

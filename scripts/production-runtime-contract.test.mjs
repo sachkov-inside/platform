@@ -16,7 +16,7 @@ const productionTemplates = readdirSync(
   .join("\n");
 
 // The activation protocol has exactly these operations; a prefix would expose any future sub-route.
-const activationPaths = ["course-activation", "subscription-activation"]
+const activationPaths = ["course-activation"]
   .flatMap((prefix) =>
     ["binding", "own-access", "attempts", "evidence", "announcement"].map(
       (operation) => `/integrations/telegram/v1/${prefix}/${operation}`,
@@ -101,6 +101,22 @@ const runtime = {
 };
 
 describe("production runtime architecture contract", () => {
+  it("rejects an extra retired activation callback even beside the canonical routes", () => {
+    const retired =
+      "@retired_activation {\n\t\t\tmethod POST\n\t\t\tpath /integrations/telegram/v1/subscription-activation/binding\n\t\t}\n\t\treverse_proxy @retired_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\t\t";
+    assert.throws(
+      () =>
+        assertRuntimeContract({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            "@telegram_activation {",
+            `${retired}@telegram_activation {`,
+          ),
+        }),
+      /retired activation route must not be published/u,
+    );
+  });
+
   it("rejects an additional retired cohort route even when the canonical route remains published", () => {
     const retired =
       "@retired_cohorts {\n\t\t\tmethod GET\n\t\t\tpath /billing/cohorts\n\t\t}\n\t\treverse_proxy @retired_cohorts {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n\t\t";
@@ -234,7 +250,7 @@ describe("production runtime architecture contract", () => {
     const unpublished = /platform\.caddy does not publish external API route/u;
     for (const route of [
       " /integrations/telegram/v1/course-activation/binding",
-      " /integrations/telegram/v1/subscription-activation/binding",
+      " /integrations/telegram/v1/course-activation/binding",
     ]) {
       assert.throws(
         () =>
@@ -886,6 +902,13 @@ function assertRuntimeContract(files) {
   ) {
     throw new Error("retired cohort route must not be published");
   }
+  if (
+    caddyProxiedRoutes(files.caddy).some((route) =>
+      route.includes(" /integrations/telegram/v1/subscription-activation/"),
+    )
+  )
+    throw new Error("retired activation route must not be published");
+
   if (
     caddyProxiedRoutes(files.caddy).some((route) =>
       / \/internal\/\*$| \/billing\/\*$|subscription-activation\/\*/u.test(

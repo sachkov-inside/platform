@@ -906,7 +906,7 @@ if grep -q '"probe":"production_verify"' <<<"$api_probe_logs"; then
 fi
 assert_public_status POST /integrations/tribute/v1/webhook 404
 assert_public_status POST /integrations/telegram/v1/course-activation/binding 401
-assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
+assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 404
 assert_public_status POST /integrations/telegram/v1/invitations/redeem 404
 assert_public_status POST /internal/billing-dispatch/authorize 401
 assert_public_status POST /internal/notifications/dispatch/authorize 401
