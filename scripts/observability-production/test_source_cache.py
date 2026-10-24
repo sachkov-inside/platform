@@ -72,6 +72,8 @@ class Sources(unittest.TestCase):
         self.assertIn("NOT(deptype='a' AND classid='pg_database'::regclass", sql)
         self.assertIn("shobj_description", sql)
         self.assertIn("ERRCODE='P1567'", sql)
+        self.assertIn("aclexplode", sql)
+        self.assertIn("a.privilege_type<>'CONNECT' OR a.is_grantable", sql)
         self.assertNotIn('GRANT pg_monitor', sql)
         self.assertNotIn('GRANT pg_read_all_stats', sql)
         self.assertNotIn('GRANT SELECT', sql)
