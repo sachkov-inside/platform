@@ -122,7 +122,7 @@ def worker(output):
         if not re.fullmatch(r'[0-9]+:[0-9]+', grafana_uid):
             raise ValueError('invalid_grafana_fixture_identity')
         pilot.command(compose + ['run', '--rm', '--no-deps', '--user', '0:0', '--cap-add', 'CHOWN',
-            '--entrypoint', 'chown', 'grafana', '-R', grafana_uid, '/var/lib/grafana'],
+            '--entrypoint', 'chown', 'grafana', grafana_uid, '/var/lib/grafana'],
             timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
         pilot.install_plugin(output)
         pilot.command(compose + ['up', '-d'], timeout=pilot.ACQUISITION_TIMEOUT_SECONDS)
