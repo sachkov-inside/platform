@@ -352,6 +352,8 @@ class Preparation(unittest.TestCase):
             stack.enter_context(patch.object(hosted.runtime.ci,'read_command',return_value=''))
             stack.enter_context(patch.object(hosted.runtime.pilot.daemon,'identify',return_value={'platform':'linux','storage':'/synthetic','endpoint':'synthetic'}))
             stack.enter_context(patch.object(hosted.runtime.pilot,'disk_budget',side_effect=guard))
+            from types import SimpleNamespace
+            stack.enter_context(patch.object(hosted.runtime.pilot.shutil,'disk_usage',return_value=SimpleNamespace(free=20*1024**3)))
             stack.enter_context(patch.object(hosted,'command',side_effect=command))
             stack.enter_context(patch.object(hosted.runtime.pilot,'assert_docker_identity'))
             stack.enter_context(patch.object(hosted.runtime.pilot,'command',side_effect=lambda args,**options:
