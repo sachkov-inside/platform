@@ -34,14 +34,14 @@ def expected_membership_refusal():
     raise ValueError('native_maintenance_foreign_membership_accepted')
 
 
-def exercise(sql, dump, directory, *, progress=None):
+def exercise(sql, dump, directory, *, restore, progress=None):
     """Persist closed progress without SQL, result rows or exception text."""
     operation={'schema':1,'step':'foreign_membership_setup','outcome':'running','error':None,'returncode':None}
     def mark(step):
         operation['step']=step
         if progress is not None:progress(dict(operation))
     try:
-        result=_exercise(sql,dump,directory,mark)
+        result=_exercise(sql,dump,directory,mark,restore)
         operation.update(outcome='passed',returncode=0)
         if progress is not None:progress(dict(operation))
         return result
@@ -58,7 +58,7 @@ def exercise(sql, dump, directory, *, progress=None):
         raise
 
 
-def _exercise(sql, dump, directory, mark):
+def _exercise(sql, dump, directory, mark, restore):
     """Check provisioning and journal replay, then leave the owned cluster ready for backup."""
     # A foreign member of the Umami group would inherit the new owner role.
     # Refuse before creating the database or changing that existing role.
@@ -90,7 +90,7 @@ def _exercise(sql, dump, directory, mark):
     mark('large_children')
     sql(f"INSERT INTO public.event_data(event_data_id,website_id,website_event_id,data_key,data_type) SELECT md5('many-child-'||n)::uuid,'{SITE}',md5('ttl-event-recent')::uuid,'synthetic',1 FROM generate_series(1,1101)n;")
     mark('snapshot')
-    snapshot=dump()
+    dump()
     mark('journal')
     directory.mkdir(mode=0o700)
     journal=Path(directory)/'deletions.json';maintenance.initialize(journal)
@@ -105,7 +105,7 @@ def _exercise(sql, dump, directory, mark):
     mark('reset_database')
     sql("SELECT format('TRUNCATE TABLE %I.%I CASCADE',schemaname,tablename) FROM pg_tables WHERE schemaname='public';\n\\gexec\n")
     mark('restore_snapshot')
-    sql(snapshot,timeout=30)
+    restore()
     mark('restored_rows')
     expect(sql("SELECT count(*) FROM public.website_event WHERE event_name='ttl_recent';").strip(),'1')
     mark('replay_after_restore')
