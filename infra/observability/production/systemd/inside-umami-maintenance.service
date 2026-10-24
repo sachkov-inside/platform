@@ -23,3 +23,6 @@ MemoryMax=128M
 CPUQuota=25%
 TasksMax=32
 TimeoutStartSec=120
+Restart=no
+RestartForceExitStatus=3
+RestartSec=30s
