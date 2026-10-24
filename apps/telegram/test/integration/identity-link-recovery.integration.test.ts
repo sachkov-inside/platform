@@ -2,7 +2,10 @@ import { linkEffects } from "../../src/application/link-effects.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
-import { withMigrationDatabase } from "../support/migration-database.js";
+import {
+  createMigrationDatabase,
+  type MigrationDatabaseFixture,
+} from "../support/migration-database.js";
 
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -56,25 +59,46 @@ afterAll(async () => {
 });
 
 describe("IdentityLinkRecovery", () => {
-  it("rebuilds the owner recovery migration down and forward", async ({
-    signal,
-  }) => {
-    await withMigrationDatabase(
-      databaseUrl,
-      `recovery_history_${randomUUID().replaceAll("-", "")}`,
-      async (historical) => {
-        await migrateTo(historical, "007-owner-identity-recovery");
-        await migrateTo(historical, "006-platform-evidence-conformance");
-        await expect(
-          tableExists("identity_link_recoveries", historical),
-        ).resolves.toBe(false);
-        await migrateToLatest(historical);
-        await expect(
-          tableExists("identity_link_recoveries", historical),
-        ).resolves.toBe(true);
-      },
-      { signal },
-    );
+  describe("historical owner recovery migration", () => {
+    const abort = new AbortController();
+    let fixture: MigrationDatabaseFixture | undefined;
+    let acquisition: Promise<MigrationDatabaseFixture> | undefined;
+    let historical: Database;
+    // Register cleanup before startup; cancellation also owns an unfinished acquisition.
+    afterAll(async () => {
+      abort.abort(new Error("Historical fixture cleanup"));
+      const acquired = fixture ?? (await acquisition?.catch(() => undefined));
+      await acquired?.close();
+    });
+    beforeAll(async () => {
+      acquisition = createMigrationDatabase(
+        databaseUrl,
+        `recovery_history_${randomUUID().replaceAll("-", "")}`,
+        { signal: abort.signal },
+      );
+      fixture = await acquisition;
+      historical = fixture.database;
+    });
+    let recoveryTableBefore: boolean;
+    beforeAll(async () => {
+      await migrateTo(historical, "007-owner-identity-recovery");
+    });
+    beforeAll(async () => {
+      await migrateTo(historical, "006-platform-evidence-conformance");
+      recoveryTableBefore = await tableExists(
+        "identity_link_recoveries",
+        historical,
+      );
+    });
+    beforeAll(async () => {
+      await migrateToLatest(historical);
+    });
+    it("rebuilds the owner recovery migration down and forward", async () => {
+      expect(recoveryTableBefore).toBe(false);
+      await expect(
+        tableExists("identity_link_recoveries", historical),
+      ).resolves.toBe(true);
+    });
   });
 
   it("rolls back ownership transfer when its immutable recovery audit cannot commit", async () => {

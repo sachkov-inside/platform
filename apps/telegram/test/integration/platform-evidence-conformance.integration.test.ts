@@ -1,9 +1,12 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { withMigrationDatabase } from "../support/migration-database.js";
+import {
+  createMigrationDatabase,
+  type MigrationDatabaseFixture,
+} from "../support/migration-database.js";
 
 import type { Database } from "../../src/database/database.js";
 import { migrateTo, migrateToLatest } from "../../src/database/migrator.js";
@@ -16,50 +19,61 @@ if (!hasText(databaseUrl)) {
 }
 
 describe("Platform evidence conformance migration", () => {
-  it("backfills every historical producer source and enforces the vocabulary", async ({
-    signal,
-  }) => {
-    await withMigrationDatabase(
+  const abort = new AbortController();
+  let fixture: MigrationDatabaseFixture | undefined;
+  let acquisition: Promise<MigrationDatabaseFixture> | undefined;
+  let database: Database;
+  // Register cleanup before startup; cancellation also owns an unfinished acquisition.
+  afterAll(async () => {
+    abort.abort(new Error("Historical fixture cleanup"));
+    const acquired = fixture ?? (await acquisition?.catch(() => undefined));
+    await acquired?.close();
+  });
+  beforeAll(async () => {
+    acquisition = createMigrationDatabase(
       databaseUrl,
       `evidence_history_${randomUUID().replaceAll("-", "")}`,
-      async (database) => {
-        try {
-          await migrateTo(database, "005-membership-reconciliation");
-          const sourceColumnBefore = await sourceColumnExists(database);
-          expect(sourceColumnBefore).toBe(false);
-
-          await seedHistoricalDeliveries(database);
-          await migrateToLatest(database);
-
-          const deliveries = await database
-            .selectFrom("membership_evidence_outbox")
-            .select(["result_ref", "source"])
-            .orderBy("result_ref")
-            .execute();
-          expect(deliveries).toEqual([
-            { result_ref: "initial-link:1", source: "link_time" },
-            {
-              result_ref: "membership-event:inside:1",
-              source: "member_status_event",
-            },
-            {
-              result_ref: "reconciliation:identity-ref:1",
-              source: "reconciliation",
-            },
-          ]);
-          await expect(
-            sql`
+      { signal: abort.signal },
+    );
+    fixture = await acquisition;
+    database = fixture.database;
+  });
+  let sourceColumnBefore: boolean;
+  beforeAll(async () => {
+    await migrateTo(database, "005-membership-reconciliation");
+    sourceColumnBefore = await sourceColumnExists(database);
+  });
+  beforeAll(async () => {
+    await seedHistoricalDeliveries(database);
+  });
+  beforeAll(async () => {
+    await migrateToLatest(database);
+  });
+  it("backfills every historical producer source and enforces the vocabulary", async () => {
+    expect(sourceColumnBefore).toBe(false);
+    const deliveries = await database
+      .selectFrom("membership_evidence_outbox")
+      .select(["result_ref", "source"])
+      .orderBy("result_ref")
+      .execute();
+    expect(deliveries).toEqual([
+      { result_ref: "initial-link:1", source: "link_time" },
+      {
+        result_ref: "membership-event:inside:1",
+        source: "member_status_event",
+      },
+      {
+        result_ref: "reconciliation:identity-ref:1",
+        source: "reconciliation",
+      },
+    ]);
+    await expect(
+      sql`
           update membership_evidence_outbox
           set source = 'untrusted'
           where result_ref = 'initial-link:1'
         `.execute(database),
-          ).rejects.toThrow();
-        } finally {
-          await migrateToLatest(database);
-        }
-      },
-      { signal },
-    );
+    ).rejects.toThrow();
   });
 });
 
