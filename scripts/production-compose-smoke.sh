@@ -1031,6 +1031,12 @@ expect_sale_configuration_refusal() {
 catalog_sql() {
   "${foundation_compose[@]}" exec -T postgres psql --username postgres --dbname inside --set ON_ERROR_STOP=1 --command "$1" >/dev/null
 }
+# ProductPrice is the current sale-configuration owner. This disposable row exercises only
+# startup configuration; it neither approves legal terms nor executes a purchase.
+catalog_sql "insert into products.series (id, slug, name)
+  values ('$sale_offer_id', 'production-smoke-product', 'Production smoke Product');"
+catalog_sql "insert into billing.product_prices (product_id, revision, name, price_kopecks, published, archived, updated_at)
+  values ('$sale_offer_id', 1, 'Production smoke Product', 100000, true, false, now());"
 catalog_sql "insert into billing.offers (id, revision, name, benefits, published) values ('$sale_offer_id', 1, 'Production smoke sale', array['materials'], true);
   insert into billing.payment_options (id, revision, offer_id, months, price_kopecks, mode) values ('00000000-0000-4000-8000-000000000528', 1, '$sale_offer_id', 1, 100000, 'one_time');"
 grep -v '^TBANK_CONFIG_JSON=' "$runtime_config_dir/api.env" >"$runtime_config_dir/api-without-terminal.env"
@@ -1041,7 +1047,8 @@ catalog_sql "insert into billing.payment_options (id, revision, offer_id, months
 # reconciliation of old payments when the worker restarts on a non-recurring terminal.
 "${application_compose[@]}" restart billing-worker
 wait_for_worker_health healthy
-catalog_sql "update billing.offers set published = false where id = '$sale_offer_id';"
+catalog_sql "update billing.product_prices set published = false where product_id = '$sale_offer_id';
+  update billing.offers set published = false where id = '$sale_offer_id';"
 
 record_stage_timing routes-and-sale-configuration
 
