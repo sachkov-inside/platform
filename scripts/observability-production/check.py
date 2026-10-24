@@ -37,6 +37,12 @@ def prepare(output):
             plan['services'][name]['user'] = '0:0'
         plan['services'][name]['volumes'][0] = name + ':' + destination
     plan['services']['alloy']['volumes'].append(f'{production.CONFIG / "host.alloy"}:/etc/alloy/host.alloy:ro')
+    # Dedicated safe cache mount, never create or inspect production paths on a test runner.
+    cache = output / 'watchdog-fixture'
+    cache.mkdir(mode=0o755)
+    for mount in plan['services']['host-agent']['volumes']:
+        if isinstance(mount, dict) and mount.get('target') == '/watchdog-metrics':
+            mount['source'] = str(cache)
     pilot.write_json(output / 'compose.json', plan)
 
 

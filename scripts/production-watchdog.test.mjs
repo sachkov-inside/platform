@@ -18,6 +18,107 @@ const watchdog = "infra/production/watchdog/inside-watchdog";
 const now = 1_800_000_000;
 
 describe("production watchdog", () => {
+  it("publishes only closed numeric owner observations, including healthy zeros", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        "purchases|3\nfulfillment|0\nnotification_outbox|2\nemail_effects|0\nbilling_queue_idle|0\nprivate_person@example.invalid|123\n",
+      );
+      assertRun(fixture);
+      const snapshot = fixture.snapshot();
+      assert.match(snapshot, /inside_watchdog_value\{check="purchases"\} 3\n/u);
+      assert.match(
+        snapshot,
+        /inside_watchdog_value\{check="fulfillment"\} 0\n/u,
+      );
+      assert.match(
+        snapshot,
+        /inside_watchdog_value\{check="telegram_ready"\} 1\n/u,
+      );
+      assert.match(
+        snapshot,
+        /inside_watchdog_value\{check="backup_last_success_timestamp_seconds"\} 1799996400\n/u,
+      );
+      assert.doesNotMatch(
+        snapshot,
+        /private_person|sales-test-token|Контейнер|release=/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("withholds failed source values and preserves snapshot age when deploy skips a run", () => {
+    const fixture = createFixture();
+    try {
+      assertRun(fixture);
+      fixture.fake("sql-fail", "");
+      assertRun(fixture, now + 60);
+      const snapshot = fixture.snapshot();
+      assert.doesNotMatch(snapshot, /check="purchases"/u);
+      assert.match(
+        snapshot,
+        /inside_watchdog_value\{check="source_platform_database"\} 0\n/u,
+      );
+      writeFileSync(
+        resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        JSON.stringify({
+          status: "running",
+          recordedAt: new Date((now + 60) * 1000)
+            .toISOString()
+            .replace(".000Z", "Z"),
+        }),
+      );
+      assertRun(fixture, now + 120);
+      assert.equal(fixture.snapshot(), snapshot);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("marks a Telegram counter reset without claiming its missing interval was healthy", () => {
+    const fixture = createFixture();
+    try {
+      assertRun(fixture);
+      assert.doesNotMatch(
+        fixture.snapshot(),
+        /check="telegram_update_failed_reset"/u,
+      );
+      fixture.fake(
+        "metrics",
+        healthyMetrics.replace(
+          "update_failed_total 4",
+          "update_failed_total 1",
+        ),
+      );
+      assertRun(fixture, now + 60);
+      assert.match(
+        fixture.snapshot(),
+        /inside_watchdog_value\{check="telegram_update_failed_reset"\} 1\n/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("preserves existing alerts when optional snapshot publication fails", () => {
+    const fixture = createFixture();
+    try {
+      mkdirSync(resolve(fixture.root, "var/lib/inside/watchdog"), {
+        recursive: true,
+      });
+      writeFileSync(
+        resolve(fixture.root, "var/lib/inside/watchdog/metrics"),
+        "not a directory",
+      );
+      fixture.fake("sql", "purchases|3\n");
+      assert.match(assertRun(fixture), /Покупок без итога/u);
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("stays silent for the expected production verification rejection", () => {
     const fixture = createFixture();
     try {
@@ -649,6 +750,8 @@ esac
     /** @param {string} content */
     config: (content) =>
       writeFileSync(resolve(root, "etc/inside/watchdog/watchdog.env"), content),
+    snapshot: () =>
+      readOptional(resolve(root, "var/lib/inside/watchdog/metrics/owner.prom")),
     signals: () =>
       readOptional(resolve(root, "var/lib/inside/watchdog/signals.log")),
     sent: () => readOptional(resolve(root, "sent.log")),

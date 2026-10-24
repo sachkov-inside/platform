@@ -28,6 +28,15 @@ class ContainerOwnership(unittest.TestCase):
             with self.subTest(case=index):
                 self.assertEqual(re.fullmatch(expression, value) is not None, admitted)
 
+    def test_owner_cache_admission_refuses_arbitrary_labels_before_projection(self):
+        config = (Path(__file__).resolve().parents[2] / 'infra/observability/production/host.alloy').read_text()
+        rule = config.split('prometheus.relabel "host" {', 1)[1].split('rule {', 1)[1].split('\n  }', 1)[0]
+        expression = json.loads(re.search(r'regex = ("[^\n]+")', rule).group(1))
+        for key in ('purchases', 'fulfillment', 'backup_success_full', 'source_platform_database', 'telegram_update_failed_reset'):
+            self.assertIsNotNone(re.fullmatch(expression, 'inside_watchdog_value;' + key))
+        for key in ('person@example.invalid', 'account_123', 'unrecognized', ''):
+            self.assertIsNone(re.fullmatch(expression, 'inside_watchdog_value;' + key))
+
 
 if __name__ == '__main__':
     unittest.main()
