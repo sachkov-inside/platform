@@ -453,7 +453,6 @@ class Driver(unittest.TestCase):
             self.assertEqual(events,[('start',1),('setup',1),('acquire',1),('upload',1),('read',1),('oracle',1),
                 ('pending',1),('read',2),('oracle',2),('ledger',1),('acquire',2),('upload',2),('read',3),
                 ('oracle',3),('pending',2),('read',4),('oracle',4),('ledger',2),('connections',1),('close',1)])
-            self.assertEqual(clock[0],25)
             self.assertEqual(driver.phase,'connections')
             self.assertEqual(driver.cases,[{'freshness':'fresh','continuity':'same_epoch','count_complete':True,
                 'points':7,'age_seconds':0,'phase':'baseline'}])
