@@ -127,14 +127,29 @@ def exercise(output, compose, project, *, execute=runtime.invoke):
             record()
         report['native_maintenance'] = native_maintenance.exercise(
             lambda payload, **options: _sql(compose, 'db', payload, execute=execute, **options),
-            lambda: execute(compose, ['exec', '-T', 'db', 'pg_dump', '-U', 'umami', '-d', 'umami',
-                '--data-only', '--no-owner', '--no-privileges'], timeout=30), output / 'maintenance-private',progress=maintenance_progress)
+            lambda:_maintenance_snapshot(compose,execute=execute),output/'maintenance-private',
+            restore=lambda:_maintenance_restore(compose,execute=execute),progress=maintenance_progress)
         record()
         return _database_corpus(output, compose, project, plan, cluster, report, record, execute, record_operation)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
         report['state'] = 'failed'
         record()
         raise RuntimeError('owned_recovery_failed; inspect curated recovery-proof.json') from None
+
+
+def _maintenance_snapshot(compose, *, execute):
+    # Snapshot never leaves the already supervised owned container. Keep the shared
+    # 65KiB response cap; a file-size resource limit and a 1MiB admission bound the
+    # private SQL dump instead. Noclobber refuses a pre-existing path or symlink.
+    return execute(compose,['exec','-T','db','sh','-ec',
+        'umask 077; ulimit -f 2048; set -C; : > /tmp/inside-1566-native-snapshot.sql; '
+        'pg_dump -U umami -d umami --data-only --no-owner --no-privileges --file=/tmp/inside-1566-native-snapshot.sql; '
+        'test "$(stat -c %s /tmp/inside-1566-native-snapshot.sql)" -le 1048576'],timeout=30)
+
+
+def _maintenance_restore(compose, *, execute):
+    return execute(compose,['exec','-T','db','psql','-X','-qAt','-U','umami','-d','umami',
+        '-v','ON_ERROR_STOP=1','--file=/tmp/inside-1566-native-snapshot.sql'],timeout=30)
 
 
 CONTAINER_INSPECT = ('{"id":{{json .Id}},"image":{{json .Image}},"labels":{{json .Config.Labels}},"mounts":{{json .Mounts}},'
