@@ -9,13 +9,14 @@ Telegram-group association and Account-scoped admission; the current provider se
 
 
 Общая пользовательская категория — «продукт» по [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181).
-Product отображается на существующий Product, а Series остаётся совместимым техническим именем;
+Product является текущим именем сущности, её persistence и изменяющих REST/MCP contracts;
 определения находятся в [GLOSSARY](../../GLOSSARY.md), коммерческая граница — в
 [brief](../product/platform-mvp-brief.md#продукты-и-подписки). «Руководство» в прежних описаниях
 ниже означает этот же продукт. Авторские названия и Format «Гайд» не меняются.
 
-Текущий переход Series → Product и сохранённые wire-имена описаны в
-[контракте миграции руководств](guides-migration.md).
+История перехода Series → Product описана в [контракте миграции руководств](guides-migration.md).
+После contraction #1712 текущие contracts используют Product. Стабильные пользовательские URL,
+UUID и source IDs сохраняются; старые requests читаются только отдельными historical receipt decoders.
 
 Статус: подтверждённый repository-local contract для
 [Platform #16](https://github.com/sachkov-inside/platform/issues/16), дополненный принятыми
@@ -31,19 +32,18 @@ mutable Material/access decision.
 
 ## Результат и authority
 
-Platform v1 публикует Materials и Series Inside через общий authoring Save по
+Platform v1 публикует Materials и Products Inside через общий authoring Save по
 [контентной границе](../product/platform-mvp-brief.md#контент). Публичный посетитель находит и
 читает открытый контент; участник управляет private
-Account и отдельным Member Profile, связывает Account с Telegram и получает
-закрытый контент, пока состоит в каноническом закрытом chat.
+Account и отдельным Account Profile, связывает Account с Telegram и получает
+закрытый контент по действующему lifetime Product Access. Наблюдение группы не выдаёт право на материалы.
 
 Этот документ владеет application contract: capability modules, logical model, flows,
 application-level NFR, порядком production foundations и ADR inputs. Продуктовая граница остаётся в
 [MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`GLOSSARY.md`](../../GLOSSARY.md).
 Код, tests и возможные application ADR принадлежат этому repository.
 
-Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Series и
-Membership. Мастерская (Workshop) отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md);
+Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Products и Product Access. Мастерская (Workshop) отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md);
 [Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет её контракт как историю. Код и contracts Мастерской
 удалены в [#1063](https://github.com/sachkov-inside/platform/issues/1063).
 
@@ -60,28 +60,26 @@ MVP brief задаёт product scope; здесь зафиксированы то
 consequences:
 
 - один mutable Material является единственным canonical content write/read path;
-- текущая публикация использует Material authoring Save; автоматический importer ещё не реализован.
-  Application model не содержит Telegram source identity, import mapping, migration pipeline,
-  deduplication или loss report; редакционные оригиналы следуют [content boundary](../product/platform-mvp-brief.md#контент);
+- текущая публикация использует Material authoring Save и source-scoped import contract2;
+  редакционные оригиналы следуют [content boundary](../product/platform-mvp-brief.md#контент);
 - material-specific Telegram discussion relation не является обязательным полем или application
   invariant;
 - admin, REST и MCP используют один full-state Save contract, validation и conflict policy;
 - один provider-neutral `ContentAccess` является final Platform authority для read, preview,
-  asset/download и video access, а `AccountRights` только строит bounded Platform grant
-  из принятого evidence;
+  asset/download и video access, а `AccountRights` владеет lifetime Product Access и его историей;
 - Identity Provider доказывает Logto Identity, но только Platform сопоставляет её с Account и
-  решает permissions, Membership и content access;
-- Member Profile не является identity, Membership или authorization input и виден только
+  решает permissions, Product Access и content access;
+- Account Profile не является identity, Product Access или authorization input и виден только
   владельцу Account: member-visible projection, public route и выдача avatar другим Account
   отсутствуют (#658);
 - до принятия действующей редакции условий использования Account не открывает кабинет, покупки
   и связку с ботом; каждое принятие пишется в неизменяемый журнал принятия (#658);
-- PostgreSQL projections обеспечивают bounded Home, единый Library catalog, Topic/Series
+- PostgreSQL projections обеспечивают bounded Home, единый Library catalog, Topic/Product
   navigation и search; Reader не делает related request;
-- ReadingState не участвует в access decision и сохраняется при окончании Membership;
+- ReadingState не участвует в access decision и сохраняется после отзыва Product Access;
 - Platform не отдаёт внешний адрес покупки: призыв к покупке ведёт на внутреннюю витрину или
-  страницу оплаты руководства (#529, #540), а REST-ответы несут только признак, продаётся ли
-  подписка; неподтверждённый click или payment state не является MembershipEvidence.
+  страницу оплаты Product (#529, #540). Reader State согласует личное действие, а подтверждённая
+  оплата запускает идемпотентную выдачу через Account Rights; возврат браузера не подтверждает оплату.
 
 Identity provider, отдельная Telegram application и Kinescope являются внешними seams Platform;
 их provider types и credentials не входят в application modules. Production frontend развивается
@@ -335,21 +333,22 @@ Reader и Storybook используют один production-owned модуль.
 
 | Process | Responsibility | Не владеет |
 |---|---|---|
-| `web` | SSR/RSC там, где нужен публичный document; client-owned workspaces и mutations; BFF session и coarse access states | Membership policy, provider secrets, direct database access |
+| `web` | SSR/RSC там, где нужен публичный document; client-owned workspaces и mutations; BFF session и coarse access states | Product Access policy, provider secrets, direct database access |
 | `api` | REST/OpenAPI adapters, identity mapping, uploads/callbacks и application commands | route-local domain rules |
 | `<capability>-worker` | конкретные durable projection, reconciliation или provider jobs | generic job graph, отдельная domain model или write path |
-| `mcp` | authenticated tools/resources поверх application interfaces | SQL или human Membership identity |
+| `mcp` | authenticated tools/resources поверх application interfaces | SQL или human identity |
 
 Entry points вызывают одни application use cases и не создают параллельные rule sets.
 
 | Module | Малый interface | Owned facts |
 |---|---|---|
 | `Accounts` | establish/resolve trusted Logto identity в local Account и проверить exact permission | Account mapping, email fingerprint, permissions и redacted audit |
-| `MemberProfiles` | управлять owner-only Profile state/avatar и вернуть active-member projection | display name/bio, opaque public Profile/avatar identity, rendition lifecycle, visibility, optimistic version и redacted audit |
+| `AccountProfiles` | управлять owner-only Profile state/avatar и вернуть разрешённое активное имя автора сдачи | display name/bio, opaque public Profile/avatar identity, rendition lifecycle, visibility, optimistic version и redacted audit |
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
-| `ContentLibrary` | читать bounded Home, единый catalog, search и Topic/Series navigation | current published projections, ranking, filtered facets и bounded Series previews |
+| `ContentLibrary` | читать bounded Home, единый catalog, search и Topic/Product navigation | current published projections, ranking, filtered facets и bounded Product previews |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
-| `AccountRights` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
+| `Products` | управлять Product, каталогом, программой, главами и attachments | Product identity, publication/archive, placements и composition versions |
+| `AccountRights` | выдать, отозвать или явно восстановить lifetime Product Access | одно право Account/Product, основания и журнал действий |
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens | Account-to-Material state и atomic transition history; не content access/analytics |
@@ -360,8 +359,8 @@ Transaction semantics принадлежат единому
 ports и test adapters. Generic
 multi-provider abstraction появляется только со вторым реальным adapter; `ContentAccess` является
 provider-neutral потому, что его policy используют несколько delivery callers.
-`MemberProfiles` не расширяет `Accounts`: private Account presentation вызывает owner-only
-Profile operations, а member route получает отдельную accepted projection. Interfaces имеют
+`AccountProfiles` не расширяет `Accounts`: private Account presentation вызывает owner-only
+Profile operations, а автор сдачи получает только разрешённое активное имя. Interfaces имеют
 независимые authorization и view contracts и не разделяют sensitive fields.
 
 ## Logical model и cardinalities
@@ -372,21 +371,23 @@ entities и invariants v1:
 | Entity | Cardinality / invariant |
 |---|---|
 | `Account` | одна local human identity; unique Logto issuer + subject; 0..1 Telegram link; permissions принадлежат Platform |
-| `MemberProfile` | 0..1 projection на Account; required mutable non-unique display name, optional bio, opaque public ID, optional current ProfileAvatar, `active | disabled`, optimistic version; active members only и никогда не authorization input |
-| `ProfileAvatar` | принадлежит одному MemberProfile; immutable normalized square WebP renditions 160/320/640, current или orphan после replace/remove; никогда не identity, Membership или authorization input |
+| `AccountProfile` | 0..1 projection на Account; required mutable non-unique display name, optional bio, opaque public ID, optional current ProfileAvatar, `active | disabled`, optimistic version; owner-only и никогда не authorization input |
+| `ProfileAvatar` | принадлежит одному AccountProfile; immutable normalized square WebP renditions 160/320/640, current или orphan после replace/remove; никогда не identity, Membership или authorization input |
 | `Material` | stable identity; one mutable body/metadata/access; `draft | published | unpublished`; monotonically increasing content version |
 | `Topic` | Material имеет ровно один Topic; dictionary одноуровневый |
 | `Format` | Material имеет ровно один Format; это primary consumption mode, не Asset kind |
 | `Tag` | Material имеет 0..N Tags; managed dictionary поддерживает rename/merge без synonyms-duplicates |
-| `Series` | имеет 0..N ordered memberships; Material входит в 0..N Series |
-| `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series; nullable stepGroup связывает шаги только в контексте этой Series; nullable chapter принадлежит тому же Product |
+| `Product` | имеет уникальный каталог Materials, отдельную программу и главы |
+| `ProductMembership` | уникальная пара Product/Material в каталоге; не задаёт порядок программы |
+| `ProgrammePlacement` | стабильное место каталожного Material в программе Product; один Material может повторяться; chapter и nullable stepGroup принадлежат placement |
+| `ChapterAttachment` | упорядоченная ссылка главы на каталожный Material вне обязательной программы |
 | `ProductChapter` | принадлежит ровно одному Product; стабильный идентификатор, name, авторское описание и ordinal внутри Product; владеет непрерывным участком основного маршрута и не хранит копии материалов |
-| `ContentCover` | принадлежит ровно одному Material, Topic или Series; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
+| `ContentCover` | принадлежит ровно одному Material, Topic или Product; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
 | `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..1 primary Video вне body |
 | `ExternalLink` | typed label + normalized URL; current Material содержит 0..N links |
 | `NavigationPage` | editorial content и curated/query links; Roadmap использует эту роль |
-| `AccountRights` | не более одного current `inside_membership` projection на Account; validity bounded |
+| `ProductAccess` | одно lifetime право на пару Account/Product, с отдельной историей оснований и действий; отзыв требует явного восстановления |
 | `ReadingState` | не более одного current state на пару Account/Material |
 
 `Material` содержит current application-owned versioned document, metadata и local Asset/Video
@@ -399,18 +400,18 @@ Publication lifecycle finite: never-published `draft` скрыт и может �
 видим; `unpublished` раньше был видим, теперь скрыт и сохраняет identity/ReadingState. Slug можно
 менять только до первой публикации. Direct public read `draft | unpublished` возвращает `404`.
 
-Topic, Tag и Series создаются по мере реального authoring; результаты аудита служат
+Topic, Tag и Product создаются по мере реального authoring; результаты аудита служат
 fixtures, а не заранее заданной ontology. Format определён в домене ровно тремя значениями:
 `video` — «Видео», `guide` — «Гайд», `note` — «Заметка». Материал хранит выбранное значение;
 отдельной таблицы Format и управления форматами в редакторе нет. Для v1 подтверждены роли:
 
-- «Создание Platform Inside» — ordered Series;
+- «Создание Platform Inside», Product с явной программой;
 - Roadmap — `NavigationPage`;
 - Library — generated view над Materials, не отдельная entity или duplicated content store;
 - material-specific Telegram discussion relation отсутствует.
 
 Public Material projection содержит author-controlled title, description, cover, author, taxonomy,
-Series и `publishedAt`, но не closed body, body-linked resource locator или delivery credential.
+Products и `publishedAt`, но не closed body, body-linked resource locator или delivery credential.
 Published membership projection доступна Library/internal search и external indexing с замком.
 Published body читается только для current `published` state; draft/unpublished недоступны через
 обычные read/download/play paths.
@@ -434,11 +435,10 @@ integration with #1194; author acceptance on real Content chapters belongs to Co
 
 ### Series step sequences
 
-`SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
-units. Identical case-sensitive labels connect entries within that Series only; there is no second
-stored order or group entity. Current membership owns the label. Published projections enrich only
-published memberships with that current label; draft-only labels and entries never enter public
-step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
+`ProgrammePlacement.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
+units. Identical case-sensitive labels connect programme placements within that Product only.
+Explicit placements own order, chapter and label independently of catalogue membership. Published
+projections include only published Materials; draft-only labels and entries never enter public step metadata. Public cards do not display separate step labels or counts; authoring retains these assignments.
 Reader outside checked programme context keeps its existing collection return controls. Available
 Materials show matching return, bookmark and study panels before the title and after the text.
 The article has no automatic contents disclosure. Both panels share saved state, pending commands and failure handling.
@@ -495,9 +495,8 @@ add mandatory steps. Existing reading-state records remain intact.
 Authoring composition accepts optional programmePlacements and chapter supplementaryMaterialIds. Omitted
 attachment fields preserve links; an empty list clears them. Platform's chapter attachment operation updates
 only attachment links, including for source-owned Products. Source originals and programme remain source-owned.
-Published free Materials always appear in the public feed. The legacy showInFeed field cannot hide them
-or block explicit Product catalogue removal. Its passive source history and compatibility wire are
-retained until the ordered consumer cleanup in #1712; it is no current publication or access authority.
+Published free Materials always appear in the public feed. Current Sourcev2 has no `showInFeed` field. Original Sourcev1 values survive only in historical
+records and exact receipt decoding; they cannot hide Materials or block Product catalogue removal.
 An anchored reference keeps the originating chapter and step, highlights the active document separately,
 and restores the originating lesson through its return links. A programme entry without an origin
 retains the course frame without claiming a curricular position. A standalone Material URL without
@@ -516,13 +515,13 @@ Pending/access states reserve the same course frame; standalone fallback, mode v
 Mobile offers the full programme through a dialog. Sidebar rows and custom chapter selection use constant 400
 weight and quiet text-only hover; selected state remains semantic and keyboard-accessible (#1414).
 
-The Series list connects every overall ordinal with one dashed rail, first marker to last marker.
+The Product list connects every overall ordinal with one dashed rail, first marker to last marker.
 All formats use the ordinal marker, replaced by the saved reading check for studied materials.
 Pagination and continuation follow [personal-home.md](personal-home.md). The visible “Маршрут”
 heading, step labels, Topic and redundant reading/access/continuation captions are omitted.
 The current Material keeps its visual highlight; inaccessible covers remain blurred with a lock.
 
-On wide screens the centered Series page is capped at 1040 px. Equal-height rows use 16:9 covers,
+On wide screens the centered Product page is capped at 1040 px. Equal-height rows use 16:9 covers,
 a two-line title, an optional one-line published summary and a format badge to the right. On narrow
 screens the cover is square, format sits above the title and summaries are hidden. Video duration
 uses a contrasting badge below the square or over the wide cover. Enlarged text permits taller rows.
@@ -533,19 +532,17 @@ are recommended; backend renditions preserve composition and aspect ratio. Publi
 centered cover fitting: widescreen containers show the full 16:9 image; square containers crop the
 sides without distortion. Material authoring previews both shapes before and after replacement.
 
-Existing `reorderSeries` / REST `PUT /authoring/series/:seriesId/order` /
-MCP `playlist_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
+`reorderProduct` / REST `PUT /authoring/products/:productId/order` /
+MCP `product_save_composition` accept optional `stepGroups: Record<MaterialId, string>` alongside
 `orderedMaterialIds`. Every key must belong to that submitted composition. Omission preserves labels
 for surviving members (legacy-client compatibility); `{}` clears them; a supplied map replaces all
 assignments. New members without an assignment have no label. The optimistic `orderVersion` covers
 both the composition order and its labels. Full-state Material Save preserves labels for retained
-Series memberships; removing then re-adding membership does not restore a removed label.
+programme placements; removing then re-adding a catalogue member does not restore removed placements.
 
-The local Git authoring contract uses optional `step_groups: { local-material-id: label }` on a
-Series, alongside its existing `materials` list. A full authoring snapshot maps absent/empty
-`step_groups` to an explicit empty API map; absence of the API field is reserved for preserving
-assignments. Resolve local Material IDs before sending the map. This is a contract for the future
-importer, not an implemented automatic import or publication flow.
+Current Git authoring uses the versioned package contract in [the authoring tooling](../../tools/authoring/README.md).
+It resolves source identities to Product/Material UUIDs before canonical composition writes.
+Original package bytes and fingerprints remain historical evidence.
 
 ### Product chapters
 
@@ -556,11 +553,10 @@ importer, not an implemented automatic import or publication flow.
 сохраняет текст авторской базы без потерь и читателю показывается на странице продукта
 руководства как обзор программы. Порядок глав задаётся их позицией в сохранённом списке.
 
-Глава не владеет материалами. `SeriesMembership.chapter` связывает membership этого же Product с
-главой этого же Product; составной внешний ключ не допускает главу другого Product. Удаление главы
-отвязывает её материалы и не удаляет ни Material, ни его membership. Один Material в двух Product
-получает независимые главы. Плоский Product без глав остаётся допустимым, как и материалы без главы
-внутри Product с главами. Пустая глава допустима и остаётся видимой.
+Глава не владеет материалами. `ProgrammePlacement.chapterId` связывает конкретное место
+каталожного Material с главой того же Product. Один Material может иметь несколько мест в разных
+главах. Удаление главы отвязывает её места и сохраняет Material и каталог. Плоский Product без глав,
+места без главы и пустые главы допустимы. Дополнительные ссылки главы хранятся отдельно в attachments.
 
 В главе могут стоять задания (Product Task). Они не входят в основной маршрут: программа показывает
 каждое после названного автором материала той же главы или в начале главы, без номера урока
@@ -576,24 +572,26 @@ canonical Task titles, Material ordinals, current selection and progress remain 
 кодами `product_chapter_not_continuous` или `product_chapter_out_of_order`; ссылка на неизвестную главу
 даёт `product_chapter_not_found`, а попытка занять главу другого Product — `product_chapter_claimed`.
 
-`reorderSeries` / REST `PUT /authoring/products/:productId/order` / MCP `product_save_composition`
-принимают необязательные `chapters` и `chapterAssignments` рядом с `orderedMaterialIds`. `chapters`
+`reorderProduct` / REST `PUT /authoring/products/:productId/order` / MCP `product_save_composition`
+принимают необязательные `chapters`, `chapterAssignments` и `programmePlacements` рядом с
+`orderedMaterialIds`. Последнее поле задаёт полный каталог, а явные placements задают программу
+с собственными стабильными IDs и повторными местами Material. `chapters`
 — полный упорядоченный список глав; отсутствующая в нём глава удаляется, отсутствие поля сохраняет
-текущие главы. `chapterAssignments` — полное размещение материалов; отсутствие поля сохраняет
+текущие главы. `chapterAssignments` задаёт размещение сохранённых мест по Material; отсутствие поля сохраняет
 размещение уцелевших материалов, а `{}` снимает все. Optimistic `orderVersion` покрывает порядок
 материалов, метки последовательностей, состав и содержимое глав, поэтому конкурентное
-переименование главы отклоняется как `stale_series_order`. Полный Material Save сохраняет главу
-уцелевшего membership так же, как и метку последовательности; удаление и повторное добавление
-membership главу не восстанавливает.
+переименование главы отклоняется как `stale_product_order`. Явные `programmePlacements` задают chapter и stepGroup каждого места. Material Save
+сохраняет уцелевшие места; удаление из каталога удаляет его места и attachments, повторное
+добавление не восстанавливает их автоматически.
 
 Архивное руководство ведёт себя как и прежде: главы можно создавать, переименовывать,
 переставлять и удалять, а размещать в них — только материалы, которые уже входят в состав. Новый
-материал по-прежнему отклоняется как `series_archived`.
+материал по-прежнему отклоняется как `product_archived`.
 
 Материал, перенесённый из источника, и материал, созданный в редакторе, не смешиваются в одном
 составе (#841). Добавление материала с другой принадлежностью возвращает `invalid_reference` с
 кодом `material_source_mismatch` и путём `/orderedMaterialIds/<n>` для reorder или
-`/metadata/seriesIds/<n>` для Create/Save; снятие membership в Save указывает `/metadata/seriesIds`. Редактор называет автору этот
+`/metadata/productIds/<n>` для Create/Save; снятие membership в Save указывает `/metadata/productIds`. Редактор называет автору этот
 материал. Запись состава перенесённого Product через редактор остаётся `forbidden`; редактор
 отличает этот отказ от завершившейся сессии и не предлагает войти заново.
 
@@ -665,7 +663,7 @@ Account без права получают «не найдено». `ContentAcce
 в редакторском списке как `pageRejected` и заменяется следующим переносом. Оба поля и `slug` меняет только source-scoped
 импорт из Engineering Content (`POST /authoring/import/products/update`); редактор и MCP их не пишут, а
 версия `Product` покрывает их вместе с названием и описанием. Публичное чтение отдаёт их в
-`reference.productPage`, Главная — в `pinnedSeries.presentation` и `pinnedSeries.card`. Неизвестное
+`reference.productPage`, Главная в `pinnedProduct.presentation` и `pinnedProduct.card`. Неизвестное
 оформление сайт показывает общим шаблоном и пишет предупреждение в журнал сервера; перенос такой
 пакет отклоняет проверкой `POST /authoring/import/products/validate` до первой записи. Постоянный ключ продукта — `sourceId` и UUID `Product`, поэтому смена `slug`
 сохраняет продукт, оформление, закрепление на Главной, состав и прогресс читателей.
@@ -844,8 +842,8 @@ Product Intake имеет явный стабильный UUID, свой Product
 отправки, сохраняя собственную историю и возможность отказа.
 
 Product Sales State принадлежит Billing и хранится отдельно от постоянного Intake. Текущие
-Web reads используют `/billing/product-sales-states`; старый строгий `/billing/cohorts` остаётся
-адаптером совместимости до проверенного перехода readers в #1712. Дата и этап не меняют цену,
+Web и Telegram reads используют `GET /billing/product-sales-states`; старый
+`GET /billing/cohorts` удалён в #1712. Дата и этап не меняют цену,
 публикацию Product Price или фактический допуск оплаты. Цена запрашивается по точному Product ID;
 ответ с ценой другого Product не становится предложением этого продукта.
 
@@ -945,7 +943,7 @@ Backend хранит receipt операции: повтор завершённо
 
 Общий список `/authoring/products` показывает обложку, название, число материалов, архивное
 состояние и закреп каждого руководства. Название открывает отдельную страницу
-`/authoring/products/[seriesId]`; вложенного редактора в списке нет. Значок закрепа меняет
+`/authoring/products/[productId]`; вложенного редактора в списке нет. Значок закрепа меняет
 единственное руководство на главной без открытия редактора; выбранная строка отмечена «На главной».
 Архивное руководство можно открыть для редактирования и снять его существующий закреп.
 
@@ -996,21 +994,19 @@ Backend хранит receipt операции: повтор завершённо
 ### Public и closed read
 
 1. Library/search route читает safe public projections и одним batch накладывает неавторитетную
-   availability для замочков; published membership cards доступны discovery без Membership, а для
-   active member или `materials:manage` отображаются unlocked. Free body может быть shared-cacheable.
+   availability для замочков; published membership cards доступны discovery без права на Product, а для
+   обладателя соответствующего Product или `materials:manage` отображаются unlocked. Free body может быть shared-cacheable.
 2. Material route получает Subject из trusted identity и вызывает single authoritative
    `ContentAccess.authorize(materialId, read)` до загрузки protected body.
-3. Deny возвращает indexable public teaser, единое coarse state `locked` и признак
-   `subscriptionOffered` — продаётся ли сейчас подписка этому читателю (гостю — только подписка для
-   всех, #775); адреса покупки в ответе нет, путь
-   покупателя внутри платформы выбирает Web. Точная internal reason не раскрывается. `materials:manage` даёт
-   bypass Membership для published reader. Allow условно читает одно body только пока
+3. Deny возвращает indexable public teaser и coarse state `locked`. Product Reader State
+   согласует действие читателя по доступу, продаже, ожиданию и состоянию зависимостей.
+   `materials:manage` разрешает published reader. Allow условно читает одно body только пока
    Material остаётся `published` с тем же accepted `contentVersion`; concurrent Save заставляет
    запрос повторно авторизоваться или fail closed.
 4. Closed body, access decision и delivery credentials имеют `private, no-store`; protected
    speculative prefetch запрещён.
 
-### Sign-in, Account и Member Profile
+### Sign-in, Account и Account Profile
 
 1. Forked Logto Experience UI доказывает human Logto Identity через email-code authorization
    code flow. Official Next BFF SDK владеет state/S256 PKCE, callback и protected provider context;
@@ -1019,7 +1015,7 @@ Backend хранит receipt операции: повтор завершённо
    Logto-signed `inside_verified_email`, затем `Accounts.establishAccount` atomically сопоставляет
    `(issuer, subject)` с ровно одним Account. Повторный request предъявляет server-to-server access
    JWT и может только разрешить уже существующий Account.
-   Provider roles/claims не дают Platform permissions или Membership content access.
+   Provider roles/claims не дают Platform permissions или Product Access.
 3. Duplicate verified email другой identity даёт `identity_conflict` до audited recovery. Обычный
    protected request никогда не provision-ит Account.
 4. Sign-out делегируется official Logto SDK: local provider context очищается, refresh revoke и
@@ -1029,7 +1025,7 @@ Backend хранит receipt операции: повтор завершённо
    non-unique display name длиной 2–80 symbols и optional bio до 500 symbols; там же владелец позже
    редактирует оба поля и может upload/crop/replace/remove ProfileAvatar;
    server хранит только normalized square renditions, а UI детерминированно показывает initials без avatar.
-6. `MemberProfiles` хранит Profile и ProfileAvatar lifecycle в отдельной `member_profiles` schema.
+6. `AccountProfiles` хранит Profile и ProfileAvatar lifecycle в отдельной `account_profiles` schema.
    Owner read/create/edit/avatar change принимает trusted Account, mutation требует
    `expectedVersion`. Self-service export/delete и
    participant reporting не являются частью Profile interface.
@@ -1064,7 +1060,7 @@ Backend хранит receipt операции: повтор завершённо
    почта не требуется. Новая редакция
    условий снова открывает экран, прежнее принятие ничего не открывает.
 2. Nest закрывает кабинет, покупки и связку с ботом guard-ом `AcceptedTermsGuard`: контакт для
-   чеков и согласия при оплате, quote, purchase, управление подпиской и способом оплаты, Telegram
+   чеков и согласия при оплате, quote, purchase, Telegram
    link и presentation, community admission, private Profile и avatar, собственные уведомления
    отвечают `403 terms_acceptance_required`. Статус, принятие и список журнала
    (`accounts/current/legal-acceptances`) доступны до принятия.
@@ -1073,24 +1069,21 @@ Backend хранит receipt операции: повтор завершённо
    возобновляет сохранённый подтверждённый receipt этой Account без нового sign-in claim. Исходный
    principal сохраняется после TTL и состояния `expired`; binding и `linked` записываются одной
    транзакцией. Ошибка локальной записи не выдаёт Membership и позволяет повторить завершение.
-4. Журнал принятия — append-only `accounts.legal_acceptances` (прежние billing consent evidence):
-   Account, вид, ключ, версия, digest и текст документа, постоянный адрес `/legal/<ключ>/v<номер>`,
-   экран (`first-sign-in`, `checkout`, `subscription-resume`), подпись нажатой кнопки, для подписки
-   и возобновления — показанные сумма, день следующего списания и период, время сервера. IP и user
-   agent не хранятся. Подпись кнопки первого входа ставит сервер Web. Показанные условия продления
-   записываются такими, какими их показала страница, и billing их не пересчитывает; согласие на
-   списания без них не принимается, а разовая покупка их не передаёт. Запись первого входа не читается
-   как согласие при оплате.
-5. Checkout принимает оферту кнопкой «Оплатить N ₽», подписку — «Оформить подписку и оплатить N ₽»,
-   со строкой о принятии и строкой о согласии законного представителя до 18 лет; список документов
-   покупки (#650) остаётся рядом. Возобновление — кнопка «Возобновить автопродление» со строкой
-   условий следующего списания. Раздел «Аккаунт» показывает блок «Принятые документы» с датой,
-   редакцией и подписью кнопки.
+4. Журнал принятия, append-only `accounts.legal_acceptances`: Account, вид, ключ, версия,
+   digest и текст документа, постоянный адрес `/legal/<ключ>/v<номер>`, экран, подпись нажатой
+   кнопки и время сервера. IP и user agent не хранятся. Подпись кнопки первого входа ставит сервер
+   Web. Исторические `subscription-resume` и показанные условия продления сохраняются как
+   принятые snapshots, без текущей функции возобновления. Запись первого входа не читается как
+   принятие условий покупки.
+5. Checkout принимает точные условия Product Purchase кнопкой «Оплатить N ₽», со строкой о
+   принятии и согласии законного представителя до 18 лет; список документов покупки (#650)
+   остаётся рядом. Раздел «Аккаунт» показывает «Принятые документы» с датой, редакцией и подписью
+   кнопки. Статус редакций и их публикации принадлежит [legal index](../legal/README.md).
 6. Публичные страницы при первом посещении показывают уведомление о хранении в браузере со
    ссылкой на `cookies`, без выбора. «Понятно» запоминает номер действующей редакции в
    `localStorage` `inside.storage-notice.v1`; новая редакция показывает уведомление снова.
 
-### Membership linking и projection
+### Telegram linking и Product Community
 
 1. После sign-in с принятыми условиями, пока Telegram не связан, Platform показывает компактный
    Telegram CTA в шапке рядом с аватаркой Account.
@@ -1099,32 +1092,25 @@ Backend хранит receipt операции: повтор завершённо
    `/start`; после возврата browser автоматически вызывает confirm. При подтверждённой связи
    CTA исчезает. Меню Account открывает аватарка либо значок пользователя без фотографии;
    гость видит «Войти». Это одинаково работает в desktop и mobile шапках.
-   Membership state и acquisition action остаются в Account и на закрытых материалах.
+   Product Access и действие получения Product остаются в Account и на закрытых материалах.
    Тот же flow доступен позже из Account. Locked Material не создаёт
    второй linking/recovery flow. Там, где настроено направление community, API сам подтверждает
    ожидающие attempts: через 5 секунд после конца предыдущего прохода, до 20 за проход и только
    до expiry. Поэтому покупатель из блока сообщества (#1037) не возвращается на сайт, и бот сам
    присылает приветствие со ссылкой в группу.
-2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
-   каноническом закрытом chat.
-3. При linking Telegram application выполняет initial check, затем durably принимает member-status
-   events и background-reconcile-ит due known linked identities через `getChatMember`.
-4. Platform асинхронно принимает normalized MembershipEvidence без raw Telegram model по принятому
-   [Workspace v1 contract](../contracts/identity-membership-v1.md)
-   и строит собственный entitlement не дольше `validUntil` этого evidence.
-5. Library/Material request читает только local PostgreSQL projection и никогда не вызывает
-   Telegram или не ждёт reconciliation. Positive MembershipEvidence живёт не более пяти минут;
-   принятый Platform новый removal evidence запрещает доступ немедленно, stale projection или
-   outage после expiry fails closed.
-6. Private Account показывает Telegram link и Membership двумя независимыми coarse states:
-   `unlinked | linking | linked | retryable | conflict | unavailable | recovery-required` и
-   `active | inactive | stale | unavailable`. Presentation не содержит email, AccountId,
-   Telegram ID/username, provider identity, evidence или Membership timestamps и не является
-   bearer permission: protected operation повторно вызывает `ContentAccess`. Визуально Telegram
-   оформлен компактной голубой status-плашкой над отдельной premium-карточкой
-   `Доступ к Sachkov Inside`; inactive state не несёт внешнего адреса покупки — вход на внутреннюю
-   витрину кабинет показывает только при включённой продаже, а stale/unavailable не выводятся как
-   основное техническое сообщение.
+2. Telegram application подтверждает identity и binding отдельно от наблюдений членства группы.
+   Course activation использует `/integrations/telegram/v1/course-activation/*`; сохранённая
+   payload identity `inside.subscription-activation.v1` не означает subscription runtime.
+3. Account Rights владеет lifetime Product Access от покупки, подтверждённой бесплатной активации
+   или ручной выдачи. Linking и `getChatMember` сами не выдают право на закрытые материалы.
+4. Product Community собирает desired state по действующим правам на продукты группы. Telegram
+   исполняет операции с binding/revision и сохраняет inbox, effect attempts и observations.
+   Moderation и external_unknown не снимаются новой покупкой.
+5. Library/Material request читает локальные факты Product Access через ContentAccess и не
+   вызывает Telegram. Сбой или устаревшее наблюдение группы не превращается в платформенное право.
+6. Private Account показывает Telegram link отдельно от списка Products и истории покупок.
+   Community admission проверяет действующее право и текущий binding. Presentation не является
+   bearer permission: protected operation повторно вызывает ContentAccess.
 7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
    short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
    provider registration. Подтверждённый receipt Telegram sign-in до terms сохраняет исходный
@@ -1166,13 +1152,13 @@ Backend хранит receipt операции: повтор завершённо
    подтверждает current body reference conditional query до чтения locator; stale URL или replaced
    Asset возвращает masked 404. Public delivery возвращает immutable bytes через stable
    version-bound Platform route; protected delivery получает private/no-store redirect, а TTL не
-   длиннее adapter cap и remaining Membership validity. Save, replacement и access transition
+   длиннее adapter cap и remaining access permit validity. Save, replacement и access transition
    меняют `contentVersion`, поэтому новый Reader не переиспользует старый public cache key.
 6. `material-assets-worker` через durable `pg-boss` schedule после grace period удаляет
    unreferenced pending/failed/ready objects. Cleanup и concurrent Save сериализуются Material
    advisory lock; повтор job безопасен, referenced resources retain-ятся.
    Тот же worker очищает отсоединённые Content Covers. Записи владельца и rendition keys
-   сохраняются после удаления Material/Topic/Series до успешного удаления всех S3 objects.
+   сохраняются после удаления Material/Topic/Product до успешного удаления всех S3 objects.
    При обнаружении удалённого владельца отсчитывается новый grace period; замена и снятие
    обложки начинают его в момент изменения ссылки. Проверка действующих ссылок и claim
    очистки используют тот же owner lock, что установка обложки. Claim запрещает позднюю
@@ -1247,10 +1233,10 @@ Storybook и реальные маршруты используют один pro
   body/headings/asset labels остаются отдельным server-side protected index;
 - PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
-- Home получает одну bounded body-free проекцию с Series первыми, затем Topics и секциями
+- Home получает одну bounded body-free проекцию с Products первыми, затем Topics и секциями
   Videos/Products/Notes;
-- Library имеет один текстовый search, независимо сопоставляющий Series по name/summary и Materials
-  по их search projection. Series results не зависят от фильтров и pagination материалов;
+- Library имеет один текстовый search, независимо сопоставляющий Products по name/summary и Materials
+  по их search projection. Product results не зависят от фильтров и pagination материалов;
 - Topic/Format/sort находятся в секции Materials и влияют только на её выдачу. Публичное URL-state
   хранит `q`, `topic`, `format`, `sort`, а Material cursor — только TanStack Infinite Query;
 - anonymous/non-member search сопоставляет только public projection и всё равно показывает
@@ -1258,12 +1244,12 @@ Storybook и реальные маршруты используют один pro
   зависит. Закрытый материал открывает только доступ к продукту, в который он входит;
   общего права на все закрытые материалы нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)).
   `Account × Material` grants не вводятся;
-- Topic/Series являются контекстной навигацией; Reader не запрашивает derived related выдачу и
-  принимает back context только из allowlist Home/Library/Topic/Series/Profile. Выбранная Series
+- Topic/Product являются контекстной навигацией; Reader не запрашивает derived related выдачу и
+  принимает back context только из allowlist Home/Library/Topic/Product/Profile. Выбранный Product
   дополнительно определяет previous/next по полному published composition существующего
-  `readPublishedSeries`, а не по paginated Library page; контекст применяется только когда текущий
-  Material действительно входит в Series. Все explicit memberships идут последовательно без
-  main/optional inference по Format, дате или ссылкам.
+  `readPublishedProduct`, а не по paginated Library page; контекст применяется только когда текущий
+  Material действительно входит в каталог Product, а anchor принадлежит его программе.
+  Навигация следует явным placements, сохраняя повторные места; attachments не добавляют шаги.
 
 ### MCP
 
@@ -1274,7 +1260,7 @@ The authoring MCP remains at `MCP_SERVER_URL`. A separate participant surface at
 - `learning_materials_list` and `learning_material_read` discover and read materials
   ([#782](https://github.com/sachkov-inside/platform/issues/782), course source
   [ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105));
-- `learning_practice_read` retains historical lesson practice context compatibility during ordered contraction;
+- `learning_task_review_update` records consented review progress for the learner’s Task page;
 - `learning_tasks_list`, `learning_task_read`, `learning_task_submit` and
   `learning_task_submissions` list and read Product Tasks, record the learner's submission and
   read their own submissions ([Product Tasks contract](#product-tasks-on-the-participant-surface)).
@@ -1366,7 +1352,7 @@ The following bullets describe the **authoring** surface:
   Дата обновления не выдумывается. Закрытые, draft и unpublished материалы не получают Article;
   разметка всегда строится из гостевого чтения и не содержит body или защищённых ресурсов.
 
-- home, Series, Roadmap, public cards и free Materials имеют stable canonical URLs,
+- home, Product, Roadmap, public cards и free Materials имеют stable canonical URLs,
 
   server-rendered content/metadata, sitemap и crawlable internal links; Library сохраняет stable
   canonical URL и server-rendered metadata, но browser-owned catalog загружает через BFF;
@@ -1376,7 +1362,7 @@ The following bullets describe the **authoring** surface:
   один адрес;
 - home, Material и Product отдают полную карточку ссылки: `openGraph`, `twitter`, canonical и
   `og:locale`. `metadataBase` читается из среды выполнения, поэтому перенос домена не требует
-  пересборки. Library, Roadmap и витрина подписки сохраняют server-rendered заголовок, но пока
+  пересборки. Library, Roadmap и витрина Product сохраняют server-rendered заголовок, но пока
   не отдают карточку ссылки и canonical: для них нужен request-time рендер;
 - картинка карточки — обложка материала или руководства, а без обложки — сгенерированная
   карточка с названием страницы. Пустого предпросмотра не бывает; адрес доставки обложек открыт
@@ -1414,7 +1400,7 @@ The following bullets describe the **authoring** surface:
 - public critical pages укладываются в LCP 2.5 s, INP 200 ms и CLS 0.1 на согласованном mobile profile;
 - query plans, pool limits и payload/document limits измеряются до добавления cache/service;
 - Library availability batch из `N <= 100` Materials делает один bulk facts load и не более одного
-  Account facts и одного local Membership facts read; provider calls в request path равны нулю;
+  Account facts и локальных Product Access facts; provider calls в request path равны нулю;
   authoritative delivery загружает одно Material body; `N=1` и `N=100` acceptance считает
   queries/calls;
 - correctness scenarios из [testing contract](#testing-enforcement-and-adr-timing) входят в
@@ -1567,7 +1553,7 @@ choice, неочевидный контекст и реальный trade-off. �
 ## Progress и personal discovery: согласованное расширение 2026-09-06
 
 [ReadingActivity](reading-activity.md) владеет ручными отметками всех форматов, атомарной историей
-переходов и вычисляемым результатом Series. [Personal Home](personal-home.md) владеет продолжением
+переходов и вычисляемым результатом Product. [Personal Home](personal-home.md) владеет продолжением
 незавершённого по реальным открытиям и Videos-owned resume для любого authenticated Account.
 [План аналитики автора](../product/author-analytics-plan.md) отделяет будущие посещения/views от
 reading state, Telegram clicks и оплаты. Контракты ещё не означают runtime delivery; их native
@@ -1586,7 +1572,7 @@ fails before writes, rather than selecting a Product from its title.
 
 Migration0111 preserves every original persisted Practice row, source binding, digest, practiceVersion,
 Material content version, provenance and associated completed import receipts in an immutable audit.
-Original Practice/receipt tables remain for historical decoding. Unique explicit Programme ownership
+Original Practice definitions remain in historical storage; immutable receipt tables support exact historical lookup. Unique explicit Programme ownership
 permits a new embedded Task with the exact requirements and independent Task Version1. An exact
 existing Task/source/embedded binding records its current identity/version without rewriting any Task
 Version or submission. Unowned, ambiguous, conflicting, stale and invalid-digest records remain passive
@@ -1598,9 +1584,10 @@ evidence, one-scope questions and sandbox/write evidence. Synthetic success does
 production onboarding or editorial acceptance. The external Content technical transfer/source readiness
 is distinct from author acceptance of the course.
 
-The old `learning_practice_read`, `GET /library/materials/:slug/practices` and authoring Practice
-receipt/read adapters remain compatibility surfaces for the ordered contraction in#1712. They do not
-supply the current importer, native review matrix or Material Reader. Both public and private Material
+The old `learning_practice_read`, `GET /library/materials/:slug/practices` and
+`/authoring/import/practices` routes are removed in #1712. The separate authorized
+`POST /authoring/history/practice-receipts` performs only an exact actor/key/request lookup of an
+existing immutable receipt. It neither executes Practice nor supplies current learner context. Both public and private Material
 routes use only the explicit Material-bound Task descriptor and the existing Task workspace, even
 when the historical Practice row still exists. Current setup instructions direct learners to Task
 reads and submissions; legacy protocol tests remain separate from current UI/Storybook claims.
@@ -1663,21 +1650,24 @@ Source: [Platform #1194](https://github.com/sachkov-inside/platform/issues/1194)
 [Content #55](https://github.com/sachkov-inside/inside-content/issues/55). The exporter contract was
 checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
 
-The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
-`loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 features are
+The authoring package accepts envelope `schemaVersion: 1 | 2 | 3`. Before asset uploads or other writes,
+`loadPackage` checks its version and every `requiredFeatures` entry. Current v3 packages require `canonical-product-source-v2`; v1/v2 envelopes remain historical input. Supported features are
 `material-task-v1`, `task-c-v2`, `quiz-v1`, `quiz-multiple-v1`, `github-anchors-v1`, `image-variants-v1`,
-`collapsible-callouts-v1` and `bounded-content-v1`; unknown features are refused by name.
+`collapsible-callouts-v1`, `bounded-content-v1` and `canonical-product-source-v2`; unknown features are refused by name.
 
 Import contract (#1672). `GET /authoring/import/materials/environment` returns the runtime `mode` and
 `contract: { version, packageFeatures }`, owned by
 `apps/backend/src/modules/materials/domain/authoring-import-contract.ts`. The client refuses before any write
-when the version differs from its own or a package feature is missing on either side. Contract `1` adds
+when the version differs from its own or a package feature is missing on either side. Contract `2` requires `canonical-product-source-v2` and exposes
 `GET /authoring/import/materials/state?namespace=NS` and `GET /authoring/import/tasks/state?namespace=NS`
 (`materials:manage`): every source-owned Material of the namespace with identity, slug, version, access,
 publication, source path/revision/commit and Product memberships, and every Task with identity, code,
 Product, chapter, position, placement, revision, access, publication and the provenance commit of its current
-version. An imported Material source may name `commit`, the Content commit it came from; the receiver stores it
-and an import without it clears it. `GET /authoring/materials/{id}` reports `source.commit` only when one is recorded, so older clients that parse the source strictly keep working. `bounded-content-v1` (`selection.contentOnly`) writes only the selected
+version. Current Material Source is strict `{version:2,id,path,revision,commit?}` and metadata uses
+`productIds` for writes and `productMemberships` for reads. Old Sourcev1/`seriesIds` requests are accepted
+only by authorized `POST /authoring/history/material-receipts`, which reads an exact stored receipt
+without applying an old command. An imported Material source may name `commit`, the Content commit it came from; the receiver stores it
+and an import without it clears it. `GET /authoring/materials/{id}` reports `source.commit` only when one is recorded, with no compatibility claim for old Sourcev1 strict readers. `bounded-content-v1` (`selection.contentOnly`) writes only the selected
 existing Materials and Tasks and keeps target policy; [content-only delivery](../runbooks/authoring-preservation.md)
 owns the procedure.
 Quiz integration (#1283, #940) imports Content `readerBlocks`, including the full explanations,
@@ -1842,7 +1832,7 @@ not present ready access until fulfillment and the current Product entitlement a
 
 The purchases surface names Products, amounts and payment/access states. It links directly to the
 Product programme or its ongoing checkout. Current access remains separate from financial history.
-Only applicable subscription and card controls appear. Receipt and refund details remain available.
+Subscription, renewal and saved-card controls are absent. Receipt and refund details remain available.
 
 For a buyer with active paid access to this specific Product and its community, incomplete onboarding is the first programme section
 and the default on a new visit. Its steps are Telegram linking, joining that Product's configured

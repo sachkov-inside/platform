@@ -278,15 +278,17 @@ the local HTTP endpoint and tests need no production data or published course. A
 read returns one complete structured body; a client response/context limit must be reported as an
 incomplete client read, not converted into a successful course check.
 
-Legacy Practice review (#785) retains `learning_practice_read` and read-only validation/historical
-receipt replay under `/authoring/import/practices` until ordered contraction (#1712). New Practice
-writes fail closed with409 `practice_definition_retired`; current import/release/native consumers
-use Product Tasks. Migration0111 retains original source-bound rows and receipts in an immutable
-mapping audit, with explicit passive dispositions for unresolved ownership. No new process, model
-provider key or production operation is introduced. Author MCP permissions and inventory remain
-separate from the learner surface.
+Legacy Practice execution (#785) is removed in #1712: neither `learning_practice_read` nor
+`/authoring/import/practices` is registered. Current import/release/native consumers use Product Tasks.
+Authorized `POST /authoring/history/practice-receipts` and
+`POST /authoring/history/material-receipts` only read exact existing actor/key/request receipts.
+They do not validate or execute new legacy commands. Migration0111 keeps source-bound Practice
+provenance and dispositions;0113 moves definitions to historical storage and retains Sourcev1
+records. Current authoring uses contract2 and Sourcev2 without `showInFeed`; the original package,
+receipt and migration evidence remains intact. Author and learner permissions remain separate.
 
-Product Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
+Product Tasks expose five tools, including `learning_task_review_update`, and the `review_task`
+prompt on that endpoint, plus two
 `materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-product-tasks`
 creates the `product_tasks` schema. `PRODUCT_TASK_SUBMISSIONS_ENABLED` (`true` or `false`) turns
 submission on, for the MCP tool and for the task page form of the API (#947): it defaults to `true`
